@@ -1,0 +1,76 @@
+@import 'tailwindcss';
+
+:root {
+  --background: #f7f8f4;
+  --foreground: #17312c;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  margin: 0;
+  min-width: 320px;
+}
+
+html { scroll-behavior: smooth; }
+
+::selection { background: #eec27c; color: #17312c; }
+
+a, button, input, textarea, select { outline-color: #c77d3c; outline-offset: 3px; }
+
+button, a, input, textarea, select { transition-duration: 160ms; }
+button:not(:disabled), select:not(:disabled) { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .72; }
+
+@layer components {
+  .nuth-button {
+    display: inline-flex;
+    align-items: center;
+    gap: .55rem;
+    border-radius: .9rem;
+    background: #173d36;
+    padding: .72rem 1rem;
+    color: white;
+    font-size: .875rem;
+    font-weight: 700;
+    box-shadow: 0 10px 28px rgb(23 61 54 / 14%);
+  }
+  .nuth-button:hover { background: #245348; transform: translateY(-1px); }
+  .nuth-button-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    border: 1px solid #d8e0db;
+    border-radius: .9rem;
+    background: white;
+    padding: .7rem 1rem;
+    color: #29483f;
+    font-size: .875rem;
+    font-weight: 700;
+  }
+  .nuth-button-secondary:hover { border-color: #b9c9c0; background: #fbfcfa; }
+  .nuth-input {
+    display: block;
+    width: 100%;
+    border: 1px solid #d8e0db;
+    border-radius: .85rem;
+    background: white;
+    padding: .76rem .9rem;
+    color: #17312c;
+    font-size: .875rem;
+    line-height: 1.4;
+  }
+  .nuth-input:focus { border-color: #759a8c; box-shadow: 0 0 0 3px rgb(98 139 123 / 12%); outline: none; }
+  .nuth-input::placeholder { color: #a1aaa6; }
+  .nuth-eyebrow { font-size: .72rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; color: #477363; }
+  .nuth-heading { text-wrap: balance; font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1.06; font-weight: 650; letter-spacing: -.045em; }
+  .nuth-public-card { border: 1px solid #dfe5e1; border-radius: 1.65rem; background: white; padding: clamp(1.4rem, 4vw, 2rem); box-shadow: 0 8px 24px rgb(24 61 53 / 4%); }
+}

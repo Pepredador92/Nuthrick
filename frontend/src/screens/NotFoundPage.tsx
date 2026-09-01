@@ -1,0 +1,2 @@
+import { Link } from 'react-router-dom';
+export function NotFoundPage() { return <main className="grid min-h-screen place-items-center bg-[#f7f8f4] p-6 text-center"><div><p className="text-7xl font-semibold text-[#dce5df]">404</p><h1 className="mt-4 text-3xl font-semibold">Esta página no existe</h1><p className="mt-3 text-[#687672]">Puede que el enlace haya cambiado o todavía no esté disponible.</p><Link to="/" className="nuth-button mt-7">Volver al inicio</Link></div></main>; }
