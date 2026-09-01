@@ -1,0 +1,33 @@
+[project]
+name = "nuthrick-api"
+version = "0.1.0"
+description = "FastAPI boundary for future Nuthrick business logic"
+requires-python = ">=3.9"
+dependencies = [
+  "fastapi==0.128.8",
+  "pydantic-settings==2.11.0",
+  "uvicorn[standard]==0.39.0",
+]
+
+[dependency-groups]
+dev = [
+  "httpx==0.28.1",
+  "pytest==8.4.2",
+  "pytest-cov==7.0.0",
+  "ruff==0.13.3",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
