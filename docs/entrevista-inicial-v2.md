@@ -54,6 +54,13 @@ pendientes. No se guardan respuestas clínicas en localStorage.
 - SQL: `supabase/tests/database/rls.sql` (30 comprobaciones) e
   `supabase/tests/database/interview_revisions.sql` (29 comprobaciones), con rollback.
 - UI con datos ficticios y servicios en memoria: ver `frontend/qa/README.md`.
+- Resultado de esta entrega: 42 pruebas de frontend, compilación, lint y tipos
+  correctos; 59 comprobaciones SQL sin fallos. Verificación visual a 375, 768 y
+  1440 px, incluyendo captura de medicamentos y frecuencias, guardado al navegar,
+  copia/edición de plantilla y actualización de borrador con datos ficticios.
+- Supabase: migraciones registradas como `20260902222858` y `20260902222900`.
+  La instalación dejó las consultas existentes en su revisión original y no dejó
+  cuentas de prueba persistidas.
 - Datos de plantilla: `frontend/src/features/consultations/interviewTemplate.ts`.
   La migración de semilla se imprime con `node --experimental-strip-types scripts/print-interview-seed.mjs`.
 
@@ -70,3 +77,14 @@ La estructura se apoya en la propuesta proporcionada y en los dominios del
 La captura de recordatorio incorpora pasos de entrevista descritos por
 [USDA AMPM](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/food-surveys-research-group/docs/ampm-usda-automated-multiple-pass-method/),
 sin presentarse como implementación validada o equivalente al instrumento USDA.
+
+## Avisos previos, no introducidos por esta entrega
+
+El asesor de seguridad sigue indicando que la
+[protección de contraseñas filtradas](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
+está desactivada. No se modificó Auth ni se debilitó ningún control de acceso.
+Persisten avisos informativos de
+[claves foráneas sin índice](https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys)
+en módulos anteriores y de
+[índices todavía sin uso](https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index).
+No se eliminaron índices ni se cambiaron módulos ajenos a la entrevista.
