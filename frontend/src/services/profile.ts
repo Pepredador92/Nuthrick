@@ -66,6 +66,7 @@ export async function loadProfileWorkspace(userId: string): Promise<ProfileWorks
     images: (images.data ?? []) as ServiceImage[],
     conditions: (conditions.data ?? []) as CatalogOption[],
     populations: (populations.data ?? []) as CatalogOption[],
+    customConditionLabels: profile.custom_conditions ?? [],
     selectedConditionIds: (selectedConditions.data ?? []).map((row) => row.condition_id as string),
     selectedPopulationIds: (selectedPopulations.data ?? []).map((row) => row.population_id as string),
     availability: availability.data as AvailabilitySettings | null,
@@ -80,7 +81,11 @@ export async function updateProfile(userId: string, values: Partial<Professional
     .eq('id', userId)
     .select()
     .single();
-  return unwrap({ data: data as ProfessionalProfile | null, error });
+  const updated = unwrap({ data: data as ProfessionalProfile | null, error });
+  if (values.full_name !== undefined) {
+    await supabase.auth.updateUser({ data: { full_name: updated.full_name } });
+  }
+  return updated;
 }
 
 export async function saveBusiness(values: Partial<ProfessionalBusiness>): Promise<ProfessionalBusiness> {
@@ -99,7 +104,7 @@ export async function addEducation(values: Omit<EducationRecord, 'id' | 'profess
 
 export async function updateEducation(
   id: string,
-  values: Pick<EducationRecord, 'degree' | 'institution' | 'graduation_year' | 'display_order'>,
+  values: Pick<EducationRecord, 'degree' | 'education_type' | 'institution' | 'graduation_year' | 'display_order'>,
 ): Promise<EducationRecord> {
   const { data, error } = await supabase
     .from('professional_education')

@@ -1,6 +1,7 @@
 export type CareModality = 'online' | 'in_person' | 'hybrid';
 export type MediaCategory = 'avatar' | 'logo' | 'services';
 export type LinkType = 'whatsapp' | 'tiktok' | 'facebook' | 'instagram' | 'youtube' | 'custom';
+export type EducationType = 'degree' | 'course' | 'training' | 'diploma' | 'masters' | 'doctorate' | 'specialty';
 
 export interface ProfessionalProfile {
   id: string;
@@ -19,6 +20,7 @@ export interface ProfessionalProfile {
   approximate_fee: number | null;
   currency: string;
   license_number: string | null;
+  custom_conditions: string[];
   onboarding_completed: boolean;
   is_public: boolean;
   created_at: string;
@@ -41,6 +43,7 @@ export interface EducationRecord {
   id: string;
   professional_id: string;
   degree: string;
+  education_type: EducationType;
   institution: string;
   graduation_year: number;
   display_order: number;
@@ -92,6 +95,7 @@ export interface ProfileWorkspace {
   links: ProfessionalLink[];
   images: ServiceImage[];
   conditions: CatalogOption[];
+  customConditionLabels: string[];
   populations: CatalogOption[];
   selectedConditionIds: string[];
   selectedPopulationIds: string[];
@@ -115,7 +119,7 @@ export interface PublicProfileContent {
   country?: string;
   conditions: string[];
   populations: string[];
-  education: Array<{ degree: string; institution: string; graduationYear: number }>;
+  education: Array<{ degree: string; educationType?: EducationType; institution: string; graduationYear: number }>;
   business?: {
     logoPath?: string;
     logoUrl?: string;
