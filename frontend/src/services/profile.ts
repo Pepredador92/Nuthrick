@@ -73,8 +73,13 @@ export async function loadProfileWorkspace(userId: string): Promise<ProfileWorks
   };
 }
 
-export async function updateProfile(values: Partial<ProfessionalProfile>): Promise<ProfessionalProfile> {
-  const { data, error } = await supabase.from('professional_profiles').update(values).select().single();
+export async function updateProfile(userId: string, values: Partial<ProfessionalProfile>): Promise<ProfessionalProfile> {
+  const { data, error } = await supabase
+    .from('professional_profiles')
+    .update(values)
+    .eq('id', userId)
+    .select()
+    .single();
   return unwrap({ data: data as ProfessionalProfile | null, error });
 }
 

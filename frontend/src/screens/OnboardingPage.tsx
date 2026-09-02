@@ -21,7 +21,8 @@ export function OnboardingPage() {
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setError(''); setBusy(true);
     try {
-      await updateProfile({ full_name: name.trim(), professional_title: title.trim(), country: country.trim(), timezone, onboarding_completed: true });
+      if (!user) throw new Error('No encontramos tu sesión. Vuelve a iniciar sesión.');
+      await updateProfile(user.id, { full_name: name.trim(), professional_title: title.trim(), country: country.trim(), timezone, onboarding_completed: true });
       await refreshProfile(); navigate('/app', { replace: true });
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'No fue posible guardar tu perfil.'); } finally { setBusy(false); }
   };

@@ -35,7 +35,7 @@ export function ProfilePage() {
     try {
       const oldPath = workspace.profile.avatar_path;
       path = await uploadProfessionalImage(file, workspace.profile.storage_key, 'avatar');
-      await updateProfile({ avatar_path: path });
+      await updateProfile(workspace.profile.id, { avatar_path: path });
       if (oldPath) await removeProfessionalImage(oldPath).catch(() => undefined);
       await saved('Tu foto de perfil quedó actualizada.');
     } catch (caught) {
