@@ -16,5 +16,18 @@ export default defineConfig({
     ? { watch: { useFsEvents: false, usePolling: true } }
     : undefined,
   // Keep SSR dependencies bundled consistently on macOS and Vercel/Linux.
-  plugins: [tailwindcss(), vinext(), sites(), nitro({ noExternals: true, alias: { tslib: tslibEsm } })],
+  plugins: [
+    tailwindcss(),
+    vinext(),
+    sites(),
+    {
+      name: 'nuthrick-ssr-diagnostics',
+      transform(code, id) {
+        if (!id.endsWith('/vinext/dist/server/app-ssr-entry.js')) return;
+        return code.replace('onError(error) {', `onError(error) {
+          console.error('[Nuthrick SSR]', error instanceof Error ? error.stack : 'Render error');`);
+      },
+    },
+    nitro({ noExternals: true, alias: { tslib: tslibEsm } }),
+  ],
 });
