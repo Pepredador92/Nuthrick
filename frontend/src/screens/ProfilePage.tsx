@@ -7,6 +7,7 @@ import {
   AboutSection,
   AvailabilitySection,
   BusinessSection,
+  ContactsSection,
   EducationSection,
   ExtrasSection,
   LinksSection,
@@ -60,7 +61,7 @@ export function ProfilePage() {
   const p = workspace.profile;
   const publicUrl = p.public_slug ? `${window.location.origin}/p/${p.public_slug}` : '';
   const section = {
-    'Sobre mí': <AboutSection workspace={workspace} onSaved={saved} />,
+    'Sobre mí': <div className="space-y-10"><AboutSection workspace={workspace} onSaved={saved} /><ContactsSection workspace={workspace} onSaved={saved} /></div>,
     Extras: <ExtrasSection workspace={workspace} onSaved={saved} />,
     Negocio: <BusinessSection workspace={workspace} onSaved={saved} />,
     Educación: <EducationSection workspace={workspace} onSaved={saved} />,

@@ -1,25 +1,30 @@
-import { ImagePlus, LoaderCircle, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
+import { ImagePlus, LoaderCircle, Mail, MapPin, MessageCircle, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { Field, Input, Textarea } from '@/src/components/ui/FormField';
 import { usePersistentState } from '@/src/hooks/usePersistentState';
 import { getSignedMediaUrl, removeProfessionalImage, uploadProfessionalImage } from '@/src/services/media';
 import {
   addAvailabilitySlot,
+  addContact,
   addEducation,
   addLink,
+  addLocation,
   addServiceImage,
   deleteAvailabilitySlot,
+  deleteContact,
   deleteEducation,
   deleteLink,
+  deleteLocation,
   deleteServiceImage,
   replaceCatalogSelections,
   saveAvailability,
   saveBusiness,
+  updateLocation,
   updateEducation,
   updateLink,
   updateProfile,
 } from '@/src/services/profile';
-import type { CareModality, EducationType, LinkType, ProfileWorkspace } from '@/src/types/domain';
+import type { CareModality, ContactType, EducationType, LinkType, ProfileWorkspace } from '@/src/types/domain';
 import { isValidEducationYear, isValidIanaTimezone, isValidUrl, normalizeSlug, slotsOverlap } from '@/src/lib/validation';
 
 interface SectionProps { workspace: ProfileWorkspace; onSaved: (message: string) => Promise<void>; }
@@ -35,6 +40,49 @@ export function AboutSection({ workspace, onSaved }: SectionProps) {
   const toggleModality = (value: CareModality) => setValues((current) => ({ ...current, care_modalities: current.care_modalities.includes(value) ? current.care_modalities.filter((item) => item !== value) : [...current.care_modalities, value] }));
   const submit = async (event: FormEvent) => { event.preventDefault(); setBusy(true); setError(''); try { await updateProfile(workspace.profile.id, { full_name: values.full_name.trim(), professional_title: values.professional_title.trim() || null, biography: values.biography.trim() || null, specialties: values.specialties.split(',').map((item) => item.trim()).filter(Boolean), spoken_languages: values.spoken_languages.split(',').map((item) => item.trim()).filter(Boolean), approximate_fee: values.approximate_fee ? Number(values.approximate_fee) : null, currency: values.currency.toUpperCase(), license_number: values.license_number.trim() || null, care_modalities: values.care_modalities }); clearDraft(); await onSaved('Tu información profesional quedó actualizada.'); } catch (caught) { setError(caught instanceof Error ? caught.message : 'No fue posible guardar.'); } finally { setBusy(false); } };
   return <form className="space-y-8" onSubmit={submit}><div className="grid gap-6 sm:grid-cols-2"><Field label="Nombre" name="full-name"><Input id="full-name" required maxLength={120} value={values.full_name} onChange={(e) => setValues({ ...values, full_name: e.target.value })} /></Field><Field label="Título profesional" name="professional-title"><Input id="professional-title" maxLength={160} value={values.professional_title} onChange={(e) => setValues({ ...values, professional_title: e.target.value })} /></Field></div><Field label="Biografía profesional" name="biography" hint="Cuenta brevemente cómo trabajas y a quién acompañas. Máximo 3,000 caracteres."><Textarea id="biography" maxLength={3000} value={values.biography} onChange={(e) => setValues({ ...values, biography: e.target.value })} /></Field><div className="grid gap-6 sm:grid-cols-2"><Field label="Especialidades" name="specialties" hint="Sepáralas con comas."><Input id="specialties" value={values.specialties} onChange={(e) => setValues({ ...values, specialties: e.target.value })} placeholder="Nutrición clínica, Salud digestiva" /></Field><Field label="Idiomas hablados" name="spoken-languages" hint="Sepáralos con comas."><Input id="spoken-languages" value={values.spoken_languages} onChange={(e) => setValues({ ...values, spoken_languages: e.target.value })} placeholder="Español, Inglés" /></Field></div><fieldset><legend className="text-sm font-semibold">Modalidad de atención</legend><div className="mt-3 flex flex-wrap gap-3">{([['in_person','Presencial'],['online','En línea'],['hybrid','Híbrida']] as Array<[CareModality,string]>).map(([value,label]) => <label key={value} className={`cursor-pointer rounded-full border px-4 py-2 text-sm ${values.care_modalities.includes(value) ? 'border-[#5d8978] bg-[#eaf2ed] text-[#315e50]' : 'border-[#dce3de] bg-white'}`}><input type="checkbox" className="sr-only" checked={values.care_modalities.includes(value)} onChange={() => toggleModality(value)} />{label}</label>)}</div></fieldset><div className="grid gap-6 sm:grid-cols-[1fr_120px_1fr]"><Field label="Costo aproximado" name="fee"><Input id="fee" type="number" min="0" step="0.01" value={values.approximate_fee} onChange={(e) => setValues({ ...values, approximate_fee: e.target.value })} /></Field><Field label="Moneda" name="currency"><Input id="currency" maxLength={3} value={values.currency} onChange={(e) => setValues({ ...values, currency: e.target.value })} /></Field><Field label="Cédula profesional" name="license"><Input id="license" maxLength={60} value={values.license_number} onChange={(e) => setValues({ ...values, license_number: e.target.value })} /></Field></div>{error && <p role="alert" className="text-sm text-[#984a39]">{error}</p>}<SaveButton busy={busy} /></form>;
+}
+
+const countryCodes = [
+  ['+52', 'México (+52)'],
+  ['+1', 'Estados Unidos / Canadá (+1)'],
+  ['+34', 'España (+34)'],
+  ['+54', 'Argentina (+54)'],
+  ['+56', 'Chile (+56)'],
+  ['+57', 'Colombia (+57)'],
+  ['+51', 'Perú (+51)'],
+  ['+506', 'Costa Rica (+506)'],
+  ['+507', 'Panamá (+507)'],
+  ['+593', 'Ecuador (+593)'],
+] as const;
+
+export function ContactsSection({ workspace, onSaved }: SectionProps) {
+  const [draft, setDraft, clearDraft] = usePersistentState(`nuthrick:${workspace.profile.id}:contacts`, { contactType: 'phone' as ContactType, label: 'WhatsApp', countryCode: '+52', value: '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const { contactType, label, countryCode, value } = draft;
+
+  const add = async (event: FormEvent) => {
+    event.preventDefault();
+    const cleanValue = contactType === 'phone' ? value.replace(/\D/g, '') : value.trim().toLowerCase();
+    if (contactType === 'phone' && (countryCode.trim() === '' || !/^\+[1-9]\d{0,3}$/.test(countryCode.trim()) || cleanValue.length < 7 || cleanValue.length > 15)) {
+      return setError('Escribe una lada válida (por ejemplo +52) y un número de 7 a 15 dígitos.');
+    }
+    if (contactType === 'email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cleanValue)) return setError('Escribe un correo electrónico válido.');
+    setBusy(true); setError('');
+    try {
+      await addContact({ contact_type: contactType, label: label.trim() || null, country_code: contactType === 'phone' ? countryCode.trim() : null, contact_value: cleanValue, is_whatsapp: contactType === 'phone', display_order: workspace.contacts.length });
+      clearDraft();
+      setDraft({ contactType, label: contactType === 'phone' ? 'WhatsApp' : 'Correo', countryCode: '+52', value: '' });
+      await onSaved('El contacto quedó guardado.');
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'No fue posible guardar el contacto.'); } finally { setBusy(false); }
+  };
+
+  const remove = async (id: string) => {
+    setBusy(true); setError('');
+    try { await deleteContact(id); await onSaved('El contacto se eliminó.'); } catch (caught) { setError(caught instanceof Error ? caught.message : 'No fue posible eliminarlo.'); } finally { setBusy(false); }
+  };
+
+  return <section className="border-t border-[#e3e9e4] pt-8"><div><h3 className="text-lg font-semibold">Datos de contacto</h3><p className="mt-1 text-sm text-[#74817d]">Agrega un WhatsApp o correo para que puedan encontrarte fácilmente desde tu página pública.</p></div><div className="mt-5 space-y-3">{workspace.contacts.length ? workspace.contacts.map((contact) => <article key={contact.id} className="flex items-center justify-between gap-4 rounded-2xl border border-[#dfe5e1] p-4"><div className="flex min-w-0 items-center gap-3">{contact.contact_type === 'phone' ? <MessageCircle className="shrink-0 text-[#25a85a]" size={19} /> : <Mail className="shrink-0 text-[#52796a]" size={19} />}<div className="min-w-0"><p className="font-semibold">{contact.label || (contact.contact_type === 'phone' ? 'WhatsApp' : 'Correo')}</p><p className="truncate text-sm text-[#6d7b76]">{contact.country_code ? `${contact.country_code} ` : ''}{contact.contact_value}</p></div></div><button type="button" onClick={() => void remove(contact.id)} className="p-2 text-[#984a39]" aria-label={`Eliminar ${contact.label || contact.contact_value}`}><Trash2 size={17} /></button></article>) : <div className="rounded-2xl border border-dashed border-[#ced8d1] p-6 text-center text-sm text-[#7a8782]">Todavía no agregas datos de contacto.</div>}</div><form className="mt-6 rounded-2xl bg-[#f5f7f3] p-5" onSubmit={add}><div className="grid gap-4 sm:grid-cols-[170px_1fr]"> <Field label="Tipo" name="contact-type"><select id="contact-type" className="nuth-input" value={contactType} onChange={(event) => setDraft((current) => ({ ...current, contactType: event.target.value as ContactType, label: event.target.value === 'phone' ? 'WhatsApp' : 'Correo', value: '' }))}><option value="phone">Teléfono / WhatsApp</option><option value="email">Correo electrónico</option></select></Field><Field label="Etiqueta (opcional)" name="contact-label"><Input id="contact-label" maxLength={80} value={label} onChange={(event) => setDraft((current) => ({ ...current, label: event.target.value }))} placeholder={contactType === 'phone' ? 'WhatsApp' : 'Correo profesional'} /></Field></div>{contactType === 'phone' ? <div className="mt-4 grid gap-4 sm:grid-cols-[190px_1fr]"><Field label="Lada del país" name="country-code" hint="Ejemplo para México: +52"><select id="country-code" className="nuth-input" value={countryCode} onChange={(event) => setDraft((current) => ({ ...current, countryCode: event.target.value }))}>{countryCodes.map(([code, name]) => <option key={code} value={code}>{name}</option>)}</select></Field><Field label="Número" name="phone-number"><Input id="phone-number" type="tel" inputMode="numeric" maxLength={15} required value={value} onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))} placeholder="4921234567" /></Field></div> : <div className="mt-4"><Field label="Correo electrónico" name="email-value"><Input id="email-value" type="email" required value={value} onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))} placeholder="hola@tudominio.com" /></Field></div>}{error && <p role="alert" className="mt-4 text-sm text-[#984a39]">{error}</p>}<button type="submit" disabled={busy} className="nuth-button mt-5">{busy ? <LoaderCircle className="animate-spin" size={17} /> : <Plus size={17} />}Agregar contacto</button></form></section>;
 }
 
 export function ExtrasSection({ workspace, onSaved }: SectionProps) {
@@ -76,6 +124,8 @@ export function ExtrasSection({ workspace, onSaved }: SectionProps) {
 export function BusinessSection({ workspace, onSaved }: SectionProps) {
   const b = workspace.business;
   const [values, setValues, clearDraft] = usePersistentState(`nuthrick:${workspace.profile.id}:business`, { establishment_name: b?.establishment_name ?? '', address: b?.address ?? '', establishment_type: b?.establishment_type ?? '', institution: b?.institution ?? '', legal_name: b?.legal_name ?? '', inactive_message: b?.inactive_message ?? '', logo_path: b?.logo_path ?? '' });
+  const [locationDraft, setLocationDraft, clearLocationDraft] = usePersistentState(`nuthrick:${workspace.profile.id}:location`, { name: '', address: '', map_url: '' });
+  const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false); const [error,setError]=useState(''); const [logoUrl,setLogoUrl]=useState<string | null>(null);
   useEffect(() => { void getSignedMediaUrl(values.logo_path).then(setLogoUrl); }, [values.logo_path]);
   const uploadLogo = async (file?: File) => {
@@ -97,7 +147,20 @@ export function BusinessSection({ workspace, onSaved }: SectionProps) {
     } finally { setBusy(false); }
   };
   const submit = async (e: FormEvent) => { e.preventDefault(); setBusy(true); setError(''); try { await saveBusiness({ professional_id: workspace.profile.id, logo_path: values.logo_path || null, establishment_name: values.establishment_name.trim() || null, address: values.address.trim() || null, establishment_type: values.establishment_type.trim() || null, institution: values.institution.trim() || null, legal_name: values.legal_name.trim() || null, inactive_message: values.inactive_message.trim() || null }); clearDraft(); await onSaved('Los datos de tu establecimiento quedaron actualizados.'); } catch (caught) { setError(caught instanceof Error ? caught.message : 'No fue posible guardar.'); } finally { setBusy(false); } };
-  return <form className="space-y-7" onSubmit={submit}><div className="flex items-center gap-5"><div className="grid h-20 w-20 place-items-center overflow-hidden rounded-2xl bg-[#eef2ee] text-[#87948e]">{logoUrl ? <img src={logoUrl} alt="Logotipo" className="h-full w-full object-contain" /> : 'Logo'}</div><label className="nuth-button-secondary cursor-pointer"><ImagePlus size={17} />Cambiar logotipo<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => void uploadLogo(e.target.files?.[0])} /></label></div><div className="grid gap-6 sm:grid-cols-2"><Field label="Nombre del establecimiento" name="establishment"><Input id="establishment" maxLength={160} value={values.establishment_name} onChange={(e) => setValues({...values, establishment_name:e.target.value})} /></Field><Field label="Tipo de establecimiento" name="type"><Input id="type" maxLength={100} value={values.establishment_type} onChange={(e) => setValues({...values, establishment_type:e.target.value})} placeholder="Consultorio privado" /></Field></div><Field label="Dirección" name="address"><Textarea id="address" maxLength={500} value={values.address} onChange={(e) => setValues({...values, address:e.target.value})} /></Field><div className="grid gap-6 sm:grid-cols-2"><Field label="Institución (opcional)" name="institution"><Input id="institution" value={values.institution} onChange={(e) => setValues({...values, institution:e.target.value})} /></Field><Field label="Razón social (opcional)" name="legal-name"><Input id="legal-name" value={values.legal_name} onChange={(e) => setValues({...values, legal_name:e.target.value})} /></Field></div><Field label="Mensaje cuando estés inactivo" name="inactive"><Textarea id="inactive" maxLength={800} value={values.inactive_message} onChange={(e) => setValues({...values, inactive_message:e.target.value})} /></Field>{error && <p role="alert" className="text-sm text-[#984a39]">{error}</p>}<SaveButton busy={busy} /></form>;
+  const saveLocation = async () => {
+    if (locationDraft.address.trim().length < 3) return setError('Escribe la dirección del consultorio o negocio.');
+    if (locationDraft.map_url.trim() && !isValidUrl(locationDraft.map_url.trim())) return setError('El enlace de ubicación debe comenzar con https:// o http://.');
+    setBusy(true); setError('');
+    try {
+      const payload = { name: locationDraft.name.trim() || 'Consultorio', address: locationDraft.address.trim(), map_url: locationDraft.map_url.trim() || null, display_order: editingLocationId ? workspace.locations.find((location) => location.id === editingLocationId)?.display_order ?? 0 : workspace.locations.length, is_active: true };
+      if (editingLocationId) await updateLocation(editingLocationId, payload);
+      else await addLocation(payload);
+      clearLocationDraft(); setLocationDraft({ name: '', address: '', map_url: '' }); setEditingLocationId(null); await onSaved(editingLocationId ? 'La ubicación quedó actualizada.' : 'La ubicación se agregó.');
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'No fue posible guardar la ubicación.'); } finally { setBusy(false); }
+  };
+  const editLocation = (location: ProfileWorkspace['locations'][number]) => { setEditingLocationId(location.id); setLocationDraft({ name: location.name, address: location.address, map_url: location.map_url ?? '' }); setError(''); };
+  const removeLocation = async (id: string) => { setBusy(true); setError(''); try { await deleteLocation(id); if (editingLocationId === id) { setEditingLocationId(null); clearLocationDraft(); setLocationDraft({ name: '', address: '', map_url: '' }); } await onSaved('La ubicación se eliminó.'); } catch (caught) { setError(caught instanceof Error ? caught.message : 'No fue posible eliminar la ubicación.'); } finally { setBusy(false); } };
+  return <form className="space-y-7" onSubmit={submit}><div className="flex items-center gap-5"><div className="grid h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-[#eef2ee] text-[#87948e]">{logoUrl ? <img src={logoUrl} alt="Logotipo" className="h-full w-full object-contain" /> : 'Logo'}</div><label className="nuth-button-secondary cursor-pointer"><ImagePlus size={17} />Cambiar logotipo<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => void uploadLogo(e.target.files?.[0])} /></label></div><div className="grid gap-6 sm:grid-cols-2"><Field label="Nombre del establecimiento" name="establishment"><Input id="establishment" maxLength={160} value={values.establishment_name} onChange={(e) => setValues({...values, establishment_name:e.target.value})} /></Field><Field label="Tipo de establecimiento" name="type"><Input id="type" maxLength={100} value={values.establishment_type} onChange={(e) => setValues({...values, establishment_type:e.target.value})} placeholder="Consultorio privado" /></Field></div><Field label="Dirección principal" name="address" hint="También puedes agregar varias ubicaciones abajo."><Textarea id="address" maxLength={500} value={values.address} onChange={(e) => setValues({...values, address:e.target.value})} /></Field><div className="grid gap-6 sm:grid-cols-2"><Field label="Institución (opcional)" name="institution"><Input id="institution" value={values.institution} onChange={(e) => setValues({...values, institution:e.target.value})} /></Field><Field label="Razón social (opcional)" name="legal-name"><Input id="legal-name" value={values.legal_name} onChange={(e) => setValues({...values, legal_name:e.target.value})} /></Field></div><Field label="Mensaje cuando estés inactivo" name="inactive"><Textarea id="inactive" maxLength={800} value={values.inactive_message} onChange={(e) => setValues({...values, inactive_message:e.target.value})} /></Field><section className="border-t border-[#e3e9e4] pt-7"><div><h3 className="text-lg font-semibold">Ubicaciones</h3><p className="mt-1 text-sm text-[#74817d]">Agrega uno o varios consultorios. Cada ubicación tendrá su propio botón de mapa en tu página pública.</p></div><div className="mt-5 space-y-3">{workspace.locations.length ? workspace.locations.map((location) => <article key={location.id} className="flex items-start justify-between gap-4 rounded-2xl border border-[#dfe5e1] p-4"><div className="flex min-w-0 items-start gap-3"><MapPin className="mt-0.5 shrink-0 text-[#52796a]" size={19}/><div className="min-w-0"><p className="font-semibold">{location.name}</p><p className="mt-1 text-sm text-[#6d7b76]">{location.address}</p>{location.map_url && <a href={location.map_url} target="_blank" rel="noreferrer" className="mt-1 block truncate text-xs text-[#52796a] underline">Abrir enlace guardado</a>}</div></div><div className="flex shrink-0 gap-1"><button type="button" onClick={() => editLocation(location)} className="p-2 text-[#456d5f]" aria-label={`Editar ${location.name}`}><Pencil size={17}/></button><button type="button" onClick={() => void removeLocation(location.id)} disabled={busy} className="p-2 text-[#984a39]" aria-label={`Eliminar ${location.name}`}><Trash2 size={17}/></button></div></article>) : <div className="rounded-2xl border border-dashed border-[#ced8d1] p-6 text-center text-sm text-[#7a8782]">Agrega tu primera ubicación.</div>}</div><div className="mt-5 rounded-2xl bg-[#f5f7f3] p-5"><div className="flex items-center justify-between gap-4"><h4 className="font-semibold">{editingLocationId ? 'Editar ubicación' : 'Agregar ubicación'}</h4>{editingLocationId && <button type="button" onClick={() => { setEditingLocationId(null); clearLocationDraft(); setLocationDraft({ name: '', address: '', map_url: '' }); }} className="text-sm font-semibold text-[#5c7169]">Cancelar</button>}</div><div className="mt-4 grid gap-4 sm:grid-cols-2"><Field label="Nombre" name="location-name"><Input id="location-name" maxLength={120} value={locationDraft.name} onChange={(e) => setLocationDraft((current) => ({ ...current, name: e.target.value }))} placeholder="Consultorio Centro" /></Field><Field label="Dirección" name="location-address"><Input id="location-address" required maxLength={500} value={locationDraft.address} onChange={(e) => setLocationDraft((current) => ({ ...current, address: e.target.value }))} placeholder="Calle, número, colonia, ciudad" /></Field></div><div className="mt-4"><Field label="Enlace de mapa (opcional)" name="location-map" hint="Si lo dejas vacío, generaremos un enlace de Google Maps con la dirección."><Input id="location-map" type="url" maxLength={1000} value={locationDraft.map_url} onChange={(e) => setLocationDraft((current) => ({ ...current, map_url: e.target.value }))} placeholder="https://maps.google.com/..." /></Field></div><button type="button" onClick={() => void saveLocation()} disabled={busy} className="nuth-button mt-5">{editingLocationId ? <Save size={17}/> : <Plus size={17}/>} {editingLocationId ? 'Guardar ubicación' : 'Agregar ubicación'}</button></div></section>{error && <p role="alert" className="text-sm text-[#984a39]">{error}</p>}<SaveButton busy={busy} /></form>;
 }
 
 export function EducationSection({ workspace, onSaved }: SectionProps) {

@@ -3,8 +3,10 @@ import type {
   AvailabilitySettings,
   AvailabilitySlot,
   CatalogOption,
+  ProfessionalContact,
   EducationRecord,
   ProfessionalBusiness,
+  ProfessionalLocation,
   ProfessionalLink,
   ProfessionalProfile,
   ProfileWorkspace,
@@ -41,8 +43,10 @@ export async function ensureOwnProfile(userId: string): Promise<ProfessionalProf
 
 export async function loadProfileWorkspace(userId: string): Promise<ProfileWorkspace> {
   const profile = await ensureOwnProfile(userId);
-  const [business, education, links, images, conditions, populations, selectedConditions, selectedPopulations, availability, slots] = await Promise.all([
+  const [business, contacts, locations, education, links, images, conditions, populations, selectedConditions, selectedPopulations, availability, slots] = await Promise.all([
     supabase.from('professional_businesses').select('*').maybeSingle(),
+    supabase.from('professional_contacts').select('*').order('display_order'),
+    supabase.from('professional_locations').select('*').order('display_order'),
     supabase.from('professional_education').select('*').order('display_order'),
     supabase.from('professional_links').select('*').order('display_order'),
     supabase.from('professional_service_images').select('*').order('display_order'),
@@ -54,13 +58,15 @@ export async function loadProfileWorkspace(userId: string): Promise<ProfileWorks
     supabase.from('availability_slots').select('*').order('weekday').order('start_time'),
   ]);
 
-  for (const result of [business, education, links, images, conditions, populations, selectedConditions, selectedPopulations, availability, slots]) {
+  for (const result of [business, contacts, locations, education, links, images, conditions, populations, selectedConditions, selectedPopulations, availability, slots]) {
     if (result.error) throw new Error(result.error.message);
   }
 
   return {
     profile,
     business: business.data as ProfessionalBusiness | null,
+    contacts: (contacts.data ?? []) as ProfessionalContact[],
+    locations: (locations.data ?? []) as ProfessionalLocation[],
     education: (education.data ?? []) as EducationRecord[],
     links: (links.data ?? []) as ProfessionalLink[],
     images: (images.data ?? []) as ServiceImage[],
@@ -95,6 +101,39 @@ export async function saveBusiness(values: Partial<ProfessionalBusiness>): Promi
     .select()
     .single();
   return unwrap({ data: data as ProfessionalBusiness | null, error });
+}
+
+export async function addContact(values: Omit<ProfessionalContact, 'id' | 'professional_id'>): Promise<ProfessionalContact> {
+  const { data, error } = await supabase.from('professional_contacts').insert(values).select().single();
+  return unwrap({ data: data as ProfessionalContact | null, error });
+}
+
+export async function deleteContact(id: string): Promise<void> {
+  const { error } = await supabase.from('professional_contacts').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function addLocation(values: Omit<ProfessionalLocation, 'id' | 'professional_id'>): Promise<ProfessionalLocation> {
+  const { data, error } = await supabase.from('professional_locations').insert(values).select().single();
+  return unwrap({ data: data as ProfessionalLocation | null, error });
+}
+
+export async function updateLocation(
+  id: string,
+  values: Pick<ProfessionalLocation, 'name' | 'address' | 'map_url' | 'display_order' | 'is_active'>,
+): Promise<ProfessionalLocation> {
+  const { data, error } = await supabase
+    .from('professional_locations')
+    .update(values)
+    .eq('id', id)
+    .select()
+    .single();
+  return unwrap({ data: data as ProfessionalLocation | null, error });
+}
+
+export async function deleteLocation(id: string): Promise<void> {
+  const { error } = await supabase.from('professional_locations').delete().eq('id', id);
+  if (error) throw error;
 }
 
 export async function addEducation(values: Omit<EducationRecord, 'id' | 'professional_id'>): Promise<EducationRecord> {

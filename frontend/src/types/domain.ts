@@ -1,6 +1,7 @@
 export type CareModality = 'online' | 'in_person' | 'hybrid';
 export type MediaCategory = 'avatar' | 'logo' | 'services';
 export type LinkType = 'whatsapp' | 'tiktok' | 'facebook' | 'instagram' | 'youtube' | 'custom';
+export type ContactType = 'phone' | 'email';
 export type EducationType = 'degree' | 'course' | 'training' | 'diploma' | 'masters' | 'doctorate' | 'specialty';
 
 export interface ProfessionalProfile {
@@ -37,6 +38,27 @@ export interface ProfessionalBusiness {
   institution: string | null;
   legal_name: string | null;
   inactive_message: string | null;
+}
+
+export interface ProfessionalContact {
+  id: string;
+  professional_id: string;
+  contact_type: ContactType;
+  label: string | null;
+  country_code: string | null;
+  contact_value: string;
+  is_whatsapp: boolean;
+  display_order: number;
+}
+
+export interface ProfessionalLocation {
+  id: string;
+  professional_id: string;
+  name: string;
+  address: string;
+  map_url: string | null;
+  display_order: number;
+  is_active: boolean;
 }
 
 export interface EducationRecord {
@@ -91,6 +113,8 @@ export interface AvailabilitySlot {
 export interface ProfileWorkspace {
   profile: ProfessionalProfile;
   business: ProfessionalBusiness | null;
+  contacts: ProfessionalContact[];
+  locations: ProfessionalLocation[];
   education: EducationRecord[];
   links: ProfessionalLink[];
   images: ServiceImage[];
@@ -119,6 +143,7 @@ export interface PublicProfileContent {
   country?: string;
   conditions: string[];
   populations: string[];
+  contacts?: Array<{ type: ContactType; label?: string; countryCode?: string; value: string; isWhatsapp?: boolean }>;
   education: Array<{ degree: string; educationType?: EducationType; institution: string; graduationYear: number }>;
   business?: {
     logoPath?: string;
@@ -128,7 +153,9 @@ export interface PublicProfileContent {
     type?: string;
     institution?: string;
     inactiveMessage?: string;
+    locations?: Array<{ name: string; address: string; mapUrl?: string }>;
   };
+  locations?: Array<{ name: string; address: string; mapUrl?: string }>;
   links: Array<{ type: LinkType; title: string; url: string }>;
   gallery: Array<{ path: string; url?: string; alt?: string }>;
   availability?: {
