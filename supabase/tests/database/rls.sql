@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(18);
+select plan(22);
 
 insert into auth.users (id, email)
 values
@@ -57,6 +57,18 @@ select lives_ok(
   $$insert into public.professional_businesses (establishment_name)
     values ('Consultorio Uno')$$,
   'owner columns default to auth.uid()'
+);
+
+select lives_ok(
+  $$insert into public.patient_notes (patient_id, content)
+    select id, 'Nota privada de prueba' from public.patients limit 1$$,
+  'a professional can create a free note for their own patient'
+);
+
+select lives_ok(
+  $$insert into public.nutrition_plans (patient_id, plan_type)
+    select id, 'Plan de prueba' from public.patients limit 1$$,
+  'a professional can create a plan for their own patient'
 );
 
 reset role;
@@ -118,6 +130,16 @@ select is_empty(
     where professional_id = '10000000-0000-4000-8000-000000000001'
     returning id$$,
   'the second professional cannot delete the first business'
+);
+
+select is_empty(
+  $$select id from public.patient_notes$$,
+  'the second professional cannot see the first professional notes'
+);
+
+select is_empty(
+  $$select id from public.nutrition_plans$$,
+  'the second professional cannot see the first professional plans'
 );
 
 reset role;

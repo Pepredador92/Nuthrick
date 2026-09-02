@@ -17,11 +17,16 @@
 | `patient_tags` | Etiquetas propias del profesional | `professional_id` |
 | `patient_tag_assignments` | Relación N:M paciente-etiqueta | `professional_id` |
 | `patient_measurements` | Historial antropométrico con IMC generado | `professional_id` |
-| `consultations` | Historial de consultas | `professional_id` |
+| `consultations` | Historial de consultas con tipo (inicio/seguimiento) y secuencia | `professional_id` |
+| `patient_notes` | Notas libres generales o asociadas a consulta | `professional_id` |
+| `questionnaire_submissions` / `questionnaire_responses` | Arquitectura de cuestionarios por consulta | `professional_id` |
+| `nutrition_plans` | Historial mínimo de planes y revisiones | `professional_id` |
 | `consultation_notes` | Notas asociadas a una consulta | `professional_id` |
 | `patient_progress_photos` | Metadatos de fotos privadas | `professional_id` |
 
 Todas usan UUID, foreign keys y borrado en cascada desde el perfil. `updated_at` se mantiene con un trigger compartido.
+
+Las mediciones pueden apuntar a `consultations.id`; las consultas existentes se conservaron y se clasificaron de forma determinista como inicio o seguimiento. El borrado de pacientes es lógico (`deleted_at`), mientras que `archived_at` representa una ficha archivada y restaurable.
 
 ## Catálogos
 

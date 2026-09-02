@@ -1,4 +1,4 @@
-import type { Patient, PatientStatus } from "@/src/types/domain";
+import type { Consultation, Patient, PatientStatus } from "@/src/types/domain";
 
 export function calculateAge(
   birthDate: string | null,
@@ -51,4 +51,12 @@ export function patientStatusLabel(status: PatientStatus): string {
   if (status === "active") return "Activo";
   if (status === "inactive") return "Inactivo";
   return "Archivado";
+}
+
+export function consultationLabel(
+  consultation: Pick<Consultation, "consultation_type" | "sequence_number">,
+): string {
+  return consultation.consultation_type === "initial"
+    ? "Consulta de inicio"
+    : `Seguimiento ${consultation.sequence_number}`;
 }

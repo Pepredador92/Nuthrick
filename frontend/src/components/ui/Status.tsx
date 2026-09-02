@@ -16,3 +16,21 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
 export function SuccessNote({ children }: { children: React.ReactNode }) {
   return <div role="status" className="flex items-center gap-2 rounded-xl bg-[#edf5f0] px-3 py-2 text-sm text-[#356353]"><CheckCircle2 size={17} />{children}</div>;
 }
+
+export function EmptyState({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-dashed border-[#cad6ce] bg-[#fbfcfa] p-8 text-center">
+      <p className="font-semibold text-[#315e4f]">{title}</p>
+      {description && <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#74817d]">{description}</p>}
+      {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}

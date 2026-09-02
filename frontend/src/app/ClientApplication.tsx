@@ -44,7 +44,7 @@ export function ClientApplication() {
               <Route path="profile" element={<ProfilePage />} />
               <Route path="patients" element={<PatientsPage />} />
               <Route path="patients/:patientId" element={<PatientDetailPage />} />
-              <Route path="patients/:patientId/record" element={<PatientDetailPage defaultTab="Primera" />} />
+              <Route path="patients/:patientId/record" element={<PatientDetailPage recordMode />} />
             </Route>
           </Route>
           <Route path="/p/:slug" element={<PublicProfilePage />} />

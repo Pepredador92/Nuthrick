@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateAge,
   calculateBmi,
+  consultationLabel,
   normalizePhone,
   patientStatusLabel,
 } from "./patientUtils";
@@ -22,5 +23,9 @@ describe("patient utilities", () => {
   it("keeps archived status distinct from inactive", () => {
     expect(patientStatusLabel("inactive")).toBe("Inactivo");
     expect(patientStatusLabel("archived")).toBe("Archivado");
+  });
+  it("labels initial and follow-up consultations consistently", () => {
+    expect(consultationLabel({ consultation_type: "initial", sequence_number: 0 })).toBe("Consulta de inicio");
+    expect(consultationLabel({ consultation_type: "follow_up", sequence_number: 2 })).toBe("Seguimiento 2");
   });
 });

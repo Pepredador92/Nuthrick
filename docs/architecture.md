@@ -2,7 +2,7 @@
 
 ## Alcance de la versión 1
 
-La aplicación implementa la cuenta del profesional, autenticación, onboarding, perfil, medios, disponibilidad, página pública, landing y la primera versión del módulo privado de pacientes (ficha, etiquetas, mediciones, consultas, notas y fotos de progreso). Planes, cuestionarios, agenda transaccional, pagos y automatizaciones siguen como integraciones futuras.
+La aplicación implementa la cuenta del profesional, autenticación, onboarding, perfil, medios, disponibilidad, página pública, landing y la primera versión del módulo privado de pacientes (ficha, etiquetas, archivo/restauración, borrado lógico, historial, mediciones, consultas, notas y fotos de progreso). Planes y cuestionarios tienen su relación de datos y visualización histórica preparadas; su captura completa, agenda transaccional, pagos y automatizaciones siguen como integraciones futuras.
 
 ## Componentes
 
@@ -16,7 +16,8 @@ React y TypeScript organizados por páginas, features, componentes, hooks, servi
 - `/app`: dashboard protegido.
 - `/app/profile`: módulo de perfil.
 - `/app/patients`: listado privado con búsqueda, filtros y paginación.
-- `/app/patients/:patientId`: ficha longitudinal privada; RLS determina si existe para el usuario.
+- `/app/patients/:patientId`: dashboard longitudinal privado; RLS determina si existe para el usuario.
+- `/app/patients/:patientId/record`: expediente preparado para ampliaciones clínicas.
 - `/p/:slug`: proyección pública sin autenticación.
 
 `AuthProvider` mantiene la sesión y el perfil. Los guards mejoran la UX, pero no autorizan operaciones de datos: Supabase RLS lo hace.

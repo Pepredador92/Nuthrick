@@ -2,10 +2,14 @@ import { supabase } from "@/src/lib/supabase";
 import type {
   Consultation,
   ConsultationNote,
+  NutritionPlan,
   Patient,
   PatientMeasurement,
+  PatientNote,
   PatientProgressPhoto,
   PatientTag,
+  QuestionnaireResponse,
+  QuestionnaireSubmission,
 } from "@/src/types/domain";
 
 export interface PatientListFilters {
@@ -118,9 +122,14 @@ export async function listPatients(
   const pageSize = filters.pageSize ?? 20;
   const page = filters.page ?? 0;
   let query = supabase.from("patients").select("*", { count: "exact" });
+  query = query.is("deleted_at", null);
   const search = filters.search?.trim();
-  if (search)
-    query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
+  if (search) {
+    const safeSearch = search.replace(/[%,()]/g, " ");
+    query = query.or(
+      `full_name.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%`,
+    );
+  }
   if (filters.status && filters.status !== "all")
     query = query.eq("status", filters.status);
   if (filters.portalAccess === "enabled")
@@ -185,10 +194,14 @@ export async function listPatients(
 
 export async function getPatientCounters(): Promise<PatientCounters> {
   const [totalResult, activeResult] = await Promise.all([
-    supabase.from("patients").select("id", { count: "exact", head: true }),
     supabase
       .from("patients")
       .select("id", { count: "exact", head: true })
+      .is("deleted_at", null),
+    supabase
+      .from("patients")
+      .select("id", { count: "exact", head: true })
+      .is("deleted_at", null)
       .eq("status", "active"),
   ]);
   if (totalResult.error) throw friendlyError(totalResult.error);
@@ -204,6 +217,7 @@ export async function getPatient(patientId: string): Promise<Patient | null> {
     .from("patients")
     .select("*")
     .eq("id", patientId)
+    .is("deleted_at", null)
     .maybeSingle();
   if (error) throw friendlyError(error);
   return data as Patient | null;
@@ -220,6 +234,7 @@ export interface PatientInput {
   gender?: string | null;
   birth_date?: string | null;
   portal_access_enabled: boolean;
+  archived_at?: string | null;
 }
 
 export async function createPatient(input: PatientInput): Promise<Patient> {
@@ -272,6 +287,22 @@ export async function deactivatePatient(
 export async function archivePatient(patientId: string): Promise<Patient> {
   return updatePatient(patientId, {
     status: "archived",
+    archived_at: new Date().toISOString(),
+    deleted_at: null,
+  });
+}
+
+export async function restorePatient(patientId: string): Promise<Patient> {
+  return updatePatient(patientId, {
+    status: "active",
+    archived_at: null,
+    deleted_at: null,
+  });
+}
+
+export async function deletePatient(patientId: string): Promise<Patient> {
+  return updatePatient(patientId, {
+    status: "archived",
     deleted_at: new Date().toISOString(),
   });
 }
@@ -290,6 +321,7 @@ export async function listMeasurements(
 export async function createMeasurement(
   patientId: string,
   input: {
+    consultation_id?: string | null;
     weight_kg: number;
     height_cm: number;
     measured_at?: string;
@@ -332,11 +364,34 @@ export async function createConsultation(
     consultation_date: string;
     status: Consultation["status"];
     summary?: string | null;
+    consultation_type?: Consultation["consultation_type"];
+    sequence_number?: number;
   },
 ): Promise<Consultation> {
+  let sequenceNumber = input.sequence_number;
+  if (sequenceNumber === undefined) {
+    const { data: latest, error: latestError } = await supabase
+      .from("consultations")
+      .select("sequence_number")
+      .eq("patient_id", patientId)
+      .order("sequence_number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latestError) throw friendlyError(latestError);
+    sequenceNumber = latest?.sequence_number == null ? 0 : latest.sequence_number + 1;
+  }
+  const consultationType =
+    input.consultation_type ?? (sequenceNumber === 0 ? "initial" : "follow_up");
   const { data, error } = await supabase
     .from("consultations")
-    .insert({ patient_id: patientId, ...input })
+    .insert({
+      patient_id: patientId,
+      consultation_date: input.consultation_date,
+      status: input.status,
+      summary: input.summary ?? null,
+      consultation_type: consultationType,
+      sequence_number: sequenceNumber,
+    })
     .select("*")
     .single();
   return unwrap(data as Consultation, error);
@@ -351,6 +406,88 @@ export async function listNotes(
     .eq("patient_id", patientId)
     .order("updated_at", { ascending: false });
   return unwrap((data ?? []) as ConsultationNote[], error);
+}
+
+export async function listPatientNotes(patientId: string): Promise<PatientNote[]> {
+  const { data, error } = await supabase
+    .from("patient_notes")
+    .select("*")
+    .eq("patient_id", patientId)
+    .is("deleted_at", null)
+    .order("updated_at", { ascending: false });
+  return unwrap((data ?? []) as PatientNote[], error);
+}
+
+export async function createPatientNote(
+  patientId: string,
+  content: string,
+  consultationId?: string | null,
+): Promise<PatientNote> {
+  const { data, error } = await supabase
+    .from("patient_notes")
+    .insert({
+      patient_id: patientId,
+      consultation_id: consultationId ?? null,
+      content: content.trim(),
+    })
+    .select("*")
+    .single();
+  return unwrap(data as PatientNote, error);
+}
+
+export async function updatePatientNote(
+  noteId: string,
+  content: string,
+): Promise<PatientNote> {
+  const { data, error } = await supabase
+    .from("patient_notes")
+    .update({ content: content.trim() })
+    .eq("id", noteId)
+    .select("*")
+    .single();
+  return unwrap(data as PatientNote, error);
+}
+
+export async function deletePatientNote(noteId: string): Promise<void> {
+  const { error } = await supabase
+    .from("patient_notes")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", noteId);
+  if (error) throw friendlyError(error);
+}
+
+export async function listNutritionPlans(
+  patientId: string,
+): Promise<NutritionPlan[]> {
+  const { data, error } = await supabase
+    .from("nutrition_plans")
+    .select("*")
+    .eq("patient_id", patientId)
+    .order("assigned_at", { ascending: false });
+  return unwrap((data ?? []) as NutritionPlan[], error);
+}
+
+export async function listQuestionnaireSubmissions(
+  patientId: string,
+): Promise<QuestionnaireSubmission[]> {
+  const { data, error } = await supabase
+    .from("questionnaire_submissions")
+    .select("*")
+    .eq("patient_id", patientId)
+    .order("created_at", { ascending: false });
+  return unwrap((data ?? []) as QuestionnaireSubmission[], error);
+}
+
+export async function listQuestionnaireResponses(
+  submissionId: string,
+): Promise<QuestionnaireResponse[]> {
+  const { data, error } = await supabase
+    .from("questionnaire_responses")
+    .select("*")
+    .eq("submission_id", submissionId)
+    .order("section_key")
+    .order("question_key");
+  return unwrap((data ?? []) as QuestionnaireResponse[], error);
 }
 
 export async function upsertNote(

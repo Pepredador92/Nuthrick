@@ -147,15 +147,20 @@ export interface Patient {
   last_activity_at: string | null;
   created_at: string;
   updated_at: string;
+  archived_at: string | null;
   deleted_at: string | null;
   tags?: PatientTag[];
 }
 
 export interface PatientTag { id: string; professional_id: string; name: string; color: string; created_at: string; }
-export interface PatientMeasurement { id: string; professional_id: string; patient_id: string; measured_at: string; weight_kg: number; height_cm: number; bmi: number; ideal_weight_kg: number | null; ideal_weight_method: string | null; notes: string | null; created_at: string; }
-export interface Consultation { id: string; professional_id: string; patient_id: string; consultation_date: string; status: 'planned' | 'completed' | 'cancelled'; summary: string | null; created_at: string; updated_at: string; }
+export interface PatientMeasurement { id: string; professional_id: string; patient_id: string; consultation_id: string | null; measured_at: string; weight_kg: number; height_cm: number; bmi: number; ideal_weight_kg: number | null; ideal_weight_method: string | null; notes: string | null; created_at: string; }
+export interface Consultation { id: string; professional_id: string; patient_id: string; consultation_type: 'initial' | 'follow_up'; sequence_number: number; consultation_date: string; status: 'planned' | 'completed' | 'cancelled'; summary: string | null; created_at: string; updated_at: string; }
 export interface ConsultationNote { id: string; professional_id: string; consultation_id: string; patient_id: string; note: string; created_at: string; updated_at: string; }
 export interface PatientProgressPhoto { id: string; professional_id: string; patient_id: string; storage_path: string; captured_at: string; caption: string | null; created_at: string; signedUrl?: string; }
+export interface PatientNote { id: string; professional_id: string; patient_id: string; consultation_id: string | null; content: string; created_at: string; updated_at: string; deleted_at: string | null; }
+export interface QuestionnaireSubmission { id: string; professional_id: string; patient_id: string; consultation_id: string | null; questionnaire_type: 'initial' | 'follow_up'; version: number; status: 'draft' | 'completed'; submitted_at: string | null; created_at: string; updated_at: string; }
+export interface QuestionnaireResponse { id: string; professional_id: string; submission_id: string; section_key: string; question_key: string; value: unknown; created_at: string; updated_at: string; }
+export interface NutritionPlan { id: string; professional_id: string; patient_id: string; consultation_id: string | null; assigned_at: string; review_date: string | null; plan_type: string | null; category: string | null; target_calories: number | null; status: 'active' | 'archived'; created_at: string; updated_at: string; }
 
 export interface PublicProfileContent {
   slug: string;
