@@ -145,6 +145,18 @@ export async function updateTemplateSection(sectionId: string, patch: Partial<Pi
   fail(error, "No pudimos actualizar la sección.");
 }
 
+export async function swapTemplateQuestionOrder(first: ConsultationTemplateQuestion, second: ConsultationTemplateQuestion): Promise<void> {
+  await updateTemplateQuestion(first.id, { display_order: 999999 });
+  await updateTemplateQuestion(second.id, { display_order: first.display_order });
+  await updateTemplateQuestion(first.id, { display_order: second.display_order });
+}
+
+export async function swapTemplateSectionOrder(first: ConsultationTemplateSection, second: ConsultationTemplateSection): Promise<void> {
+  await updateTemplateSection(first.id, { display_order: 999999 });
+  await updateTemplateSection(second.id, { display_order: first.display_order });
+  await updateTemplateSection(first.id, { display_order: second.display_order });
+}
+
 export async function restoreSystemTemplate(type: Consultation["consultation_type"]): Promise<void> {
   const { error } = await supabase.from("consultation_templates").update({ is_default: false, is_active: false }).eq("consultation_type", type).eq("is_system", false).eq("is_default", true);
   fail(error, "No pudimos restaurar la plantilla predeterminada.");
