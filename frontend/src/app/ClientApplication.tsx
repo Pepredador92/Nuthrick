@@ -15,6 +15,8 @@ import { ProfilePage } from '@/src/screens/ProfilePage';
 import { PublicProfilePage } from '@/src/screens/PublicProfilePage';
 import { PatientsPage } from '@/src/screens/PatientsPage';
 import { PatientDetailPage } from '@/src/screens/PatientDetailPage';
+import { ConsultationPage } from '@/src/screens/ConsultationPage';
+import { ConsultationTemplateEditorPage } from '@/src/screens/ConsultationTemplateEditorPage';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -45,6 +47,8 @@ export function ClientApplication() {
               <Route path="patients" element={<PatientsPage />} />
               <Route path="patients/:patientId" element={<PatientDetailPage />} />
               <Route path="patients/:patientId/record" element={<PatientDetailPage recordMode />} />
+              <Route path="patients/:patientId/consultations/new" element={<ConsultationPage />} />
+              <Route path="consultation-templates/:consultationType" element={<ConsultationTemplateEditorPage />} />
             </Route>
           </Route>
           <Route path="/p/:slug" element={<PublicProfilePage />} />

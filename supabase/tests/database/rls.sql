@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(22);
+select plan(30);
 
 insert into auth.users (id, email)
 values
@@ -69,6 +69,30 @@ select lives_ok(
   $$insert into public.nutrition_plans (patient_id, plan_type)
     select id, 'Plan de prueba' from public.patients limit 1$$,
   'a professional can create a plan for their own patient'
+);
+
+select lives_ok(
+  $$insert into public.consultation_templates (professional_id, template_key, name, consultation_type, is_default)
+    values ('10000000-0000-4000-8000-000000000001', 'professional-one-initial-test', 'Plantilla privada', 'initial', true)$$,
+  'a professional can create a private consultation template'
+);
+
+select lives_ok(
+  $$insert into public.consultations (id, patient_id, consultation_type, sequence_number, status)
+    values ('40000000-0000-4000-8000-000000000004', '30000000-0000-4000-8000-000000000003', 'initial', 0, 'draft')$$,
+  'a professional can start a draft consultation'
+);
+
+select lives_ok(
+  $$insert into public.consultation_snapshots (professional_id, consultation_id, patient_id, template_name, template_version, structure)
+    values ('10000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000004', '30000000-0000-4000-8000-000000000003', 'Prueba', 1, '{"consultation_type":"initial","sections":[]}'::jsonb)$$,
+  'a professional can store an immutable snapshot for their draft'
+);
+
+select lives_ok(
+  $$insert into public.consultation_answers (professional_id, consultation_id, patient_id, question_key, section_key, response_area, value)
+    values ('10000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000004', '30000000-0000-4000-8000-000000000003', 'reason', 'motivo', 'patient_reported', '"prueba"'::jsonb)$$,
+  'a professional can store an answer in their draft'
 );
 
 reset role;
@@ -140,6 +164,26 @@ select is_empty(
 select is_empty(
   $$select id from public.nutrition_plans$$,
   'the second professional cannot see the first professional plans'
+);
+
+select is_empty(
+  $$select id from public.consultation_templates where is_system = false$$,
+  'the second professional cannot see the first professional private templates'
+);
+
+select is_empty(
+  $$select id from public.consultation_snapshots$$,
+  'the second professional cannot see the first professional consultation snapshots'
+);
+
+select is_empty(
+  $$select id from public.consultation_answers$$,
+  'the second professional cannot see the first professional consultation answers'
+);
+
+select is_empty(
+  $$update public.consultation_templates set name = 'Compromised' where is_system returning id$$,
+  'system templates are readable but immutable for professionals'
 );
 
 reset role;
