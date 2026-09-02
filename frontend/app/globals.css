@@ -20,6 +20,7 @@ body {
   min-width: 320px;
 }
 
+html, body { max-width: 100%; overflow-x: hidden; }
 html { scroll-behavior: smooth; }
 
 ::selection { background: #eec27c; color: #17312c; }
@@ -72,5 +73,6 @@ button:disabled { cursor: not-allowed; opacity: .72; }
   .nuth-input::placeholder { color: #a1aaa6; }
   .nuth-eyebrow { font-size: .72rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; color: #477363; }
   .nuth-heading { text-wrap: balance; font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1.06; font-weight: 650; letter-spacing: -.045em; }
-  .nuth-public-card { border: 1px solid #dfe5e1; border-radius: 1.65rem; background: white; padding: clamp(1.4rem, 4vw, 2rem); box-shadow: 0 8px 24px rgb(24 61 53 / 4%); }
+  .nuth-public-card { min-width: 0; max-width: 100%; overflow-wrap: anywhere; border: 1px solid #dfe5e1; border-radius: 1.65rem; background: white; padding: clamp(1.4rem, 4vw, 2rem); box-shadow: 0 8px 24px rgb(24 61 53 / 4%); }
+  .nuth-public-card :where(p, h1, h2, h3, li, a, span) { overflow-wrap: anywhere; }
 }
