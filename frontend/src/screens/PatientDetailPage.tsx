@@ -24,6 +24,7 @@ import { useAuth } from "@/src/features/auth/AuthProvider";
 import {
   calculateAge,
   formatPatientDate,
+  normalizePhone,
   patientInitials,
   patientStatusLabel,
 } from "@/src/features/patients/patientUtils";
@@ -69,6 +70,21 @@ const tabs = [
   "Crecimiento",
 ] as const;
 type Tab = (typeof tabs)[number];
+
+const patientCountries = [
+  ["+52", "México (+52)"],
+  ["+1", "Estados Unidos / Canadá (+1)"],
+  ["+34", "España (+34)"],
+  ["+57", "Colombia (+57)"],
+  ["+54", "Argentina (+54)"],
+] as const;
+const patientTimezones = [
+  "America/Mexico_City",
+  "America/Bogota",
+  "America/Santiago",
+  "Europe/Madrid",
+  "America/New_York",
+];
 
 const Placeholder = ({ title }: { title: string }) => (
   <div className="rounded-2xl border border-dashed border-[#ccd8cf] bg-white p-10 text-center">
@@ -206,12 +222,27 @@ export function PatientDetailPage({
   const save = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const email = String(form.get("email") || "").trim();
+    const localPhone = String(form.get("phone") || "").trim();
+    const countryCode = String(form.get("country_code") || "");
+    if (localPhone && localPhone.replace(/\D/g, "").length < 7) {
+      setError("Escribe un número de teléfono válido.");
+      return;
+    }
+    if (form.get("portal_access_enabled") && !email) {
+      setError("Para activar el portal necesitas un correo.");
+      return;
+    }
     await run(async () => {
       const value = await updatePatient(patient.id, {
-        full_name: String(form.get("full_name") || ""),
-        email: String(form.get("email") || "") || null,
+        full_name: String(form.get("full_name") || "").trim(),
+        email: email || null,
+        country_code: localPhone ? countryCode : null,
+        phone: localPhone ? normalizePhone(countryCode, localPhone) : null,
+        timezone: String(form.get("timezone") || patient.timezone),
         birth_date: String(form.get("birth_date") || "") || null,
         gender: String(form.get("gender") || "") || null,
+        portal_access_enabled: Boolean(form.get("portal_access_enabled")),
       });
       setPatient({ ...value, tags: assigned });
       setEditing(false);
@@ -425,6 +456,43 @@ export function PatientDetailPage({
                 defaultValue={patient.email ?? ""}
               />
             </Field>
+            <Field label="Lada" name="edit-country-code">
+              <select
+                name="country_code"
+                className="nuth-input"
+                defaultValue={patient.country_code ?? "+52"}
+              >
+                {patientCountries.map(([code, name]) => (
+                  <option key={code} value={code}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Teléfono" name="edit-phone">
+              <Input
+                name="phone"
+                type="tel"
+                inputMode="numeric"
+                defaultValue={
+                  patient.phone && patient.country_code
+                    ? patient.phone.slice(patient.country_code.length)
+                    : (patient.phone ?? "")
+                }
+                placeholder="5512345678"
+              />
+            </Field>
+            <Field label="Zona horaria" name="edit-timezone">
+              <select
+                name="timezone"
+                className="nuth-input"
+                defaultValue={patient.timezone}
+              >
+                {patientTimezones.map((timezone) => (
+                  <option key={timezone}>{timezone}</option>
+                ))}
+              </select>
+            </Field>
             <Field label="Fecha de nacimiento" name="edit-birth-date">
               <Input
                 name="birth_date"
@@ -446,6 +514,22 @@ export function PatientDetailPage({
               </select>
             </Field>
           </div>
+          <label className="mt-4 flex items-start gap-3 rounded-2xl bg-[#f3f7f3] p-4 text-sm">
+            <input
+              type="checkbox"
+              name="portal_access_enabled"
+              className="mt-1"
+              defaultChecked={patient.portal_access_enabled}
+            />
+            <span>
+              <span className="block font-semibold">
+                Permitir acceso al portal/app
+              </span>
+              <span className="mt-1 block text-xs leading-5 text-[#75827d]">
+                Requiere un correo electrónico para poder invitar al paciente.
+              </span>
+            </span>
+          </label>
           <div className="mt-4 flex gap-3">
             <button className="nuth-button" disabled={busy}>
               {busy ? (
