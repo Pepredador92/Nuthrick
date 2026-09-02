@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LoaderCircle,
   Plus,
@@ -16,6 +16,7 @@ import {
 } from "@/src/components/ui/Status";
 import {
   createPatient,
+  getPatientCounters,
   listPatientTags,
   listPatients,
 } from "@/src/services/patients";
@@ -23,6 +24,7 @@ import {
   calculateAge,
   formatPatientDate,
   normalizePhone,
+  patientStatusLabel,
 } from "@/src/features/patients/patientUtils";
 import type { Patient, PatientGender, PatientTag } from "@/src/types/domain";
 
@@ -330,7 +332,7 @@ function PatientRow({ patient }: { patient: Patient }) {
         <span
           className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${patient.status === "active" ? "bg-[#eaf5ee] text-[#3e7355]" : "bg-[#f1f2ef] text-[#78847f]"}`}
         >
-          {patient.status === "active" ? "Activo" : "Inactivo"}
+          {patientStatusLabel(patient.status)}
         </span>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
@@ -357,6 +359,14 @@ function PatientRow({ patient }: { patient: Patient }) {
             {formatPatientDate(patient.last_activity_at)}
           </dd>
         </div>
+        <div>
+          <dt>Último plan</dt>
+          <dd className="mt-1 font-semibold text-[#385a4e]">—</dd>
+        </div>
+        <div>
+          <dt>Cuestionario</dt>
+          <dd className="mt-1 font-semibold text-[#385a4e]">—</dd>
+        </div>
       </dl>
       <Link
         to={`/app/patients/${patient.id}`}
@@ -372,6 +382,8 @@ export function PatientsPage() {
   const [rows, setRows] = useState<Patient[]>([]);
   const [tags, setTags] = useState<PatientTag[]>([]);
   const [total, setTotal] = useState(0);
+  const [addedTotal, setAddedTotal] = useState(0);
+  const [activeTotal, setActiveTotal] = useState(0);
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [status, setStatus] = useState("active");
@@ -396,7 +408,7 @@ export function PatientsPage() {
     setLoading(true);
     setError("");
     try {
-      const [result, tagRows] = await Promise.all([
+      const [result, tagRows, counters] = await Promise.all([
         listPatients({
           search: debounced,
           status,
@@ -406,9 +418,12 @@ export function PatientsPage() {
           page,
         }),
         listPatientTags(),
+        getPatientCounters(),
       ]);
       setRows(result.rows);
       setTotal(result.total);
+      setAddedTotal(counters.total);
+      setActiveTotal(counters.active);
       setTags(tagRows);
     } catch (cause) {
       setError(
@@ -426,10 +441,6 @@ export function PatientsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debounced, status, portal, tagIds, sort, page]);
   const pages = Math.max(1, Math.ceil(total / 20));
-  const activeCount = useMemo(
-    () => rows.filter((patient) => patient.status === "active").length,
-    [rows],
-  );
   return (
     <div>
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
@@ -463,12 +474,12 @@ export function PatientsPage() {
           <p className="mt-1 text-sm text-white/60">Pacientes encontrados</p>
         </div>
         <div className="rounded-2xl border border-[#dfe5e1] bg-white p-5">
-          <p className="text-3xl font-semibold text-[#285647]">{activeCount}</p>
-          <p className="mt-1 text-sm text-[#718079]">Activos en esta página</p>
+          <p className="text-3xl font-semibold text-[#285647]">{addedTotal}</p>
+          <p className="mt-1 text-sm text-[#718079]">Agregados</p>
         </div>
         <div className="rounded-2xl border border-[#dfe5e1] bg-white p-5">
-          <p className="text-3xl font-semibold text-[#285647]">{tags.length}</p>
-          <p className="mt-1 text-sm text-[#718079]">Etiquetas disponibles</p>
+          <p className="text-3xl font-semibold text-[#285647]">{activeTotal}</p>
+          <p className="mt-1 text-sm text-[#718079]">Activos</p>
         </div>
       </section>
       <section className="mt-8 rounded-[24px] border border-[#dfe5e1] bg-white p-4 sm:p-5">
@@ -507,11 +518,14 @@ export function PatientsPage() {
             className="nuth-input"
             aria-label="Filtra por etiqueta(s)"
             multiple
-            size={1}
+            size={Math.min(4, Math.max(2, tags.length + 1))}
             value={tagIds}
             onChange={(e) => {
               setTagIds(
-                Array.from(e.target.selectedOptions, (option) => option.value),
+                Array.from(
+                  e.target.selectedOptions,
+                  (option) => option.value,
+                ).filter(Boolean),
               );
               setPage(0);
             }}

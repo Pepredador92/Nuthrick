@@ -19,6 +19,11 @@ export interface PatientListFilters {
   pageSize?: number;
 }
 
+export interface PatientCounters {
+  total: number;
+  active: number;
+}
+
 const unwrap = <T>(
   data: T,
   error: { message: string; code?: string } | null,
@@ -176,6 +181,22 @@ export async function listPatients(
     });
   }
   return { rows, total: count ?? 0 };
+}
+
+export async function getPatientCounters(): Promise<PatientCounters> {
+  const [totalResult, activeResult] = await Promise.all([
+    supabase.from("patients").select("id", { count: "exact", head: true }),
+    supabase
+      .from("patients")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "active"),
+  ]);
+  if (totalResult.error) throw friendlyError(totalResult.error);
+  if (activeResult.error) throw friendlyError(activeResult.error);
+  return {
+    total: totalResult.count ?? 0,
+    active: activeResult.count ?? 0,
+  };
 }
 
 export async function getPatient(patientId: string): Promise<Patient | null> {

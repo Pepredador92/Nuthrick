@@ -25,6 +25,7 @@ import {
   calculateAge,
   formatPatientDate,
   patientInitials,
+  patientStatusLabel,
 } from "@/src/features/patients/patientUtils";
 import {
   getSignedPatientPhotoUrl,
@@ -383,9 +384,7 @@ export function PatientDetailPage({
         </div>
         <div className="mt-6 flex flex-wrap gap-2">
           <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs">
-            {patient.status === "active"
-              ? "Paciente activo"
-              : "Paciente inactivo"}
+            Paciente {patientStatusLabel(patient.status).toLowerCase()}
           </span>
           {patient.portal_access_enabled && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs">
