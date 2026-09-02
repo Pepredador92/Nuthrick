@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronDown, LayoutDashboard, LogOut, Menu, PanelLeftClose, UserRound, UsersRound, X } from 'lucide-react';
+import { CalendarDays, ChevronDown, ClipboardList, LayoutDashboard, LogOut, Menu, PanelLeftClose, UserRound, UsersRound, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Logo } from '@/src/components/ui/Logo';
@@ -8,6 +8,7 @@ const nav = [
   { label: 'Dashboard', href: '/app', icon: LayoutDashboard, end: true },
   { label: 'Perfil', href: '/app/profile', icon: UserRound },
   { label: 'Pacientes', href: '/app/patients', icon: UsersRound },
+  { label: 'Plantillas', href: '/app/consultation-templates/initial', icon: ClipboardList },
 ];
 
 export function PrivateLayout() {
