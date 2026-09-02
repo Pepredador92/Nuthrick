@@ -127,6 +127,36 @@ export interface ProfileWorkspace {
   slots: AvailabilitySlot[];
 }
 
+export type PatientStatus = 'active' | 'inactive' | 'archived';
+export type PatientGender = 'female' | 'male' | 'non_binary' | 'prefer_not_to_say' | 'other';
+
+export interface Patient {
+  id: string;
+  professional_id: string;
+  full_name: string;
+  email: string | null;
+  country_code: string | null;
+  timezone: string;
+  phone: string | null;
+  weight_kg: number | null;
+  height_cm: number | null;
+  gender: PatientGender | null;
+  birth_date: string | null;
+  portal_access_enabled: boolean;
+  status: PatientStatus;
+  last_activity_at: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  tags?: PatientTag[];
+}
+
+export interface PatientTag { id: string; professional_id: string; name: string; color: string; created_at: string; }
+export interface PatientMeasurement { id: string; professional_id: string; patient_id: string; measured_at: string; weight_kg: number; height_cm: number; bmi: number; ideal_weight_kg: number | null; ideal_weight_method: string | null; notes: string | null; created_at: string; }
+export interface Consultation { id: string; professional_id: string; patient_id: string; consultation_date: string; status: 'planned' | 'completed' | 'cancelled'; summary: string | null; created_at: string; updated_at: string; }
+export interface ConsultationNote { id: string; professional_id: string; consultation_id: string; patient_id: string; note: string; created_at: string; updated_at: string; }
+export interface PatientProgressPhoto { id: string; professional_id: string; patient_id: string; storage_path: string; captured_at: string; caption: string | null; created_at: string; signedUrl?: string; }
+
 export interface PublicProfileContent {
   slug: string;
   name: string;

@@ -13,6 +13,13 @@
 | `professional_populations` | Relación N:M con poblaciones | `professional_id` |
 | `availability_settings` | Duración, zona IANA y horizonte en días | `professional_id` |
 | `availability_slots` | Rangos semanales normalizados | `professional_id` |
+| `patients` | Ficha privada y estado del paciente | `professional_id` |
+| `patient_tags` | Etiquetas propias del profesional | `professional_id` |
+| `patient_tag_assignments` | Relación N:M paciente-etiqueta | `professional_id` |
+| `patient_measurements` | Historial antropométrico con IMC generado | `professional_id` |
+| `consultations` | Historial de consultas | `professional_id` |
+| `consultation_notes` | Notas asociadas a una consulta | `professional_id` |
+| `patient_progress_photos` | Metadatos de fotos privadas | `professional_id` |
 
 Todas usan UUID, foreign keys y borrado en cascada desde el perfil. `updated_at` se mantiene con un trigger compartido.
 
@@ -53,3 +60,9 @@ Bucket privado `professional-media`:
 ```
 
 `storage_key` es distinto del ID de Auth. El bucket limita tamaño a 5 MiB y MIME a JPEG, PNG y WEBP. Las políticas también validan carpeta y extensión. Para visitantes anónimos, la ruta completa debe aparecer en la proyección pública; otros objetos del mismo namespace siguen siendo privados.
+
+Las fotos de progreso usan el bucket privado `patient-progress` con la ruta
+`{professional_id}/patients/{patient_id}/{archivo}`. Las políticas comprueban
+el profesional autenticado y que el paciente pertenezca a ese profesional.
+El IMC de `patient_measurements` es una columna generada; no se acepta como
+valor manual.

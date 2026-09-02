@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(10);
+select plan(16);
 
 insert into auth.users (id, email)
 values
@@ -31,6 +31,29 @@ select lives_ok(
 );
 
 select lives_ok(
+  $$insert into public.patients (full_name, email)
+    values ('Patient One', 'patient-one@nuthrick.test')$$,
+  'a professional can create their own patient'
+);
+
+select results_eq(
+  $$select full_name from public.patients$$,
+  $$values ('Patient One'::text)$$,
+  'a professional can only select their own patients'
+);
+
+select lives_ok(
+  $$insert into public.patient_tags (name) values ('Prospecto')$$,
+  'a professional can create their own tag'
+);
+
+select lives_ok(
+  $$insert into public.patient_measurements (patient_id, weight_kg, height_cm)
+    select id, 70, 175 from public.patients limit 1$$,
+  'a professional can create a measurement for their own patient'
+);
+
+select lives_ok(
   $$insert into public.professional_businesses (establishment_name)
     values ('Consultorio Uno')$$,
   'owner columns default to auth.uid()'
@@ -47,6 +70,11 @@ select results_eq(
 );
 
 select is_empty(
+  $$select id from public.patients$$,
+  'the second professional cannot see the first professional patients'
+);
+
+select is_empty(
   $$update public.professional_profiles
       set full_name = 'Compromised'
     where id = '10000000-0000-4000-8000-000000000001'
@@ -60,6 +88,14 @@ select throws_ok(
   '42501',
   null,
   'RLS rejects an insert that claims another owner'
+);
+
+select throws_ok(
+  $$insert into public.patient_measurements (professional_id, patient_id, weight_kg, height_cm)
+    values ('20000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', 70, 175)$$,
+  '23503',
+  null,
+  'cross-professional measurements are rejected'
 );
 
 select is_empty(

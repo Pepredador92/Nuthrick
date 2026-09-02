@@ -18,6 +18,12 @@ Cada tabla privada tiene RLS activo y políticas para `authenticated` que compar
 
 Las tablas tienen privilegios Data API explícitos. Esto es independiente de RLS: el GRANT permite llegar a la tabla y RLS decide qué filas se ven.
 
+El módulo de pacientes mantiene `professional_id` en cada relación privada,
+incluidas etiquetas, asignaciones, mediciones, consultas, notas y fotos. Las
+claves foráneas compuestas impiden asociar un paciente con etiquetas o
+consultas de otro profesional. La ruta manual `/app/patients/:patientId`
+devuelve una ficha no autorizada cuando RLS no expone la fila.
+
 Los catálogos son sólo lectura para usuarios autenticados. `public_professional_pages` es la única tabla legible por `anon`.
 
 ## Información pública
@@ -42,6 +48,10 @@ Las RPC de selección de catálogos usan `SECURITY INVOKER`. Derivan la cuenta d
 ## Storage
 
 El bucket es privado. Un usuario puede listar, firmar, insertar, actualizar y borrar únicamente su prefijo `storage_key`. La lectura anónima sólo permite operaciones de obtención/firma cuando la ruta exacta aparece como avatar, logotipo o imagen de galería en la proyección pública activa; no basta con conocer el prefijo y nunca se permite listar el bucket.
+
+Las fotos de progreso no forman parte de la proyección pública y viven en el
+bucket privado `patient-progress`; su política comprueba el prefijo del
+profesional y la pertenencia del `patient_id`.
 
 La interfaz y Storage validan MIME, extensión y límite de 5 MiB. El frontend nunca recibe una secret key ni `service_role`.
 

@@ -3,6 +3,7 @@ import { validateImage } from '@/src/lib/validation';
 import type { MediaCategory } from '@/src/types/domain';
 
 const BUCKET = 'professional-media';
+const PATIENT_BUCKET = 'patient-progress';
 
 export async function uploadProfessionalImage(
   file: File,
@@ -41,4 +42,19 @@ export async function getSignedMediaUrls(paths: string[]): Promise<Map<string, s
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(uniquePaths, 3600);
   if (error) return new Map();
   return new Map(data.flatMap((item) => item.signedUrl ? [[item.path ?? '', item.signedUrl] as const] : []));
+}
+
+export async function uploadPatientProgressPhoto(file: File, patientId: string, professionalId: string): Promise<string> {
+  const validationError = validateImage(file);
+  if (validationError) throw new Error(validationError);
+  const extension = file.type === 'image/jpeg' ? 'jpg' : file.type.split('/')[1];
+  const path = `${professionalId}/patients/${patientId}/progress-${crypto.randomUUID()}.${extension}`;
+  const { error } = await supabase.storage.from(PATIENT_BUCKET).upload(path, file, { contentType: file.type, cacheControl: '3600', upsert: false });
+  if (error) throw error;
+  return path;
+}
+
+export async function getSignedPatientPhotoUrl(path: string): Promise<string | null> {
+  const { data, error } = await supabase.storage.from(PATIENT_BUCKET).createSignedUrl(path, 3600);
+  return error ? null : data.signedUrl;
 }

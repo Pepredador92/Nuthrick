@@ -13,6 +13,8 @@ import { NotFoundPage } from '@/src/screens/NotFoundPage';
 import { OnboardingPage } from '@/src/screens/OnboardingPage';
 import { ProfilePage } from '@/src/screens/ProfilePage';
 import { PublicProfilePage } from '@/src/screens/PublicProfilePage';
+import { PatientsPage } from '@/src/screens/PatientsPage';
+import { PatientDetailPage } from '@/src/screens/PatientDetailPage';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -40,6 +42,9 @@ export function ClientApplication() {
             <Route path="/app" element={<PrivateLayout />}>
               <Route index element={<DashboardPage />} />
               <Route path="profile" element={<ProfilePage />} />
+              <Route path="patients" element={<PatientsPage />} />
+              <Route path="patients/:patientId" element={<PatientDetailPage />} />
+              <Route path="patients/:patientId/record" element={<PatientDetailPage defaultTab="Primera" />} />
             </Route>
           </Route>
           <Route path="/p/:slug" element={<PublicProfilePage />} />
