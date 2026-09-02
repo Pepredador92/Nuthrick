@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(16);
+select plan(18);
 
 insert into auth.users (id, email)
 values
@@ -31,8 +31,8 @@ select lives_ok(
 );
 
 select lives_ok(
-  $$insert into public.patients (full_name, email)
-    values ('Patient One', 'patient-one@nuthrick.test')$$,
+  $$insert into public.patients (id, full_name, email)
+    values ('30000000-0000-4000-8000-000000000003', 'Patient One', 'patient-one@nuthrick.test')$$,
   'a professional can create their own patient'
 );
 
@@ -72,6 +72,21 @@ select results_eq(
 select is_empty(
   $$select id from public.patients$$,
   'the second professional cannot see the first professional patients'
+);
+
+select is_empty(
+  $$update public.patients
+      set full_name = 'Compromised'
+    where id = '30000000-0000-4000-8000-000000000003'
+    returning id$$,
+  'the second professional cannot update the first patient'
+);
+
+select is_empty(
+  $$delete from public.patients
+    where id = '30000000-0000-4000-8000-000000000003'
+    returning id$$,
+  'the second professional cannot delete the first patient'
 );
 
 select is_empty(

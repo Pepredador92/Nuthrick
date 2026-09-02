@@ -595,9 +595,7 @@ export function PatientDetailPage({
                     type="button"
                     className="nuth-button-secondary justify-start"
                     onClick={() =>
-                      setNotice(
-                        "El expediente clínico detallado estará disponible próximamente.",
-                      )
+                      navigate(`/app/patients/${patient.id}/record`)
                     }
                   >
                     <FileText size={16} />
