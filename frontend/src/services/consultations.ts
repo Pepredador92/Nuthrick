@@ -157,6 +157,18 @@ export async function swapTemplateSectionOrder(first: ConsultationTemplateSectio
   await updateTemplateSection(first.id, { display_order: second.display_order });
 }
 
+export async function addTemplateSection(templateId: string, displayOrder: number): Promise<void> {
+  const key = `section-${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
+  const { error } = await supabase.from("consultation_template_sections").insert({ template_id: templateId, section_key: key, title: "Nueva sección", display_order: displayOrder, is_active: true });
+  fail(error, "No pudimos agregar la sección.");
+}
+
+export async function addTemplateQuestion(sectionId: string, displayOrder: number): Promise<void> {
+  const key = `question-${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
+  const { error } = await supabase.from("consultation_template_questions").insert({ section_id: sectionId, question_key: key, label: "Nueva pregunta", question_type: "long_text", response_area: "professional_assessment", display_order: displayOrder, is_active: true });
+  fail(error, "No pudimos agregar la pregunta.");
+}
+
 export async function restoreSystemTemplate(type: Consultation["consultation_type"]): Promise<void> {
   const { error } = await supabase.from("consultation_templates").update({ is_default: false, is_active: false }).eq("consultation_type", type).eq("is_system", false).eq("is_default", true);
   fail(error, "No pudimos restaurar la plantilla predeterminada.");
