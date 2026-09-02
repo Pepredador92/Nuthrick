@@ -46,7 +46,7 @@ export function ExtrasSection({ workspace, onSaved }: SectionProps) {
   useEffect(() => { let active = true; void Promise.all(workspace.images.map(async (image) => [image.id, await getSignedMediaUrl(image.storage_path)] as const)).then((pairs) => { if (active) setImageUrls(Object.fromEntries(pairs.filter((pair): pair is readonly [string,string] => Boolean(pair[1])))); }); return () => { active = false; }; }, [workspace.images]);
   const toggle = (ids: string[], id: string, setter: (next: string[]) => void) => setter(ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id]);
   const normalizedSearch = conditionSearch.trim().toLocaleLowerCase();
-  const suggestions = workspace.conditions.filter((item) => !conditionIds.includes(item.id) && (!normalizedSearch || item.name.toLocaleLowerCase().includes(normalizedSearch))).slice(0, 8);
+  const suggestions = normalizedSearch ? workspace.conditions.filter((item) => !conditionIds.includes(item.id) && item.name.toLocaleLowerCase().includes(normalizedSearch)).slice(0, 8) : [];
   const addCondition = (rawValue: string) => {
     const label = rawValue.trim().replace(/\s+/g, ' ').replace(/[;,]+$/, '').slice(0, 80);
     if (label.length < 2) return;
