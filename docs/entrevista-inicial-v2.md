@@ -78,6 +78,17 @@ La captura de recordatorio incorpora pasos de entrevista descritos por
 [USDA AMPM](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/food-surveys-research-group/docs/ampm-usda-automated-multiple-pass-method/),
 sin presentarse como implementación validada o equivalente al instrumento USDA.
 
+## Comprobación del servidor publicado
+
+Se detectó un HTTP 500 posterior a una compilación exitosa. Se reprodujo un fallo
+de interoperabilidad de `tslib` al empaquetar Supabase (`__extends` sobre un
+`default` indefinido), coincidente con el
+[reporte de Rolldown](https://github.com/rolldown/rolldown/issues/10360).
+Se fija la entrada ESM de `tslib` y se empaquetan las dependencias de forma
+consistente. `NITRO_PRESET=vercel npm run build` ahora ejecuta el handler compilado
+en `/`, `/login` y `/app/consultation-templates/initial`; falla si recibe HTTP 500
+o una página de error. No inicia sesiones ni escribe datos clínicos.
+
 ## Avisos previos, no introducidos por esta entrega
 
 El asesor de seguridad sigue indicando que la
