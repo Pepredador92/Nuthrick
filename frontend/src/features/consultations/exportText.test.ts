@@ -47,8 +47,17 @@ describe("consultationTextExport", () => {
         },
       } as never,
       { reason: "Mejorar digestión" },
+      {
+        fullName: "Dra. Sofía Nutrióloga",
+        professionalTitle: "Nutrióloga clínica",
+        licenseNumber: "1234567",
+        businessName: "Consulta Nutricional",
+        contactLines: ["WhatsApp: +52 5555555555"],
+      },
     );
     expect(text).toContain("Ana Paciente");
+    expect(text).toContain("Dra. Sofía Nutrióloga · Nutrióloga clínica");
+    expect(text).toContain("Cédula profesional: 1234567");
     expect(text).toContain("¿Qué te trae hoy?: Mejorar digestión");
     expect(text).not.toContain("Oculta");
   });

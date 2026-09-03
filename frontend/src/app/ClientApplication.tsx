@@ -67,10 +67,6 @@ export function ClientApplication() {
                 element={<PatientDetailPage />}
               />
               <Route
-                path="patients/:patientId/record"
-                element={<PatientDetailPage recordMode />}
-              />
-              <Route
                 path="patients/:patientId/consultations/new"
                 element={<ConsultationPage />}
               />

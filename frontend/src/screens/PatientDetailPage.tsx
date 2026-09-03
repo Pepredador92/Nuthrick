@@ -13,7 +13,6 @@ import {
   RotateCcw,
   ShieldCheck,
   Trash2,
-  UserRound,
   X,
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -65,13 +64,17 @@ import {
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
 import {
   consultationTextExport,
+  downloadConsultationPdf,
   downloadConsultationText,
+  type ProfessionalDocumentInfo,
 } from "@/src/features/consultations/exportText";
 import {
   deleteConsultationRecord,
   getSnapshot,
   listAnswers,
 } from "@/src/services/consultations";
+import { getSignedMediaUrl } from "@/src/services/media";
+import { loadProfessionalDocumentProfile } from "@/src/services/profile";
 import type {
   Consultation,
   NutritionPlan,
@@ -185,6 +188,7 @@ function ConsultationDetail({
   responses,
   onEdit,
   onExport,
+  onExportPdf,
   onDelete,
 }: {
   consultation: Consultation | null;
@@ -193,6 +197,7 @@ function ConsultationDetail({
   responses: Record<string, QuestionnaireResponse[]>;
   onEdit: (consultation: Consultation) => void;
   onExport: (consultation: Consultation) => void;
+  onExportPdf: (consultation: Consultation) => void;
   onDelete: (consultation: Consultation) => void;
 }) {
   if (!consultation)
@@ -236,6 +241,14 @@ function ConsultationDetail({
             >
               <FileText size={14} />
               Exportar .txt
+            </button>
+            <button
+              type="button"
+              className="nuth-button-secondary !px-3 !py-2 !text-xs"
+              onClick={() => onExportPdf(consultation)}
+            >
+              <FileText size={14} />
+              Exportar PDF
             </button>
             <button
               type="button"
@@ -349,6 +362,7 @@ function HistoryModal({
   onDeleteNote,
   onEditConsultation,
   onExportConsultation,
+  onExportConsultationPdf,
   onDeleteConsultation,
 }: {
   tab: HistoryTab;
@@ -369,6 +383,7 @@ function HistoryModal({
   onDeleteNote: (note: PatientNote) => void;
   onEditConsultation: (consultation: Consultation) => void;
   onExportConsultation: (consultation: Consultation) => void;
+  onExportConsultationPdf: (consultation: Consultation) => void;
   onDeleteConsultation: (consultation: Consultation) => void;
 }) {
   const selectedConsultation =
@@ -509,6 +524,7 @@ function HistoryModal({
                 responses={responses}
                 onEdit={onEditConsultation}
                 onExport={onExportConsultation}
+                onExportPdf={onExportConsultationPdf}
                 onDelete={onDeleteConsultation}
               />
             </div>
@@ -861,11 +877,7 @@ function RecentConsultations({
   );
 }
 
-export function PatientDetailPage({
-  recordMode = false,
-}: {
-  recordMode?: boolean;
-}) {
+export function PatientDetailPage() {
   const { patientId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -884,7 +896,7 @@ export function PatientDetailPage({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [editing, setEditing] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(recordMode);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [historyTab, setHistoryTab] = useState<HistoryTab>("consultations");
   const [selectedConsultationId, setSelectedConsultationId] = useState<
     string | null
@@ -1040,6 +1052,24 @@ export function PatientDetailPage({
   const editConsultation = (consultation: Consultation) => {
     navigate(`/app/patients/${patient.id}/consultations/${consultation.id}`);
   };
+  const professionalDocumentInfo =
+    async (): Promise<ProfessionalDocumentInfo> => {
+      if (!user) throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
+      const workspace = await loadProfessionalDocumentProfile(user.id);
+      const contacts = workspace.contacts.map((contact) =>
+        contact.contact_type === "phone"
+          ? `${contact.label ? `${contact.label}: ` : ""}${contact.country_code ?? ""} ${contact.contact_value}`.trim()
+          : `${contact.label ? `${contact.label}: ` : ""}${contact.contact_value}`,
+      );
+      return {
+        fullName: workspace.profile.full_name,
+        professionalTitle: workspace.profile.professional_title,
+        licenseNumber: workspace.profile.license_number,
+        businessName: workspace.business?.establishment_name,
+        contactLines: contacts,
+        logoUrl: await getSignedMediaUrl(workspace.business?.logo_path),
+      };
+    };
   const exportConsultation = async (consultation: Consultation) => {
     await run(async () => {
       const snapshot = await getSnapshot(consultation.id);
@@ -1052,11 +1082,40 @@ export function PatientDetailPage({
         answers.map((answer) => [answer.question_key, answer.value]),
       );
       const filename = `nuthrick-${patient.full_name.toLowerCase().replace(/[^a-z0-9]+/gi, "-")}-${consultation.id.slice(0, 8)}.txt`;
+      const professional = await professionalDocumentInfo();
       downloadConsultationText(
         filename,
-        consultationTextExport(patient, consultation, snapshot, values),
+        consultationTextExport(
+          patient,
+          consultation,
+          snapshot,
+          values,
+          professional,
+        ),
       );
     }, "Documento de texto preparado.");
+  };
+  const exportConsultationPdf = async (consultation: Consultation) => {
+    await run(async () => {
+      const snapshot = await getSnapshot(consultation.id);
+      if (!snapshot)
+        throw new Error(
+          "Esta consulta aún no tiene un cuestionario para exportar.",
+        );
+      const answers = await listAnswers(consultation.id, snapshot.revision);
+      const values = Object.fromEntries(
+        answers.map((answer) => [answer.question_key, answer.value]),
+      );
+      const filename = `nuthrick-${patient.full_name.toLowerCase().replace(/[^a-z0-9]+/gi, "-")}-${consultation.id.slice(0, 8)}.pdf`;
+      await downloadConsultationPdf(
+        filename,
+        patient,
+        consultation,
+        snapshot,
+        values,
+        await professionalDocumentInfo(),
+      );
+    }, "PDF preparado.");
   };
   const deleteConsultation = async () => {
     if (!confirm?.consultation) return;
@@ -1403,277 +1462,210 @@ export function PatientDetailPage({
           </div>
         </form>
       )}
-      {recordMode ? (
-        <section className="mt-6 rounded-2xl border border-[#dfe5e1] bg-white p-8">
-          <div className="flex items-center gap-3">
-            <FileText className="text-[#3d705d]" />
-            <div>
-              <h2 className="text-2xl font-semibold">Expediente clínico</h2>
-              <p className="mt-1 text-sm text-[#74817d]">
-                Este espacio queda preparado para integrar antecedentes,
-                historia clínica, cuestionarios, consultas, medidas, notas y
-                planes.
-              </p>
+      <div className="mt-6 grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+        <aside className="space-y-5">
+          <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5">
+            <h2 className="text-lg font-semibold">Información del paciente</h2>
+            <dl className="mt-4 space-y-3 text-sm">
+              <div>
+                <dt className="text-xs text-[#82908a]">Correo</dt>
+                <dd className="mt-1 break-words font-semibold">
+                  {patient.email || "No indicado"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[#82908a]">Teléfono</dt>
+                <dd className="mt-1 font-semibold">
+                  {patient.phone || "No indicado"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[#82908a]">Nacimiento</dt>
+                <dd className="mt-1 font-semibold">
+                  {patient.birth_date
+                    ? formatPatientDate(patient.birth_date)
+                    : "No indicada"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[#82908a]">Género</dt>
+                <dd className="mt-1 font-semibold">{genderLabel}</dd>
+              </div>
+            </dl>
+          </section>
+          <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5">
+            <h2 className="text-lg font-semibold">Etiquetas</h2>
+            <p className="mt-1 text-xs leading-5 text-[#74817d]">
+              Usa etiquetas para organizar y encontrar pacientes rápidamente.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {tags.map((tag) => (
+                <button
+                  type="button"
+                  key={tag.id}
+                  onClick={() => void toggleTag(tag)}
+                  className={
+                    assigned.some((item) => item.id === tag.id)
+                      ? "rounded-full bg-[#dcece1] px-3 py-1.5 text-xs font-semibold text-[#285647]"
+                      : "rounded-full bg-[#f3f5f2] px-3 py-1.5 text-xs font-semibold text-[#87938e]"
+                  }
+                >
+                  {assigned.some((item) => item.id === tag.id) ? "✓ " : ""}
+                  {tag.name}
+                </button>
+              ))}
             </div>
-          </div>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-xl bg-[#f5f7f3] p-4">
-              <p className="text-xs uppercase tracking-wide text-[#82908a]">
-                Datos personales
-              </p>
-              <p className="mt-2 font-semibold">{patient.full_name}</p>
-              <p className="mt-1 text-sm text-[#74817d]">
-                {patient.email || "Sin correo"} · {genderLabel}
-              </p>
-            </div>
-            <div className="rounded-xl bg-[#f5f7f3] p-4">
-              <p className="text-xs uppercase tracking-wide text-[#82908a]">
-                Historial disponible
-              </p>
-              <p className="mt-2 font-semibold">
-                {consultations.length} consultas · {measurements.length}{" "}
-                mediciones
-              </p>
+            <form className="mt-4 flex gap-2" onSubmit={addTag}>
+              <Input
+                name="tag"
+                aria-label="Nueva etiqueta"
+                placeholder="Nueva etiqueta"
+              />
+              <button
+                className="nuth-button !px-3"
+                aria-label="Agregar etiqueta"
+              >
+                <Plus size={16} />
+              </button>
+            </form>
+          </section>
+          <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5">
+            <h2 className="text-lg font-semibold">Acciones</h2>
+            <div className="mt-4 grid gap-2">
               <button
                 type="button"
-                className="mt-3 text-sm font-semibold text-[#3d705d]"
+                className="nuth-button-secondary justify-start"
+                onClick={() =>
+                  navigate(`/app/patients/${patient.id}/consultations/new`)
+                }
+              >
+                <CalendarPlus size={16} />
+                Nueva consulta
+              </button>
+              <button
+                type="button"
+                className="nuth-button-secondary justify-start"
                 onClick={() => openHistory("consultations")}
               >
-                Abrir historial →
+                <FileText size={16} />
+                Ver historial
+              </button>
+              <button
+                type="button"
+                className="nuth-button-secondary justify-start"
+                onClick={() =>
+                  setNotice("Mensajería estará disponible próximamente.")
+                }
+              >
+                <MessageCircle size={16} />
+                Enviar mensaje
+              </button>
+              <button
+                type="button"
+                className="nuth-button-secondary justify-start"
+                onClick={() =>
+                  setNotice("El calendario estará disponible próximamente.")
+                }
+              >
+                <CalendarPlus size={16} />
+                Ver calendario
+              </button>
+              {patient.status === "archived" ? (
+                <button
+                  type="button"
+                  className="nuth-button-secondary justify-start"
+                  onClick={() => void restore()}
+                >
+                  <RotateCcw size={16} />
+                  Restaurar paciente
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="nuth-button-secondary justify-start"
+                  onClick={() => setConfirm({ action: "archive" })}
+                >
+                  <Archive size={16} />
+                  Archivar paciente
+                </button>
+              )}
+              <button
+                type="button"
+                className="justify-start rounded-xl px-3 py-2 text-left text-sm font-semibold text-[#9b493a]"
+                onClick={() => setConfirm({ action: "delete" })}
+              >
+                <Trash2 size={16} />
+                Eliminar paciente
               </button>
             </div>
-          </div>
-        </section>
-      ) : (
-        <div className="mt-6 grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
-          <aside className="space-y-5">
-            <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5">
-              <h2 className="text-lg font-semibold">
-                Información del paciente
-              </h2>
-              <dl className="mt-4 space-y-3 text-sm">
-                <div>
-                  <dt className="text-xs text-[#82908a]">Correo</dt>
-                  <dd className="mt-1 break-words font-semibold">
-                    {patient.email || "No indicado"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-[#82908a]">Teléfono</dt>
-                  <dd className="mt-1 font-semibold">
-                    {patient.phone || "No indicado"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-[#82908a]">Nacimiento</dt>
-                  <dd className="mt-1 font-semibold">
-                    {patient.birth_date
-                      ? formatPatientDate(patient.birth_date)
-                      : "No indicada"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-[#82908a]">Género</dt>
-                  <dd className="mt-1 font-semibold">{genderLabel}</dd>
-                </div>
-              </dl>
-            </section>
-            <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5">
-              <h2 className="text-lg font-semibold">Etiquetas</h2>
-              <p className="mt-1 text-xs leading-5 text-[#74817d]">
-                Usa etiquetas para organizar y encontrar pacientes rápidamente.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {tags.map((tag) => (
-                  <button
-                    type="button"
-                    key={tag.id}
-                    onClick={() => void toggleTag(tag)}
-                    className={
-                      assigned.some((item) => item.id === tag.id)
-                        ? "rounded-full bg-[#dcece1] px-3 py-1.5 text-xs font-semibold text-[#285647]"
-                        : "rounded-full bg-[#f3f5f2] px-3 py-1.5 text-xs font-semibold text-[#87938e]"
-                    }
-                  >
-                    {assigned.some((item) => item.id === tag.id) ? "✓ " : ""}
-                    {tag.name}
-                  </button>
-                ))}
+          </section>
+        </aside>
+        <main className="min-w-0 space-y-5">
+          <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-6">
+            <PatientEvolutionChart measurements={measurements} compact />
+          </section>
+          <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold">Consultas recientes</h2>
+                <p className="mt-1 text-sm text-[#74817d]">
+                  Una vista rápida de tu seguimiento.
+                </p>
               </div>
-              <form className="mt-4 flex gap-2" onSubmit={addTag}>
-                <Input
-                  name="tag"
-                  aria-label="Nueva etiqueta"
-                  placeholder="Nueva etiqueta"
+              <button
+                type="button"
+                className="nuth-button-secondary"
+                onClick={() => openHistory("consultations")}
+              >
+                Ver historial
+              </button>
+            </div>
+            <RecentConsultations
+              consultations={consultations}
+              onOpen={(id) => {
+                setSelectedConsultationId(id);
+                openHistory("consultations");
+              }}
+            />
+          </section>
+          <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold">Fotos de progreso</h2>
+                <p className="mt-1 text-sm text-[#74817d]">
+                  Privadas y accesibles sólo desde tu espacio.
+                </p>
+              </div>
+              <label className="nuth-button cursor-pointer">
+                {photoBusy ? "Subiendo…" : "Subir foto"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  onChange={(event) => void uploadPhoto(event)}
                 />
-                <button
-                  className="nuth-button !px-3"
-                  aria-label="Agregar etiqueta"
-                >
-                  <Plus size={16} />
-                </button>
-              </form>
-            </section>
-            <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5">
-              <h2 className="text-lg font-semibold">Acciones</h2>
-              <div className="mt-4 grid gap-2">
-                <button
-                  type="button"
-                  className="nuth-button-secondary justify-start"
-                  onClick={() =>
-                    navigate(`/app/patients/${patient.id}/consultations/new`)
-                  }
-                >
-                  <CalendarPlus size={16} />
-                  Nueva consulta
-                </button>
-                <button
-                  type="button"
-                  className="nuth-button-secondary justify-start"
-                  onClick={() => openHistory("consultations")}
-                >
-                  <FileText size={16} />
-                  Ver historial
-                </button>
-                <button
-                  type="button"
-                  className="nuth-button-secondary justify-start"
-                  onClick={() =>
-                    navigate("/app/patients/" + patient.id + "/record")
-                  }
-                >
-                  <FileText size={16} />
-                  Ver expediente
-                </button>
-                <button
-                  type="button"
-                  className="nuth-button-secondary justify-start"
-                  onClick={() =>
-                    setNotice(
-                      "La transferencia de pacientes estará disponible próximamente.",
-                    )
-                  }
-                >
-                  <UserRound size={16} />
-                  Transferir paciente
-                </button>
-                <button
-                  type="button"
-                  className="nuth-button-secondary justify-start"
-                  onClick={() =>
-                    setNotice("Mensajería estará disponible próximamente.")
-                  }
-                >
-                  <MessageCircle size={16} />
-                  Enviar mensaje
-                </button>
-                <button
-                  type="button"
-                  className="nuth-button-secondary justify-start"
-                  onClick={() =>
-                    setNotice("El calendario estará disponible próximamente.")
-                  }
-                >
-                  <CalendarPlus size={16} />
-                  Ver calendario
-                </button>
-                {patient.status === "archived" ? (
-                  <button
-                    type="button"
-                    className="nuth-button-secondary justify-start"
-                    onClick={() => void restore()}
-                  >
-                    <RotateCcw size={16} />
-                    Restaurar paciente
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="nuth-button-secondary justify-start"
-                    onClick={() => setConfirm({ action: "archive" })}
-                  >
-                    <Archive size={16} />
-                    Archivar paciente
-                  </button>
+              </label>
+            </div>
+            {photos.length ? (
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {photos.map(
+                  (photo) =>
+                    photo.signedUrl && (
+                      <img
+                        key={photo.id}
+                        src={photo.signedUrl}
+                        alt={photo.caption || "Foto de progreso"}
+                        className="aspect-square rounded-2xl object-cover"
+                      />
+                    ),
                 )}
-                <button
-                  type="button"
-                  className="justify-start rounded-xl px-3 py-2 text-left text-sm font-semibold text-[#9b493a]"
-                  onClick={() => setConfirm({ action: "delete" })}
-                >
-                  <Trash2 size={16} />
-                  Eliminar paciente
-                </button>
               </div>
-            </section>
-          </aside>
-          <main className="min-w-0 space-y-5">
-            <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-6">
-              <PatientEvolutionChart measurements={measurements} compact />
-            </section>
-            <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-semibold">Consultas recientes</h2>
-                  <p className="mt-1 text-sm text-[#74817d]">
-                    Una vista rápida de tu seguimiento.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="nuth-button-secondary"
-                  onClick={() => openHistory("consultations")}
-                >
-                  Ver historial
-                </button>
-              </div>
-              <RecentConsultations
-                consultations={consultations}
-                onOpen={(id) => {
-                  setSelectedConsultationId(id);
-                  openHistory("consultations");
-                }}
-              />
-            </section>
-            <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-semibold">Fotos de progreso</h2>
-                  <p className="mt-1 text-sm text-[#74817d]">
-                    Privadas y accesibles sólo desde tu espacio.
-                  </p>
-                </div>
-                <label className="nuth-button cursor-pointer">
-                  {photoBusy ? "Subiendo…" : "Subir foto"}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="sr-only"
-                    onChange={(event) => void uploadPhoto(event)}
-                  />
-                </label>
-              </div>
-              {photos.length ? (
-                <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {photos.map(
-                    (photo) =>
-                      photo.signedUrl && (
-                        <img
-                          key={photo.id}
-                          src={photo.signedUrl}
-                          alt={photo.caption || "Foto de progreso"}
-                          className="aspect-square rounded-2xl object-cover"
-                        />
-                      ),
-                  )}
-                </div>
-              ) : (
-                <p className="mt-4 text-sm text-[#74817d]">Aún no hay fotos.</p>
-              )}
-            </section>
-          </main>
-        </div>
-      )}
+            ) : (
+              <p className="mt-4 text-sm text-[#74817d]">Aún no hay fotos.</p>
+            )}
+          </section>
+        </main>
+      </div>
       {historyOpen && (
         <HistoryModal
           tab={historyTab}
@@ -1695,6 +1687,9 @@ export function PatientDetailPage({
           onEditConsultation={editConsultation}
           onExportConsultation={(consultation) =>
             void exportConsultation(consultation)
+          }
+          onExportConsultationPdf={(consultation) =>
+            void exportConsultationPdf(consultation)
           }
           onDeleteConsultation={(consultation) =>
             setConfirm({ action: "consultation-delete", consultation })
