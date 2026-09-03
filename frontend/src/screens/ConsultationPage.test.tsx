@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   save: vi.fn(),
   finish: vi.fn(),
   adopt: vi.fn(),
+  cancel: vi.fn(),
 }));
 const fixtures = vi.hoisted(() => {
   const c = {
@@ -72,6 +73,8 @@ const fixtures = vi.hoisted(() => {
         name: "Entrevista",
         version: 2,
         is_system: true,
+        template_key: "system_initial_v2",
+        consultation_type: "initial",
       },
       sections: [],
       questions: [],
@@ -87,25 +90,44 @@ vi.mock("@/src/services/consultations", () => ({
   loadSystemTemplate: async () => fixtures.template,
   ensureSnapshot: async () => fixtures.snapshot,
   getSnapshot: async () => fixtures.snapshot,
-  listAvailableSystemTemplates: async () => [fixtures.template],
+  listAvailableSystemTemplates: async (type: string) =>
+    type === "initial"
+      ? [fixtures.template]
+      : [
+          {
+            ...fixtures.template,
+            template: {
+              ...fixtures.template.template,
+              id: "follow-up-template",
+              name: "Seguimiento",
+              template_key: "system_follow_up_v1",
+              consultation_type: "follow_up",
+            },
+          },
+        ],
   loadTemplateById: async () => fixtures.template,
   reopenConsultationForEdit: async () => fixtures.c,
   beginConsultation: async () => fixtures.c,
   listAnswers: async () => [],
   saveAnswers: mocks.save,
   finishConsultation: mocks.finish,
+  cancelConsultationDraft: mocks.cancel,
   adoptTemplate: mocks.adopt,
 }));
 vi.mock("@/src/components/consultations/SnapshotHistory", () => ({
   SnapshotHistory: () => null,
 }));
 
-const mount = () =>
+const mount = (entry = "/app/patients/patient/consultations/draft") =>
   render(
-    <MemoryRouter initialEntries={["/app/patients/patient/consultations/new"]}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route
           path="/app/patients/:patientId/consultations/new"
+          element={<ConsultationPage />}
+        />
+        <Route
+          path="/app/patients/:patientId/consultations/:consultationId"
           element={<ConsultationPage />}
         />
         <Route path="/app/patients/patient" element={<h1>Ficha guardada</h1>} />
@@ -116,10 +138,33 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.save.mockResolvedValue(undefined);
   mocks.finish.mockResolvedValue(fixtures.c);
+  mocks.cancel.mockResolvedValue({ ...fixtures.c, status: "cancelled" });
   vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
 });
 
 describe("consultation save and review workflow", () => {
+  it("shows every template and lets the professional cancel an open draft before starting another", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    mount("/app/patients/patient/consultations/new");
+    await screen.findByRole("heading", {
+      name: "Elige el tipo de entrevista",
+    });
+    expect(screen.getByText("Tienes un borrador abierto")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Entrevista/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Seguimiento/ })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar borrador" }));
+    await waitFor(() => expect(mocks.cancel).toHaveBeenCalledWith("draft"));
+    expect(confirm).toHaveBeenCalledOnce();
+    const initialInterview = screen.getByRole("button", {
+      name: /^Entrevista/,
+    });
+    expect(initialInterview).toBeEnabled();
+    expect(screen.getByRole("button", { name: /^Seguimiento/ })).toBeEnabled();
+    fireEvent.click(initialInterview);
+    expect(
+      await screen.findByRole("heading", { name: "Apertura de prueba" }),
+    ).toBeInTheDocument();
+  });
   it("saves the most recent keystroke before changing sections", async () => {
     mount();
     await screen.findByRole("heading", { name: "Apertura de prueba" });
@@ -134,9 +179,9 @@ describe("consultation save and review workflow", () => {
       { note: "Respuesta recién escrita" },
     );
     fireEvent.click(screen.getByRole("button", { name: "Anterior" }));
-    expect(await screen.findByLabelText(/detalle breve de prueba/i)).toHaveValue(
-      "Respuesta recién escrita",
-    );
+    expect(
+      await screen.findByLabelText(/detalle breve de prueba/i),
+    ).toHaveValue("Respuesta recién escrita");
   });
   it("keeps answers on screen and stops navigation after a failed save", async () => {
     mocks.save.mockRejectedValue(new Error("Sin conexión. Vuelve a intentar."));

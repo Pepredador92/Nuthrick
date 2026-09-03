@@ -273,6 +273,20 @@ export async function finishConsultation(
   return data as Consultation;
 }
 
+export async function cancelConsultationDraft(
+  consultationId: string,
+): Promise<Consultation> {
+  const { data, error } = await supabase
+    .from("consultations")
+    .update({ status: "cancelled" })
+    .eq("id", consultationId)
+    .eq("status", "draft")
+    .select("*")
+    .single();
+  fail(error, "No pudimos cancelar el borrador.");
+  return data as Consultation;
+}
+
 export async function reopenConsultationForEdit(
   consultationId: string,
 ): Promise<Consultation> {

@@ -30,6 +30,7 @@ import { getPatient, listConsultations } from "@/src/services/patients";
 import {
   adoptTemplate,
   beginConsultation,
+  cancelConsultationDraft,
   ensureSnapshot,
   finishConsultation,
   getSnapshot,
@@ -86,6 +87,7 @@ export function ConsultationPage() {
   const [availableTemplates, setAvailableTemplates] = useState<
     LoadedTemplate[]
   >([]);
+  const [openDrafts, setOpenDrafts] = useState<Consultation[]>([]);
   const [values, setValues] = useState<Answers>({});
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -105,7 +107,7 @@ export function ConsultationPage() {
   const closed = useRef(false);
 
   const load = useCallback(
-    async (chosenTemplate?: LoadedTemplate) => {
+    async (chosenTemplate?: LoadedTemplate, resumeDraftId?: string) => {
       if (!patientId) return;
       setLoading(true);
       setError("");
@@ -125,29 +127,24 @@ export function ConsultationPage() {
           throw new Error(
             "No encontramos esta consulta o no tienes autorización para verla.",
           );
+        const drafts = history.filter((item) => item.status === "draft");
         const existingDraft =
           requestedConsultation ??
-          history.find((item) => item.status === "draft");
-        if (!existingDraft && !chosenTemplate) {
+          drafts.find((item) => item.id === resumeDraftId);
+        if (!consultationId && !chosenTemplate && !resumeDraftId) {
           const templates = (
             await Promise.all([
               listAvailableSystemTemplates("initial"),
               listAvailableSystemTemplates("follow_up"),
             ])
-          )
-            .flat()
-            .filter((item) =>
-              [
-                "system_initial_v2",
-                "system_initial_brief_v1",
-                "system_follow_up_v1",
-                "system_follow_up_brief_v1",
-              ].includes(item.template.template_key),
-            );
+          ).flat();
           setPatient(loadedPatient);
           setAvailableTemplates(templates);
+          setOpenDrafts(drafts);
           return;
         }
+        if (!existingDraft && !chosenTemplate)
+          throw new Error("Elige una plantilla para iniciar la consulta.");
         const type: Consultation["consultation_type"] =
           existingDraft?.consultation_type ??
           chosenTemplate!.template.consultation_type;
@@ -387,6 +384,33 @@ export function ConsultationPage() {
       setBusy(false);
     }
   };
+  const cancelOpenDraft = async (draft: Consultation) => {
+    if (
+      !window.confirm(
+        "¿Cancelar este borrador? Sus respuestas quedarán guardadas como una consulta cancelada y podrás iniciar otra entrevista.",
+      )
+    )
+      return;
+    setBusy(true);
+    setError("");
+    try {
+      await cancelConsultationDraft(draft.id);
+      setOpenDrafts((current) =>
+        current.filter((item) => item.id !== draft.id),
+      );
+      setNotice(
+        "Borrador cancelado. Ahora puedes elegir cualquier tipo de consulta.",
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No se pudo cancelar el borrador.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (loading) return <LoadingState label="Preparando entrevista…" />;
   if (!consultation && patient && availableTemplates.length) {
@@ -396,12 +420,14 @@ export function ConsultationPage() {
     const followUp = availableTemplates.filter(
       (item) => item.template.consultation_type === "follow_up",
     );
+    const hasOpenDraft = openDrafts.length > 0;
     const renderChoices = (items: LoadedTemplate[]) =>
       items.map((item) => (
         <button
           type="button"
           key={item.template.id}
-          className="w-full rounded-2xl border border-[#dfe5e1] bg-white p-5 text-left transition hover:border-[#709883] hover:bg-[#f5faf5]"
+          disabled={hasOpenDraft || busy}
+          className="w-full rounded-2xl border border-[#dfe5e1] bg-white p-5 text-left transition hover:border-[#709883] hover:bg-[#f5faf5] disabled:cursor-not-allowed disabled:opacity-50"
           onClick={() => void load(item)}
         >
           <span className="block text-base font-semibold text-[#173d36]">
@@ -436,6 +462,71 @@ export function ConsultationPage() {
             clínica y del tiempo transcurrido.
           </p>
         </header>
+        {openDrafts.length > 0 && (
+          <section className="mt-5 rounded-2xl border border-[#e7d3ae] bg-[#fff9eb] p-5">
+            <p className="text-sm font-semibold text-[#775527]">
+              Tienes{" "}
+              {openDrafts.length === 1
+                ? "un borrador abierto"
+                : `${openDrafts.length} borradores abiertos`}
+            </p>
+            <p className="mt-1 text-sm leading-6 text-[#8e744c]">
+              Reanúdalo para continuar donde lo dejaste o cancélalo para poder
+              iniciar una entrevista con cualquiera de las plantillas.
+            </p>
+            <div className="mt-4 space-y-3">
+              {openDrafts.map((draft) => (
+                <div
+                  key={draft.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white/70 p-3"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-[#5f4824]">
+                      {consultationLabel(draft)}
+                    </p>
+                    <p className="mt-0.5 text-xs text-[#8e744c]">
+                      Iniciada el {formatPatientDate(draft.consultation_date)}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="nuth-button-secondary !px-3 !py-2 !text-xs"
+                      disabled={busy}
+                      onClick={() => void load(undefined, draft.id)}
+                    >
+                      Reanudar borrador
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-xl px-3 py-2 text-xs font-semibold text-[#9b493a] hover:bg-[#fbe9e5] disabled:opacity-50"
+                      disabled={busy}
+                      onClick={() => void cancelOpenDraft(draft)}
+                    >
+                      Cancelar borrador
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+        {notice && (
+          <p
+            role="status"
+            className="mt-5 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]"
+          >
+            {notice}
+          </p>
+        )}
+        {error && (
+          <div
+            role="alert"
+            className="mt-5 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]"
+          >
+            {error}
+          </div>
+        )}
         <div className="mt-6 grid gap-6 md:grid-cols-2">
           <section>
             <h2 className="text-lg font-semibold">Consulta inicial</h2>
