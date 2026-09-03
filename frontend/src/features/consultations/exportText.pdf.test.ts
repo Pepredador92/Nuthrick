@@ -31,7 +31,7 @@ vi.mock("jspdf", () => ({
   },
 }));
 
-import { downloadConsultationPdf } from "./exportText";
+import { consultationTextExport, downloadConsultationPdf } from "./exportText";
 
 describe("downloadConsultationPdf", () => {
   beforeEach(() => {
@@ -40,6 +40,89 @@ describe("downloadConsultationPdf", () => {
       createObjectURL: vi.fn(() => "blob:consultation"),
       revokeObjectURL: vi.fn(),
     });
+  });
+
+  it("omits unanswered questions and empty sections while preserving No and zero in both exports", async () => {
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
+      () => undefined,
+    );
+    const unanswered = {
+      missing: undefined,
+      nullable: null,
+      whitespace: "  ",
+      choices: [],
+      rows: [{ name: "" }],
+      grid: { vegetables: "" },
+    };
+    const question = (key: string) => ({
+      question_key: key,
+      label: key,
+      question_type: "short_text",
+      configuration: {},
+    });
+    const patient = { full_name: "Paciente" } as never;
+    const consultation = {
+      consultation_type: "initial",
+      consultation_date: "2026-09-03",
+      summary: null,
+    } as never;
+    const snapshot = {
+      template_name: "Prueba",
+      template_version: 1,
+      structure: {
+        sections: [
+          {
+            title: "Sección completamente vacía",
+            questions: Object.keys(unanswered).map(question),
+          },
+          {
+            title: "Respuestas registradas",
+            questions: [
+              question("answer"),
+              question("negative"),
+              question("zero"),
+              question("missing"),
+            ],
+          },
+        ],
+      },
+    } as never;
+    const values = {
+      ...unanswered,
+      answer: "Respuesta real",
+      negative: false,
+      zero: 0,
+    };
+    const professional = { fullName: "Profesional" };
+    await downloadConsultationPdf(
+      "consulta.pdf",
+      patient,
+      consultation,
+      snapshot,
+      values,
+      professional,
+    );
+    const pdfText = mocks.text.mock.calls
+      .flatMap(([text]) => (Array.isArray(text) ? text : [text]))
+      .join("\n");
+    const plainText = consultationTextExport(
+      patient,
+      consultation,
+      snapshot,
+      values,
+      professional,
+    );
+    for (const output of [pdfText, plainText]) {
+      expect(output).not.toContain("Sin registrar");
+      expect(output).not.toContain("Sección completamente vacía");
+      for (const key of Object.keys(unanswered))
+        expect(output).not.toContain(key);
+      expect(output).toContain("Respuesta real");
+      expect(output).toContain("No");
+      expect(output).toContain("0");
+    }
+    expect(pdfText).toContain("negative\nNo");
+    expect(pdfText).toContain("zero\n0");
   });
 
   it("uses the current professional and establishment information in the letterhead", async () => {

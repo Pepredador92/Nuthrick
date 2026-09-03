@@ -1,5 +1,6 @@
 import { formatPatientDate } from "@/src/features/patients/patientUtils";
 import {
+  emptyValue,
   formatAnswer,
   matchesCondition,
 } from "@/src/features/consultations/questionnaire";
@@ -52,8 +53,10 @@ export function consultationTextExport(
   ];
   for (const section of snapshot.structure.sections) {
     const entries = section.questions
-      .filter((question) =>
-        matchesCondition(question.visibility_condition, values),
+      .filter(
+        (question) =>
+          matchesCondition(question.visibility_condition, values) &&
+          !emptyValue(values[question.question_key]),
       )
       .map(
         (question) =>
@@ -62,7 +65,7 @@ export function consultationTextExport(
             formatAnswer(question, values[question.question_key]),
           ] as const,
       )
-      .filter(([, answer]) => answer && answer !== "Sin respuesta");
+      .filter(([, answer]) => answer.trim());
     if (!entries.length) continue;
     lines.push(section.title);
     for (const [label, answer] of entries) lines.push(`- ${label}: ${answer}`);
@@ -325,8 +328,10 @@ export async function downloadConsultationPdf(
 
   for (const section of snapshot.structure.sections) {
     const entries = section.questions
-      .filter((question) =>
-        matchesCondition(question.visibility_condition, values),
+      .filter(
+        (question) =>
+          matchesCondition(question.visibility_condition, values) &&
+          !emptyValue(values[question.question_key]),
       )
       .map(
         (question) =>
@@ -335,7 +340,7 @@ export async function downloadConsultationPdf(
             formatAnswer(question, values[question.question_key]),
           ] as const,
       )
-      .filter(([, answer]) => answer && answer !== "Sin respuesta");
+      .filter(([, answer]) => answer.trim());
     if (!entries.length) continue;
     heading(section.title);
     for (const [label, answer] of entries) {
