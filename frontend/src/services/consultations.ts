@@ -106,6 +106,20 @@ export async function loadActiveTemplate(
     : loadSystemTemplate(type, includeInactive);
 }
 
+export async function listAvailableSystemTemplates(
+  type: Consultation["consultation_type"],
+): Promise<LoadedTemplate[]> {
+  const { data, error } = await supabase
+    .from("consultation_templates")
+    .select("id")
+    .eq("consultation_type", type)
+    .eq("is_system", true)
+    .eq("is_active", true)
+    .order("created_at");
+  fail(error, "No pudimos cargar las plantillas disponibles.");
+  return Promise.all((data ?? []).map((item) => loadTemplateById(item.id)));
+}
+
 export function createSnapshotStructure(
   type: Consultation["consultation_type"],
   sections: ConsultationTemplateSection[],
@@ -257,6 +271,27 @@ export async function finishConsultation(
     .single();
   fail(error, "No pudimos finalizar la consulta.");
   return data as Consultation;
+}
+
+export async function reopenConsultationForEdit(
+  consultationId: string,
+): Promise<Consultation> {
+  const { data, error } = await supabase
+    .rpc("reopen_consultation_for_edit", {
+      target_consultation: consultationId,
+    })
+    .single();
+  fail(error, "No pudimos reabrir esta consulta para editarla.");
+  return data as Consultation;
+}
+
+export async function deleteConsultationRecord(
+  consultationId: string,
+): Promise<void> {
+  const { error } = await supabase.rpc("delete_consultation_record", {
+    target_consultation: consultationId,
+  });
+  fail(error, "No pudimos eliminar la consulta.");
 }
 
 export const listTemplate = (type: Consultation["consultation_type"]) =>

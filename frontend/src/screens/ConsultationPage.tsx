@@ -32,9 +32,13 @@ import {
   beginConsultation,
   ensureSnapshot,
   finishConsultation,
+  getSnapshot,
+  listAvailableSystemTemplates,
   listAnswers,
   loadActiveTemplate,
+  loadTemplateById,
   loadSystemTemplate,
+  reopenConsultationForEdit,
 } from "@/src/services/consultations";
 import { saveAnswers } from "@/src/services/consultations";
 import type { LoadedTemplate } from "@/src/services/consultations";
@@ -44,13 +48,44 @@ import type {
   Patient,
 } from "@/src/types/domain";
 
+const conversationalPrompts: Record<string, string> = {
+  main_reason: "¿Qué te trae a consulta el día de hoy?",
+  expectations: "¿Qué te gustaría lograr con este acompañamiento?",
+  consult_now: "¿Qué hizo que buscaras consulta justo ahora?",
+  appetite: "¿Cómo ha estado tu apetito últimamente?",
+  digestive_screen: "¿Has notado alguna molestia digestiva últimamente?",
+  sleep_hours: "¿Cuántas horas sueles dormir en una noche?",
+  exercise_status: "¿Cómo es tu actividad física o movimiento habitual?",
+  usual_pattern: "¿Cómo suele ser tu forma de comer la mayoría de los días?",
+  eating_drivers: "¿Qué situaciones suelen influir en lo que comes?",
+  changes_since_last:
+    "Desde la última consulta, ¿qué cambios pudiste implementar?",
+  progress_perception: "¿Cómo sientes que te ha ido desde la última consulta?",
+  barriers: "¿Qué se te hizo más difícil o qué barreras encontraste?",
+};
+
+function spokenQuestion(question: {
+  question_key: string;
+  label: string;
+  response_area: string;
+}) {
+  if (question.response_area !== "patient_reported") return question.label;
+  if (conversationalPrompts[question.question_key])
+    return conversationalPrompts[question.question_key];
+  if (question.label.trim().startsWith("¿")) return question.label;
+  return `¿Podrías contarme sobre ${question.label.charAt(0).toLowerCase()}${question.label.slice(1)}?`;
+}
+
 export function ConsultationPage() {
-  const { patientId } = useParams();
+  const { patientId, consultationId } = useParams();
   const navigate = useNavigate();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [consultation, setConsultation] = useState<Consultation | null>(null);
   const [snapshot, setSnapshot] = useState<ConsultationSnapshot | null>(null);
   const [latest, setLatest] = useState<LoadedTemplate | null>(null);
+  const [availableTemplates, setAvailableTemplates] = useState<
+    LoadedTemplate[]
+  >([]);
   const [values, setValues] = useState<Answers>({});
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -69,57 +104,94 @@ export function ConsultationPage() {
   const heading = useRef<HTMLHeadingElement>(null);
   const closed = useRef(false);
 
-  const load = useCallback(async () => {
-    if (!patientId) return;
-    setLoading(true);
-    setError("");
-    try {
-      const [loadedPatient, history] = await Promise.all([
-        getPatient(patientId),
-        listConsultations(patientId),
-      ]);
-      if (!loadedPatient)
-        throw new Error(
-          "No encontramos este paciente o no tienes autorización para verlo.",
+  const load = useCallback(
+    async (chosenTemplate?: LoadedTemplate) => {
+      if (!patientId) return;
+      setLoading(true);
+      setError("");
+      try {
+        const [loadedPatient, history] = await Promise.all([
+          getPatient(patientId),
+          listConsultations(patientId),
+        ]);
+        if (!loadedPatient)
+          throw new Error(
+            "No encontramos este paciente o no tienes autorización para verlo.",
+          );
+        const requestedConsultation = consultationId
+          ? history.find((item) => item.id === consultationId)
+          : null;
+        if (consultationId && !requestedConsultation)
+          throw new Error(
+            "No encontramos esta consulta o no tienes autorización para verla.",
+          );
+        const existingDraft =
+          requestedConsultation ??
+          history.find((item) => item.status === "draft");
+        if (!existingDraft && !chosenTemplate) {
+          const templates = (
+            await Promise.all([
+              listAvailableSystemTemplates("initial"),
+              listAvailableSystemTemplates("follow_up"),
+            ])
+          )
+            .flat()
+            .filter((item) =>
+              [
+                "system_initial_v2",
+                "system_initial_brief_v1",
+                "system_follow_up_v1",
+                "system_follow_up_brief_v1",
+              ].includes(item.template.template_key),
+            );
+          setPatient(loadedPatient);
+          setAvailableTemplates(templates);
+          return;
+        }
+        const type: Consultation["consultation_type"] =
+          existingDraft?.consultation_type ??
+          chosenTemplate!.template.consultation_type;
+        const started =
+          consultationId && existingDraft?.status === "completed"
+            ? await reopenConsultationForEdit(existingDraft.id)
+            : (existingDraft ?? (await beginConsultation(patientId, type)));
+        const existingSnapshot = await getSnapshot(started.id);
+        const loadedTemplate =
+          chosenTemplate ??
+          (existingSnapshot?.template_id
+            ? await loadTemplateById(existingSnapshot.template_id)
+            : await loadActiveTemplate(type));
+        const systemTemplate = await loadSystemTemplate(type);
+        const startedSnapshot =
+          existingSnapshot ?? (await ensureSnapshot(started, loadedTemplate));
+        const answers = await listAnswers(started.id, startedSnapshot.revision);
+        const nextValues = Object.fromEntries(
+          answers.map((answer) => [answer.question_key, answer.value]),
         );
-      const existingDraft = history.find((item) => item.status === "draft");
-      const type: Consultation["consultation_type"] =
-        existingDraft?.consultation_type ??
-        (history.some((item) => item.status === "completed")
-          ? "follow_up"
-          : "initial");
-      const [started, loadedTemplate, systemTemplate] = await Promise.all([
-        existingDraft ?? beginConsultation(patientId, type),
-        loadActiveTemplate(type),
-        loadSystemTemplate(type),
-      ]);
-      const startedSnapshot = await ensureSnapshot(started, loadedTemplate);
-      const answers = await listAnswers(started.id, startedSnapshot.revision);
-      const nextValues = Object.fromEntries(
-        answers.map((answer) => [answer.question_key, answer.value]),
-      );
-      const changedPersonal =
-        startedSnapshot.template_id === loadedTemplate.template.id &&
-        startedSnapshot.template_version < loadedTemplate.template.version;
-      setLatest(changedPersonal ? loadedTemplate : systemTemplate);
-      setPatient(loadedPatient);
-      setConsultation(started);
-      setSnapshot(startedSnapshot);
-      setValues(nextValues);
-      valuesRef.current = nextValues;
-      lastSaved.current = JSON.stringify(nextValues);
-      setSavedEncoded(lastSaved.current);
-      closed.current = false;
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "No se pudo iniciar la consulta.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [patientId]);
+        const changedPersonal =
+          startedSnapshot.template_id === loadedTemplate.template.id &&
+          startedSnapshot.template_version < loadedTemplate.template.version;
+        setLatest(changedPersonal ? loadedTemplate : systemTemplate);
+        setPatient(loadedPatient);
+        setConsultation(started);
+        setSnapshot(startedSnapshot);
+        setValues(nextValues);
+        valuesRef.current = nextValues;
+        lastSaved.current = JSON.stringify(nextValues);
+        setSavedEncoded(lastSaved.current);
+        closed.current = false;
+      } catch (cause) {
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "No se pudo iniciar la consulta.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [consultationId, patientId],
+  );
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void load();
@@ -317,6 +389,66 @@ export function ConsultationPage() {
   };
 
   if (loading) return <LoadingState label="Preparando entrevista…" />;
+  if (!consultation && patient && availableTemplates.length) {
+    const initial = availableTemplates.filter(
+      (item) => item.template.consultation_type === "initial",
+    );
+    const followUp = availableTemplates.filter(
+      (item) => item.template.consultation_type === "follow_up",
+    );
+    const renderChoices = (items: LoadedTemplate[]) =>
+      items.map((item) => (
+        <button
+          type="button"
+          key={item.template.id}
+          className="w-full rounded-2xl border border-[#dfe5e1] bg-white p-5 text-left transition hover:border-[#709883] hover:bg-[#f5faf5]"
+          onClick={() => void load(item)}
+        >
+          <span className="block text-base font-semibold text-[#173d36]">
+            {item.template.name}
+          </span>
+          <span className="mt-2 block text-sm leading-6 text-[#66766f]">
+            {item.template.template_key.includes("brief")
+              ? "Versión sustanciosa y compacta para una consulta de aproximadamente 30 minutos, incluyendo conversación y mediciones."
+              : "Entrevista completa para explorar con mayor profundidad antes de construir el plan."}
+          </span>
+        </button>
+      ));
+    return (
+      <div className="mx-auto max-w-4xl">
+        <Link
+          to={`/app/patients/${patient.id}`}
+          className="inline-flex items-center gap-2 text-sm font-semibold text-[#3d705d]"
+        >
+          <ArrowLeft size={16} />
+          Volver a la ficha
+        </Link>
+        <header className="mt-5 rounded-[24px] bg-[#173d36] p-6 text-white sm:p-8">
+          <p className="text-xs font-bold uppercase tracking-[.16em] text-[#efbd6b]">
+            Nueva consulta
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold">
+            Elige el tipo de entrevista
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70">
+            Puedes volver a realizar una entrevista inicial aunque el paciente
+            haya tenido consultas previas. La elección depende de tu valoración
+            clínica y del tiempo transcurrido.
+          </p>
+        </header>
+        <div className="mt-6 grid gap-6 md:grid-cols-2">
+          <section>
+            <h2 className="text-lg font-semibold">Consulta inicial</h2>
+            <div className="mt-3 space-y-3">{renderChoices(initial)}</div>
+          </section>
+          <section>
+            <h2 className="text-lg font-semibold">Consulta de seguimiento</h2>
+            <div className="mt-3 space-y-3">{renderChoices(followUp)}</div>
+          </section>
+        </div>
+      </div>
+    );
+  }
   if (!patient || !consultation || !snapshot)
     return (
       <ErrorState
@@ -599,6 +731,7 @@ export function ConsultationPage() {
                       onChange={(value) =>
                         setAnswer(question.question_key, value)
                       }
+                      displayLabel={spokenQuestion(question)}
                     />
                   ))}
                 {!current?.questions.length && (

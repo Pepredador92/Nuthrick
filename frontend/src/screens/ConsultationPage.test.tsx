@@ -86,6 +86,10 @@ vi.mock("@/src/services/consultations", () => ({
   loadActiveTemplate: async () => fixtures.template,
   loadSystemTemplate: async () => fixtures.template,
   ensureSnapshot: async () => fixtures.snapshot,
+  getSnapshot: async () => fixtures.snapshot,
+  listAvailableSystemTemplates: async () => [fixtures.template],
+  loadTemplateById: async () => fixtures.template,
+  reopenConsultationForEdit: async () => fixtures.c,
   beginConsultation: async () => fixtures.c,
   listAnswers: async () => [],
   saveAnswers: mocks.save,
@@ -119,7 +123,7 @@ describe("consultation save and review workflow", () => {
   it("saves the most recent keystroke before changing sections", async () => {
     mount();
     await screen.findByRole("heading", { name: "Apertura de prueba" });
-    fireEvent.change(screen.getByLabelText("Detalle breve de prueba"), {
+    fireEvent.change(screen.getByLabelText(/detalle breve de prueba/i), {
       target: { value: "Respuesta recién escrita" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
@@ -130,7 +134,7 @@ describe("consultation save and review workflow", () => {
       { note: "Respuesta recién escrita" },
     );
     fireEvent.click(screen.getByRole("button", { name: "Anterior" }));
-    expect(await screen.findByLabelText("Detalle breve de prueba")).toHaveValue(
+    expect(await screen.findByLabelText(/detalle breve de prueba/i)).toHaveValue(
       "Respuesta recién escrita",
     );
   });
@@ -138,7 +142,7 @@ describe("consultation save and review workflow", () => {
     mocks.save.mockRejectedValue(new Error("Sin conexión. Vuelve a intentar."));
     mount();
     await screen.findByRole("heading", { name: "Apertura de prueba" });
-    fireEvent.change(screen.getByLabelText("Detalle breve de prueba"), {
+    fireEvent.change(screen.getByLabelText(/detalle breve de prueba/i), {
       target: { value: "No perder" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
@@ -146,7 +150,7 @@ describe("consultation save and review workflow", () => {
     expect(
       screen.getByRole("heading", { name: "Apertura de prueba" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Detalle breve de prueba")).toHaveValue(
+    expect(screen.getByLabelText(/detalle breve de prueba/i)).toHaveValue(
       "No perder",
     );
   });

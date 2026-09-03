@@ -19,11 +19,13 @@ export function QuestionField({
   value,
   onChange,
   errors = [],
+  displayLabel,
 }: {
   question: Question;
   value: unknown;
   onChange: (value: unknown) => void;
   errors?: string[];
+  displayLabel?: string;
 }) {
   const id = useId();
   const options = stringList(question.configuration.options);
@@ -40,7 +42,7 @@ export function QuestionField({
         htmlFor={id}
         className="text-sm font-semibold leading-6 text-[#29483f]"
       >
-        {question.label}
+        {displayLabel ?? question.label}
         {question.is_required && (
           <span className="ml-1 text-[#9b493a]" aria-label="obligatorio">
             *
