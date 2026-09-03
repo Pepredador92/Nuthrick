@@ -86,7 +86,7 @@ function patientBasics(patient: Patient): string[] {
   return [
     `Paciente: ${patient.full_name}`,
     ...(patient.birth_date
-      ? [`Fecha de nacimiento: ${patient.birth_date}`]
+      ? [`Fecha de nacimiento: ${formatPatientDate(patient.birth_date)}`]
       : []),
     ...(patient.email ? [`Correo: ${patient.email}`] : []),
     ...(patient.phone
