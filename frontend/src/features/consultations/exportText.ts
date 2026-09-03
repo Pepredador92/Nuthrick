@@ -74,12 +74,19 @@ export function consultationTextExport(
 
 export function downloadConsultationText(filename: string, text: string): void {
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  downloadBlob(filename, blob);
+}
+
+function downloadBlob(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function patientBasics(patient: Patient): string[] {
@@ -121,21 +128,21 @@ export async function downloadConsultationPdf(
   professional: ProfessionalDocumentInfo,
 ): Promise<void> {
   const { jsPDF } = await import("jspdf");
-  const document = new jsPDF({ unit: "mm", format: "a4" });
+  const pdf = new jsPDF({ unit: "mm", format: "a4" });
   const margin = 16;
-  const pageWidth = document.internal.pageSize.getWidth();
-  const pageHeight = document.internal.pageSize.getHeight();
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
   const logo = professional.logoUrl
     ? await imageData(professional.logoUrl)
     : null;
   let cursor = 18;
 
   const header = (compact = false) => {
-    document.setFillColor(23, 61, 54);
-    document.rect(0, 0, pageWidth, compact ? 20 : 34, "F");
+    pdf.setFillColor(23, 61, 54);
+    pdf.rect(0, 0, pageWidth, compact ? 20 : 34, "F");
     if (!compact && logo) {
       try {
-        document.addImage(
+        pdf.addImage(
           logo,
           logo.startsWith("data:image/jpeg") ? "JPEG" : "PNG",
           margin,
@@ -149,17 +156,17 @@ export async function downloadConsultationPdf(
         // A logo is optional; a text mark keeps the document usable.
       }
     }
-    document.setTextColor(255, 255, 255);
-    document.setFont("helvetica", "bold");
-    document.setFontSize(compact ? 10 : 14);
-    document.text(
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(compact ? 10 : 14);
+    pdf.text(
       professional.businessName || professional.fullName,
       logo && !compact ? 40 : margin,
       compact ? 12 : 14,
     );
     if (!compact) {
-      document.setFont("helvetica", "normal");
-      document.setFontSize(8.5);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8.5);
       const professionalLine = [
         professional.professionalTitle,
         professional.licenseNumber
@@ -168,17 +175,16 @@ export async function downloadConsultationPdf(
       ]
         .filter(Boolean)
         .join(" · ");
-      if (professionalLine)
-        document.text(professionalLine, logo ? 40 : margin, 21);
+      if (professionalLine) pdf.text(professionalLine, logo ? 40 : margin, 21);
       const contact = professional.contactLines?.join(" · ");
-      if (contact) document.text(contact, logo ? 40 : margin, 27);
+      if (contact) pdf.text(contact, logo ? 40 : margin, 27);
     }
-    document.setTextColor(38, 63, 55);
+    pdf.setTextColor(38, 63, 55);
     cursor = compact ? 29 : 45;
   };
 
   const pageBreak = () => {
-    document.addPage();
+    pdf.addPage();
     header(true);
   };
   const write = (
@@ -187,56 +193,37 @@ export async function downloadConsultationPdf(
     color: [number, number, number] = [55, 77, 69],
     gap = 4.8,
   ) => {
-    document.setFont("helvetica", "normal");
-    document.setFontSize(size);
-    document.setTextColor(...color);
-    const lines = document.splitTextToSize(
-      text,
-      pageWidth - margin * 2,
-    ) as string[];
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(size);
+    pdf.setTextColor(...color);
+    const lines = pdf.splitTextToSize(text, pageWidth - margin * 2) as string[];
     if (cursor + lines.length * gap > pageHeight - 18) pageBreak();
-    document.text(lines, margin, cursor);
+    pdf.text(lines, margin, cursor);
     cursor += lines.length * gap + 1.2;
   };
   const heading = (text: string) => {
     if (cursor + 13 > pageHeight - 18) pageBreak();
-    document.setFillColor(237, 243, 239);
-    document.roundedRect(
-      margin,
-      cursor - 5,
-      pageWidth - margin * 2,
-      9,
-      2,
-      2,
-      "F",
-    );
-    document.setTextColor(31, 78, 67);
-    document.setFont("helvetica", "bold");
-    document.setFontSize(10.5);
-    document.text(text, margin + 3, cursor + 1);
+    pdf.setFillColor(237, 243, 239);
+    pdf.roundedRect(margin, cursor - 5, pageWidth - margin * 2, 9, 2, 2, "F");
+    pdf.setTextColor(31, 78, 67);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10.5);
+    pdf.text(text, margin + 3, cursor + 1);
     cursor += 11;
   };
 
   header();
-  document.setFillColor(248, 250, 248);
-  document.roundedRect(
-    margin,
-    cursor - 5,
-    pageWidth - margin * 2,
-    27,
-    3,
-    3,
-    "F",
-  );
-  document.setTextColor(31, 78, 67);
-  document.setFont("helvetica", "bold");
-  document.setFontSize(11);
-  document.text("Registro de consulta", margin + 4, cursor + 1);
-  document.setFont("helvetica", "normal");
-  document.setFontSize(8.5);
-  document.setTextColor(84, 105, 96);
-  document.text(patientBasics(patient), margin + 4, cursor + 7);
-  document.text(
+  pdf.setFillColor(248, 250, 248);
+  pdf.roundedRect(margin, cursor - 5, pageWidth - margin * 2, 27, 3, 3, "F");
+  pdf.setTextColor(31, 78, 67);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(11);
+  pdf.text("Registro de consulta", margin + 4, cursor + 1);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(84, 105, 96);
+  pdf.text(patientBasics(patient), margin + 4, cursor + 7);
+  pdf.text(
     `Fecha: ${formatPatientDate(consultation.consultation_date)}  ·  ${consultation.consultation_type === "initial" ? "Consulta inicial" : "Consulta de seguimiento"}`,
     margin + 4,
     cursor + 22,
@@ -259,15 +246,15 @@ export async function downloadConsultationPdf(
     if (!entries.length) continue;
     heading(section.title);
     for (const [label, answer] of entries) {
-      document.setFont("helvetica", "bold");
-      document.setFontSize(9.5);
-      document.setTextColor(38, 63, 55);
-      const labelLines = document.splitTextToSize(
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9.5);
+      pdf.setTextColor(38, 63, 55);
+      const labelLines = pdf.splitTextToSize(
         label,
         pageWidth - margin * 2,
       ) as string[];
       if (cursor + labelLines.length * 4.8 + 8 > pageHeight - 18) pageBreak();
-      document.text(labelLines, margin, cursor);
+      pdf.text(labelLines, margin, cursor);
       cursor += labelLines.length * 4.8;
       write(answer, 9.2, [95, 112, 104], 4.6);
       cursor += 2;
@@ -277,25 +264,25 @@ export async function downloadConsultationPdf(
     heading("Resumen de cierre");
     write(consultation.summary);
   }
-  const totalPages = document.getNumberOfPages();
+  const totalPages = pdf.getNumberOfPages();
   for (let page = 1; page <= totalPages; page += 1) {
-    document.setPage(page);
-    document.setDrawColor(218, 228, 221);
-    document.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
-    document.setFont("helvetica", "normal");
-    document.setFontSize(7.5);
-    document.setTextColor(111, 128, 120);
-    document.text(
+    pdf.setPage(page);
+    pdf.setDrawColor(218, 228, 221);
+    pdf.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(111, 128, 120);
+    pdf.text(
       "Documento privado · Información clínica confidencial",
       margin,
       pageHeight - 7,
     );
-    document.text(
+    pdf.text(
       `Página ${page} de ${totalPages}`,
       pageWidth - margin,
       pageHeight - 7,
       { align: "right" },
     );
   }
-  document.save(filename);
+  downloadBlob(filename, pdf.output("blob"));
 }
