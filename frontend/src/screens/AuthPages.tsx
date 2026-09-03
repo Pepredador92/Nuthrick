@@ -76,7 +76,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         <Field label="Contraseña" name="password"><div className="relative"><Input id="password" type={showPassword ? 'text' : 'password'} autoComplete={isLogin ? 'current-password' : 'new-password'} minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Mínimo 8 caracteres" className="pr-12" /><button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-[#78847f]" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></Field>
         {isLogin && <div className="text-right"><Link to="/forgot-password" className="text-sm font-semibold text-[#4a7465]">¿Olvidaste tu contraseña?</Link></div>}
         {error && <p role="alert" className="rounded-xl bg-[#fff1ed] px-4 py-3 text-sm text-[#934938]">{error}</p>}
-        <button disabled={busy} className="nuth-button w-full justify-center py-3.5">{busy && <LoaderCircle className="animate-spin" size={17} />}{isLogin ? 'Iniciar sesión' : 'Crear cuenta gratis'}</button>
+        <button disabled={busy} className="nuth-button w-full justify-center py-3.5">{busy && <LoaderCircle className="animate-spin" size={17} />}{isLogin ? 'Iniciar sesión' : 'Crear cuenta'}</button>
       </form>
       <p className="mt-7 text-center text-sm text-[#6d7a76]">{isLogin ? '¿Aún no tienes cuenta?' : '¿Ya tienes una cuenta?'} <Link to={isLogin ? '/register' : '/login'} className="font-semibold text-[#315e50]">{isLogin ? 'Crear cuenta' : 'Iniciar sesión'}</Link></p>
     </AuthShell>
