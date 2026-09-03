@@ -14,6 +14,7 @@ import {
   loadGuidancePreference,
   saveAnthropometry,
   saveGuidancePreference,
+  loadMeasurementSetup,
 } from "@/src/services/anthropometry";
 import {
   calculate,
@@ -22,8 +23,7 @@ import {
   createNote,
   displayNumber,
   ENGINE_VERSION,
-  fields,
-  formulas,
+  formatResultNumber,
   latestRecords,
   payloadHasContent,
   resultText,
@@ -35,6 +35,20 @@ import type {
   AssessmentInput,
   Result,
 } from "./model";
+import { GuidedMeasurementCapture } from "./GuidedMeasurementCapture";
+import { preparePayload, previousHeight, activeEntries } from "./workflow";
+import {
+  evaluateWorkflow,
+  calculationSignature,
+  validateEntries,
+  WORKFLOW_ENGINE_VERSION,
+} from "./calculations";
+import type {
+  MeasurementType,
+  MeasurementDevice,
+  CalculatedMeasurement,
+  RegisteredMeasurement,
+} from "./workflowTypes";
 import { newPayload, prompts } from "./model";
 
 const box = "rounded-2xl border border-[#dfe5e1] bg-white p-4 sm:p-6";
@@ -46,12 +60,6 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
     </label>
   );
 }
-const localDate = (date: string) => {
-  const d = new Date(date);
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
-};
 function ageOn(birth: string | null, date: string): number | null {
   if (!birth) return null;
   const b = new Date(birth + "T12:00:00"),
@@ -87,7 +95,7 @@ export function ResultCards({
         >
           <h4 className="font-semibold">{r.label}</h4>
           <p className="mt-2 text-xl font-semibold text-[#173d36]">
-            {displayNumber(r.value)}{" "}
+            {formatResultNumber(r.display_value ?? r.value, r)}{" "}
             <span className="text-xs font-normal">{r.unit}</span>
           </p>
           <p className="mt-1 text-xs text-[#5e7469]">
@@ -98,16 +106,18 @@ export function ResultCards({
               ? "Calculado por Nuthrick"
               : r.provenance === "device"
                 ? "Transcrito del dispositivo por el profesional"
-                : "Medido y registrado por el profesional"}
+                : r.sourceType === "imported"
+                  ? "Importado y registrado por el profesional"
+                  : "Medido y registrado por el profesional"}
           </p>
           {r.previous ? (
             <div className="mt-3 text-sm">
               <p>
-                Anterior: {displayNumber(r.previous.value)} {r.unit}
+                Anterior: {formatResultNumber(r.previous.value, r)} {r.unit}
               </p>
               <p>
                 Cambio: {r.previous.delta > 0 ? "+" : ""}
-                {displayNumber(r.previous.delta)}{" "}
+                {formatResultNumber(r.previous.delta, r)}{" "}
                 {r.unit === "%" ? "puntos porcentuales" : r.unit}
               </p>
               <p className="text-xs text-[#74817d]">
@@ -203,7 +213,22 @@ function RecordView({
         Medición: {new Date(record.measured_at).toLocaleString("es-MX")} ·
         revisión {record.revision} · motor {p.engineVersion}
       </p>
-      <ResultCards results={p.results} input={p.input} />
+      {p.workflow ? (
+        <>
+          <h4 className="font-semibold">Mediciones registradas</h4>
+          <ResultCards
+            results={p.results.filter((r) => r.provenance !== "calculated")}
+            input={p.input}
+          />
+          <h4 className="font-semibold">Resultados calculados por Nuthrick</h4>
+          <ResultCards
+            results={p.results.filter((r) => r.provenance === "calculated")}
+            input={p.input}
+          />
+        </>
+      ) : (
+        <ResultCards results={p.results} input={p.input} />
+      )}
       {p.input.bia.fat !== null && (
         <p className="text-sm">Condiciones BIA: {conditions(p.input.bia)}</p>
       )}
@@ -377,9 +402,13 @@ export const AnthropometryPanel = forwardRef<
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false),
-    [calculated, setCalculated] = useState(false),
     [evidenceOpen, setEvidenceOpen] = useState(false);
   const [savedEncoded, setSavedEncoded] = useState("");
+  const [types, setTypes] = useState<MeasurementType[]>([]);
+  const [devices, setDevices] = useState<MeasurementDevice[]>([]);
+  const [priorHeight, setPriorHeight] = useState<RegisteredMeasurement | null>(
+    null,
+  );
   const busy = useRef(false);
   const dirty =
     !loading && !loadError && JSON.stringify(payload) !== savedEncoded;
@@ -390,42 +419,53 @@ export const AnthropometryPanel = forwardRef<
     setLoading(true);
     setLoadError("");
     try {
-      const [rows, show] = await Promise.all([
+      const [rows, show, setup] = await Promise.all([
         loadAnthropometry(patient.id),
         loadGuidancePreference(consultation.professional_id),
+        loadMeasurementSetup(consultation),
       ]);
       const latest = rows.find((r) => r.consultation_id === consultation.id);
-      const data =
-        latest?.payload ??
-        newPayload(
-          consultation.consultation_date,
-          ageOn(patient.birth_date, consultation.consultation_date),
-        );
+      const data = preparePayload(
+        patient,
+        consultation,
+        setup.template,
+        latest,
+        setup.devices,
+      );
+      setTypes(setup.types);
+      setDevices(setup.devices);
+      setPriorHeight(previousHeight(rows, setup.legacy, consultation));
       setPayload(data);
       setSavedEncoded(JSON.stringify(data));
       setRecords(rows);
       setRevision(latest?.revision ?? 0);
       setGuidance(show);
-      setCalculated(!!latest);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "No se pudo cargar.");
     } finally {
       setLoading(false);
     }
-  }, [
-    patient.id,
-    patient.birth_date,
-    consultation.id,
-    consultation.professional_id,
-    consultation.consultation_date,
-  ]);
+  }, [patient, consultation]);
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void load();
     }, 0);
     return () => window.clearTimeout(timer);
   }, [load]);
-  const computed = useMemo(() => calculate(payload.input), [payload.input]);
+  const evaluation = useMemo(
+    () =>
+      payload.workflow
+        ? evaluateWorkflow(payload.workflow, payload.input, types)
+        : null,
+    [payload.workflow, payload.input, types],
+  );
+  const computed = useMemo(
+    () =>
+      evaluation
+        ? { results: evaluation.results, notices: evaluation.errors }
+        : calculate(payload.input),
+    [evaluation, payload.input],
+  );
   const results = useMemo(
     () => compare(computed.results, payload.input, records, consultation.id),
     [computed.results, payload.input, records, consultation.id],
@@ -437,7 +477,6 @@ export const AnthropometryPanel = forwardRef<
       noteReviewed: false,
       diagnosis: { ...p.diagnosis, evidence: [] },
     }));
-    setCalculated(false);
     setNotice("");
   };
   const persist = useCallback(async (): Promise<boolean> => {
@@ -447,7 +486,18 @@ export const AnthropometryPanel = forwardRef<
     }
     const p = payload;
     if (JSON.stringify(p) === savedEncoded) return true;
-    const problems = validateInput(p.input);
+    const problems = p.workflow
+      ? validateEntries(p.workflow, types)
+      : validateInput(p.input);
+    if (p.workflow?.context.birthDate && p.workflow.context.age === null)
+      problems.push("Revisa la fecha de nacimiento respecto a la consulta.");
+    if (
+      p.input.bia.fastingHours !== null &&
+      (!Number.isFinite(p.input.bia.fastingHours) ||
+        p.input.bia.fastingHours < 0 ||
+        p.input.bia.fastingHours > 72)
+    )
+      problems.push("Revisa las horas de ayuno.");
     if (p.note.trim() && !p.noteReviewed)
       problems.push(
         "Revisa la nota y confirma la revisión antes de guardarla.",
@@ -461,7 +511,7 @@ export const AnthropometryPanel = forwardRef<
         : !p.diagnosis.narrative.trim())
     )
       problems.push("Completa el diagnóstico manual o desactiva su registro.");
-    if (!payloadHasContent(p))
+    if (!payloadHasContent(p) && !p.workflow)
       problems.push("Registra al menos una medición o una valoración.");
     if (problems.length) {
       setError(problems.join(" "));
@@ -474,20 +524,46 @@ export const AnthropometryPanel = forwardRef<
     try {
       const snapshot: AnthroPayload = {
         ...p,
-        engineVersion: ENGINE_VERSION,
-        results: compare(
-          calculate(p.input).results,
-          p.input,
-          records,
-          consultation.id,
-        ),
+        engineVersion: p.workflow ? WORKFLOW_ENGINE_VERSION : ENGINE_VERSION,
+        results,
+        ...(p.workflow
+          ? {
+              workflow: {
+                ...p.workflow,
+                entries: activeEntries(p.workflow),
+                calculations: results.filter(
+                  (r) => r.provenance === "calculated",
+                ) as CalculatedMeasurement[],
+                calculated_at: evaluation?.calculated[0]?.calculated_at ?? null,
+                calculation_signature: calculationSignature(
+                  p.workflow,
+                  p.input,
+                ),
+              },
+            }
+          : {}),
       };
       const row = await saveAnthropometry(consultation, revision, snapshot);
-      setSavedEncoded(JSON.stringify(snapshot));
-      setPayload(snapshot);
+      const local = snapshot.workflow
+        ? {
+            ...snapshot,
+            workflow: {
+              ...snapshot.workflow,
+              templateRevision:
+                snapshot.workflow.templateRevision +
+                (snapshot.workflow.templateScope === "habitual" ? 1 : 0),
+              templateScope: "today" as const,
+              context: {
+                ...snapshot.workflow.context,
+                fromPatient: true,
+              },
+            },
+          }
+        : snapshot;
+      setSavedEncoded(JSON.stringify(local));
+      setPayload(local);
       setRecords((rows) => [row, ...rows]);
       setRevision(row.revision);
-      setCalculated(true);
       setNotice(
         "Mediciones y documentación guardadas. Se conserva esta revisión.",
       );
@@ -504,11 +580,13 @@ export const AnthropometryPanel = forwardRef<
     loading,
     loadError,
     consultation,
-    records,
     revision,
     onNeedsAttention,
     payload,
     savedEncoded,
+    results,
+    evaluation,
+    types,
   ]);
   useImperativeHandle(ref, () => ({ saveIfDirty: persist }), [persist]);
   if (loading) return <p className="mt-5">Cargando antropometría…</p>;
@@ -546,263 +624,34 @@ export const AnthropometryPanel = forwardRef<
         </p>
       )}
       <fieldset disabled={saving} className="min-w-0 space-y-5">
-        <section className={box}>
-          <h3 className="mb-4 text-lg font-semibold">Mediciones y contexto</h3>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Fecha y hora de medición">
-              <input
-                className="nuth-input"
-                type="datetime-local"
-                value={localDate(i.measuredAt)}
-                onChange={(e) => {
-                  if (e.target.value)
-                    changeInput({
-                      measuredAt: new Date(e.target.value).toISOString(),
-                      age: ageOn(
-                        patient.birth_date,
-                        new Date(e.target.value).toISOString(),
-                      ),
-                    });
-                }}
-              />
-            </Field>
-            <Field label="Edad en años cumplidos">
-              <input
-                className="nuth-input"
-                type="number"
-                min="0"
-                max="120"
-                value={i.age ?? ""}
-                onChange={(e) =>
-                  changeInput({
-                    age: e.target.value === "" ? null : Number(e.target.value),
-                  })
-                }
-              />
-            </Field>
-            <Field label="Contexto para fórmulas y referencias">
-              <select
-                className="nuth-input"
-                value={i.context}
-                onChange={(e) =>
-                  changeInput({
-                    context: e.target.value as AssessmentInput["context"],
-                  })
-                }
-              >
-                <option value="">Sin confirmar</option>
-                <option value="adult">Adulto no gestante</option>
-                <option value="pregnancy">Gestación</option>
-                <option value="other">Menor u otra población</option>
-              </select>
-            </Field>
-            <Field label="Sexo requerido por Jackson-Pollock">
-              <select
-                className="nuth-input"
-                value={i.sex}
-                onChange={(e) =>
-                  changeInput({ sex: e.target.value as AssessmentInput["sex"] })
-                }
-              >
-                <option value="">Sin seleccionar</option>
-                <option value="male">Ecuación masculina</option>
-                <option value="female">Ecuación femenina</option>
-              </select>
-            </Field>
-            <Field label="Protocolo de medición">
-              <input
-                className="nuth-input"
-                maxLength={160}
-                placeholder="Nombre y versión del protocolo utilizado"
-                value={i.protocol}
-                onChange={(e) => changeInput({ protocol: e.target.value })}
-              />
-            </Field>
-            <Field label="Báscula / equipo">
-              <input
-                className="nuth-input"
-                maxLength={160}
-                placeholder="Modelo e identificador"
-                value={i.scale}
-                onChange={(e) => changeInput({ scale: e.target.value })}
-              />
-            </Field>
-            {fields.slice(0, 4).map((f) => (
-              <Field key={f.key} label={`${f.label} (${f.unit})`}>
-                <input
-                  className="nuth-input"
-                  type="number"
-                  step="any"
-                  min="0"
-                  max={f.max}
-                  value={i.measurements[f.key] ?? ""}
-                  onChange={(e) => {
-                    const measurements = { ...i.measurements };
-                    if (e.target.value === "") delete measurements[f.key];
-                    else measurements[f.key] = Number(e.target.value);
-                    changeInput({ measurements });
-                  }}
-                />
-              </Field>
-            ))}
-          </div>
-          <details className="mt-5">
-            <summary className="cursor-pointer font-semibold">
-              Pliegues cutáneos · Jackson-Pollock 7
-            </summary>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <Field label="Plicómetro">
-                <input
-                  className="nuth-input"
-                  maxLength={160}
-                  placeholder="Modelo e identificador"
-                  value={i.caliper}
-                  onChange={(e) => changeInput({ caliper: e.target.value })}
-                />
-              </Field>
-              {fields.slice(4).map((f) => (
-                <Field key={f.key} label={`${f.label} (${f.unit})`}>
-                  <input
-                    className="nuth-input"
-                    type="number"
-                    step="any"
-                    min="0"
-                    max={f.max}
-                    value={i.measurements[f.key] ?? ""}
-                    onChange={(e) => {
-                      const measurements = { ...i.measurements };
-                      if (e.target.value === "") delete measurements[f.key];
-                      else measurements[f.key] = Number(e.target.value);
-                      changeInput({ measurements });
-                    }}
-                  />
-                </Field>
-              ))}
-            </div>
-          </details>
-        </section>
-        <section className={box}>
-          <h3 className="text-lg font-semibold">Bioimpedancia</h3>
-          <p className="mb-4 mt-1 text-sm text-[#74817d]">
-            Transcribe el resultado del equipo; Nuthrick no ejecuta su algoritmo
-            propietario.
-          </p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Fabricante, modelo e identificador BIA">
-              <input
-                className="nuth-input"
-                maxLength={160}
-                placeholder="Ej. Tanita MC-780MA · equipo 1"
-                value={i.bia.device}
-                onChange={(e) =>
-                  changeInput({ bia: { ...i.bia, device: e.target.value } })
-                }
-              />
-            </Field>
-            <Field label="Protocolo / modo / software BIA">
-              <input
-                className="nuth-input"
-                maxLength={160}
-                placeholder="Ej. manual del equipo, modo estándar, v…"
-                value={i.bia.protocol}
-                onChange={(e) =>
-                  changeInput({ bia: { ...i.bia, protocol: e.target.value } })
-                }
-              />
-            </Field>
-            <Field label="Grasa corporal del dispositivo (%)">
-              <input
-                className="nuth-input"
-                type="number"
-                min="0"
-                max="100"
-                step="any"
-                value={i.bia.fat ?? ""}
-                onChange={(e) =>
-                  changeInput({
-                    bia: {
-                      ...i.bia,
-                      fat:
-                        e.target.value === "" ? null : Number(e.target.value),
-                    },
-                  })
-                }
-              />
-            </Field>
-            <Field label="Horas de ayuno">
-              <input
-                className="nuth-input"
-                type="number"
-                min="0"
-                max="72"
-                step="any"
-                value={i.bia.fastingHours ?? ""}
-                onChange={(e) =>
-                  changeInput({
-                    bia: {
-                      ...i.bia,
-                      fastingHours:
-                        e.target.value === "" ? null : Number(e.target.value),
-                    },
-                  })
-                }
-              />
-            </Field>
-            <Field label="Ejercicio reciente">
-              <select
-                className="nuth-input"
-                value={i.bia.recentExercise}
-                onChange={(e) =>
-                  changeInput({
-                    bia: {
-                      ...i.bia,
-                      recentExercise: e.target
-                        .value as AssessmentInput["bia"]["recentExercise"],
-                    },
-                  })
-                }
-              >
-                <option value="">Sin registrar</option>
-                <option value="yes">Sí</option>
-                <option value="no">No</option>
-              </select>
-            </Field>
-            <Field label="Hidratación respecto a lo habitual">
-              <select
-                className="nuth-input"
-                value={i.bia.hydration}
-                onChange={(e) =>
-                  changeInput({
-                    bia: {
-                      ...i.bia,
-                      hydration: e.target
-                        .value as AssessmentInput["bia"]["hydration"],
-                    },
-                  })
-                }
-              >
-                <option value="">Sin registrar</option>
-                <option value="usual">Habitual</option>
-                <option value="changed">Cambió</option>
-              </select>
-            </Field>
-          </div>
-          <div className="mt-4">
-            <Field label="Otras condiciones de medición (opcional)">
-              <input
-                className="nuth-input"
-                maxLength={500}
-                value={i.bia.notes}
-                onChange={(e) =>
-                  changeInput({ bia: { ...i.bia, notes: e.target.value } })
-                }
-              />
-            </Field>
-          </div>
-        </section>
+        {payload.workflow && (
+          <GuidedMeasurementCapture
+            payload={payload}
+            consultation={consultation}
+            patient={patient}
+            types={types}
+            devices={devices}
+            previousHeight={priorHeight}
+            statuses={evaluation?.statuses ?? []}
+            onTypes={setTypes}
+            onDevices={setDevices}
+            onChange={(workflow, input) => {
+              setPayload((p) => ({
+                ...p,
+                workflow,
+                input,
+                noteReviewed: false,
+                diagnosis: { ...p.diagnosis, evidence: [] },
+              }));
+              setNotice("");
+            }}
+          />
+        )}
         <section className={box}>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold">Fórmulas</h3>
+            <h3 className="text-xl font-semibold">
+              Calculadas · resultados de Nuthrick
+            </h3>
             <label className="flex gap-2 text-sm">
               <input
                 type="checkbox"
@@ -820,123 +669,51 @@ export const AnthropometryPanel = forwardRef<
               Mostrar orientación
             </label>
           </div>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            {formulas.map((f) => (
-              <article
-                key={f.id}
-                className="rounded-xl border border-[#dce5de] p-4"
-              >
-                <label className="flex items-start gap-3 font-semibold">
-                  <input
-                    className="mt-1"
-                    type="checkbox"
-                    checked={i.selected.includes(f.id)}
-                    onChange={(e) =>
-                      changeInput({
-                        selected: e.target.checked
-                          ? [...i.selected, f.id]
-                          : i.selected.filter((id) => id !== f.id),
-                      })
-                    }
-                  />
-                  {f.name}
-                </label>
-                {guidance && (
-                  <p className="mt-2 text-sm leading-6 text-[#63786c]">
-                    {f.short}
-                  </p>
-                )}
-                <p className="mt-2 text-xs">
-                  <strong>Requiere: </strong>
-                  {f.requires}
-                </p>
-                <p className="mt-1 text-xs">
-                  <strong>Resultado: </strong>
-                  {f.unit}
-                </p>
-                <details className="mt-3">
-                  <summary className="cursor-pointer text-sm font-semibold text-[#3d705d]">
-                    Más información · {f.name}
-                  </summary>
-                  <dl className="mt-3 space-y-3 text-sm">
-                    {[
-                      ["¿Qué es?", f.short],
-                      ["¿Para qué se utiliza?", f.use],
-                      ["Datos necesarios", f.requires],
-                      ["Cálculo", f.calculation],
-                      ["Resultado", f.unit],
-                      ["Interpretación", f.guidance],
-                      ["Limitaciones", f.limitations],
-                      ["Aplicabilidad", f.applicability],
-                      ["Versión del método implementado", f.version],
-                    ].map(([label, value]) => (
-                      <div key={label}>
-                        <dt className="font-semibold">{label}</dt>
-                        <dd className="mt-1 leading-6">{value}</dd>
-                      </div>
-                    ))}
-                    <div>
-                      <dt className="font-semibold">Referencias</dt>
-                      <dd>
-                        {f.sources.map((s) => (
-                          <a
-                            key={s.id}
-                            href={s.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-1 block underline"
-                          >
-                            {s.title}
-                          </a>
-                        ))}
-                      </dd>
-                    </div>
-                  </dl>
-                </details>
-              </article>
-            ))}
-          </div>
-          <label className="mt-4 flex gap-2 text-sm">
+          {evaluation?.calculated.length ? (
+            <p className="my-3 text-sm">
+              Actualizados automáticamente ·{" "}
+              {new Date(evaluation.calculated[0].calculated_at).toLocaleString(
+                "es-MX",
+              )}
+              . Se conservarán al guardar.
+            </p>
+          ) : (
+            <p className="my-3 text-sm">
+              Los cálculos aparecerán al completar sus mediciones. Puedes
+              registrar medidas sin calcular.
+            </p>
+          )}
+          <label className="my-3 flex gap-2 text-sm">
             <input
               type="checkbox"
               checked={i.bmiReference}
               onChange={(e) => changeInput({ bmiReference: e.target.checked })}
             />
-            Usar clasificación OMS para IMC cuando edad y contexto sean
-            aplicables
+            Usar clasificación OMS del IMC sólo cuando sea aplicable
           </label>
-          <button
-            type="button"
-            className="nuth-button mt-4"
-            onClick={() => {
-              setCalculated(true);
-              setError("");
-            }}
-          >
-            Calcular resultados
-          </button>
+          {computed.notices.length > 0 && (
+            <p role="status" className="my-3 text-sm text-amber-800">
+              {computed.notices.join(" ")}
+            </p>
+          )}
+          <ResultCards
+            results={results.filter((r) => r.provenance === "calculated")}
+            guidance={guidance}
+            input={i}
+          />
+          <details className="mt-4">
+            <summary className="cursor-pointer text-sm font-semibold">
+              Valores registrados y comparación
+            </summary>
+            <div className="mt-3">
+              <ResultCards
+                results={results.filter((r) => r.provenance !== "calculated")}
+                guidance={false}
+                input={i}
+              />
+            </div>
+          </details>
         </section>
-        {calculated && (
-          <section className={box}>
-            <h3 className="mb-3 text-lg font-semibold">
-              Resultados antropométricos
-            </h3>
-            {computed.notices.length > 0 && (
-              <div
-                role="status"
-                className="mb-4 rounded-xl bg-amber-50 p-3 text-sm"
-              >
-                {computed.notices.map((n) => (
-                  <p key={n}>{n}</p>
-                ))}
-              </div>
-            )}
-            <ResultCards results={results} guidance={guidance} input={i} />
-            {!results.length && (
-              <p>Completa datos válidos para obtener resultados.</p>
-            )}
-          </section>
-        )}
         <section className={box}>
           <h3 className="text-xl font-semibold">Valoración antropométrica</h3>
           <p className="mt-2 text-sm text-[#74817d]">
@@ -995,24 +772,40 @@ export const AnthropometryPanel = forwardRef<
               </p>
             )}
           </aside>
-          <div className="mt-5 space-y-4">
+          <div className="mt-5 space-y-3">
             {prompts.map((prompt, index) => (
-              <Field key={prompt} label={prompt}>
-                <textarea
-                  className="nuth-input min-h-20"
-                  maxLength={3000}
-                  rows={2}
-                  value={payload.assessment[index] ?? ""}
-                  onChange={(e) =>
-                    setPayload((p) => ({
-                      ...p,
-                      assessment: p.assessment.map((a, n) =>
-                        n === index ? e.target.value : a,
-                      ),
-                    }))
-                  }
-                />
-              </Field>
+              <details
+                key={prompt}
+                className="rounded-xl border border-[#e1e8e2] p-3"
+                open={Boolean(payload.assessment[index]?.trim())}
+              >
+                <summary className="cursor-pointer text-sm font-semibold">
+                  {prompt}
+                  {!payload.assessment[index]?.trim() && (
+                    <span className="ml-2 font-normal text-[#74817d]">
+                      · opcional
+                    </span>
+                  )}
+                </summary>
+                <div className="mt-3">
+                  <Field label="Observación profesional">
+                    <textarea
+                      className="nuth-input min-h-20"
+                      maxLength={3000}
+                      rows={2}
+                      value={payload.assessment[index] ?? ""}
+                      onChange={(e) =>
+                        setPayload((p) => ({
+                          ...p,
+                          assessment: p.assessment.map((a, n) =>
+                            n === index ? e.target.value : a,
+                          ),
+                        }))
+                      }
+                    />
+                  </Field>
+                </div>
+              </details>
             ))}
           </div>
           <div className="mt-5 border-t pt-5">
@@ -1236,7 +1029,6 @@ export const AnthropometryPanel = forwardRef<
               )
                 return;
               setPayload(JSON.parse(savedEncoded) as AnthroPayload);
-              setCalculated(revision > 0);
               setError("");
               setNotice("Cambios sin guardar descartados.");
             }}

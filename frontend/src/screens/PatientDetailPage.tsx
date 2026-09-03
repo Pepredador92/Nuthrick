@@ -40,7 +40,6 @@ import {
 import {
   archivePatient,
   assignPatientTag,
-  createMeasurement,
   createPatientNote,
   createPatientTag,
   deletePatientNote,
@@ -362,7 +361,6 @@ function HistoryModal({
   submissions,
   responses,
   onNewConsultation,
-  onNewMeasurement,
   onCreateNote,
   onEditNote,
   onDeleteNote,
@@ -383,7 +381,6 @@ function HistoryModal({
   submissions: QuestionnaireSubmission[];
   responses: Record<string, QuestionnaireResponse[]>;
   onNewConsultation: (event: FormEvent<HTMLFormElement>) => void;
-  onNewMeasurement: (event: FormEvent<HTMLFormElement>) => void;
   onCreateNote: (event: FormEvent<HTMLFormElement>) => void;
   onEditNote: (note: PatientNote) => void;
   onDeleteNote: (note: PatientNote) => void;
@@ -544,50 +541,16 @@ function HistoryModal({
                 />
               )}
               <form
-                className="grid gap-3 rounded-2xl border border-[#dfe5e1] bg-[#fbfcfa] p-4 md:grid-cols-[1fr_1fr_1fr_auto]"
-                onSubmit={onNewMeasurement}
+                onSubmit={onNewConsultation}
+                className="rounded-2xl border border-[#dfe5e1] p-4"
               >
-                <select
-                  name="consultation_id"
-                  className="nuth-input"
-                  defaultValue={selectedConsultation?.id ?? ""}
-                >
-                  <option value="">Sin consulta asociada</option>
-                  {consultations.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {consultationLabel(item)}
-                    </option>
-                  ))}
-                </select>
-                <Input
-                  name="measured_at"
-                  type="date"
-                  defaultValue={new Date().toISOString().slice(0, 10)}
-                  required
-                />
-                <Input
-                  name="weight_kg"
-                  type="number"
-                  min="0.1"
-                  max="1000"
-                  step="0.01"
-                  placeholder="Peso (kg)"
-                  required
-                />
-                <div className="flex gap-2">
-                  <Input
-                    name="height_cm"
-                    type="number"
-                    min="20"
-                    max="300"
-                    step="0.01"
-                    placeholder="Estatura (cm)"
-                    required
-                  />
-                  <button className="nuth-button" aria-label="Guardar medición">
-                    <Plus size={16} />
-                  </button>
-                </div>
+                <p className="mb-3 text-sm">
+                  Registra las mediciones con el seguimiento personalizado del
+                  paciente. Los registros anteriores se conservan abajo.
+                </p>
+                <button className="nuth-button-secondary" type="submit">
+                  Agregar mediciones en una consulta
+                </button>
               </form>
               {measurements.length ? (
                 <div className="overflow-x-auto rounded-2xl border border-[#dfe5e1]">
@@ -1051,6 +1014,8 @@ export function PatientDetailPage() {
         timezone: String(form.get("timezone") || patient.timezone),
         birth_date: String(form.get("birth_date") || "") || null,
         gender: String(form.get("gender") || "") || null,
+        equation_sex: (String(form.get("equation_sex") || "") ||
+          null) as Patient["equation_sex"],
         portal_access_enabled: Boolean(form.get("portal_access_enabled")),
       });
       setPatient({ ...updated, tags: assigned });
@@ -1140,28 +1105,6 @@ export function PatientDetailPage() {
       setConsultations((current) => current.filter((item) => item.id !== id));
       setSelectedConsultationId((current) => (current === id ? null : current));
     }, "Consulta eliminada. Las mediciones, notas y planes se conservaron sin vínculo a esa consulta.");
-  };
-  const addMeasurement = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    await run(async () => {
-      const created = await createMeasurement(patient.id, {
-        consultation_id: String(form.get("consultation_id") || "") || null,
-        measured_at: new Date(
-          `${String(form.get("measured_at"))}T12:00:00`,
-        ).toISOString(),
-        weight_kg: Number(form.get("weight_kg")),
-        height_cm: Number(form.get("height_cm")),
-      });
-      setMeasurements((current) =>
-        [created, ...current].sort(
-          (a, b) =>
-            new Date(b.measured_at).getTime() -
-            new Date(a.measured_at).getTime(),
-        ),
-      );
-      event.currentTarget.reset();
-    }, "Medición agregada.");
   };
   const addNote = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1440,6 +1383,21 @@ export function PatientDetailPage() {
                 <option value="other">Otro</option>
               </select>
             </Field>
+            <Field
+              label="Sexo requerido por ecuaciones antropométricas"
+              name="edit-equation-sex"
+            >
+              <select
+                id="edit-equation-sex"
+                name="equation_sex"
+                className="nuth-input"
+                defaultValue={patient.equation_sex ?? ""}
+              >
+                <option value="">Sin registrar</option>
+                <option value="male">Masculino</option>
+                <option value="female">Femenino</option>
+              </select>
+            </Field>
           </div>
           <label className="mt-4 flex items-start gap-3 rounded-2xl bg-[#f3f7f3] p-4 text-sm">
             <input
@@ -1694,7 +1652,6 @@ export function PatientDetailPage() {
           submissions={submissions}
           responses={responses}
           onNewConsultation={addConsultation}
-          onNewMeasurement={addMeasurement}
           onCreateNote={addNote}
           onEditNote={(note) => void editNote(note)}
           onDeleteNote={(note) => setConfirm({ action: "note-delete", note })}

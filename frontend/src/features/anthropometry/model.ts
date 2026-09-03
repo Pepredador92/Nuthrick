@@ -47,6 +47,10 @@ export interface Result {
   metric: string;
   label: string;
   value: number;
+  display_value?: number;
+  decimal_places?: number;
+  isBioimpedance?: boolean;
+  sourceType?: import("./workflowTypes").MeasurementSource;
   unit: string;
   method: string;
   methodVersion: string;
@@ -80,6 +84,7 @@ export interface Diagnosis {
   evidence: Result[];
 }
 export interface AnthroPayload {
+  workflow?: import("./workflowTypes").MeasurementWorkflow;
   schemaVersion: 1;
   engineVersion: string;
   input: AssessmentInput;

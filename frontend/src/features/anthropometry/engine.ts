@@ -455,7 +455,8 @@ export function compare(
           r.compatibilityKey === result.compatibilityKey,
       );
       if (!old) continue;
-      const bia = result.method.startsWith("Bioimpedancia");
+      const bia =
+        result.isBioimpedance || result.method.startsWith("Bioimpedancia");
       const conditionsDiffer =
         bia &&
         ["fastingHours", "recentExercise", "hydration", "notes"].some(
@@ -478,12 +479,17 @@ export function compare(
     return result;
   });
 }
+export function formatResultNumber(value: number, r: Result): string {
+  return value.toLocaleString("es-MX", {
+    maximumFractionDigits: r.decimal_places ?? 2,
+  });
+}
 export function resultText(r: Result): string {
-  return `${r.label}: ${displayNumber(r.value)} ${r.unit} · ${r.method}`;
+  return `${r.label}: ${formatResultNumber(r.display_value ?? r.value, r)} ${r.unit} · ${r.method}`;
 }
 export function changeText(r: Result): string {
   return r.previous
-    ? `${r.label}: ${r.previous.delta > 0 ? "+" : ""}${displayNumber(r.previous.delta)} ${r.unit === "%" ? "puntos porcentuales" : r.unit} desde ${new Date(r.previous.measuredAt).toLocaleDateString("es-MX")} · ${r.method}`
+    ? `${r.label}: ${r.previous.delta > 0 ? "+" : ""}${formatResultNumber(r.previous.delta, r)} ${r.unit === "%" ? "puntos porcentuales" : r.unit} desde ${new Date(r.previous.measuredAt).toLocaleDateString("es-MX")} · ${r.method}`
     : "";
 }
 export function createNote(results: Result[], input: AssessmentInput): string {
@@ -525,7 +531,7 @@ export function createNote(results: Result[], input: AssessmentInput): string {
     ...(input.caliper && skinKeys.some((k) => input.measurements[k])
       ? [`Plicómetro: ${input.caliper}`]
       : []),
-    ...(input.bia.fat !== null
+    ...(input.bia.fat !== null || results.some((r) => r.isBioimpedance)
       ? [
           ...(input.bia.protocol
             ? [`Protocolo BIA: ${input.bia.protocol}`]

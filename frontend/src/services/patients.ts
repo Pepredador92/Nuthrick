@@ -232,6 +232,7 @@ export interface PatientInput {
   weight_kg?: number | null;
   height_cm?: number | null;
   gender?: string | null;
+  equation_sex?: "male" | "female" | null;
   birth_date?: string | null;
   portal_access_enabled: boolean;
   archived_at?: string | null;
@@ -378,7 +379,8 @@ export async function createConsultation(
       .limit(1)
       .maybeSingle();
     if (latestError) throw friendlyError(latestError);
-    sequenceNumber = latest?.sequence_number == null ? 0 : latest.sequence_number + 1;
+    sequenceNumber =
+      latest?.sequence_number == null ? 0 : latest.sequence_number + 1;
   }
   const consultationType =
     input.consultation_type ?? (sequenceNumber === 0 ? "initial" : "follow_up");
@@ -408,7 +410,9 @@ export async function listNotes(
   return unwrap((data ?? []) as ConsultationNote[], error);
 }
 
-export async function listPatientNotes(patientId: string): Promise<PatientNote[]> {
+export async function listPatientNotes(
+  patientId: string,
+): Promise<PatientNote[]> {
   const { data, error } = await supabase
     .from("patient_notes")
     .select("*")

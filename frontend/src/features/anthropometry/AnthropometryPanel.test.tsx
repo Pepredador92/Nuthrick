@@ -3,18 +3,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AnthropometryPanel, AnthropometryHistory } from "./AnthropometryPanel";
 import { newPayload, type AnthroPayload } from "./model";
 import { calculate } from "./engine";
+import { measurementTypes } from "./catalog";
+import { emptyConfiguration } from "./workflowTypes";
 import type { Consultation, Patient } from "@/src/types/domain";
 const api = vi.hoisted(() => ({
   load: vi.fn(),
   save: vi.fn(),
   preference: vi.fn(),
   savePreference: vi.fn(),
+  setup: vi.fn(),
+  createDevice: vi.fn(),
+  createType: vi.fn(),
 }));
 vi.mock("@/src/services/anthropometry", () => ({
   loadAnthropometry: api.load,
   saveAnthropometry: api.save,
   loadGuidancePreference: api.preference,
   saveGuidancePreference: api.savePreference,
+  loadMeasurementSetup: api.setup,
+  createMeasurementDevice: api.createDevice,
+  createMeasurementType: api.createType,
 }));
 const consultation = {
   id: "c",
@@ -39,9 +47,12 @@ async function mount() {
       onNeedsAttention={attention}
     />,
   );
-  await screen.findByRole("heading", { name: "Mediciones y contexto" });
+  await screen.findByRole("heading", {
+    name: "Registradas · mediciones de hoy",
+  });
 }
 function fill() {
+  fireEvent.click(screen.getByRole("checkbox", { name: "IMC" }));
   fireEvent.change(screen.getByLabelText("Peso (kg)"), {
     target: { value: "80" },
   });
@@ -56,6 +67,12 @@ function fill() {
 beforeEach(() => {
   vi.clearAllMocks();
   api.load.mockResolvedValue([]);
+  api.setup.mockResolvedValue({
+    types: measurementTypes,
+    devices: [],
+    template: null,
+    legacy: [],
+  });
   api.preference.mockResolvedValue(true);
   api.savePreference.mockResolvedValue(undefined);
   api.save.mockImplementation(
@@ -76,16 +93,11 @@ describe("documentación antropométrica guiada", () => {
     await mount();
     fill();
     expect(
-      screen.getByText("Más información · Jackson-Pollock 7"),
+      screen.getByText("Más información sobre las fórmulas"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Relaciona peso y talla como indicador general/, {
-        selector: "p",
-      }),
+      screen.getByText(/Relaciona peso y talla. Requiere/),
     ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Calcular resultados" }),
-    );
     expect(
       screen.getByText("Clasificación de referencia: Sobrepeso"),
     ).toBeInTheDocument();
@@ -256,5 +268,124 @@ describe("documentación antropométrica guiada", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("22.12")).toBeInTheDocument();
     expect(api.save).not.toHaveBeenCalled();
+  });
+});
+describe("flujo personalizado de mediciones", () => {
+  it("loads the patient's habitual fields directly with empty values and no setup wizard", async () => {
+    api.setup.mockResolvedValue({
+      types: measurementTypes,
+      devices: [],
+      legacy: [],
+      template: {
+        revision: 2,
+        configuration: {
+          ...emptyConfiguration(),
+          indicators: ["bmi", "waist_height_ratio"],
+          measurements: ["calf_circumference"],
+          protocol: "Habitual",
+        },
+      },
+    });
+    await mount();
+    expect(
+      screen.getByRole("heading", {
+        name: "Seguimiento antropométrico habitual",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Quiero calcular indicadores/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText("Peso (kg)")).toHaveLength(1);
+    expect(screen.getByLabelText("Peso (kg)")).toHaveValue(null);
+    expect(screen.getByLabelText("Cintura (cm)")).toHaveValue(null);
+    expect(screen.getByLabelText("Pantorrilla (cm)")).toHaveValue(null);
+    expect(screen.queryByLabelText("Bíceps (mm)")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Editar seguimiento" }));
+    expect(screen.getByLabelText("Sólo en esta consulta")).toBeChecked();
+    fireEvent.click(
+      screen.getByLabelText(
+        "También en el seguimiento habitual de este paciente",
+      ),
+    );
+    fireEvent.change(screen.getByLabelText("Peso (kg)"), {
+      target: { value: "80" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Guardar antropometría y valoración",
+      }),
+    );
+    await waitFor(() => expect(api.save).toHaveBeenCalledOnce());
+    expect(api.save.mock.calls[0][2].workflow).toMatchObject({
+      templateScope: "habitual",
+      templateRevision: 2,
+    });
+  });
+  it("allows measures without calculations and distinguishes extra from required", async () => {
+    await mount();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Quiero registrar medidas/ }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Elegir medidas del catálogo" }),
+    );
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Brazo relajado · cm" }),
+    );
+    expect(screen.getByLabelText("Brazo relajado (cm)")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Peso (kg)")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Brazo relajado (cm)"), {
+      target: { value: "31" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Guardar antropometría y valoración",
+      }),
+    );
+    await waitFor(() => expect(api.save).toHaveBeenCalledOnce());
+    expect(api.save.mock.calls[0][2].workflow.calculations).toEqual([]);
+    expect(
+      api.save.mock.calls[0][2].workflow.entries.relaxed_arm_circumference,
+    ).toMatchObject({ value: 31, source_type: "manual", unit: "cm" });
+  });
+  it("reuses height only after an explicit action and retains the original date", async () => {
+    api.setup.mockResolvedValue({
+      types: measurementTypes,
+      devices: [],
+      template: {
+        revision: 1,
+        configuration: { ...emptyConfiguration(), indicators: ["bmi"] },
+      },
+      legacy: [
+        {
+          id: "old",
+          patient_id: "p",
+          professional_id: "owner",
+          consultation_id: "previous",
+          measured_at: "2026-08-01T12:00:00Z",
+          created_at: "2026-08-01T12:00:00Z",
+          height_cm: 178,
+          weight_kg: 90,
+        },
+      ],
+    });
+    await mount();
+    expect(screen.getByLabelText("Talla (cm)")).toHaveValue(null);
+    expect(screen.getByText("Última talla: 178 cm")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Usar esta talla anterior" }),
+    );
+    expect(screen.getByLabelText("Talla (cm)")).toHaveValue(178);
+    expect(screen.getByLabelText("Peso (kg)")).toHaveValue(null);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Guardar antropometría y valoración",
+      }),
+    );
+    await waitFor(() => expect(api.save).toHaveBeenCalledOnce());
+    expect(api.save.mock.calls[0][2].workflow.entries.height).toMatchObject({
+      reused_from_id: "old:height",
+      original_measured_at: "2026-08-01T12:00:00Z",
+    });
   });
 });

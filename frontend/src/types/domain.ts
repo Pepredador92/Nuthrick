@@ -1,8 +1,16 @@
-export type CareModality = 'online' | 'in_person' | 'hybrid';
-export type MediaCategory = 'avatar' | 'logo' | 'services';
-export type LinkType = 'whatsapp' | 'tiktok' | 'facebook' | 'instagram' | 'youtube' | 'custom';
-export type ContactType = 'phone' | 'email';
-export type EducationType = 'degree' | 'course' | 'training' | 'diploma' | 'masters' | 'doctorate' | 'specialty';
+export type CareModality = "online" | "in_person" | "hybrid";
+export type MediaCategory = "avatar" | "logo" | "services";
+export type LinkType =
+  "whatsapp" | "tiktok" | "facebook" | "instagram" | "youtube" | "custom";
+export type ContactType = "phone" | "email";
+export type EducationType =
+  | "degree"
+  | "course"
+  | "training"
+  | "diploma"
+  | "masters"
+  | "doctorate"
+  | "specialty";
 
 export interface ProfessionalProfile {
   id: string;
@@ -127,8 +135,9 @@ export interface ProfileWorkspace {
   slots: AvailabilitySlot[];
 }
 
-export type PatientStatus = 'active' | 'inactive' | 'archived';
-export type PatientGender = 'female' | 'male' | 'non_binary' | 'prefer_not_to_say' | 'other';
+export type PatientStatus = "active" | "inactive" | "archived";
+export type PatientGender =
+  "female" | "male" | "non_binary" | "prefer_not_to_say" | "other";
 
 export interface Patient {
   id: string;
@@ -141,6 +150,7 @@ export interface Patient {
   weight_kg: number | null;
   height_cm: number | null;
   gender: PatientGender | null;
+  equation_sex?: "male" | "female" | null;
   birth_date: string | null;
   portal_access_enabled: boolean;
   status: PatientStatus;
@@ -152,23 +162,201 @@ export interface Patient {
   tags?: PatientTag[];
 }
 
-export interface PatientTag { id: string; professional_id: string; name: string; color: string; created_at: string; }
-export interface PatientMeasurement { id: string; professional_id: string; patient_id: string; consultation_id: string | null; measured_at: string; weight_kg: number; height_cm: number; bmi: number; ideal_weight_kg: number | null; ideal_weight_method: string | null; notes: string | null; created_at: string; }
-export interface Consultation { id: string; professional_id: string; patient_id: string; consultation_type: 'initial' | 'follow_up'; sequence_number: number; consultation_date: string; status: 'draft' | 'completed' | 'cancelled'; summary: string | null; completed_at: string | null; created_at: string; updated_at: string; }
-export type ConsultationQuestionType = 'short_text' | 'long_text' | 'boolean' | 'select' | 'multi_select' | 'number' | 'date' | 'time' | 'repeatable_group';
-export type ConsultationResponseArea = 'patient_reported' | 'professional_assessment';
-export interface ConsultationTemplate { id: string; professional_id: string | null; template_key: string; name: string; consultation_type: 'initial' | 'follow_up'; version: number; source_template_id: string | null; is_system: boolean; is_default: boolean; is_active: boolean; created_at: string; updated_at: string; }
-export interface ConsultationTemplateSection { id: string; template_id: string; section_key: string; title: string; description: string | null; display_order: number; is_active: boolean; created_at: string; updated_at: string; }
-export interface ConsultationTemplateQuestion { id: string; section_id: string; question_key: string; label: string; help_text: string | null; question_type: ConsultationQuestionType; response_area: ConsultationResponseArea; is_required: boolean; display_order: number; is_active: boolean; configuration: Record<string, unknown>; visibility_condition: Record<string, unknown> | null; created_at: string; updated_at: string; }
-export interface ConsultationSnapshot { id: string; professional_id: string; consultation_id: string; patient_id: string; template_id: string | null; template_name: string; template_version: number; revision: number; structure: ConsultationSnapshotStructure; created_at: string; }
-export interface ConsultationSnapshotStructure { consultation_type: 'initial' | 'follow_up'; sections: Array<{ section_key: string; title: string; description?: string | null; questions: Array<{ question_key: string; label: string; help_text?: string | null; question_type: ConsultationQuestionType; response_area: ConsultationResponseArea; is_required: boolean; configuration: Record<string, unknown>; visibility_condition?: Record<string, unknown> | null; }> }>; }
-export interface ConsultationAnswer { id: string; professional_id: string; consultation_id: string; patient_id: string; revision: number; question_key: string; section_key: string; response_area: ConsultationResponseArea; value: unknown; created_at: string; updated_at: string; }
-export interface ConsultationNote { id: string; professional_id: string; consultation_id: string; patient_id: string; note: string; created_at: string; updated_at: string; }
-export interface PatientProgressPhoto { id: string; professional_id: string; patient_id: string; storage_path: string; captured_at: string; caption: string | null; created_at: string; signedUrl?: string; }
-export interface PatientNote { id: string; professional_id: string; patient_id: string; consultation_id: string | null; content: string; created_at: string; updated_at: string; deleted_at: string | null; }
-export interface QuestionnaireSubmission { id: string; professional_id: string; patient_id: string; consultation_id: string | null; questionnaire_type: 'initial' | 'follow_up'; version: number; status: 'draft' | 'completed'; submitted_at: string | null; created_at: string; updated_at: string; }
-export interface QuestionnaireResponse { id: string; professional_id: string; submission_id: string; section_key: string; question_key: string; value: unknown; created_at: string; updated_at: string; }
-export interface NutritionPlan { id: string; professional_id: string; patient_id: string; consultation_id: string | null; assigned_at: string; review_date: string | null; plan_type: string | null; category: string | null; target_calories: number | null; status: 'active' | 'archived'; created_at: string; updated_at: string; }
+export interface PatientTag {
+  id: string;
+  professional_id: string;
+  name: string;
+  color: string;
+  created_at: string;
+}
+export interface PatientMeasurement {
+  id: string;
+  professional_id: string;
+  patient_id: string;
+  consultation_id: string | null;
+  measured_at: string;
+  weight_kg: number;
+  height_cm: number;
+  bmi: number;
+  ideal_weight_kg: number | null;
+  ideal_weight_method: string | null;
+  notes: string | null;
+  created_at: string;
+}
+export interface Consultation {
+  id: string;
+  professional_id: string;
+  patient_id: string;
+  consultation_type: "initial" | "follow_up";
+  sequence_number: number;
+  consultation_date: string;
+  status: "draft" | "completed" | "cancelled";
+  summary: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export type ConsultationQuestionType =
+  | "short_text"
+  | "long_text"
+  | "boolean"
+  | "select"
+  | "multi_select"
+  | "number"
+  | "date"
+  | "time"
+  | "repeatable_group";
+export type ConsultationResponseArea =
+  "patient_reported" | "professional_assessment";
+export interface ConsultationTemplate {
+  id: string;
+  professional_id: string | null;
+  template_key: string;
+  name: string;
+  consultation_type: "initial" | "follow_up";
+  version: number;
+  source_template_id: string | null;
+  is_system: boolean;
+  is_default: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+export interface ConsultationTemplateSection {
+  id: string;
+  template_id: string;
+  section_key: string;
+  title: string;
+  description: string | null;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+export interface ConsultationTemplateQuestion {
+  id: string;
+  section_id: string;
+  question_key: string;
+  label: string;
+  help_text: string | null;
+  question_type: ConsultationQuestionType;
+  response_area: ConsultationResponseArea;
+  is_required: boolean;
+  display_order: number;
+  is_active: boolean;
+  configuration: Record<string, unknown>;
+  visibility_condition: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface ConsultationSnapshot {
+  id: string;
+  professional_id: string;
+  consultation_id: string;
+  patient_id: string;
+  template_id: string | null;
+  template_name: string;
+  template_version: number;
+  revision: number;
+  structure: ConsultationSnapshotStructure;
+  created_at: string;
+}
+export interface ConsultationSnapshotStructure {
+  consultation_type: "initial" | "follow_up";
+  sections: Array<{
+    section_key: string;
+    title: string;
+    description?: string | null;
+    questions: Array<{
+      question_key: string;
+      label: string;
+      help_text?: string | null;
+      question_type: ConsultationQuestionType;
+      response_area: ConsultationResponseArea;
+      is_required: boolean;
+      configuration: Record<string, unknown>;
+      visibility_condition?: Record<string, unknown> | null;
+    }>;
+  }>;
+}
+export interface ConsultationAnswer {
+  id: string;
+  professional_id: string;
+  consultation_id: string;
+  patient_id: string;
+  revision: number;
+  question_key: string;
+  section_key: string;
+  response_area: ConsultationResponseArea;
+  value: unknown;
+  created_at: string;
+  updated_at: string;
+}
+export interface ConsultationNote {
+  id: string;
+  professional_id: string;
+  consultation_id: string;
+  patient_id: string;
+  note: string;
+  created_at: string;
+  updated_at: string;
+}
+export interface PatientProgressPhoto {
+  id: string;
+  professional_id: string;
+  patient_id: string;
+  storage_path: string;
+  captured_at: string;
+  caption: string | null;
+  created_at: string;
+  signedUrl?: string;
+}
+export interface PatientNote {
+  id: string;
+  professional_id: string;
+  patient_id: string;
+  consultation_id: string | null;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+export interface QuestionnaireSubmission {
+  id: string;
+  professional_id: string;
+  patient_id: string;
+  consultation_id: string | null;
+  questionnaire_type: "initial" | "follow_up";
+  version: number;
+  status: "draft" | "completed";
+  submitted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface QuestionnaireResponse {
+  id: string;
+  professional_id: string;
+  submission_id: string;
+  section_key: string;
+  question_key: string;
+  value: unknown;
+  created_at: string;
+  updated_at: string;
+}
+export interface NutritionPlan {
+  id: string;
+  professional_id: string;
+  patient_id: string;
+  consultation_id: string | null;
+  assigned_at: string;
+  review_date: string | null;
+  plan_type: string | null;
+  category: string | null;
+  target_calories: number | null;
+  status: "active" | "archived";
+  created_at: string;
+  updated_at: string;
+}
 
 export interface PublicProfileContent {
   slug: string;
@@ -186,8 +374,19 @@ export interface PublicProfileContent {
   country?: string;
   conditions: string[];
   populations: string[];
-  contacts?: Array<{ type: ContactType; label?: string; countryCode?: string; value: string; isWhatsapp?: boolean }>;
-  education: Array<{ degree: string; educationType?: EducationType; institution: string; graduationYear: number }>;
+  contacts?: Array<{
+    type: ContactType;
+    label?: string;
+    countryCode?: string;
+    value: string;
+    isWhatsapp?: boolean;
+  }>;
+  education: Array<{
+    degree: string;
+    educationType?: EducationType;
+    institution: string;
+    graduationYear: number;
+  }>;
   business?: {
     logoPath?: string;
     logoUrl?: string;
@@ -202,7 +401,11 @@ export interface PublicProfileContent {
   links: Array<{ type: LinkType; title: string; url: string }>;
   gallery: Array<{ path: string; url?: string; alt?: string }>;
   availability?: {
-    settings?: { durationMinutes: number; timezone: string; bookingHorizonDays: number };
+    settings?: {
+      durationMinutes: number;
+      timezone: string;
+      bookingHorizonDays: number;
+    };
     weeklySlots: Array<{ weekday: number; startTime: string; endTime: string }>;
   };
 }

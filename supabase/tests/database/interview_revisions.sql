@@ -33,10 +33,17 @@ select lives_ok($$select public.save_consultation_responses((select id from publ
 select lives_ok($$select public.copy_consultation_template((select id from public.consultation_templates where template_key='system_initial_v2'),'interview-test-new-copy')$$,'a new copy replaces the default atomically');
 select is((select count(*) from public.consultation_templates where is_default),1::bigint,'exactly one personal default remains');
 select lives_ok($$select public.save_consultation_template(t.id,t.updated_at,
-  (select jsonb_agg(to_jsonb(s) || jsonb_build_object('display_order',13-s.display_order,'is_active',s.display_order<>0)) from public.consultation_template_sections s where s.template_id=t.id),
+  (select jsonb_agg(to_jsonb(s) || jsonb_build_object(
+    'display_order',(select max(s2.display_order) from public.consultation_template_sections s2 where s2.template_id=t.id)-s.display_order,
+    'is_active',s.display_order<>(select min(s2.display_order) from public.consultation_template_sections s2 where s2.template_id=t.id)
+  )) from public.consultation_template_sections s where s.template_id=t.id),
   (select jsonb_agg(to_jsonb(q)) from public.consultation_template_questions q join public.consultation_template_sections s on s.id=q.section_id where s.template_id=t.id))
   from public.consultation_templates t where t.template_key='interview-test-new-copy'$$,'saving and reordering an entire private template is atomic');
-select is((select version from public.consultation_templates where template_key='interview-test-new-copy'),3,'editing increments the private version');
+select is(
+  (select version from public.consultation_templates where template_key='interview-test-new-copy'),
+  (select version+1 from public.consultation_templates where template_key='system_initial_v2'),
+  'editing increments the private version'
+);
 select is((select count(*) from public.consultation_template_sections s join public.consultation_templates t on t.id=s.template_id where t.template_key='interview-test-new-copy' and not s.is_active),1::bigint,'disabled sections are retained');
 select throws_ok($$select public.save_consultation_template(t.id,t.updated_at,'[]','[]') from public.consultation_templates t where t.template_key='system_initial_v2'$$,'42501','Private template unavailable','system templates cannot be edited');
 
