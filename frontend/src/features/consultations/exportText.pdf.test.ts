@@ -93,9 +93,11 @@ describe("downloadConsultationPdf", () => {
       .flatMap(([text]) => (Array.isArray(text) ? text : [text]))
       .join("\n");
     expect(documentText).toContain("Lic. Andrea Nombre Actualizado");
-    expect(documentText).toContain("Nutrióloga clínica · Céd. 9876543");
-    expect(documentText).toContain("Establecimiento: Consultorio Bienestar");
-    expect(documentText).toContain("Dirección: Av. Salud 123, Zacatecas");
+    expect(documentText).toContain("Nutrióloga clínica");
+    expect(documentText).toContain("Cédula profesional 9876543");
+    expect(documentText).toContain("Consultorio Bienestar");
+    expect(documentText).toContain("Av. Salud 123, Zacatecas");
+    expect(documentText).toContain("Informe de consulta nutricional");
     expect(documentText).toContain("WhatsApp: +52 492 123 4567");
     expect(mocks.output).toHaveBeenCalledWith("blob");
     expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));

@@ -142,79 +142,109 @@ export async function downloadConsultationPdf(
   let cursor = 18;
 
   const header = (compact = false) => {
-    const textX = logo && !compact ? 42 : margin;
-    const textWidth = pageWidth - textX - margin;
-    const professionalName =
-      professional.fullName.trim() || professional.businessName || "Nuthrick";
-    const compactName = [professionalName, professional.businessName]
-      .filter(
-        (item, index, items) => Boolean(item) && items.indexOf(item) === index,
-      )
-      .join(" · ");
-    const nameLines = pdf.splitTextToSize(
-      compact ? compactName : professionalName,
-      textWidth,
-    ) as string[];
-    const professionalLine = [
-      professional.professionalTitle?.trim(),
-      professional.licenseNumber ? `Céd. ${professional.licenseNumber}` : null,
-    ]
-      .filter((line): line is string => Boolean(line))
-      .join(" · ");
-    const details = [
-      professionalLine,
-      professional.businessName
-        ? `Establecimiento: ${professional.businessName}`
-        : null,
-      professional.businessAddress
-        ? `Dirección: ${professional.businessAddress}`
-        : null,
-      professional.contactLines?.filter(Boolean).join(" · ") || null,
-    ].filter((line): line is string => Boolean(line));
-    const detailLines = details.map(
-      (detail) => pdf.splitTextToSize(detail, textWidth) as string[],
-    );
-    const headerHeight = compact
-      ? 20
-      : Math.max(
-          40,
-          20 +
-            nameLines.length * 4.8 +
-            detailLines.reduce((total, lines) => total + lines.length * 3.6, 0),
-        );
+    const brand =
+      professional.businessName?.trim() ||
+      professional.fullName.trim() ||
+      "Nuthrick";
+    const width = pageWidth - margin * 2;
     pdf.setFillColor(23, 61, 54);
-    pdf.rect(0, 0, pageWidth, headerHeight, "F");
-    if (!compact && logo) {
+    pdf.rect(0, 0, pageWidth, 2, "F");
+    pdf.setFillColor(205, 161, 96);
+    pdf.rect(margin, 2, 28, 1.2, "F");
+
+    if (compact) {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10);
+      const lines = pdf.splitTextToSize(brand, width) as string[];
+      pdf.setTextColor(23, 61, 54);
+      pdf.text(lines, margin, 12);
+      cursor = 14 + lines.length * 4;
+      pdf.setDrawColor(220, 229, 223);
+      pdf.line(margin, cursor, pageWidth - margin, cursor);
+      cursor += 10;
+      return;
+    }
+
+    const textWidth = width - (logo ? 38 : 0);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(140, 103, 53);
+    pdf.text("NUTRICIÓN Y BIENESTAR", margin, 13);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(21);
+    const brandLines = pdf.splitTextToSize(brand, textWidth) as string[];
+    pdf.setTextColor(23, 61, 54);
+    pdf.text(brandLines, margin, 23, { lineHeightFactor: 1.12 });
+    let identityY = 23 + brandLines.length * 8.3 + 2;
+
+    if (logo) {
       try {
+        const properties = pdf.getImageProperties(logo);
+        const scale = Math.min(28 / properties.width, 28 / properties.height);
+        const width = properties.width * scale;
+        const height = properties.height * scale;
         pdf.addImage(
           logo,
-          logo.startsWith("data:image/jpeg") ? "JPEG" : "PNG",
-          margin,
-          7,
-          20,
-          20,
+          properties.fileType,
+          pageWidth - margin - 28 + (28 - width) / 2,
+          12 + (28 - height) / 2,
+          width,
+          height,
           undefined,
           "FAST",
         );
       } catch {
-        // A logo is optional; a text mark keeps the document usable.
+        // The professional identity remains readable if an optional image is unavailable.
       }
     }
-    pdf.setTextColor(255, 255, 255);
+
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(compact ? 10 : 14);
-    pdf.text(nameLines, textX, compact ? 12 : 14);
-    if (!compact) {
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(8.2);
-      let detailCursor = 14 + nameLines.length * 4.8;
-      for (const lines of detailLines) {
-        pdf.text(lines, textX, detailCursor);
-        detailCursor += lines.length * 3.6;
-      }
+    pdf.setFontSize(10.5);
+    const nameLines = pdf.splitTextToSize(
+      professional.fullName,
+      textWidth,
+    ) as string[];
+    pdf.text(nameLines, margin, identityY);
+    identityY += nameLines.length * 4.6 + 1;
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(93, 112, 103);
+    const credentials = [
+      professional.professionalTitle?.trim(),
+      professional.licenseNumber
+        ? `Cédula profesional ${professional.licenseNumber}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join("  ·  ");
+    if (credentials) {
+      const lines = pdf.splitTextToSize(credentials, textWidth) as string[];
+      pdf.text(lines, margin, identityY);
+      identityY += lines.length * 4 + 2;
     }
-    pdf.setTextColor(38, 63, 55);
-    cursor = compact ? 29 : headerHeight + 11;
+
+    const contactLines = [
+      professional.businessAddress,
+      ...(professional.contactLines ?? []),
+    ]
+      .filter((line): line is string => Boolean(line?.trim()))
+      .flatMap((line) => pdf.splitTextToSize(line, width - 10) as string[]);
+    cursor = Math.max(logo ? 46 : 0, identityY + 3);
+    if (contactLines.length) {
+      const height = contactLines.length * 3.8 + 8;
+      pdf.setFillColor(243, 247, 244);
+      pdf.roundedRect(margin, cursor, width, height, 2, 2, "F");
+      pdf.setTextColor(81, 105, 94);
+      pdf.setFontSize(8);
+      pdf.text(contactLines, margin + 5, cursor + 5.5, {
+        lineHeightFactor: 1.34,
+      });
+      cursor += height + 10;
+    } else {
+      pdf.setDrawColor(220, 229, 223);
+      pdf.line(margin, cursor, pageWidth - margin, cursor);
+      cursor += 10;
+    }
   };
 
   const pageBreak = () => {
@@ -231,9 +261,15 @@ export async function downloadConsultationPdf(
     pdf.setFontSize(size);
     pdf.setTextColor(...color);
     const lines = pdf.splitTextToSize(text, pageWidth - margin * 2) as string[];
-    if (cursor + lines.length * gap > pageHeight - 18) pageBreak();
-    pdf.text(lines, margin, cursor);
-    cursor += lines.length * gap + 1.2;
+    for (const line of lines) {
+      if (cursor + gap > pageHeight - 18) pageBreak();
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(size);
+      pdf.setTextColor(...color);
+      pdf.text(line, margin, cursor);
+      cursor += gap;
+    }
+    cursor += 1.2;
   };
   const heading = (text: string) => {
     if (cursor + 13 > pageHeight - 18) pageBreak();
@@ -247,22 +283,45 @@ export async function downloadConsultationPdf(
   };
 
   header();
-  pdf.setFillColor(248, 250, 248);
-  pdf.roundedRect(margin, cursor - 5, pageWidth - margin * 2, 27, 3, 3, "F");
-  pdf.setTextColor(31, 78, 67);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(7.5);
+  pdf.setTextColor(140, 103, 53);
+  pdf.text("REGISTRO CLÍNICO", margin, cursor);
+  cursor += 8;
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(11);
-  pdf.text("Registro de consulta", margin + 4, cursor + 1);
+  pdf.setFontSize(18);
+  pdf.setTextColor(23, 61, 54);
+  pdf.text("Informe de consulta nutricional", margin, cursor);
+  cursor += 7;
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(8.5);
-  pdf.setTextColor(84, 105, 96);
-  pdf.text(patientBasics(patient), margin + 4, cursor + 7);
+  pdf.setTextColor(93, 112, 103);
   pdf.text(
-    `Fecha: ${formatPatientDate(consultation.consultation_date)}  ·  ${consultation.consultation_type === "initial" ? "Consulta inicial" : "Consulta de seguimiento"}`,
-    margin + 4,
-    cursor + 22,
+    `${formatPatientDate(consultation.consultation_date)}  ·  ${consultation.consultation_type === "initial" ? "Consulta inicial" : "Consulta de seguimiento"}`,
+    margin,
+    cursor,
   );
-  cursor += 34;
+  cursor += 7;
+  const basics = patientBasics(patient).flatMap(
+    (line) =>
+      pdf.splitTextToSize(line, pageWidth - margin * 2 - 10) as string[],
+  );
+  const patientHeight = basics.length * 4.2 + 10;
+  pdf.setFillColor(248, 250, 248);
+  pdf.roundedRect(
+    margin,
+    cursor,
+    pageWidth - margin * 2,
+    patientHeight,
+    2,
+    2,
+    "F",
+  );
+  pdf.setFillColor(205, 161, 96);
+  pdf.rect(margin, cursor + 3, 0.8, patientHeight - 6, "F");
+  pdf.setTextColor(55, 77, 69);
+  pdf.text(basics, margin + 5, cursor + 6, { lineHeightFactor: 1.4 });
+  cursor += patientHeight + 11;
 
   for (const section of snapshot.structure.sections) {
     const entries = section.questions
@@ -288,6 +347,9 @@ export async function downloadConsultationPdf(
         pageWidth - margin * 2,
       ) as string[];
       if (cursor + labelLines.length * 4.8 + 8 > pageHeight - 18) pageBreak();
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9.5);
+      pdf.setTextColor(38, 63, 55);
       pdf.text(labelLines, margin, cursor);
       cursor += labelLines.length * 4.8;
       write(answer, 9.2, [95, 112, 104], 4.6);
