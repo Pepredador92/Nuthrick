@@ -17,4 +17,4 @@ Conflictos: el expediente tiene género, no sexo de ecuación; se añade un dato
 - [x] Plantilla paciente persistente, carga automática, edición habitual o sólo hoy, aislamiento de pacientes, preservación histórica y control de concurrencia.
 - [x] RLS en tablas y vistas, referencias e integridad paciente/consulta/propietario; revisión de asesores.
 - [x] Tests, lint, typecheck, build y migraciones aplicadas.
-- [ ] Publicación en Vercel confirmada.
+- [x] Publicación en Vercel confirmada.
