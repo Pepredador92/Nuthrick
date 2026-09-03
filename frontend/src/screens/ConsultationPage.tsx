@@ -15,6 +15,10 @@ import { QuestionField } from "@/src/components/consultations/QuestionField";
 import { InterviewReview } from "@/src/components/consultations/InterviewReview";
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
 import {
+  AnthropometryPanel,
+  type AnthropometryHandle,
+} from "@/src/features/anthropometry/AnthropometryPanel";
+import {
   consultationLabel,
   formatPatientDate,
 } from "@/src/features/patients/patientUtils";
@@ -105,6 +109,10 @@ export function ConsultationPage() {
   const pending = useRef(0);
   const heading = useRef<HTMLHeadingElement>(null);
   const closed = useRef(false);
+  const anthropometry = useRef<AnthropometryHandle>(null);
+  const [anthroDirty, setAnthroDirty] = useState(false);
+  const [tab, setTab] = useState<"interview" | "anthropometry">("interview");
+  const showAnthropometry = useCallback(() => setTab("anthropometry"), []);
 
   const load = useCallback(
     async (chosenTemplate?: LoadedTemplate, resumeDraftId?: string) => {
@@ -196,33 +204,42 @@ export function ConsultationPage() {
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const save = useCallback(async (): Promise<boolean> => {
-    if (!consultation || !snapshot || closed.current) return false;
-    const captured = structuredClone(valuesRef.current);
-    const encoded = JSON.stringify(captured);
-    pending.current += 1;
-    setSaving(true);
-    try {
-      await queue.current(async () => {
-        if (encoded === lastSaved.current) return;
-        await saveAnswers(consultation, snapshot, captured);
-        lastSaved.current = encoded;
-        setSavedEncoded(encoded);
-      });
-      setError("");
-      return true;
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "No se pudo guardar. No cierres esta pantalla; puedes volver a intentarlo.",
-      );
-      return false;
-    } finally {
-      pending.current -= 1;
-      setSaving(pending.current > 0);
-    }
-  }, [consultation, snapshot]);
+  const save = useCallback(
+    async (includeAnthropometry = false): Promise<boolean> => {
+      if (!consultation || !snapshot || closed.current) return false;
+      const captured = structuredClone(valuesRef.current);
+      const encoded = JSON.stringify(captured);
+      pending.current += 1;
+      setSaving(true);
+      try {
+        await queue.current(async () => {
+          if (encoded === lastSaved.current) return;
+          await saveAnswers(consultation, snapshot, captured);
+          lastSaved.current = encoded;
+          setSavedEncoded(encoded);
+        });
+        if (
+          includeAnthropometry &&
+          anthropometry.current &&
+          !(await anthropometry.current.saveIfDirty())
+        )
+          return false;
+        setError("");
+        return true;
+      } catch (cause) {
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "No se pudo guardar. No cierres esta pantalla; puedes volver a intentarlo.",
+        );
+        return false;
+      } finally {
+        pending.current -= 1;
+        setSaving(pending.current > 0);
+      }
+    },
+    [consultation, snapshot],
+  );
 
   useEffect(() => {
     if (busy || loading || JSON.stringify(values) === lastSaved.current) return;
@@ -235,7 +252,8 @@ export function ConsultationPage() {
     const warn = (event: BeforeUnloadEvent) => {
       if (
         JSON.stringify(valuesRef.current) !== lastSaved.current ||
-        pending.current
+        pending.current ||
+        anthroDirty
       ) {
         event.preventDefault();
         event.returnValue = "";
@@ -259,12 +277,13 @@ export function ConsultationPage() {
         url.origin !== window.location.origin ||
         closed.current ||
         (JSON.stringify(valuesRef.current) === lastSaved.current &&
-          !pending.current)
+          !pending.current &&
+          !anthroDirty)
       )
         return;
       event.preventDefault();
       event.stopPropagation();
-      void save().then((ok) => {
+      void save(true).then((ok) => {
         if (ok) navigate(url.pathname + url.search + url.hash);
       });
     };
@@ -274,7 +293,7 @@ export function ConsultationPage() {
       window.removeEventListener("beforeunload", warn);
       document.removeEventListener("click", leave, true);
     };
-  }, [save, navigate]);
+  }, [save, navigate, anthroDirty]);
 
   const setAnswer = (key: string, value: unknown) => {
     const next = { ...valuesRef.current, [key]: value };
@@ -351,6 +370,8 @@ export function ConsultationPage() {
     setBusy(true);
     try {
       if (!(await save())) return;
+      if (anthropometry.current && !(await anthropometry.current.saveIfDirty()))
+        return;
       const answered = sections
         .flatMap((s) => s.questions)
         .filter(
@@ -597,7 +618,7 @@ export function ConsultationPage() {
               className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold"
               disabled={busy || saving}
               onClick={() =>
-                void save().then((ok) => {
+                void save(true).then((ok) => {
                   if (ok) setNotice("Borrador guardado.");
                 })
               }
@@ -612,277 +633,318 @@ export function ConsultationPage() {
           </div>
         </div>
       </header>
-      {consultation.consultation_type === "initial" &&
-        snapshot.template_version >= 2 && (
-          <p className="mt-3 text-xs leading-5 text-[#74817d]">
-            Entrevista previa a la valoración · sin antropometría. No es
-            necesario llenar todo: pregunta lo relevante y amplía solo cuando
-            corresponda.
+      <nav
+        aria-label="Secciones de la consulta"
+        className="my-5 flex flex-wrap gap-2"
+      >
+        <button
+          type="button"
+          aria-pressed={tab === "interview"}
+          className={
+            tab === "interview" ? "nuth-button" : "nuth-button-secondary"
+          }
+          onClick={() => setTab("interview")}
+        >
+          Cuestionario
+        </button>
+        <button
+          type="button"
+          aria-pressed={tab === "anthropometry"}
+          className={
+            tab === "anthropometry" ? "nuth-button" : "nuth-button-secondary"
+          }
+          onClick={showAnthropometry}
+        >
+          Antropometría y valoración{anthroDirty ? " · sin guardar" : ""}
+        </button>
+      </nav>
+      <div hidden={tab !== "interview"}>
+        {consultation.consultation_type === "initial" &&
+          snapshot.template_version >= 2 && (
+            <p className="mt-3 text-xs leading-5 text-[#74817d]">
+              Cuestionario de la consulta. Las mediciones están en
+              “Antropometría y valoración”. No es necesario llenar todo:
+              pregunta lo relevante y amplía solo cuando corresponda.
+            </p>
+          )}
+        {canUpgrade && (
+          <div className="mt-4 rounded-2xl border border-[#e7d3ae] bg-[#fff9eb] p-4">
+            <p className="text-sm font-semibold text-[#775527]">
+              Hay una entrevista más completa disponible
+            </p>
+            <p className="mt-1 text-xs leading-5 text-[#8e744c]">
+              Este borrador conserva la versión anterior. Actualizarlo no
+              elimina respuestas ni cambia tu plantilla personal.
+            </p>
+            <button
+              type="button"
+              disabled={busy || saving}
+              onClick={() => void upgrade()}
+              className="mt-3 nuth-button-secondary !text-xs"
+            >
+              Usar entrevista actualizada
+            </button>
+          </div>
+        )}
+        {snapshot.revision > 1 && (
+          <div className="mt-4">
+            <button
+              type="button"
+              className="text-xs font-semibold text-[#3d705d]"
+              aria-expanded={showHistory}
+              onClick={() => setShowHistory(!showHistory)}
+            >
+              Revisiones conservadas ({snapshot.revision - 1}){" "}
+              {showHistory ? "−" : "+"}
+            </button>
+            {showHistory && (
+              <SnapshotHistory consultation={consultation} historicalOnly />
+            )}
+          </div>
+        )}
+        {notice && (
+          <p
+            role="status"
+            className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]"
+          >
+            {notice}
           </p>
         )}
-      {canUpgrade && (
-        <div className="mt-4 rounded-2xl border border-[#e7d3ae] bg-[#fff9eb] p-4">
-          <p className="text-sm font-semibold text-[#775527]">
-            Hay una entrevista más completa disponible
-          </p>
-          <p className="mt-1 text-xs leading-5 text-[#8e744c]">
-            Este borrador conserva la versión anterior. Actualizarlo no elimina
-            respuestas ni cambia tu plantilla personal.
-          </p>
-          <button
-            type="button"
-            disabled={busy || saving}
-            onClick={() => void upgrade()}
-            className="mt-3 nuth-button-secondary !text-xs"
+        {error && (
+          <div
+            role="alert"
+            className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]"
           >
-            Usar entrevista actualizada
-          </button>
-        </div>
-      )}
-      {snapshot.revision > 1 && (
-        <div className="mt-4">
-          <button
-            type="button"
-            className="text-xs font-semibold text-[#3d705d]"
-            aria-expanded={showHistory}
-            onClick={() => setShowHistory(!showHistory)}
-          >
-            Revisiones conservadas ({snapshot.revision - 1}){" "}
-            {showHistory ? "−" : "+"}
-          </button>
-          {showHistory && (
-            <SnapshotHistory consultation={consultation} historicalOnly />
-          )}
-        </div>
-      )}
-      {notice && (
-        <p
-          role="status"
-          className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]"
-        >
-          {notice}
-        </p>
-      )}
-      {error && (
-        <div
-          role="alert"
-          className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]"
-        >
-          {error}
-        </div>
-      )}
-      <div className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[225px_minmax(0,1fr)]">
-        <aside className="min-w-0 xl:sticky xl:top-24 xl:h-fit">
-          <div className="mb-4">
-            <p className="text-xs font-semibold text-[#496758]">
-              {answered} de {total} preguntas visibles con respuesta
-            </p>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#dfe8e1]">
-              <div
-                className="h-full rounded-full bg-[#709883]"
-                style={{ width: (total ? (answered / total) * 100 : 0) + "%" }}
-              />
-            </div>
-            <p className="mt-2 text-[10px] text-[#839188]">
-              Orientativo; los campos opcionales no bloquean el cierre.
-            </p>
+            {error}
           </div>
-          <label
-            className="text-xs font-semibold xl:hidden"
-            htmlFor="interview-section"
-          >
-            Ir a una sección
-          </label>
-          <select
-            id="interview-section"
-            className="nuth-input mt-2 !min-w-0 xl:hidden"
-            disabled={busy}
-            value={active}
-            onChange={(event) => void goTo(Number(event.target.value))}
-          >
-            {sections.map((section, index) => (
-              <option key={section.section_key} value={index}>
-                {index + 1}. {section.title}
-              </option>
-            ))}
-            <option value={sections.length}>Revisar y cerrar</option>
-          </select>
-          <nav
-            aria-label="Secciones de la entrevista"
-            className="hidden space-y-1 xl:block"
-          >
-            {sections.map((section, index) => (
-              <button
-                type="button"
-                key={section.section_key}
-                disabled={busy}
-                aria-current={active === index ? "step" : undefined}
-                onClick={() => void goTo(index)}
-                className={
-                  "flex w-full items-start gap-2 rounded-xl px-3 py-2.5 text-left text-xs leading-5 " +
-                  (active === index
-                    ? "bg-[#dfebe2] font-semibold text-[#285647]"
-                    : "text-[#687870] hover:bg-white")
-                }
-              >
-                <span className="w-4 shrink-0 opacity-60">{index + 1}</span>
-                <span className="flex-1">{section.title}</span>
-                <span className="shrink-0 text-[10px] opacity-70">
-                  {progress[index].answered}/{progress[index].total}
-                </span>
-              </button>
-            ))}
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void goTo(sections.length)}
-              className={
-                "mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-3 text-xs font-semibold " +
-                (reviewing ? "bg-[#dfebe2] text-[#285647]" : "text-[#3d705d]")
-              }
-            >
-              <ClipboardCheck size={16} />
-              Revisar y cerrar
-            </button>
-          </nav>
-        </aside>
-        <main className="min-w-0 rounded-[24px] border border-[#dfe5e1] bg-white p-4 sm:p-7">
-          <p className="nuth-eyebrow">
-            {reviewing
-              ? "Antes de cerrar"
-              : "Sección " + (active + 1) + " de " + sections.length}
-          </p>
-          <h2
-            ref={heading}
-            tabIndex={-1}
-            className="mt-2 text-xl font-semibold text-[#173d36] outline-none sm:text-2xl"
-          >
-            {reviewing ? "Revisa lo conversado" : current?.title}
-          </h2>
-          {reviewing ? (
-            <>
-              <p className="mt-3 text-sm leading-6 text-[#718176]">
-                Esta síntesis organiza únicamente lo registrado. No completa
-                datos faltantes ni genera diagnósticos. Puedes volver a
-                cualquier sección antes de cerrar.
+        )}
+        <div className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[225px_minmax(0,1fr)]">
+          <aside className="min-w-0 xl:sticky xl:top-24 xl:h-fit">
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-[#496758]">
+                {answered} de {total} preguntas visibles con respuesta
               </p>
-              <div className="mt-5">
-                <InterviewReview
-                  structure={snapshot.structure}
-                  values={values}
-                  onSection={(index) => void goTo(index)}
-                  showEmpty
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#dfe8e1]">
+                <div
+                  className="h-full rounded-full bg-[#709883]"
+                  style={{
+                    width: (total ? (answered / total) * 100 : 0) + "%",
+                  }}
                 />
               </div>
-              <label className="mt-6 flex items-start gap-3 rounded-xl bg-[#edf5ef] p-4 text-sm leading-6 text-[#315e4f]">
-                <input
-                  type="checkbox"
-                  className="mt-1.5 accent-[#315e4f]"
-                  checked={reviewed}
-                  disabled={busy}
-                  onChange={(event) => setReviewed(event.target.checked)}
-                />
-                Revisé la información. Entiendo que al cerrar esta consulta
-                quedará en el historial y no podré editar sus respuestas.
-              </label>
-            </>
-          ) : (
-            <>
-              {current?.description && (
-                <div className="mt-4 rounded-2xl bg-[#eff6f0] p-4">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-[#527a61]">
-                    Guión para acompañar la conversación
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-[#426650]">
-                    {current.description}
-                  </p>
-                </div>
-              )}
-              <fieldset
-                disabled={busy}
-                className="mt-6 min-w-0 space-y-7 border-0 p-0"
-              >
-                {current?.questions
-                  .filter((question) =>
-                    matchesCondition(question.visibility_condition, values),
-                  )
-                  .map((question) => (
-                    <QuestionField
-                      key={question.question_key}
-                      question={question}
-                      value={values[question.question_key]}
-                      errors={
-                        showErrors
-                          ? questionErrors(
-                              question,
-                              values[question.question_key],
-                            )
-                          : []
-                      }
-                      onChange={(value) =>
-                        setAnswer(question.question_key, value)
-                      }
-                      displayLabel={spokenQuestion(question)}
-                    />
-                  ))}
-                {!current?.questions.length && (
-                  <p className="text-sm text-[#74817d]">
-                    Esta sección no tiene preguntas activas.
-                  </p>
-                )}
-              </fieldset>
-            </>
-          )}
-        </main>
-      </div>
-      <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-[#dfe5e1] bg-white/95 px-3 py-3 backdrop-blur lg:left-[250px]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2">
-          <button
-            type="button"
-            className="nuth-button-secondary !px-3 !text-xs sm:!text-sm"
-            disabled={active === 0 || busy}
-            onClick={() => void goTo(active - 1)}
-          >
-            <ChevronLeft size={15} />
-            Anterior
-          </button>
-          <span
-            role="status"
-            className="hidden text-xs text-[#74817d] md:block"
-          >
-            {saving
-              ? "Guardando…"
-              : dirty
-                ? "Cambios sin guardar"
-                : "Cambios guardados"}
-          </span>
-          {reviewing ? (
-            <button
-              type="button"
-              className="nuth-button !px-3 !text-xs sm:!text-sm"
-              disabled={busy || !reviewed}
-              onClick={() => void complete()}
+              <p className="mt-2 text-[10px] text-[#839188]">
+                Orientativo; los campos opcionales no bloquean el cierre.
+              </p>
+            </div>
+            <label
+              className="text-xs font-semibold xl:hidden"
+              htmlFor="interview-section"
             >
-              {busy ? (
-                <LoaderCircle className="animate-spin" size={15} />
-              ) : (
-                <Check size={15} />
-              )}
-              Cerrar entrevista
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="nuth-button !px-3 !text-xs sm:!text-sm"
+              Ir a una sección
+            </label>
+            <select
+              id="interview-section"
+              className="nuth-input mt-2 !min-w-0 xl:hidden"
               disabled={busy}
-              onClick={() => void goTo(active + 1)}
+              value={active}
+              onChange={(event) => void goTo(Number(event.target.value))}
             >
-              {active === sections.length - 1 ? "Revisar resumen" : "Siguiente"}
-              <ChevronRight size={15} />
-            </button>
-          )}
+              {sections.map((section, index) => (
+                <option key={section.section_key} value={index}>
+                  {index + 1}. {section.title}
+                </option>
+              ))}
+              <option value={sections.length}>Revisar y cerrar</option>
+            </select>
+            <nav
+              aria-label="Secciones de la entrevista"
+              className="hidden space-y-1 xl:block"
+            >
+              {sections.map((section, index) => (
+                <button
+                  type="button"
+                  key={section.section_key}
+                  disabled={busy}
+                  aria-current={active === index ? "step" : undefined}
+                  onClick={() => void goTo(index)}
+                  className={
+                    "flex w-full items-start gap-2 rounded-xl px-3 py-2.5 text-left text-xs leading-5 " +
+                    (active === index
+                      ? "bg-[#dfebe2] font-semibold text-[#285647]"
+                      : "text-[#687870] hover:bg-white")
+                  }
+                >
+                  <span className="w-4 shrink-0 opacity-60">{index + 1}</span>
+                  <span className="flex-1">{section.title}</span>
+                  <span className="shrink-0 text-[10px] opacity-70">
+                    {progress[index].answered}/{progress[index].total}
+                  </span>
+                </button>
+              ))}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void goTo(sections.length)}
+                className={
+                  "mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-3 text-xs font-semibold " +
+                  (reviewing ? "bg-[#dfebe2] text-[#285647]" : "text-[#3d705d]")
+                }
+              >
+                <ClipboardCheck size={16} />
+                Revisar y cerrar
+              </button>
+            </nav>
+          </aside>
+          <main className="min-w-0 rounded-[24px] border border-[#dfe5e1] bg-white p-4 sm:p-7">
+            <p className="nuth-eyebrow">
+              {reviewing
+                ? "Antes de cerrar"
+                : "Sección " + (active + 1) + " de " + sections.length}
+            </p>
+            <h2
+              ref={heading}
+              tabIndex={-1}
+              className="mt-2 text-xl font-semibold text-[#173d36] outline-none sm:text-2xl"
+            >
+              {reviewing ? "Revisa lo conversado" : current?.title}
+            </h2>
+            {reviewing ? (
+              <>
+                <p className="mt-3 text-sm leading-6 text-[#718176]">
+                  Esta síntesis organiza únicamente lo registrado. No completa
+                  datos faltantes ni genera diagnósticos. Puedes volver a
+                  cualquier sección antes de cerrar.
+                </p>
+                <div className="mt-5">
+                  <InterviewReview
+                    structure={snapshot.structure}
+                    values={values}
+                    onSection={(index) => void goTo(index)}
+                    showEmpty
+                  />
+                </div>
+                <label className="mt-6 flex items-start gap-3 rounded-xl bg-[#edf5ef] p-4 text-sm leading-6 text-[#315e4f]">
+                  <input
+                    type="checkbox"
+                    className="mt-1.5 accent-[#315e4f]"
+                    checked={reviewed}
+                    disabled={busy}
+                    onChange={(event) => setReviewed(event.target.checked)}
+                  />
+                  Revisé la información. Entiendo que al cerrar esta consulta
+                  quedará en el historial y no podré editar sus respuestas.
+                </label>
+              </>
+            ) : (
+              <>
+                {current?.description && (
+                  <div className="mt-4 rounded-2xl bg-[#eff6f0] p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#527a61]">
+                      Guión para acompañar la conversación
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-[#426650]">
+                      {current.description}
+                    </p>
+                  </div>
+                )}
+                <fieldset
+                  disabled={busy}
+                  className="mt-6 min-w-0 space-y-7 border-0 p-0"
+                >
+                  {current?.questions
+                    .filter((question) =>
+                      matchesCondition(question.visibility_condition, values),
+                    )
+                    .map((question) => (
+                      <QuestionField
+                        key={question.question_key}
+                        question={question}
+                        value={values[question.question_key]}
+                        errors={
+                          showErrors
+                            ? questionErrors(
+                                question,
+                                values[question.question_key],
+                              )
+                            : []
+                        }
+                        onChange={(value) =>
+                          setAnswer(question.question_key, value)
+                        }
+                        displayLabel={spokenQuestion(question)}
+                      />
+                    ))}
+                  {!current?.questions.length && (
+                    <p className="text-sm text-[#74817d]">
+                      Esta sección no tiene preguntas activas.
+                    </p>
+                  )}
+                </fieldset>
+              </>
+            )}
+          </main>
         </div>
-      </footer>
+        <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-[#dfe5e1] bg-white/95 px-3 py-3 backdrop-blur lg:left-[250px]">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-2">
+            <button
+              type="button"
+              className="nuth-button-secondary !px-3 !text-xs sm:!text-sm"
+              disabled={active === 0 || busy}
+              onClick={() => void goTo(active - 1)}
+            >
+              <ChevronLeft size={15} />
+              Anterior
+            </button>
+            <span
+              role="status"
+              className="hidden text-xs text-[#74817d] md:block"
+            >
+              {saving
+                ? "Guardando…"
+                : dirty
+                  ? "Cambios sin guardar"
+                  : "Cambios guardados"}
+            </span>
+            {reviewing ? (
+              <button
+                type="button"
+                className="nuth-button !px-3 !text-xs sm:!text-sm"
+                disabled={busy || !reviewed}
+                onClick={() => void complete()}
+              >
+                {busy ? (
+                  <LoaderCircle className="animate-spin" size={15} />
+                ) : (
+                  <Check size={15} />
+                )}
+                Cerrar entrevista
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="nuth-button !px-3 !text-xs sm:!text-sm"
+                disabled={busy}
+                onClick={() => void goTo(active + 1)}
+              >
+                {active === sections.length - 1
+                  ? "Revisar resumen"
+                  : "Siguiente"}
+                <ChevronRight size={15} />
+              </button>
+            )}
+          </div>
+        </footer>
+      </div>
+      <div hidden={tab !== "anthropometry"}>
+        <AnthropometryPanel
+          key={consultation.id}
+          ref={anthropometry}
+          consultation={consultation}
+          patient={patient}
+          onDirty={setAnthroDirty}
+          onNeedsAttention={showAnthropometry}
+        />
+      </div>
     </div>
   );
 }

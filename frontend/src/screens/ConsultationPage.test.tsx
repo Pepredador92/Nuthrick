@@ -8,12 +8,31 @@ import {
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConsultationPage } from "./ConsultationPage";
+vi.mock("@/src/features/anthropometry/AnthropometryPanel", async () => {
+  const { forwardRef, useImperativeHandle } = await import("react");
+  return {
+    AnthropometryPanel: forwardRef(function MockAnthropometry(
+      { onNeedsAttention }: { onNeedsAttention: () => void },
+      ref,
+    ) {
+      useImperativeHandle(ref, () => ({
+        saveIfDirty: async () => {
+          const ok = await mocks.anthroSave();
+          if (!ok) onNeedsAttention();
+          return ok;
+        },
+      }));
+      return <p>Documentación de prueba</p>;
+    }),
+  };
+});
 
 const mocks = vi.hoisted(() => ({
   save: vi.fn(),
   finish: vi.fn(),
   adopt: vi.fn(),
   cancel: vi.fn(),
+  anthroSave: vi.fn(),
 }));
 const fixtures = vi.hoisted(() => {
   const c = {
@@ -137,6 +156,7 @@ const mount = (entry = "/app/patients/patient/consultations/draft") =>
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.save.mockResolvedValue(undefined);
+  mocks.anthroSave.mockResolvedValue(true);
   mocks.finish.mockResolvedValue(fixtures.c);
   mocks.cancel.mockResolvedValue({ ...fixtures.c, status: "cancelled" });
   vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
@@ -231,6 +251,17 @@ describe("consultation save and review workflow", () => {
     fireEvent.click(
       screen.getByRole("checkbox", { name: /Revisé la información/ }),
     );
+    await act(async () => {
+      mocks.anthroSave.mockResolvedValueOnce(false);
+      fireEvent.click(
+        screen.getByRole("button", { name: "Cerrar entrevista" }),
+      );
+    });
+    expect(mocks.finish).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Antropometría y valoración" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Cuestionario" }));
     await act(async () => {
       fireEvent.click(
         screen.getByRole("button", { name: "Cerrar entrevista" }),

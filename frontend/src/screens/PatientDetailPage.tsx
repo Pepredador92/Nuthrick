@@ -62,6 +62,7 @@ import {
   updatePatientNote,
 } from "@/src/services/patients";
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
+import { AnthropometryHistory } from "@/src/features/anthropometry/AnthropometryPanel";
 import {
   consultationTextExport,
   downloadConsultationPdf,
@@ -279,6 +280,11 @@ function ConsultationDetail({
         </div>
       </div>
       <SnapshotHistory key={consultation.id} consultation={consultation} />
+      <AnthropometryHistory
+        key={`anthro-${consultation.id}`}
+        patientId={consultation.patient_id}
+        consultationId={consultation.id}
+      />
       {related.map((submission) => {
         const grouped = (responses[submission.id] ?? []).reduce<
           Record<string, QuestionnaireResponse[]>
@@ -531,6 +537,12 @@ function HistoryModal({
           )}
           {tab === "measurements" && (
             <div className="space-y-5">
+              {selectedConsultation && (
+                <AnthropometryHistory
+                  patientId={selectedConsultation.patient_id}
+                  measurementsOnly
+                />
+              )}
               <form
                 className="grid gap-3 rounded-2xl border border-[#dfe5e1] bg-[#fbfcfa] p-4 md:grid-cols-[1fr_1fr_1fr_auto]"
                 onSubmit={onNewMeasurement}
