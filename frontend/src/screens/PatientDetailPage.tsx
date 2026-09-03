@@ -1066,6 +1066,8 @@ export function PatientDetailPage() {
         professionalTitle: workspace.profile.professional_title,
         licenseNumber: workspace.profile.license_number,
         businessName: workspace.business?.establishment_name,
+        businessAddress:
+          workspace.business?.address ?? workspace.locations[0]?.address,
         contactLines: contacts,
         logoUrl: await getSignedMediaUrl(workspace.business?.logo_path),
       };

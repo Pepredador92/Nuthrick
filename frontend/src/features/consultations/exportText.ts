@@ -14,6 +14,7 @@ export interface ProfessionalDocumentInfo {
   professionalTitle?: string | null;
   licenseNumber?: string | null;
   businessName?: string | null;
+  businessAddress?: string | null;
   contactLines?: string[];
   logoUrl?: string | null;
 }
@@ -35,6 +36,9 @@ export function consultationTextExport(
             : []),
           ...(professional.businessName
             ? [`Consultorio: ${professional.businessName}`]
+            : []),
+          ...(professional.businessAddress
+            ? [`Dirección del establecimiento: ${professional.businessAddress}`]
             : []),
           ...(professional.contactLines ?? []),
           "",
@@ -138,8 +142,48 @@ export async function downloadConsultationPdf(
   let cursor = 18;
 
   const header = (compact = false) => {
+    const textX = logo && !compact ? 42 : margin;
+    const textWidth = pageWidth - textX - margin;
+    const professionalName =
+      professional.fullName.trim() || professional.businessName || "Nuthrick";
+    const compactName = [professionalName, professional.businessName]
+      .filter(
+        (item, index, items) => Boolean(item) && items.indexOf(item) === index,
+      )
+      .join(" · ");
+    const nameLines = pdf.splitTextToSize(
+      compact ? compactName : professionalName,
+      textWidth,
+    ) as string[];
+    const professionalLine = [
+      professional.professionalTitle?.trim(),
+      professional.licenseNumber ? `Céd. ${professional.licenseNumber}` : null,
+    ]
+      .filter((line): line is string => Boolean(line))
+      .join(" · ");
+    const details = [
+      professionalLine,
+      professional.businessName
+        ? `Establecimiento: ${professional.businessName}`
+        : null,
+      professional.businessAddress
+        ? `Dirección: ${professional.businessAddress}`
+        : null,
+      professional.contactLines?.filter(Boolean).join(" · ") || null,
+    ].filter((line): line is string => Boolean(line));
+    const detailLines = details.map(
+      (detail) => pdf.splitTextToSize(detail, textWidth) as string[],
+    );
+    const headerHeight = compact
+      ? 20
+      : Math.max(
+          40,
+          20 +
+            nameLines.length * 4.8 +
+            detailLines.reduce((total, lines) => total + lines.length * 3.6, 0),
+        );
     pdf.setFillColor(23, 61, 54);
-    pdf.rect(0, 0, pageWidth, compact ? 20 : 34, "F");
+    pdf.rect(0, 0, pageWidth, headerHeight, "F");
     if (!compact && logo) {
       try {
         pdf.addImage(
@@ -159,28 +203,18 @@ export async function downloadConsultationPdf(
     pdf.setTextColor(255, 255, 255);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(compact ? 10 : 14);
-    pdf.text(
-      professional.businessName || professional.fullName,
-      logo && !compact ? 40 : margin,
-      compact ? 12 : 14,
-    );
+    pdf.text(nameLines, textX, compact ? 12 : 14);
     if (!compact) {
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(8.5);
-      const professionalLine = [
-        professional.professionalTitle,
-        professional.licenseNumber
-          ? `Céd. ${professional.licenseNumber}`
-          : null,
-      ]
-        .filter(Boolean)
-        .join(" · ");
-      if (professionalLine) pdf.text(professionalLine, logo ? 40 : margin, 21);
-      const contact = professional.contactLines?.join(" · ");
-      if (contact) pdf.text(contact, logo ? 40 : margin, 27);
+      pdf.setFontSize(8.2);
+      let detailCursor = 14 + nameLines.length * 4.8;
+      for (const lines of detailLines) {
+        pdf.text(lines, textX, detailCursor);
+        detailCursor += lines.length * 3.6;
+      }
     }
     pdf.setTextColor(38, 63, 55);
-    cursor = compact ? 29 : 45;
+    cursor = compact ? 29 : headerHeight + 11;
   };
 
   const pageBreak = () => {

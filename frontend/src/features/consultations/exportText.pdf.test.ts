@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   output: vi.fn(() => new Blob(["pdf"], { type: "application/pdf" })),
   addImage: vi.fn(),
+  text: vi.fn(),
 }));
 
 vi.mock("jspdf", () => ({
@@ -14,7 +15,7 @@ vi.mock("jspdf", () => ({
     setTextColor() {}
     setFont() {}
     setFontSize() {}
-    text() {}
+    text = mocks.text;
     addPage() {}
     splitTextToSize(text: string) {
       return [text];
@@ -41,7 +42,7 @@ describe("downloadConsultationPdf", () => {
     });
   });
 
-  it("creates a PDF blob and triggers a named browser download", async () => {
+  it("uses the current professional and establishment information in the letterhead", async () => {
     let downloadedFilename = "";
     const click = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
@@ -79,8 +80,23 @@ describe("downloadConsultationPdf", () => {
         },
       } as never,
       { reason: "Mejorar digestión" },
-      { fullName: "Dra. Sofía Nutrióloga" },
+      {
+        fullName: "Lic. Andrea Nombre Actualizado",
+        professionalTitle: "Nutrióloga clínica",
+        licenseNumber: "9876543",
+        businessName: "Consultorio Bienestar",
+        businessAddress: "Av. Salud 123, Zacatecas",
+        contactLines: ["WhatsApp: +52 492 123 4567"],
+      },
     );
+    const documentText = mocks.text.mock.calls
+      .flatMap(([text]) => (Array.isArray(text) ? text : [text]))
+      .join("\n");
+    expect(documentText).toContain("Lic. Andrea Nombre Actualizado");
+    expect(documentText).toContain("Nutrióloga clínica · Céd. 9876543");
+    expect(documentText).toContain("Establecimiento: Consultorio Bienestar");
+    expect(documentText).toContain("Dirección: Av. Salud 123, Zacatecas");
+    expect(documentText).toContain("WhatsApp: +52 492 123 4567");
     expect(mocks.output).toHaveBeenCalledWith("blob");
     expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
     expect(click).toHaveBeenCalledOnce();

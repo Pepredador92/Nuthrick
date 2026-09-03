@@ -141,18 +141,26 @@ export async function loadProfessionalDocumentProfile(userId: string): Promise<{
   profile: ProfessionalProfile;
   business: ProfessionalBusiness | null;
   contacts: ProfessionalContact[];
+  locations: ProfessionalLocation[];
 }> {
   const profile = await ensureOwnProfile(userId);
-  const [business, contacts] = await Promise.all([
+  const [business, contacts, locations] = await Promise.all([
     supabase.from("professional_businesses").select("*").maybeSingle(),
     supabase.from("professional_contacts").select("*").order("display_order"),
+    supabase
+      .from("professional_locations")
+      .select("*")
+      .eq("is_active", true)
+      .order("display_order"),
   ]);
   if (business.error) throw new Error(business.error.message);
   if (contacts.error) throw new Error(contacts.error.message);
+  if (locations.error) throw new Error(locations.error.message);
   return {
     profile,
     business: business.data as ProfessionalBusiness | null,
     contacts: (contacts.data ?? []) as ProfessionalContact[],
+    locations: (locations.data ?? []) as ProfessionalLocation[],
   };
 }
 
