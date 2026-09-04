@@ -1,7 +1,32 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(21);
+select plan(25);
+
+select is(
+  (select count(*) from public.consultation_templates
+   where is_system and is_active and consultation_type = 'initial'),
+  1::bigint,
+  'only one active system initial template is available'
+);
+select is(
+  (select name from public.consultation_templates
+   where template_key = 'system_initial_v2'),
+  'Consulta de inicio',
+  'the canonical initial base uses the requested product label'
+);
+select is(
+  (select count(*) from public.consultation_templates
+   where is_system and is_active and consultation_type = 'follow_up'),
+  1::bigint,
+  'only one active system follow-up template is available'
+);
+select is(
+  (select count(*) from public.consultation_templates
+   where is_active and template_key in ('system_initial_brief_v1', 'system_follow_up_brief_v1')),
+  0::bigint,
+  'brief templates are not active Nuthrick bases'
+);
 
 select ok(
   not has_function_privilege(

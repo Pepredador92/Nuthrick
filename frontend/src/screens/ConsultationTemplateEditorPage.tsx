@@ -82,7 +82,7 @@ export function ConsultationTemplateEditorPage() {
     setError("");
     try {
       const [available, latest] = await Promise.all([
-        listAvailableTemplates(type, true),
+        listAvailableTemplates(type, false, true),
         loadSystemTemplate(type, true),
       ]);
       const template =
@@ -180,7 +180,7 @@ export function ConsultationTemplateEditorPage() {
         newKey("personal-" + type),
       );
       setLoaded(copied);
-      setTemplates(await listAvailableTemplates(type, true));
+      setTemplates(await listAvailableTemplates(type, false, true));
       setPreview(false);
       setActive(0);
       setDirty(false);
@@ -237,7 +237,7 @@ export function ConsultationTemplateEditorPage() {
     try {
       const saved = await saveTemplate(loaded);
       setLoaded(saved);
-      setTemplates(await listAvailableTemplates(type, true));
+      setTemplates(await listAvailableTemplates(type, false, true));
       setDirty(false);
       dirtyRef.current = false;
       setNotice(

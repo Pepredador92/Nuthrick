@@ -35,6 +35,11 @@ export interface LoadedTemplate {
   questions: ConsultationTemplateQuestion[];
 }
 
+export const canonicalSystemTemplateKeys = {
+  initial: "system_initial_v2",
+  follow_up: "system_follow_up_v1",
+} as const satisfies Record<Consultation["consultation_type"], string>;
+
 export async function loadTemplateById(
   templateId: string,
   includeInactive = false,
@@ -79,11 +84,9 @@ export async function loadSystemTemplate(
   const { data, error } = await supabase
     .from("consultation_templates")
     .select("id")
-    .eq("consultation_type", type)
+    .eq("template_key", canonicalSystemTemplateKeys[type])
     .eq("is_system", true)
     .eq("is_active", true)
-    .order("version", { ascending: false })
-    .limit(1)
     .single();
   fail(error, "No encontramos la plantilla predeterminada.");
   return loadTemplateById(data!.id, includeInactive);
@@ -109,11 +112,15 @@ export async function loadActiveTemplate(
 export async function listAvailableTemplates(
   type: Consultation["consultation_type"],
   includeInactive = false,
+  includeInactiveContent = includeInactive,
 ): Promise<LoadedTemplate[]> {
   let query = supabase
     .from("consultation_templates")
     .select("id")
     .eq("consultation_type", type)
+    .or(
+      `is_system.eq.false,template_key.eq.${canonicalSystemTemplateKeys[type]}`,
+    )
     .order("is_default", { ascending: false })
     .order("is_system", { ascending: true })
     .order("display_order")
@@ -122,7 +129,9 @@ export async function listAvailableTemplates(
   const { data, error } = await query;
   fail(error, "No pudimos cargar las plantillas disponibles.");
   return Promise.all(
-    (data ?? []).map((item) => loadTemplateById(item.id, includeInactive)),
+    (data ?? []).map((item) =>
+      loadTemplateById(item.id, includeInactiveContent),
+    ),
   );
 }
 
