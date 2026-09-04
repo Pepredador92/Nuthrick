@@ -1,38 +1,13 @@
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConsultationPage } from "./ConsultationPage";
-vi.mock("@/src/features/anthropometry/AnthropometryPanel", async () => {
-  const { forwardRef, useImperativeHandle } = await import("react");
-  return {
-    AnthropometryPanel: forwardRef(function MockAnthropometry(
-      { onNeedsAttention }: { onNeedsAttention: () => void },
-      ref,
-    ) {
-      useImperativeHandle(ref, () => ({
-        saveIfDirty: async () => {
-          const ok = await mocks.anthroSave();
-          if (!ok) onNeedsAttention();
-          return ok;
-        },
-      }));
-      return <p>Documentación de prueba</p>;
-    }),
-  };
-});
 
 const mocks = vi.hoisted(() => ({
   save: vi.fn(),
   finish: vi.fn(),
   adopt: vi.fn(),
   cancel: vi.fn(),
-  anthroSave: vi.fn(),
   ensure: vi.fn(),
 }));
 const fixtures = vi.hoisted(() => {
@@ -194,7 +169,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   window.sessionStorage.clear();
   mocks.save.mockResolvedValue(undefined);
-  mocks.anthroSave.mockResolvedValue(true);
   mocks.finish.mockResolvedValue(fixtures.c);
   mocks.cancel.mockResolvedValue({ ...fixtures.c, status: "cancelled" });
   mocks.ensure.mockResolvedValue(fixtures.snapshot);
@@ -202,7 +176,7 @@ beforeEach(() => {
 });
 
 describe("consultation save and review workflow", () => {
-  it("restores the exact tab, section and unsaved answer after a remount", async () => {
+  it("restores the exact section and unsaved answer after a remount", async () => {
     const first = mount();
     await screen.findByRole("heading", { name: "Apertura de prueba" });
     fireEvent.change(screen.getByLabelText(/detalle breve de prueba/i), {
@@ -210,18 +184,9 @@ describe("consultation save and review workflow", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
     await screen.findByRole("heading", { name: "Cierre de prueba" });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Antropometría y valoración" }),
-    );
     first.unmount();
 
     mount();
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Antropometría y valoración" }),
-      ).toHaveAttribute("aria-pressed", "true"),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Cuestionario" }));
     expect(
       await screen.findByRole("heading", { name: "Cierre de prueba" }),
     ).toBeInTheDocument();
@@ -370,22 +335,7 @@ describe("consultation save and review workflow", () => {
     fireEvent.click(
       screen.getByRole("checkbox", { name: /Revisé la información/ }),
     );
-    await act(async () => {
-      mocks.anthroSave.mockResolvedValueOnce(false);
-      fireEvent.click(
-        screen.getByRole("button", { name: "Cerrar entrevista" }),
-      );
-    });
-    expect(mocks.finish).not.toHaveBeenCalled();
-    expect(
-      screen.getByRole("button", { name: "Antropometría y valoración" }),
-    ).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: "Cuestionario" }));
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Cerrar entrevista" }),
-      );
-    });
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar entrevista" }));
     await waitFor(() => expect(mocks.finish).toHaveBeenCalledOnce());
     expect(
       await screen.findByRole("heading", { name: "Ficha guardada" }),

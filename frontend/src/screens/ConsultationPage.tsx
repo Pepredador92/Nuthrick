@@ -15,10 +15,6 @@ import { QuestionField } from "@/src/components/consultations/QuestionField";
 import { InterviewReview } from "@/src/components/consultations/InterviewReview";
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
 import {
-  AnthropometryPanel,
-  type AnthropometryHandle,
-} from "@/src/features/anthropometry/AnthropometryPanel";
-import {
   consultationLabel,
   formatPatientDate,
 } from "@/src/features/patients/patientUtils";
@@ -70,7 +66,6 @@ const conversationalPrompts: Record<string, string> = {
 };
 
 type ConsultationWorkspace = {
-  tab: "interview" | "anthropometry";
   active: number;
   values: Answers;
   scrollY: number;
@@ -130,10 +125,6 @@ export function ConsultationPage() {
   const pending = useRef(0);
   const heading = useRef<HTMLHeadingElement>(null);
   const closed = useRef(false);
-  const anthropometry = useRef<AnthropometryHandle>(null);
-  const [anthroDirty, setAnthroDirty] = useState(false);
-  const [tab, setTab] = useState<"interview" | "anthropometry">("interview");
-  const showAnthropometry = useCallback(() => setTab("anthropometry"), []);
 
   const load = useCallback(
     async (chosenTemplate?: LoadedTemplate, resumeDraftId?: string) => {
@@ -218,7 +209,6 @@ export function ConsultationPage() {
         lastSaved.current = JSON.stringify(serverValues);
         setSavedEncoded(lastSaved.current);
         if (workspace) {
-          setTab(workspace.tab);
           setActive(workspace.active);
           requestAnimationFrame(() => window.scrollTo(0, workspace.scrollY));
         }
@@ -247,7 +237,6 @@ export function ConsultationPage() {
     const persistWorkspace = () => {
       if (closed.current) return;
       const workspace: ConsultationWorkspace = {
-        tab,
         active,
         values: valuesRef.current,
         scrollY: window.scrollY,
@@ -266,10 +255,10 @@ export function ConsultationPage() {
       document.removeEventListener("visibilitychange", persistWorkspace);
       window.removeEventListener("pagehide", persistWorkspace);
     };
-  }, [active, consultation, tab, values]);
+  }, [active, consultation, values]);
 
   const save = useCallback(
-    async (includeAnthropometry = false): Promise<boolean> => {
+    async (): Promise<boolean> => {
       if (!consultation || !snapshot || closed.current) return false;
       const captured = structuredClone(valuesRef.current);
       const encoded = JSON.stringify(captured);
@@ -282,12 +271,6 @@ export function ConsultationPage() {
           lastSaved.current = encoded;
           setSavedEncoded(encoded);
         });
-        if (
-          includeAnthropometry &&
-          anthropometry.current &&
-          !(await anthropometry.current.saveIfDirty())
-        )
-          return false;
         setError("");
         return true;
       } catch (cause) {
@@ -316,8 +299,7 @@ export function ConsultationPage() {
     const warn = (event: BeforeUnloadEvent) => {
       if (
         JSON.stringify(valuesRef.current) !== lastSaved.current ||
-        pending.current ||
-        anthroDirty
+        pending.current
       ) {
         event.preventDefault();
         event.returnValue = "";
@@ -341,13 +323,12 @@ export function ConsultationPage() {
         url.origin !== window.location.origin ||
         closed.current ||
         (JSON.stringify(valuesRef.current) === lastSaved.current &&
-          !pending.current &&
-          !anthroDirty)
+          !pending.current)
       )
         return;
       event.preventDefault();
       event.stopPropagation();
-      void save(true).then((ok) => {
+      void save().then((ok) => {
         if (ok) navigate(url.pathname + url.search + url.hash);
       });
     };
@@ -357,7 +338,7 @@ export function ConsultationPage() {
       window.removeEventListener("beforeunload", warn);
       document.removeEventListener("click", leave, true);
     };
-  }, [save, navigate, anthroDirty]);
+  }, [save, navigate]);
 
   const setAnswer = (key: string, value: unknown) => {
     const next = { ...valuesRef.current, [key]: value };
@@ -434,8 +415,6 @@ export function ConsultationPage() {
     setBusy(true);
     try {
       if (!(await save())) return;
-      if (anthropometry.current && !(await anthropometry.current.saveIfDirty()))
-        return;
       const answered = sections
         .flatMap((s) => s.questions)
         .filter(
@@ -720,7 +699,7 @@ export function ConsultationPage() {
               className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold"
               disabled={busy || saving}
               onClick={() =>
-                void save(true).then((ok) => {
+                void save().then((ok) => {
                   if (ok) setNotice("Borrador guardado.");
                 })
               }
@@ -735,38 +714,12 @@ export function ConsultationPage() {
           </div>
         </div>
       </header>
-      <nav
-        aria-label="Secciones de la consulta"
-        className="my-5 flex flex-wrap gap-2"
-      >
-        <button
-          type="button"
-          aria-pressed={tab === "interview"}
-          className={
-            tab === "interview" ? "nuth-button" : "nuth-button-secondary"
-          }
-          onClick={() => setTab("interview")}
-        >
-          Cuestionario
-        </button>
-        <button
-          type="button"
-          aria-pressed={tab === "anthropometry"}
-          className={
-            tab === "anthropometry" ? "nuth-button" : "nuth-button-secondary"
-          }
-          onClick={showAnthropometry}
-        >
-          Antropometría y valoración{anthroDirty ? " · sin guardar" : ""}
-        </button>
-      </nav>
-      <div hidden={tab !== "interview"}>
+      <div className="mt-5">
         {consultation.consultation_type === "initial" &&
           snapshot.template_version >= 2 && (
             <p className="mt-3 text-xs leading-5 text-[#74817d]">
-              Cuestionario de la consulta. Las mediciones están en
-              “Antropometría y valoración”. No es necesario llenar todo:
-              pregunta lo relevante y amplía solo cuando corresponda.
+              Cuestionario de la consulta. No es necesario llenar todo:
+              pregunta lo relevante y amplía sólo cuando corresponda.
             </p>
           )}
         {canUpgrade && (
@@ -1036,16 +989,6 @@ export function ConsultationPage() {
             )}
           </div>
         </footer>
-      </div>
-      <div hidden={tab !== "anthropometry"}>
-        <AnthropometryPanel
-          key={consultation.id}
-          ref={anthropometry}
-          consultation={consultation}
-          patient={patient}
-          onDirty={setAnthroDirty}
-          onNeedsAttention={showAnthropometry}
-        />
       </div>
     </div>
   );

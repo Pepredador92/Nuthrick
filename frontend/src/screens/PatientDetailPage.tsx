@@ -61,7 +61,6 @@ import {
   updatePatientNote,
 } from "@/src/services/patients";
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
-import { AnthropometryHistory } from "@/src/features/anthropometry/AnthropometryPanel";
 import {
   consultationTextExport,
   downloadConsultationPdf,
@@ -279,11 +278,6 @@ function ConsultationDetail({
         </div>
       </div>
       <SnapshotHistory key={consultation.id} consultation={consultation} />
-      <AnthropometryHistory
-        key={`anthro-${consultation.id}`}
-        patientId={consultation.patient_id}
-        consultationId={consultation.id}
-      />
       {related.map((submission) => {
         const grouped = (responses[submission.id] ?? []).reduce<
           Record<string, QuestionnaireResponse[]>
@@ -534,24 +528,6 @@ function HistoryModal({
           )}
           {tab === "measurements" && (
             <div className="space-y-5">
-              {selectedConsultation && (
-                <AnthropometryHistory
-                  patientId={selectedConsultation.patient_id}
-                  measurementsOnly
-                />
-              )}
-              <form
-                onSubmit={onNewConsultation}
-                className="rounded-2xl border border-[#dfe5e1] p-4"
-              >
-                <p className="mb-3 text-sm">
-                  Registra las mediciones con el seguimiento personalizado del
-                  paciente. Los registros anteriores se conservan abajo.
-                </p>
-                <button className="nuth-button-secondary" type="submit">
-                  Agregar mediciones en una consulta
-                </button>
-              </form>
               {measurements.length ? (
                 <div className="overflow-x-auto rounded-2xl border border-[#dfe5e1]">
                   <table className="w-full min-w-[620px] text-left text-sm">
