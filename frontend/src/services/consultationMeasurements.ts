@@ -39,8 +39,16 @@ export type ConsultationMeasurement = {
   measured_at: string;
 };
 
+const defaultWorkspaceCodes = [
+  "weight",
+  "height",
+  "waist_circumference",
+  "hip_circumference",
+  "abdominal_circumference",
+];
+
 export async function loadConsultationMeasurements(consultationId: string) {
-  const [catalogResult, valuesResult] = await Promise.all([
+  const [catalogResult, valuesResult, workspaceResult, itemsResult] = await Promise.all([
     supabase
       .from("measurement_types")
       .select("*")
@@ -52,13 +60,31 @@ export async function loadConsultationMeasurements(consultationId: string) {
       .select("*")
       .eq("consultation_id", consultationId)
       .order("created_at"),
+    supabase.from("professional_measurement_workspaces").select("professional_id").maybeSingle(),
+    supabase.from("professional_measurement_workspace_items").select("measurement_type_id, display_order").order("display_order"),
   ]);
-  if (catalogResult.error || valuesResult.error)
+  if (catalogResult.error || valuesResult.error || workspaceResult.error || itemsResult.error)
     throw new Error("No pudimos cargar las mediciones de esta consulta.");
+  const catalog = catalogResult.data as CatalogMeasurement[];
+  const workspaceIds = workspaceResult.data
+    ? (itemsResult.data ?? []).map((item) => item.measurement_type_id)
+    : defaultWorkspaceCodes
+        .map((code) => catalog.find((item) => item.code === code)?.id)
+        .filter((id): id is string => Boolean(id));
   return {
-    catalog: catalogResult.data as CatalogMeasurement[],
+    catalog,
     values: valuesResult.data as ConsultationMeasurement[],
+    workspaceIds,
   };
+}
+
+export async function saveMeasurementWorkspace(measurementTypeIds: string[]) {
+  const { data, error } = await supabase.rpc("save_measurement_workspace", {
+    p_measurement_type_ids: measurementTypeIds,
+  });
+  if (error) throw new Error("No pudimos guardar tu espacio de trabajo.");
+  const items = (data ?? []) as Array<{ measurement_type_id: string }>;
+  return items.map((item) => item.measurement_type_id);
 }
 
 export async function saveConsultationMeasurements(

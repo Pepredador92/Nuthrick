@@ -2,10 +2,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConsultationMeasurements } from "./ConsultationMeasurements";
 
-const api = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
+const api = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn(), saveWorkspace: vi.fn() }));
 vi.mock("@/src/services/consultationMeasurements", async () => ({
   loadConsultationMeasurements: api.load,
   saveConsultationMeasurements: api.save,
+  saveMeasurementWorkspace: api.saveWorkspace,
 }));
 
 const catalog = [
@@ -18,8 +19,9 @@ const catalog = [
 describe("ConsultationMeasurements", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    api.load.mockResolvedValue({ catalog, values: [] });
+    api.load.mockResolvedValue({ catalog, values: [], workspaceIds: ["weight", "height"] });
     api.save.mockResolvedValue([{ measurement_type_id: "weight", value: 82.4 }]);
+    api.saveWorkspace.mockResolvedValue(["weight", "height", "waist_circumference"]);
   });
   it("shows immediate fields, excludes laboratories, and saves only captured values", async () => {
     render(<ConsultationMeasurements consultation={{ id: "consultation" } as never} />);
@@ -28,7 +30,15 @@ describe("ConsultationMeasurements", () => {
     fireEvent.change(screen.getByLabelText(/peso corporal/i), { target: { value: "82.4" } });
     fireEvent.click(screen.getByRole("button", { name: /guardar mediciones/i }));
     await waitFor(() => expect(api.save).toHaveBeenCalledWith(expect.anything(), { weight: 82.4 }));
-    fireEvent.change(screen.getByLabelText(/buscar medición/i), { target: { value: "hemoglobina" } });
+    fireEvent.change(screen.getByLabelText(/buscar una medición/i), { target: { value: "hemoglobina" } });
     expect(await screen.findByText(/no encontramos una medición disponible/i)).toBeInTheDocument();
+  });
+  it("adds a searched measurement to the habitual workspace without saving a clinical value", async () => {
+    render(<ConsultationMeasurements consultation={{ id: "consultation" } as never} />);
+    await screen.findByRole("heading", { name: "Mediciones" });
+    fireEvent.change(screen.getByLabelText(/buscar una medición/i), { target: { value: "brazo" } });
+    fireEvent.click(await screen.findByRole("button", { name: /agregar al espacio/i }));
+    await waitFor(() => expect(api.saveWorkspace).toHaveBeenCalledWith(["weight", "height", "waist_circumference"]));
+    expect(api.save).not.toHaveBeenCalled();
   });
 });
