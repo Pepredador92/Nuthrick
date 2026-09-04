@@ -2,11 +2,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConsultationMeasurements } from "./ConsultationMeasurements";
 
-const api = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn(), saveWorkspace: vi.fn() }));
+const api = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn(), saveWorkspace: vi.fn(), saveFollowup: vi.fn() }));
 vi.mock("@/src/services/consultationMeasurements", async () => ({
   loadConsultationMeasurements: api.load,
   saveConsultationMeasurements: api.save,
   saveMeasurementWorkspace: api.saveWorkspace,
+  savePatientMeasurementFollowup: api.saveFollowup,
 }));
 
 const catalog = [
@@ -19,9 +20,10 @@ const catalog = [
 describe("ConsultationMeasurements", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    api.load.mockResolvedValue({ catalog, values: [], workspaceIds: ["weight", "height"] });
+    api.load.mockResolvedValue({ catalog, values: [], workspaceIds: ["weight", "height"], hasFollowup: false, followupIds: [], previousValues: {} });
     api.save.mockResolvedValue([{ measurement_type_id: "weight", value: 82.4 }]);
     api.saveWorkspace.mockResolvedValue(["weight", "height", "waist_circumference"]);
+    api.saveFollowup.mockResolvedValue(["weight"]);
   });
   it("shows immediate fields, excludes laboratories, and saves only captured values", async () => {
     render(<ConsultationMeasurements consultation={{ id: "consultation", consultation_date: "2026-09-04T12:00:00Z" } as never} patient={{ weight_kg: 80, height_cm: 174, birth_date: "1992-06-10", equation_sex: "male" } as never} />);
@@ -44,5 +46,24 @@ describe("ConsultationMeasurements", () => {
     fireEvent.click(await screen.findByRole("button", { name: /agregar al espacio/i }));
     await waitFor(() => expect(api.saveWorkspace).toHaveBeenCalledWith(["weight", "height", "waist_circumference"]));
     expect(api.save).not.toHaveBeenCalled();
+  });
+  it("prioritizes the patient follow-up, shows the prior value, and lets it be updated", async () => {
+    api.load.mockResolvedValue({
+      catalog,
+      values: [],
+      workspaceIds: ["weight", "height", "waist_circumference"],
+      hasFollowup: true,
+      followupIds: ["weight"],
+      previousValues: { weight: { measurement_type_id: "weight", value: 82.4, unit: "kg", measured_at: "2026-09-01T12:00:00Z" } },
+    });
+    api.saveFollowup.mockResolvedValue(["weight", "waist_circumference"]);
+    render(<ConsultationMeasurements consultation={{ id: "consultation", consultation_date: "2026-09-04T12:00:00Z" } as never} patient={{ id: "patient", full_name: "Paciente de prueba", weight_kg: 80, height_cm: 174, birth_date: "1992-06-10", equation_sex: "male" } as never} />);
+    expect(await screen.findByRole("heading", { name: /seguimiento de este paciente/i })).toBeInTheDocument();
+    expect(screen.getByText("Anterior: 82.4 kg")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^cintura$/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /editar seguimiento/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /cintura/i }));
+    fireEvent.click(screen.getByRole("button", { name: /guardar seguimiento/i }));
+    await waitFor(() => expect(api.saveFollowup).toHaveBeenCalledWith("patient", ["weight", "waist_circumference"]));
   });
 });

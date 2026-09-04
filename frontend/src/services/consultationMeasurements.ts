@@ -39,6 +39,11 @@ export type ConsultationMeasurement = {
   measured_at: string;
 };
 
+export type PreviousMeasurement = Pick<
+  ConsultationMeasurement,
+  "measurement_type_id" | "value" | "unit" | "measured_at"
+>;
+
 const defaultWorkspaceCodes = [
   "weight",
   "height",
@@ -47,8 +52,8 @@ const defaultWorkspaceCodes = [
   "abdominal_circumference",
 ];
 
-export async function loadConsultationMeasurements(consultationId: string) {
-  const [catalogResult, valuesResult, workspaceResult, itemsResult] = await Promise.all([
+export async function loadConsultationMeasurements(consultation: Consultation) {
+  const [catalogResult, valuesResult, workspaceResult, itemsResult, followupResult, followupItemsResult, previousValuesResult] = await Promise.all([
     supabase
       .from("measurement_types")
       .select("*")
@@ -58,12 +63,28 @@ export async function loadConsultationMeasurements(consultationId: string) {
     supabase
       .from("consultation_measurements")
       .select("*")
-      .eq("consultation_id", consultationId)
+      .eq("consultation_id", consultation.id)
       .order("created_at"),
     supabase.from("professional_measurement_workspaces").select("professional_id").maybeSingle(),
     supabase.from("professional_measurement_workspace_items").select("measurement_type_id, display_order").order("display_order"),
+    supabase
+      .from("patient_measurement_followups")
+      .select("patient_id")
+      .eq("patient_id", consultation.patient_id)
+      .maybeSingle(),
+    supabase
+      .from("patient_measurement_followup_items")
+      .select("measurement_type_id")
+      .eq("patient_id", consultation.patient_id),
+    supabase
+      .from("consultation_measurements")
+      .select("measurement_type_id, value, unit, measured_at")
+      .eq("patient_id", consultation.patient_id)
+      .neq("consultation_id", consultation.id)
+      .lt("measured_at", consultation.consultation_date)
+      .order("measured_at", { ascending: false }),
   ]);
-  if (catalogResult.error || valuesResult.error || workspaceResult.error || itemsResult.error)
+  if (catalogResult.error || valuesResult.error || workspaceResult.error || itemsResult.error || followupResult.error || followupItemsResult.error || previousValuesResult.error)
     throw new Error("No pudimos cargar las mediciones de esta consulta.");
   const catalog = catalogResult.data as CatalogMeasurement[];
   const workspaceIds = workspaceResult.data
@@ -75,6 +96,12 @@ export async function loadConsultationMeasurements(consultationId: string) {
     catalog,
     values: valuesResult.data as ConsultationMeasurement[],
     workspaceIds,
+    hasFollowup: Boolean(followupResult.data),
+    followupIds: (followupItemsResult.data ?? []).map((item) => item.measurement_type_id),
+    previousValues: (previousValuesResult.data ?? []).reduce<Record<string, PreviousMeasurement>>((latest, item) => {
+      if (!latest[item.measurement_type_id]) latest[item.measurement_type_id] = item as PreviousMeasurement;
+      return latest;
+    }, {}),
   };
 }
 
@@ -83,6 +110,19 @@ export async function saveMeasurementWorkspace(measurementTypeIds: string[]) {
     p_measurement_type_ids: measurementTypeIds,
   });
   if (error) throw new Error("No pudimos guardar tu espacio de trabajo.");
+  const items = (data ?? []) as Array<{ measurement_type_id: string }>;
+  return items.map((item) => item.measurement_type_id);
+}
+
+export async function savePatientMeasurementFollowup(
+  patientId: string,
+  measurementTypeIds: string[],
+) {
+  const { data, error } = await supabase.rpc("save_patient_measurement_followup", {
+    p_patient_id: patientId,
+    p_measurement_type_ids: measurementTypeIds,
+  });
+  if (error) throw new Error("No pudimos guardar el seguimiento de este paciente.");
   const items = (data ?? []) as Array<{ measurement_type_id: string }>;
   return items.map((item) => item.measurement_type_id);
 }
