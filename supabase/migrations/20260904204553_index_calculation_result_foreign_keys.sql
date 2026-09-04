@@ -1,0 +1,5 @@
+create index consultation_calculation_results_consultation_fk_idx
+  on public.consultation_calculation_results(professional_id, consultation_id, patient_id);
+
+create index consultation_calculation_results_definition_fk_idx
+  on public.consultation_calculation_results(calculation_code);
