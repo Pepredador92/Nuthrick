@@ -16,6 +16,9 @@ export type CalculationState =
   | "calculated"
   | "not_implemented";
 
+export type CalculationInputState = "empty" | "partial" | "complete";
+export type CalculationImplementationState = "implemented" | "pending";
+
 export type ResolvedCalculationInput = CalculationInputDefinition & {
   available: boolean;
   value?: string | number | boolean;
@@ -27,15 +30,31 @@ export type ResolvedCalculationInput = CalculationInputDefinition & {
 export type CalculationEvaluation = {
   item: CalculationCatalogItem;
   state: CalculationState;
+  inputState: CalculationInputState;
+  implementationState: CalculationImplementationState;
   inputs: ResolvedCalculationInput[];
+  activeVariant?: string;
+  activeEquation?: string;
+  activePopulation?: string;
   availableCount: number;
   requiredCount: number;
+  availableMeasurementCount: number;
+  requiredMeasurementCount: number;
+  automaticInputs: ResolvedCalculationInput[];
+  measurementInputs: ResolvedCalculationInput[];
   missingLabels: string[];
   missingMeasurementIdsOutsideWorkspace: string[];
   rawResult?: number;
   displayedResult?: string;
   dependencyResults: Record<string, number>;
   dependencyLabels: string[];
+  dependencyStates: Array<{
+    code: string;
+    label: string;
+    implementationState: CalculationImplementationState;
+    inputState: CalculationInputState;
+    resultAvailable: boolean;
+  }>;
 };
 
 type EvaluationContext = {
@@ -75,6 +94,9 @@ function resolveInput(input: CalculationInputDefinition, context: EvaluationCont
   if (input.source === "patient_record" && input.patientField === "equation_sex") {
     return { ...input, available: Boolean(context.patient.equation_sex), value: context.patient.equation_sex ?? undefined };
   }
+  if (input.source === "patient_record" && input.patientField === "lee_population_group") {
+    return { ...input, available: false };
+  }
   if (input.source === "patient_derived" && input.derivation === "age_at_consultation") {
     const age = calculateAge(context.patient.birth_date, new Date(context.consultation.consultation_date));
     return { ...input, available: age !== null, value: age ?? undefined, unit: "años" };
@@ -106,14 +128,26 @@ export function evaluateCalculationCatalog(context: EvaluationContext): Calculat
     if (cached) return cached;
     const item = itemByCode.get(code)!;
     if (visiting.has(code)) {
-      const cyclic: CalculationEvaluation = { item, state: "not_implemented", inputs: [], availableCount: 0, requiredCount: 0, missingLabels: ["Dependencia circular"], missingMeasurementIdsOutsideWorkspace: [], dependencyResults: {}, dependencyLabels: [] };
+      const cyclic: CalculationEvaluation = { item, state: "not_implemented", inputState: "empty", implementationState: "pending", inputs: [], availableCount: 0, requiredCount: 0, availableMeasurementCount: 0, requiredMeasurementCount: 0, automaticInputs: [], measurementInputs: [], missingLabels: ["Dependencia circular"], missingMeasurementIdsOutsideWorkspace: [], dependencyResults: {}, dependencyLabels: [], dependencyStates: [] };
       memo.set(code, cyclic);
       return cyclic;
     }
     visiting.add(code);
-    const inputs = item.definition.inputs.map((input) => resolveInput(input, context));
+    const matchingVariant = item.definition.variants?.find((variant) => {
+      const rule = variant.appliesWhen;
+      if (!rule) return false;
+      if (rule.equationSex && context.patient.equation_sex !== rule.equationSex) return false;
+      const age = calculateAge(context.patient.birth_date, new Date(context.consultation.consultation_date));
+      if (rule.ageMin !== undefined && (age === null || age < rule.ageMin)) return false;
+      if (rule.ageMax !== undefined && (age === null || age > rule.ageMax)) return false;
+      return true;
+    });
+    const definitionInputs = [...item.definition.inputs, ...(matchingVariant?.inputs ?? [])];
+    const inputs = definitionInputs.map((input) => resolveInput(input, context));
     const dependencies = item.definition.dependencies.map((dependencyCode) => itemByCode.has(dependencyCode) ? evaluate(dependencyCode) : undefined);
     const dependencyResults = Object.fromEntries(dependencies.flatMap((dependency) => dependency?.state === "calculated" && dependency.rawResult !== undefined ? [[dependency.item.code, dependency.rawResult]] : []));
+    const measurementInputs = inputs.filter((input) => input.source === "consultation_measurement");
+    const automaticInputs = inputs.filter((input) => input.source === "patient_record" || input.source === "patient_derived");
     const availableCount = inputs.filter((input) => input.available).length + Object.keys(dependencyResults).length;
     const requiredCount = inputs.length + item.definition.dependencies.length;
     const missingLabels = [
@@ -126,6 +160,8 @@ export function evaluateCalculationCatalog(context: EvaluationContext): Calculat
         const measurement = context.measurementCatalog.find((item) => item.code === input.measurementCode);
         return measurement ? [measurement.id] : [];
       });
+    const inputState: CalculationInputState = requiredCount > 0 && availableCount === requiredCount ? "complete" : availableCount === 0 ? "empty" : "partial";
+    const implementationState: CalculationImplementationState = item.status === "implemented" ? "implemented" : "pending";
     let state: CalculationState = item.status === "not_implemented" ? "not_implemented" : availableCount === 0 ? "insufficient" : "partial";
     let rawResult: number | undefined;
     if (item.status === "implemented" && requiredCount > 0 && availableCount === requiredCount) {
@@ -136,15 +172,34 @@ export function evaluateCalculationCatalog(context: EvaluationContext): Calculat
     const result: CalculationEvaluation = {
       item,
       state,
+      inputState,
+      implementationState,
       inputs,
+      activeVariant: matchingVariant?.name,
+      activeEquation: matchingVariant?.equation?.expression,
+      activePopulation: matchingVariant?.applicability?.population,
       availableCount,
       requiredCount,
+      availableMeasurementCount: measurementInputs.filter((input) => input.available).length,
+      requiredMeasurementCount: measurementInputs.length,
+      automaticInputs,
+      measurementInputs,
       missingLabels,
       missingMeasurementIdsOutsideWorkspace: [...new Set(missingMeasurementIdsOutsideWorkspace)],
       rawResult,
       displayedResult: rawResult === undefined ? undefined : displayResult(rawResult, item.definition.decimalPlaces),
       dependencyResults,
       dependencyLabels: item.definition.dependencies.map((dependencyCode) => itemByCode.get(dependencyCode)?.definition.methodName ?? dependencyCode),
+      dependencyStates: item.definition.dependencies.map((dependencyCode) => {
+        const dependency = memo.get(dependencyCode);
+        return {
+          code: dependencyCode,
+          label: itemByCode.get(dependencyCode)?.definition.methodName ?? dependencyCode,
+          implementationState: dependency?.implementationState ?? "pending",
+          inputState: dependency?.inputState ?? "empty",
+          resultAvailable: dependency?.state === "calculated",
+        };
+      }),
     };
     visiting.delete(code);
     memo.set(code, result);

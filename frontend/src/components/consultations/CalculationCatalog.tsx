@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Circle,
   Clock3,
+  BookOpen,
   Plus,
 } from "lucide-react";
 import {
@@ -31,6 +32,12 @@ function sourceLabel(source: ResolvedCalculationInput["source"]) {
   if (source === "patient_derived") return "Derivado del expediente";
   return "Otro cálculo";
 }
+
+const validationPresentation = {
+  validated: { label: "Definición validada", className: "text-[#285647]" },
+  requires_decision: { label: "Requiere decisión metodológica", className: "text-[#8a5b22]" },
+  pending_evidence: { label: "Pendiente de evidencia", className: "text-[#963f32]" },
+} as const;
 
 function statePresentation(evaluation: CalculationEvaluation) {
   if (evaluation.state === "calculated")
@@ -69,12 +76,18 @@ function CalculationCard({
       </button>
       <div className="mt-3 pl-8">
         <p className="text-xs font-semibold">{presentation.label}</p>
+        <p className="mt-1 text-xs leading-5 text-[#60766a]">
+          {evaluation.requiredMeasurementCount > 0
+            ? `${evaluation.availableMeasurementCount} de ${evaluation.requiredMeasurementCount} mediciones disponibles`
+            : `${evaluation.availableCount} de ${evaluation.requiredCount} requisitos disponibles`}
+          {` · ${evaluation.inputState === "complete" ? "inputs completos" : evaluation.inputState === "partial" ? "inputs parciales" : "sin inputs"}`}
+        </p>
         {evaluation.state === "calculated" && (
           <p className="mt-2 text-2xl font-semibold text-[#173d36]">
             {evaluation.displayedResult} <span className="text-sm font-medium text-[#52705f]">{evaluation.item.definition.unit}</span>
           </p>
         )}
-        {evaluation.state !== "calculated" && evaluation.state !== "not_implemented" && (
+        {evaluation.state !== "calculated" && (
           <p className="mt-2 text-xs leading-5">
             {evaluation.availableCount} de {evaluation.requiredCount} datos disponibles
             {evaluation.missingLabels.length ? ` · Faltan: ${evaluation.missingLabels.join(", ")}` : ""}
@@ -89,11 +102,12 @@ function CalculationCard({
       {expanded && (
         <div className="mt-4 border-t border-current/15 pt-4">
           <p className="text-sm leading-6 text-[#536860]">{evaluation.item.definition.summary}</p>
-          {evaluation.inputs.length > 0 && (
+          {evaluation.activeVariant && <p className="mt-2 text-xs font-semibold text-[#315e4f]">Variante activa: {evaluation.activeVariant}</p>}
+          {evaluation.automaticInputs.length > 0 && (
             <div className="mt-4">
-              <h5 className="text-xs font-bold uppercase tracking-wide text-[#52705f]">Datos utilizados o requeridos</h5>
+              <h5 className="text-xs font-bold uppercase tracking-wide text-[#52705f]">Datos automáticos del paciente</h5>
               <ul className="mt-2 space-y-2">
-                {evaluation.inputs.map((input) => (
+                {evaluation.automaticInputs.map((input) => (
                   <li key={input.key} className="flex min-w-0 items-start justify-between gap-3 rounded-xl bg-white/70 px-3 py-2.5 text-xs">
                     <span className="min-w-0"><span className="block font-semibold text-[#173d36]">{input.available ? "✓" : "○"} {input.label}</span><span className="mt-0.5 block text-[#718176]">{sourceLabel(input.source)}</span></span>
                     <span className="shrink-0 font-semibold text-[#3f5e53]">{inputValue(input)}</span>
@@ -102,10 +116,68 @@ function CalculationCard({
               </ul>
             </div>
           )}
-          {evaluation.dependencyLabels.length > 0 && (
-            <p className="mt-3 text-xs leading-5 text-[#60766a]">Depende de: {evaluation.dependencyLabels.join(", ")}</p>
+          {evaluation.measurementInputs.length > 0 && (
+            <div className="mt-4">
+              <h5 className="text-xs font-bold uppercase tracking-wide text-[#52705f]">Mediciones requeridas</h5>
+              <ul className="mt-2 space-y-2">
+                {evaluation.measurementInputs.map((input) => (
+                  <li key={input.key} className="flex min-w-0 items-start justify-between gap-3 rounded-xl bg-white/70 px-3 py-2.5 text-xs">
+                    <span className="min-w-0"><span className="block font-semibold text-[#173d36]">{input.available ? "✓" : "○"} {input.label}</span><span className="mt-0.5 block text-[#718176]">{input.inWorkspace ? "En tu espacio" : "Fuera de tu espacio"} · {input.expectedUnit ?? input.unit ?? "unidad no indicada"}</span></span>
+                    <span className="shrink-0 font-semibold text-[#3f5e53]">{inputValue(input)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
-          <p className="mt-3 text-xs leading-5 text-[#718176]">Método {evaluation.item.method_version}. {evaluation.item.definition.limitations}</p>
+          {evaluation.dependencyStates.length > 0 && (
+            <div className="mt-3 text-xs leading-5 text-[#60766a]">
+              <p className="font-semibold text-[#315e4f]">Dependencias</p>
+              <ul className="mt-1 space-y-1">
+                {evaluation.dependencyStates.map((dependency) => (
+                  <li key={dependency.code}>○ {dependency.label} · {dependency.resultAvailable ? "resultado disponible" : dependency.implementationState === "pending" ? "matemática pendiente" : `inputs ${dependency.inputState}`}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="mt-4 min-w-0 break-words rounded-xl bg-white/70 p-3 text-xs leading-5 text-[#60766a]">
+            <p className={`font-semibold ${evaluation.item.definition.validationStatus ? validationPresentation[evaluation.item.definition.validationStatus].className : "text-[#60766a]"}`}>
+              Estado metodológico: {evaluation.item.definition.validationStatus ? validationPresentation[evaluation.item.definition.validationStatus].label : "Sin clasificar"}
+            </p>
+            {evaluation.item.definition.validationNote && <p className="mt-1">{evaluation.item.definition.validationNote}</p>}
+            <p className="mt-2"><strong>Método:</strong> {evaluation.item.definition.method ?? evaluation.item.definition.methodName}{evaluation.item.definition.variant ? ` · ${evaluation.item.definition.variant}` : ""}</p>
+            <p className="mt-1"><strong>Población:</strong> {evaluation.activePopulation ?? evaluation.item.definition.applicability?.population ?? "No documentada"}</p>
+            <p className="mt-1"><strong>Resultado:</strong> {evaluation.item.definition.resultName} ({evaluation.item.definition.unit})</p>
+            <p className="mt-1"><strong>Ecuación:</strong> {evaluation.activeEquation ?? evaluation.item.definition.equation?.expression ?? "Pendiente de documentar"}</p>
+            <p className="mt-1"><strong>Limitaciones:</strong> {evaluation.item.definition.limitations}</p>
+          </div>
+          {evaluation.item.definition.references.length > 0 && typeof evaluation.item.definition.references[0] !== "string" && (
+            <div className="mt-3 min-w-0 break-words text-xs leading-5 text-[#60766a]">
+              <p className="flex items-center gap-1.5 font-semibold text-[#315e4f]"><BookOpen size={14} /> Referencias</p>
+              <ul className="mt-1 space-y-1">
+                {(evaluation.item.definition.references as Exclude<typeof evaluation.item.definition.references, string[]>).map((reference) => (
+                  <li key={`${reference.url}-${reference.year}`}>
+                    <a className="underline decoration-[#9bb7a6] underline-offset-2" href={reference.url} target="_blank" rel="noreferrer">{reference.authors} ({reference.year}). {reference.title}</a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {!evaluation.activeVariant && (evaluation.item.definition.variants?.length ?? 0) > 0 && (
+            <div className="mt-3 min-w-0 break-words rounded-xl border border-[#e3d4b5] bg-white/70 p-3 text-xs leading-5 text-[#60766a]">
+              <p className="font-semibold text-[#775527]">Variantes documentadas</p>
+              <ul className="mt-2 space-y-3">
+                {evaluation.item.definition.variants?.map((variant) => (
+                  <li key={variant.code}>
+                    <p className="font-semibold text-[#173d36]">{variant.name}</p>
+                    {variant.inputs?.length ? <p>Requiere: {variant.inputs.map((input) => `${input.label}${input.expectedUnit ? ` (${input.expectedUnit})` : ""}`).join(", ")}</p> : null}
+                    {variant.equation?.expression ? <p>Ecuación: {variant.equation.expression}</p> : null}
+                    {variant.note ? <p>{variant.note}</p> : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="mt-3 text-xs leading-5 text-[#718176]">Versión del contrato {evaluation.item.method_version}.</p>
         </div>
       )}
     </article>

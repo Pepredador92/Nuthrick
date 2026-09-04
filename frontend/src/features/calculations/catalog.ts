@@ -4,14 +4,66 @@ export type CalculationInputSource =
   | "patient_derived"
   | "calculation_result";
 
+export type CalculationValidationStatus =
+  | "validated"
+  | "requires_decision"
+  | "pending_evidence";
+
+export type CalculationPatientField =
+  | "height_cm"
+  | "equation_sex"
+  | "lee_population_group";
+
 export type CalculationInputDefinition = {
   key: string;
   label: string;
   source: CalculationInputSource;
+  expectedUnit?: string;
   measurementCode?: string;
-  patientField?: "height_cm" | "equation_sex";
+  patientField?: CalculationPatientField;
   derivation?: "age_at_consultation";
   calculationCode?: string;
+};
+
+export type CalculationReference = {
+  authors: string;
+  year: number;
+  title: string;
+  source: string;
+  doi?: string;
+  url: string;
+  evidence?: "original" | "technical_manual" | "secondary_scholarly";
+};
+
+export type CalculationApplicability = {
+  sexes?: Array<"male" | "female">;
+  ageMin?: number;
+  ageMax?: number;
+  population: string;
+  exclusions?: string[];
+  notes?: string[];
+};
+
+export type CalculationEquation = {
+  expression: string;
+  variables?: Record<string, string>;
+  coefficients?: Record<string, number | string>;
+  conditions?: string[];
+  transformations?: string[];
+};
+
+export type CalculationVariant = {
+  code: string;
+  name: string;
+  appliesWhen?: {
+    equationSex?: "male" | "female";
+    ageMin?: number;
+    ageMax?: number;
+  };
+  inputs?: CalculationInputDefinition[];
+  equation?: CalculationEquation;
+  applicability?: CalculationApplicability;
+  note?: string;
 };
 
 export type CalculationDefinition = {
@@ -19,12 +71,21 @@ export type CalculationDefinition = {
   resultKey: string;
   resultName: string;
   methodName: string;
+  method?: string;
+  variant?: string;
   summary: string;
   unit: string;
   decimalPlaces: number;
   inputs: CalculationInputDefinition[];
+  optionalInputs?: CalculationInputDefinition[];
   dependencies: string[];
-  references: string[];
+  equation?: CalculationEquation;
+  variants?: CalculationVariant[];
+  applicability?: CalculationApplicability;
+  references: CalculationReference[] | string[];
+  validationStatus?: CalculationValidationStatus;
+  validationNote?: string;
+  methodologicalNotes?: string[];
   limitations: string;
 };
 

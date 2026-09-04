@@ -6,6 +6,11 @@ const measurementCatalog = [
   { id: "weight", code: "weight", unit: "kg" },
   { id: "waist_circumference", code: "waist_circumference", unit: "cm" },
   { id: "hip_circumference", code: "hip_circumference", unit: "cm" },
+  { id: "chest_skinfold", code: "chest_skinfold", unit: "mm" },
+  { id: "abdominal_skinfold", code: "abdominal_skinfold", unit: "mm" },
+  { id: "thigh_skinfold", code: "thigh_skinfold", unit: "mm" },
+  { id: "triceps_skinfold", code: "triceps_skinfold", unit: "mm" },
+  { id: "suprailiac_skinfold", code: "suprailiac_skinfold", unit: "mm" },
 ] as never;
 const catalog: CalculationCatalogItem[] = [
   { code: "bmi", name: "IMC", category: "index", method_version: "1.0.0", status: "implemented", display_order: 10, definition: { catalogVersion: 1, resultKey: "bmi", resultName: "Índice de masa corporal", methodName: "IMC", summary: "", unit: "kg/m²", decimalPlaces: 1, inputs: [{ key: "weight", label: "Peso", source: "consultation_measurement", measurementCode: "weight" }, { key: "height", label: "Estatura", source: "patient_record", patientField: "height_cm" }], dependencies: [], references: [], limitations: "" } },
@@ -56,5 +61,53 @@ describe("interactive calculation engine", () => {
     expect(payload.bmi.inputs.weight.measurementId).toBe("measurement-weight");
     expect(payload.bmi.patientContext.age).toBe(34);
     expect(payload.density_jackson_pollock_7).toBeUndefined();
+  });
+
+  it("resolves sex-specific input sites without conflating mathematical and input status", () => {
+    const jp3 = {
+      code: "density_jackson_pollock_3",
+      name: "Densidad",
+      category: "density",
+      method_version: "2.0.0-spec",
+      status: "not_implemented",
+      display_order: 100,
+      definition: {
+        catalogVersion: 2,
+        resultKey: "body_density",
+        resultName: "Densidad corporal",
+        methodName: "Jackson & Pollock 3",
+        summary: "",
+        unit: "g/cm³",
+        decimalPlaces: 5,
+        inputs: [
+          { key: "sex", label: "Sexo", source: "patient_record", patientField: "equation_sex" },
+          { key: "age", label: "Edad", source: "patient_derived", derivation: "age_at_consultation" },
+        ],
+        dependencies: [], references: [], limitations: "",
+        variants: [
+          { code: "male", name: "Masculina", appliesWhen: { equationSex: "male" }, inputs: [
+            { key: "chest", label: "Pectoral", source: "consultation_measurement", measurementCode: "chest_skinfold" },
+            { key: "abdominal", label: "Abdominal", source: "consultation_measurement", measurementCode: "abdominal_skinfold" },
+            { key: "thigh", label: "Muslo", source: "consultation_measurement", measurementCode: "thigh_skinfold" },
+          ] },
+          { code: "female", name: "Femenina", appliesWhen: { equationSex: "female" }, inputs: [
+            { key: "triceps", label: "Tríceps", source: "consultation_measurement", measurementCode: "triceps_skinfold" },
+            { key: "suprailiac", label: "Suprailíaco", source: "consultation_measurement", measurementCode: "suprailiac_skinfold" },
+            { key: "thigh", label: "Muslo", source: "consultation_measurement", measurementCode: "thigh_skinfold" },
+          ] },
+        ],
+      },
+    } as CalculationCatalogItem;
+    const evaluated = evaluateCalculationCatalog({ catalog: [jp3], measurementCatalog, values: { chest_skinfold: "10" }, workspaceIds: ["chest_skinfold"], consultation, patient })[0];
+    expect(evaluated).toMatchObject({
+      implementationState: "pending",
+      inputState: "partial",
+      state: "not_implemented",
+      activeVariant: "Masculina",
+      availableMeasurementCount: 1,
+      requiredMeasurementCount: 3,
+    });
+    expect(evaluated.measurementInputs.map((input) => input.measurementCode)).toEqual(["chest_skinfold", "abdominal_skinfold", "thigh_skinfold"]);
+    expect(evaluated.measurementInputs.some((input) => input.measurementCode === "triceps_skinfold")).toBe(false);
   });
 });
