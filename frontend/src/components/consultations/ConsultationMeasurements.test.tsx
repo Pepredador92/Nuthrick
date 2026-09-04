@@ -24,9 +24,13 @@ describe("ConsultationMeasurements", () => {
     api.saveWorkspace.mockResolvedValue(["weight", "height", "waist_circumference"]);
   });
   it("shows immediate fields, excludes laboratories, and saves only captured values", async () => {
-    render(<ConsultationMeasurements consultation={{ id: "consultation" } as never} />);
+    render(<ConsultationMeasurements consultation={{ id: "consultation", consultation_date: "2026-09-04T12:00:00Z" } as never} patient={{ weight_kg: 80, height_cm: 174, birth_date: "1992-06-10", equation_sex: "male" } as never} />);
     expect(await screen.findByRole("heading", { name: "Mediciones" })).toBeInTheDocument();
+    expect(screen.getByText("Peso inicial")).toBeInTheDocument();
+    expect(screen.getByText("174 cm")).toBeInTheDocument();
+    expect(screen.getByText("Masculino")).toBeInTheDocument();
     expect(screen.getByLabelText(/peso corporal/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/estatura/i)).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/peso corporal/i), { target: { value: "82.4" } });
     fireEvent.click(screen.getByRole("button", { name: /guardar mediciones/i }));
     await waitFor(() => expect(api.save).toHaveBeenCalledWith(expect.anything(), { weight: 82.4 }));
@@ -34,7 +38,7 @@ describe("ConsultationMeasurements", () => {
     expect(await screen.findByText(/no encontramos una medición disponible/i)).toBeInTheDocument();
   });
   it("adds a searched measurement to the habitual workspace without saving a clinical value", async () => {
-    render(<ConsultationMeasurements consultation={{ id: "consultation" } as never} />);
+    render(<ConsultationMeasurements consultation={{ id: "consultation", consultation_date: "2026-09-04T12:00:00Z" } as never} patient={{ weight_kg: 80, height_cm: 174, birth_date: "1992-06-10", equation_sex: "male" } as never} />);
     await screen.findByRole("heading", { name: "Mediciones" });
     fireEvent.change(screen.getByLabelText(/buscar una medición/i), { target: { value: "brazo" } });
     fireEvent.click(await screen.findByRole("button", { name: /agregar al espacio/i }));

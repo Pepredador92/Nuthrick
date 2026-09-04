@@ -749,7 +749,7 @@ export function ConsultationPage() {
       </nav>
       {module === "measurements" && (
         <div className="mt-6">
-          <ConsultationMeasurements consultation={consultation} />
+          <ConsultationMeasurements consultation={consultation} patient={patient} />
         </div>
       )}
       <div className="mt-5" hidden={module !== "interview"}>
