@@ -1,7 +1,7 @@
 'use client';
 
 import type { Session, User } from '@supabase/supabase-js';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { hasSupabaseConfig, supabase } from '@/src/lib/supabase';
 import { ensureOwnProfile, fetchOwnProfile } from '@/src/services/profile';
 import type { ProfessionalProfile } from '@/src/types/domain';
@@ -22,6 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<ProfessionalProfile | null>(null);
   const [loading, setLoading] = useState(hasSupabaseConfig);
+  const currentUserId = useRef<string | null>(null);
 
   const loadProfile = useCallback(async (userId: string) => {
     try {
@@ -46,6 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data } = await supabase.auth.getSession();
         if (!active) return;
         setSession(data.session);
+        currentUserId.current = data.session?.user.id ?? null;
         if (data.session?.user) await loadProfile(data.session.user.id);
       } catch {
         if (active) setProfile(null);
@@ -55,14 +57,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     void bootstrap();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      const nextUserId = nextSession?.user.id ?? null;
+      const sameUser = Boolean(nextUserId && nextUserId === currentUserId.current);
       setSession(nextSession);
+      currentUserId.current = nextUserId;
       if (nextSession?.user) {
-        setLoading(true);
+        // Refreshing the same session must not unmount the private application.
+        if (sameUser && event !== 'USER_UPDATED') return;
+        if (!sameUser) setLoading(true);
         queueMicrotask(() => {
           void loadProfile(nextSession.user.id)
             .catch(() => { if (active) setProfile(null); })
-            .finally(() => { if (active) setLoading(false); });
+            .finally(() => { if (active && !sameUser) setLoading(false); });
         });
       } else {
         setProfile(null);
@@ -86,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
     setSession(null);
     setProfile(null);
+    currentUserId.current = null;
   }, []);
 
   const value = useMemo<AuthContextValue>(() => ({

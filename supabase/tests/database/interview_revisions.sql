@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(29);
+select plan(30);
 
 select ok(not has_function_privilege('anon', 'public.adopt_consultation_template(uuid,uuid,integer)', 'execute'), 'anonymous callers cannot upgrade drafts');
 select ok(not has_function_privilege('anon', 'public.save_consultation_responses(uuid,integer,jsonb)', 'execute'), 'anonymous callers cannot save answers');
@@ -30,7 +30,8 @@ select lives_ok($$update public.consultation_answers set value='"changed"' where
 select is((select value from public.consultation_answers where question_key='clinical_notes' and revision=1),'"Original private note"'::jsonb,'archived revision is read-only even while draft');
 select lives_ok($$select public.save_consultation_responses((select id from public.consultations limit 1),2,'{"medical_history_status":"No","interview_notes":"New note"}')$$,'new answers save in current revision');
 
-select lives_ok($$select public.copy_consultation_template((select id from public.consultation_templates where template_key='system_initial_v2'),'interview-test-new-copy')$$,'a new copy replaces the default atomically');
+select lives_ok($$select public.copy_consultation_template((select id from public.consultation_templates where template_key='system_initial_v2'),'interview-test-new-copy')$$,'creates another independent personal template');
+select lives_ok($$select public.set_consultation_template_default((select id from public.consultation_templates where template_key='interview-test-new-copy'))$$,'the professional explicitly chooses the default');
 select is((select count(*) from public.consultation_templates where is_default),1::bigint,'exactly one personal default remains');
 select lives_ok($$select public.save_consultation_template(t.id,t.updated_at,
   (select jsonb_agg(to_jsonb(s) || jsonb_build_object(
@@ -41,7 +42,7 @@ select lives_ok($$select public.save_consultation_template(t.id,t.updated_at,
   from public.consultation_templates t where t.template_key='interview-test-new-copy'$$,'saving and reordering an entire private template is atomic');
 select is(
   (select version from public.consultation_templates where template_key='interview-test-new-copy'),
-  (select version+1 from public.consultation_templates where template_key='system_initial_v2'),
+  2,
   'editing increments the private version'
 );
 select is((select count(*) from public.consultation_template_sections s join public.consultation_templates t on t.id=s.template_id where t.template_key='interview-test-new-copy' and not s.is_active),1::bigint,'disabled sections are retained');

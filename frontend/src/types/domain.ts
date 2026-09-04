@@ -213,6 +213,9 @@ export interface ConsultationTemplate {
   professional_id: string | null;
   template_key: string;
   name: string;
+  description: string | null;
+  estimated_duration_minutes: number | null;
+  display_order: number;
   consultation_type: "initial" | "follow_up";
   version: number;
   source_template_id: string | null;

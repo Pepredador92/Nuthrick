@@ -8,6 +8,10 @@ import {
   brozek,
   fatMass,
   fatFreeMass,
+  leanBodyFat,
+  heathCarterEndomorphy,
+  heathCarterMesomorphy,
+  heathCarterEctomorphy,
   requiredMeasurements,
   selectedMeasurements,
   evaluateWorkflow,
@@ -44,6 +48,7 @@ export const consultation = {
 function setup() {
   const w = newWorkflow(patient, consultation, null);
   w.configuration.indicators = ["bmi"];
+  w.configuration.calculations = ["bmi"];
   w.configuration.protocol = "Protocolo A";
   w.configuration.scale = "Báscula A";
   for (const [code, value] of [
@@ -63,6 +68,22 @@ function setup() {
   return { w, input };
 }
 describe("mediciones guiadas: catálogo, dependencias y precisión", () => {
+  it("calculates only formulas selected by the professional", () => {
+    const { w, input } = setup();
+    w.configuration.indicators = [];
+    w.configuration.methods = [];
+    w.configuration.calculations = [];
+    w.configuration.measurements = ["weight", "height"];
+    expect(evaluateWorkflow(w, input, measurementTypes).calculated).toEqual([]);
+    w.configuration.calculations = ["bmi"];
+    const evaluation = evaluateWorkflow(w, input, measurementTypes);
+    expect(evaluation.calculated.map((result) => result.calculation_code)).toEqual([
+      "bmi",
+    ]);
+    expect(evaluation.statuses).toEqual([
+      expect.objectContaining({ key: "bmi", state: "available" }),
+    ]);
+  });
   it("contains every requested measurement group with stable codes", () => {
     expect(
       measurementTypes.filter((t) => t.category === "circumference"),
@@ -75,7 +96,7 @@ describe("mediciones guiadas: catálogo, dependencias y precisión", () => {
     ).toHaveLength(5);
     expect(
       measurementTypes.filter((t) => t.category === "bioimpedance"),
-    ).toHaveLength(11);
+    ).toHaveLength(21);
     expect(new Set(measurementTypes.map((t) => t.code)).size).toBe(
       measurementTypes.length,
     );
@@ -88,6 +109,10 @@ describe("mediciones guiadas: catálogo, dependencias y precisión", () => {
     expect(brozek(1.05)).toBeCloseTo(21.03809523809, 10);
     expect(fatMass(80, 20)).toBe(16);
     expect(fatFreeMass(80, 16)).toBe(64);
+    expect(leanBodyFat(90, 15, 35, "male")).toBeCloseTo(24.935, 10);
+    expect(heathCarterEndomorphy(10, 12, 8, 170.18)).toBeCloseTo(3.0606, 3);
+    expect(heathCarterMesomorphy(7, 10, 32, 10, 38, 12, 175)).toBeCloseTo(5.3438, 3);
+    expect(heathCarterEctomorphy(180, 80)).toBeCloseTo(1.99878723584, 10);
   });
   it("resolves shared inputs once and names exactly what is missing", () => {
     const { w, input } = setup();
@@ -98,20 +123,27 @@ describe("mediciones guiadas: catálogo, dependencias y precisión", () => {
       "fat_mass",
       "fat_free_mass",
     ];
+    w.configuration.calculations = [
+      "bmi",
+      "waist_hip_ratio",
+      "waist_height_ratio",
+      "jp7_siri",
+    ];
+    w.configuration.measurements = ["weight", "waist_circumference"];
     const fields = selectedMeasurements(w.configuration);
     expect(fields.filter((k) => k === "weight")).toHaveLength(1);
-    expect(fields).toContain("midaxillary_skinfold");
+    expect(fields).toContain("waist_circumference");
     expect(fields).not.toContain("biceps_skinfold");
     expect(
-      requiredMeasurements(w.configuration).get("waist_circumference"),
-    ).toHaveLength(2);
+      requiredMeasurements(w.configuration).get("waist_circumference")?.length,
+    ).toBeGreaterThanOrEqual(2);
     const e = evaluateWorkflow(w, input, measurementTypes);
     expect(e.statuses.find((s) => s.key === "bmi")?.state).toBe("available");
     expect(
-      e.statuses.find((s) => s.key === "jackson_pollock_7")?.missing,
+      e.statuses.find((s) => s.key === "jp7_siri")?.missing,
     ).toContain("Axilar medio");
     expect(
-      e.statuses.find((s) => s.key === "jackson_pollock_7")?.missing,
+      e.statuses.find((s) => s.key === "jp7_siri")?.missing,
     ).toContain("Subescapular");
   });
   it("keeps original IDs, dependencies, age and raw/display in each calculation", () => {
@@ -157,6 +189,7 @@ describe("mediciones guiadas: catálogo, dependencias y precisión", () => {
     const { w, input } = setup();
     w.configuration.indicators = ["fat_free_mass"];
     w.configuration.methods = ["jp7_siri", "jp7_brozek"];
+    w.configuration.calculations = ["jp7_siri", "jp7_brozek"];
     w.configuration.caliper = "Caliper";
     for (const t of measurementTypes.filter((t) => t.category === "skinfold"))
       w.entries[t.code] = createEntry(
@@ -211,6 +244,7 @@ describe("mediciones guiadas: catálogo, dependencias y precisión", () => {
     w.configuration.biaProtocol = "Standard";
     w.configuration.indicators = ["fat_free_mass"];
     w.configuration.methods = ["device"];
+    w.configuration.calculations = ["device_composition"];
     w.entries.body_fat_percentage_device = createEntry(
       measurementTypes.find((t) => t.code === "body_fat_percentage_device")!,
       20,

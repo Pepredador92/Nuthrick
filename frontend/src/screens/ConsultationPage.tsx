@@ -38,7 +38,7 @@ import {
   ensureSnapshot,
   finishConsultation,
   getSnapshot,
-  listAvailableSystemTemplates,
+  listAvailableTemplates,
   listAnswers,
   loadActiveTemplate,
   loadTemplateById,
@@ -68,6 +68,27 @@ const conversationalPrompts: Record<string, string> = {
   progress_perception: "¿Cómo sientes que te ha ido desde la última consulta?",
   barriers: "¿Qué se te hizo más difícil o qué barreras encontraste?",
 };
+
+type ConsultationWorkspace = {
+  tab: "interview" | "anthropometry";
+  active: number;
+  values: Answers;
+  scrollY: number;
+  updatedAt: string;
+};
+
+const workspaceKey = (id: string) => `nuthrick:consultation-workspace:${id}`;
+
+function readWorkspace(id: string): ConsultationWorkspace | null {
+  try {
+    const value = JSON.parse(
+      window.sessionStorage.getItem(workspaceKey(id)) ?? "null",
+    ) as ConsultationWorkspace | null;
+    return value && typeof value === "object" ? value : null;
+  } catch {
+    return null;
+  }
+}
 
 function spokenQuestion(question: {
   question_key: string;
@@ -142,8 +163,8 @@ export function ConsultationPage() {
         if (!consultationId && !chosenTemplate && !resumeDraftId) {
           const templates = (
             await Promise.all([
-              listAvailableSystemTemplates("initial"),
-              listAvailableSystemTemplates("follow_up"),
+              listAvailableTemplates("initial"),
+              listAvailableTemplates("follow_up"),
             ])
           ).flat();
           setPatient(loadedPatient);
@@ -170,20 +191,37 @@ export function ConsultationPage() {
         const startedSnapshot =
           existingSnapshot ?? (await ensureSnapshot(started, loadedTemplate));
         const answers = await listAnswers(started.id, startedSnapshot.revision);
-        const nextValues = Object.fromEntries(
+        const serverValues = Object.fromEntries(
           answers.map((answer) => [answer.question_key, answer.value]),
         );
+        const workspace = readWorkspace(started.id);
+        const nextValues = workspace
+          ? { ...serverValues, ...workspace.values }
+          : serverValues;
         const changedPersonal =
           startedSnapshot.template_id === loadedTemplate.template.id &&
           startedSnapshot.template_version < loadedTemplate.template.version;
-        setLatest(changedPersonal ? loadedTemplate : systemTemplate);
+        setLatest(
+          changedPersonal
+            ? loadedTemplate
+            : existingSnapshot && loadedTemplate.template.is_system &&
+                (systemTemplate.template.id !== startedSnapshot.template_id ||
+                  systemTemplate.template.version > startedSnapshot.template_version)
+              ? systemTemplate
+              : null,
+        );
         setPatient(loadedPatient);
         setConsultation(started);
         setSnapshot(startedSnapshot);
         setValues(nextValues);
         valuesRef.current = nextValues;
-        lastSaved.current = JSON.stringify(nextValues);
+        lastSaved.current = JSON.stringify(serverValues);
         setSavedEncoded(lastSaved.current);
+        if (workspace) {
+          setTab(workspace.tab);
+          setActive(workspace.active);
+          requestAnimationFrame(() => window.scrollTo(0, workspace.scrollY));
+        }
         closed.current = false;
       } catch (cause) {
         setError(
@@ -203,6 +241,32 @@ export function ConsultationPage() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    if (!consultation) return;
+    const persistWorkspace = () => {
+      if (closed.current) return;
+      const workspace: ConsultationWorkspace = {
+        tab,
+        active,
+        values: valuesRef.current,
+        scrollY: window.scrollY,
+        updatedAt: new Date().toISOString(),
+      };
+      window.sessionStorage.setItem(
+        workspaceKey(consultation.id),
+        JSON.stringify(workspace),
+      );
+    };
+    persistWorkspace();
+    document.addEventListener("visibilitychange", persistWorkspace);
+    window.addEventListener("pagehide", persistWorkspace);
+    return () => {
+      persistWorkspace();
+      document.removeEventListener("visibilitychange", persistWorkspace);
+      window.removeEventListener("pagehide", persistWorkspace);
+    };
+  }, [active, consultation, tab, values]);
 
   const save = useCallback(
     async (includeAnthropometry = false): Promise<boolean> => {
@@ -393,6 +457,7 @@ export function ConsultationPage() {
           " respuestas registradas.\n" +
           notes,
       );
+      window.sessionStorage.removeItem(workspaceKey(consultation.id));
       closed.current = true;
       navigate("/app/patients/" + patientId);
     } catch (cause) {
@@ -434,7 +499,7 @@ export function ConsultationPage() {
   };
 
   if (loading) return <LoadingState label="Preparando entrevista…" />;
-  if (!consultation && patient && availableTemplates.length) {
+  if (!consultation && patient) {
     const initial = availableTemplates.filter(
       (item) => item.template.consultation_type === "initial",
     );
@@ -454,10 +519,27 @@ export function ConsultationPage() {
           <span className="block text-base font-semibold text-[#173d36]">
             {item.template.name}
           </span>
-          <span className="mt-2 block text-sm leading-6 text-[#66766f]">
-            {item.template.template_key.includes("brief")
-              ? "Versión sustanciosa y compacta para una consulta de aproximadamente 30 minutos, incluyendo conversación y mediciones."
-              : "Entrevista completa para explorar con mayor profundidad antes de construir el plan."}
+          {item.template.description && (
+            <span className="mt-2 block text-sm leading-6 text-[#66766f]">
+              {item.template.description}
+            </span>
+          )}
+          <span className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#74817d]">
+            {item.template.estimated_duration_minutes && (
+              <span>
+                Duración aproximada: {item.template.estimated_duration_minutes} min
+              </span>
+            )}
+            {item.template.is_default && (
+              <span className="rounded-full bg-[#e5f1e8] px-2 py-1 font-semibold text-[#315e4f]">
+                Predeterminada
+              </span>
+            )}
+            {item.template.is_system && (
+              <span className="rounded-full bg-[#f5eddd] px-2 py-1 font-semibold text-[#785c32]">
+                Base Nuthrick
+              </span>
+            )}
           </span>
         </button>
       ));
@@ -475,7 +557,7 @@ export function ConsultationPage() {
             Nueva consulta
           </p>
           <h1 className="mt-2 text-3xl font-semibold">
-            Elige el tipo de entrevista
+            Elige la plantilla para esta consulta
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70">
             Puedes volver a realizar una entrevista inicial aunque el paciente
@@ -548,14 +630,34 @@ export function ConsultationPage() {
             {error}
           </div>
         )}
+        <div className="mt-5 flex justify-end">
+          <Link
+            to="/app/consultation-templates/initial"
+            className="text-sm font-semibold text-[#3d705d] underline"
+          >
+            Administrar plantillas
+          </Link>
+        </div>
         <div className="mt-6 grid gap-6 md:grid-cols-2">
           <section>
             <h2 className="text-lg font-semibold">Consulta inicial</h2>
-            <div className="mt-3 space-y-3">{renderChoices(initial)}</div>
+            <div className="mt-3 space-y-3">
+              {initial.length ? renderChoices(initial) : (
+                <p className="rounded-xl border border-dashed p-4 text-sm text-[#74817d]">
+                  No hay plantillas iniciales activas.
+                </p>
+              )}
+            </div>
           </section>
           <section>
             <h2 className="text-lg font-semibold">Consulta de seguimiento</h2>
-            <div className="mt-3 space-y-3">{renderChoices(followUp)}</div>
+            <div className="mt-3 space-y-3">
+              {followUp.length ? renderChoices(followUp) : (
+                <p className="rounded-xl border border-dashed p-4 text-sm text-[#74817d]">
+                  No hay plantillas de seguimiento activas.
+                </p>
+              )}
+            </div>
           </section>
         </div>
       </div>

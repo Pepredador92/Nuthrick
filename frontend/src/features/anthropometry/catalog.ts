@@ -78,6 +78,11 @@ export const measurementTypes: MeasurementType[] = [
   ...group("bioimpedance", "%", 100, [
     ["body_fat_percentage_device", "Grasa corporal"],
     ["body_water_percentage_device", "Agua corporal"],
+    ["right_arm_fat_percentage_device", "Grasa segmental · brazo derecho"],
+    ["left_arm_fat_percentage_device", "Grasa segmental · brazo izquierdo"],
+    ["trunk_fat_percentage_device", "Grasa segmental · tronco"],
+    ["right_leg_fat_percentage_device", "Grasa segmental · pierna derecha"],
+    ["left_leg_fat_percentage_device", "Grasa segmental · pierna izquierda"],
   ]),
   ...group("bioimpedance", "kg", 1000, [
     ["fat_mass_device", "Masa grasa"],
@@ -85,6 +90,11 @@ export const measurementTypes: MeasurementType[] = [
     ["muscle_mass_device", "Masa muscular"],
     ["skeletal_muscle_mass_device", "Masa muscular esquelética"],
     ["bone_mass_device", "Masa ósea"],
+    ["right_arm_lean_mass_device", "Masa magra segmental · brazo derecho"],
+    ["left_arm_lean_mass_device", "Masa magra segmental · brazo izquierdo"],
+    ["trunk_lean_mass_device", "Masa magra segmental · tronco"],
+    ["right_leg_lean_mass_device", "Masa magra segmental · pierna derecha"],
+    ["left_leg_lean_mass_device", "Masa magra segmental · pierna izquierda"],
   ]),
   ...group("bioimpedance", "L", 1000, [
     ["total_body_water_device", "Agua corporal total"],

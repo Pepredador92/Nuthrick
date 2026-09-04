@@ -11,6 +11,9 @@ const system: LoadedTemplate = {
     professional_id: null,
     template_key: "system_initial_v2",
     name: "Entrevista nutricional inicial",
+    description: "Entrevista clínico-nutricional de prueba.",
+    estimated_duration_minutes: 60,
+    display_order: 0,
     version: 2,
     source_template_id: null,
     consultation_type: "initial",
@@ -97,6 +100,15 @@ export const listConsultations = async () => [consultation];
 export const beginConsultation = async () => consultation;
 export const loadSystemTemplate = async () => structuredClone(system);
 export const loadActiveTemplate = async () => structuredClone(activeTemplate);
+export const listAvailableTemplates = async () =>
+  activeTemplate.template.is_system
+    ? [structuredClone(system)]
+    : [structuredClone(activeTemplate), structuredClone(system)];
+export const listAvailableSystemTemplates = listAvailableTemplates;
+export const loadTemplateById = async (id: string) =>
+  structuredClone(
+    id === activeTemplate.template.id ? activeTemplate : system,
+  );
 export const listTemplate = loadActiveTemplate;
 export const ensureSnapshot = async () => snapshots[0];
 export const listSnapshots = async () => structuredClone(snapshots);
@@ -151,5 +163,18 @@ export const saveTemplate = async (loaded: LoadedTemplate) => {
   return structuredClone(activeTemplate);
 };
 export const restoreSystemTemplate = async () => {
+  activeTemplate = structuredClone(system);
+};
+export const setDefaultTemplate = async () => {
+  activeTemplate.template.is_default = true;
+};
+export const archiveTemplate = async () => {
+  activeTemplate.template.is_active = false;
+  activeTemplate.template.is_default = false;
+};
+export const restoreTemplate = async () => {
+  activeTemplate.template.is_active = true;
+};
+export const deleteTemplate = async () => {
   activeTemplate = structuredClone(system);
 };

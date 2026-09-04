@@ -19,7 +19,26 @@ import type {
   PatientMeasurement,
 } from "@/src/types/domain";
 import { latestRecords } from "./engine";
-import { selectedMeasurements } from "./calculations";
+import { selectedCalculationChoices } from "./calculations";
+
+export function normalizeConfiguration(
+  configuration?: Partial<ReturnType<typeof emptyConfiguration>> | null,
+): ReturnType<typeof emptyConfiguration> {
+  const base = emptyConfiguration();
+  const merged = { ...base, ...(configuration ?? {}) };
+  merged.measurements = [...new Set(configuration?.measurements ?? [])];
+  merged.indicators = [...new Set(configuration?.indicators ?? [])];
+  merged.methods = [...new Set(configuration?.methods ?? base.methods)];
+  merged.calculations = Array.isArray(configuration?.calculations)
+    ? [...new Set(configuration.calculations)]
+    : configuration
+      ? selectedCalculationChoices({
+          ...merged,
+          calculations: undefined,
+        } as unknown as ReturnType<typeof emptyConfiguration>)
+      : [];
+  return merged;
+}
 export function ageAt(
   birth: string | null,
   date: string,
@@ -49,7 +68,7 @@ export function newWorkflow(
   return {
     version: 2,
     configuration: structuredClone(
-      template?.configuration ?? emptyConfiguration(),
+      normalizeConfiguration(template?.configuration),
     ),
     entries: {},
     calculations: [],
@@ -120,6 +139,18 @@ export function preparePayload(
 ): AnthroPayload {
   if (existing?.payload.workflow) {
     const data = structuredClone(existing.payload);
+    data.workflow!.configuration = normalizeConfiguration(
+      data.workflow!.configuration,
+    );
+    data.workflow!.configuration.measurements = [
+      ...new Set([
+        ...data.workflow!.configuration.measurements,
+        ...Object.keys(data.workflow!.entries),
+      ]),
+    ];
+    // Formula selection is legacy metadata. The current engine evaluates every
+    // applicable formula automatically from the captured measurements.
+    data.workflow!.configuration.entry = "measurements";
     data.workflow!.templateRevision = template?.revision ?? 0;
     data.workflow!.templateScope = "today";
     data.workflow!.context.timezone =
@@ -169,6 +200,10 @@ export function preparePayload(
     if (w.configuration.methods.length)
       w.configuration.indicators.push("body_fat", "fat_mass", "fat_free_mass");
     if (!w.configuration.methods.length) w.configuration.methods = ["jp7_siri"];
+    w.configuration.calculations = selectedCalculationChoices({
+      ...w.configuration,
+      calculations: undefined,
+    } as unknown as ReturnType<typeof emptyConfiguration>);
     for (const [key, value] of Object.entries(payload.input.measurements)) {
       const t = measurementTypes.find((t) => t.code === legacyCodes[key]);
       if (!t || value === undefined) continue;
@@ -299,9 +334,5 @@ export function previousHeight(
   );
 }
 export function activeEntries(w: MeasurementWorkflow) {
-  return Object.fromEntries(
-    selectedMeasurements(w.configuration)
-      .filter((k) => w.entries[k])
-      .map((k) => [k, w.entries[k]]),
-  );
+  return { ...w.entries };
 }

@@ -37,6 +37,18 @@ export const BROZEK: Reference = {
   title: "Brozek et al. · Densitometric analysis of body composition (1963)",
   url: "https://pubmed.ncbi.nlm.nih.gov/14062375/",
 };
+export const LEAN_1996: Reference = {
+  id: "lean-waist-triceps",
+  version: "1996",
+  title: "Lean et al. · Prediction of body composition by anthropometry (1996)",
+  url: "https://pubmed.ncbi.nlm.nih.gov/8604668/",
+};
+export const HEATH_CARTER: Reference = {
+  id: "heath-carter-somatotype",
+  version: "1967-manual",
+  title: "Heath y Carter · A modified somatotype method (1967)",
+  url: "https://pubmed.ncbi.nlm.nih.gov/6049820/",
+};
 
 // Classification lives outside UI. Applicability must be confirmed for this measurement.
 export function classifyBmi(

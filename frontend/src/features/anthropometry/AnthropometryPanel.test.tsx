@@ -52,7 +52,11 @@ async function mount() {
   });
 }
 function fill() {
-  fireEvent.click(screen.getByRole("checkbox", { name: "IMC" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Seleccionar mediciones" }),
+  );
+  fireEvent.click(screen.getByRole("checkbox", { name: "Peso · kg" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Talla · cm" }));
   fireEvent.change(screen.getByLabelText("Peso (kg)"), {
     target: { value: "80" },
   });
@@ -63,6 +67,7 @@ function fill() {
     screen.getByLabelText("Contexto para fórmulas y referencias"),
     { target: { value: "adult" } },
   );
+  fireEvent.click(screen.getByRole("checkbox", { name: /^IMC/ }));
 }
 beforeEach(() => {
   vi.clearAllMocks();
@@ -92,12 +97,15 @@ describe("documentación antropométrica guiada", () => {
   it("shows informative formulas and requires explicit review before saving a generated note", async () => {
     await mount();
     fill();
+    expect(screen.getByText("Fórmulas y métodos")).toBeInTheDocument();
     expect(
-      screen.getByText("Más información sobre las fórmulas"),
+      screen.getByText(/Nuthrick calcula únicamente las fórmulas/),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Relaciona peso y talla. Requiere/),
-    ).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Más información" })[0]);
+    expect(screen.getByRole("dialog", { name: "IMC" })).toBeInTheDocument();
+    expect(screen.getByText("¿Para qué se utiliza?")).toBeInTheDocument();
+    expect(screen.getByText("Limitaciones")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
     expect(
       screen.getByText("Clasificación de referencia: Sobrepeso"),
     ).toBeInTheDocument();
@@ -280,8 +288,7 @@ describe("flujo personalizado de mediciones", () => {
         revision: 2,
         configuration: {
           ...emptyConfiguration(),
-          indicators: ["bmi", "waist_height_ratio"],
-          measurements: ["calf_circumference"],
+          measurements: ["weight", "waist_circumference", "calf_circumference"],
           protocol: "Habitual",
         },
       },
@@ -300,7 +307,7 @@ describe("flujo personalizado de mediciones", () => {
     expect(screen.getByLabelText("Cintura (cm)")).toHaveValue(null);
     expect(screen.getByLabelText("Pantorrilla (cm)")).toHaveValue(null);
     expect(screen.queryByLabelText("Bíceps (mm)")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Editar seguimiento" }));
+    fireEvent.click(screen.getByText("Configurar seguimiento habitual"));
     expect(screen.getByLabelText("Sólo en esta consulta")).toBeChecked();
     fireEvent.click(
       screen.getByLabelText(
@@ -321,14 +328,9 @@ describe("flujo personalizado de mediciones", () => {
       templateRevision: 2,
     });
   });
-  it("allows measures without calculations and distinguishes extra from required", async () => {
+  it("allows measurements even when no formula has sufficient data", async () => {
     await mount();
-    fireEvent.click(
-      screen.getByRole("button", { name: /Quiero registrar medidas/ }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Elegir medidas del catálogo" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Seleccionar mediciones" }));
     fireEvent.click(
       screen.getByRole("checkbox", { name: "Brazo relajado · cm" }),
     );
@@ -354,7 +356,10 @@ describe("flujo personalizado de mediciones", () => {
       devices: [],
       template: {
         revision: 1,
-        configuration: { ...emptyConfiguration(), indicators: ["bmi"] },
+        configuration: {
+          ...emptyConfiguration(),
+          measurements: ["weight", "height"],
+        },
       },
       legacy: [
         {

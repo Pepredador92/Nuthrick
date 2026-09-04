@@ -33,6 +33,7 @@ const mocks = vi.hoisted(() => ({
   adopt: vi.fn(),
   cancel: vi.fn(),
   anthroSave: vi.fn(),
+  ensure: vi.fn(),
 }));
 const fixtures = vi.hoisted(() => {
   const c = {
@@ -90,9 +91,29 @@ const fixtures = vi.hoisted(() => {
       template: {
         id: "template",
         name: "Entrevista",
+        description: "Plantilla inicial configurada por el profesional.",
+        estimated_duration_minutes: 45,
+        display_order: 0,
         version: 2,
         is_system: true,
         template_key: "system_initial_v2",
+        consultation_type: "initial",
+      },
+      sections: [],
+      questions: [],
+    },
+    sportsTemplate: {
+      template: {
+        id: "sports-template",
+        name: "Consulta inicial deportiva",
+        description: "Evaluación enfocada en actividad y rendimiento.",
+        estimated_duration_minutes: 60,
+        display_order: 1,
+        version: 1,
+        is_system: false,
+        is_default: false,
+        is_active: true,
+        template_key: "personal-sports",
         consultation_type: "initial",
       },
       sections: [],
@@ -107,11 +128,12 @@ vi.mock("@/src/services/patients", () => ({
 vi.mock("@/src/services/consultations", () => ({
   loadActiveTemplate: async () => fixtures.template,
   loadSystemTemplate: async () => fixtures.template,
-  ensureSnapshot: async () => fixtures.snapshot,
-  getSnapshot: async () => fixtures.snapshot,
+  ensureSnapshot: mocks.ensure,
+  getSnapshot: async () =>
+    mocks.cancel.mock.calls.length ? null : fixtures.snapshot,
   listAvailableSystemTemplates: async (type: string) =>
     type === "initial"
-      ? [fixtures.template]
+      ? [fixtures.template, fixtures.sportsTemplate]
       : [
           {
             ...fixtures.template,
@@ -120,6 +142,21 @@ vi.mock("@/src/services/consultations", () => ({
               id: "follow-up-template",
               name: "Seguimiento",
               template_key: "system_follow_up_v1",
+              consultation_type: "follow_up",
+            },
+          },
+        ],
+  listAvailableTemplates: async (type: string) =>
+    type === "initial"
+      ? [fixtures.template, fixtures.sportsTemplate]
+      : [
+          {
+            ...fixtures.template,
+            template: {
+              ...fixtures.template.template,
+              id: "follow-up-template",
+              name: "Seguimiento",
+              description: "Seguimiento configurado.",
               consultation_type: "follow_up",
             },
           },
@@ -155,23 +192,56 @@ const mount = (entry = "/app/patients/patient/consultations/draft") =>
   );
 beforeEach(() => {
   vi.clearAllMocks();
+  window.sessionStorage.clear();
   mocks.save.mockResolvedValue(undefined);
   mocks.anthroSave.mockResolvedValue(true);
   mocks.finish.mockResolvedValue(fixtures.c);
   mocks.cancel.mockResolvedValue({ ...fixtures.c, status: "cancelled" });
+  mocks.ensure.mockResolvedValue(fixtures.snapshot);
   vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
 });
 
 describe("consultation save and review workflow", () => {
+  it("restores the exact tab, section and unsaved answer after a remount", async () => {
+    const first = mount();
+    await screen.findByRole("heading", { name: "Apertura de prueba" });
+    fireEvent.change(screen.getByLabelText(/detalle breve de prueba/i), {
+      target: { value: "Respuesta todavía local" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    await screen.findByRole("heading", { name: "Cierre de prueba" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Antropometría y valoración" }),
+    );
+    first.unmount();
+
+    mount();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Antropometría y valoración" }),
+      ).toHaveAttribute("aria-pressed", "true"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cuestionario" }));
+    expect(
+      await screen.findByRole("heading", { name: "Cierre de prueba" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Anterior" }));
+    expect(await screen.findByLabelText(/detalle breve de prueba/i)).toHaveValue(
+      "Respuesta todavía local",
+    );
+  });
   it("shows every template and lets the professional cancel an open draft before starting another", async () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     mount("/app/patients/patient/consultations/new");
     await screen.findByRole("heading", {
-      name: "Elige el tipo de entrevista",
+      name: "Elige la plantilla para esta consulta",
     });
     expect(screen.getByText("Tienes un borrador abierto")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Entrevista/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /^Seguimiento/ })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /Consulta inicial deportiva/ }),
+    ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Cancelar borrador" }));
     await waitFor(() => expect(mocks.cancel).toHaveBeenCalledWith("draft"));
     expect(confirm).toHaveBeenCalledOnce();
@@ -184,6 +254,55 @@ describe("consultation save and review workflow", () => {
     expect(
       await screen.findByRole("heading", { name: "Apertura de prueba" }),
     ).toBeInTheDocument();
+  });
+  it("starts a consultation from a professional template id and renders its snapshot", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    mocks.ensure.mockImplementation(async (_consultation, loaded) => ({
+      ...fixtures.snapshot,
+      template_id: loaded.template.id,
+      template_name: loaded.template.name,
+      template_version: loaded.template.version,
+      structure: {
+        consultation_type: "initial",
+        sections: [
+          {
+            section_key: "training",
+            title: "Entrenamiento",
+            questions: [
+              {
+                question_key: "training_days",
+                label: "¿Cuántos días entrenas por semana?",
+                question_type: "number",
+                configuration: {},
+                is_required: false,
+                response_area: "patient_reported",
+              },
+            ],
+          },
+        ],
+      },
+    }));
+    mount("/app/patients/patient/consultations/new");
+    await screen.findByRole("heading", {
+      name: "Elige la plantilla para esta consulta",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar borrador" }));
+    await waitFor(() => expect(mocks.cancel).toHaveBeenCalled());
+    fireEvent.click(
+      screen.getByRole("button", { name: /Consulta inicial deportiva/ }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Entrenamiento" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("¿Cuántos días entrenas por semana?"),
+    ).toBeInTheDocument();
+    expect(mocks.ensure).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "draft" }),
+      expect.objectContaining({
+        template: expect.objectContaining({ id: "sports-template" }),
+      }),
+    );
   });
   it("saves the most recent keystroke before changing sections", async () => {
     mount();

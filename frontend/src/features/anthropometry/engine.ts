@@ -208,6 +208,7 @@ export function calculate(i: AssessmentInput): {
     options: Partial<Result> = {},
   ) => {
     if (!Number.isFinite(value)) return;
+    const primarySource = options.sources?.at(-1) ?? null;
     results.push({
       id,
       metric: id,
@@ -221,8 +222,8 @@ export function calculate(i: AssessmentInput): {
       compatibilityKey: null,
       classification: null,
       reference: null,
-      reference_id: null,
-      reference_version: null,
+      reference_id: primarySource?.id ?? null,
+      reference_version: primarySource?.version ?? null,
       sources: [],
       guidance: "Dato registrado; interpretar en el contexto de la consulta.",
       ...options,

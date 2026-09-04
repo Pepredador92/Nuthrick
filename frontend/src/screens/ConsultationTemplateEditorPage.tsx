@@ -2,11 +2,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
+  Archive,
   Copy,
   Eye,
   LoaderCircle,
   Plus,
+  RotateCcw,
   Save,
+  Star,
+  Trash2,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
@@ -19,11 +23,15 @@ import {
   templateQuestionErrors,
 } from "@/src/features/consultations/questionnaire";
 import {
+  archiveTemplate,
   createPersonalTemplateCopy,
-  listTemplate,
+  deleteTemplate,
+  listAvailableTemplates,
   loadSystemTemplate,
+  restoreTemplate,
   restoreSystemTemplate,
   saveTemplate,
+  setDefaultTemplate,
 } from "@/src/services/consultations";
 import type { LoadedTemplate } from "@/src/services/consultations";
 import type {
@@ -51,6 +59,7 @@ export function ConsultationTemplateEditorPage() {
   const type: Consultation["consultation_type"] =
     rawType === "follow_up" ? "follow_up" : "initial";
   const [loaded, setLoaded] = useState<LoadedTemplate | null>(null);
+  const [templates, setTemplates] = useState<LoadedTemplate[]>([]);
   const [system, setSystem] = useState<LoadedTemplate | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -68,14 +77,26 @@ export function ConsultationTemplateEditorPage() {
     dirtyRef.current = true;
     setNotice("");
   };
-  const load = useCallback(async () => {
+  const load = useCallback(async (preferredId?: string) => {
     setLoading(true);
     setError("");
     try {
-      const [template, latest] = await Promise.all([
-        listTemplate(type),
+      const [available, latest] = await Promise.all([
+        listAvailableTemplates(type, true),
         loadSystemTemplate(type, true),
       ]);
+      const template =
+        available.find((item) => item.template.id === preferredId) ??
+        available.find(
+          (item) => item.template.is_default && item.template.is_active,
+        ) ??
+        available.find(
+          (item) => !item.template.is_system && item.template.is_active,
+        ) ??
+        available.find((item) => item.template.is_system && item.template.is_active) ??
+        available[0] ??
+        latest;
+      setTemplates(available);
       setLoaded(template);
       setSystem(latest);
       setPreview(template.template.is_system);
@@ -159,6 +180,7 @@ export function ConsultationTemplateEditorPage() {
         newKey("personal-" + type),
       );
       setLoaded(copied);
+      setTemplates(await listAvailableTemplates(type, true));
       setPreview(false);
       setActive(0);
       setDirty(false);
@@ -176,6 +198,18 @@ export function ConsultationTemplateEditorPage() {
   };
   const save = async () => {
     if (!loaded) return;
+    if (
+      loaded.template.name.trim().length < 2 ||
+      (loaded.template.description?.length ?? 0) > 600 ||
+      (loaded.template.estimated_duration_minutes !== null &&
+        (loaded.template.estimated_duration_minutes < 5 ||
+          loaded.template.estimated_duration_minutes > 480))
+    ) {
+      setError(
+        "El nombre debe tener entre 2 y 120 caracteres, la descripción hasta 600 y la duración entre 5 y 480 minutos.",
+      );
+      return;
+    }
     const questionIssues = templateQuestionErrors(loaded.questions);
     if (questionIssues.length) {
       setError(questionIssues[0]);
@@ -201,7 +235,9 @@ export function ConsultationTemplateEditorPage() {
     setSaving(true);
     setError("");
     try {
-      setLoaded(await saveTemplate(loaded));
+      const saved = await saveTemplate(loaded);
+      setLoaded(saved);
+      setTemplates(await listAvailableTemplates(type, true));
       setDirty(false);
       dirtyRef.current = false;
       setNotice(
@@ -209,6 +245,69 @@ export function ConsultationTemplateEditorPage() {
       );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo guardar.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const selectTemplate = (template: LoadedTemplate) => {
+    if (
+      dirty &&
+      !window.confirm("¿Descartar los cambios sin guardar y abrir otra plantilla?")
+    )
+      return;
+    setLoaded(template);
+    setActive(0);
+    setPreview(template.template.is_system);
+    setPreviewValues({});
+    setDirty(false);
+    dirtyRef.current = false;
+    setError("");
+    setNotice("");
+  };
+  const makeDefault = async () => {
+    if (!loaded || loaded.template.is_system) return;
+    setSaving(true);
+    try {
+      await setDefaultTemplate(loaded.template.id);
+      await load(loaded.template.id);
+      setNotice("Plantilla establecida como predeterminada.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo actualizar.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const setArchived = async (archived: boolean) => {
+    if (!loaded || loaded.template.is_system) return;
+    if (archived && !window.confirm("¿Archivar esta plantilla? Dejará de aparecer al crear consultas nuevas.")) return;
+    setSaving(true);
+    try {
+      if (archived) await archiveTemplate(loaded.template.id);
+      else await restoreTemplate(loaded.template.id);
+      await load(archived ? undefined : loaded.template.id);
+      setNotice(archived ? "Plantilla archivada." : "Plantilla reactivada.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo actualizar.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const remove = async () => {
+    if (!loaded || loaded.template.is_system) return;
+    if (
+      !window.confirm(
+        `¿Eliminar definitivamente “${loaded.template.name}”? Las consultas históricas conservarán su cuestionario y sus respuestas.`,
+      )
+    )
+      return;
+    setSaving(true);
+    setError("");
+    try {
+      await deleteTemplate(loaded.template.id);
+      await load();
+      setNotice("Plantilla eliminada. El historial clínico no fue modificado.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo eliminar.");
     } finally {
       setSaving(false);
     }
@@ -357,12 +456,66 @@ export function ConsultationTemplateEditorPage() {
           ))}
         </nav>
       </header>
+      <section className="mt-5 rounded-2xl border border-[#dfe5e1] bg-white p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Plantillas disponibles</h2>
+            <p className="mt-1 text-sm text-[#74817d]">
+              Selecciona una para editarla o crea otra a partir de la base de Nuthrick.
+            </p>
+          </div>
+          {system && (
+            <button
+              type="button"
+              className="nuth-button-secondary shrink-0"
+              disabled={saving}
+              onClick={() => void copy(system)}
+            >
+              <Plus size={16} />
+              Crear nueva desde la base
+            </button>
+          )}
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {templates.map((item) => (
+            <button
+              key={item.template.id}
+              type="button"
+              onClick={() => selectTemplate(item)}
+              className={
+                "min-w-0 rounded-xl border p-4 text-left transition " +
+                (loaded.template.id === item.template.id
+                  ? "border-[#315e4f] bg-[#edf4ee]"
+                  : "border-[#dfe5e1] hover:border-[#709883]") +
+                (item.template.is_active ? "" : " opacity-60")
+              }
+            >
+              <span className="block font-semibold">{item.template.name}</span>
+              {item.template.description && (
+                <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[#63786c]">
+                  {item.template.description}
+                </span>
+              )}
+              <span className="mt-3 flex flex-wrap gap-1 text-[10px] text-[#74817d]">
+                {item.template.estimated_duration_minutes && (
+                  <span>{item.template.estimated_duration_minutes} min</span>
+                )}
+                {item.template.is_default && (
+                  <span className="rounded-full bg-white px-2 py-0.5 font-semibold">Predeterminada</span>
+                )}
+                {item.template.is_system && <span>Base Nuthrick</span>}
+                {!item.template.is_active && <span>Archivada</span>}
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold">{loaded.template.name}</h2>
           <p className="mt-1 text-xs text-[#74817d]">
             v{loaded.template.version} ·{" "}
-            {readonly ? "Predeterminada" : "Personal"} ·{" "}
+            {readonly ? "Base Nuthrick" : "Personal"} ·{" "}
             {loaded.sections.filter((s) => s.is_active).length} secciones
             activas
           </p>
@@ -380,6 +533,44 @@ export function ConsultationTemplateEditorPage() {
             </button>
           ) : (
             <>
+              {!loaded.template.is_default && loaded.template.is_active && (
+                <button
+                  type="button"
+                  className="nuth-button-secondary"
+                  disabled={saving || dirty}
+                  onClick={() => void makeDefault()}
+                >
+                  <Star size={16} />
+                  Hacer predeterminada
+                </button>
+              )}
+              <button
+                type="button"
+                className="nuth-button-secondary"
+                disabled={saving || dirty}
+                onClick={() => void copy(loaded)}
+              >
+                <Copy size={16} />
+                Duplicar
+              </button>
+              <button
+                type="button"
+                className="nuth-button-secondary"
+                disabled={saving || dirty}
+                onClick={() => void setArchived(loaded.template.is_active)}
+              >
+                {loaded.template.is_active ? <Archive size={16} /> : <RotateCcw size={16} />}
+                {loaded.template.is_active ? "Archivar" : "Reactivar"}
+              </button>
+              <button
+                type="button"
+                className="nuth-button-secondary text-red-700"
+                disabled={saving || dirty}
+                onClick={() => void remove()}
+              >
+                <Trash2 size={16} />
+                Eliminar
+              </button>
               <button
                 type="button"
                 className="nuth-button-secondary"
@@ -444,6 +635,68 @@ export function ConsultationTemplateEditorPage() {
         >
           {error}
         </p>
+      )}
+      {!readonly && !preview && (
+        <section className="mt-5 rounded-2xl border border-[#dfe5e1] bg-white p-4 sm:p-6">
+          <h3 className="text-lg font-semibold">Información de la plantilla</h3>
+          <div className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2">
+            <label className="block min-w-0 text-sm font-semibold">
+              Nombre
+              <Input
+                className="mt-2"
+                maxLength={120}
+                value={loaded.template.name}
+                onChange={(event) =>
+                  mutate({
+                    ...loaded,
+                    template: { ...loaded.template, name: event.target.value },
+                  })
+                }
+              />
+            </label>
+            <label className="block min-w-0 text-sm font-semibold">
+              Duración aproximada en minutos · opcional
+              <Input
+                className="mt-2"
+                type="number"
+                min={5}
+                max={480}
+                value={loaded.template.estimated_duration_minutes ?? ""}
+                onChange={(event) =>
+                  mutate({
+                    ...loaded,
+                    template: {
+                      ...loaded.template,
+                      estimated_duration_minutes: event.target.value
+                        ? Number(event.target.value)
+                        : null,
+                    },
+                  })
+                }
+              />
+            </label>
+            <label className="block min-w-0 text-sm font-semibold sm:col-span-2">
+              Descripción · opcional
+              <Textarea
+                className="mt-2"
+                maxLength={600}
+                value={loaded.template.description ?? ""}
+                onChange={(event) =>
+                  mutate({
+                    ...loaded,
+                    template: {
+                      ...loaded.template,
+                      description: event.target.value,
+                    },
+                  })
+                }
+              />
+              <span className="mt-1 block text-xs font-normal text-[#74817d]">
+                {(loaded.template.description ?? "").length}/600 · Se mostrará al elegir plantilla para una consulta nueva.
+              </span>
+            </label>
+          </div>
+        </section>
       )}
       <div className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[225px_minmax(0,1fr)]">
         <aside className="min-w-0">

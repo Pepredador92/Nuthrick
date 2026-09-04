@@ -58,12 +58,25 @@ export type IndicatorCode =
   | "fat_free_mass";
 export type CompositionMethod =
   "jp7_siri" | "jp7_brozek" | "density_siri" | "density_brozek" | "device";
+export type CalculationChoiceId =
+  | "bmi"
+  | "waist_hip_ratio"
+  | "waist_height_ratio"
+  | "jackson_pollock_7"
+  | "jp7_siri"
+  | "jp7_brozek"
+  | "density_siri"
+  | "density_brozek"
+  | "lean_1996"
+  | "device_composition"
+  | "heath_carter";
 export interface FollowupConfiguration {
   version: 1;
   entry: "indicators" | "measurements";
   measurements: string[];
   indicators: IndicatorCode[];
   methods: CompositionMethod[];
+  calculations: CalculationChoiceId[];
   deviceId: string | null;
   protocol: string;
   scale: string;
@@ -158,10 +171,11 @@ export interface CalculationDefinition {
 }
 export const emptyConfiguration = (): FollowupConfiguration => ({
   version: 1,
-  entry: "indicators",
+  entry: "measurements",
   measurements: [],
   indicators: [],
   methods: ["jp7_siri"],
+  calculations: [],
   deviceId: null,
   protocol: "",
   scale: "",

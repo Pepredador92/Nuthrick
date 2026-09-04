@@ -7,18 +7,18 @@ import type {
   MeasurementType,
   MeasurementWorkflow,
   RegisteredMeasurement,
-  IndicatorCode,
-  CompositionMethod,
   MeasurementCategory,
   MeasurementUnit,
+  CalculationChoiceId,
 } from "./workflowTypes";
 import { categoryNames } from "./catalog";
 import {
-  calculationDefinitions,
-  indicatorNames,
-  methodDescriptions,
-  methodNames,
+  calculationChoices,
+  calculationReferences,
+  definitionsForChoice,
+  measurementCodesForChoice,
   requiredMeasurements,
+  selectedCalculationChoices,
   selectedMeasurements,
   type CalculationAvailability,
 } from "./calculations";
@@ -55,10 +55,9 @@ export function GuidedMeasurementCapture({
 }: Props) {
   const w = payload.workflow!,
     c = w.configuration;
-  const [editing, setEditing] = useState(
-      !c.indicators.length && !c.measurements.length,
-    ),
-    [catalogOpen, setCatalogOpen] = useState(false),
+  const [catalogOpen, setCatalogOpen] = useState(false),
+    [formulaCatalogOpen, setFormulaCatalogOpen] = useState(true),
+    [formulaOpen, setFormulaOpen] = useState<CalculationChoiceId | null>(null),
     [search, setSearch] = useState(""),
     [deviceSearch, setDeviceSearch] = useState(""),
     [busy, setBusy] = useState(false),
@@ -80,11 +79,13 @@ export function GuidedMeasurementCapture({
     description: "",
   });
   const required = requiredMeasurements(c),
-    selected = selectedMeasurements(c);
-  const hasBody = c.indicators.some((id) =>
-    ["body_fat", "fat_mass", "fat_free_mass"].includes(id),
-  );
-  const needsJP = required.has("triceps_skinfold") && c.indicators.length > 0;
+    selected = selectedMeasurements(c),
+    selectedFormulas = selectedCalculationChoices(c);
+  const needsEquationContext = [
+    "triceps_skinfold",
+    "chest_skinfold",
+    "midaxillary_skinfold",
+  ].some((code) => selected.includes(code) || Boolean(w.entries[code]));
   const needsDevice =
     selected.some(
       (code) => types.find((t) => t.code === code)?.category === "bioimpedance",
@@ -125,24 +126,28 @@ export function GuidedMeasurementCapture({
     next.entries = entries;
     change(next);
   };
-  const toggleIndicator = (id: IndicatorCode) =>
-    configure({
-      indicators: c.indicators.includes(id)
-        ? c.indicators.filter((k) => k !== id)
-        : [...c.indicators, id],
-    });
   const toggleMeasurement = (code: string) =>
     configure({
       measurements: c.measurements.includes(code)
         ? c.measurements.filter((k) => k !== code)
         : [...c.measurements, code],
     });
-  const toggleMethod = (method: CompositionMethod) =>
+  const toggleFormula = (id: CalculationChoiceId) => {
+    const enabled = selectedFormulas.includes(id);
     configure({
-      methods: c.methods.includes(method)
-        ? c.methods.filter((m) => m !== method)
-        : [...c.methods, method],
+      calculations: enabled
+        ? selectedFormulas.filter((item) => item !== id)
+        : [...selectedFormulas, id],
+      measurements: enabled
+        ? c.measurements
+        : [
+            ...new Set([
+              ...c.measurements,
+              ...measurementCodesForChoice(id),
+            ]),
+          ],
     });
+  };
   const setEntry = (t: MeasurementType, value: string) => {
     const entries = { ...w.entries };
     if (value === "") delete entries[t.code];
@@ -171,6 +176,35 @@ export function GuidedMeasurementCapture({
   };
   return (
     <div className="min-w-0 space-y-5">
+      <section className="rounded-2xl bg-[#173d36] p-4 text-white sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h3 className="text-xl font-semibold">Agregar mediciones</h3>
+            <p className="mt-1 text-sm text-white/75">
+              Elige las mediciones y las fórmulas que correspondan al objetivo
+              de esta consulta.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              className="shrink-0 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#173d36]"
+              aria-expanded={catalogOpen}
+              onClick={() => setCatalogOpen(true)}
+            >
+              Seleccionar mediciones
+            </button>
+            <button
+              type="button"
+              className="shrink-0 rounded-xl border border-white/40 px-4 py-3 text-sm font-semibold text-white"
+              aria-expanded={formulaCatalogOpen}
+              onClick={() => setFormulaCatalogOpen(true)}
+            >
+              Seleccionar fórmulas
+            </button>
+          </div>
+        </div>
+      </section>
       <section className={panel}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -186,182 +220,19 @@ export function GuidedMeasurementCapture({
                 : "Fecha de nacimiento pendiente"}
             </p>
           </div>
-          <button
-            type="button"
-            className="nuth-button-secondary"
-            aria-expanded={editing}
-            onClick={() => setEditing(!editing)}
-          >
-            {editing ? "Ver mediciones" : "Editar seguimiento"}
-          </button>
         </div>
-        {!editing && (
-          <p className="mt-3 text-sm">
-            {c.indicators.map((k) => indicatorNames[k]).join(" · ") ||
-              "Sólo mediciones registradas"}
-            {hasBody
-              ? " · " + c.methods.map((k) => methodNames[k]).join(" / ")
-              : ""}
+        <div className="mt-4 rounded-xl bg-[#edf4ee] p-4">
+          <p className="text-sm font-semibold">Cálculo bajo selección profesional</p>
+          <p className="mt-1 text-sm text-[#496758]">
+            Nuthrick calcula únicamente las fórmulas que selecciones. Cada
+            resultado conserva datos utilizados, método, versión y referencias.
           </p>
-        )}
-        {editing && (
-          <div className="mt-5 space-y-5">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(
-                [
-                  [
-                    "indicators",
-                    "Quiero calcular indicadores",
-                    "Elige resultados y prepararemos los datos necesarios.",
-                  ],
-                  [
-                    "measurements",
-                    "Quiero registrar medidas",
-                    "Selecciona sólo las medidas que utilizas.",
-                  ],
-                ] as const
-              ).map(([mode, title, description]) => (
-                <button
-                  key={mode}
-                  type="button"
-                  aria-pressed={c.entry === mode}
-                  className={
-                    "min-w-0 rounded-xl border p-4 text-left " +
-                    (c.entry === mode
-                      ? "border-[#173d36] bg-[#edf4ee]"
-                      : "border-[#dfe5e1]")
-                  }
-                  onClick={() => configure({ entry: mode })}
-                >
-                  <span className="block font-semibold">{title}</span>
-                  <span className="mt-1 block text-sm text-[#63786c]">
-                    {description}
-                  </span>
-                </button>
-              ))}
-            </div>
-            {(c.entry === "indicators" || c.indicators.length > 0) && (
-              <div>
-                <h4 className="font-semibold">¿Qué quieres conocer?</h4>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {Object.entries(indicatorNames).map(([id, name]) => (
-                    <label
-                      key={id}
-                      className="flex gap-2 rounded-lg border p-3 text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        aria-label={name}
-                        checked={c.indicators.includes(id as IndicatorCode)}
-                        onChange={() => toggleIndicator(id as IndicatorCode)}
-                      />
-                      <span>
-                        {name}
-                        <span className="mt-1 block text-xs text-[#63786c]">
-                          {id === "bmi"
-                            ? "Relaciona peso y talla. Requiere kg y cm · kg/m²."
-                            : id === "waist_hip_ratio"
-                              ? "Relaciona cintura y cadera. Ambas en cm · razón."
-                              : id === "waist_height_ratio"
-                                ? "Relaciona cintura y talla. Ambas en cm · razón."
-                                : id === "body_density"
-                                  ? "Estima densidad con 7 pliegues, edad y sexo · g/cm³."
-                                  : id === "body_fat"
-                                    ? "Porcentaje de grasa según el método elegido · %."
-                                    : id === "fat_mass"
-                                      ? "Peso y porcentaje de grasa del método elegido · kg."
-                                      : "Peso menos masa grasa. No equivale a músculo · kg."}
-                        </span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-            {c.entry === "measurements" && (
-              <>
-                <button
-                  type="button"
-                  className="nuth-button-secondary"
-                  onClick={() => {
-                    setCatalogOpen(true);
-                  }}
-                >
-                  Elegir medidas del catálogo
-                </button>
-                <button
-                  type="button"
-                  className="ml-3 text-sm underline"
-                  onClick={() => configure({ entry: "indicators" })}
-                >
-                  Agregar indicadores
-                </button>
-                {c.indicators.length > 0 && (
-                  <button
-                    type="button"
-                    className="block text-sm underline"
-                    onClick={() => configure({ indicators: [] })}
-                  >
-                    Registrar sin calcular indicadores
-                  </button>
-                )}
-              </>
-            )}
-            {hasBody && (
-              <div className="rounded-xl bg-[#f4f7f3] p-4">
-                <h4 className="font-semibold">
-                  ¿Cómo obtendrás el porcentaje de grasa?
-                </h4>
-                <p className="mt-1 text-sm">
-                  Puedes usar varios métodos; sus resultados siempre se
-                  mantienen separados.
-                </p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {Object.entries(methodNames).map(([id, name]) => (
-                    <label
-                      key={id}
-                      className="min-w-0 rounded-lg border border-[#dfe5e1] bg-white p-3 text-sm"
-                    >
-                      <span className="flex gap-2 font-semibold">
-                        <input
-                          type="checkbox"
-                          checked={c.methods.includes(id as CompositionMethod)}
-                          onChange={() => toggleMethod(id as CompositionMethod)}
-                        />
-                        {name}
-                      </span>
-                      <span className="mt-2 block text-xs leading-5 text-[#63786c]">
-                        {methodDescriptions[id as CompositionMethod]}
-                      </span>
-                      <span className="mt-1 block text-xs text-[#63786c]">
-                        Resultado: porcentaje de grasa (%). Los requisitos se
-                        preparan debajo.
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                {!c.methods.length && (
-                  <p role="status" className="mt-2 text-sm text-amber-800">
-                    Selecciona un método para preparar las mediciones
-                    necesarias.
-                  </p>
-                )}
-              </div>
-            )}
-            <details>
-              <summary className="cursor-pointer text-sm font-semibold">
-                Métodos preparados, todavía no disponibles
-              </summary>
-              <ul className="mt-3 space-y-2 text-sm">
-                {calculationDefinitions
-                  .filter((d) => d.status === "not_implemented")
-                  .map((d) => (
-                    <li key={d.code}>
-                      {d.name} — pendiente de fórmula validada.
-                    </li>
-                  ))}
-              </ul>
-            </details>
+        </div>
+        <details className="mt-4">
+          <summary className="cursor-pointer text-sm font-semibold">
+            Configurar seguimiento habitual
+          </summary>
+          <div className="mt-4">
             <fieldset className="rounded-xl border border-[#cbd9cf] p-4">
               <legend className="px-2 text-sm font-semibold">
                 ¿Dónde aplicar estos cambios?
@@ -389,7 +260,83 @@ export function GuidedMeasurementCapture({
               </p>
             </fieldset>
           </div>
+        </details>
+      </section>
+      <section id="formula-selector" className={panel}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-xl font-semibold">Fórmulas y métodos</h3>
+            <p className="mt-1 text-sm text-[#63786c]">
+              {selectedFormulas.length
+                ? `${selectedFormulas.length} seleccionados para esta consulta.`
+                : "Aún no has seleccionado fórmulas. Puedes guardar mediciones sin calcular."}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="nuth-button-secondary"
+            aria-expanded={formulaCatalogOpen}
+            onClick={() => setFormulaCatalogOpen((open) => !open)}
+          >
+            {formulaCatalogOpen ? "Ocultar selector" : "Seleccionar fórmulas"}
+          </button>
+        </div>
+        {formulaCatalogOpen && (
+          <div className="mt-4 grid min-w-0 gap-3 lg:grid-cols-2">
+            {calculationChoices.map((choice) => {
+              const checked = selectedFormulas.includes(choice.id);
+              const requiredNames = measurementCodesForChoice(choice.id).map(
+                (code) => types.find((type) => type.code === code)?.name ?? code,
+              );
+              return (
+                <article
+                  key={choice.id}
+                  className={`min-w-0 rounded-xl border p-4 [overflow-wrap:anywhere] ${
+                    checked
+                      ? "border-[#3d705d] bg-[#f2f7f3]"
+                      : "border-[#dfe5e1] bg-white"
+                  }`}
+                >
+                  <label className="flex min-w-0 cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={checked}
+                      onChange={() => toggleFormula(choice.id)}
+                    />
+                    <span className="min-w-0">
+                      <span className="block font-semibold">{choice.name}</span>
+                      <span className="mt-1 block text-sm text-[#496758]">
+                        {choice.short}
+                      </span>
+                    </span>
+                  </label>
+                  <dl className="mt-3 space-y-2 text-xs">
+                    <div>
+                      <dt className="font-semibold">Requiere</dt>
+                      <dd>{requiredNames.join(" + ") || "Resultados dependientes del método"}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold">Resultado</dt>
+                      <dd>{choice.result}</dd>
+                    </div>
+                  </dl>
+                  <button
+                    type="button"
+                    className="mt-3 text-sm font-semibold text-[#3d705d] underline"
+                    onClick={() => setFormulaOpen(choice.id)}
+                  >
+                    Más información
+                  </button>
+                </article>
+              );
+            })}
+          </div>
         )}
+        <p className="mt-4 text-xs text-[#63786c]">
+          La orientación es educativa. Ninguna fórmula constituye por sí sola
+          un diagnóstico nutricional.
+        </p>
       </section>
       <section className={panel}>
         <h3 className="font-semibold">Datos del expediente</h3>
@@ -399,7 +346,7 @@ export function GuidedMeasurementCapture({
           : {w.context.age ?? "pendiente"}
           {w.context.age !== null ? " años · automática" : ""}
         </p>
-        {(needsJP || w.context.sex) && (
+        {(needsEquationContext || w.context.sex) && (
           <p className="mt-2 text-sm">
             Sexo para ecuaciones:{" "}
             {w.context.sex === "male"
@@ -410,7 +357,7 @@ export function GuidedMeasurementCapture({
             {w.context.sex && w.context.fromPatient ? " · del expediente" : ""}
           </p>
         )}
-        {(!w.context.birthDate || (needsJP && !w.context.sex)) && (
+        {(!w.context.birthDate || (needsEquationContext && !w.context.sex)) && (
           <p className="mt-2 text-sm text-[#63786c]">
             Completa una vez los datos que faltan. Se conservarán en el
             expediente al guardar; el género no sustituye al sexo requerido por
@@ -419,7 +366,7 @@ export function GuidedMeasurementCapture({
         )}
         <details
           className="mt-3"
-          open={!w.context.birthDate || (needsJP && !w.context.sex)}
+          open={!w.context.birthDate || (needsEquationContext && !w.context.sex)}
         >
           <summary className="cursor-pointer text-sm">
             Revisar datos del expediente
@@ -455,7 +402,7 @@ export function GuidedMeasurementCapture({
             </label>
           </div>
         </details>
-        {c.indicators.some((k) => k === "bmi") || needsJP ? (
+        {selected.length > 0 || Object.keys(w.entries).length > 0 ? (
           <label className={field + " mt-4"}>
             Contexto para fórmulas y referencias
             <select
@@ -691,7 +638,7 @@ export function GuidedMeasurementCapture({
         </div>
         {!selected.length && (
           <p className="mt-4 text-sm">
-            Elige un indicador o agrega las medidas que quieres registrar.
+            Selecciona las medidas que quieres registrar en esta consulta.
           </p>
         )}
         {catalogOpen && (
@@ -725,11 +672,9 @@ export function GuidedMeasurementCapture({
                           <input
                             type="checkbox"
                             checked={selected.includes(t.code)}
-                            disabled={required.has(t.code)}
                             onChange={() => toggleMeasurement(t.code)}
                           />
                           {t.name} · {t.unit}
-                          {required.has(t.code) ? " · requerida" : ""}
                         </label>
                       ))}
                   </div>
@@ -900,18 +845,16 @@ export function GuidedMeasurementCapture({
                     </label>
                     <p className="mt-2 text-xs text-[#63786c]">
                       {required.has(t.code)
-                        ? "Requerida para: " + required.get(t.code)!.join(", ")
-                        : "Adicional · seguimiento"}
+                        ? "Puede activar cálculos automáticos cuando se complete el resto de los datos."
+                        : "Medición de seguimiento."}
                     </p>
-                    {!required.has(t.code) && (
-                      <button
-                        type="button"
-                        className="mt-2 text-xs underline"
-                        onClick={() => toggleMeasurement(t.code)}
-                      >
-                        Retirar {t.name}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className="mt-2 text-xs underline"
+                      onClick={() => toggleMeasurement(t.code)}
+                    >
+                      Retirar {t.name}
+                    </button>
                     {t.code === "height" &&
                       previousHeight &&
                       !w.entries.height && (
@@ -1043,13 +986,13 @@ export function GuidedMeasurementCapture({
             </section>
           );
         })}
-        <details className="mt-5">
+        <details className="mt-5 rounded-xl border border-[#dfe5e1] p-4">
           <summary className="cursor-pointer text-sm font-semibold">
-            Fecha, protocolo y equipo de antropometría
+            Guion de medición: fecha, protocolo y equipo
           </summary>
           <p className="mt-2 text-sm">
-            Se recuerdan en el seguimiento habitual. Identifícalos para comparar
-            mediciones tomadas con el mismo método.
+            Esta información documenta cómo se ejecutó la medición; no cambia
+            qué fórmulas calcula el sistema. Se recuerda para el seguimiento.
           </p>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <label className={field}>
@@ -1108,72 +1051,160 @@ export function GuidedMeasurementCapture({
           </div>
         </details>
       </section>
-      {c.indicators.length > 0 && (
+      {(selected.length > 0 || Object.keys(w.entries).length > 0) && (
         <section className={panel}>
           <h3 className="text-lg font-semibold">
-            Disponibilidad de los cálculos
+            Cálculos automáticos
           </h3>
           <p className="mt-1 text-sm">
-            Los resultados se actualizan al completar o cambiar sus datos.
+            {statuses.filter((s) => s.state === "available").length} resultados
+            disponibles · {statuses.filter((s) => s.state === "pending").length}{" "}
+            con datos insuficientes. Se actualizan mientras capturas.
           </p>
-          <div className="mt-3 space-y-3">
-            {statuses.map((s) => (
-              <div key={s.key} className="rounded-xl bg-[#f4f7f3] p-3">
-                <p className="text-sm font-semibold">
-                  {s.state === "available" ? "✓ Disponible: " : "Pendiente: "}
-                  {s.name} · {s.method}
-                </p>
-                {s.missing.length > 0 && (
-                  <p className="mt-1 text-sm">Falta: {s.missing.join(", ")}.</p>
-                )}
-              </div>
-            ))}
-          </div>
           <details className="mt-4">
             <summary className="cursor-pointer text-sm font-semibold">
-              Más información sobre las fórmulas
+              Ver disponibilidad y datos faltantes
             </summary>
-            <div className="mt-3 space-y-3">
-              {calculationDefinitions
-                .filter((d) => d.status === "implemented")
-                .map((d) => (
-                  <details key={d.code} className="rounded-lg border p-3">
-                    <summary className="cursor-pointer font-semibold">
-                      {d.name}
-                    </summary>
-                    <p className="mt-2 text-sm">{d.description}</p>
-                    <p className="mt-2 text-sm">
-                      Datos necesarios:{" "}
-                      {d.requiredInputs
-                        .map(
-                          (code) =>
-                            types.find((t) => t.code === code)?.name ?? code,
-                        )
-                        .join(", ") || d.dependencies.join(", ")}
-                      .
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {statuses.map((s) => (
+                <div key={s.key} className="min-w-0 rounded-xl bg-[#f4f7f3] p-3">
+                  <p className="text-sm font-semibold">
+                    {s.state === "available" ? "✓ Disponible" : "Datos insuficientes"}
+                  </p>
+                  <p className="text-sm">{s.name} · {s.method}</p>
+                  {s.missing.length > 0 && (
+                    <p className="mt-1 text-xs text-[#63786c]">
+                      Falta: {s.missing.join(", ")}.
                     </p>
-                    <p className="mt-2 text-sm">{d.calculation}</p>
-                    <p className="mt-2 text-sm">
-                      Resultado: {d.unit}. Versión: {d.version}.
-                    </p>
-                    <p className="mt-2 text-sm">{d.limitations}</p>
-                    {d.referenceUrls.map((url) => (
-                      <a
-                        key={url}
-                        className="mt-2 block text-sm underline"
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Referencia técnica
-                      </a>
-                    ))}
-                  </details>
-                ))}
+                  )}
+                </div>
+              ))}
             </div>
           </details>
         </section>
       )}
+      {formulaOpen && (() => {
+        const choice = calculationChoices.find((item) => item.id === formulaOpen)!;
+        const definitions = definitionsForChoice(formulaOpen);
+        const requiredNames = measurementCodesForChoice(formulaOpen).map(
+          (code) => types.find((type) => type.code === code)?.name ?? code,
+        );
+        const references = [
+          ...new Map(
+            definitions
+              .flatMap((definition) => definition.referenceUrls)
+              .map((url) => [
+                url,
+                calculationReferences.find((reference) => reference.url === url),
+              ]),
+          ).entries(),
+        ];
+        return (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-6">
+            <button
+              type="button"
+              className="absolute inset-0 cursor-default"
+              aria-label="Cerrar información de fórmula"
+              onClick={() => setFormulaOpen(null)}
+            />
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="formula-detail-title"
+              className="relative z-10 max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl sm:p-7"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#8b6a2b]">
+                    Ficha informativa
+                  </p>
+                  <h3 id="formula-detail-title" className="mt-1 text-2xl font-semibold">
+                    {choice.name}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  className="shrink-0 rounded-lg border px-3 py-2 text-sm font-semibold"
+                  onClick={() => setFormulaOpen(null)}
+                >
+                  Cerrar
+                </button>
+              </div>
+              <div className="mt-5 space-y-5 text-sm [overflow-wrap:anywhere]">
+                <div>
+                  <h4 className="font-semibold">¿Qué es?</h4>
+                  <p className="mt-1">{choice.short}</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold">¿Para qué se utiliza?</h4>
+                  <p className="mt-1">{choice.use}</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold">Datos necesarios</h4>
+                  <ul className="mt-1 list-disc space-y-1 pl-5">
+                    {requiredNames.map((name) => <li key={name}>{name}</li>)}
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-semibold">Cálculo</h4>
+                  {definitions.map((definition) => (
+                    <p key={definition.code} className="mt-1">
+                      <span className="font-medium">{definition.name}:</span>{" "}
+                      {definition.calculation}
+                    </p>
+                  ))}
+                </div>
+                <div>
+                  <h4 className="font-semibold">Resultado</h4>
+                  <p className="mt-1">{choice.result}.</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold">Interpretación</h4>
+                  <p className="mt-1">
+                    {choice.id === "bmi"
+                      ? "La clasificación OMS se presenta únicamente cuando el contexto adulto no gestante y la referencia están confirmados."
+                      : "Nuthrick muestra el resultado sin asignar etiquetas de bueno, malo o normal cuando no existe una referencia de clasificación configurada y aplicable."}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-semibold">Limitaciones</h4>
+                  {[...new Set(definitions.map((definition) => definition.limitations))].map(
+                    (limitation) => <p key={limitation} className="mt-1">{limitation}</p>,
+                  )}
+                </div>
+                <div>
+                  <h4 className="font-semibold">Aplicabilidad</h4>
+                  <p className="mt-1">{choice.applicability}</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold">Referencia</h4>
+                  {references.length ? references.map(([url, reference]) => (
+                    <a
+                      key={url}
+                      className="mt-1 block underline"
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {reference?.title ?? "Referencia técnica"}
+                    </a>
+                  )) : <p className="mt-1">Sin referencia de clasificación configurada.</p>}
+                </div>
+                <div>
+                  <h4 className="font-semibold">Versión</h4>
+                  <p className="mt-1">
+                    {[...new Set(definitions.map((definition) => definition.version))].join(", ")}
+                  </p>
+                </div>
+                <p className="rounded-xl bg-[#f5f1e9] p-3 text-xs">
+                  Esta orientación no constituye un diagnóstico nutricional. La
+                  interpretación clínica pertenece al profesional.
+                </p>
+              </div>
+            </section>
+          </div>
+        );
+      })()}
       {error && (
         <p
           role="alert"

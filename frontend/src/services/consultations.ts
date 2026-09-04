@@ -106,19 +106,27 @@ export async function loadActiveTemplate(
     : loadSystemTemplate(type, includeInactive);
 }
 
-export async function listAvailableSystemTemplates(
+export async function listAvailableTemplates(
   type: Consultation["consultation_type"],
+  includeInactive = false,
 ): Promise<LoadedTemplate[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from("consultation_templates")
     .select("id")
     .eq("consultation_type", type)
-    .eq("is_system", true)
-    .eq("is_active", true)
+    .order("is_default", { ascending: false })
+    .order("is_system", { ascending: true })
+    .order("display_order")
     .order("created_at");
+  if (!includeInactive) query = query.eq("is_active", true);
+  const { data, error } = await query;
   fail(error, "No pudimos cargar las plantillas disponibles.");
-  return Promise.all((data ?? []).map((item) => loadTemplateById(item.id)));
+  return Promise.all(
+    (data ?? []).map((item) => loadTemplateById(item.id, includeInactive)),
+  );
 }
+
+export const listAvailableSystemTemplates = listAvailableTemplates;
 
 export function createSnapshotStructure(
   type: Consultation["consultation_type"],
@@ -331,9 +339,16 @@ export async function createPersonalTemplateCopy(
 export async function saveTemplate(
   loaded: LoadedTemplate,
 ): Promise<LoadedTemplate> {
-  const { error } = await supabase.rpc("save_consultation_template", {
+  const { error } = await supabase.rpc("save_consultation_template_details", {
     target_template: loaded.template.id,
     expected_updated_at: loaded.template.updated_at,
+    template_data: {
+      name: loaded.template.name.trim(),
+      description: loaded.template.description?.trim() || null,
+      estimated_duration_minutes:
+        loaded.template.estimated_duration_minutes,
+      display_order: loaded.template.display_order,
+    },
     section_data: loaded.sections,
     question_data: loaded.questions,
   });
@@ -342,6 +357,40 @@ export async function saveTemplate(
     "No pudimos guardar la plantilla. Revisa los títulos y las opciones; tus cambios siguen en pantalla.",
   );
   return loadTemplateById(loaded.template.id, true);
+}
+
+export async function setDefaultTemplate(templateId: string): Promise<void> {
+  const { error } = await supabase.rpc("set_consultation_template_default", {
+    target_template: templateId,
+  });
+  fail(error, "No pudimos establecer la plantilla predeterminada.");
+}
+
+export async function archiveTemplate(templateId: string): Promise<void> {
+  const { error } = await supabase
+    .from("consultation_templates")
+    .update({ is_active: false, is_default: false })
+    .eq("id", templateId)
+    .eq("is_system", false);
+  fail(error, "No pudimos archivar la plantilla.");
+}
+
+export async function restoreTemplate(templateId: string): Promise<void> {
+  const { error } = await supabase
+    .from("consultation_templates")
+    .update({ is_active: true })
+    .eq("id", templateId)
+    .eq("is_system", false);
+  fail(error, "No pudimos reactivar la plantilla.");
+}
+
+export async function deleteTemplate(templateId: string): Promise<void> {
+  const { error } = await supabase
+    .from("consultation_templates")
+    .delete()
+    .eq("id", templateId)
+    .eq("is_system", false);
+  fail(error, "No pudimos eliminar la plantilla.");
 }
 
 export async function restoreSystemTemplate(
