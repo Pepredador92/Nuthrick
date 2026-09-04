@@ -424,6 +424,24 @@ export function ConsultationTemplateEditorPage() {
       ],
     });
   };
+  const removeQuestion = (question: ConsultationTemplateQuestion) => {
+    if (!window.confirm(`¿Quitar “${question.label}” de esta entrevista?`))
+      return;
+    const remainingInSection = loaded.questions
+      .filter((q) => q.section_id === question.section_id && q.id !== question.id)
+      .sort((a, b) => a.display_order - b.display_order)
+      .map((q, index) => ({ ...q, display_order: index }));
+    const reordered = new Map(remainingInSection.map((q) => [q.id, q]));
+    mutate({
+      ...loaded,
+      questions: loaded.questions
+        .filter((q) => q.id !== question.id)
+        .map((q) => reordered.get(q.id) ?? q),
+    });
+    setNotice(
+      "Pregunta quitada de la entrevista. Guarda los cambios para aplicarlo.",
+    );
+  };
   return (
     <div className="mx-auto min-w-0 max-w-6xl pb-24 [overflow-wrap:anywhere]">
       <header className="rounded-[24px] bg-[#173d36] p-5 text-white sm:p-7">
@@ -1241,6 +1259,15 @@ export function ConsultationTemplateEditorPage() {
                               />
                               Activa
                             </label>
+                            <button
+                              type="button"
+                              className="inline-flex items-center rounded-lg border border-red-100 p-2 text-red-700 transition hover:bg-red-50"
+                              aria-label={"Quitar pregunta " + (index + 1)}
+                              title="Quitar pregunta"
+                              onClick={() => removeQuestion(q)}
+                            >
+                              <Trash2 size={14} />
+                            </button>
                             <label className="flex items-center gap-2 text-xs">
                               <input
                                 type="checkbox"

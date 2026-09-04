@@ -195,4 +195,21 @@ describe("catálogo profesional de plantillas", () => {
       expect(api.remove).toHaveBeenCalledWith("personal-sports"),
     );
   });
+
+  it("removes a question from a personal template before saving", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    mount();
+    await screen.findByRole("button", { name: "Quitar pregunta 1" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Quitar pregunta 1" }));
+    expect(
+      screen.queryByLabelText("¿Cuántos días entrenas por semana?"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => expect(api.save).toHaveBeenCalledOnce());
+    const saved = api.save.mock.calls[0][0] as LoadedTemplate;
+    expect(saved.questions).toHaveLength(0);
+  });
 });

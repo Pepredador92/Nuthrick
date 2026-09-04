@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(25);
+select plan(28);
 
 select is(
   (select count(*) from public.consultation_templates
@@ -117,6 +117,46 @@ select lives_ok($$
   join public.consultation_templates t on t.id = s.template_id
   where t.template_key = 'catalog-sports' and s.section_key = 'training'
 $$, 'adds the requested training question');
+
+select lives_ok($$
+  insert into public.consultation_template_questions(
+    section_id, question_key, label, question_type, response_area,
+    is_required, display_order, configuration
+  )
+  select s.id, 'temporary_delete_test', 'Pregunta temporal para eliminar',
+    'short_text', 'patient_reported', false, 1, '{}'::jsonb
+  from public.consultation_template_sections s
+  join public.consultation_templates t on t.id = s.template_id
+  where t.template_key = 'catalog-sports' and s.section_key = 'training'
+$$, 'adds a temporary question that should be removable');
+select lives_ok($$
+  select public.save_consultation_template_details(
+    t.id,
+    t.updated_at,
+    jsonb_build_object(
+      'name', t.name,
+      'description', t.description,
+      'estimated_duration_minutes', t.estimated_duration_minutes,
+      'display_order', t.display_order
+    ),
+    (select jsonb_agg(to_jsonb(s) order by s.display_order)
+     from public.consultation_template_sections s where s.template_id = t.id),
+    (select jsonb_agg(to_jsonb(q) order by q.display_order)
+     from public.consultation_template_questions q
+     join public.consultation_template_sections s on s.id = q.section_id
+     where s.template_id = t.id and q.question_key <> 'temporary_delete_test')
+  )
+  from public.consultation_templates t where t.template_key = 'catalog-sports'
+$$, 'saving a template can remove omitted questions');
+select is(
+  (select count(*) from public.consultation_template_questions q
+   join public.consultation_template_sections s on s.id = q.section_id
+   join public.consultation_templates t on t.id = s.template_id
+   where t.template_key = 'catalog-sports'
+     and q.question_key = 'temporary_delete_test'),
+  0::bigint,
+  'the omitted question is deleted from the editable template'
+);
 
 select lives_ok($$
   select public.set_consultation_template_default(
