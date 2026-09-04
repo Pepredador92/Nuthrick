@@ -80,9 +80,9 @@ function CalculationCard({
             {evaluation.missingLabels.length ? ` · Faltan: ${evaluation.missingLabels.join(", ")}` : ""}
           </p>
         )}
-        {evaluation.missingMeasurementIdsOutsideWorkspace.length > 0 && evaluation.state !== "not_implemented" && (
+        {evaluation.missingMeasurementIdsOutsideWorkspace.length > 0 && (
           <button type="button" className="nuth-button-secondary mt-3 !px-3 !py-2 !text-xs" disabled={adding} onClick={() => onAddMissing(evaluation.missingMeasurementIdsOutsideWorkspace)}>
-            <Plus size={14} /> Agregar faltantes a mi espacio
+            <Plus size={14} /> {evaluation.state === "not_implemented" ? "Agregar mediciones del método a mi espacio" : "Agregar faltantes a mi espacio"}
           </button>
         )}
       </div>

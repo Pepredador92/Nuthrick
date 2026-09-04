@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(10);
+select plan(11);
 
 select is(
   (select count(*) from public.calculation_definitions where is_catalog_visible),
@@ -63,6 +63,23 @@ select is(
   (select input_snapshot->'weight'->>'measurementId' from public.consultation_calculation_results where consultation_id='fc300000-0000-4000-8000-000000000004'),
   (select id::text from public.consultation_measurements where consultation_id='fc300000-0000-4000-8000-000000000004' and measurement_type_id='weight'),
   'links the result to its source measurement'
+);
+select throws_ok(
+  $$select * from public.save_consultation_calculation_results(
+    'fc300000-0000-4000-8000-000000000004',
+    jsonb_build_object('bmi', jsonb_build_object(
+      'rawResult', 82::numeric / power(1.80::numeric, 2),
+      'displayedResult', '25.3',
+      'inputs', jsonb_build_object(
+        'weight', jsonb_build_object('label','Peso','source','consultation_measurement','value','82','unit','kg','measurementCode','weight','measurementId',(select id from public.consultation_measurements where consultation_id='fc300000-0000-4000-8000-000000000004' and measurement_type_id='weight')),
+        'height', jsonb_build_object('label','Estatura','source','calculation_result','value','180','unit','cm','patientField','height_cm')
+      ),
+      'dependencies', '{}'::jsonb,
+      'patientContext', '{}'::jsonb
+    ))
+  )$$,
+  '23514', 'Calculation inputs do not match the catalogue',
+  'a client cannot forge a different input source'
 );
 select throws_ok(
   $$select * from public.save_consultation_calculation_results(
