@@ -140,6 +140,20 @@ describe("interactive calculation engine", () => {
     expect(payload.somatochart_coordinates).toMatchObject({ rawResult: 1.2, resultValues: { x: 1.2, y: -0.8 } });
   });
 
+  it("uses the reconciled Heath-Carter contract keys without losing a complete result", () => {
+    const input = (key: string, measurementCode: string) => ({ key, label: key, source: "consultation_measurement" as const, measurementCode });
+    const heathCatalog = [{
+      code: "somatotype_endomorphy", name: "Endomorfia", category: "somatotype", method_version: "2", status: "implemented", display_order: 1,
+      definition: { catalogVersion: 2, resultKey: "endomorphy", resultName: "Endomorfia", methodName: "Endomorfia · Heath-Carter", summary: "", unit: "componente", decimalPlaces: 1, inputs: [input("triceps", "triceps_skinfold"), input("subscapular", "subscapular_skinfold"), input("supraespinale", "supraespinale_skinfold"), { key: "height", label: "height", source: "patient_record" as const, patientField: "height_cm" }], dependencies: [], references: [], limitations: "" },
+    }] as CalculationCatalogItem[];
+    const measurements = [
+      { id: "triceps_skinfold", code: "triceps_skinfold", unit: "mm" }, { id: "subscapular_skinfold", code: "subscapular_skinfold", unit: "mm" }, { id: "supraespinale_skinfold", code: "supraespinale_skinfold", unit: "mm" },
+    ] as never;
+    const evaluation = evaluateCalculationCatalog({ catalog: heathCatalog, measurementCatalog: measurements, values: { triceps_skinfold: "12", subscapular_skinfold: "14", supraespinale_skinfold: "10" }, workspaceIds: ["triceps_skinfold", "subscapular_skinfold", "supraespinale_skinfold"], consultation, patient })[0];
+    expect(evaluation).toMatchObject({ state: "calculated", inputState: "complete", availableCount: 4, requiredCount: 4 });
+    expect(evaluation.rawResult).toBeGreaterThan(.1);
+  });
+
   it("recalculates a complete method chain and invalidates dependents when an input is removed", () => {
     const input = (key: string, measurementCode: string) => ({ key, label: key, source: "consultation_measurement" as const, measurementCode });
     const formula = (code: string, inputs: Array<ReturnType<typeof input>>, dependencies: string[] = []): CalculationCatalogItem => ({
