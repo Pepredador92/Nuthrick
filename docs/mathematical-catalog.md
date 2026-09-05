@@ -1,8 +1,8 @@
 # Catálogo matemático de Nuthrick
 
-Versión de especificación: Objetivo 5A · 4 de septiembre de 2026.
+Versión de implementación: Objetivos 5A–5B · 5 de septiembre de 2026.
 
-Este documento resume la fuente de verdad almacenada en `calculation_definitions.definition`. La migración contiene el contrato ejecutable completo (inputs, unidades, ecuaciones, coeficientes, condiciones, población, referencias y decisiones). En 5A sólo permanecen ejecutables IMC, ICC e ICT; validar un contrato no cambia su estado de implementación.
+Este documento resume la fuente de verdad almacenada en `calculation_definitions.definition`. La migración contiene el contrato ejecutable completo (inputs, unidades, ecuaciones, coeficientes, condiciones, población, referencias y decisiones). Los contratos validados se ejecutan desde una capa matemática pura y se validan otra vez al persistirlos. Lee, Yuhasz y Faulkner no se activan hasta resolver sus decisiones metodológicas.
 
 ## Estados
 
@@ -25,24 +25,24 @@ Estar en el espacio de trabajo no vuelve disponible una medición: debe existir 
 | `bmi` | IMC | peso (kg, consulta), estatura (cm, expediente) | — | validated | implemented |
 | `waist_hip_ratio` | Relación cintura/cadera | cintura (cm), cadera/glúteo (cm) | — | validated | implemented |
 | `waist_height_ratio` | Relación cintura/talla | cintura (cm), estatura (cm, expediente) | — | validated | implemented |
-| `density_jackson_pollock_3` | Densidad · JP3 | sexo y edad automáticos; 3 pliegues según variante | — | validated | pending |
-| `density_jackson_pollock_7` | Densidad · JP7 | sexo, edad y 7 pliegues (mm) | — | validated | pending |
-| `density_durnin_womersley` | Densidad · Durnin-Womersley | sexo, edad; bíceps, tríceps, subescapular y suprailíaco (mm) | — | validated | pending |
-| `body_fat_jp3_siri` | % grasa · Siri | — | densidad JP3 | validated | pending |
-| `body_fat_jp7_siri` | % grasa · Siri | — | densidad JP7 | validated | pending |
-| `body_fat_jp7_brozek` | % grasa · Brozek | — | densidad JP7 | validated | pending |
-| `body_fat_durnin_siri` | % grasa · Siri | — | densidad Durnin-Womersley | validated | pending |
+| `density_jackson_pollock_3` | Densidad · JP3 | sexo y edad automáticos; 3 pliegues según variante | — | validated | implemented |
+| `density_jackson_pollock_7` | Densidad · JP7 | sexo, edad y 7 pliegues (mm) | — | validated | implemented |
+| `density_durnin_womersley` | Densidad · Durnin-Womersley | sexo, edad; bíceps, tríceps, subescapular y suprailíaco (mm) | — | validated | implemented |
+| `body_fat_jp3_siri` | % grasa · Siri | — | densidad JP3 | validated | implemented |
+| `body_fat_jp7_siri` | % grasa · Siri | — | densidad JP7 | validated | implemented |
+| `body_fat_jp7_brozek` | % grasa · Brozek | — | densidad JP7 | validated | implemented |
+| `body_fat_durnin_siri` | % grasa · Siri | — | densidad Durnin-Womersley | validated | implemented |
 | `body_fat_faulkner` | % grasa · atribuido a Faulkner | variantes documentadas, ninguna adoptada | — | pending_evidence | pending |
 | `body_fat_yuhasz` | % grasa · Yuhasz/adaptaciones | variantes documentadas, ninguna adoptada | — | requires_decision | pending |
-| `fat_mass_jp3_siri` / `fat_free_mass_jp3_siri` | Masa grasa / masa libre de grasa (kg) | peso (kg) | % grasa JP3 + Siri / su masa grasa | validated | pending |
-| `fat_mass_jp7_siri` / `fat_free_mass_jp7_siri` | Masa grasa / masa libre de grasa (kg) | peso (kg) | % grasa JP7 + Siri / su masa grasa | validated | pending |
-| `fat_mass_jp7_brozek` / `fat_free_mass_jp7_brozek` | Masa grasa / masa libre de grasa (kg) | peso (kg) | % grasa JP7 + Brozek / su masa grasa | validated | pending |
-| `fat_mass_durnin_siri` / `fat_free_mass_durnin_siri` | Masa grasa / masa libre de grasa (kg) | peso (kg) | % grasa Durnin-Womersley + Siri / su masa grasa | validated | pending |
+| `fat_mass_jp3_siri` / `fat_free_mass_jp3_siri` | Masa grasa / masa libre de grasa (kg) | peso (kg) | % grasa JP3 + Siri / su masa grasa | validated | implemented |
+| `fat_mass_jp7_siri` / `fat_free_mass_jp7_siri` | Masa grasa / masa libre de grasa (kg) | peso (kg) | % grasa JP7 + Siri / su masa grasa | validated | implemented |
+| `fat_mass_jp7_brozek` / `fat_free_mass_jp7_brozek` | Masa grasa / masa libre de grasa (kg) | peso (kg) | % grasa JP7 + Brozek / su masa grasa | validated | implemented |
+| `fat_mass_durnin_siri` / `fat_free_mass_durnin_siri` | Masa grasa / masa libre de grasa (kg) | peso (kg) | % grasa Durnin-Womersley + Siri / su masa grasa | validated | implemented |
 | `muscle_mass_lee` | Masa muscular esquelética (kg) | talla, 3 perímetros, 3 pliegues, sexo, edad y grupo del modelo | — | requires_decision | pending |
-| `somatotype_endomorphy` | Endomorfia | tríceps, subescapular, supraespinal, talla | — | validated | pending |
-| `somatotype_mesomorphy` | Mesomorfia | diámetros humeral/femoral, brazo flexionado, tríceps, pantorrilla máxima, pliegue de pantorrilla, talla | — | validated | pending |
-| `somatotype_ectomorphy` | Ectomorfia | talla, peso | — | validated | pending |
-| `somatochart_coordinates` | Coordenadas X/Y | — | endomorfia, mesomorfia, ectomorfia | validated | pending |
+| `somatotype_endomorphy` | Endomorfia | tríceps, subescapular, supraespinal, talla | — | validated | implemented |
+| `somatotype_mesomorphy` | Mesomorfia | diámetros humeral/femoral, brazo flexionado, tríceps, pantorrilla máxima, pliegue de pantorrilla, talla | — | validated | implemented |
+| `somatotype_ectomorphy` | Ectomorfia | talla, peso | — | validated | implemented |
+| `somatochart_coordinates` | Coordenadas X/Y | — | endomorfia, mesomorfia, ectomorfia | validated | implemented |
 
 ## Ecuaciones listas para 5B
 
@@ -178,8 +178,8 @@ No se agregaron al catálogo de producción.
 | Deurenberg (BMI-edad-sexo) | Estimación poblacional de % grasa | Adultos o menores según ecuación específica | IMC, edad, sexo | Útil cuando no hay pliegues, pero no es equivalente a una evaluación individual de composición corporal. |
 | Modelos pediátricos multicompartimentales/ajustados | % de grasa | Poblaciones pediátricas específicas | depende del modelo | La composición de masa libre de grasa cambia con la maduración; se requiere un objetivo pediátrico separado. |
 
-## Criterio para 5B
+## Implementación 5B
 
-Se pueden programar sin nueva investigación: JP3, JP7, Durnin-Womersley, las cuatro conversiones Siri/Brozek ya catalogadas, masa grasa, masa libre de grasa, endomorfia, mesomorfia y ectomorfia. Las coordenadas de somatocarta están matemáticamente definidas, pero 5B debe admitir un resultado X/Y en vez de forzarlo a un único escalar.
+JP3, JP7, Durnin-Womersley, las cuatro conversiones Siri/Brozek, los ocho compartimentos y los tres componentes Heath-Carter se calculan de manera reactiva. Las coordenadas de somatocarta se persisten como `result_values.x` y `result_values.y`, sin reducirlas a un escalar. Cada cálculo guarda sus entradas, dependencias, contexto histórico y versión del contrato; al faltar una entrada, las dependencias dejan de producir resultados y el guardado elimina los resultados obsoletos de ese borrador.
 
 No se deben programar todavía Lee, Yuhasz ni Faulkner.

@@ -9,6 +9,7 @@ import type {
   CalculationInputDefinition,
   CalculationInputSource,
 } from "./catalog";
+import { calculateFormula } from "./mathematics";
 
 export type CalculationState =
   | "insufficient"
@@ -45,6 +46,7 @@ export type CalculationEvaluation = {
   missingLabels: string[];
   missingMeasurementIdsOutsideWorkspace: string[];
   rawResult?: number;
+  resultValues?: Record<string, number>;
   displayedResult?: string;
   dependencyResults: Record<string, number>;
   dependencyLabels: string[];
@@ -104,13 +106,6 @@ function resolveInput(input: CalculationInputDefinition, context: EvaluationCont
   return { ...input, available: false };
 }
 
-function compute(code: string, values: Record<string, number>) {
-  if (code === "bmi") return values.weight / (values.height / 100) ** 2;
-  if (code === "waist_hip_ratio") return values.waist / values.hip;
-  if (code === "waist_height_ratio") return values.waist / values.height;
-  return undefined;
-}
-
 function displayResult(value: number, decimalPlaces: number) {
   return Number(value.toFixed(decimalPlaces)).toLocaleString("es-MX", {
     minimumFractionDigits: decimalPlaces,
@@ -153,6 +148,7 @@ export function evaluateCalculationCatalog(context: EvaluationContext): Calculat
     const missingLabels = [
       ...inputs.filter((input) => !input.available).map((input) => input.label),
       ...item.definition.dependencies.filter((dependencyCode) => dependencyResults[dependencyCode] === undefined).map((dependencyCode) => itemByCode.get(dependencyCode)?.definition.methodName ?? dependencyCode),
+      ...(item.definition.variants?.length && !matchingVariant ? ["Contexto fuera del rango de aplicación"] : []),
     ];
     const missingMeasurementIdsOutsideWorkspace = inputs
       .filter((input) => input.source === "consultation_measurement" && !input.available && !input.inWorkspace)
@@ -164,9 +160,17 @@ export function evaluateCalculationCatalog(context: EvaluationContext): Calculat
     const implementationState: CalculationImplementationState = item.status === "implemented" ? "implemented" : "pending";
     let state: CalculationState = item.status === "not_implemented" ? "not_implemented" : availableCount === 0 ? "insufficient" : "partial";
     let rawResult: number | undefined;
-    if (item.status === "implemented" && requiredCount > 0 && availableCount === requiredCount) {
-      const numericInputs = Object.fromEntries(inputs.filter((input) => typeof input.value === "number").map((input) => [input.key, input.value as number]));
-      rawResult = compute(item.code, { ...numericInputs, ...dependencyResults });
+    let resultValues: Record<string, number> | undefined;
+    if (item.status === "implemented" && requiredCount > 0 && availableCount === requiredCount && (!item.definition.variants?.length || matchingVariant)) {
+      const numericInputs = Object.fromEntries(inputs.flatMap((input) => {
+        if (typeof input.value === "number") return [[input.key, input.value]];
+        if (input.key === "sex" && input.value === "male") return [[input.key, 1]];
+        if (input.key === "sex" && input.value === "female") return [[input.key, 0]];
+        return [];
+      }));
+      const calculation = calculateFormula(item.code, { ...numericInputs, ...dependencyResults });
+      rawResult = calculation?.rawResult;
+      resultValues = calculation?.resultValues;
       if (rawResult !== undefined && Number.isFinite(rawResult)) state = "calculated";
     }
     const result: CalculationEvaluation = {
@@ -187,7 +191,10 @@ export function evaluateCalculationCatalog(context: EvaluationContext): Calculat
       missingLabels,
       missingMeasurementIdsOutsideWorkspace: [...new Set(missingMeasurementIdsOutsideWorkspace)],
       rawResult,
-      displayedResult: rawResult === undefined ? undefined : displayResult(rawResult, item.definition.decimalPlaces),
+      resultValues,
+      displayedResult: rawResult === undefined ? undefined : resultValues?.x !== undefined && resultValues.y !== undefined
+        ? `X: ${displayResult(resultValues.x, item.definition.decimalPlaces)} · Y: ${displayResult(resultValues.y, item.definition.decimalPlaces)}`
+        : displayResult(rawResult, item.definition.decimalPlaces),
       dependencyResults,
       dependencyLabels: item.definition.dependencies.map((dependencyCode) => itemByCode.get(dependencyCode)?.definition.methodName ?? dependencyCode),
       dependencyStates: item.definition.dependencies.map((dependencyCode) => {
@@ -229,6 +236,7 @@ export function calculationResultPayload(
     return [[evaluation.item.code, {
       rawResult: evaluation.rawResult,
       displayedResult: evaluation.displayedResult,
+      resultValues: evaluation.resultValues ?? {},
       inputs,
       dependencies: evaluation.dependencyResults,
       patientContext: {

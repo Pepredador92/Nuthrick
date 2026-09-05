@@ -128,4 +128,29 @@ describe("interactive calculation engine", () => {
     expect(payload.fat_mass_jp7_siri.dependencies).toEqual({ body_fat_jp7_siri: 22.1 });
     expect(payload.fat_mass_jp7_brozek.dependencies).toEqual({ body_fat_jp7_brozek: 21.7 });
   });
+
+  it("recalculates a complete method chain and invalidates dependents when an input is removed", () => {
+    const input = (key: string, measurementCode: string) => ({ key, label: key, source: "consultation_measurement" as const, measurementCode });
+    const formula = (code: string, inputs: Array<ReturnType<typeof input>>, dependencies: string[] = []): CalculationCatalogItem => ({
+      code, name: code, category: "test", method_version: "1", status: "implemented", display_order: 1,
+      definition: { catalogVersion: 2, resultKey: code, resultName: code, methodName: code, summary: "", unit: "u", decimalPlaces: 2, inputs, dependencies, references: [], limitations: "" },
+    });
+    const operationalCatalog = [
+      formula("density_jackson_pollock_7", [input("chest", "chest_skinfold"), input("midaxillary", "midaxillary_skinfold"), input("triceps", "triceps_skinfold"), input("subscapular", "subscapular_skinfold"), input("suprailiac", "suprailiac_skinfold"), input("abdominal", "abdominal_skinfold"), input("thigh", "thigh_skinfold"), { key: "sex", label: "sex", source: "patient_record" as const, patientField: "equation_sex" }, { key: "age", label: "age", source: "patient_derived" as const, derivation: "age_at_consultation" }] as never),
+      formula("body_fat_jp7_siri", [], ["density_jackson_pollock_7"]),
+      formula("body_fat_jp7_brozek", [], ["density_jackson_pollock_7"]),
+      formula("fat_mass_jp7_siri", [input("weight", "weight")], ["body_fat_jp7_siri"]),
+      formula("fat_mass_jp7_brozek", [input("weight", "weight")], ["body_fat_jp7_brozek"]),
+      formula("fat_free_mass_jp7_siri", [input("weight", "weight")], ["fat_mass_jp7_siri"]),
+      formula("fat_free_mass_jp7_brozek", [input("weight", "weight")], ["fat_mass_jp7_brozek"]),
+    ];
+    const completeValues = { weight: "80", chest_skinfold: "10", midaxillary_skinfold: "10", triceps_skinfold: "12", subscapular_skinfold: "12", suprailiac_skinfold: "12", abdominal_skinfold: "18", thigh_skinfold: "16" };
+    const allMeasurements = [...measurementCatalog, { id: "midaxillary_skinfold", code: "midaxillary_skinfold", unit: "mm" }, { id: "subscapular_skinfold", code: "subscapular_skinfold", unit: "mm" }] as never;
+    const complete = evaluateCalculationCatalog({ catalog: operationalCatalog, measurementCatalog: allMeasurements, values: completeValues, workspaceIds: Object.keys(completeValues), consultation, patient });
+    expect(complete.filter((evaluation) => evaluation.state === "calculated")).toHaveLength(7);
+    expect(complete.find((evaluation) => evaluation.item.code === "fat_mass_jp7_siri")?.rawResult).not.toBe(complete.find((evaluation) => evaluation.item.code === "fat_mass_jp7_brozek")?.rawResult);
+    const changed = evaluateCalculationCatalog({ catalog: operationalCatalog, measurementCatalog: allMeasurements, values: { ...completeValues, abdominal_skinfold: "" }, workspaceIds: Object.keys(completeValues), consultation, patient });
+    expect(changed.find((evaluation) => evaluation.item.code === "density_jackson_pollock_7")?.state).toBe("partial");
+    expect(changed.filter((evaluation) => evaluation.item.code !== "density_jackson_pollock_7").every((evaluation) => evaluation.rawResult === undefined)).toBe(true);
+  });
 });
