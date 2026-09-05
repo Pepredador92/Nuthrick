@@ -52,11 +52,11 @@ Peso, porcentaje de grasa, porcentaje de músculo esquelético, metabolismo en r
 
 ### seca mBCA 555
 
-Peso, masa muscular esquelética, masa grasa, masa libre de grasa, agua corporal total, grasa visceral y ángulo de fase.
+Peso, masa muscular esquelética, masa grasa, masa libre de grasa, agua corporal total y ángulo de fase. La fuente confirma grasa visceral, pero no una unidad compatible inequívoca; queda documentada como ambigua y no se muestra automáticamente.
 
 ### seca mBCA Go 525c
 
-Masa muscular, masa grasa, agua corporal total, agua intracelular, agua extracelular, grasa visceral y ángulo de fase. La fuente no presenta el peso como salida de la plataforma, por lo que no se activa.
+Masa muscular, masa grasa, agua corporal total, agua intracelular, agua extracelular y ángulo de fase. La fuente no presenta el peso como salida de la plataforma, por lo que no se activa. La grasa visceral queda ambigua por unidad y tampoco se activa.
 
 ## Ambigüedades conservadas
 
@@ -90,4 +90,3 @@ Un equipo no incluido puede registrarse como privado. El profesional declara fab
 - Evolución longitudinal y gráficos.
 - Nuevas fórmulas antropométricas.
 - Conversión silenciosa del peso del equipo en el peso manual de la consulta.
-
