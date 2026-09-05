@@ -284,5 +284,139 @@
       "No aplicar con IMC igual o superior a 35 kg/m² ni durante gestación.",
       "No representa por sí sola un diagnóstico ni reemplaza la valoración integral."
     ]
+  },
+  {
+    "id": "heath-carter-endomorphy-level",
+    "version": "1.0.0",
+    "resultCode": "somatotype_endomorphy",
+    "name": "Magnitud de endomorfia · Heath-Carter",
+    "organization": "J. E. L. Carter · San Diego State University",
+    "year": 2002,
+    "sourceVersion": "Somatotype Instruction Manual, revisión de marzo de 2002",
+    "title": "The Heath-Carter Anthropometric Somatotype: Instruction Manual",
+    "url": "https://mdthinducollege.org/ebooks/statistics/Heath-CarterManual.pdf",
+    "locator": "Introducción, p. 2 (magnitudes); procedimientos, p. 14 (reporte a media unidad)",
+    "population": "Personas con componente endomórfico calculado mediante el método antropométrico Heath-Carter",
+    "unit": "componente",
+    "valueTransform": "nearest_half",
+    "isDefault": true,
+    "conditions": [],
+    "rules": [
+      {"id":"low","label":"Endomorfia baja","description":"Magnitud descriptiva baja del componente endomórfico.","level":0,"lower":0.5,"upper":2.5,"lowerInclusive":true,"upperInclusive":true},
+      {"id":"moderate","label":"Endomorfia moderada","description":"Magnitud descriptiva moderada del componente endomórfico.","level":1,"lower":3,"upper":5,"lowerInclusive":true,"upperInclusive":true},
+      {"id":"high","label":"Endomorfia alta","description":"Magnitud descriptiva alta del componente endomórfico.","level":2,"lower":5.5,"upper":7,"lowerInclusive":true,"upperInclusive":true},
+      {"id":"very-high","label":"Endomorfia muy alta","description":"Magnitud descriptiva muy alta del componente endomórfico.","level":3,"lower":7.5,"upper":null,"lowerInclusive":true,"upperInclusive":false}
+    ],
+    "notes": [
+      "El manual expresa los niveles en incrementos de media unidad; Nuthrick redondea únicamente para elegir el descriptor y conserva intacto el resultado decimal.",
+      "Endomorfia describe adiposidad relativa dentro del somatotipo."
+    ],
+    "limitations": [
+      "Es una descripción morfológica, no una categoría de salud, obesidad ni riesgo.",
+      "Debe interpretarse junto con mesomorfia y ectomorfia, no de forma aislada."
+    ]
+  },
+  {
+    "id": "heath-carter-mesomorphy-level",
+    "version": "1.0.0",
+    "resultCode": "somatotype_mesomorphy",
+    "name": "Magnitud de mesomorfia · Heath-Carter",
+    "organization": "J. E. L. Carter · San Diego State University",
+    "year": 2002,
+    "sourceVersion": "Somatotype Instruction Manual, revisión de marzo de 2002",
+    "title": "The Heath-Carter Anthropometric Somatotype: Instruction Manual",
+    "url": "https://mdthinducollege.org/ebooks/statistics/Heath-CarterManual.pdf",
+    "locator": "Introducción, p. 2 (magnitudes); procedimientos, p. 14 (reporte a media unidad)",
+    "population": "Personas con componente mesomórfico calculado mediante el método antropométrico Heath-Carter",
+    "unit": "componente",
+    "valueTransform": "nearest_half",
+    "isDefault": true,
+    "conditions": [],
+    "rules": [
+      {"id":"low","label":"Mesomorfia baja","description":"Magnitud descriptiva baja del componente mesomórfico.","level":0,"lower":0.5,"upper":2.5,"lowerInclusive":true,"upperInclusive":true},
+      {"id":"moderate","label":"Mesomorfia moderada","description":"Magnitud descriptiva moderada del componente mesomórfico.","level":1,"lower":3,"upper":5,"lowerInclusive":true,"upperInclusive":true},
+      {"id":"high","label":"Mesomorfia alta","description":"Magnitud descriptiva alta del componente mesomórfico.","level":2,"lower":5.5,"upper":7,"lowerInclusive":true,"upperInclusive":true},
+      {"id":"very-high","label":"Mesomorfia muy alta","description":"Magnitud descriptiva muy alta del componente mesomórfico.","level":3,"lower":7.5,"upper":null,"lowerInclusive":true,"upperInclusive":false}
+    ],
+    "notes": [
+      "El manual expresa los niveles en incrementos de media unidad; Nuthrick redondea únicamente para elegir el descriptor y conserva intacto el resultado decimal.",
+      "Mesomorfia describe robustez musculoesquelética relativa dentro del somatotipo."
+    ],
+    "limitations": [
+      "Es una descripción morfológica, no una medición de masa muscular ni una categoría de salud.",
+      "Debe interpretarse junto con endomorfia y ectomorfia, no de forma aislada."
+    ]
+  },
+  {
+    "id": "heath-carter-ectomorphy-level",
+    "version": "1.0.0",
+    "resultCode": "somatotype_ectomorphy",
+    "name": "Magnitud de ectomorfia · Heath-Carter",
+    "organization": "J. E. L. Carter · San Diego State University",
+    "year": 2002,
+    "sourceVersion": "Somatotype Instruction Manual, revisión de marzo de 2002",
+    "title": "The Heath-Carter Anthropometric Somatotype: Instruction Manual",
+    "url": "https://mdthinducollege.org/ebooks/statistics/Heath-CarterManual.pdf",
+    "locator": "Introducción, p. 2 (magnitudes); procedimientos, p. 14 (reporte a media unidad)",
+    "population": "Personas con componente ectomórfico calculado mediante el método antropométrico Heath-Carter",
+    "unit": "componente",
+    "valueTransform": "nearest_half",
+    "isDefault": true,
+    "conditions": [],
+    "rules": [
+      {"id":"low","label":"Ectomorfia baja","description":"Magnitud descriptiva baja del componente ectomórfico.","level":0,"lower":0.5,"upper":2.5,"lowerInclusive":true,"upperInclusive":true},
+      {"id":"moderate","label":"Ectomorfia moderada","description":"Magnitud descriptiva moderada del componente ectomórfico.","level":1,"lower":3,"upper":5,"lowerInclusive":true,"upperInclusive":true},
+      {"id":"high","label":"Ectomorfia alta","description":"Magnitud descriptiva alta del componente ectomórfico.","level":2,"lower":5.5,"upper":7,"lowerInclusive":true,"upperInclusive":true},
+      {"id":"very-high","label":"Ectomorfia muy alta","description":"Magnitud descriptiva muy alta del componente ectomórfico.","level":3,"lower":7.5,"upper":null,"lowerInclusive":true,"upperInclusive":false}
+    ],
+    "notes": [
+      "El manual expresa los niveles en incrementos de media unidad; Nuthrick redondea únicamente para elegir el descriptor y conserva intacto el resultado decimal.",
+      "Ectomorfia describe linealidad relativa dentro del somatotipo."
+    ],
+    "limitations": [
+      "Es una descripción morfológica, no una categoría de salud ni de riesgo.",
+      "Debe interpretarse junto con endomorfia y mesomorfia, no de forma aislada."
+    ]
+  },
+  {
+    "id": "heath-carter-somatotype-category",
+    "version": "1.0.0",
+    "resultCode": "somatochart_coordinates",
+    "name": "Categoría somatotípica · Heath-Carter",
+    "organization": "J. E. L. Carter · San Diego State University",
+    "year": 2002,
+    "sourceVersion": "Somatotype Instruction Manual, revisión de marzo de 2002",
+    "title": "The Heath-Carter Anthropometric Somatotype: Instruction Manual",
+    "url": "https://mdthinducollege.org/ebooks/statistics/Heath-CarterManual.pdf",
+    "locator": "Somatotype categories, pp. 9–10: trece categorías basadas en la relación entre los tres componentes",
+    "population": "Personas con los tres componentes del somatotipo antropométrico Heath-Carter disponibles",
+    "unit": "coordenadas",
+    "isDefault": true,
+    "conditions": [
+      {"field":"somatotypeCategory","label":"los tres componentes del somatotipo","oneOf":["central","balanced-endomorph","mesomorphic-endomorph","mesomorph-endomorph","endomorphic-mesomorph","balanced-mesomorph","ectomorphic-mesomorph","mesomorph-ectomorph","mesomorphic-ectomorph","balanced-ectomorph","endomorphic-ectomorph","endomorph-ectomorph","ectomorphic-endomorph"]}
+    ],
+    "rules": [
+      {"id":"central","label":"Somatotipo central","description":"Ningún componente difiere más de una unidad de los otros dos.","level":0,"lower":null,"upper":null,"lowerInclusive":false,"upperInclusive":false,"conditions":[{"field":"somatotypeCategory","label":"categoría somatotípica","equals":"central"}]},
+      {"id":"balanced-endomorph","label":"Endomorfo balanceado","description":"Endomorfia dominante; mesomorfia y ectomorfia no difieren más de media unidad.","level":1,"lower":null,"upper":null,"lowerInclusive":false,"upperInclusive":false,"conditions":[{"field":"somatotypeCategory","label":"categoría somatotípica","equals":"balanced-endomorph"}]},
+      {"id":"mesomorphic-endomorph","label":"Endomorfo mesomórfico","description":"Endomorfia dominante y mesomorfia mayor que ectomorfia.","level":2,"lower":null,"upper":null,"lowerInclusive":false,"upperInclusive":false,"conditions":[{"field":"somatotypeCategory","label":"categoría somatotípica","equals":"mesomorphic-endomorph"}]},
+      {"id":"mesomorph-endomorph","label":"Meso-endomorfo","description":"Endomorfia y mesomorfia no difieren más de media unidad; ectomorfia es menor.","level":3,"lower":null,"upper":null,"lowerInclusive":false,"upperInclusive":false,"conditions":[{"field":"somatotypeCategory","label":"categoría somatotípica","equals":"mesomorph-endomorph"}]},
+      {"id":"endomorphic-mesomorph","label":"Mesomorfo endomórfico","description":"Mesomorfia dominante y endomorfia mayor que ectomorfia.","level":4,"lower":null,"upper":null,"lowerInclusive":false,"upperInclusive":false,"conditions":[{"field":"somatotypeCategory","label":"categoría somatotípica","equals":"endomorphic-mesomorph"}]},
+      {"id":"balanced-mesomorph","label":"Mesomorfo balanceado","description":"Mesomorfia dominante; endomorfia y ectomorfia no difieren más de media unidad.","level":5,"lower":null,"upper":null,"lowerInclusive":false,"upperInclusive":false,"conditions":[{"field":"somatotypeCategory","label":"categoría somatotípica","equals":"balanced-mesomorph"}]},
+      {"id":"ectomorphic-mesomorph","label":"Mesomorfo ectomórfico","description":"Mesomorfia dominante y ectomorfia mayor que endomorfia.","level":6,"lower":null,"upper":null,"lowerInclusive":false,"upperInclusive":false,"conditions":[{"field":"somatotypeCategory","label":"categoría somatotípica","equals":"ectomorphic-mesomorph"}]},
+      {"id":"mesomorph-ectomorph","label":"Meso-ectomorfo","description":"Mesomorfia y ectomorfia no difieren más de media unidad; endomorfia es menor.","level":7,"lower":null,"upper":null,"lowerInclusive":false,"upperInclusive":false,"conditions":[{"field":"somatotypeCategory","label":"categoría somatotípica","equals":"mesomorph-ectomorph"}]},
+      {"id":"mesomorphic-ectomorph","label":"Ectomorfo mesomórfico","description":"Ectomorfia dominante y mesomorfia mayor que endomorfia.","level":8,"lower":null,"upper":null,"lowerInclusive":false,"upperInclusive":false,"conditions":[{"field":"somatotypeCategory","label":"categoría somatotípica","equals":"mesomorphic-ectomorph"}]},
+      {"id":"balanced-ectomorph","label":"Ectomorfo balanceado","description":"Ectomorfia dominante; endomorfia y mesomorfia no difieren más de media unidad.","level":9,"lower":null,"upper":null,"lowerInclusive":false,"upperInclusive":false,"conditions":[{"field":"somatotypeCategory","label":"categoría somatotípica","equals":"balanced-ectomorph"}]},
+      {"id":"endomorphic-ectomorph","label":"Ectomorfo endomórfico","description":"Ectomorfia dominante y endomorfia mayor que mesomorfia.","level":10,"lower":null,"upper":null,"lowerInclusive":false,"upperInclusive":false,"conditions":[{"field":"somatotypeCategory","label":"categoría somatotípica","equals":"endomorphic-ectomorph"}]},
+      {"id":"endomorph-ectomorph","label":"Endo-ectomorfo","description":"Endomorfia y ectomorfia no difieren más de media unidad; mesomorfia es menor.","level":11,"lower":null,"upper":null,"lowerInclusive":false,"upperInclusive":false,"conditions":[{"field":"somatotypeCategory","label":"categoría somatotípica","equals":"endomorph-ectomorph"}]},
+      {"id":"ectomorphic-endomorph","label":"Endomorfo ectomórfico","description":"Endomorfia dominante y ectomorfia mayor que mesomorfia.","level":12,"lower":null,"upper":null,"lowerInclusive":false,"upperInclusive":false,"conditions":[{"field":"somatotypeCategory","label":"categoría somatotípica","equals":"ectomorphic-endomorph"}]}
+    ],
+    "notes": [
+      "La categoría se deriva de la relación entre endomorfia, mesomorfia y ectomorfia; las coordenadas X/Y siguen mostrándose como resultado separado.",
+      "Las comparaciones usan los componentes decimales sin redondear y los límites relacionales de 0.5 y 1.0 unidades del manual."
+    ],
+    "limitations": [
+      "La categoría describe la forma y composición corporal actual; no es diagnóstico, riesgo ni juicio de salud.",
+      "La precisión depende de la técnica y reproducibilidad de todas las mediciones antropométricas de origen."
+    ]
   }
 ]

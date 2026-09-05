@@ -12,6 +12,8 @@ try {
     const errors=[]; page.on('pageerror',e=>errors.push(e.message));
     await page.goto('http://127.0.0.1:4175/tests/visual/interpretations.html');
     await page.getByText('Sobrepeso / preobesidad',{exact:true}).first().waitFor();
+    await page.getByText('Mesomorfo endomórfico',{exact:true}).first().waitFor();
+    await page.getByText('Endomorfia moderada',{exact:true}).first().waitFor();
     if(await page.getByText('Densidad corporal',{exact:true}).count()) throw Error('Density leaked into Results');
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);
     if(overflow) throw Error(`Overflow at ${width}`);

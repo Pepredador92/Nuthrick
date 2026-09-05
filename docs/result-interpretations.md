@@ -4,6 +4,8 @@ Implementación: 5 de septiembre de 2026. La interpretación recibe resultados n
 
 ## Referencias creadas y clasificaciones funcionales
 
+El catálogo fue ampliado y auditado científicamente en el Objetivo 6B. La matriz completa de resultados, decisiones y fuentes vive en [`docs/interpretation-catalog.md`](interpretation-catalog.md).
+
 | Resultado | Referencia | Regla operativa |
 | --- | --- | --- |
 | IMC | [OMS, WHO TRS 894 (2000)](https://iris.who.int/bitstream/10665/42330/1/WHO_TRS_894.pdf) | <18.5 bajo peso; [18.5,25) peso normal; [25,30) sobrepeso/preobesidad; [30,35), [35,40), ≥40 obesidad I, II, III |
@@ -38,7 +40,7 @@ La eliminación de un resultado de la consulta editable elimina su interpretaci�
 
 Resultados muestra texto discreto debajo de IMC, cintura-cadera y cintura-talla. Cintura-talla se incorpora ahora a la vista principal conforme al ejemplo del objetivo 6. Detalles abre clasificación o motivo de no aplicabilidad, valor interno, límites exactos, referencia interpretativa, población, versión, contexto, notas y fecha. Un enlace separado abre el método matemático. Métodos conserva sus fórmulas, dependencias, faltantes y referencias matemáticas. El valor sigue siendo principal; no hay semáforo ni botón para reclasificar.
 
-Siri, Brozek, masas grasas/magras, componentes Heath-Carter, somatocarta y densidades siguen deliberadamente sin clasificación automática. El estado sin referencia no añade ruido a las tarjetas.
+Siri, Brozek, masas grasas/magras y densidades siguen deliberadamente sin clasificación automática. Los tres componentes Heath-Carter y el somatotipo completo reciben descriptores morfológicos reproducibles, nunca categorías clínicas. El estado sin referencia no añade ruido a las tarjetas.
 
 ## Pruebas y auditoría del alcance
 
@@ -48,7 +50,7 @@ Siri, Brozek, masas grasas/magras, componentes Heath-Carter, somatocarta y densi
 | 6–7, 11–17, 32, 34–38: contexto y precisión | Pruebas de límites, edad histórica con cambio de día por zona horaria, sexo, embarazo desconocido/presente, IMC faltante/≥35, población no indicada |
 | 8–9, 31, 43–45, 58: persistencia y reacción | Prueba SQL con dos consultas sintéticas, cambio de referencia, reintento idéntico, borrado; pruebas de UI de reacción y eliminación de inputs y carga histórica |
 | 10, 13, 15, 54–57: tres referencias iniciales | Casos justo por debajo y exactamente en límites de IMC, ambos sexos ICC, NICE 0.39/0.40/0.49/0.50/0.59/0.60; evaluadores TS y SQL |
-| 18–23, 50, 59–62: exclusiones de alcance | Pruebas de `no_reference` para grasa, masas, Heath-Carter, somatocarta y densidad; sólo tres referencias en catálogo |
+| 18–23, 50, 59–62: exclusiones de alcance | Pruebas de `no_reference` para grasa, masas y densidad; Heath-Carter se amplía en 6B sin nuevas fórmulas |
 | 26–30, 46, 51–53: interfaz compacta y detalles separados | Pruebas de componentes y navegador real con los componentes de producción a 360/768/1280 px; capturas sin desbordamiento |
 | 41: protección de referencias | Prueba SQL de denegación de UPDATE autenticado, RLS entre profesionales y bloqueo de consulta finalizada |
 | 63–66: fuentes, validación y entrega | Este informe, catálogo bibliográfico, suite completa, typecheck, lint, build y despliegue |
@@ -60,11 +62,11 @@ La prueba `supabase/tests/database/result_interpretations.sql` crea pacientes si
 - `frontend/src/features/interpretations/{types,engine,history}.ts` y `references.json`.
 - `frontend/src/services/interpretations.ts` y `consultationCalculations.ts`.
 - `frontend/src/components/consultations/{ConsultationMeasurements,CalculationCatalog,InterpretationDetails}.tsx`.
-- Migraciones `20260905061410_result_interpretations.sql` y corrección de enlaces bibliográficos.
+- Migraciones `20260905061410_result_interpretations.sql`, corrección de enlaces bibliográficos, `20260905161402_expand_scientific_interpretation_catalog.sql` y `20260905164041_preserve_explicit_interpretation_context_changes.sql`.
 - Pruebas de reglas, componentes, SQL y `frontend/tests/visual/`.
 
 ## Pendientes fuera de este objetivo
 
-Referencias pediátricas específicas, porcentaje de grasa por método/sexo/edad, referencias mexicanas validadas, masa muscular, bioimpedancia por dispositivo y laboratorios. No se implementan clasificaciones provisionales para cubrir esas áreas.
+Referencias pediátricas específicas, porcentaje de grasa por método/sexo/edad, referencias mexicanas validadas, masa muscular, bioimpedancia por dispositivo y laboratorios. No se implementan clasificaciones provisionales para cubrir esas áreas. Las razones científicas y las métricas que requerirían una decisión futura están documentadas en el catálogo 6B.
 
 Los asesores de Supabase mantienen los avisos preexistentes sobre [la función de reapertura](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) y [protección de contraseñas filtradas](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection); no se añadieron avisos de seguridad por esta migración.

@@ -511,21 +511,46 @@ function ResultsView({
                     <p className="mt-1 text-lg font-semibold text-[#173d36]">
                       {entry.evaluation.displayedResult}
                     </p>
+                    <InterpretationLabel
+                      interpretation={
+                        interpretations[entry.evaluation.item.code]
+                      }
+                    />
                   </div>
                 ))}
               </div>
               <p className="mt-4 text-xs text-[#718176]">
                 Método: Heath-Carter
               </p>
-              <button
-                type="button"
-                className="mt-2 text-xs font-semibold text-[#315e4f] underline decoration-[#9bb7a6] underline-offset-2"
-                onClick={() =>
-                  onViewMethod(group.entries[0].evaluation.item.code)
-                }
-              >
-                Ver detalles
-              </button>
+              {(() => {
+                const combined =
+                  group.entries.find(
+                    (entry) =>
+                      entry.evaluation.item.code === "somatochart_coordinates",
+                  ) ?? group.entries[0];
+                return (
+                  <InterpretationDetails
+                    interpretation={
+                      interpretations[combined.evaluation.item.code]
+                    }
+                    related={group.entries
+                      .filter(
+                        (entry) =>
+                          entry.evaluation.item.code !==
+                          combined.evaluation.item.code,
+                      )
+                      .map((entry) => ({
+                        key: entry.evaluation.item.code,
+                        label: entry.label,
+                        interpretation:
+                          interpretations[entry.evaluation.item.code],
+                      }))}
+                    onViewMethod={() =>
+                      onViewMethod(combined.evaluation.item.code)
+                    }
+                  />
+                );
+              })()}
             </div>
           ) : (
             <div className="mt-3 space-y-4">

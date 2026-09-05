@@ -24,6 +24,57 @@ begin
     if result->>'state' <> r.expected then raise exception 'Context failed: %',r; end if;
   end loop;
   if private.interpret_result('body_fat_jp7_siri',20,'%',ctx,refs,null)->>'state' <> 'no_reference' then raise exception 'Invented fat interpretation'; end if;
+  if private.interpret_result('fat_mass_jp7_siri',16,'kg',ctx,refs,null)->>'state' <> 'no_reference' then raise exception 'Invented fat-mass interpretation'; end if;
+  if private.interpret_result('fat_free_mass_jp7_siri',64,'kg',ctx,refs,null)->>'state' <> 'no_reference' then raise exception 'Invented fat-free-mass interpretation'; end if;
+
+  for r in select * from (values
+    (2.74,'low',2.5),(2.75,'moderate',3.0),(5.24,'moderate',5.0),
+    (5.25,'high',5.5),(7.24,'high',7.0),(7.25,'very-high',7.5)
+  ) t(val,expected,evaluated) loop
+    result:=private.interpret_result('somatotype_endomorphy',r.val,'componente',ctx,refs,null);
+    if result->'rule'->>'id' is distinct from r.expected
+      or (result->>'evaluatedValue')::numeric is distinct from r.evaluated
+      or (result->>'value')::numeric is distinct from r.val
+    then raise exception 'Heath-Carter component boundary failed: %',r; end if;
+  end loop;
+  if private.interpret_result('somatotype_endomorphy',0.1,'componente',ctx,refs,null)->>'state' <> 'not_applicable'
+    then raise exception 'Component lower bound was extended'; end if;
+
+  for r in select * from (values
+    ('central',3.0,3.0,4.0),
+    ('balanced-endomorph',4.0,2.0,2.0),
+    ('mesomorphic-endomorph',5.0,3.0,2.0),
+    ('mesomorph-endomorph',4.0,4.0,2.0),
+    ('endomorphic-mesomorph',3.0,5.0,1.0),
+    ('balanced-mesomorph',2.0,5.0,2.0),
+    ('ectomorphic-mesomorph',2.0,5.0,3.0),
+    ('mesomorph-ectomorph',2.0,4.0,4.0),
+    ('mesomorphic-ectomorph',2.0,3.0,4.0),
+    ('balanced-ectomorph',2.0,2.0,4.0),
+    ('endomorphic-ectomorph',3.0,1.0,5.0),
+    ('endomorph-ectomorph',4.0,2.0,4.0),
+    ('ectomorphic-endomorph',5.0,2.0,4.0)
+  ) t(expected,endo,meso,ecto) loop
+    if private.heath_carter_somatotype_category(jsonb_build_object(
+      'somatotype_endomorphy',r.endo,
+      'somatotype_mesomorphy',r.meso,
+      'somatotype_ectomorphy',r.ecto
+    )) is distinct from r.expected then raise exception 'Somatotype category failed: %',r; end if;
+    result:=private.interpret_result(
+      'somatochart_coordinates',r.ecto-r.endo,'coordenadas',
+      ctx || jsonb_build_object('somatotypeCategory',r.expected),refs,null
+    );
+    if result->'rule'->>'id' is distinct from r.expected then raise exception 'Somatotype interpretation failed: %',r; end if;
+  end loop;
+  if private.heath_carter_somatotype_category('{"somatotype_endomorphy":3,"somatotype_mesomorphy":5}'::jsonb) is not null
+    then raise exception 'Incomplete somatotype was classified'; end if;
+  if private.heath_carter_somatotype_category('{"somatotype_endomorphy":3,"somatotype_mesomorphy":3,"somatotype_ectomorphy":4}'::jsonb) <> 'central'
+    or private.heath_carter_somatotype_category('{"somatotype_endomorphy":3,"somatotype_mesomorphy":3,"somatotype_ectomorphy":4.01}'::jsonb) <> 'balanced-ectomorph'
+    or private.heath_carter_somatotype_category('{"somatotype_endomorphy":4,"somatotype_mesomorphy":3.5,"somatotype_ectomorphy":2}'::jsonb) <> 'mesomorph-endomorph'
+    or private.heath_carter_somatotype_category('{"somatotype_endomorphy":4,"somatotype_mesomorphy":3.49,"somatotype_ectomorphy":2}'::jsonb) <> 'mesomorphic-endomorph'
+    then raise exception 'Somatotype tolerance boundary failed'; end if;
+  if private.interpret_result('somatochart_coordinates',0,'coordenadas',ctx,refs,null)->>'state' <> 'missing_context'
+    then raise exception 'Missing somatotype context was not reported'; end if;
 end $$;
 
 insert into auth.users(id,email) values
@@ -53,6 +104,17 @@ do $$ begin
  begin update public.interpretation_references set active=false where id='who-adult-bmi'; raise exception 'Reference should be protected'; exception when insufficient_privilege then null; end;
 end $$;
 
+-- A deliberate context edit in a draft is not a silent catalogue backfill.
+-- It must refresh applicability even when the mathematical result is unchanged.
+select count(*) from public.save_calculations_with_context('fd000000-0000-4000-8000-000000000004',pg_temp.payload('fd000000-0000-4000-8000-000000000004',111.2),true);
+do $$ begin
+ if (select interpretation_snapshot->>'state' from public.consultation_calculation_results where consultation_id='fd000000-0000-4000-8000-000000000004') <> 'not_applicable' then raise exception 'Explicit context change did not refresh interpretation'; end if;
+end $$;
+select count(*) from public.save_calculations_with_context('fd000000-0000-4000-8000-000000000004',pg_temp.payload('fd000000-0000-4000-8000-000000000004',111.2),false);
+do $$ begin
+ if (select interpretation_snapshot->'rule'->>'id' from public.consultation_calculation_results where consultation_id='fd000000-0000-4000-8000-000000000004') <> 'overweight' then raise exception 'Interpretation did not recover after explicit context change'; end if;
+end $$;
+
 reset role;
 update public.interpretation_references set definition=jsonb_set(definition,'{rules,2,label}','"Changed reference"') where id='who-adult-bmi';
 set local role authenticated;
@@ -75,5 +137,5 @@ select count(*) from public.save_calculations_with_context('fd000000-0000-4000-8
 do $$ begin
  if exists(select 1 from public.consultation_calculation_results where consultation_id='fd000000-0000-4000-8000-000000000005') then raise exception 'Removed result retained stale interpretation'; end if;
 end $$;
-select 'PASS: boundaries, context, protected references, historical snapshots, separate consultations, RLS, completed history, deletion' as verification;
+select 'PASS: boundaries, context, explicit context edits, Heath-Carter descriptors/categories, deliberate no-reference states, protected references, historical snapshots, separate consultations, RLS, completed history, deletion' as verification;
 rollback;

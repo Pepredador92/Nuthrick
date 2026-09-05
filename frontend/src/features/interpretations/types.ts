@@ -38,6 +38,7 @@ export type InterpretationReference = {
   locator: string;
   population: string;
   unit: string;
+  valueTransform?: "nearest_half";
   isDefault: boolean;
   conditions: ContextCondition[];
   rules: InterpretationRule[];
@@ -52,6 +53,7 @@ export type Interpretation = {
   state: InterpretationState;
   resultCode: string;
   value: number;
+  evaluatedValue?: number;
   unit: string;
   consultationId: string;
   context: InterpretationContext;

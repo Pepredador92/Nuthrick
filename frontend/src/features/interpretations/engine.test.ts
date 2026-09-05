@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import catalog from "./references.json";
 import type { InterpretationContext, InterpretationReference } from "./types";
 import {
+  classifyHeathCarterSomatotype,
+  extendInterpretationContext,
   interpretResult,
   interpretationContext,
   pregnancyFromLifeStage,
@@ -17,7 +19,15 @@ const interpret = (code: string, n: number, context = ctx, refs = references) =>
   interpretResult(
     code,
     n,
-    code === "bmi" ? "kg/m²" : "razón",
+    code === "bmi"
+      ? "kg/m²"
+      : code.startsWith("somatotype_")
+        ? "componente"
+        : code === "somatochart_coordinates"
+          ? "coordenadas"
+          : code.startsWith("body_fat_")
+            ? "%"
+            : "razón",
     context,
     refs,
     "consultation-1",
@@ -39,6 +49,11 @@ describe("interpretation rules independent of formulas", () => {
   ])("classifies unrounded BMI %s at exact boundaries", (value, expected) =>
     expect(interpret("bmi", Number(value)).rule?.id).toBe(expected),
   );
+  it("does not extend component descriptors below the manual's 0.5 lower bound", () => {
+    expect(interpret("somatotype_ectomorphy", 0.1).state).toBe(
+      "not_applicable",
+    );
+  });
   it.each([
     ["male", 0.89999, "male-below"],
     ["male", 0.9, "male-increased"],
@@ -63,6 +78,87 @@ describe("interpretation rules independent of formulas", () => {
       id,
     ),
   );
+  it.each([
+    [2.74, "low", 2.5],
+    [2.75, "moderate", 3],
+    [5.24, "moderate", 5],
+    [5.25, "high", 5.5],
+    [7.24, "high", 7],
+    [7.25, "very-high", 7.5],
+  ])(
+    "classifies Heath-Carter component magnitude after half-unit rounding %s",
+    (value, id, evaluatedValue) => {
+      for (const code of [
+        "somatotype_endomorphy",
+        "somatotype_mesomorphy",
+        "somatotype_ectomorphy",
+      ]) {
+        const result = interpret(code, Number(value));
+        expect(result.rule?.id).toBe(id);
+        expect(result.evaluatedValue).toBe(evaluatedValue);
+        expect(result.value).toBe(value);
+      }
+    },
+  );
+  it.each([
+    ["central", 3, 3, 4],
+    ["balanced-endomorph", 4, 2, 2],
+    ["mesomorphic-endomorph", 5, 3, 2],
+    ["mesomorph-endomorph", 4, 4, 2],
+    ["endomorphic-mesomorph", 3, 5, 1],
+    ["balanced-mesomorph", 2, 5, 2],
+    ["ectomorphic-mesomorph", 2, 5, 3],
+    ["mesomorph-ectomorph", 2, 4, 4],
+    ["mesomorphic-ectomorph", 2, 3, 4],
+    ["balanced-ectomorph", 2, 2, 4],
+    ["endomorphic-ectomorph", 3, 1, 5],
+    ["endomorph-ectomorph", 4, 2, 4],
+    ["ectomorphic-endomorph", 5, 2, 4],
+  ])(
+    "reproduces Heath-Carter category %s",
+    (category, endomorphy, mesomorphy, ectomorphy) => {
+      const dependencyResults = {
+        somatotype_endomorphy: Number(endomorphy),
+        somatotype_mesomorphy: Number(mesomorphy),
+        somatotype_ectomorphy: Number(ectomorphy),
+      };
+      expect(
+        classifyHeathCarterSomatotype(
+          dependencyResults.somatotype_endomorphy,
+          dependencyResults.somatotype_mesomorphy,
+          dependencyResults.somatotype_ectomorphy,
+        ),
+      ).toBe(category);
+      expect(
+        interpret(
+          "somatochart_coordinates",
+          Number(ectomorphy) - Number(endomorphy),
+          extendInterpretationContext(ctx, dependencyResults),
+        ).rule?.id,
+      ).toBe(category);
+    },
+  );
+  it("honors the exact one-unit and half-unit Heath-Carter tolerances", () => {
+    expect(classifyHeathCarterSomatotype(3, 3, 4)).toBe("central");
+    expect(classifyHeathCarterSomatotype(3, 3, 4.01)).toBe(
+      "balanced-ectomorph",
+    );
+    expect(classifyHeathCarterSomatotype(4, 3.5, 2)).toBe(
+      "mesomorph-endomorph",
+    );
+    expect(classifyHeathCarterSomatotype(4, 3.49, 2)).toBe(
+      "mesomorphic-endomorph",
+    );
+  });
+  it("requires all three components before assigning a somatotype category", () => {
+    const context = extendInterpretationContext(ctx, {
+      somatotype_endomorphy: 3,
+      somatotype_mesomorphy: 5,
+    });
+    expect(interpret("somatochart_coordinates", 0, context).state).toBe(
+      "missing_context",
+    );
+  });
   it.each([
     ["bmi", { ...ctx, age: null }, "missing_context"],
     ["bmi", { ...ctx, age: 17 }, "not_applicable"],
@@ -117,18 +213,40 @@ describe("interpretation rules independent of formulas", () => {
     expect(saved.consultationId).toBe("consultation-1");
   });
   it.each([
+    "body_fat_jp3_siri",
     "body_fat_jp7_siri",
     "body_fat_jp7_brozek",
+    "body_fat_durnin_siri",
+    "fat_mass_jp3_siri",
     "fat_mass_jp7_siri",
+    "fat_mass_jp7_brozek",
+    "fat_mass_durnin_siri",
+    "fat_free_mass_jp3_siri",
     "fat_free_mass_jp7_siri",
-    "somatotype_endomorphy",
-    "somatotype_mesomorphy",
-    "somatotype_ectomorphy",
-    "somatochart_coordinates",
+    "fat_free_mass_jp7_brozek",
+    "fat_free_mass_durnin_siri",
+    "density_jackson_pollock_3",
     "density_jackson_pollock_7",
+    "density_durnin_womersley",
   ])("never invents interpretation for %s", (code) =>
     expect(interpret(code, 20).state).toBe("no_reference"),
   );
+  it("keeps simultaneous body-fat methods as separate interpretation records", () => {
+    const codes = [
+      "body_fat_jp3_siri",
+      "body_fat_jp7_siri",
+      "body_fat_durnin_siri",
+      "body_fat_jp7_brozek",
+    ];
+    const results = Object.fromEntries(
+      codes.map((code, index) => [code, interpret(code, 18 + index)]),
+    );
+    expect(Object.keys(results)).toEqual(codes);
+    expect(Object.values(results).map((result) => result.value)).toEqual([
+      18, 19, 20, 21,
+    ]);
+    expect(Object.values(results).every((result) => result.state === "no_reference")).toBe(true);
+  });
   it("reuses birthdate at consultation date in the patient's timezone and never infers pregnancy", () => {
     const result = interpretationContext(
       {

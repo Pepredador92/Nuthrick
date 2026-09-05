@@ -8,7 +8,7 @@ import { CalculationCatalog } from "@/src/components/consultations/CalculationCa
 import { loadCalculationCatalog, saveConsultationCalculationResults } from "@/src/services/consultationCalculations";
 import { calculationResultPayload, evaluateCalculationCatalog } from "@/src/features/calculations/engine";
 import { loadInterpretationData } from "@/src/services/interpretations";
-import { interpretResult, interpretationContext } from "@/src/features/interpretations/engine";
+import { extendInterpretationContext, interpretResult, interpretationContext } from "@/src/features/interpretations/engine";
 import { restoreSavedCalculations, type SavedCalculationResult } from "@/src/features/interpretations/history";
 import type { InterpretationReference } from "@/src/features/interpretations/types";
 import type { CalculationCatalogItem } from "@/src/features/calculations/catalog";
@@ -117,7 +117,7 @@ export function ConsultationMeasurements({ consultation, patient }: { consultati
   const visibleEvaluations = !edited && hasSavedResults ? restoreSavedCalculations(calculationEvaluations, savedCalculations) : calculationEvaluations;
   const currentContext = interpretationContext(patient, consultation, calculationEvaluations.find((e) => e.item.code === "bmi")?.rawResult, pregnant);
   const savedByCalculationCode = new Map(savedCalculations.map((saved) => [saved.calculation_code, saved]));
-  const interpretations = Object.fromEntries(visibleEvaluations.filter((e) => e.state === "calculated" && e.rawResult !== undefined).map((e) => { const saved = !edited ? savedByCalculationCode.get(e.item.code) : undefined; return [e.item.code, saved ? saved.interpretation_snapshot : interpretResult(e.item.code, e.rawResult!, e.item.definition.unit, currentContext, references, consultation.id)]; }));
+  const interpretations = Object.fromEntries(visibleEvaluations.filter((e) => e.state === "calculated" && e.rawResult !== undefined).map((e) => { const saved = !edited ? savedByCalculationCode.get(e.item.code) : undefined; const context = extendInterpretationContext(currentContext, e.dependencyResults); return [e.item.code, saved ? saved.interpretation_snapshot : interpretResult(e.item.code, e.rawResult!, e.item.definition.unit, context, references, consultation.id)]; }));
   const setValue = (id: string, value: string | boolean) => { setValues((current) => ({ ...current, [id]: value })); setEdited(true); setNotice(""); };
   const persistWorkspace = async (next: string[], closeEditor = false) => {
     setSavingWorkspace(true); setError("");

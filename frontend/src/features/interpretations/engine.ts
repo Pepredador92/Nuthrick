@@ -41,6 +41,70 @@ export function matchesRange(value: number, rule: InterpretationRule) {
       (rule.upperInclusive ? value <= rule.upper : value < rule.upper))
   );
 }
+
+export function classifyHeathCarterSomatotype(
+  endomorphy: number | undefined,
+  mesomorphy: number | undefined,
+  ectomorphy: number | undefined,
+): string | null {
+  if (
+    !Number.isFinite(endomorphy) ||
+    !Number.isFinite(mesomorphy) ||
+    !Number.isFinite(ectomorphy)
+  )
+    return null;
+  const endo = endomorphy!;
+  const meso = mesomorphy!;
+  const ecto = ectomorphy!;
+  const close = (a: number, b: number) => Math.abs(a - b) <= 0.5;
+  if (Math.max(endo, meso, ecto) - Math.min(endo, meso, ecto) <= 1)
+    return "central";
+  if (close(endo, meso) && ecto < Math.min(endo, meso))
+    return "mesomorph-endomorph";
+  if (close(meso, ecto) && endo < Math.min(meso, ecto))
+    return "mesomorph-ectomorph";
+  if (close(endo, ecto) && meso < Math.min(endo, ecto))
+    return "endomorph-ectomorph";
+  if (endo > meso && endo > ecto) {
+    if (close(meso, ecto)) return "balanced-endomorph";
+    return meso > ecto
+      ? "mesomorphic-endomorph"
+      : "ectomorphic-endomorph";
+  }
+  if (meso > endo && meso > ecto) {
+    if (close(endo, ecto)) return "balanced-mesomorph";
+    return endo > ecto
+      ? "endomorphic-mesomorph"
+      : "ectomorphic-mesomorph";
+  }
+  if (ecto > endo && ecto > meso) {
+    if (close(endo, meso)) return "balanced-ectomorph";
+    return endo > meso
+      ? "endomorphic-ectomorph"
+      : "mesomorphic-ectomorph";
+  }
+  return null;
+}
+
+export function extendInterpretationContext(
+  context: InterpretationContext,
+  dependencyResults: Record<string, number>,
+): InterpretationContext {
+  const endomorphy = dependencyResults.somatotype_endomorphy;
+  const mesomorphy = dependencyResults.somatotype_mesomorphy;
+  const ectomorphy = dependencyResults.somatotype_ectomorphy;
+  return {
+    ...context,
+    somatotypeEndomorphy: endomorphy ?? null,
+    somatotypeMesomorphy: mesomorphy ?? null,
+    somatotypeEctomorphy: ectomorphy ?? null,
+    somatotypeCategory: classifyHeathCarterSomatotype(
+      endomorphy,
+      mesomorphy,
+      ectomorphy,
+    ),
+  };
+}
 export function interpretResult(
   resultCode: string,
   value: number,
@@ -99,15 +163,20 @@ export function interpretResult(
     };
   }
   const reference = pool[0].reference;
+  const evaluatedValue =
+    reference.valueTransform === "nearest_half"
+      ? Math.round(value * 2) / 2
+      : value;
   const rules = reference.rules.filter(
     (r) =>
-      matchesRange(value, r) &&
+      matchesRange(evaluatedValue, r) &&
       (r.conditions ?? []).every(
         (c) => conditionState(c, context) === "matches",
       ),
   );
   return {
     ...result,
+    evaluatedValue,
     reference: structuredClone(reference),
     state:
       rules.length > 1
