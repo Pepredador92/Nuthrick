@@ -34,8 +34,10 @@ Estar en el espacio de trabajo no vuelve disponible una medición: debe existir 
 | `body_fat_durnin_siri` | % grasa · Siri | — | densidad Durnin-Womersley | validated | pending |
 | `body_fat_faulkner` | % grasa · atribuido a Faulkner | variantes documentadas, ninguna adoptada | — | pending_evidence | pending |
 | `body_fat_yuhasz` | % grasa · Yuhasz/adaptaciones | variantes documentadas, ninguna adoptada | — | requires_decision | pending |
-| `fat_mass_jp7_siri` | Masa grasa (kg) | peso (kg) | % grasa JP7 + Siri | validated | pending |
-| `fat_free_mass_jp7_siri` | Masa libre de grasa (kg) | peso (kg) | masa grasa JP7 + Siri | validated | pending |
+| `fat_mass_jp3_siri` / `fat_free_mass_jp3_siri` | Masa grasa / masa libre de grasa (kg) | peso (kg) | % grasa JP3 + Siri / su masa grasa | validated | pending |
+| `fat_mass_jp7_siri` / `fat_free_mass_jp7_siri` | Masa grasa / masa libre de grasa (kg) | peso (kg) | % grasa JP7 + Siri / su masa grasa | validated | pending |
+| `fat_mass_jp7_brozek` / `fat_free_mass_jp7_brozek` | Masa grasa / masa libre de grasa (kg) | peso (kg) | % grasa JP7 + Brozek / su masa grasa | validated | pending |
+| `fat_mass_durnin_siri` / `fat_free_mass_durnin_siri` | Masa grasa / masa libre de grasa (kg) | peso (kg) | % grasa Durnin-Womersley + Siri / su masa grasa | validated | pending |
 | `muscle_mass_lee` | Masa muscular esquelética (kg) | talla, 3 perímetros, 3 pliegues, sexo, edad y grupo del modelo | — | requires_decision | pending |
 | `somatotype_endomorphy` | Endomorfia | tríceps, subescapular, supraespinal, talla | — | validated | pending |
 | `somatotype_mesomorphy` | Mesomorfia | diámetros humeral/femoral, brazo flexionado, tríceps, pantorrilla máxima, pliegue de pantorrilla, talla | — | validated | pending |
@@ -90,7 +92,7 @@ No se adoptan las ecuaciones agregadas de todas las edades.
 - Masa grasa: `peso_kg × porcentaje_grasa / 100`.
 - Masa libre de grasa: `peso_kg − masa_grasa_kg`.
 
-Siri y Brozek son conversiones distintas y nunca se sustituyen entre sí. Cada compartimento conserva el método que produjo su porcentaje.
+Siri y Brozek son conversiones distintas y nunca se sustituyen entre sí. Cada porcentaje de grasa validado tiene un par de compartimentos con código propio. Por ello pueden coexistir, por ejemplo, las masas derivadas de JP7+Siri y JP7+Brozek en una misma consulta sin sobrescribirse.
 
 ### Heath-Carter
 
@@ -140,12 +142,13 @@ No fue necesario crear ni renombrar mediciones. Todos los sitios exactos ya exis
 ## Dependencias
 
 ```text
-density_jackson_pollock_3 ──> body_fat_jp3_siri
+density_jackson_pollock_3 ──> body_fat_jp3_siri ──> fat_mass_jp3_siri ──> fat_free_mass_jp3_siri
 
 density_jackson_pollock_7 ──> body_fat_jp7_siri ──> fat_mass_jp7_siri ──> fat_free_mass_jp7_siri
                            └─> body_fat_jp7_brozek
+                               └─> fat_mass_jp7_brozek ──> fat_free_mass_jp7_brozek
 
-density_durnin_womersley ──> body_fat_durnin_siri
+density_durnin_womersley ──> body_fat_durnin_siri ──> fat_mass_durnin_siri ──> fat_free_mass_durnin_siri
 
 somatotype_endomorphy ─┐
 somatotype_mesomorphy ─┼─> somatochart_coordinates

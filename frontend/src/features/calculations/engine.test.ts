@@ -110,4 +110,22 @@ describe("interactive calculation engine", () => {
     expect(evaluated.measurementInputs.map((input) => input.measurementCode)).toEqual(["chest_skinfold", "abdominal_skinfold", "thigh_skinfold"]);
     expect(evaluated.measurementInputs.some((input) => input.measurementCode === "triceps_skinfold")).toBe(false);
   });
+
+  it("keeps simultaneous body-composition derivations separate by method code", () => {
+    const derived = [
+      { item: { code: "fat_mass_jp7_siri", definition: { decimalPlaces: 1 } }, state: "calculated", rawResult: 18.2, displayedResult: "18.2", inputs: [], dependencyResults: { body_fat_jp7_siri: 22.1 } },
+      { item: { code: "fat_mass_jp7_brozek", definition: { decimalPlaces: 1 } }, state: "calculated", rawResult: 17.8, displayedResult: "17.8", inputs: [], dependencyResults: { body_fat_jp7_brozek: 21.7 } },
+      { item: { code: "fat_free_mass_jp7_siri", definition: { decimalPlaces: 1 } }, state: "calculated", rawResult: 64.1, displayedResult: "64.1", inputs: [], dependencyResults: { fat_mass_jp7_siri: 18.2 } },
+      { item: { code: "fat_free_mass_jp7_brozek", definition: { decimalPlaces: 1 } }, state: "calculated", rawResult: 64.5, displayedResult: "64.5", inputs: [], dependencyResults: { fat_mass_jp7_brozek: 17.8 } },
+    ] as never;
+    const payload = calculationResultPayload(derived, patient, consultation) as Record<string, { dependencies: Record<string, number> }>;
+    expect(Object.keys(payload)).toEqual([
+      "fat_mass_jp7_siri",
+      "fat_mass_jp7_brozek",
+      "fat_free_mass_jp7_siri",
+      "fat_free_mass_jp7_brozek",
+    ]);
+    expect(payload.fat_mass_jp7_siri.dependencies).toEqual({ body_fat_jp7_siri: 22.1 });
+    expect(payload.fat_mass_jp7_brozek.dependencies).toEqual({ body_fat_jp7_brozek: 21.7 });
+  });
 });

@@ -139,6 +139,9 @@ function CalculationCard({
               </ul>
             </div>
           )}
+          {evaluation.item.definition.provenance && (
+            <p className="mt-3 text-xs leading-5 text-[#60766a]">Procedencia metodológica: conserva el porcentaje de grasa de {evaluation.item.definition.provenance.sourceCalculationCode}.</p>
+          )}
           <div className="mt-4 min-w-0 break-words rounded-xl bg-white/70 p-3 text-xs leading-5 text-[#60766a]">
             <p className={`font-semibold ${evaluation.item.definition.validationStatus ? validationPresentation[evaluation.item.definition.validationStatus].className : "text-[#60766a]"}`}>
               Estado metodológico: {evaluation.item.definition.validationStatus ? validationPresentation[evaluation.item.definition.validationStatus].label : "Sin clasificar"}

@@ -66,6 +66,12 @@ export type CalculationVariant = {
   note?: string;
 };
 
+export type CalculationProvenance = {
+  sourceCalculationCode: string;
+  sourceResultKey: "body_fat_percentage";
+  preservesMethod: true;
+};
+
 export type CalculationDefinition = {
   catalogVersion: number;
   resultKey: string;
@@ -86,6 +92,7 @@ export type CalculationDefinition = {
   validationStatus?: CalculationValidationStatus;
   validationNote?: string;
   methodologicalNotes?: string[];
+  provenance?: CalculationProvenance;
   limitations: string;
 };
 
