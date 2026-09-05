@@ -86,7 +86,8 @@ describe("ConsultationMeasurements", () => {
   });
   it("adds formula inputs to the global workspace without creating clinical values", async () => {
     render(<ConsultationMeasurements consultation={consultation} patient={patient} />);
-    await screen.findByRole("heading", { name: "Cálculos" });
+    await screen.findByRole("heading", { name: "Datos calculados" });
+    fireEvent.click(screen.getByRole("tab", { name: "Métodos" }));
     fireEvent.click(screen.getByRole("button", { name: /agregar faltantes a mi espacio/i }));
     await waitFor(() => expect(api.saveWorkspace).toHaveBeenCalledWith(["weight", "height", "waist_circumference", "hip_circumference"]));
     expect(api.save).not.toHaveBeenCalled();
