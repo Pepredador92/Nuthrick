@@ -129,6 +129,17 @@ describe("interactive calculation engine", () => {
     expect(payload.fat_mass_jp7_brozek.dependencies).toEqual({ body_fat_jp7_brozek: 21.7 });
   });
 
+  it("keeps both somatochart coordinates in the persistence payload", () => {
+    const coordinates = [{
+      item: { code: "somatochart_coordinates", definition: { decimalPlaces: 1 } }, state: "calculated", rawResult: 1.2,
+      resultValues: { x: 1.2, y: -0.8 }, displayedResult: "X: 1.2 · Y: -0.8", inputs: [], dependencyResults: {
+        somatotype_endomorphy: 2.1, somatotype_mesomorphy: 2.7, somatotype_ectomorphy: 3.3,
+      },
+    }] as never;
+    const payload = calculationResultPayload(coordinates, patient, consultation) as Record<string, { rawResult: number; resultValues: Record<string, number> }>;
+    expect(payload.somatochart_coordinates).toMatchObject({ rawResult: 1.2, resultValues: { x: 1.2, y: -0.8 } });
+  });
+
   it("recalculates a complete method chain and invalidates dependents when an input is removed", () => {
     const input = (key: string, measurementCode: string) => ({ key, label: key, source: "consultation_measurement" as const, measurementCode });
     const formula = (code: string, inputs: Array<ReturnType<typeof input>>, dependencies: string[] = []): CalculationCatalogItem => ({
