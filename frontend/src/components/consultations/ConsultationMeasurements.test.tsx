@@ -1,6 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConsultationMeasurements } from "./ConsultationMeasurements";
+import references from "@/src/features/interpretations/references.json";
+const interpretationsApi = vi.hoisted(() => ({ load: vi.fn() }));
+vi.mock("@/src/services/interpretations", () => ({ loadInterpretationData: interpretationsApi.load }));
 
 const api = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn(), saveWorkspace: vi.fn(), saveFollowup: vi.fn() }));
 const calculationApi = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
@@ -34,6 +37,7 @@ const patient = { id: "patient", full_name: "Paciente de prueba", weight_kg: 80,
 describe("ConsultationMeasurements", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    interpretationsApi.load.mockResolvedValue({ references, saved: [], pregnant: false, pregnancyFromInterview: false });
     api.load.mockResolvedValue({ catalog, values: [], workspaceIds: ["weight", "height"], hasFollowup: false, followupIds: [], previousValues: {} });
     api.save.mockResolvedValue([{ id: "measurement-weight", measurement_type_id: "weight", value: 82.4 }]);
     api.saveWorkspace.mockImplementation(async (ids: string[]) => ids);
@@ -53,7 +57,7 @@ describe("ConsultationMeasurements", () => {
     expect(screen.getByText("27.2")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /guardar mediciones/i }));
     await waitFor(() => expect(api.save).toHaveBeenCalledWith(expect.anything(), { weight: 82.4 }));
-    await waitFor(() => expect(calculationApi.save).toHaveBeenCalledWith("consultation", expect.objectContaining({ bmi: expect.objectContaining({ displayedResult: "27.2" }) })));
+    await waitFor(() => expect(calculationApi.save).toHaveBeenCalledWith("consultation", expect.objectContaining({ bmi: expect.objectContaining({ displayedResult: "27.2" }) }), false));
     fireEvent.change(screen.getByLabelText(/buscar una medición/i), { target: { value: "hemoglobina" } });
     expect(await screen.findByText(/no encontramos una medición disponible/i)).toBeInTheDocument();
   });
@@ -64,6 +68,27 @@ describe("ConsultationMeasurements", () => {
     fireEvent.click(await screen.findByRole("button", { name: /agregar al espacio/i }));
     await waitFor(() => expect(api.saveWorkspace).toHaveBeenCalledWith(["weight", "height", "waist_circumference"]));
     expect(api.save).not.toHaveBeenCalled();
+  });
+  it("updates interpretations reactively and removes them when the required measurement is cleared", async () => {
+    render(<ConsultationMeasurements consultation={consultation} patient={patient} />);
+    const weight = await screen.findByLabelText(/peso corporal/i);
+    fireEvent.change(weight,{target:{value:"74"}});
+    expect(screen.getAllByText("Peso normal")[0]).toBeInTheDocument();
+    fireEvent.change(weight,{target:{value:"82"}});
+    expect(screen.getAllByText("Sobrepeso / preobesidad")[0]).toBeInTheDocument();
+    expect(screen.queryAllByText("Peso normal")).toHaveLength(0);
+    fireEvent.change(weight,{target:{value:""}});
+    expect(screen.queryAllByText("Sobrepeso / preobesidad")).toHaveLength(0);
+    expect(api.save).not.toHaveBeenCalled();
+  });
+  it("loads the saved historical value and interpretation despite new defaults and never resaves on opening", async () => {
+    const snapshot = {state:"classified",rule:{id:"original",label:"Clasificación histórica",lower:25,upper:30,lowerInclusive:true,upperInclusive:false,description:"Original"},reference:references[0],value:27.8,unit:"kg/m²",context:{age:34,sex:"male",pregnant:false,bmi:27.8},interpretedAt:"2026-09-04T12:00:00Z"};
+    interpretationsApi.load.mockResolvedValue({references:[{...references[0],version:"99"}],pregnant:false,pregnancyFromInterview:false,saved:[{id:"saved",consultation_id:"consultation",calculation_code:"bmi",method_name:"IMC",method_version:"original",raw_result:27.8,displayed_result:"27.8",unit:"kg/m²",result_values:{},input_snapshot:{weight:{value:"84.2"},height:{value:"174"}},dependency_snapshot:{},definition_snapshot:calculations[0].definition,interpretation_snapshot:snapshot}]});
+    render(<ConsultationMeasurements consultation={consultation} patient={patient} />);
+    expect((await screen.findAllByText("Clasificación histórica"))[0]).toBeInTheDocument();
+    expect(screen.getByText("27.8")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button",{name:/guardar mediciones/i}));
+    expect(api.save).not.toHaveBeenCalled(); expect(calculationApi.save).not.toHaveBeenCalled();
   });
   it("prioritizes the patient follow-up, shows the prior value, and lets it be updated", async () => {
     api.load.mockResolvedValue({

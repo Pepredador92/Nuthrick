@@ -14,10 +14,12 @@ export async function loadCalculationCatalog(): Promise<CalculationCatalogItem[]
 export async function saveConsultationCalculationResults(
   consultationId: string,
   results: Record<string, unknown>,
+  pregnant: boolean | null = null,
 ) {
-  const { data, error } = await supabase.rpc("save_consultation_calculation_results", {
+  const { data, error } = await supabase.rpc("save_calculations_with_context", {
     p_consultation_id: consultationId,
     p_results: results,
+    p_pregnancy: pregnant,
   });
   if (error) throw new Error("Las mediciones se guardaron, pero no pudimos conservar sus cálculos.");
   return data ?? [];

@@ -1,0 +1,288 @@
+[
+  {
+    "id": "who-adult-bmi",
+    "version": "1.0.0",
+    "resultCode": "bmi",
+    "name": "IMC adulto · OMS",
+    "organization": "Organización Mundial de la Salud",
+    "year": 2000,
+    "sourceVersion": "WHO TRS 894 (2000)",
+    "title": "Obesity: preventing and managing the global epidemic",
+    "url": "https://iris.who.int/bitstream/10665/42330/1/WHO_TRS_894.pdf",
+    "locator": "Clasificación internacional de IMC adulto; WHO TRS 894",
+    "population": "Adultos de 18 años o más, sin gestación",
+    "unit": "kg/m²",
+    "isDefault": true,
+    "conditions": [
+      {
+        "field": "age",
+        "label": "edad en la consulta",
+        "min": 18,
+        "minInclusive": true
+      },
+      {
+        "field": "pregnant",
+        "label": "situación de gestación",
+        "equals": false
+      }
+    ],
+    "rules": [
+      {
+        "id": "underweight",
+        "label": "Bajo peso",
+        "description": "IMC por debajo de 18.5 kg/m².",
+        "level": 0,
+        "lower": 0,
+        "upper": 18.5,
+        "lowerInclusive": false,
+        "upperInclusive": false
+      },
+      {
+        "id": "normal",
+        "label": "Peso normal",
+        "description": "Intervalo de peso normal de la referencia.",
+        "level": 1,
+        "lower": 18.5,
+        "upper": 25,
+        "lowerInclusive": true,
+        "upperInclusive": false
+      },
+      {
+        "id": "overweight",
+        "label": "Sobrepeso / preobesidad",
+        "description": "Intervalo de preobesidad; no incluye los grados de obesidad.",
+        "level": 2,
+        "lower": 25,
+        "upper": 30,
+        "lowerInclusive": true,
+        "upperInclusive": false
+      },
+      {
+        "id": "obesity-i",
+        "label": "Obesidad grado I",
+        "description": "Primer grado de obesidad según IMC.",
+        "level": 3,
+        "lower": 30,
+        "upper": 35,
+        "lowerInclusive": true,
+        "upperInclusive": false
+      },
+      {
+        "id": "obesity-ii",
+        "label": "Obesidad grado II",
+        "description": "Segundo grado de obesidad según IMC.",
+        "level": 4,
+        "lower": 35,
+        "upper": 40,
+        "lowerInclusive": true,
+        "upperInclusive": false
+      },
+      {
+        "id": "obesity-iii",
+        "label": "Obesidad grado III",
+        "description": "Tercer grado de obesidad según IMC.",
+        "level": 5,
+        "lower": 40,
+        "upper": null,
+        "lowerInclusive": true,
+        "upperInclusive": false
+      }
+    ],
+    "notes": [
+      "Los límites se aplican al valor interno, sin redondearlo.",
+      "La clasificación general de adultos utiliza 18 años como límite operativo, conforme a la definición de adultos de OMS. No implementa IMC pediátrico."
+    ],
+    "limitations": [
+      "No distingue grasa de masa muscular; el riesgo varía entre poblaciones.",
+      "En personas mayores, alta masa muscular, edema u otras condiciones, requiere valoración profesional. No se inventan puntos de corte especiales.",
+      "La clasificación por IMC no sustituye la evaluación nutricional integral."
+    ]
+  },
+  {
+    "id": "who-adult-whr",
+    "version": "1.0.0",
+    "resultCode": "waist_hip_ratio",
+    "name": "Cintura-cadera · OMS",
+    "organization": "Organización Mundial de la Salud",
+    "year": 2011,
+    "sourceVersion": "Consulta de expertos 2008; publicación 2011, ISBN 9789241501491",
+    "title": "Waist circumference and waist-hip ratio: report of a WHO expert consultation",
+    "url": "https://www.who.int/publications/i/item/9789241501491",
+    "locator": "Puntos de corte de cintura-cadera y riesgo de complicaciones metabólicas",
+    "population": "Adultos de 18 años o más, sin gestación; variantes por sexo de la referencia",
+    "unit": "razón",
+    "isDefault": true,
+    "conditions": [
+      {
+        "field": "age",
+        "label": "edad en la consulta",
+        "min": 18,
+        "minInclusive": true
+      },
+      {
+        "field": "sex",
+        "label": "sexo para ecuaciones en el expediente",
+        "oneOf": ["male", "female"]
+      },
+      {
+        "field": "pregnant",
+        "label": "situación de gestación",
+        "equals": false
+      }
+    ],
+    "rules": [
+      {
+        "id": "male-below",
+        "label": "Por debajo del punto de corte",
+        "description": "No equivale a ausencia de riesgo metabólico.",
+        "level": 0,
+        "lower": 0,
+        "upper": 0.9,
+        "lowerInclusive": false,
+        "upperInclusive": false,
+        "conditions": [
+          {
+            "field": "sex",
+            "label": "sexo",
+            "equals": "male"
+          }
+        ]
+      },
+      {
+        "id": "male-increased",
+        "label": "Riesgo sustancialmente aumentado",
+        "description": "Punto de corte asociado con complicaciones metabólicas.",
+        "level": 1,
+        "lower": 0.9,
+        "upper": null,
+        "lowerInclusive": true,
+        "upperInclusive": false,
+        "conditions": [
+          {
+            "field": "sex",
+            "label": "sexo",
+            "equals": "male"
+          }
+        ]
+      },
+      {
+        "id": "female-below",
+        "label": "Por debajo del punto de corte",
+        "description": "No equivale a ausencia de riesgo metabólico.",
+        "level": 0,
+        "lower": 0,
+        "upper": 0.85,
+        "lowerInclusive": false,
+        "upperInclusive": false,
+        "conditions": [
+          {
+            "field": "sex",
+            "label": "sexo",
+            "equals": "female"
+          }
+        ]
+      },
+      {
+        "id": "female-increased",
+        "label": "Riesgo sustancialmente aumentado",
+        "description": "Punto de corte asociado con complicaciones metabólicas.",
+        "level": 1,
+        "lower": 0.85,
+        "upper": null,
+        "lowerInclusive": true,
+        "upperInclusive": false,
+        "conditions": [
+          {
+            "field": "sex",
+            "label": "sexo",
+            "equals": "female"
+          }
+        ]
+      }
+    ],
+    "notes": [
+      "Se utiliza el sexo para ecuaciones registrado; no se infiere del género ni del nombre."
+    ],
+    "limitations": [
+      "La asociación con riesgo varía por edad y población; no es un diagnóstico.",
+      "Requiere cintura y cadera medidas con técnica comparable. No aplicar durante gestación."
+    ]
+  },
+  {
+    "id": "nice-adult-whtr",
+    "version": "1.0.0",
+    "resultCode": "waist_height_ratio",
+    "name": "Cintura-talla · NICE",
+    "organization": "National Institute for Health and Care Excellence",
+    "year": 2025,
+    "sourceVersion": "NG246, recomendación 1.9.14 [2022]; consultada 2026-09-05",
+    "title": "Overweight and obesity management: identifying and assessing overweight, obesity and central adiposity",
+    "url": "https://www.nice.org.uk/guidance/ng246/chapter/Identifying-and-assessing-overweight-obesity-and-central-adiposity",
+    "locator": "Clasificación de adiposidad central en adultos; IMC inferior a 35 kg/m²",
+    "population": "Adultos de 18 años o más, sin gestación, con IMC menor de 35 kg/m²; ambos sexos y todas las etnias",
+    "unit": "razón",
+    "isDefault": true,
+    "conditions": [
+      {
+        "field": "age",
+        "label": "edad en la consulta",
+        "min": 18,
+        "minInclusive": true
+      },
+      {
+        "field": "bmi",
+        "label": "IMC de esta consulta",
+        "min": 0,
+        "minInclusive": false,
+        "max": 35,
+        "maxInclusive": false
+      },
+      {
+        "field": "pregnant",
+        "label": "situación de gestación",
+        "equals": false
+      }
+    ],
+    "rules": [
+      {
+        "id": "healthy",
+        "label": "Adiposidad central saludable",
+        "description": "Sin incremento de riesgo según este indicador y referencia.",
+        "level": 0,
+        "lower": 0.4,
+        "upper": 0.5,
+        "lowerInclusive": true,
+        "upperInclusive": false
+      },
+      {
+        "id": "increased",
+        "label": "Adiposidad central aumentada",
+        "description": "Asociada con riesgo aumentado.",
+        "level": 1,
+        "lower": 0.5,
+        "upper": 0.6,
+        "lowerInclusive": true,
+        "upperInclusive": false
+      },
+      {
+        "id": "high",
+        "label": "Adiposidad central alta",
+        "description": "Asociada con riesgo aún mayor.",
+        "level": 2,
+        "lower": 0.6,
+        "upper": null,
+        "lowerInclusive": true,
+        "upperInclusive": false
+      }
+    ],
+    "notes": [
+      "Menos de 0.40 queda fuera del rango clasificatorio definido; no se le asigna una categoría.",
+      "Se usa IMC sin redondear de la misma consulta.",
+      "Este catálogo integra únicamente la población adulta de la guía."
+    ],
+    "limitations": [
+      "No aplicar con IMC igual o superior a 35 kg/m² ni durante gestación.",
+      "No representa por sí sola un diagnóstico ni reemplaza la valoración integral."
+    ]
+  }
+]
