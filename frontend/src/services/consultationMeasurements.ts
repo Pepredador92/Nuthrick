@@ -37,6 +37,13 @@ export type ConsultationMeasurement = {
   unit: string | null;
   data_type: MeasurementDataType;
   measured_at: string;
+  device_session_id?: string | null;
+  source_metadata?: {
+    manufacturer_variable_name: string;
+    manufacturer_unit: string | null;
+    mapping_status: string;
+    captured_at: string;
+  } | null;
 };
 
 export type PreviousMeasurement = Pick<
@@ -64,6 +71,7 @@ export async function loadConsultationMeasurements(consultation: Consultation) {
       .from("consultation_measurements")
       .select("*")
       .eq("consultation_id", consultation.id)
+      .is("device_session_id", null)
       .order("created_at"),
     supabase.from("professional_measurement_workspaces").select("professional_id").maybeSingle(),
     supabase.from("professional_measurement_workspace_items").select("measurement_type_id, display_order").order("display_order"),
@@ -71,6 +79,7 @@ export async function loadConsultationMeasurements(consultation: Consultation) {
       .from("patient_measurement_followups")
       .select("patient_id")
       .eq("patient_id", consultation.patient_id)
+      .is("device_session_id", null)
       .maybeSingle(),
     supabase
       .from("patient_measurement_followup_items")

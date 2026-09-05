@@ -19,8 +19,9 @@ import { getSignedMediaUrl, removeProfessionalImage, uploadProfessionalImage } f
 import { updateProfile } from '@/src/services/profile';
 import { useAuth } from '@/src/features/auth/AuthProvider';
 import { validateImage } from '@/src/lib/validation';
+import { BioimpedanceDevicesSection } from '@/src/features/bioimpedance/BioimpedanceDevicesSection';
 
-const tabs = ['Sobre mí', 'Extras', 'Negocio', 'Educación', 'Enlaces', 'Disponibilidad', 'Pagos'] as const;
+const tabs = ['Sobre mí', 'Extras', 'Negocio', 'Educación', 'Enlaces', 'Disponibilidad', 'Equipos', 'Pagos'] as const;
 type Tab = (typeof tabs)[number];
 
 export function ProfilePage() {
@@ -67,6 +68,7 @@ export function ProfilePage() {
     Educación: <EducationSection workspace={workspace} onSaved={saved} />,
     Enlaces: <LinksSection workspace={workspace} onSaved={saved} />,
     Disponibilidad: <AvailabilitySection workspace={workspace} onSaved={saved} />,
+    Equipos: <BioimpedanceDevicesSection onSaved={saved} />,
     Pagos: <PaymentsSection />,
   }[activeTab];
 

@@ -7,6 +7,7 @@ vi.mock("@/src/services/interpretations", () => ({ loadInterpretationData: inter
 
 const api = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn(), saveWorkspace: vi.fn(), saveFollowup: vi.fn() }));
 const calculationApi = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
+const bioimpedanceApi = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
 vi.mock("@/src/services/consultationMeasurements", async () => ({
   loadConsultationMeasurements: api.load,
   saveConsultationMeasurements: api.save,
@@ -16,6 +17,10 @@ vi.mock("@/src/services/consultationMeasurements", async () => ({
 vi.mock("@/src/services/consultationCalculations", () => ({
   loadCalculationCatalog: calculationApi.load,
   saveConsultationCalculationResults: calculationApi.save,
+}));
+vi.mock("@/src/services/bioimpedance", () => ({
+  loadConsultationDeviceData: bioimpedanceApi.load,
+  saveDeviceMeasurements: bioimpedanceApi.save,
 }));
 
 const catalog = [
@@ -44,6 +49,7 @@ describe("ConsultationMeasurements", () => {
     api.saveFollowup.mockResolvedValue(["weight"]);
     calculationApi.load.mockResolvedValue(calculations);
     calculationApi.save.mockResolvedValue([]);
+    bioimpedanceApi.load.mockResolvedValue({ catalog: [], devices: [], measurements: [], standardByDevice: new Map(), sessions: [] });
   });
   it("shows immediate fields, excludes laboratories, and saves only captured values", async () => {
     render(<ConsultationMeasurements consultation={consultation} patient={patient} />);

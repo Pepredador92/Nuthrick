@@ -1,0 +1,20 @@
+create index consultation_device_sessions_device_idx
+  on public.consultation_device_sessions(professional_device_id);
+create index consultation_device_sessions_consultation_fk_idx
+  on public.consultation_device_sessions(professional_id,consultation_id,patient_id);
+create index consultation_device_sessions_owner_device_fk_idx
+  on public.consultation_device_sessions(professional_id,professional_device_id);
+create index consultation_measurements_device_owner_fk_idx
+  on public.consultation_measurements(device_session_id,professional_id,consultation_id,patient_id)
+  where device_session_id is not null;
+create index consultation_measurements_type_idx
+  on public.consultation_measurements(measurement_type_id);
+create index consultation_measurements_consultation_fk_idx
+  on public.consultation_measurements(professional_id,consultation_id,patient_id);
+create index measurement_device_capabilities_type_idx
+  on public.measurement_device_capabilities(measurement_type_id);
+create index professional_device_capabilities_type_idx
+  on public.professional_device_capabilities(measurement_type_id);
+create index professional_devices_catalog_idx
+  on public.professional_devices(catalog_device_id)
+  where catalog_device_id is not null;
