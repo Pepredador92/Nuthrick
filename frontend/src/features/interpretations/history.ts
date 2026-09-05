@@ -28,7 +28,7 @@ export function restoreSavedCalculations(
   saved: SavedCalculationResult[],
 ): CalculationEvaluation[] {
   const byCode = new Map(evaluations.map((e) => [e.item.code, e]));
-  const restored = saved.map((r): CalculationEvaluation => {
+  const restoredByCode = new Map(saved.map((r): [string, CalculationEvaluation] => {
     const inputs = r.definition_snapshot.inputs.map((input) => {
       const snapshot = r.input_snapshot[input.key];
       const value = snapshot?.value;
@@ -43,7 +43,7 @@ export function restoreSavedCalculations(
       };
     });
     const current = byCode.get(r.calculation_code);
-    return {
+    return [r.calculation_code, {
       item: {
         code: r.calculation_code,
         name: r.method_name,
@@ -86,23 +86,19 @@ export function restoreSavedCalculations(
         inputState: "complete",
         resultAvailable: r.dependency_snapshot[code] !== undefined,
       })),
-    };
-  });
-  const codes = new Set(saved.map((s) => s.calculation_code));
+    }];
+  }));
+
+  // A saved row is only authoritative for that same calculation. A partial
+  // historical set must never downgrade other live, valid mathematical results.
   return [
-    ...restored,
-    ...evaluations
-      .filter((e) => !codes.has(e.item.code))
-      .map((e) =>
-        e.state === "calculated"
-          ? {
-              ...e,
-              state: "partial" as const,
-              rawResult: undefined,
-              displayedResult: undefined,
-              resultValues: undefined,
-            }
-          : e,
-      ),
+    ...evaluations.map(
+      (evaluation) => restoredByCode.get(evaluation.item.code) ?? evaluation,
+    ),
+    // Keep historical rows whose calculation no longer exists in the live
+    // catalog, without changing the normal ordering of current formulas.
+    ...saved
+      .filter((result) => !byCode.has(result.calculation_code))
+      .map((result) => restoredByCode.get(result.calculation_code)!),
   ];
 }

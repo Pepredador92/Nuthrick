@@ -33,4 +33,23 @@ describe("buildCalculationResultGroups", () => {
       { label: "Masa magra calculada", method: "Brozek · Jackson & Pollock 7" },
     ]);
   });
+
+  it("keeps the complete d785a8e result set visible when every formula is calculated", () => {
+    const codes = [
+      "bmi", "waist_hip_ratio", "waist_height_ratio",
+      "body_fat_jp3_siri", "body_fat_jp7_siri", "body_fat_durnin_siri", "body_fat_jp7_brozek",
+      "fat_mass_jp3_siri", "fat_mass_jp7_siri", "fat_mass_jp7_brozek", "fat_mass_durnin_siri",
+      "fat_free_mass_jp3_siri", "fat_free_mass_jp7_siri", "fat_free_mass_jp7_brozek", "fat_free_mass_durnin_siri",
+      "somatotype_endomorphy", "somatotype_mesomorphy", "somatotype_ectomorphy", "somatochart_coordinates",
+    ];
+    const groups = buildCalculationResultGroups(codes.map((code) => calculated(code)));
+
+    expect(groups.flatMap((group) => group.entries).map((entry) => entry.evaluation.item.code)).toEqual(codes);
+    expect(groups.map((group) => group.title)).toEqual([
+      "Índices y composición corporal",
+      "Fórmulas de grasa corporal",
+      "Composición corporal",
+      "Somatotipo",
+    ]);
+  });
 });

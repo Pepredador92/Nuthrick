@@ -528,7 +528,7 @@ function ResultsView({
               </button>
             </div>
           ) : (
-            <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
+            <div className="mt-3 space-y-4">
               {[
                 ...new Map(
                   group.entries.map((entry) => [
@@ -539,13 +539,13 @@ function ResultsView({
                   ]),
                 ).values(),
               ].map((entries) => (
-                <div key={entries[0].label} className={entries.length > 1 ? "min-w-0 sm:col-span-2" : "min-w-0"}>
+                <div key={entries[0].label}>
                   {entries.length > 1 && (
                     <h5 className="mb-2 text-sm font-semibold text-[#315e4f]">
                       {entries[0].label}
                     </h5>
                   )}
-                  <div className={`grid min-w-0 gap-3 ${entries.length > 1 ? "sm:grid-cols-2" : ""}`}>
+                  <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                     {entries.map((entry) => (
                       <ResultCard
                         key={entry.evaluation.item.code}
