@@ -79,7 +79,6 @@ export async function loadConsultationMeasurements(consultation: Consultation) {
       .from("patient_measurement_followups")
       .select("patient_id")
       .eq("patient_id", consultation.patient_id)
-      .is("device_session_id", null)
       .maybeSingle(),
     supabase
       .from("patient_measurement_followup_items")
