@@ -15,6 +15,7 @@ import { QuestionField } from "@/src/components/consultations/QuestionField";
 import { InterviewReview } from "@/src/components/consultations/InterviewReview";
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
 import { ConsultationMeasurements } from "@/src/components/consultations/ConsultationMeasurements";
+import { LaboratoryReports } from "@/src/components/consultations/LaboratoryReports";
 import {
   consultationLabel,
   formatPatientDate,
@@ -120,7 +121,7 @@ export function ConsultationPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [savedEncoded, setSavedEncoded] = useState("{}");
-  const [module, setModule] = useState<"interview" | "measurements">("interview");
+  const [module, setModule] = useState<"interview" | "measurements" | "laboratories">("interview");
   const valuesRef = useRef<Answers>({});
   const lastSaved = useRef("{}");
   const queue = useRef(createSaveQueue());
@@ -746,10 +747,28 @@ export function ConsultationPage() {
         >
           Mediciones
         </button>
+        <button
+          type="button"
+          aria-current={module === "laboratories" ? "page" : undefined}
+          onClick={() => setModule("laboratories")}
+          className={
+            "rounded-t-xl px-4 py-3 text-sm font-semibold " +
+            (module === "laboratories"
+              ? "bg-[#eaf3ec] text-[#285647]"
+              : "text-[#66766f] hover:bg-white")
+          }
+        >
+          Laboratorios
+        </button>
       </nav>
       {module === "measurements" && (
         <div className="mt-6">
           <ConsultationMeasurements consultation={consultation} patient={patient} />
+        </div>
+      )}
+      {module === "laboratories" && (
+        <div className="mt-6">
+          <LaboratoryReports consultation={consultation} />
         </div>
       )}
       <div className="mt-5" hidden={module !== "interview"}>
