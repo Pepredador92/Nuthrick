@@ -117,4 +117,4 @@ No se implementaron evolución, bioimpedancia, laboratorios, Faulkner, Yuhasz, H
 - Pruebas de RLS, consulta finalizada y eliminación de resultados obsoletos.
 - Verificación visual responsiva a 360, 768 y 1280 px con componentes reales.
 
-La fuente de verdad activa vive en `public.interpretation_references`; `frontend/src/features/interpretations/references.json` es su semilla versionada y el respaldo de pruebas aisladas. La migración `20260905161402_expand_scientific_interpretation_catalog.sql` mantiene ambas definiciones alineadas y `20260905164041_preserve_explicit_interpretation_context_changes.sql` protege el historial sin bloquear una edición explícita del contexto clínico en un borrador.
+La fuente de verdad activa vive en `public.interpretation_references`; `frontend/src/features/interpretations/references.json` es su semilla versionada y el respaldo de pruebas aisladas. La migración `20260905163805_expand_scientific_interpretation_catalog.sql` mantiene ambas definiciones alineadas y `20260905164135_preserve_explicit_interpretation_context_changes.sql` protege el historial sin bloquear una edición explícita del contexto clínico en un borrador.

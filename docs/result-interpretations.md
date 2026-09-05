@@ -62,7 +62,7 @@ La prueba `supabase/tests/database/result_interpretations.sql` crea pacientes si
 - `frontend/src/features/interpretations/{types,engine,history}.ts` y `references.json`.
 - `frontend/src/services/interpretations.ts` y `consultationCalculations.ts`.
 - `frontend/src/components/consultations/{ConsultationMeasurements,CalculationCatalog,InterpretationDetails}.tsx`.
-- Migraciones `20260905061410_result_interpretations.sql`, corrección de enlaces bibliográficos, `20260905161402_expand_scientific_interpretation_catalog.sql` y `20260905164041_preserve_explicit_interpretation_context_changes.sql`.
+- Migraciones `20260905061410_result_interpretations.sql`, corrección de enlaces bibliográficos, `20260905163805_expand_scientific_interpretation_catalog.sql` y `20260905164135_preserve_explicit_interpretation_context_changes.sql`.
 - Pruebas de reglas, componentes, SQL y `frontend/tests/visual/`.
 
 ## Pendientes fuera de este objetivo
