@@ -23,7 +23,7 @@ import {
   LoadingState,
   SuccessNote,
 } from "@/src/components/ui/Status";
-import { PatientEvolutionChart } from "@/src/components/patients/PatientEvolutionChart";
+import { PatientEvolutionTable } from "@/src/components/patients/PatientEvolutionTable";
 import { useAuth } from "@/src/features/auth/AuthProvider";
 import {
   calculateAge,
@@ -346,6 +346,7 @@ function HistoryModal({
   tab,
   onTab,
   onClose,
+  patientId,
   consultations,
   selectedConsultationId,
   onSelectConsultation,
@@ -366,6 +367,7 @@ function HistoryModal({
   tab: HistoryTab;
   onTab: (tab: HistoryTab) => void;
   onClose: () => void;
+  patientId: string;
   consultations: Consultation[];
   selectedConsultationId: string | null;
   onSelectConsultation: (id: string) => void;
@@ -781,7 +783,17 @@ function HistoryModal({
             </div>
           )}
           {tab === "evolution" && (
-            <PatientEvolutionChart measurements={measurements} />
+            <PatientEvolutionTable
+              patientId={patientId}
+              currentConsultationId={selectedConsultationId}
+              onOpenConsultation={(consultationId) => {
+                const consultation = consultations.find((item) => item.id === consultationId);
+                if (!consultation) return;
+                onSelectConsultation(consultationId);
+                onClose();
+                onEditConsultation(consultation);
+              }}
+            />
           )}
         </div>
       </div>
@@ -1550,7 +1562,16 @@ export function PatientDetailPage() {
         </aside>
         <main className="min-w-0 space-y-5">
           <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-6">
-            <PatientEvolutionChart measurements={measurements} compact />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-[#668176]">Evolución</p>
+                <h2 className="mt-1 text-lg font-bold text-[#1c382f]">Historial comparativo</h2>
+                <p className="mt-1 text-sm text-[#74817d]">Consulta las mediciones y resultados guardados por fecha.</p>
+              </div>
+              <button type="button" className="nuth-button-secondary shrink-0" onClick={() => openHistory("evolution")}>
+                Ver evolución
+              </button>
+            </div>
           </section>
           <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1619,6 +1640,7 @@ export function PatientDetailPage() {
           tab={historyTab}
           onTab={setHistoryTab}
           onClose={() => setHistoryOpen(false)}
+          patientId={patient.id}
           consultations={consultations}
           selectedConsultationId={selectedConsultationId}
           onSelectConsultation={setSelectedConsultationId}

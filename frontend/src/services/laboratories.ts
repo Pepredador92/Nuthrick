@@ -40,6 +40,9 @@ export type LaboratoryReport = {
 
 export type LaboratoryResult = {
   id: string;
+  professional_id: string;
+  patient_id: string;
+  consultation_id: string;
   report_id: string;
   analyte_id: string | null;
   custom_analyte_id: string | null;
