@@ -59,6 +59,22 @@ describe("buildLongitudinalHistory", () => {
     expect(calculated[0].points[0].raw_value).toBe(18.4567);
   });
 
+  it("uses the two persisted somatochart coordinates without deriving them again", () => {
+    const history = buildLongitudinalHistory(input({
+      calculations: [
+        { id: "somato-1", consultation_id: "c1", calculation_code: "somatochart_coordinates", result_key: "somatochart_coordinates", method_name: "Heath-Carter", method_version: "2", raw_result: -1.2, displayed_result: "-1.2", unit: "coordenadas", definition_snapshot: { resultName: "Coordenadas de somatocarta" }, result_values: { x: -1.2, y: 3.4 } },
+        { id: "somato-2", consultation_id: "c2", calculation_code: "somatochart_coordinates", result_key: "somatochart_coordinates", method_name: "Heath-Carter", method_version: "2", raw_result: -0.8, displayed_result: "-0.8", unit: "coordenadas", definition_snapshot: { resultName: "Coordenadas de somatocarta" }, result_values: { x: -0.8, y: 2.7 } },
+      ],
+    }));
+
+    const somatochart = history.series.find((item) => item.visualization === "somatochart");
+    expect(somatochart?.graphable).toBe(true);
+    expect(somatochart?.points.map((point) => point.coordinates)).toEqual([
+      { x: -1.2, y: 3.4 },
+      { x: -0.8, y: 2.7 },
+    ]);
+  });
+
   it("includes linked legacy weight, height and IMC without inventing a consultation", () => {
     const history = buildLongitudinalHistory(input({
       legacyMeasurements: [

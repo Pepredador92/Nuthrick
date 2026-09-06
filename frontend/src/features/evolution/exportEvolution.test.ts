@@ -55,4 +55,17 @@ describe("evolution export", () => {
   it("does not expose unselected series to the PDF export input", () => {
     expect(exportableSeries(history, { seriesIds: ["note"] })).toEqual([]);
   });
+
+  it("exports persisted somatochart coordinates as X and Y values", () => {
+    const somatoHistory: LongitudinalHistory = {
+      consultations: [],
+      series: [{
+        id: "somatochart", label: "Somatocarta", category: "calculations", concept: "Somatocarta", unit: "coordenadas",
+        sourceType: "calculation", method: "Heath-Carter", provenance: "Heath-Carter · v2", visualization: "somatochart", graphable: true,
+        points: [{ consultation_id: "one", consultation_date: "2026-09-01T12:00:00Z", raw_value: -1.2, display_value: "-1.2", unit: "coordenadas", source_reference: {}, coordinates: { x: -1.2, y: 3.4 } }],
+      }],
+    };
+    const text = evolutionTextExport(patient, somatoHistory, { seriesIds: ["somatochart"] }, professional);
+    expect(text).toContain("X -1.2 · Y 3.4");
+  });
 });

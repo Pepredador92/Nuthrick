@@ -6,8 +6,9 @@ import {
   downloadEvolutionText,
   evolutionTextExport,
 } from "@/src/features/evolution/exportEvolution";
+import { evolutionCategoryStyles, selectionGroupLabel } from "@/src/features/evolution/presentation";
 import type { ProfessionalDocumentInfo } from "@/src/features/consultations/exportText";
-import type { LongitudinalCategory, LongitudinalHistory } from "@/src/features/evolution/longitudinal";
+import type { LongitudinalCategory, LongitudinalHistory, LongitudinalSeries } from "@/src/features/evolution/longitudinal";
 import { loadLongitudinalHistory } from "@/src/services/longitudinalHistory";
 import type { Patient } from "@/src/types/domain";
 
@@ -20,6 +21,26 @@ const categories: Array<{ id: LongitudinalCategory; label: string }> = [
 
 function filenamePart(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "paciente";
+}
+
+function selectorGroups(entries: LongitudinalSeries[], category: LongitudinalCategory) {
+  if (category !== "measurements" && category !== "bioimpedance") {
+    return [{ label: null, entries }];
+  }
+  const groups = new Map<string, LongitudinalSeries[]>();
+  for (const entry of entries) {
+    const label = selectionGroupLabel(entry);
+    groups.set(label, [...(groups.get(label) ?? []), entry]);
+  }
+  return [...groups.entries()]
+    .map(([label, groupedEntries]) => ({
+      label,
+      entries: groupedEntries.slice().sort((left, right) =>
+        (left.catalogOrder ?? Number.MAX_SAFE_INTEGER) - (right.catalogOrder ?? Number.MAX_SAFE_INTEGER) ||
+        left.label.localeCompare(right.label, "es"),
+      ),
+    }))
+    .sort((left, right) => (left.entries[0]?.catalogOrder ?? Number.MAX_SAFE_INTEGER) - (right.entries[0]?.catalogOrder ?? Number.MAX_SAFE_INTEGER));
 }
 
 export function EvolutionExportDialog({
@@ -109,18 +130,26 @@ export function EvolutionExportDialog({
                   const entries = selectable.filter((series) => series.category === category.id);
                   if (!entries.length) return null;
                   const allSelected = entries.every((series) => selectedSet.has(series.id));
+                  const style = evolutionCategoryStyles[category.id];
                   return (
                     <section key={category.id}>
-                      <button type="button" className="flex w-full items-center justify-between text-left text-sm font-semibold text-[#315e4f]" onClick={() => toggleCategory(category.id)}>
+                      <button type="button" className="flex w-full items-center justify-between text-left text-sm font-semibold" style={{ color: style.text }} onClick={() => toggleCategory(category.id)}>
                         {category.label}
-                        <span className={`grid h-5 w-5 place-items-center rounded-full border ${allSelected ? "border-[#3d705d] bg-[#3d705d] text-white" : "border-[#cbd8d1] bg-white text-transparent"}`}><Check size={13} /></span>
+                        <span className="grid h-5 w-5 place-items-center rounded-full border text-transparent" style={allSelected ? { borderColor: style.line, backgroundColor: style.line, color: "white" } : { borderColor: "#cbd8d1", backgroundColor: "white" }}><Check size={13} /></span>
                       </button>
-                      <div className="mt-2 space-y-1.5">
-                        {entries.map((series) => (
-                          <label key={series.id} className={`flex cursor-pointer items-start gap-2 rounded-xl border px-3 py-2 text-sm ${selectedSet.has(series.id) ? "border-[#bad3c2] bg-[#edf6ef] text-[#285647]" : "border-transparent bg-white text-[#596a63]"}`}>
-                            <input type="checkbox" checked={selectedSet.has(series.id)} onChange={() => toggle(series.id)} className="mt-0.5" />
-                            <span className="min-w-0"><span className="block font-medium">{series.label}</span>{series.unit && <span className="text-xs text-[#74817d]">{series.unit}</span>}</span>
-                          </label>
+                      <div className="mt-2 space-y-3">
+                        {selectorGroups(entries, category.id).map((group) => (
+                          <div key={group.label ?? "all"}>
+                            {group.label && <p className="mb-1.5 px-1 text-xs font-semibold text-[#718079]">{group.label}</p>}
+                            <div className="space-y-1.5">
+                              {group.entries.map((series) => (
+                                <label key={series.id} className="flex cursor-pointer items-start gap-2 rounded-xl border px-3 py-2 text-sm" style={selectedSet.has(series.id) ? { borderColor: style.line, backgroundColor: style.tint, color: style.text } : { borderColor: "transparent", backgroundColor: "white", color: "#596a63" }}>
+                                  <input type="checkbox" checked={selectedSet.has(series.id)} onChange={() => toggle(series.id)} className="mt-0.5" />
+                                  <span className="min-w-0"><span className="block font-medium">{series.label}</span>{series.unit && <span className="text-xs text-[#74817d]">{series.unit}</span>}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </section>

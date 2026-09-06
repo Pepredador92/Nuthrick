@@ -22,6 +22,7 @@ export type LongitudinalPoint = {
   unit: string | null;
   source_reference: Record<string, string | null>;
   source_references?: Array<Record<string, string | null>>;
+  coordinates?: { x: number; y: number };
 };
 
 export type LongitudinalSeries = {
@@ -33,6 +34,11 @@ export type LongitudinalSeries = {
   sourceType: LongitudinalSourceType;
   method: string | null;
   provenance: string | null;
+  /** Catalog metadata is retained only to organize the selector; values stay immutable. */
+  catalogCategory?: string | null;
+  catalogSubcategory?: string | null;
+  catalogOrder?: number | null;
+  visualization?: "line" | "somatochart";
   graphable: boolean;
   points: LongitudinalPoint[];
 };
@@ -48,6 +54,7 @@ export type HistoricalCalculation = {
   displayed_result: string;
   unit: string;
   definition_snapshot: Record<string, unknown>;
+  result_values?: Record<string, unknown>;
 };
 
 export type HistoricalDeviceSession = {
@@ -204,6 +211,9 @@ export function buildLongitudinalHistory(
             .filter(Boolean)
             .join(" · ")
         : null,
+      catalogCategory: catalog?.category ?? null,
+      catalogSubcategory: catalog?.subcategory ?? null,
+      catalogOrder: catalog?.display_order ?? null,
       graphable: numeric,
     });
     if (!numeric) series.graphable = false;
@@ -253,6 +263,9 @@ export function buildLongitudinalHistory(
         sourceType: "manual_measurement",
         method: null,
         provenance: "Registro histórico de la consulta",
+        catalogCategory: catalog?.category ?? "general",
+        catalogSubcategory: catalog?.subcategory ?? "generales",
+        catalogOrder: catalog?.display_order ?? null,
         graphable: true,
       });
       if (series.points.some((point) => point.consultation_id === consultation.id)) continue;
@@ -277,6 +290,7 @@ export function buildLongitudinalHistory(
       sourceType: "calculation",
       method: "IMC registrado",
       provenance: "Registro histórico de la consulta",
+      visualization: "line",
       graphable: true,
     });
     if (series.points.some((point) => point.consultation_id === consultation.id)) continue;
@@ -295,6 +309,10 @@ export function buildLongitudinalHistory(
     if (!consultation) continue;
     const label = storedCalculationLabel(result);
     const method = result.method_name?.trim() || humanize(result.calculation_code);
+    const x = Number(result.result_values?.x);
+    const y = Number(result.result_values?.y);
+    const isSomatochart = result.calculation_code === "somatochart_coordinates";
+    const hasCoordinates = Number.isFinite(x) && Number.isFinite(y);
     const series = ensure({
       id: `calculation:${result.calculation_code}:${result.result_key}:${method}:${result.method_version}:${result.unit}`,
       label,
@@ -304,7 +322,8 @@ export function buildLongitudinalHistory(
       sourceType: "calculation",
       method,
       provenance: result.method_version ? `${method} · v${result.method_version}` : method,
-      graphable: Number.isFinite(Number(result.raw_result)),
+      visualization: isSomatochart ? "somatochart" : "line",
+      graphable: isSomatochart ? hasCoordinates : Number.isFinite(Number(result.raw_result)),
     });
     addPoint(series, {
       consultation_id: consultation.id,
@@ -318,6 +337,7 @@ export function buildLongitudinalHistory(
         result_key: result.result_key,
         method: method,
       },
+      ...(hasCoordinates ? { coordinates: { x, y } } : {}),
     });
   }
 
@@ -342,6 +362,8 @@ export function buildLongitudinalHistory(
       provenance: [report.laboratory_name, sampleType, report.analytical_method]
         .filter(Boolean)
         .join(" · ") || null,
+      catalogCategory: "laboratory",
+      catalogSubcategory: null,
       graphable: numeric,
     });
     if (!numeric) series.graphable = false;
@@ -375,6 +397,8 @@ export function buildLongitudinalHistory(
       .sort(
         (left, right) =>
           categoryOrder[left.category] - categoryOrder[right.category] ||
+          (left.catalogOrder ?? Number.MAX_SAFE_INTEGER) -
+            (right.catalogOrder ?? Number.MAX_SAFE_INTEGER) ||
           left.label.localeCompare(right.label, "es"),
       ),
   };

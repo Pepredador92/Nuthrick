@@ -1,5 +1,6 @@
 import { formatPatientDate } from "@/src/features/patients/patientUtils";
 import type { ProfessionalDocumentInfo } from "@/src/features/consultations/exportText";
+import { evolutionCategoryStyles, hexToRgb } from "@/src/features/evolution/presentation";
 import type { LongitudinalHistory, LongitudinalSeries } from "@/src/features/evolution/longitudinal";
 import type { Patient } from "@/src/types/domain";
 
@@ -13,6 +14,18 @@ export function numericPoints(series: LongitudinalSeries) {
     .filter((point) => Number.isFinite(point.value));
 }
 
+function somatochartPoints(series: LongitudinalSeries) {
+  return series.points
+    .map((point) => ({ ...point, x: Number(point.coordinates?.x), y: Number(point.coordinates?.y) }))
+    .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+}
+
+function isExportableSeries(series: LongitudinalSeries) {
+  return series.visualization === "somatochart"
+    ? somatochartPoints(series).length > 0
+    : numericPoints(series).length > 0;
+}
+
 export function exportableSeries(
   history: LongitudinalHistory,
   selection: EvolutionExportSelection,
@@ -22,7 +35,7 @@ export function exportableSeries(
     (series) =>
       selected.has(series.id) &&
       series.graphable &&
-      numericPoints(series).length > 0,
+      isExportableSeries(series),
   );
 }
 
@@ -57,10 +70,14 @@ export function evolutionTextExport(
   for (const item of series) {
     lines.push(item.label);
     if (item.provenance) lines.push(`Procedencia: ${item.provenance}`);
-    for (const point of numericPoints(item)) {
-      lines.push(
-        `- ${formatPatientDate(point.consultation_date)}: ${point.display_value}${point.unit ? ` ${point.unit}` : ""}`,
-      );
+    if (item.visualization === "somatochart") {
+      for (const point of somatochartPoints(item)) {
+        lines.push(`- ${formatPatientDate(point.consultation_date)}: X ${point.x} · Y ${point.y}`);
+      }
+    } else {
+      for (const point of numericPoints(item)) {
+        lines.push(`- ${formatPatientDate(point.consultation_date)}: ${point.display_value}${point.unit ? ` ${point.unit}` : ""}`);
+      }
     }
     lines.push("");
   }
@@ -237,6 +254,7 @@ export async function downloadEvolutionPdf(
     const graphWidth = width - 18;
     const values = points.map((point) => point.value);
     const range = chartRange(values);
+    const color = hexToRgb(evolutionCategoryStyles[item.category].line);
     const x = (index: number) => points.length === 1 ? left + graphWidth / 2 : left + (graphWidth * index) / (points.length - 1);
     const y = (value: number) => top + graphHeight - ((value - range.low) / (range.high - range.low)) * graphHeight;
     pdf.setDrawColor(222, 230, 225);
@@ -245,13 +263,13 @@ export async function downloadEvolutionPdf(
       const lineY = top + (graphHeight * step) / 3;
       pdf.line(left, lineY, left + graphWidth, lineY);
     }
-    pdf.setDrawColor(58, 112, 91);
+    pdf.setDrawColor(...color);
     pdf.setLineWidth(0.8);
     for (let index = 1; index < points.length; index += 1) {
       pdf.line(x(index - 1), y(points[index - 1].value), x(index), y(points[index].value));
     }
     points.forEach((point, index) => {
-      pdf.setFillColor(58, 112, 91);
+      pdf.setFillColor(...color);
       pdf.circle(x(index), y(point.value), 1.4, "F");
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(7);
@@ -262,6 +280,60 @@ export async function downloadEvolutionPdf(
       pdf.setTextColor(111, 128, 120);
       pdf.text(shortDate(point.consultation_date), x(index), top + graphHeight + 5, { align: "center" });
     });
+    cursor += required + 6;
+  };
+
+  const drawSomatochart = (item: LongitudinalSeries) => {
+    const points = somatochartPoints(item);
+    const graphSize = 72;
+    const required = graphSize + 28;
+    if (cursor + required > pageHeight - 18) nextPage();
+    const color = hexToRgb(evolutionCategoryStyles[item.category].line);
+    pdf.setFillColor(248, 250, 248);
+    pdf.roundedRect(margin, cursor, width, required, 2, 2, "F");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.setTextColor(31, 78, 67);
+    pdf.text(item.label, margin + 5, cursor + 7);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(93, 112, 103);
+    pdf.text("Coordenadas guardadas por consulta · Heath-Carter", margin + 5, cursor + 12);
+
+    const size = graphSize - 6;
+    const left = margin + (width - size) / 2;
+    const top = cursor + 17;
+    const limit = Math.max(4, ...points.flatMap((point) => [Math.abs(point.x), Math.abs(point.y)]).map((value) => Math.ceil(value + 1)));
+    const x = (value: number) => left + ((value + limit) / (limit * 2)) * size;
+    const y = (value: number) => top + ((limit - value) / (limit * 2)) * size;
+    pdf.setDrawColor(222, 230, 225);
+    pdf.setLineWidth(0.25);
+    for (let step = 0; step < 5; step += 1) {
+      const offset = (size * step) / 4;
+      pdf.line(left + offset, top, left + offset, top + size);
+      pdf.line(left, top + offset, left + size, top + offset);
+    }
+    pdf.setDrawColor(144, 161, 152);
+    pdf.setLineWidth(0.35);
+    pdf.line(x(0), top, x(0), top + size);
+    pdf.line(left, y(0), left + size, y(0));
+    pdf.setDrawColor(...color);
+    pdf.setLineWidth(0.75);
+    for (let index = 1; index < points.length; index += 1) {
+      pdf.line(x(points[index - 1].x), y(points[index - 1].y), x(points[index].x), y(points[index].y));
+    }
+    points.forEach((point, index) => {
+      pdf.setFillColor(...color);
+      pdf.circle(x(point.x), y(point.y), index === points.length - 1 ? 1.7 : 1.25, "F");
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(6.5);
+      pdf.setTextColor(111, 128, 120);
+      pdf.text(shortDate(point.consultation_date), x(point.x) + 2.5, y(point.y) - 2);
+    });
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(6.5);
+    pdf.setTextColor(111, 128, 120);
+    pdf.text("X · ectomorfia − endomorfia", left + size / 2, top + size + 5, { align: "center" });
     cursor += required + 6;
   };
 
@@ -276,7 +348,10 @@ export async function downloadEvolutionPdf(
   pdf.setTextColor(93, 112, 103);
   pdf.text(`Paciente: ${patient.full_name} · Generado: ${formatPatientDate(new Date().toISOString())}`, margin, cursor);
   cursor += 10;
-  if (series.length) series.forEach(drawChart);
+  if (series.length) series.forEach((item) => {
+    if (item.visualization === "somatochart") drawSomatochart(item);
+    else drawChart(item);
+  });
   else {
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);

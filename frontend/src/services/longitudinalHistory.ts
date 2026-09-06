@@ -36,7 +36,7 @@ export async function loadLongitudinalHistory(patientId: string) {
     supabase.from("patient_measurements").select("*").eq("patient_id", patientId),
     supabase
       .from("consultation_calculation_results")
-      .select("id,consultation_id,calculation_code,result_key,method_name,method_version,raw_result,displayed_result,unit,definition_snapshot")
+      .select("id,consultation_id,calculation_code,result_key,method_name,method_version,raw_result,displayed_result,unit,definition_snapshot,result_values")
       .eq("patient_id", patientId),
     supabase
       .from("consultation_device_sessions")
