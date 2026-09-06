@@ -5,7 +5,7 @@ import {
   type HistoricalDeviceSession,
 } from "@/src/features/evolution/longitudinal";
 import type { CatalogMeasurement, ConsultationMeasurement } from "@/src/services/consultationMeasurements";
-import type { Consultation } from "@/src/types/domain";
+import type { Consultation, PatientMeasurement } from "@/src/types/domain";
 import type { LaboratoryReport, LaboratoryResult } from "@/src/services/laboratories";
 
 /**
@@ -18,6 +18,7 @@ export async function loadLongitudinalHistory(patientId: string) {
     consultationsResult,
     catalogResult,
     measurementsResult,
+    legacyMeasurementsResult,
     calculationsResult,
     sessionsResult,
     reportsResult,
@@ -32,6 +33,7 @@ export async function loadLongitudinalHistory(patientId: string) {
       .from("consultation_measurements")
       .select("id,consultation_id,measurement_type_id,value,unit,data_type,measured_at,device_session_id,source_metadata")
       .eq("patient_id", patientId),
+    supabase.from("patient_measurements").select("*").eq("patient_id", patientId),
     supabase
       .from("consultation_calculation_results")
       .select("id,consultation_id,calculation_code,result_key,method_name,method_version,raw_result,displayed_result,unit,definition_snapshot")
@@ -48,6 +50,7 @@ export async function loadLongitudinalHistory(patientId: string) {
     consultationsResult,
     catalogResult,
     measurementsResult,
+    legacyMeasurementsResult,
     calculationsResult,
     sessionsResult,
     reportsResult,
@@ -61,6 +64,7 @@ export async function loadLongitudinalHistory(patientId: string) {
     consultations: (consultationsResult.data ?? []) as Consultation[],
     catalog: (catalogResult.data ?? []) as CatalogMeasurement[],
     measurements: (measurementsResult.data ?? []) as ConsultationMeasurement[],
+    legacyMeasurements: (legacyMeasurementsResult.data ?? []) as PatientMeasurement[],
     calculations: (calculationsResult.data ?? []) as HistoricalCalculation[],
     deviceSessions: (sessionsResult.data ?? []) as HistoricalDeviceSession[],
     laboratoryReports: (reportsResult.data ?? []) as LaboratoryReport[],

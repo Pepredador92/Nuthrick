@@ -1562,16 +1562,13 @@ export function PatientDetailPage() {
         </aside>
         <main className="min-w-0 space-y-5">
           <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-[#668176]">Evolución</p>
-                <h2 className="mt-1 text-lg font-bold text-[#1c382f]">Historial comparativo</h2>
-                <p className="mt-1 text-sm text-[#74817d]">Consulta las mediciones y resultados guardados por fecha.</p>
-              </div>
-              <button type="button" className="nuth-button-secondary shrink-0" onClick={() => openHistory("evolution")}>
-                Ver evolución
-              </button>
-            </div>
+            <PatientEvolutionTable
+              patientId={patient.id}
+              onOpenConsultation={(consultationId) => {
+                const consultation = consultations.find((item) => item.id === consultationId);
+                if (consultation) editConsultation(consultation);
+              }}
+            />
           </section>
           <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">

@@ -11,6 +11,7 @@ La vista no conserva una copia clínica adicional ni recalcula resultados.
 | Sección | Fuente | Identidad que evita mezclar series |
 | --- | --- | --- |
 | Mediciones registradas | `consultation_measurements` sin `device_session_id` | tipo de medición + unidad |
+| Mediciones históricas vinculadas | `patient_measurements` | consulta de origen; peso, estatura e IMC ya guardados |
 | Datos calculados | `consultation_calculation_results` | código, resultado, método, versión y unidad guardados |
 | Bioimpedancia | `consultation_measurements` con sesión y `consultation_device_sessions` | tipo, unidad y equipo profesional |
 | Laboratorios | `laboratory_results` unido a `laboratory_reports` | analito, unidad, tipo de muestra y método analítico |
@@ -31,3 +32,7 @@ consulta por fila o por consulta.
 
 La matriz abre la consulta de origen al pulsar su fecha o un valor, pero no
 permite editar datos dentro de Evolución.
+
+Las mediciones antiguas que no tienen `consultation_id` no se asignan a una
+consulta por inferencia: hacerlo alteraría la trazabilidad. Permanecen visibles
+en su historial original hasta que exista una asociación clínica válida.

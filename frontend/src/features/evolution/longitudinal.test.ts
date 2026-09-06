@@ -16,6 +16,7 @@ const input = (overrides: Partial<LongitudinalHistoryInput> = {}): LongitudinalH
     { id: "body_fat", code: "body_fat", name: "Grasa corporal", display_name: "Grasa corporal", clinical_name: "Grasa corporal", category: "bioimpedance", subcategory: "", unit: "%", data_type: "percentage", min_value: 0, max_value: 100, decimal_places: 1, description: "", synonyms: [], display_order: 3, source_kind: "system", choice_options: [] },
   ],
   measurements: [],
+  legacyMeasurements: [],
   calculations: [],
   deviceSessions: [],
   laboratoryReports: [],
@@ -56,6 +57,19 @@ describe("buildLongitudinalHistory", () => {
     expect(calculated.map((item) => item.method)).toEqual(["JP3 + Siri", "JP7 + Siri"]);
     expect(calculated[0].points[0].display_value).toBe("18.46");
     expect(calculated[0].points[0].raw_value).toBe(18.4567);
+  });
+
+  it("includes linked legacy weight, height and IMC without inventing a consultation", () => {
+    const history = buildLongitudinalHistory(input({
+      legacyMeasurements: [
+        { id: "legacy-linked", professional_id: "pro", patient_id: "patient", consultation_id: "c1", measured_at: consultations[1].consultation_date, weight_kg: 80, height_cm: 174, bmi: 26.42, ideal_weight_kg: null, ideal_weight_method: null, notes: null, created_at: consultations[1].created_at },
+        { id: "legacy-unlinked", professional_id: "pro", patient_id: "patient", consultation_id: null, measured_at: consultations[0].consultation_date, weight_kg: 77, height_cm: 174, bmi: 25.44, ideal_weight_kg: null, ideal_weight_method: null, notes: null, created_at: consultations[0].created_at },
+      ],
+    }));
+
+    expect(history.series.find((item) => item.id.startsWith("measurement:weight"))?.points).toHaveLength(1);
+    expect(history.series.find((item) => item.id.startsWith("measurement:height"))?.points[0].display_value).toBe("174");
+    expect(history.series.find((item) => item.id === "calculation:legacy:bmi:registered:")?.points[0].display_value).toBe("26.42");
   });
 
   it("keeps device values separate by physical device provenance", () => {

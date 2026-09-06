@@ -1,4 +1,4 @@
-import type { Consultation } from "@/src/types/domain";
+import type { Consultation, PatientMeasurement } from "@/src/types/domain";
 import type { ConsultationMeasurement, CatalogMeasurement } from "@/src/services/consultationMeasurements";
 import type { LaboratoryReport, LaboratoryResult } from "@/src/services/laboratories";
 
@@ -67,6 +67,7 @@ export type LongitudinalHistoryInput = {
   consultations: Consultation[];
   catalog: CatalogMeasurement[];
   measurements: ConsultationMeasurement[];
+  legacyMeasurements: PatientMeasurement[];
   calculations: HistoricalCalculation[];
   deviceSessions: HistoricalDeviceSession[];
   laboratoryReports: LaboratoryReport[];
@@ -214,6 +215,75 @@ export function buildLongitudinalHistory(
         device_session_id: session?.id ?? null,
         professional_device_id: session?.professional_device_id ?? null,
       },
+    });
+  }
+
+  // Early versions of Nuthrick stored peso, talla and IMC in
+  // patient_measurements. When they are linked to a real consultation they
+  // remain legitimate historical records, so include them without deriving
+  // anything anew. A newer consultation_measurements value takes precedence.
+  for (const measurement of input.legacyMeasurements) {
+    const consultation = measurement.consultation_id
+      ? consultationById.get(measurement.consultation_id)
+      : undefined;
+    if (!consultation) continue;
+    const legacyValues: Array<{
+      code: string;
+      fallbackLabel: string;
+      unit: string | null;
+      value: number;
+      decimalPlaces: number;
+    }> = [
+      { code: "weight", fallbackLabel: "Peso", unit: "kg", value: Number(measurement.weight_kg), decimalPlaces: 2 },
+      { code: "height", fallbackLabel: "Estatura", unit: "cm", value: Number(measurement.height_cm), decimalPlaces: 2 },
+    ];
+    for (const legacy of legacyValues) {
+      if (!Number.isFinite(legacy.value)) continue;
+      const catalog = input.catalog.find((item) => item.code === legacy.code);
+      const unit = catalog?.unit ?? legacy.unit;
+      const series = ensure({
+        id: `measurement:${catalog?.id ?? legacy.code}:${unit ?? ""}`,
+        label: catalog?.display_name || catalog?.name || legacy.fallbackLabel,
+        category: "measurements",
+        concept: catalog?.display_name || catalog?.name || legacy.fallbackLabel,
+        unit,
+        sourceType: "manual_measurement",
+        method: null,
+        provenance: "Registro histórico de la consulta",
+        graphable: true,
+      });
+      if (series.points.some((point) => point.consultation_id === consultation.id)) continue;
+      addPoint(series, {
+        consultation_id: consultation.id,
+        consultation_date: consultation.consultation_date,
+        raw_value: legacy.value,
+        display_value: presentationValue(legacy.value, catalog?.decimal_places ?? legacy.decimalPlaces),
+        unit,
+        source_reference: { patient_measurement_id: measurement.id, legacy_source: "patient_measurements" },
+      });
+    }
+
+    const bmi = Number(measurement.bmi);
+    if (!Number.isFinite(bmi)) continue;
+    const series = ensure({
+      id: "calculation:legacy:bmi:registered:",
+      label: "IMC",
+      category: "calculations",
+      concept: "IMC",
+      unit: null,
+      sourceType: "calculation",
+      method: "IMC registrado",
+      provenance: "Registro histórico de la consulta",
+      graphable: true,
+    });
+    if (series.points.some((point) => point.consultation_id === consultation.id)) continue;
+    addPoint(series, {
+      consultation_id: consultation.id,
+      consultation_date: consultation.consultation_date,
+      raw_value: bmi,
+      display_value: presentationValue(bmi, 2),
+      unit: null,
+      source_reference: { patient_measurement_id: measurement.id, legacy_source: "patient_measurements" },
     });
   }
 
