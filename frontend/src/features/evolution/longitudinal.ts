@@ -110,13 +110,16 @@ const presentationValue = (
 function storedCalculationLabel(result: HistoricalCalculation) {
   const snapshot = result.definition_snapshot ?? {};
   const snapshotLabel = [
+    snapshot.resultName,
     snapshot.result_label,
     snapshot.display_name,
     snapshot.name,
     snapshot.output_name,
   ].find((value): value is string => typeof value === "string" && value.trim().length > 0);
   const concept = snapshotLabel ?? humanize(result.result_key || result.calculation_code);
-  const method = result.method_name?.trim() || humanize(result.calculation_code);
+  const method = result.method_name?.trim() ||
+    (typeof snapshot.methodName === "string" ? snapshot.methodName : "") ||
+    humanize(result.calculation_code);
   return normalize(concept) === normalize(method) ? concept : `${concept} · ${method}`;
 }
 

@@ -51,8 +51,6 @@ import {
   listPatientNotes,
   listPatientTags,
   listProgressPhotos,
-  listQuestionnaireResponses,
-  listQuestionnaireSubmissions,
   listConsultations,
   registerProgressPhoto,
   removePatientTag,
@@ -86,8 +84,7 @@ import type {
   QuestionnaireSubmission,
 } from "@/src/types/domain";
 
-type HistoryTab =
-  "consultations" | "measurements" | "plans" | "notes" | "evolution";
+type HistoryTab = "consultations" | "plans" | "notes" | "evolution";
 type ConfirmAction =
   "archive" | "delete" | "note-delete" | "consultation-delete";
 
@@ -180,6 +177,9 @@ function ConfirmDialog({
   );
 }
 
+// Preserved for a future dedicated consultation-detail route; the History
+// modal deliberately renders only the concise overview below.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ConsultationDetail({
   consultation,
   measurements,
@@ -342,6 +342,41 @@ function ConsultationDetail({
   );
 }
 
+function ConsultationHistoryOverview({
+  consultation,
+  onEdit,
+  onExport,
+  onExportPdf,
+  onDelete,
+}: {
+  consultation: Consultation | null;
+  onEdit: (consultation: Consultation) => void;
+  onExport: (consultation: Consultation) => void;
+  onExportPdf: (consultation: Consultation) => void;
+  onDelete: (consultation: Consultation) => void;
+}) {
+  if (!consultation) {
+    return <EmptyState title="Aún no hay consultas registradas." description="Crea la primera consulta para comenzar el historial." />;
+  }
+  return (
+    <article className="rounded-2xl border border-[#dfe5e1] bg-[#fbfcfa] p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#82908a]">{consultationLabel(consultation)}</p>
+          <h3 className="mt-2 text-2xl font-semibold">{formatPatientDate(consultation.consultation_date)}</h3>
+          <p className="mt-2 text-sm text-[#74817d]">Consulta {consultation.status === "completed" ? "finalizada" : "en borrador"}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => onEdit(consultation)}><Edit3 size={14} />Editar</button>
+          <button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => onExport(consultation)}><FileText size={14} />Exportar .txt</button>
+          <button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => onExportPdf(consultation)}><FileText size={14} />Exportar PDF</button>
+          <button type="button" className="rounded-xl px-3 py-2 text-xs font-semibold text-[#9b493a] hover:bg-[#fbe9e5]" onClick={() => onDelete(consultation)}><Trash2 size={14} />Eliminar</button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function HistoryModal({
   tab,
   onTab,
@@ -353,8 +388,6 @@ function HistoryModal({
   measurements,
   plans,
   notes,
-  submissions,
-  responses,
   onNewConsultation,
   onCreateNote,
   onEditNote,
@@ -374,8 +407,6 @@ function HistoryModal({
   measurements: PatientMeasurement[];
   plans: NutritionPlan[];
   notes: PatientNote[];
-  submissions: QuestionnaireSubmission[];
-  responses: Record<string, QuestionnaireResponse[]>;
   onNewConsultation: (event: FormEvent<HTMLFormElement>) => void;
   onCreateNote: (event: FormEvent<HTMLFormElement>) => void;
   onEditNote: (note: PatientNote) => void;
@@ -434,7 +465,6 @@ function HistoryModal({
           {(
             [
               ["consultations", "Consultas"],
-              ["measurements", "Medidas"],
               ["plans", "Planes"],
               ["notes", "Notas"],
               ["evolution", "Evolución"],
@@ -516,11 +546,8 @@ function HistoryModal({
                   </button>
                 </form>
               </div>
-              <ConsultationDetail
+              <ConsultationHistoryOverview
                 consultation={selectedConsultation}
-                measurements={measurements}
-                submissions={submissions}
-                responses={responses}
                 onEdit={onEditConsultation}
                 onExport={onExportConsultation}
                 onExportPdf={onExportConsultationPdf}
@@ -528,7 +555,7 @@ function HistoryModal({
               />
             </div>
           )}
-          {tab === "measurements" && (
+          {(tab as string) === "measurements" && (
             <div className="space-y-5">
               {measurements.length ? (
                 <div className="overflow-x-auto rounded-2xl border border-[#dfe5e1]">
@@ -849,10 +876,6 @@ export function PatientDetailPage() {
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [notes, setNotes] = useState<PatientNote[]>([]);
   const [plans, setPlans] = useState<NutritionPlan[]>([]);
-  const [submissions, setSubmissions] = useState<QuestionnaireSubmission[]>([]);
-  const [responses, setResponses] = useState<
-    Record<string, QuestionnaireResponse[]>
-  >({});
   const [tags, setTags] = useState<PatientTag[]>([]);
   const [photos, setPhotos] = useState<PatientProgressPhoto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -876,13 +899,12 @@ export function PatientDetailPage() {
     setLoading(true);
     setError("");
     try {
-      const [p, m, c, n, pl, subs, allTags, assigned, ph] = await Promise.all([
+      const [p, m, c, n, pl, allTags, assigned, ph] = await Promise.all([
         getPatient(patientId),
         listMeasurements(patientId),
         listConsultations(patientId),
         listPatientNotes(patientId),
         listNutritionPlans(patientId),
-        listQuestionnaireSubmissions(patientId),
         listPatientTags(),
         listPatientAssignedTags(patientId),
         listProgressPhotos(patientId),
@@ -894,22 +916,11 @@ export function PatientDetailPage() {
         );
         return;
       }
-      const responseEntries = await Promise.all(
-        subs.map(
-          async (submission) =>
-            [
-              submission.id,
-              await listQuestionnaireResponses(submission.id),
-            ] as const,
-        ),
-      );
       setPatient({ ...p, tags: assigned });
       setMeasurements(m);
       setConsultations(c);
       setNotes(n);
       setPlans(pl);
-      setSubmissions(subs);
-      setResponses(Object.fromEntries(responseEntries));
       setTags(allTags);
       setSelectedConsultationId((current) => current ?? c[0]?.id ?? null);
       setPhotos(
@@ -1644,8 +1655,6 @@ export function PatientDetailPage() {
           measurements={measurements}
           plans={plans}
           notes={notes}
-          submissions={submissions}
-          responses={responses}
           onNewConsultation={addConsultation}
           onCreateNote={addNote}
           onEditNote={(note) => void editNote(note)}

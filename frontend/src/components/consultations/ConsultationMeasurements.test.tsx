@@ -96,6 +96,23 @@ describe("ConsultationMeasurements", () => {
     fireEvent.click(screen.getByRole("button",{name:/guardar mediciones/i}));
     expect(api.save).not.toHaveBeenCalled(); expect(calculationApi.save).not.toHaveBeenCalled();
   });
+  it("allows newly available formulas to be persisted without changing a measurement", async () => {
+    const savedBmi = {id:"saved",consultation_id:"consultation",calculation_code:"bmi",method_name:"IMC",method_version:"1.0.0",raw_result:27.8,displayed_result:"27.8",unit:"kg/m²",result_values:{},input_snapshot:{weight:{value:"84.2"},height:{value:"174"}},dependency_snapshot:{},definition_snapshot:calculations[0].definition,interpretation_snapshot:null};
+    interpretationsApi.load.mockResolvedValue({ references, saved: [savedBmi], pregnant: false, pregnancyFromInterview: false });
+    api.load.mockResolvedValue({ catalog, values: [
+      { id: "weight-id", measurement_type_id: "weight", value: 82.4 },
+      { id: "waist-id", measurement_type_id: "waist_circumference", value: 90 },
+      { id: "hip-id", measurement_type_id: "hip_circumference", value: 100 },
+    ], workspaceIds: ["weight", "height", "waist_circumference", "hip_circumference"], hasFollowup: false, followupIds: [], previousValues: {} });
+    api.save.mockResolvedValue([
+      { id: "weight-id", measurement_type_id: "weight", value: 82.4 },
+      { id: "waist-id", measurement_type_id: "waist_circumference", value: 90 },
+      { id: "hip-id", measurement_type_id: "hip_circumference", value: 100 },
+    ]);
+    render(<ConsultationMeasurements consultation={consultation} patient={patient} />);
+    fireEvent.click(await screen.findByRole("button", { name: /guardar resultados calculados/i }));
+    await waitFor(() => expect(calculationApi.save).toHaveBeenCalledWith("consultation", expect.objectContaining({ waist_hip_ratio: expect.any(Object) }), false));
+  });
   it("prioritizes the patient follow-up, shows the prior value, and lets it be updated", async () => {
     api.load.mockResolvedValue({
       catalog,

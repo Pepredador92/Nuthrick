@@ -176,6 +176,15 @@ beforeEach(() => {
 });
 
 describe("consultation save and review workflow", () => {
+  it("offers the longitudinal evolution module alongside interview, measurements and laboratories", async () => {
+    mount();
+    await screen.findByRole("heading", { name: "Apertura de prueba" });
+    expect(screen.getByRole("button", { name: "Entrevista" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mediciones" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Laboratorios" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Evolución" })).toBeInTheDocument();
+  });
+
   it("restores the exact section and unsaved answer after a remount", async () => {
     const first = mount();
     await screen.findByRole("heading", { name: "Apertura de prueba" });

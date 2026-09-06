@@ -16,6 +16,7 @@ import { InterviewReview } from "@/src/components/consultations/InterviewReview"
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
 import { ConsultationMeasurements } from "@/src/components/consultations/ConsultationMeasurements";
 import { LaboratoryReports } from "@/src/components/consultations/LaboratoryReports";
+import { PatientEvolutionTable } from "@/src/components/patients/PatientEvolutionTable";
 import {
   consultationLabel,
   formatPatientDate,
@@ -121,7 +122,7 @@ export function ConsultationPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [savedEncoded, setSavedEncoded] = useState("{}");
-  const [module, setModule] = useState<"interview" | "measurements" | "laboratories">("interview");
+  const [module, setModule] = useState<"interview" | "measurements" | "laboratories" | "evolution">("interview");
   const valuesRef = useRef<Answers>({});
   const lastSaved = useRef("{}");
   const queue = useRef(createSaveQueue());
@@ -760,6 +761,19 @@ export function ConsultationPage() {
         >
           Laboratorios
         </button>
+        <button
+          type="button"
+          aria-current={module === "evolution" ? "page" : undefined}
+          onClick={() => setModule("evolution")}
+          className={
+            "rounded-t-xl px-4 py-3 text-sm font-semibold " +
+            (module === "evolution"
+              ? "bg-[#eaf3ec] text-[#285647]"
+              : "text-[#66766f] hover:bg-white")
+          }
+        >
+          Evolución
+        </button>
       </nav>
       {module === "measurements" && (
         <div className="mt-6">
@@ -769,6 +783,18 @@ export function ConsultationPage() {
       {module === "laboratories" && (
         <div className="mt-6">
           <LaboratoryReports consultation={consultation} />
+        </div>
+      )}
+      {module === "evolution" && (
+        <div className="mt-6">
+          <PatientEvolutionTable
+            patientId={patient.id}
+            currentConsultationId={consultation.id}
+            onOpenConsultation={(targetConsultationId) => {
+              if (targetConsultationId === consultation.id) return;
+              navigate(`/app/patients/${patient.id}/consultations/${targetConsultationId}`);
+            }}
+          />
         </div>
       )}
       <div className="mt-5" hidden={module !== "interview"}>

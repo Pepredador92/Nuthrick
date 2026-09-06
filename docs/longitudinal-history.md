@@ -1,7 +1,8 @@
 # Historial comparativo longitudinal
 
-La pestaña **Evolución** de la ficha del paciente muestra una matriz de solo
-lectura. Cada columna representa una consulta y se ordena por
+La sección **Evolución** aparece en la ficha del paciente y como módulo de una
+nueva consulta, junto a Entrevista, Mediciones y Laboratorios. Muestra una
+matriz de solo lectura. Cada columna representa una consulta y se ordena por
 `consultation_date` ascendente; la hora distingue consultas del mismo día.
 
 ## Origen de los datos
@@ -32,6 +33,11 @@ consulta por fila o por consulta.
 
 La matriz abre la consulta de origen al pulsar su fecha o un valor, pero no
 permite editar datos dentro de Evolución.
+
+Si una consulta tiene fórmulas válidas calculadas por el catálogo actual pero
+no cuentan aún con un resultado histórico guardado, Mediciones ofrece
+**Guardar resultados calculados**. Esta acción conserva esos resultados en la
+consulta en borrador; Evolución no calcula ni escribe por sí sola.
 
 Las mediciones antiguas que no tienen `consultation_id` no se asignan a una
 consulta por inferencia: hacerlo alteraría la trazabilidad. Permanecen visibles
