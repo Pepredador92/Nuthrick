@@ -16,8 +16,6 @@ export interface PatientListFilters {
   search?: string;
   status?: string;
   portalAccess?: string;
-  tagId?: string;
-  tagIds?: string[];
   sort?: "created_desc" | "created_asc" | "name_asc" | "activity_desc";
   page?: number;
   pageSize?: number;
@@ -136,18 +134,6 @@ export async function listPatients(
     query = query.eq("portal_access_enabled", true);
   if (filters.portalAccess === "disabled")
     query = query.eq("portal_access_enabled", false);
-  const requestedTagIds =
-    filters.tagIds?.filter(Boolean) ?? (filters.tagId ? [filters.tagId] : []);
-  if (requestedTagIds.length) {
-    const { data: assignments, error } = await supabase
-      .from("patient_tag_assignments")
-      .select("patient_id")
-      .in("tag_id", requestedTagIds);
-    if (error) throw friendlyError(error);
-    const ids = (assignments ?? []).map((row) => row.patient_id as string);
-    if (!ids.length) return { rows: [], total: 0 };
-    query = query.in("id", ids);
-  }
   const sort = filters.sort ?? "created_desc";
   if (sort === "name_asc")
     query = query.order("full_name", { ascending: true });
@@ -164,32 +150,7 @@ export async function listPatients(
     .range(page * pageSize, page * pageSize + pageSize - 1);
   const { data, count, error } = await query;
   if (error) throw friendlyError(error);
-  const rows = (data ?? []) as Patient[];
-  if (rows.length) {
-    const { data: assignments, error: assignmentError } = await supabase
-      .from("patient_tag_assignments")
-      .select("patient_id, tag_id")
-      .in(
-        "patient_id",
-        rows.map((row) => row.id),
-      );
-    if (assignmentError) throw friendlyError(assignmentError);
-    const tags = await listPatientTags();
-    const tagsById = new Map(tags.map((tag) => [tag.id, tag]));
-    const byPatient = new Map<string, PatientTag[]>();
-    (assignments ?? []).forEach((assignment) => {
-      const tag = tagsById.get(assignment.tag_id as string);
-      if (tag)
-        byPatient.set(assignment.patient_id as string, [
-          ...(byPatient.get(assignment.patient_id as string) ?? []),
-          tag,
-        ]);
-    });
-    rows.forEach((row) => {
-      row.tags = byPatient.get(row.id) ?? [];
-    });
-  }
-  return { rows, total: count ?? 0 };
+  return { rows: (data ?? []) as Patient[], total: count ?? 0 };
 }
 
 export async function getPatientCounters(): Promise<PatientCounters> {

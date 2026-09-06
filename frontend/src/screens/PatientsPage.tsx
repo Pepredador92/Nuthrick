@@ -23,7 +23,6 @@ import {
   createPatient,
   deletePatient,
   getPatientCounters,
-  listPatientTags,
   listPatients,
   restorePatient,
 } from "@/src/services/patients";
@@ -34,7 +33,7 @@ import {
   patientInitials,
   patientStatusLabel,
 } from "@/src/features/patients/patientUtils";
-import type { Patient, PatientGender, PatientTag } from "@/src/types/domain";
+import type { Patient, PatientGender } from "@/src/types/domain";
 
 const countries = [
   ["+52", "México (+52)"],
@@ -333,28 +332,6 @@ function PatientModal({
   );
 }
 
-function TagSummary({ tags }: { tags: PatientTag[] }) {
-  if (!tags.length)
-    return <span className="text-xs text-[#9aa5a0]">Sin etiquetas</span>;
-  return (
-    <div className="flex flex-wrap gap-1">
-      {tags.slice(0, 2).map((tag) => (
-        <span
-          key={tag.id}
-          className="rounded-full bg-[#edf4ef] px-2 py-1 text-[10px] font-semibold text-[#4b7163]"
-        >
-          {tag.name}
-        </span>
-      ))}
-      {tags.length > 2 && (
-        <span className="rounded-full bg-[#f1f3ef] px-2 py-1 text-[10px] font-semibold text-[#718079]">
-          +{tags.length - 2}
-        </span>
-      )}
-    </div>
-  );
-}
-
 function PatientActionMenu({
   patient,
   onArchive,
@@ -433,35 +410,25 @@ function PatientActionMenu({
 }
 
 function FiltersPanel({
-  tags,
   status,
   portal,
   sort,
-  tagIds,
   onApply,
   onClear,
 }: {
-  tags: PatientTag[];
   status: StatusFilter;
   portal: PortalFilter;
   sort: SortOption;
-  tagIds: string[];
   onApply: (next: {
     status: StatusFilter;
     portal: PortalFilter;
     sort: SortOption;
-    tagIds: string[];
   }) => void;
   onClear: () => void;
 }) {
   const [draftStatus, setDraftStatus] = useState(status);
   const [draftPortal, setDraftPortal] = useState(portal);
   const [draftSort, setDraftSort] = useState(sort);
-  const [draftTags, setDraftTags] = useState(tagIds);
-  const [tagSearch, setTagSearch] = useState("");
-  const filteredTags = tags.filter((tag) =>
-    tag.name.toLowerCase().includes(tagSearch.toLowerCase()),
-  );
   return (
     <div
       className="mt-4 rounded-2xl border border-[#dfe5e1] bg-[#fbfcfa] p-4"
@@ -504,51 +471,6 @@ function FiltersPanel({
           </select>
         </Field>
       </div>
-      <div className="mt-4">
-        <label
-          className="text-sm font-semibold text-[#52635c]"
-          htmlFor="patient-tag-search"
-        >
-          Etiquetas
-        </label>
-        <p className="mt-1 text-xs text-[#74817d]">
-          Usa etiquetas para organizar y encontrar pacientes rápidamente.
-        </p>
-        <Input
-          id="patient-tag-search"
-          className="mt-2 max-w-sm"
-          placeholder="Buscar etiquetas…"
-          value={tagSearch}
-          onChange={(e) => setTagSearch(e.target.value)}
-        />
-        {filteredTags.length ? (
-          <div className="mt-3 grid max-h-32 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
-            {filteredTags.map((tag) => (
-              <label
-                key={tag.id}
-                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-white"
-              >
-                <input
-                  type="checkbox"
-                  checked={draftTags.includes(tag.id)}
-                  onChange={(e) =>
-                    setDraftTags(
-                      e.target.checked
-                        ? [...draftTags, tag.id]
-                        : draftTags.filter((id) => id !== tag.id),
-                    )
-                  }
-                />
-                {tag.name}
-              </label>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-3 text-sm text-[#74817d]">
-            No hay etiquetas que coincidan.
-          </p>
-        )}
-      </div>
       <div className="mt-4 flex flex-wrap justify-end gap-2">
         <button
           type="button"
@@ -558,7 +480,6 @@ function FiltersPanel({
             setDraftStatus("all");
             setDraftPortal("all");
             setDraftSort("created_desc");
-            setDraftTags([]);
           }}
         >
           Limpiar filtros
@@ -571,7 +492,6 @@ function FiltersPanel({
               status: draftStatus,
               portal: draftPortal,
               sort: draftSort,
-              tagIds: draftTags,
             })
           }
         >
@@ -585,7 +505,6 @@ function FiltersPanel({
 
 export function PatientsPage() {
   const [rows, setRows] = useState<Patient[]>([]);
-  const [tags, setTags] = useState<PatientTag[]>([]);
   const [total, setTotal] = useState(0);
   const [addedTotal, setAddedTotal] = useState(0);
   const [activeTotal, setActiveTotal] = useState(0);
@@ -593,7 +512,6 @@ export function PatientsPage() {
   const [debounced, setDebounced] = useState("");
   const [status, setStatus] = useState<StatusFilter>("active");
   const [portal, setPortal] = useState<PortalFilter>("all");
-  const [tagIds, setTagIds] = useState<string[]>([]);
   const [sort, setSort] = useState<SortOption>("created_desc");
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -617,21 +535,18 @@ export function PatientsPage() {
     setLoading(true);
     setError("");
     try {
-      const [result, tagRows, counters] = await Promise.all([
+      const [result, counters] = await Promise.all([
         listPatients({
           search: debounced,
           status,
           portalAccess: portal,
-          tagIds,
           sort,
           page,
         }),
-        listPatientTags(),
         getPatientCounters(),
       ]);
       setRows(result.rows);
       setTotal(result.total);
-      setTags(tagRows);
       setAddedTotal(counters.total);
       setActiveTotal(counters.active);
     } catch (cause) {
@@ -649,17 +564,15 @@ export function PatientsPage() {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debounced, status, portal, tagIds, sort, page]);
+  }, [debounced, status, portal, sort, page]);
   const applyFilters = (next: {
     status: StatusFilter;
     portal: PortalFilter;
     sort: SortOption;
-    tagIds: string[];
   }) => {
     setStatus(next.status);
     setPortal(next.portal);
     setSort(next.sort);
-    setTagIds(next.tagIds);
     setPage(0);
     setFiltersOpen(false);
   };
@@ -668,7 +581,6 @@ export function PatientsPage() {
       status: "all",
       portal: "all",
       sort: "created_desc",
-      tagIds: [],
     });
   const runAction = async () => {
     if (!confirm) return;
@@ -714,7 +626,6 @@ export function PatientsPage() {
   const activeFilterCount =
     (status !== "active" ? 1 : 0) +
     (portal !== "all" ? 1 : 0) +
-    tagIds.length +
     (sort !== "created_desc" ? 1 : 0);
   return (
     <div>
@@ -788,11 +699,9 @@ export function PatientsPage() {
         </div>
         {filtersOpen && (
           <FiltersPanel
-            tags={tags}
             status={status}
             portal={portal}
             sort={sort}
-            tagIds={tagIds}
             onApply={applyFilters}
             onClear={clearFilters}
           />
@@ -805,7 +714,6 @@ export function PatientsPage() {
                 ? "Mostrando archivados"
                 : "Todos los pacientes"}
           </span>
-          {tagIds.length > 0 && <span>· {tagIds.length} etiqueta(s)</span>}
           {portal !== "all" && (
             <span>
               · Portal {portal === "enabled" ? "activado" : "desactivado"}
@@ -821,17 +729,17 @@ export function PatientsPage() {
         ) : rows.length === 0 ? (
           <EmptyState
             title={
-              debounced || tagIds.length
+              debounced
                 ? "No encontramos pacientes"
                 : "Aún no tienes pacientes."
             }
             description={
-              debounced || tagIds.length
+              debounced
                 ? "Prueba con otra búsqueda o limpia los filtros."
                 : "Agrega tu primer paciente para comenzar a registrar consultas y mediciones."
             }
             action={
-              !debounced && !tagIds.length ? (
+              !debounced ? (
                 <button
                   type="button"
                   className="nuth-button"
@@ -850,7 +758,6 @@ export function PatientsPage() {
                 <thead className="bg-[#f5f7f3] text-xs uppercase tracking-wide text-[#82908a]">
                   <tr>
                     <th className="px-5 py-4">Nombre</th>
-                    <th className="px-5 py-4">Etiquetas</th>
                     <th className="px-5 py-4">Estado</th>
                     <th className="px-5 py-4">Portal</th>
                     <th className="px-5 py-4">Última actividad</th>
@@ -882,9 +789,6 @@ export function PatientsPage() {
                             </p>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <TagSummary tags={patient.tags ?? []} />
                       </td>
                       <td className="px-5 py-4">
                         <span
@@ -947,9 +851,6 @@ export function PatientsPage() {
                       onRestore={() => void restore(patient)}
                       onDelete={() => setConfirm({ type: "delete", patient })}
                     />
-                  </div>
-                  <div className="mt-4">
-                    <TagSummary tags={patient.tags ?? []} />
                   </div>
                   <dl className="mt-4 grid grid-cols-2 gap-3 text-xs text-[#76837e]">
                     <div>

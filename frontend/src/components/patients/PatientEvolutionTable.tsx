@@ -141,10 +141,12 @@ export function PatientEvolutionTable({
   patientId,
   currentConsultationId,
   onOpenConsultation,
+  compactHeader = false,
 }: {
   patientId: string;
   currentConsultationId?: string | null;
   onOpenConsultation?: (consultationId: string) => void;
+  compactHeader?: boolean;
 }) {
   const [history, setHistory] = useState<LongitudinalHistory | null>(null);
   const [error, setError] = useState("");
@@ -192,12 +194,16 @@ export function PatientEvolutionTable({
 
   return (
     <section aria-labelledby="evolution-table-heading">
-      <div className="flex flex-col gap-3 border-b border-[#e4ebe7] pb-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-[#668176]">Evolución</p>
-          <h2 id="evolution-table-heading" className="mt-1 text-lg font-bold text-[#1c382f]">Tabla comparativa</h2>
-          <p className="mt-1 text-sm text-[#74817d]">Valores registrados por consulta. No modifica el expediente.</p>
-        </div>
+      <div className={`flex flex-col gap-3 border-b border-[#e4ebe7] pb-4 sm:flex-row sm:items-end ${compactHeader ? "sm:justify-end" : "sm:justify-between"}`}>
+        {compactHeader ? (
+          <h2 id="evolution-table-heading" className="sr-only">Tabla comparativa de evolución</h2>
+        ) : (
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-[#668176]">Evolución</p>
+            <h2 id="evolution-table-heading" className="mt-1 text-lg font-bold text-[#1c382f]">Tabla comparativa</h2>
+            <p className="mt-1 text-sm text-[#74817d]">Valores registrados por consulta. No modifica el expediente.</p>
+          </div>
+        )}
         <label className="relative block w-full sm:w-64">
           <span className="sr-only">Buscar en la evolución</span>
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#74817d]" />

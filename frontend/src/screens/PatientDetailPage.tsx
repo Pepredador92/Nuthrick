@@ -76,7 +76,7 @@ import type {
   QuestionnaireSubmission,
 } from "@/src/types/domain";
 
-type HistoryTab = "consultations" | "plans" | "notes" | "evolution";
+type HistoryTab = "consultations" | "plans" | "notes";
 type ConfirmAction =
   "archive" | "delete" | "note-delete" | "consultation-delete";
 
@@ -373,7 +373,6 @@ function HistoryModal({
   tab,
   onTab,
   onClose,
-  patientId,
   consultations,
   selectedConsultationId,
   onSelectConsultation,
@@ -390,7 +389,6 @@ function HistoryModal({
   tab: HistoryTab;
   onTab: (tab: HistoryTab) => void;
   onClose: () => void;
-  patientId: string;
   consultations: Consultation[];
   selectedConsultationId: string | null;
   onSelectConsultation: (id: string) => void;
@@ -452,7 +450,6 @@ function HistoryModal({
               ["consultations", "Consultas"],
               ["plans", "Planes"],
               ["notes", "Notas"],
-              ["evolution", "Evolución"],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -679,19 +676,58 @@ function HistoryModal({
               </div>
             </div>
           )}
-          {tab === "evolution" && (
-            <PatientEvolutionTable
-              patientId={patientId}
-              currentConsultationId={selectedConsultationId}
-              onOpenConsultation={(consultationId) => {
-                const consultation = consultations.find((item) => item.id === consultationId);
-                if (!consultation) return;
-                onSelectConsultation(consultationId);
-                onClose();
-                onEditConsultation(consultation);
-              }}
-            />
-          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EvolutionModal({
+  patientId,
+  patientName,
+  consultations,
+  onClose,
+  onOpenConsultation,
+}: {
+  patientId: string;
+  patientName: string;
+  consultations: Consultation[];
+  onClose: () => void;
+  onOpenConsultation: (consultation: Consultation) => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-40 grid place-items-center bg-[#102d27]/45 p-0 sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="evolution-title"
+    >
+      <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white sm:h-[90vh] sm:max-w-7xl sm:rounded-[28px] sm:shadow-2xl">
+        <header className="flex items-center justify-between gap-4 border-b border-[#e3eae4] px-5 py-4 sm:px-7">
+          <div>
+            <p className="nuth-eyebrow">Seguimiento clínico</p>
+            <h2 id="evolution-title" className="mt-1 text-2xl font-semibold">
+              Evolución de {patientName}
+            </h2>
+          </div>
+          <button
+            type="button"
+            className="rounded-xl p-2 text-[#74817d] hover:bg-[#f3f7f3]"
+            onClick={onClose}
+            aria-label="Cerrar evolución"
+          >
+            <X size={20} />
+          </button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7">
+          <PatientEvolutionTable
+            patientId={patientId}
+            compactHeader
+            onOpenConsultation={(consultationId) => {
+              const consultation = consultations.find((item) => item.id === consultationId);
+              if (consultation) onOpenConsultation(consultation);
+            }}
+          />
         </div>
       </div>
     </div>
@@ -751,6 +787,7 @@ export function PatientDetailPage() {
   const [notice, setNotice] = useState("");
   const [editing, setEditing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [evolutionOpen, setEvolutionOpen] = useState(false);
   const [historyTab, setHistoryTab] = useState<HistoryTab>("consultations");
   const [selectedConsultationId, setSelectedConsultationId] = useState<
     string | null
@@ -1298,7 +1335,7 @@ export function PatientDetailPage() {
                 <button
                   type="button"
                   className="nuth-button-secondary !justify-center !px-3 !py-2.5 !text-xs"
-                  onClick={() => openHistory("evolution")}
+                  onClick={() => setEvolutionOpen(true)}
                 >
                   Evolución
                 </button>
@@ -1399,7 +1436,6 @@ export function PatientDetailPage() {
           tab={historyTab}
           onTab={setHistoryTab}
           onClose={() => setHistoryOpen(false)}
-          patientId={patient.id}
           consultations={consultations}
           selectedConsultationId={selectedConsultationId}
           onSelectConsultation={setSelectedConsultationId}
@@ -1418,6 +1454,18 @@ export function PatientDetailPage() {
           onDeleteConsultation={(consultation) =>
             setConfirm({ action: "consultation-delete", consultation })
           }
+        />
+      )}
+      {evolutionOpen && (
+        <EvolutionModal
+          patientId={patient.id}
+          patientName={patient.full_name}
+          consultations={consultations}
+          onClose={() => setEvolutionOpen(false)}
+          onOpenConsultation={(consultation) => {
+            setEvolutionOpen(false);
+            editConsultation(consultation);
+          }}
         />
       )}
       {confirm && (
