@@ -8,7 +8,6 @@ import {
   Edit3,
   FileText,
   LoaderCircle,
-  MessageCircle,
   Plus,
   RotateCcw,
   ShieldCheck,
@@ -39,21 +38,15 @@ import {
 } from "@/src/services/media";
 import {
   archivePatient,
-  assignPatientTag,
   createPatientNote,
-  createPatientTag,
   deletePatientNote,
   deletePatient,
   getPatient,
-  listMeasurements,
   listNutritionPlans,
-  listPatientAssignedTags,
   listPatientNotes,
-  listPatientTags,
   listProgressPhotos,
   listConsultations,
   registerProgressPhoto,
-  removePatientTag,
   restorePatient,
   updatePatient,
   updatePatientNote,
@@ -79,7 +72,6 @@ import type {
   PatientMeasurement,
   PatientNote,
   PatientProgressPhoto,
-  PatientTag,
   QuestionnaireResponse,
   QuestionnaireSubmission,
 } from "@/src/types/domain";
@@ -385,10 +377,8 @@ function HistoryModal({
   consultations,
   selectedConsultationId,
   onSelectConsultation,
-  measurements,
   plans,
   notes,
-  onNewConsultation,
   onCreateNote,
   onEditNote,
   onDeleteNote,
@@ -404,10 +394,8 @@ function HistoryModal({
   consultations: Consultation[];
   selectedConsultationId: string | null;
   onSelectConsultation: (id: string) => void;
-  measurements: PatientMeasurement[];
   plans: NutritionPlan[];
   notes: PatientNote[];
-  onNewConsultation: (event: FormEvent<HTMLFormElement>) => void;
   onCreateNote: (event: FormEvent<HTMLFormElement>) => void;
   onEditNote: (note: PatientNote) => void;
   onDeleteNote: (note: PatientNote) => void;
@@ -420,9 +408,6 @@ function HistoryModal({
     consultations.find((item) => item.id === selectedConsultationId) ??
     consultations[0] ??
     null;
-  const [measurementDetail, setMeasurementDetail] = useState<string | null>(
-    null,
-  );
   const [noteDraft, setNoteDraft] = useState("");
   const [editingNote, setEditingNote] = useState<PatientNote | null>(null);
   const beginEdit = (note: PatientNote) => {
@@ -532,19 +517,6 @@ function HistoryModal({
                     </p>
                   )}
                 </div>
-                <form
-                  className="mt-5 rounded-xl border border-[#dfe5e1] bg-[#fbfcfa] p-3"
-                  onSubmit={onNewConsultation}
-                >
-                  <p className="text-sm font-semibold">Nueva consulta</p>
-                  <p className="mt-1 text-xs text-[#74817d]">
-                    Elegirás el tipo y la duración en el siguiente paso.
-                  </p>
-                  <button className="nuth-button mt-3 w-full justify-center">
-                    <CalendarPlus size={15} />
-                    Elegir entrevista
-                  </button>
-                </form>
               </div>
               <ConsultationHistoryOverview
                 consultation={selectedConsultation}
@@ -553,108 +525,6 @@ function HistoryModal({
                 onExportPdf={onExportConsultationPdf}
                 onDelete={onDeleteConsultation}
               />
-            </div>
-          )}
-          {(tab as string) === "measurements" && (
-            <div className="space-y-5">
-              {measurements.length ? (
-                <div className="overflow-x-auto rounded-2xl border border-[#dfe5e1]">
-                  <table className="w-full min-w-[620px] text-left text-sm">
-                    <thead className="bg-[#f5f7f3] text-xs uppercase tracking-wide text-[#82908a]">
-                      <tr>
-                        <th className="px-4 py-3">Consulta</th>
-                        <th className="px-4 py-3">Fecha</th>
-                        <th className="px-4 py-3">Peso</th>
-                        <th className="px-4 py-3">IMC</th>
-                        <th className="px-4 py-3" />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#edf1ed]">
-                      {measurements.map((item) => (
-                        <tr key={item.id}>
-                          <td className="px-4 py-3">
-                            {consultations.find(
-                              (consultation) =>
-                                consultation.id === item.consultation_id,
-                            )
-                              ? consultationLabel(
-                                  consultations.find(
-                                    (consultation) =>
-                                      consultation.id === item.consultation_id,
-                                  )!,
-                                )
-                              : "Sin consulta"}
-                          </td>
-                          <td className="px-4 py-3">
-                            {formatPatientDate(item.measured_at)}
-                          </td>
-                          <td className="px-4 py-3">{item.weight_kg} kg</td>
-                          <td className="px-4 py-3 font-semibold text-[#285647]">
-                            {item.bmi}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <button
-                              type="button"
-                              className="text-xs font-semibold text-[#3d705d]"
-                              onClick={() =>
-                                setMeasurementDetail(
-                                  measurementDetail === item.id
-                                    ? null
-                                    : item.id,
-                                )
-                              }
-                            >
-                              {measurementDetail === item.id
-                                ? "Ocultar"
-                                : "Ver detalle"}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {measurementDetail && (
-                        <tr>
-                          <td
-                            colSpan={5}
-                            className="bg-[#fbfcfa] px-4 py-4 text-sm"
-                          >
-                            <strong>Valores capturados:</strong> peso{" "}
-                            {
-                              measurements.find(
-                                (item) => item.id === measurementDetail,
-                              )?.weight_kg
-                            }{" "}
-                            kg · estatura{" "}
-                            {
-                              measurements.find(
-                                (item) => item.id === measurementDetail,
-                              )?.height_cm
-                            }{" "}
-                            cm · fecha{" "}
-                            {formatPatientDate(
-                              measurements.find(
-                                (item) => item.id === measurementDetail,
-                              )?.measured_at,
-                            )}
-                            <br />
-                            <strong>Valor calculado:</strong> IMC{" "}
-                            {
-                              measurements.find(
-                                (item) => item.id === measurementDetail,
-                              )?.bmi
-                            }
-                            . No se aplican diagnósticos automáticos.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <EmptyState
-                  title="No hay mediciones registradas."
-                  description="Registra una medición para comenzar la evolución."
-                />
-              )}
             </div>
           )}
           {tab === "plans" && (
@@ -872,11 +742,9 @@ export function PatientDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [patient, setPatient] = useState<Patient | null>(null);
-  const [measurements, setMeasurements] = useState<PatientMeasurement[]>([]);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [notes, setNotes] = useState<PatientNote[]>([]);
   const [plans, setPlans] = useState<NutritionPlan[]>([]);
-  const [tags, setTags] = useState<PatientTag[]>([]);
   const [photos, setPhotos] = useState<PatientProgressPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -899,14 +767,11 @@ export function PatientDetailPage() {
     setLoading(true);
     setError("");
     try {
-      const [p, m, c, n, pl, allTags, assigned, ph] = await Promise.all([
+      const [p, c, n, pl, ph] = await Promise.all([
         getPatient(patientId),
-        listMeasurements(patientId),
         listConsultations(patientId),
         listPatientNotes(patientId),
         listNutritionPlans(patientId),
-        listPatientTags(),
-        listPatientAssignedTags(patientId),
         listProgressPhotos(patientId),
       ]);
       if (!p) {
@@ -916,12 +781,10 @@ export function PatientDetailPage() {
         );
         return;
       }
-      setPatient({ ...p, tags: assigned });
-      setMeasurements(m);
+      setPatient(p);
       setConsultations(c);
       setNotes(n);
       setPlans(pl);
-      setTags(allTags);
       setSelectedConsultationId((current) => current ?? c[0]?.id ?? null);
       setPhotos(
         await Promise.all(
@@ -965,7 +828,6 @@ export function PatientDetailPage() {
         </div>
       </div>
     );
-  const assigned = patient.tags ?? [];
   const age = calculateAge(patient.birth_date);
   const openHistory = (tab: HistoryTab = "consultations") => {
     setHistoryTab(tab);
@@ -1017,13 +879,9 @@ export function PatientDetailPage() {
           null) as Patient["equation_sex"],
         portal_access_enabled: Boolean(form.get("portal_access_enabled")),
       });
-      setPatient({ ...updated, tags: assigned });
+      setPatient(updated);
       setEditing(false);
     }, "Datos actualizados.");
-  };
-  const addConsultation = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    navigate(`/app/patients/${patient.id}/consultations/new`);
   };
   const editConsultation = (consultation: Consultation) => {
     navigate(`/app/patients/${patient.id}/consultations/${consultation.id}`);
@@ -1135,48 +993,6 @@ export function PatientDetailPage() {
       setNotes((current) => current.filter((item) => item.id !== id));
     }, "Nota eliminada.");
   };
-  const toggleTag = async (tag: PatientTag) => {
-    const has = assigned.some((item) => item.id === tag.id);
-    await run(
-      async () => {
-        if (has) await removePatientTag(patient.id, tag.id);
-        else await assignPatientTag(patient.id, tag.id);
-        setPatient((current) =>
-          current
-            ? {
-                ...current,
-                tags: has
-                  ? (current.tags ?? []).filter((item) => item.id !== tag.id)
-                  : [...(current.tags ?? []), tag],
-              }
-            : current,
-        );
-      },
-      has ? "Etiqueta quitada." : "Etiqueta agregada.",
-    );
-  };
-  const addTag = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const name = String(form.get("tag") || "").trim();
-    if (!name) return;
-    await run(async () => {
-      const existing = tags.find(
-        (tag) => tag.name.toLowerCase() === name.toLowerCase(),
-      );
-      const tag = existing ?? (await createPatientTag(name));
-      if (!existing) setTags((current) => [...current, tag]);
-      if (!assigned.some((item) => item.id === tag.id)) {
-        await assignPatientTag(patient.id, tag.id);
-        setPatient((current) =>
-          current
-            ? { ...current, tags: [...(current.tags ?? []), tag] }
-            : current,
-        );
-      }
-      event.currentTarget.reset();
-    }, "Etiqueta agregada.");
-  };
   const uploadPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
@@ -1214,7 +1030,7 @@ export function PatientDetailPage() {
       async () => {
         if (action === "archive") {
           const updated = await archivePatient(patient.id);
-          setPatient({ ...updated, tags: assigned });
+          setPatient(updated);
         } else {
           await deletePatient(patient.id);
           navigate("/app/patients");
@@ -1228,7 +1044,7 @@ export function PatientDetailPage() {
   const restore = async () => {
     await run(async () => {
       const updated = await restorePatient(patient.id);
-      setPatient({ ...updated, tags: assigned });
+      setPatient(updated);
     }, "Paciente restaurado.");
   };
   const genderLabel =
@@ -1275,21 +1091,11 @@ export function PatientDetailPage() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              className="nuth-button !bg-[#efbd6b] !text-[#173d36]"
-              onClick={() =>
-                navigate(`/app/patients/${patient.id}/consultations/new`)
-              }
-            >
-              <CalendarPlus size={16} />
-              Nueva consulta
-            </button>
-            <button
-              type="button"
               className="rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold"
               onClick={() => setEditing(true)}
             >
               <Edit3 size={16} />
-              Editar
+              Editar datos
             </button>
           </div>
         </div>
@@ -1465,47 +1271,14 @@ export function PatientDetailPage() {
             </dl>
           </section>
           <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5">
-            <h2 className="text-lg font-semibold">Etiquetas</h2>
-            <p className="mt-1 text-xs leading-5 text-[#74817d]">
-              Usa etiquetas para organizar y encontrar pacientes rápidamente.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {tags.map((tag) => (
-                <button
-                  type="button"
-                  key={tag.id}
-                  onClick={() => void toggleTag(tag)}
-                  className={
-                    assigned.some((item) => item.id === tag.id)
-                      ? "rounded-full bg-[#dcece1] px-3 py-1.5 text-xs font-semibold text-[#285647]"
-                      : "rounded-full bg-[#f3f5f2] px-3 py-1.5 text-xs font-semibold text-[#87938e]"
-                  }
-                >
-                  {assigned.some((item) => item.id === tag.id) ? "✓ " : ""}
-                  {tag.name}
-                </button>
-              ))}
-            </div>
-            <form className="mt-4 flex gap-2" onSubmit={addTag}>
-              <Input
-                name="tag"
-                aria-label="Nueva etiqueta"
-                placeholder="Nueva etiqueta"
-              />
-              <button
-                className="nuth-button !px-3"
-                aria-label="Agregar etiqueta"
-              >
-                <Plus size={16} />
-              </button>
-            </form>
-          </section>
-          <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5">
             <h2 className="text-lg font-semibold">Acciones</h2>
-            <div className="mt-4 grid gap-2">
+            <p className="mt-1 text-sm text-[#74817d]">
+              Lo esencial para continuar el seguimiento.
+            </p>
+            <div className="mt-4 grid gap-3">
               <button
                 type="button"
-                className="nuth-button-secondary justify-start"
+                className="nuth-button w-full justify-center"
                 onClick={() =>
                   navigate(`/app/patients/${patient.id}/consultations/new`)
                 }
@@ -1513,95 +1286,73 @@ export function PatientDetailPage() {
                 <CalendarPlus size={16} />
                 Nueva consulta
               </button>
-              <button
-                type="button"
-                className="nuth-button-secondary justify-start"
-                onClick={() => openHistory("consultations")}
-              >
-                <FileText size={16} />
-                Ver historial
-              </button>
-              <button
-                type="button"
-                className="nuth-button-secondary justify-start"
-                onClick={() =>
-                  setNotice("Mensajería estará disponible próximamente.")
-                }
-              >
-                <MessageCircle size={16} />
-                Enviar mensaje
-              </button>
-              <button
-                type="button"
-                className="nuth-button-secondary justify-start"
-                onClick={() =>
-                  setNotice("El calendario estará disponible próximamente.")
-                }
-              >
-                <CalendarPlus size={16} />
-                Ver calendario
-              </button>
-              {patient.status === "archived" ? (
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  className="nuth-button-secondary justify-start"
-                  onClick={() => void restore()}
+                  className="nuth-button-secondary !justify-center !px-3 !py-2.5 !text-xs"
+                  onClick={() => openHistory("consultations")}
                 >
-                  <RotateCcw size={16} />
-                  Restaurar paciente
+                  <FileText size={15} />
+                  Historial
                 </button>
-              ) : (
                 <button
                   type="button"
-                  className="nuth-button-secondary justify-start"
-                  onClick={() => setConfirm({ action: "archive" })}
+                  className="nuth-button-secondary !justify-center !px-3 !py-2.5 !text-xs"
+                  onClick={() => openHistory("evolution")}
                 >
-                  <Archive size={16} />
-                  Archivar paciente
+                  Evolución
                 </button>
-              )}
-              <button
-                type="button"
-                className="justify-start rounded-xl px-3 py-2 text-left text-sm font-semibold text-[#9b493a]"
-                onClick={() => setConfirm({ action: "delete" })}
-              >
-                <Trash2 size={16} />
-                Eliminar paciente
-              </button>
+              </div>
+              <details className="border-t border-[#edf1ed] pt-3">
+                <summary className="cursor-pointer text-xs font-semibold text-[#74817d] marker:text-[#82908a]">
+                  Administrar paciente
+                </summary>
+                <div className="mt-3 grid gap-2">
+                  {patient.status === "archived" ? (
+                    <button
+                      type="button"
+                      className="nuth-button-secondary justify-start"
+                      onClick={() => void restore()}
+                    >
+                      <RotateCcw size={16} />
+                      Restaurar paciente
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="nuth-button-secondary justify-start"
+                      onClick={() => setConfirm({ action: "archive" })}
+                    >
+                      <Archive size={16} />
+                      Archivar paciente
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="justify-start rounded-xl px-3 py-2 text-left text-sm font-semibold text-[#9b493a] hover:bg-[#fbe9e5]"
+                    onClick={() => setConfirm({ action: "delete" })}
+                  >
+                    <Trash2 size={16} />
+                    Eliminar paciente
+                  </button>
+                </div>
+              </details>
             </div>
           </section>
         </aside>
         <main className="min-w-0 space-y-5">
           <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-6">
-            <PatientEvolutionTable
-              patientId={patient.id}
-              onOpenConsultation={(consultationId) => {
-                const consultation = consultations.find((item) => item.id === consultationId);
-                if (consultation) editConsultation(consultation);
-              }}
-            />
-          </section>
-          <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-semibold">Consultas recientes</h2>
-                <p className="mt-1 text-sm text-[#74817d]">
-                  Una vista rápida de tu seguimiento.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="nuth-button-secondary"
-                onClick={() => openHistory("consultations")}
-              >
-                Ver historial
-              </button>
+            <div>
+              <h2 className="text-xl font-semibold">Consultas recientes</h2>
+              <p className="mt-1 text-sm text-[#74817d]">
+                Continúa donde te quedaste.
+              </p>
             </div>
             <RecentConsultations
               consultations={consultations}
               onOpen={(id) => {
-                setSelectedConsultationId(id);
-                openHistory("consultations");
+                const consultation = consultations.find((item) => item.id === id);
+                if (consultation) editConsultation(consultation);
               }}
             />
           </section>
@@ -1652,10 +1403,8 @@ export function PatientDetailPage() {
           consultations={consultations}
           selectedConsultationId={selectedConsultationId}
           onSelectConsultation={setSelectedConsultationId}
-          measurements={measurements}
           plans={plans}
           notes={notes}
-          onNewConsultation={addConsultation}
           onCreateNote={addNote}
           onEditNote={(note) => void editNote(note)}
           onDeleteNote={(note) => setConfirm({ action: "note-delete", note })}
