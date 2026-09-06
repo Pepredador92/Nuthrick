@@ -6,6 +6,7 @@ import {
   CalendarPlus,
   Check,
   Edit3,
+  FileDown,
   FileText,
   LoaderCircle,
   Plus,
@@ -23,6 +24,8 @@ import {
   SuccessNote,
 } from "@/src/components/ui/Status";
 import { PatientEvolutionTable } from "@/src/components/patients/PatientEvolutionTable";
+import { PatientEvolutionCharts } from "@/src/components/patients/EvolutionCharts";
+import { EvolutionExportDialog } from "@/src/components/patients/EvolutionExportDialog";
 import { useAuth } from "@/src/features/auth/AuthProvider";
 import {
   calculateAge,
@@ -687,12 +690,14 @@ function EvolutionModal({
   patientName,
   consultations,
   onClose,
+  onExport,
   onOpenConsultation,
 }: {
   patientId: string;
   patientName: string;
   consultations: Consultation[];
   onClose: () => void;
+  onExport: () => void;
   onOpenConsultation: (consultation: Consultation) => void;
 }) {
   return (
@@ -710,14 +715,20 @@ function EvolutionModal({
               Evolución de {patientName}
             </h2>
           </div>
-          <button
-            type="button"
-            className="rounded-xl p-2 text-[#74817d] hover:bg-[#f3f7f3]"
-            onClick={onClose}
-            aria-label="Cerrar evolución"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={onExport}>
+              <FileDown size={15} />
+              Exportar
+            </button>
+            <button
+              type="button"
+              className="rounded-xl p-2 text-[#74817d] hover:bg-[#f3f7f3]"
+              onClick={onClose}
+              aria-label="Cerrar evolución"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7">
           <PatientEvolutionTable
@@ -788,6 +799,7 @@ export function PatientDetailPage() {
   const [editing, setEditing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [evolutionOpen, setEvolutionOpen] = useState(false);
+  const [evolutionExportOpen, setEvolutionExportOpen] = useState(false);
   const [historyTab, setHistoryTab] = useState<HistoryTab>("consultations");
   const [selectedConsultationId, setSelectedConsultationId] = useState<
     string | null
@@ -1429,6 +1441,18 @@ export function PatientDetailPage() {
               <p className="mt-4 text-sm text-[#74817d]">Aún no hay fotos.</p>
             )}
           </section>
+          <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold">Evolución reciente</h2>
+                <p className="mt-1 text-sm text-[#74817d]">Una vista rápida de los indicadores con seguimiento.</p>
+              </div>
+              <button type="button" className="nuth-button-secondary" onClick={() => setEvolutionOpen(true)}>
+                Ver evolución
+              </button>
+            </div>
+            <div className="mt-5"><PatientEvolutionCharts patientId={patient.id} onOpenEvolution={() => setEvolutionOpen(true)} /></div>
+          </section>
         </main>
       </div>
       {historyOpen && (
@@ -1462,10 +1486,18 @@ export function PatientDetailPage() {
           patientName={patient.full_name}
           consultations={consultations}
           onClose={() => setEvolutionOpen(false)}
+          onExport={() => setEvolutionExportOpen(true)}
           onOpenConsultation={(consultation) => {
             setEvolutionOpen(false);
             editConsultation(consultation);
           }}
+        />
+      )}
+      {evolutionExportOpen && (
+        <EvolutionExportDialog
+          patient={patient}
+          onClose={() => setEvolutionExportOpen(false)}
+          getProfessionalInfo={professionalDocumentInfo}
         />
       )}
       {confirm && (
