@@ -25,6 +25,7 @@ import { PatientsPage } from "@/src/screens/PatientsPage";
 import { PatientDetailPage } from "@/src/screens/PatientDetailPage";
 import { ConsultationPage } from "@/src/screens/ConsultationPage";
 import { ConsultationTemplateEditorPage } from "@/src/screens/ConsultationTemplateEditorPage";
+import { DietWorkshopPage } from "@/src/screens/DietWorkshopPage";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -78,6 +79,8 @@ export function ClientApplication() {
                 path="consultation-templates/:consultationType"
                 element={<ConsultationTemplateEditorPage />}
               />
+              <Route path="diet-workshop" element={<DietWorkshopPage />} />
+              <Route path="diet-workshop/:dietPlanId" element={<DietWorkshopPage />} />
             </Route>
           </Route>
           <Route path="/p/:slug" element={<PublicProfilePage />} />

@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   LoaderCircle,
   Save,
+  Salad,
   SlidersHorizontal,
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -719,7 +720,7 @@ export function ConsultationPage() {
         </div>
       </header>
       <nav
-        className="mt-5 flex gap-2 border-b border-[#dfe5e1]"
+        className="mt-5 flex gap-2 overflow-x-auto border-b border-[#dfe5e1]"
         aria-label="Módulos de la consulta"
       >
         <button
@@ -774,6 +775,13 @@ export function ConsultationPage() {
         >
           Evolución
         </button>
+        <Link
+          to={`/app/diet-workshop?patientId=${patient.id}&consultationId=${consultation.id}`}
+          className="flex shrink-0 items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold text-[#66766f] hover:bg-white"
+        >
+          <Salad size={15} />
+          Taller de dietas
+        </Link>
       </nav>
       {module === "measurements" && (
         <div className="mt-6">

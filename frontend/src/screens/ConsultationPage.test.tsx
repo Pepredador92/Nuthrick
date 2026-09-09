@@ -183,6 +183,10 @@ describe("consultation save and review workflow", () => {
     expect(screen.getByRole("button", { name: "Mediciones" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Laboratorios" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Evolución" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Taller de dietas" })).toHaveAttribute(
+      "href",
+      "/app/diet-workshop?patientId=patient&consultationId=draft",
+    );
   });
 
   it("restores the exact section and unsaved answer after a remount", async () => {

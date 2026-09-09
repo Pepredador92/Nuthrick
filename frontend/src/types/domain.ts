@@ -349,14 +349,15 @@ export interface QuestionnaireResponse {
 export interface NutritionPlan {
   id: string;
   professional_id: string;
-  patient_id: string;
+  patient_id: string | null;
   consultation_id: string | null;
+  title: string;
   assigned_at: string;
   review_date: string | null;
   plan_type: string | null;
   category: string | null;
   target_calories: number | null;
-  status: "active" | "archived";
+  status: "draft" | "active" | "archived";
   created_at: string;
   updated_at: string;
 }

@@ -11,6 +11,7 @@ import {
   LoaderCircle,
   Plus,
   RotateCcw,
+  Salad,
   ShieldCheck,
   Trash2,
   X,
@@ -1335,6 +1336,18 @@ export function PatientDetailPage() {
                 <CalendarPlus size={16} />
                 Nueva consulta
               </button>
+              <div className="rounded-2xl border border-[#d9c49a] bg-[#fff9eb] p-4">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#173d36] text-[#efbd6b]"><Salad size={19} /></span>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-[#27493d]">Taller de dietas</p>
+                    <p className="mt-1 text-xs leading-5 text-[#75684e]">Calcula requerimientos y construye el plan nutricional del paciente.</p>
+                  </div>
+                </div>
+                <button type="button" className="mt-3 flex w-full items-center justify-center rounded-xl bg-[#173d36] px-3 py-2.5 text-sm font-semibold text-white" onClick={() => navigate(`/app/diet-workshop?patientId=${patient.id}`)}>
+                  Abrir taller
+                </button>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
