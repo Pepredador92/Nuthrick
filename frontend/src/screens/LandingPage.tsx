@@ -1,132 +1,133 @@
 import {
+  ArrowDown,
   ArrowRight,
+  Bell,
   CalendarDays,
   Check,
-  ChevronRight,
-  Clock3,
-  Globe2,
-  LayoutDashboard,
-  Link2,
-  LockKeyhole,
+  CheckCircle2,
+  ChevronDown,
+  Circle,
   Menu,
-  Sparkles,
-  UserRound,
-} from 'lucide-react';
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Logo } from '@/src/components/ui/Logo';
+  MessageCircle,
+  Send,
+  X,
+} from "lucide-react";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Logo } from "@/src/components/ui/Logo";
+import { individualPlans } from "@/src/config/marketing";
 
-const benefits = [
-  { icon: Clock3, title: 'Recupera tiempo', text: 'Un espacio claro para la información de tu práctica, sin hojas dispersas.' },
-  { icon: Globe2, title: 'Comparte tu perfil', text: 'Presenta tus servicios desde una página pública profesional y fácil de compartir.' },
-  { icon: LockKeyhole, title: 'Privacidad desde el origen', text: 'Tus datos quedan aislados por cuenta mediante políticas de seguridad en la base de datos.' },
+const navigation = [
+  { label: "Cómo funciona", href: "#como-funciona" },
+  { label: "Nuthrick AI", href: "#nuthrick-ai" },
+  { label: "Para tu consulta", href: "#para-tu-consulta" },
+  { label: "Precios", href: "#precios" },
 ];
 
-const features = [
-  { icon: UserRound, title: 'Perfil profesional', text: 'Biografía, especialidades, formación, establecimiento y enlaces, todo en un mismo lugar.', accent: 'bg-[#edf4ef] text-[#487563]' },
-  { icon: Link2, title: 'Página pública', text: 'Un enlace propio para mostrar sólo la información que tú decidas publicar.', accent: 'bg-[#fdf0e5] text-[#a96534]' },
-  { icon: CalendarDays, title: 'Disponibilidad', text: 'Configura duración, zona horaria y rangos semanales sin horarios superpuestos.', accent: 'bg-[#f7f0dc] text-[#95742e]' },
-  { icon: LayoutDashboard, title: 'Una base para crecer', text: 'Arquitectura preparada para pacientes, consultas y agenda en las siguientes etapas.', accent: 'bg-[#eaf0f4] text-[#476875]' },
-];
+const tricks = [
+  ["01", "Captura una vez", "La información acompaña al paciente durante todo su proceso."],
+  ["02", "Calcula sin detenerte", "Nuthrick resuelve el trabajo mecánico mientras tú continúas la consulta."],
+  ["03", "No empieces desde cero", "El contexto existente prepara el siguiente paso."],
+  ["04", "Entrega cuando terminas", "El cierre de consulta se vuelve un verdadero momento de entrega."],
+  ["05", "Deja andando lo siguiente", "Agenda, seguimiento y comunicación continúan después."],
+] as const;
 
-const questions = [
-  ['¿Nuthrick tiene costo?', 'No en esta primera etapa. La plataforma comienza gratuita y no te pedirá una tarjeta para crear tu cuenta.'],
-  ['¿Mis datos están separados de los de otros profesionales?', 'Sí. Además de los controles en la aplicación, la base de datos aplica Row Level Security para que cada cuenta acceda únicamente a sus registros.'],
-  ['¿Ya incluye pacientes y agenda?', 'Todavía no. Esta versión se concentra en tu cuenta, onboarding, perfil profesional, disponibilidad y página pública.'],
-  ['¿Puedo iniciar con Google?', 'Sí. Puedes registrarte con Google —el método recomendado— o usar email y contraseña.'],
-];
+function SectionHeading({ eyebrow, title, description, inverse = false }: { eyebrow?: string; title: React.ReactNode; description?: string; inverse?: boolean }) {
+  return <div>
+    {eyebrow && <p className={`text-xs font-bold uppercase tracking-[.16em] ${inverse ? "text-[#efbd6b]" : "text-[#477363]"}`}>{eyebrow}</p>}
+    <h2 className={`mt-4 text-balance text-4xl font-semibold leading-[1.05] tracking-[-.05em] sm:text-5xl lg:text-6xl ${inverse ? "text-white" : "text-[#17312c]"}`}>{title}</h2>
+    {description && <p className={`mt-6 max-w-2xl text-pretty text-lg leading-8 ${inverse ? "text-white/68" : "text-[#65746f]"}`}>{description}</p>}
+  </div>;
+}
 
-function ProductMockup() {
-  return (
-    <div className="relative mx-auto w-full max-w-[620px]" aria-label="Vista previa del dashboard de Nuthrick">
-      <div className="absolute -left-14 -top-16 h-52 w-52 rounded-full bg-[#f4c985]/35 blur-3xl" />
-      <div className="absolute -bottom-12 -right-10 h-60 w-60 rounded-full bg-[#80b9a8]/30 blur-3xl" />
-      <div className="relative rounded-[30px] border border-white/80 bg-white/85 p-3 shadow-[0_30px_90px_rgba(37,68,58,.16)] backdrop-blur">
-        <div className="overflow-hidden rounded-[22px] border border-[#e4e9e5] bg-[#fbfcfa]">
-          <div className="flex h-11 items-center gap-2 border-b border-[#e5eae6] px-4">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#e9a0a0]" /><span className="h-2.5 w-2.5 rounded-full bg-[#efd38d]" /><span className="h-2.5 w-2.5 rounded-full bg-[#93c8a7]" />
-            <span className="ml-3 h-5 w-36 rounded-md bg-[#eef1ed]" />
-          </div>
-          <div className="grid min-h-[390px] grid-cols-[72px_1fr] sm:grid-cols-[155px_1fr]">
-            <aside className="border-r border-[#e7ebe7] bg-[#f5f7f3] p-4">
-              <div className="mb-8 flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-xl bg-[#173d36] text-xs font-bold text-white">N</span><span className="hidden text-xs font-semibold sm:block">Nuthrick</span></div>
-              <div className="space-y-3">
-                {['Inicio', 'Perfil', 'Pacientes', 'Agenda'].map((item, index) => (
-                  <div key={item} className={`flex h-9 items-center gap-2 rounded-lg px-2 ${index === 0 ? 'bg-white text-[#173d36] shadow-sm' : 'text-[#8a9691]'}`}>
-                    <span className={`h-4 w-4 rounded ${index === 0 ? 'bg-[#6da18f]' : 'bg-[#dce2de]'}`} /><span className="hidden text-[11px] font-medium sm:block">{item}</span>
-                  </div>
-                ))}
-              </div>
-            </aside>
-            <div className="p-5 sm:p-7">
-              <div className="flex items-start justify-between"><div><p className="text-[10px] font-medium uppercase tracking-widest text-[#8b9792]">Tu espacio profesional</p><h2 className="mt-1 text-lg font-semibold">Hola, Susy</h2></div><div className="h-9 w-9 rounded-full bg-[#e6b782]" /></div>
-              <div className="mt-7 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl bg-[#183f37] p-4 text-white"><p className="text-[10px] text-white/60">Tu perfil</p><p className="mt-4 text-lg font-semibold">En progreso</p><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/15"><div className="h-full w-2/3 bg-[#efbd6b]" /></div></div>
-                <div className="rounded-2xl border border-[#e2e7e3] bg-white p-4"><p className="text-[10px] text-[#7f8d88]">Página pública</p><p className="mt-4 text-sm font-semibold">Lista para compartir</p><span className="mt-3 inline-block rounded-lg bg-[#edf4ef] px-2 py-1 text-[9px] text-[#497363]">Ver página →</span></div>
-              </div>
-              <div className="mt-4 rounded-2xl border border-[#e2e7e3] bg-white p-4">
-                <div className="flex items-center justify-between"><p className="text-xs font-semibold">Próximos pasos</p><span className="text-[9px] text-[#83908b]">Personaliza tu espacio</span></div>
-                <div className="mt-4 space-y-3">{['Completa tus enlaces', 'Configura tu disponibilidad'].map((label, index) => <div key={label} className="flex items-center gap-3 text-[10px] text-[#5b6964]"><span className={`h-7 w-7 rounded-lg ${index ? 'bg-[#79aa98]' : 'bg-[#e5b36a]'}`} /><span>{label}</span></div>)}</div>
-              </div>
-            </div>
-          </div>
-        </div>
+function SoonBadge() {
+  return <span className="inline-flex rounded-full border border-[#d7e4dc] bg-[#f5faf6] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#497363]">Próximamente</span>;
+}
+
+function WindowFrame({ children, label }: { children: React.ReactNode; label: string }) {
+  return <div className="rounded-[28px] border border-white/80 bg-white/85 p-2.5 shadow-[0_30px_80px_rgba(23,61,54,.13)] backdrop-blur">
+    <div className="overflow-hidden rounded-[21px] border border-[#e0e7e2] bg-[#fbfcfa]">
+      <div className="flex h-10 items-center gap-1.5 border-b border-[#e5ebe6] px-4" aria-label={label}>
+        <span className="h-2 w-2 rounded-full bg-[#e5a0a0]" /><span className="h-2 w-2 rounded-full bg-[#efd38d]" /><span className="h-2 w-2 rounded-full bg-[#90c6a4]" />
+        <span className="ml-3 h-4 w-32 rounded bg-[#edf1ed]" />
       </div>
+      {children}
     </div>
-  );
+  </div>;
+}
+
+function HeroProductMockup() {
+  const appointments = [
+    ["10:00", "Mariana López", "Seguimiento", "bg-[#e9f4ed] text-[#356653]"],
+    ["12:30", "Carlos Hernández", "Primera consulta", "bg-[#fff2df] text-[#975d2e]"],
+    ["16:00", "Daniela Ruiz", "Seguimiento", "bg-[#eef2f0] text-[#53655d]"],
+  ];
+  return <div className="relative mx-auto w-full max-w-[650px]" aria-label="Vista conceptual de la agenda y pendientes de Nuthrick">
+    <div className="absolute -left-12 top-4 h-48 w-48 rounded-full bg-[#efbd6b]/30 blur-3xl" />
+    <div className="absolute -bottom-14 -right-5 h-56 w-56 rounded-full bg-[#78a996]/25 blur-3xl" />
+    <div className="relative"><WindowFrame label="Panel de inicio de Nuthrick"><div className="grid min-h-[430px] grid-cols-[58px_1fr] sm:grid-cols-[146px_1fr]">
+      <aside className="border-r border-[#e4e9e5] bg-[#f5f7f4] p-3 sm:p-4"><div className="grid h-8 w-8 place-items-center rounded-xl bg-[#173d36] text-xs font-bold text-white">N</div><div className="mt-8 space-y-3">{["Inicio", "Pacientes", "Consultas", "Agenda"].map((item, index) => <div key={item} className={`flex h-8 items-center rounded-lg px-2 text-[10px] font-medium ${index === 0 ? "bg-white text-[#24483d] shadow-sm" : "text-[#94a09b]"}`}><span className={`mr-2 h-3 w-3 rounded ${index === 0 ? "bg-[#72a48e]" : "bg-[#dbe2dd]"}`} /><span className="hidden sm:block">{item}</span></div>)}</div></aside>
+      <div className="p-5 sm:p-7"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[.15em] text-[#84918b]">Martes, 9 de septiembre</p><h3 className="mt-2 text-xl font-semibold tracking-[-.04em] text-[#173d36]">Buenos días, Andrea</h3></div><div className="grid h-9 w-9 place-items-center rounded-full bg-[#ebbb7c] text-[10px] font-bold text-[#674018]">AR</div></div>
+        <div className="mt-6 grid gap-3 lg:grid-cols-[1.1fr_.9fr]"><section className="rounded-2xl border border-[#e2e8e3] bg-white p-4"><div className="flex items-center justify-between"><p className="text-xs font-semibold text-[#28493f]">Hoy</p><CalendarDays size={14} className="text-[#6d887c]" /></div><div className="mt-3 space-y-2">{appointments.map(([time, patient, type, tone]) => <div key={time} className="flex items-center gap-2.5"><span className="w-8 text-[10px] font-semibold text-[#6c7973]">{time}</span><span className={`min-w-0 flex-1 rounded-xl px-2.5 py-2 ${tone}`}><strong className="block truncate text-[10px]">{patient}</strong><span className="block truncate text-[9px] opacity-75">{type}</span></span></div>)}</div></section><section className="rounded-2xl bg-[#173d36] p-4 text-white"><div className="flex items-center justify-between"><p className="text-xs font-semibold">Pendientes</p><span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px]">4</span></div><div className="mt-4 space-y-3 text-[10px] text-white/78">{["Evaluación de Mariana completa", "Revisar borrador de Carlos", "Daniela respondió al seguimiento", "1 indicación por entregar"].map((item, index) => <p key={item} className="flex gap-2"><span className={index === 0 ? "text-[#edbf6d]" : "text-white/50"}>{index === 0 ? "✓" : "○"}</span>{item}</p>)}</div></section></div>
+        <div className="mt-3 rounded-2xl border border-[#e3e9e4] bg-[#f7faf7] px-4 py-3"><p className="text-[10px] text-[#5d7167]"><strong className="text-[#294c40]">Tu consultorio, en movimiento.</strong> La información de cada consulta sigue trabajando contigo.</p></div>
+      </div>
+    </div></WindowFrame></div>
+  </div>;
+}
+
+function SecondShiftVisual() {
+  const during = ["Entrevista", "Mediciones", "Evaluación"];
+  const after = ["Cálculos", "Diagnóstico", "Tratamiento", "Plan", "Indicaciones", "PDF", "Seguimiento"];
+  return <div className="grid gap-4 sm:grid-cols-2"><article className="rounded-[26px] border border-[#cde0d4] bg-[#f4faf5] p-6"><p className="text-xs font-bold uppercase tracking-[.14em] text-[#477363]">Durante la consulta</p><div className="mt-6 space-y-3">{during.map((item) => <p key={item} className="flex items-center gap-3 text-sm font-semibold text-[#284d40]"><CheckCircle2 size={18} className="text-[#4d876d]" />{item}</p>)}</div></article><article className="rounded-[26px] border border-[#eadcc8] bg-[#fffaf2] p-6"><p className="text-xs font-bold uppercase tracking-[.14em] text-[#9a6a37]">Cuando el paciente ya se fue</p><div className="mt-6 grid grid-cols-2 gap-x-3 gap-y-3">{after.map((item) => <p key={item} className="flex items-center gap-2 text-sm text-[#6f6558]"><Circle size={13} />{item}</p>)}</div></article></div>;
+}
+
+function FlowVisual() {
+  const steps = [["Consulta", "Entrevista, antecedentes, alimentación y mediciones."], ["Resuelve", "Resultados, cálculos, borradores y decisiones."], ["Entrega", "Indicaciones, objetivos y documentos aprobados."], ["Sigue", "Citas, comunicación y seguimiento."]];
+  return <div className="relative mt-14 grid gap-4 md:grid-cols-4">{steps.map(([title, text], index) => <article key={title} className="relative rounded-[26px] border border-[#dde6e0] bg-white p-6 shadow-[0_14px_35px_rgba(24,61,53,.05)]"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e9f3ec] text-sm font-bold text-[#3e735f]">0{index + 1}</span><h3 className="mt-7 text-xl font-semibold tracking-[-.03em]">{title}</h3><p className="mt-3 text-sm leading-6 text-[#6a7873]">{text}</p>{index < steps.length - 1 && <ArrowRight aria-hidden="true" className="absolute -right-7 top-1/2 z-10 hidden -translate-y-1/2 text-[#82a493] md:block" size={22} />}</article>)}</div>;
+}
+
+function DeliveryMockup() {
+  return <WindowFrame label="Consulta lista para cerrar"><div className="grid min-h-[365px] md:grid-cols-[.9fr_1.1fr]"><div className="bg-[#f4f7f3] p-6 sm:p-8"><p className="text-xs font-bold uppercase tracking-[.15em] text-[#55766a]">Consulta de Mariana López</p><h3 className="mt-3 text-2xl font-semibold tracking-[-.04em] text-[#173d36]">Lista para cerrar</h3><div className="mt-7 rounded-2xl bg-white p-4"><div className="flex items-end justify-between"><p className="text-sm font-semibold">6 de 6 etapas</p><span className="text-xs font-semibold text-[#40795f]">Completadas</span></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-[#e5ece6]"><div className="h-full w-full rounded-full bg-[#579277]" /></div></div><button type="button" className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#173d36] px-4 py-3 text-sm font-bold text-white"><Send size={15} />Entregar al paciente</button></div><div className="p-6 sm:p-8"><div className="rounded-2xl border border-[#dce7df] bg-white p-5"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-full bg-[#e6f4ea] text-[#438263]"><Check size={19} /></span><div><p className="text-sm font-semibold text-[#24483b]">Enviado correctamente</p><p className="mt-0.5 text-xs text-[#718078]">Material aprobado para Mariana López</p></div></div><div className="mt-5 space-y-2.5">{["Indicaciones", "Objetivos", "Documento de consulta", "Próxima cita"].map((item) => <p key={item} className="flex items-center justify-between rounded-xl bg-[#f7faf7] px-3 py-2 text-xs text-[#52655c]"><span>{item}</span><Check size={14} className="text-[#4f8b69]" /></p>)}</div></div><p className="mt-5 text-sm leading-6 text-[#5f7169]">Un cierre claro para el paciente y la certeza de que el trabajo aprobado ya llegó.</p></div></div></WindowFrame>;
+}
+
+function AIContextVisual() {
+  const context = ["Entrevista", "Antropometría", "Recordatorio 24 h", "Laboratorios", "Evolución", "Objetivos"];
+  return <div className="rounded-[28px] border border-white/15 bg-white/[.06] p-5 sm:p-7"><div className="grid items-center gap-4 sm:grid-cols-[1fr_auto_1fr]"><div className="grid gap-2">{context.map((item) => <span key={item} className="rounded-xl border border-white/10 bg-white/[.07] px-3 py-2.5 text-sm text-white/82">{item}</span>)}</div><ArrowRight className="mx-auto rotate-90 text-[#efbd6b] sm:rotate-0" aria-hidden="true" /><div className="rounded-[22px] bg-[#f5bb65] p-5 text-[#17312c]"><p className="text-xs font-bold uppercase tracking-[.14em] text-[#745022]">Nuthrick prepara</p><p className="mt-8 text-xl font-semibold tracking-[-.03em]">Borrador listo para tu revisión.</p><div className="mt-6 rounded-xl bg-white/60 p-3 text-xs leading-5 text-[#5b4c38]">Mantienes el contexto, revisas la propuesta y decides qué se convierte en parte de la atención.</div></div></div></div>;
+}
+
+function RecallMockup() {
+  return <div className="rounded-[28px] border border-[#dfe7e1] bg-white p-5 shadow-[0_18px_45px_rgba(23,61,54,.06)] sm:p-7"><div className="flex items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-[#4c7766]">Recordatorio de 24 h</p><p className="mt-2 text-lg font-semibold text-[#173d36]">Mariana López</p></div><SoonBadge /></div><div className="mt-6 rounded-2xl bg-[#f5f7f4] p-4 text-sm leading-7 text-[#53655e]">“Desayuné dos huevos, cuatro tortillas, frijoles y café con azúcar…”</div><div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">{[["Energía", "428 kcal"], ["Proteína", "22 g"], ["Carbohidratos", "51 g"], ["Lípidos", "17 g"], ["Fibra", "9 g"]].map(([label, value]) => <div key={label} className="rounded-xl border border-[#e4ebe6] p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-[#89958f]">{label}</p><p className="mt-2 text-sm font-semibold text-[#29493e]">{value}</p></div>)}</div><p className="mt-5 flex items-center gap-2 text-xs font-semibold text-[#a36c30]"><Circle size={12} fill="currentColor" />2 elementos por confirmar</p></div>;
+}
+
+function CalculationsMockup() {
+  const cards = [["IMC", "22.4", "kg/m²", "#4e846b"], ["Relación cintura/talla", "0.46", "razón", "#b37537"], ["Grasa corporal", "28.1", "%", "#69799b"]];
+  return <div className="rounded-[28px] border border-[#dbe5df] bg-white p-5 shadow-[0_18px_45px_rgba(23,61,54,.06)] sm:p-7"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-[#4c7766]">Resultados de Mariana López</p><p className="mt-2 text-lg font-semibold text-[#173d36]">Listos cuando los necesitas</p></div><span className="rounded-full bg-[#edf5ef] px-3 py-1.5 text-xs font-semibold text-[#41775f]">Consulta 09 sep 2026</span></div><div className="mt-6 grid gap-3 sm:grid-cols-3">{cards.map(([name, value, unit, color]) => <article key={name} className="rounded-2xl border border-[#e3eae5] p-4"><p className="text-xs font-semibold text-[#66776f]">{name}</p><p className="mt-6 text-3xl font-semibold tracking-[-.05em]" style={{ color }}><span>{value}</span><small className="ml-1 text-xs font-medium text-[#89958f]">{unit}</small></p><p className="mt-5 text-[10px] text-[#7f8c86]">Procedencia disponible · comparar evolución</p></article>)}</div><div className="mt-4 flex items-center justify-between rounded-2xl bg-[#f4f7f4] px-4 py-3 text-xs"><span className="font-semibold text-[#385c4e]">Mifflin–St Jeor · v1.0.0</span><span className="text-[#718078]">Datos conectados, sin volver a capturar</span></div></div>;
+}
+
+function FollowUpMockup() {
+  return <div className="grid gap-4 sm:grid-cols-[1fr_.85fr]"><article className="rounded-[28px] bg-[#173d36] p-6 text-white"><div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-[#efbd6b]">Nuthrick</p><p className="mt-2 font-semibold">Mariana López · Seguimiento</p></div><SoonBadge /></div><div className="mt-7 rounded-2xl bg-white/10 p-4 text-sm leading-6 text-white/84">“¿Cómo te fue esta semana con el objetivo que acordamos?”</div><div className="mt-4 flex items-center gap-2 text-xs text-white/60"><Bell size={14} />Recordatorio preparado para revisión</div></article><article className="rounded-[28px] border border-[#dfe7e1] bg-white p-6"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-full bg-[#d8f4dd] text-[#21874c]"><MessageCircle size={20} /></span><div><p className="text-sm font-semibold text-[#29473d]">Paciente</p><p className="text-xs text-[#718078]">Canal de comunicación</p></div></div><div className="mt-7 rounded-2xl bg-[#e8f7eb] p-4 text-sm leading-6 text-[#355f42]">“Me funcionó muy bien preparar mis colaciones desde antes.”</div></article></div>;
+}
+
+function LandingHeader() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  return <header className="sticky top-0 z-50 border-b border-transparent bg-[#f7f8f4]/88 backdrop-blur-xl"><div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8 lg:px-12"><Logo /><nav className="hidden items-center gap-7 text-sm font-semibold text-[#52645d] lg:flex" aria-label="Navegación principal">{navigation.map((item) => <a key={item.href} href={item.href} className="hover:text-[#173d36]">{item.label}</a>)}</nav><div className="hidden items-center gap-2 sm:flex"><Link to="/login" className="rounded-xl px-4 py-2.5 text-sm font-semibold text-[#27483e] hover:bg-white">Iniciar sesión</Link><Link to="/register" className="nuth-button !rounded-xl !px-4 !py-2.5">Comenzar con Nuthrick</Link></div><button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-[#d9e0dc] text-[#24483b] sm:hidden" aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"} aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}>{menuOpen ? <X size={18} /> : <Menu size={19} />}</button></div>{menuOpen && <div className="border-t border-[#e1e7e2] bg-[#fbfcfa] px-5 py-4 shadow-xl sm:hidden"><nav className="mx-auto grid max-w-7xl gap-1" aria-label="Navegación móvil">{navigation.map((item) => <a key={item.href} href={item.href} className="rounded-xl px-3 py-3 font-semibold text-[#36584b] hover:bg-white" onClick={() => setMenuOpen(false)}>{item.label}</a>)}<Link to="/login" className="rounded-xl px-3 py-3 font-semibold text-[#36584b]" onClick={() => setMenuOpen(false)}>Iniciar sesión</Link><Link to="/register" className="nuth-button mt-2 justify-center" onClick={() => setMenuOpen(false)}>Comenzar con Nuthrick</Link></nav></div>}</header>;
 }
 
 export function LandingPage() {
-  const [menuOpen, setMenuOpen] = useState(false);
-  return (
-    <main className="overflow-hidden bg-[#f7f8f4] text-[#17312c]">
-      <header className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-12">
-        <Logo />
-        <nav className="hidden items-center gap-8 text-sm font-medium text-[#53645f] md:flex" aria-label="Navegación principal"><a href="#funciones">Características</a><a href="#como-funciona">Cómo funciona</a><a href="#preguntas">Preguntas frecuentes</a></nav>
-        <div className="hidden items-center gap-3 sm:flex"><Link to="/login" className="rounded-xl px-4 py-2 text-sm font-semibold">Iniciar sesión</Link><Link to="/register" className="nuth-button">Crear cuenta</Link></div>
-        <button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-[#d9e0dc] sm:hidden" aria-label="Abrir menú" aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}><Menu size={19} /></button>
-        {menuOpen && <div className="absolute inset-x-5 top-17 rounded-2xl border border-[#dfe5e1] bg-white p-4 shadow-xl sm:hidden"><nav className="grid gap-2"><a href="#funciones" className="p-2" onClick={() => setMenuOpen(false)}>Características</a><a href="#como-funciona" className="p-2" onClick={() => setMenuOpen(false)}>Cómo funciona</a><Link to="/login" className="p-2">Iniciar sesión</Link><Link to="/register" className="nuth-button mt-2 text-center">Crear cuenta</Link></nav></div>}
-      </header>
-
-      <section className="mx-auto grid max-w-7xl items-center gap-14 px-5 pb-24 pt-14 sm:px-8 lg:grid-cols-[1.02fr_.98fr] lg:px-12 lg:pb-32 lg:pt-20">
-        <div>
-          <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#d7e0d9] bg-white px-3 py-1.5 text-xs font-semibold text-[#52645f]"><Sparkles size={13} className="text-[#c77d3c]" />Tu práctica nutricional, en un solo lugar</div>
-          <h1 className="max-w-2xl text-balance text-5xl font-semibold leading-[1.04] tracking-[-0.05em] sm:text-6xl lg:text-7xl">Más tiempo para tus pacientes. <span className="text-[#c77d3c]">Menos para administrar.</span></h1>
-          <p className="mt-7 max-w-xl text-pretty text-lg leading-8 text-[#62716d]">Nuthrick reúne tu perfil profesional y las bases de tu consulta en una experiencia clara, segura y hecha para nutriólogos.</p>
-          <div className="mt-9 flex flex-col gap-3 sm:flex-row"><Link to="/register" className="nuth-button justify-center px-6 py-3.5">Crear cuenta<ArrowRight size={17} /></Link><a href="#funciones" className="nuth-button-secondary justify-center px-6 py-3.5">Conocer Nuthrick</a></div>
-          <p className="mt-4 flex items-center gap-2 text-xs text-[#73817d]"><Check size={14} />Acompañans en esta primera etapa</p>
-        </div>
-        <ProductMockup />
-      </section>
-
-      <section className="border-y border-[#e1e7e2] bg-white py-20 sm:py-24">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12">
-          <div className="mx-auto max-w-2xl text-center"><p className="nuth-eyebrow">Pensado para tu día a día</p><h2 className="nuth-heading mt-4">Una práctica más ordenada comienza con una base sencilla</h2></div>
-          <div className="mt-14 grid gap-5 md:grid-cols-3">{benefits.map(({ icon: Icon, title, text }) => <article key={title} className="rounded-[26px] border border-[#e1e6e2] bg-[#fbfcf9] p-7"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#e9f1ec] text-[#3e705f]"><Icon size={22} /></span><h3 className="mt-6 text-xl font-semibold">{title}</h3><p className="mt-3 leading-7 text-[#687672]">{text}</p></article>)}</div>
-        </div>
-      </section>
-
-      <section id="funciones" className="py-24 sm:py-32">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12">
-          <div className="grid items-end gap-8 lg:grid-cols-2"><div><p className="nuth-eyebrow">Funciones esenciales</p><h2 className="nuth-heading mt-4 max-w-xl">Todo lo necesario para presentar y organizar tu práctica</h2></div><p className="max-w-xl text-lg leading-8 text-[#687672] lg:justify-self-end">Esta primera versión se enfoca en los fundamentos: tu identidad, tu información profesional y la seguridad que deberá sostener cada módulo futuro.</p></div>
-          <div className="mt-14 grid gap-5 sm:grid-cols-2">{features.map(({ icon: Icon, title, text, accent }) => <article key={title} className="group rounded-[28px] border border-[#dde4df] bg-white p-7 transition hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(24,61,53,.08)] sm:p-8"><div className="flex items-start justify-between"><span className={`grid h-12 w-12 place-items-center rounded-2xl ${accent}`}><Icon size={22} /></span><ChevronRight className="text-[#9ba7a2] transition group-hover:translate-x-1" size={20} /></div><h3 className="mt-8 text-xl font-semibold">{title}</h3><p className="mt-3 max-w-lg leading-7 text-[#687672]">{text}</p></article>)}</div>
-        </div>
-      </section>
-
-      <section className="bg-[#173d36] py-24 text-white sm:py-32">
-        <div className="mx-auto grid max-w-7xl items-center gap-14 px-5 sm:px-8 lg:grid-cols-[.92fr_1.08fr] lg:px-12">
-          <div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#f1bd6a]">Tu perfil, con tu identidad</p><h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-.04em] sm:text-5xl">Una página profesional lista para compartir</h2><p className="mt-6 max-w-lg text-lg leading-8 text-white/65">Publica únicamente lo que elijas: especialidades, educación, modalidades, enlaces, galería y establecimiento.</p><div className="mt-8 space-y-3">{['Slug único y amigable', 'Diseño adaptable a cualquier pantalla', 'Datos públicos separados de los privados'].map((item) => <p key={item} className="flex items-center gap-3 text-sm"><span className="grid h-6 w-6 place-items-center rounded-full bg-white/10"><Check size={14} /></span>{item}</p>)}</div></div>
-          <div className="relative"><div className="absolute inset-10 rounded-full bg-[#efb356]/20 blur-3xl" /><div className="relative mx-auto max-w-lg rounded-[32px] bg-[#f8f5ed] p-5 text-[#17312c] shadow-2xl"><div className="rounded-[24px] bg-white p-7 sm:p-9"><div className="flex flex-col items-center text-center"><div className="grid h-24 w-24 place-items-center rounded-full bg-[#e8b779] text-2xl font-semibold">SO</div><span className="mt-5 rounded-full bg-[#edf4ef] px-3 py-1 text-xs font-semibold text-[#4c7566]">Nutrióloga</span><h3 className="mt-3 text-2xl font-semibold">Susy Olmedo</h3><p className="mt-2 text-sm text-[#73807c]">Nutrición clínica · Consulta en línea</p></div><p className="mt-7 border-t border-[#edf0ed] pt-6 text-center text-sm leading-6 text-[#65736e]">Acompañamiento nutricional cercano, práctico y basado en tus objetivos.</p><div className="mt-6 flex justify-center gap-2">{['Diabetes', 'Salud digestiva', 'Adultos'].map((tag) => <span key={tag} className="rounded-full bg-[#f4f5f1] px-3 py-1.5 text-[11px]">{tag}</span>)}</div><button disabled className="mt-7 w-full rounded-xl bg-[#d9dfdb] py-3 text-sm font-semibold text-[#7d8984]">Agendar — Próximamente</button></div></div></div>
-        </div>
-      </section>
-
-      <section id="como-funciona" className="py-24 sm:py-32"><div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12"><div className="mx-auto max-w-2xl text-center"><p className="nuth-eyebrow">Cómo funciona</p><h2 className="nuth-heading mt-4">Empieza en tres pasos sencillos</h2></div><div className="mt-16 grid gap-8 md:grid-cols-3">{[['01', 'Crea tu cuenta', 'Regístrate con Google o con tu email y contraseña.'], ['02', 'Configura tu perfil', 'Completa los datos esenciales y personaliza lo que mostrarás.'], ['03', 'Comparte tu página', 'Activa tu perfil público y usa tu enlace en redes o con pacientes.']].map(([number, title, text]) => <article key={number} className="relative"><span className="text-6xl font-semibold tracking-[-.06em] text-[#dfe7e1]">{number}</span><h3 className="mt-4 text-xl font-semibold">{title}</h3><p className="mt-3 max-w-xs leading-7 text-[#687672]">{text}</p></article>)}</div></div></section>
-
-      <section id="preguntas" className="border-y border-[#e0e6e1] bg-white py-24"><div className="mx-auto grid max-w-6xl gap-12 px-5 sm:px-8 lg:grid-cols-[.72fr_1.28fr]"><div><p className="nuth-eyebrow">Preguntas frecuentes</p><h2 className="mt-4 text-4xl font-semibold tracking-[-.04em]">Lo esencial antes de empezar</h2></div><div className="divide-y divide-[#e4e8e5]">{questions.map(([question, answer]) => <details key={question} className="group py-5"><summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold">{question}<span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#f0f3ef] text-lg transition group-open:rotate-45">+</span></summary><p className="max-w-2xl pt-4 leading-7 text-[#687672]">{answer}</p></details>)}</div></div></section>
-
-      <section className="px-5 py-20 sm:px-8 sm:py-28"><div className="mx-auto max-w-6xl overflow-hidden rounded-[36px] bg-[#eab76b] px-6 py-16 text-center text-[#17312c] shadow-[0_25px_80px_rgba(174,115,45,.18)] sm:px-12"><p className="text-xs font-bold uppercase tracking-[.16em]">Tu espacio empieza aquí</p><h2 className="mx-auto mt-4 max-w-2xl text-balance text-4xl font-semibold tracking-[-.04em] sm:text-5xl">Construye una presencia profesional que se sienta tuya</h2><p className="mx-auto mt-5 max-w-xl text-[#4f554e]">Crea tu cuenta y configura Nuthrick con las bases de tu práctica.</p><Link to="/register" className="mt-8 inline-flex items-center gap-2 rounded-2xl bg-[#173d36] px-6 py-3.5 text-sm font-semibold text-white">Crear cuenta<ArrowRight size={17} /></Link></div></section>
-
-      <footer className="border-t border-[#dde4df] bg-[#f1f3ee] px-5 py-12 sm:px-8"><div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.4fr_repeat(3,1fr)]"><div><Logo /><p className="mt-4 max-w-xs text-sm leading-6 text-[#687672]">Tecnología clara y segura para profesionales de la nutrición.</p></div><div><p className="font-semibold">Producto</p><div className="mt-4 grid gap-3 text-sm text-[#687672]"><a href="#funciones">Características</a><a href="#como-funciona">Cómo funciona</a><Link to="/register">Crear cuenta</Link></div></div><div><p className="font-semibold">Recursos</p><div className="mt-4 grid gap-3 text-sm text-[#687672]"><a href="#preguntas">Preguntas frecuentes</a><a href="mailto:hola@nuthrick.com">Contacto</a></div></div><div><p className="font-semibold">Legal</p><div className="mt-4 grid gap-3 text-sm text-[#687672]"><Link to="/privacy">Privacidad</Link><Link to="/terms">Términos</Link></div></div></div><div className="mx-auto mt-12 flex max-w-7xl flex-col gap-2 border-t border-[#d9e0db] pt-6 text-xs text-[#7c8884] sm:flex-row sm:justify-between"><p>© 2026 Nuthrick</p><p>Hecho para una práctica nutricional más humana.</p></div></footer>
-    </main>
-  );
+  return <main className="overflow-hidden bg-[#f7f8f4] text-[#17312c]">
+    <LandingHeader />
+    <section className="relative mx-auto grid max-w-7xl items-center gap-14 px-5 pb-24 pt-16 sm:px-8 sm:pt-20 lg:grid-cols-[.92fr_1.08fr] lg:px-12 lg:pb-32 lg:pt-28"><div className="relative z-10"><p className="mb-7 text-xs font-bold uppercase tracking-[.18em] text-[#4e7967]">NUTRI + TRICK</p><p className="text-balance text-xl font-semibold tracking-[-.03em] text-[#b87432] sm:text-2xl">Hasta el mejor nutriólogo tiene sus trucos.</p><h1 className="mt-5 max-w-2xl text-balance text-5xl font-semibold leading-[.98] tracking-[-.065em] sm:text-6xl lg:text-7xl">Termina cada consulta <span className="text-[#477863]">con el trabajo hecho.</span></h1><p className="mt-7 max-w-xl text-pretty text-lg leading-8 text-[#61716b]">Nuthrick conecta la información de tu paciente con evaluación, cálculos, decisiones, indicaciones y seguimiento para que resuelvas más mientras consultas y tengas menos pendientes después.</p><p className="mt-5 max-w-xl text-lg font-semibold leading-8 text-[#2c5144]">Tu paciente se va con sus indicaciones. Tú te vas sin pendientes.</p><div className="mt-9 flex flex-col gap-3 sm:flex-row"><Link to="/register" className="nuth-button justify-center px-6 py-3.5">Comenzar con Nuthrick <ArrowRight size={17} /></Link><a href="#segunda-jornada" className="nuth-button-secondary justify-center px-6 py-3.5">Ver cómo funciona <ArrowDown size={16} /></a></div></div><HeroProductMockup /></section>
+    <section id="segunda-jornada" className="border-y border-[#dfe7e1] bg-white py-24 sm:py-32"><div className="mx-auto grid max-w-7xl gap-14 px-5 sm:px-8 lg:grid-cols-[.82fr_1.18fr] lg:px-12"><SectionHeading eyebrow="La segunda jornada" title={<>Tu paciente se va.<br />¿Por qué la consulta sigue contigo?</>} description="La consulta no debería convertirse en una lista de tareas para después. Nuthrick está diseñado para que la información capturada durante la consulta haga avanzar el resto del proceso." /><div><SecondShiftVisual /><a href="#como-funciona" className="mt-7 inline-flex items-center gap-2 text-sm font-bold text-[#3f755f] hover:text-[#173d36]">Conoce la forma Nuthrick de consultar <ArrowRight size={16} /></a></div></div></section>
+    <section id="como-funciona" className="py-24 sm:py-32"><div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12"><div className="grid gap-8 lg:grid-cols-[.9fr_1.1fr]"><SectionHeading eyebrow="La forma Nuthrick" title={<>Captura una vez.<br />Sigue trabajando con la misma información.</>} /><p className="self-end max-w-xl text-lg leading-8 text-[#687872]">No son funciones aisladas. Cada etapa alimenta la siguiente para que el proceso clínico avance sin obligarte a reconstruir el contexto.</p></div><FlowVisual /></div></section>
+    <section id="para-tu-consulta" className="bg-[#eef4ef] py-24 sm:py-32"><div className="mx-auto grid max-w-7xl items-center gap-14 px-5 sm:px-8 lg:grid-cols-[.82fr_1.18fr] lg:px-12"><SectionHeading eyebrow="Entrega inmediata" title={<>Menos “te lo mando después”.<br />Más “ya lo tienes”.</>} description="Cuando lo aprobado ya está listo, el paciente recibe indicaciones, objetivos, documentos y la siguiente cita antes de salir. La consulta termina con una sensación real de cierre." /><DeliveryMockup /></div></section>
+    <section id="nuthrick-ai" className="bg-[#173d36] py-24 sm:py-32"><div className="mx-auto grid max-w-7xl items-center gap-14 px-5 sm:px-8 lg:grid-cols-[.9fr_1.1fr] lg:px-12"><SectionHeading inverse eyebrow="Nuthrick AI · visión en desarrollo" title={<>Tu experiencia no se automatiza.<br />Lo repetitivo sí.</>} description="Nuthrick prepara usando el contexto disponible del paciente. El profesional revisa, ajusta y decide. La tecnología acompaña el criterio clínico; no lo reemplaza." /><AIContextVisual /><div className="lg:col-span-2"><p className="mx-auto max-w-3xl text-center text-lg font-semibold text-[#f1c57d]">Nuthrick prepara. Tú decides.</p></div></div></section>
+    <section className="py-24 sm:py-32"><div className="mx-auto grid max-w-7xl items-center gap-14 px-5 sm:px-8 lg:grid-cols-[.82fr_1.18fr] lg:px-12"><div><SectionHeading eyebrow="Recordatorio de 24 horas" title={<>Escucha al paciente.<br />No a tu calculadora.</>} description="Una demostración de hacia dónde puede avanzar el flujo: convertir el relato en información estructurada que el profesional confirma, no una respuesta que se acepta a ciegas." /><p className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#fff1dd] px-3 py-1.5 text-xs font-semibold text-[#90602e]"><Circle size={9} fill="currentColor" />Función en desarrollo</p></div><RecallMockup /></div></section>
+    <section className="border-y border-[#dfe7e1] bg-white py-24 sm:py-32"><div className="mx-auto grid max-w-7xl items-center gap-14 px-5 sm:px-8 lg:grid-cols-[1.1fr_.9fr] lg:px-12"><CalculationsMockup /><SectionHeading eyebrow="Cálculos conectados" title={<>Los números deberían estar listos cuando los necesitas.</>} description="Resultados, método, procedencia y comparación pueden acompañar el proceso completo. Los datos de una etapa deben alimentar automáticamente las siguientes." /></div></section>
+    <section className="py-24 sm:py-32"><div className="mx-auto grid max-w-7xl items-center gap-14 px-5 sm:px-8 lg:grid-cols-[.84fr_1.16fr] lg:px-12"><SectionHeading eyebrow="Seguimiento" title={<>La consulta termina.<br />El seguimiento continúa.</>} description="Objetivos, citas, material y conversación pueden seguir en movimiento después del encuentro. Las herramientas de comunicación se presentan como visión en desarrollo, sin llevarte a funciones inexistentes." /><FollowUpMockup /></div></section>
+    <section className="bg-[#edbd70] px-5 py-24 text-[#17312c] sm:px-8 sm:py-32"><div className="mx-auto max-w-5xl text-center"><p className="text-xs font-bold uppercase tracking-[.17em] text-[#785120]">Una forma más tranquila de trabajar</p><h2 className="mt-5 text-balance text-4xl font-semibold leading-[1.04] tracking-[-.055em] sm:text-5xl lg:text-6xl">Menos cosas que recordar.<br />Menos cosas que buscar.<br />Menos cosas que hacer dos veces.</h2><p className="mx-auto mt-7 max-w-2xl text-lg leading-8 text-[#594d3d]">Haz que tu consultorio siga funcionando sin seguir ocupando tu cabeza.</p><p className="mt-7 text-sm font-semibold text-[#493f33]">Cierra la consulta. Cierra la laptop. Continúa con tu día.</p></div></section>
+    <section className="py-24 sm:py-32"><div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12"><div className="grid gap-8 lg:grid-cols-[.75fr_1.25fr]"><SectionHeading eyebrow="Los trucos de Nuthrick" title={<>Algunos trucos cambian por completo tu forma de consultar.</>} /><p className="self-end max-w-xl text-lg leading-8 text-[#687872]">No son atajos clínicos. Son herramientas y conexiones que ayudan a que un buen profesional ejerza mejor.</p></div><div className="mt-14 grid gap-4 md:grid-cols-2 lg:grid-cols-5">{tricks.map(([number, title, text]) => <article key={number} className="rounded-[25px] border border-[#dfe6e1] bg-white p-5"><p className="text-2xl font-semibold tracking-[-.06em] text-[#bfd0c4]">{number}</p><h3 className="mt-9 text-lg font-semibold tracking-[-.03em] text-[#23473b]">{title}</h3><p className="mt-3 text-sm leading-6 text-[#6b7974]">{text}</p></article>)}</div></div></section>
+    <section id="precios" className="border-y border-[#dfe7e1] bg-white py-24 sm:py-32"><div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12"><div className="mx-auto max-w-3xl text-center"><SectionHeading eyebrow="Planes individuales" title="Elige el nivel que acompañe tu práctica." description="Precios mensuales en MXN. La configuración definitiva de cada plan estará disponible conforme evolucionen los módulos de Nuthrick." /></div><div className="mx-auto mt-14 grid max-w-5xl gap-4 md:grid-cols-3">{individualPlans.map((plan) => <article key={plan.code} className={`relative flex min-h-[275px] flex-col rounded-[28px] border p-7 ${plan.tone}`}>{plan.value && <span className="absolute right-5 top-5 rounded-full bg-[#efbd6b] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#513614]">Mejor valor</span>}<h3 className="text-lg font-semibold">{plan.name}</h3><p className={`mt-7 text-5xl font-semibold tracking-[-.06em] ${plan.value ? "text-white" : "text-[#173d36]"}`}>${plan.monthlyPriceMxn}<span className={`ml-2 text-sm font-medium tracking-normal ${plan.value ? "text-white/65" : "text-[#708078]"}`}>MXN / mes</span></p><p className={`mt-5 text-sm leading-6 ${plan.value ? "text-white/70" : "text-[#6b7974]"}`}>{plan.note}</p><Link to="/register" className={`mt-auto inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-bold ${plan.value ? "bg-white text-[#173d36]" : "bg-[#edf4ef] text-[#285441] hover:bg-[#e3eee6]"}`}>Comenzar con Nuthrick</Link></article>)}</div><p className="mt-7 text-center text-xs leading-5 text-[#7b8883]">Los planes son una presentación comercial inicial; no activan suscripciones, permisos ni límites dentro de la aplicación.</p></div></section>
+    <section className="px-5 py-24 sm:px-8 sm:py-32"><div className="mx-auto max-w-6xl overflow-hidden rounded-[38px] bg-[#173d36] px-6 py-16 text-center text-white shadow-[0_28px_80px_rgba(23,61,54,.2)] sm:px-12 sm:py-20"><p className="text-xl font-semibold tracking-[-.03em] text-[#efbd6b]">Hasta el mejor nutriólogo tiene sus trucos.</p><h2 className="mx-auto mt-5 max-w-3xl text-balance text-4xl font-semibold leading-[1.04] tracking-[-.055em] sm:text-5xl">Haz que tu consulta termine cuando termina la consulta.</h2><p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-white/68">Deja que Nuthrick se encargue del trabajo repetitivo para que tú puedas dedicar tu tiempo a lo que sí necesita de ti.</p><div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row"><Link to="/register" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#efbd6b] px-6 py-3.5 text-sm font-bold text-[#173d36] hover:bg-[#f5ca87]">Comenzar con Nuthrick <ArrowRight size={17} /></Link><a href="#precios" className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 px-6 py-3.5 text-sm font-bold text-white hover:bg-white/10">Ver planes <ChevronDown size={16} /></a></div></div></section>
+    <footer className="border-t border-[#dde4df] bg-[#f0f3ef] px-5 py-12 sm:px-8"><div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.5fr_repeat(3,1fr)]"><div><Logo /><p className="mt-4 max-w-xs text-sm leading-6 text-[#687672]">Herramientas discretas para que tu consulta se sienta más clara, conectada y terminada.</p></div><div><p className="font-semibold">Explora</p><div className="mt-4 grid gap-3 text-sm text-[#687672]"><a href="#como-funciona">Cómo funciona</a><a href="#nuthrick-ai">Nuthrick AI</a><a href="#para-tu-consulta">Para tu consulta</a></div></div><div><p className="font-semibold">Cuenta</p><div className="mt-4 grid gap-3 text-sm text-[#687672]"><Link to="/login">Iniciar sesión</Link><Link to="/register">Comenzar con Nuthrick</Link><a href="mailto:hola@nuthrick.com">Contacto</a></div></div><div><p className="font-semibold">Legal</p><div className="mt-4 grid gap-3 text-sm text-[#687672]"><Link to="/privacy">Privacidad</Link><Link to="/terms">Términos</Link></div></div></div><div className="mx-auto mt-12 flex max-w-7xl flex-col gap-2 border-t border-[#d9e0db] pt-6 text-xs text-[#7c8884] sm:flex-row sm:justify-between"><p>© 2026 Nuthrick</p><p>Hecho para ejercer mejor la nutrición.</p></div></footer>
+  </main>;
 }

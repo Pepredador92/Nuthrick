@@ -23,6 +23,11 @@ body {
 html, body { max-width: 100%; overflow-x: hidden; }
 html { scroll-behavior: smooth; }
 
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
+
 ::selection { background: #eec27c; color: #17312c; }
 
 a, button, input, textarea, select { outline-color: #c77d3c; outline-offset: 3px; }

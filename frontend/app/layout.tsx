@@ -13,21 +13,28 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
-  title: 'Nuthrick — Tu práctica nutricional, en un solo lugar',
-  description: 'Gestiona tu perfil profesional y las bases de tu consulta nutricional con Nuthrick.',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://nuthrick.vercel.app'),
+  title: 'Nuthrick — Hasta el mejor nutriólogo tiene sus trucos',
+  description: 'Nuthrick conecta evaluación, cálculos, decisiones, indicaciones y seguimiento para que los profesionales de nutrición terminen más trabajo durante la consulta y tengan menos pendientes después.',
+  alternates: { canonical: '/' },
   openGraph: {
-    title: 'Nuthrick — Tu práctica nutricional, en un solo lugar',
-    description: 'Una plataforma clara y segura para profesionales de la nutrición.',
-    images: [{ url: '/og.png', width: 1730, height: 909, alt: 'Nuthrick, tu práctica nutricional en un solo lugar' }],
+    title: 'Nuthrick — Hasta el mejor nutriólogo tiene sus trucos',
+    description: 'Termina más trabajo durante la consulta y ten menos pendientes después.',
+    images: [{ url: '/og.png', width: 1730, height: 909, alt: 'Nuthrick, herramientas para ejercer mejor la nutrición' }],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Nuthrick — Tu práctica nutricional, en un solo lugar',
-    description: 'Una plataforma clara y segura para profesionales de la nutrición.',
+    title: 'Nuthrick — Hasta el mejor nutriólogo tiene sus trucos',
+    description: 'Termina más trabajo durante la consulta y ten menos pendientes después.',
     images: ['/og.png'],
   },
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#f7f8f4',
 };
 
 export default function RootLayout({
