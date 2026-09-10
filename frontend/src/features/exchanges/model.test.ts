@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { exchangeCatalog } from "./catalog";
-import { calculateExchangeTotals, confirmExchangePrescription, createExchangePrescription, reconcileExchangePrescription, setExchangePortions } from "./model";
+import { applyExchangeSuggestion, calculateExchangeTotals, confirmExchangePrescription, createExchangePrescription, reconcileExchangePrescription, setExchangePortions } from "./model";
+import { suggestExchangePrescription } from "./suggestion";
 
 const targets = { energy_kcal: 2000, carbohydrate_g: 250, protein_g: 100, fat_g: 60 };
 
@@ -44,5 +45,16 @@ describe("SMAE exchange prescription", () => {
   it("calculates one exchange directly from catalog values", () => {
     const totals = calculateExchangeTotals([{ group_code: "LEGUMES", portions: 1 }]);
     expect(totals).toEqual({ energy_kcal: 120, carbohydrate_g: 20, protein_g: 8, fat_g: 1 });
+  });
+
+  it("applies a suggestion as editing with traceability and never confirms it", () => {
+    const prescription = createExchangePrescription(targets);
+    const suggestion = suggestExchangePrescription({ targets });
+    const applied = applyExchangeSuggestion(prescription, targets, suggestion);
+    expect(applied.status).toBe("editing");
+    expect(applied.confirmed_at).toBeNull();
+    expect(applied.suggestion_source).toBe("automatic");
+    expect(applied.suggestion_algorithm).toBe("EXCHANGE_SUGGESTION_V1");
+    expect(applied.groups.some((group) => group.portions > 0)).toBe(true);
   });
 });

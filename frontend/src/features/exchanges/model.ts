@@ -1,5 +1,6 @@
 import type { ExchangeDerivedTotals, ExchangeGroupCode, ExchangePrescription, ExchangeTargetSnapshot } from "@/src/types/domain";
 import { EXCHANGE_CATALOG_VERSION, EXCHANGE_SYSTEM_CODE, exchangeCatalog, getExchangeGroup } from "./catalog";
+import type { ExchangeSuggestion } from "./suggestion";
 
 const zeroTotals = (): ExchangeDerivedTotals => ({ energy_kcal: 0, carbohydrate_g: 0, protein_g: 0, fat_g: 0 });
 const currentTime = () => new Date().toISOString();
@@ -98,6 +99,24 @@ export function confirmExchangePrescription(prescription: ExchangePrescription, 
 
 export function resetExchangePrescription(target: ExchangeTargetSnapshot): ExchangePrescription {
   return createExchangePrescription(target);
+}
+
+export function applyExchangeSuggestion(
+  prescription: ExchangePrescription,
+  target: ExchangeTargetSnapshot,
+  suggestion: ExchangeSuggestion,
+): ExchangePrescription {
+  const suggestionByCode = new Map(suggestion.groups.map((group) => [group.groupCode, group.portions]));
+  const groups = prescription.groups.map((group) => ({
+    ...group,
+    portions: suggestionByCode.get(group.group_code) ?? group.portions,
+  }));
+  return {
+    ...buildPrescription(prescription, target, groups, groups.some((group) => group.portions > 0) ? "editing" : "not_started", null),
+    suggestion_source: "automatic",
+    suggestion_algorithm: suggestion.metadata.algorithmVersion,
+    suggestion_applied_at: currentTime(),
+  };
 }
 
 export function objectivesChangedSinceConfirmation(prescription: ExchangePrescription) {

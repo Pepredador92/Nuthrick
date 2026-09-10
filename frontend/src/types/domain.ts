@@ -470,6 +470,9 @@ export type ExchangePrescription = {
   differences: ExchangeDerivedTotals;
   status: ExchangeStatus;
   confirmed_at: string | null;
+  suggestion_source?: "automatic";
+  suggestion_algorithm?: string;
+  suggestion_applied_at?: string;
   updated_at: string;
 };
 

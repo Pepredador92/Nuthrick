@@ -20,7 +20,7 @@ body {
   min-width: 320px;
 }
 
-html, body { max-width: 100%; overflow-x: hidden; }
+html, body { max-width: 100%; overflow-x: clip; }
 html { scroll-behavior: smooth; }
 
 @media (prefers-reduced-motion: reduce) {
