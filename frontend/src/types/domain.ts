@@ -361,6 +361,7 @@ export interface NutritionPlan {
   macro_distribution: MacroDistribution | null;
   exchange_prescription: ExchangePrescription | null;
   meal_distribution: MealDistribution | null;
+  diet_menu: DietMenu | null;
   status: "draft" | "active" | "archived";
   created_at: string;
   updated_at: string;
@@ -519,6 +520,123 @@ export type MealDistribution = {
     generated_at: string;
     base: "zero" | "current";
   };
+};
+
+export type FoodUnitCode =
+  | "g" | "ml" | "piece" | "cup" | "tablespoon" | "teaspoon"
+  | "slice" | "tortilla" | "glass" | "serving" | "unit";
+
+export type FoodAttributeValue = "contains" | "free" | "unknown";
+
+export type FoodItem = {
+  id: string;
+  owner_id: string | null;
+  name: string;
+  normalized_name: string;
+  brand: string | null;
+  category: string | null;
+  exchange_system_code: string;
+  exchange_catalog_version: string;
+  group_code: ExchangeGroupCode;
+  portion_amount: number;
+  portion_unit: FoodUnitCode;
+  portion_description: string;
+  edible_grams: number | null;
+  energy_kcal: number | null;
+  carbohydrate_g: number | null;
+  protein_g: number | null;
+  fat_g: number | null;
+  fiber_g: number | null;
+  sodium_mg: number | null;
+  attributes: Partial<Record<"gluten" | "lactose" | "milk" | "egg" | "peanut" | "tree_nuts" | "soy" | "fish" | "crustaceans" | "other", FoodAttributeValue>>;
+  source: string;
+  source_version: string;
+  is_custom: boolean;
+  use_count: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Recipe = {
+  id: string;
+  owner_id: string | null;
+  name: string;
+  normalized_name: string;
+  description: string | null;
+  meal_types: MealType[];
+  servings: number;
+  instructions: string | null;
+  image_path: string | null;
+  source: string;
+  source_version: string;
+  is_custom: boolean;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+  items: RecipeItem[];
+};
+
+export type FoodSnapshot = Pick<FoodItem,
+  "id" | "name" | "group_code" | "portion_amount" | "portion_unit" |
+  "portion_description" | "exchange_system_code" | "exchange_catalog_version" |
+  "source" | "source_version" | "is_custom" | "attributes"
+>;
+
+export type RecipeItem = {
+  id: string;
+  owner_id: string | null;
+  recipe_id: string;
+  food_item_id: string | null;
+  amount: number;
+  unit: FoodUnitCode;
+  display_order: number;
+  food_snapshot: FoodSnapshot;
+  exchange_contribution: Array<{ group_code: ExchangeGroupCode; portions: number }>;
+  created_at: string;
+};
+
+export type DietMenuEntry = {
+  id: string;
+  type: "food" | "recipe";
+  source_id: string;
+  name_snapshot: string;
+  quantity: number;
+  unit: FoodUnitCode | "recipe_serving";
+  food_snapshot?: FoodSnapshot;
+  recipe_snapshot?: {
+    recipe_id: string;
+    name: string;
+    servings: number;
+    instructions: string | null;
+    items: Array<Pick<RecipeItem, "amount" | "unit" | "food_snapshot" | "exchange_contribution">>;
+  };
+  exchange_contributions: Array<{ group_code: ExchangeGroupCode; portions: number }>;
+};
+
+export type DietMenuMeal = {
+  meal_time_id: string;
+  entries: DietMenuEntry[];
+};
+
+export type DietMenuVariant = {
+  id: string;
+  name: string;
+  display_order: number;
+  meal_menus: DietMenuMeal[];
+};
+
+export type DietMenuStatus = "not_started" | "editing" | "ready";
+
+export type DietMenu = {
+  schema_version: 1;
+  source_meal_distribution_snapshot: MealDistribution | null;
+  menus: DietMenuVariant[];
+  active_menu_id: string;
+  derived_exchange_usage: Array<{ meal_time_id: string; group_code: ExchangeGroupCode; portions: number }>;
+  status: DietMenuStatus;
+  confirmed_at: string | null;
+  updated_at: string;
 };
 
 export interface PublicProfileContent {

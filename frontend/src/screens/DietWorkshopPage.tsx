@@ -17,9 +17,11 @@ import { DietEnergyStep } from "@/src/components/diet/DietEnergyStep";
 import { DietMacrosStep } from "@/src/components/diet/DietMacrosStep";
 import { DietEquivalentsStep } from "@/src/components/diet/DietEquivalentsStep";
 import { DietMealDistributionStep } from "@/src/components/diet/DietMealDistributionStep";
+import { DietMenuStep } from "@/src/components/diet/DietMenuStep";
 import type { EnergyReferenceContext } from "@/src/features/diet-energy/model";
 import { reconcileExchangePrescription } from "@/src/features/exchanges/model";
 import { reconcileMealDistribution } from "@/src/features/meal-distribution/model";
+import { reconcileDietMenu } from "@/src/features/menu/model";
 import { reconcileMacroDistribution } from "@/src/features/macros/model";
 import { calculateAge, consultationLabel, formatPatientDate } from "@/src/features/patients/patientUtils";
 import {
@@ -31,7 +33,7 @@ import {
   type DietReferenceData,
 } from "@/src/services/dietPlans";
 import { getPatient, listConsultations, listPatients } from "@/src/services/patients";
-import type { Consultation, ExchangePrescription, ExchangeTargetSnapshot, MacroDistribution, MealDistribution, NutritionPlan, Patient, PlanEnergyCalculation } from "@/src/types/domain";
+import type { Consultation, DietMenu, ExchangePrescription, ExchangeTargetSnapshot, MacroDistribution, MealDistribution, NutritionPlan, Patient, PlanEnergyCalculation } from "@/src/types/domain";
 
 const steps = [
   { id: "energy", label: "Objetivo energético" },
@@ -204,12 +206,12 @@ function PlanContextHeader({
 
 type WorkshopStep = (typeof steps)[number]["id"];
 
-function WorkshopNavigation({ targetReady, macrosReady, activeStep, onSelect }: { targetReady: boolean; macrosReady: boolean; activeStep: WorkshopStep; onSelect: (step: WorkshopStep) => void }) {
+function WorkshopNavigation({ targetReady, macrosReady, mealsReady, activeStep, onSelect }: { targetReady: boolean; macrosReady: boolean; mealsReady: boolean; activeStep: WorkshopStep; onSelect: (step: WorkshopStep) => void }) {
   return (
     <nav className="mt-5 overflow-x-auto border-b border-[#dfe6e1]" aria-label="Secciones del Taller de dietas">
       <ol className="flex min-w-max gap-1">
         {steps.map((step, index) => {
-          const ready = step.id === "energy" ? true : step.id === "macros" ? targetReady : step.id === "equivalents" || step.id === "meals" ? macrosReady : false;
+          const ready = step.id === "energy" ? true : step.id === "macros" ? targetReady : step.id === "equivalents" || step.id === "meals" ? macrosReady : step.id === "menu" ? mealsReady : false;
           return (
           <li key={step.id}>
             <button
@@ -346,6 +348,7 @@ export function DietWorkshopPage() {
   const pendingMacroDistribution = useRef<MacroDistribution | null>(null);
   const pendingExchangePrescription = useRef<ExchangePrescription | null>(null);
   const pendingMealDistribution = useRef<MealDistribution | null>(null);
+  const pendingDietMenu = useRef<DietMenu | null>(null);
   const [activeStep, setActiveStep] = useState<WorkshopStep>("energy");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -547,7 +550,7 @@ export function DietWorkshopPage() {
         if (!saved) return;
         const pendingEnergy = pendingEnergyCalculation.current;
         const pendingMacros = pendingMacroDistribution.current;
-        if (pendingEnergy || pendingMacros || pendingExchangePrescription.current || pendingMealDistribution.current) {
+        if (pendingEnergy || pendingMacros || pendingExchangePrescription.current || pendingMealDistribution.current || pendingDietMenu.current) {
           setSaving(true);
           try {
             const nextTarget = pendingEnergy?.prescribed_target_kcal ?? saved.target_calories;
@@ -563,17 +566,21 @@ export function DietWorkshopPage() {
               : saved.exchange_prescription && nextExchangeTargets ? reconcileExchangePrescription(saved.exchange_prescription, nextExchangeTargets) : undefined;
             const mealSource = pendingMealDistribution.current ?? saved.meal_distribution;
             const mealToSave = mealSource && exchangeToSave ? reconcileMealDistribution(mealSource, exchangeToSave) : mealSource ?? undefined;
+            const menuSource = pendingDietMenu.current ?? saved.diet_menu;
+            const menuToSave = menuSource && mealToSave ? reconcileDietMenu(menuSource, mealToSave) : menuSource ?? undefined;
             const updated = await updateDietPlan(saved.id, {
               ...(pendingEnergy ? { energy_calculation: pendingEnergy, target_calories: pendingEnergy.prescribed_target_kcal } : {}),
               ...(macroToSave ? { macro_distribution: macroToSave } : {}),
               ...(exchangeToSave ? { exchange_prescription: exchangeToSave } : {}),
               ...(mealToSave ? { meal_distribution: mealToSave } : {}),
+              ...(menuToSave ? { diet_menu: menuToSave } : {}),
             });
             setPlan(updated);
             pendingEnergyCalculation.current = null;
             pendingMacroDistribution.current = null;
             pendingExchangePrescription.current = null;
             pendingMealDistribution.current = null;
+            pendingDietMenu.current = null;
           } finally {
             setSaving(false);
           }
@@ -581,7 +588,7 @@ export function DietWorkshopPage() {
         navigate(exitTarget);
       })().catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el plan."))} />
       {contextEditor && <ContextEditor currentPatient={patient} patients={patients} consultations={consultations} selectedPatientId={contextPatientId} selectedConsultationId={contextConsultationId} busy={busy} onPatient={(id) => void chooseContextPatient(id)} onConsultation={setContextConsultationId} onCancel={() => setContextEditor(false)} onSave={() => void saveContext()} />}
-      <WorkshopNavigation targetReady={Boolean(plan.target_calories && plan.target_calories > 0)} macrosReady={macrosReady} activeStep={activeStep} onSelect={setActiveStep} />
+      <WorkshopNavigation targetReady={Boolean(plan.target_calories && plan.target_calories > 0)} macrosReady={macrosReady} mealsReady={Boolean(plan.meal_distribution?.distribution.some((item) => item.portions > 0))} activeStep={activeStep} onSelect={setActiveStep} />
       {notice && <p role="status" className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]">{notice}</p>}
       {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{error}</p>}
       <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -673,14 +680,31 @@ export function DietWorkshopPage() {
             onSave={async (distribution) => {
               setSaving(true);
               try {
-                const updated = await updateDietPlan(plan.id, { meal_distribution: distribution });
+                const menuSource = pendingDietMenu.current ?? plan.diet_menu;
+                const menu = menuSource ? reconcileDietMenu(menuSource, distribution) : undefined;
+                const updated = await updateDietPlan(plan.id, { meal_distribution: distribution, ...(menu ? { diet_menu: menu } : {}) });
                 setPlan(updated);
                 pendingMealDistribution.current = null;
+                if (menu) pendingDietMenu.current = null;
                 setNotice("Distribución por tiempos guardada automáticamente.");
               } finally { setSaving(false); }
             }}
             onDraftChange={(distribution) => { pendingMealDistribution.current = distribution; }}
             onGoToEquivalents={() => setActiveStep("equivalents")}
+          />}
+          {activeStep === "menu" && <DietMenuStep
+            plan={plan}
+            onSave={async (menu) => {
+              setSaving(true);
+              try {
+                const updated = await updateDietPlan(plan.id, { diet_menu: menu });
+                setPlan(updated);
+                pendingDietMenu.current = null;
+                setNotice("Menú guardado automáticamente.");
+              } finally { setSaving(false); }
+            }}
+            onDraftChange={(menu) => { pendingDietMenu.current = menu; }}
+            onGoToMeals={() => setActiveStep("meals")}
           />}
         </div>
         <aside className="h-fit rounded-[24px] border border-[#dfe6e1] bg-[#f9fbf8] p-5 xl:sticky xl:top-56">

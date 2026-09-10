@@ -20,7 +20,7 @@ const plan: NutritionPlan = {
   id: "visual-meal-plan", professional_id: "visual-professional", patient_id: null, consultation_id: null,
   title: "Plan de verificación", assigned_at: "2026-09-10", review_date: null, plan_type: null, category: null,
   target_calories: 2100, energy_calculation: null, macro_distribution: null, exchange_prescription: exchange,
-  meal_distribution: mealDistribution, status: "draft", created_at: "2026-09-10T09:00:00Z", updated_at: "2026-09-10T09:00:00Z",
+  meal_distribution: mealDistribution, diet_menu: null, status: "draft", created_at: "2026-09-10T09:00:00Z", updated_at: "2026-09-10T09:00:00Z",
 };
 
 createRoot(document.getElementById("root")!).render(

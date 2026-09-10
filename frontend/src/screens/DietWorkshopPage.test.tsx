@@ -13,6 +13,8 @@ const api = vi.hoisted(() => ({
   createPlan: vi.fn(),
   updatePlan: vi.fn(),
   loadReference: vi.fn(),
+  listFoods: vi.fn(),
+  listRecipes: vi.fn(),
 }));
 
 const patient = {
@@ -50,6 +52,7 @@ const plan: NutritionPlan = {
   macro_distribution: null,
   exchange_prescription: null,
   meal_distribution: null,
+  diet_menu: null,
   created_at: "2026-09-09T12:00:00Z",
   updated_at: "2026-09-09T12:00:00Z",
 };
@@ -66,6 +69,13 @@ vi.mock("@/src/services/dietPlans", () => ({
   createDietPlan: api.createPlan,
   updateDietPlan: api.updatePlan,
   loadDietReferenceData: api.loadReference,
+}));
+
+vi.mock("@/src/services/foodCatalog", () => ({
+  listFoodItems: api.listFoods,
+  listRecipes: api.listRecipes,
+  createCustomFood: vi.fn(),
+  createCustomRecipe: vi.fn(),
 }));
 
 function mount(entry: string) {
@@ -93,6 +103,8 @@ beforeEach(() => {
     weight: { value: 72, unit: "kg", source: "consultation_measurements" },
     height: { value: 170, unit: "cm", source: "consultation_measurements" },
   });
+  api.listFoods.mockResolvedValue([]);
+  api.listRecipes.mockResolvedValue([]);
 });
 
 describe("DietWorkshopPage", () => {
@@ -142,5 +154,26 @@ describe("DietWorkshopPage", () => {
     fireEvent.click(meals);
     expect(screen.getByText("Define primero los equivalentes del día.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ir a Equivalentes" })).toBeInTheDocument();
+  });
+
+  it("recovers Objective 6 and enables the menu builder without duplicating the distribution", async () => {
+    api.getPlan.mockResolvedValue({
+      ...plan,
+      target_calories: 1800,
+      macro_distribution: { complete: true } as never,
+      meal_distribution: {
+        schema_version: 1,
+        source_exchange_snapshot: null,
+        meal_times: [{ id: "breakfast", meal_type: "BREAKFAST", display_name: "Desayuno", time: "08:00", display_order: 0 }],
+        distribution: [{ meal_time_id: "breakfast", group_code: "FRUITS", portions: 1 }],
+        derived_meal_totals: [], status: "ready", confirmed_at: "2026-09-10T00:00:00Z", updated_at: "2026-09-10T00:00:00Z",
+      },
+    });
+    mount("/app/diet-workshop/plan");
+    const menu = await screen.findByRole("button", { name: /Menú/ });
+    expect(menu).toBeEnabled();
+    fireEvent.click(menu);
+    expect(screen.getByRole("heading", { name: "Construcción del menú" })).toBeInTheDocument();
+    expect(screen.getByText("Falta 1")).toBeInTheDocument();
   });
 });

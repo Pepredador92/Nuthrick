@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(11);
+select plan(16);
 
 insert into auth.users(id,email) values
   ('a1000000-0000-4000-8000-000000000001','diet-owner@nuthrick.test'),
@@ -58,8 +58,37 @@ select throws_ok(
   null,
   'meal distribution rejects non-object payloads'
 );
+select lives_ok(
+  $$insert into public.food_items(id,owner_id,name,normalized_name,exchange_system_code,exchange_catalog_version,group_code,portion_amount,portion_unit,portion_description,source,source_version,is_custom)
+    values ('a6000000-0000-4000-8000-000000000006','a1000000-0000-4000-8000-000000000001','Alimento verificado por profesional','alimento verificado por profesional','SMAE_NOM037_2012','1.0.0','FRUITS',1,'cup','1 taza','PROFESSIONAL_CUSTOM','1',true)$$,
+  'the professional can create an explicitly custom food'
+);
+select lives_ok(
+  $$with recipe as (
+      insert into public.recipes(id,owner_id,name,normalized_name,source,source_version,is_custom)
+      values ('a7000000-0000-4000-8000-000000000007','a1000000-0000-4000-8000-000000000001','Receta personal','receta personal','PROFESSIONAL_CUSTOM','1',true)
+      returning id
+    )
+    insert into public.recipe_items(owner_id,recipe_id,food_item_id,amount,unit,food_snapshot,exchange_contribution)
+    select 'a1000000-0000-4000-8000-000000000001',id,'a6000000-0000-4000-8000-000000000006',1,'cup','{"id":"a6000000-0000-4000-8000-000000000006","name":"Alimento verificado por profesional"}'::jsonb,'[{"group_code":"FRUITS","portions":1}]'::jsonb from recipe$$,
+  'the professional can create a reusable recipe with structured ingredients'
+);
+select lives_ok(
+  $$update public.nutrition_plans set diet_menu='{"schema_version":1,"source_meal_distribution_snapshot":null,"menus":[],"active_menu_id":"menu-1","derived_exchange_usage":[],"status":"not_started"}'::jsonb where title='Borrador recuperado'$$,
+  'a versioned diet menu can be persisted on the owned plan'
+);
+select throws_ok(
+  $$update public.nutrition_plans set diet_menu='[]'::jsonb where title='Borrador recuperado'$$,
+  '23514',
+  null,
+  'diet menu rejects non-object payloads'
+);
 
 select set_config('request.jwt.claim.sub','a2000000-0000-4000-8000-000000000002',true);
+select is_empty(
+  $$select id from public.food_items$$,
+  'another professional cannot read custom foods'
+);
 select is_empty(
   $$select id from public.nutrition_plans$$,
   'another professional cannot read workshop drafts'
