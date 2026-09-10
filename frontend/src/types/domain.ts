@@ -357,10 +357,55 @@ export interface NutritionPlan {
   plan_type: string | null;
   category: string | null;
   target_calories: number | null;
+  energy_calculation: PlanEnergyCalculation | null;
   status: "draft" | "active" | "archived";
   created_at: string;
   updated_at: string;
 }
+
+export type PlanEnergyValueSource = "consultation" | "patient" | "plan_override" | "manual";
+
+export type PlanEnergyValue<T> = {
+  value: T | null;
+  source: PlanEnergyValueSource;
+  source_label: string;
+  original_value?: T | null;
+  original_source?: PlanEnergyValueSource;
+  original_source_label?: string;
+};
+
+export type PlanEnergyCalculation = {
+  version: 1;
+  mode: "predictive" | "manual" | "measured";
+  method_code: string;
+  inputs: {
+    weight_kg: PlanEnergyValue<number>;
+    height_cm: PlanEnergyValue<number>;
+    age_years: PlanEnergyValue<number>;
+    equation_sex: PlanEnergyValue<"male" | "female">;
+  };
+  activity: {
+    method_code: "CLINICAL_ACTIVITY_FACTOR" | "PAL_FAO_WHO_UNU";
+    level_code: string | null;
+    factor: number | null;
+    pal: number | null;
+  };
+  eta: { enabled: boolean; rate: number | null };
+  measured: { kcal_per_day: number | null; measured_at: string | null; equipment: string | null };
+  prescribed_target_kcal: number | null;
+  results: {
+    basal_kcal: number | null;
+    total_kcal: number | null;
+    formula_version: string | null;
+    variant: string | null;
+    activity_kcal: number | null;
+    eta_kcal: number | null;
+    eta_integrated: boolean;
+    warnings: Array<{ code: string; message: string; input?: string }>;
+    errors: Array<{ code: string; message: string; input?: string }>;
+  };
+  calculated_at: string;
+};
 
 export interface PublicProfileContent {
   slug: string;

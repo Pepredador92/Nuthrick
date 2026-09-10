@@ -4,9 +4,7 @@ import {
   CalendarRange,
   Check,
   ChevronRight,
-  Circle,
   ClipboardPenLine,
-  Clock3,
   LoaderCircle,
   LockKeyhole,
   Plus,
@@ -15,6 +13,8 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
+import { DietEnergyStep } from "@/src/components/diet/DietEnergyStep";
+import type { EnergyReferenceContext } from "@/src/features/diet-energy/model";
 import { calculateAge, consultationLabel, formatPatientDate } from "@/src/features/patients/patientUtils";
 import {
   createDietPlan,
@@ -25,15 +25,15 @@ import {
   type DietReferenceData,
 } from "@/src/services/dietPlans";
 import { getPatient, listConsultations, listPatients } from "@/src/services/patients";
-import type { Consultation, NutritionPlan, Patient } from "@/src/types/domain";
+import type { Consultation, NutritionPlan, Patient, PlanEnergyCalculation } from "@/src/types/domain";
 
 const steps = [
-  { id: "energy", label: "Objetivo energético", ready: true },
+  { id: "energy", label: "Objetivo energético" },
   { id: "macros", label: "Macronutrientes", ready: false },
   { id: "equivalents", label: "Equivalentes", ready: false },
   { id: "meals", label: "Tiempos de comida", ready: false },
   { id: "menu", label: "Menú", ready: false },
-  { id: "review", label: "Revisión", ready: false },
+  { id: "review", label: "Revisión" },
 ] as const;
 
 function consultationStatus(consultation: Consultation) {
@@ -187,63 +187,29 @@ function PlanContextHeader({
   );
 }
 
-function WorkshopNavigation() {
+function WorkshopNavigation({ targetReady }: { targetReady: boolean }) {
   return (
     <nav className="mt-5 overflow-x-auto border-b border-[#dfe6e1]" aria-label="Secciones del Taller de dietas">
       <ol className="flex min-w-max gap-1">
-        {steps.map((step, index) => (
+        {steps.map((step, index) => {
+          const ready = step.id === "energy" ? true : step.id === "macros" ? targetReady : false;
+          return (
           <li key={step.id}>
             <button
               type="button"
-              disabled={!step.ready}
-              aria-current={step.ready ? "step" : undefined}
-              className={`flex items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${step.ready ? "bg-[#e7f0ea] text-[#285647]" : "cursor-not-allowed text-[#98a39e]"}`}
+              disabled={!ready}
+              aria-current={ready ? "step" : undefined}
+              className={`flex items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${ready ? "bg-[#e7f0ea] text-[#285647]" : "cursor-not-allowed text-[#98a39e]"}`}
             >
-              <span className={`grid h-5 w-5 place-items-center rounded-full text-[10px] ${step.ready ? "bg-[#3d705d] text-white" : "bg-[#e9eeea] text-[#89958f]"}`}>{index + 1}</span>
+              <span className={`grid h-5 w-5 place-items-center rounded-full text-[10px] ${ready ? "bg-[#3d705d] text-white" : "bg-[#e9eeea] text-[#89958f]"}`}>{index + 1}</span>
               {step.label}
-              {!step.ready && <LockKeyhole size={12} aria-label="Próximamente" />}
+              {!ready && <LockKeyhole size={12} aria-label="Próximamente" />}
             </button>
           </li>
-        ))}
+          );
+        })}
       </ol>
     </nav>
-  );
-}
-
-function ReferenceValue({ label, value, detail }: { label: string; value: string | null; detail: string }) {
-  return (
-    <div className="rounded-2xl border border-[#e1e8e3] bg-[#fbfcfa] p-4">
-      <p className="text-xs font-semibold text-[#718078]">{label}</p>
-      <p className={`mt-2 text-xl font-semibold ${value ? "text-[#1f483a]" : "text-[#89958f]"}`}>{value || "No disponible"}</p>
-      <p className="mt-1 text-[11px] leading-5 text-[#8a9690]">{detail}</p>
-    </div>
-  );
-}
-
-function ReferenceDataPanel({ patient, consultation, data, loading }: { patient: Patient | null; consultation: Consultation | null; data: DietReferenceData | null; loading: boolean }) {
-  const age = patient?.birth_date ? calculateAge(patient.birth_date, consultation ? new Date(consultation.consultation_date) : new Date()) : null;
-  const height = data?.height
-    ? data.height.unit === "cm"
-      ? `${(data.height.value / 100).toLocaleString("es-MX", { maximumFractionDigits: 2 })} m`
-      : `${data.height.value.toLocaleString("es-MX")} ${data.height.unit}`
-    : null;
-  if (loading) return <LoadingState label="Leyendo datos de la consulta…" />;
-  return (
-    <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-5 sm:p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="nuth-eyebrow">Fuente clínica</p>
-          <h2 className="mt-2 text-xl font-semibold text-[#173d36]">Datos de referencia</h2>
-          <p className="mt-2 text-sm leading-6 text-[#718078]">Sólo lectura. Estos datos permanecen en su consulta original.</p>
-        </div>
-        <span className="rounded-full bg-[#edf5ef] px-3 py-1.5 text-xs font-semibold text-[#3d705d]">{consultation ? "Consulta vinculada" : "Sin consulta"}</span>
-      </div>
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <ReferenceValue label="Peso" value={data?.weight ? `${data.weight.value.toLocaleString("es-MX")} ${data.weight.unit}` : null} detail={consultation ? "Registrado en la consulta fuente" : "Selecciona una consulta fuente"} />
-        <ReferenceValue label="Talla" value={height} detail={consultation ? "Registrada en la consulta fuente" : "Selecciona una consulta fuente"} />
-        <ReferenceValue label="Edad" value={age === null ? null : `${age} años`} detail={patient?.birth_date ? `Calculada para ${consultation ? "la fecha de consulta" : "hoy"}` : "Falta fecha de nacimiento"} />
-      </div>
-    </section>
   );
 }
 
@@ -358,6 +324,7 @@ export function DietWorkshopPage() {
   const [referenceLoading, setReferenceLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
+  const pendingEnergyCalculation = useRef<PlanEnergyCalculation | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -540,34 +507,64 @@ export function DietWorkshopPage() {
   if (!plan) return <ErrorState message={error || "No pudimos abrir este plan."} onRetry={() => void load()} />;
 
   const exitTarget = patient ? `/app/patients/${patient.id}` : "/app/diet-workshop";
+  const energyReference: EnergyReferenceContext = {
+    weightKg: reference?.weight?.value ?? patient?.weight_kg ?? null,
+    heightCm: reference?.height?.value ?? patient?.height_cm ?? null,
+    ageYears: patient?.birth_date ? calculateAge(patient.birth_date, consultation ? new Date(consultation.consultation_date) : new Date()) : null,
+    equationSex: patient?.equation_sex ?? null,
+    weightSource: reference?.weight ? "consultation" : patient?.weight_kg !== null && patient?.weight_kg !== undefined ? "patient" : undefined,
+    heightSource: reference?.height ? "consultation" : patient?.height_cm !== null && patient?.height_cm !== undefined ? "patient" : undefined,
+  };
   return (
     <div className="mx-auto min-w-0 max-w-7xl pb-16 [overflow-wrap:anywhere]">
-      <PlanContextHeader plan={{ ...plan, title }} patient={patient} consultation={consultation} saving={saving} onChangeContext={() => void openContextEditor()} onSaveAndExit={() => void saveTitle().then((saved) => { if (saved) navigate(exitTarget); }).catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el plan."))} />
+      <PlanContextHeader plan={{ ...plan, title }} patient={patient} consultation={consultation} saving={saving} onChangeContext={() => void openContextEditor()} onSaveAndExit={() => void (async () => {
+        const saved = await saveTitle();
+        if (!saved) return;
+        if (pendingEnergyCalculation.current) {
+          setSaving(true);
+          try {
+            const updated = await updateDietPlan(saved.id, {
+              energy_calculation: pendingEnergyCalculation.current,
+              target_calories: pendingEnergyCalculation.current.prescribed_target_kcal,
+            });
+            setPlan(updated);
+            pendingEnergyCalculation.current = null;
+          } finally {
+            setSaving(false);
+          }
+        }
+        navigate(exitTarget);
+      })().catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el plan."))} />
       {contextEditor && <ContextEditor currentPatient={patient} patients={patients} consultations={consultations} selectedPatientId={contextPatientId} selectedConsultationId={contextConsultationId} busy={busy} onPatient={(id) => void chooseContextPatient(id)} onConsultation={setContextConsultationId} onCancel={() => setContextEditor(false)} onSave={() => void saveContext()} />}
-      <WorkshopNavigation />
+      <WorkshopNavigation targetReady={Boolean(plan.target_calories && plan.target_calories > 0)} />
       {notice && <p role="status" className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]">{notice}</p>}
       {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{error}</p>}
       <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-5">
-          <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-5 sm:p-7">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="nuth-eyebrow">Paso 1</p>
-                <h1 className="mt-2 text-2xl font-semibold text-[#173d36]">Objetivo energético</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">La estructura está lista para definir requerimientos en el siguiente objetivo. Todavía no realiza cálculos.</p>
-              </div>
-              <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[#fff4df] px-3 py-1.5 text-xs font-semibold text-[#7a5a28]"><Circle size={8} fill="currentColor" /> Pendiente</span>
-            </div>
-            <label className="mt-6 block text-sm font-semibold text-[#315e4f]" htmlFor="diet-plan-title">
-              Nombre del plan
+          <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-5 sm:p-6">
+            <label className="block text-sm font-semibold text-[#315e4f]" htmlFor="diet-plan-title">Nombre del plan
               <input id="diet-plan-title" className="nuth-input mt-2" maxLength={120} required value={title} onChange={(event) => { setTitle(event.target.value); setNotice(""); }} onBlur={() => void saveTitle().catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el título."))} />
             </label>
-            <div className="mt-5 flex items-center gap-2 text-xs text-[#74817d]">
-              {saving ? <LoaderCircle size={14} className="animate-spin" /> : <Clock3 size={14} />}
-              {saving ? "Guardando…" : title.trim() === savedTitle ? `Guardado · ${formatPatientDate(plan.updated_at)}` : "Cambios pendientes"}
-            </div>
           </section>
-          <ReferenceDataPanel patient={patient} consultation={consultation} data={reference} loading={referenceLoading} />
+          <DietEnergyStep
+            key={`${plan.id}:${reference?.weight?.value ?? ""}:${reference?.height?.value ?? ""}`}
+            plan={plan}
+            reference={energyReference}
+            referenceLoading={referenceLoading}
+            onSave={async (energy) => {
+              setSaving(true);
+              try {
+                const updated = await updateDietPlan(plan.id, { energy_calculation: energy, target_calories: energy.prescribed_target_kcal });
+                setPlan(updated);
+                pendingEnergyCalculation.current = null;
+                setNotice("Objetivo energético guardado automáticamente.");
+              } finally {
+                setSaving(false);
+              }
+            }}
+            onDraftChange={(energy) => { pendingEnergyCalculation.current = energy; }}
+            onContinue={() => setNotice("El paso de macronutrientes se habilitará en el Objetivo 4.")}
+          />
         </div>
         <aside className="h-fit rounded-[24px] border border-[#dfe6e1] bg-[#f9fbf8] p-5 xl:sticky xl:top-56">
           <p className="text-sm font-semibold text-[#315e4f]">Preparado para continuar</p>

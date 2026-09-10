@@ -46,6 +46,7 @@ const plan: NutritionPlan = {
   plan_type: null,
   category: null,
   target_calories: null,
+  energy_calculation: null,
   created_at: "2026-09-09T12:00:00Z",
   updated_at: "2026-09-09T12:00:00Z",
 };
@@ -104,7 +105,7 @@ describe("DietWorkshopPage", () => {
   it("opens directly from a consultation without asking for context again", async () => {
     mount("/app/diet-workshop?patientId=patient&consultationId=consultation");
     await waitFor(() => expect(api.createPlan).toHaveBeenCalledWith({ patientId: "patient", consultationId: "consultation" }));
-    expect(await screen.findByText("Consulta vinculada")).toBeInTheDocument();
+    expect(await screen.findByText("Consulta fuente")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Elige la fuente del plan" })).not.toBeInTheDocument();
   });
 
@@ -112,7 +113,7 @@ describe("DietWorkshopPage", () => {
     mount("/app/diet-workshop/plan");
     expect(await screen.findByRole("heading", { name: "Objetivo energético" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("Plan nutricional")).toBeInTheDocument();
-    expect(await screen.findByText("72 kg")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Peso")).toHaveValue(72));
     expect(screen.getByRole("button", { name: /Macronutrientes/ })).toBeDisabled();
     expect(api.loadReference).toHaveBeenCalledWith("consultation");
   });

@@ -1,11 +1,13 @@
 import { supabase } from "@/src/lib/supabase";
-import type { NutritionPlan } from "@/src/types/domain";
+import type { NutritionPlan, PlanEnergyCalculation } from "@/src/types/domain";
 
 export type DietPlanPatch = {
   title?: string;
   patient_id?: string | null;
   consultation_id?: string | null;
   status?: NutritionPlan["status"];
+  target_calories?: number | null;
+  energy_calculation?: PlanEnergyCalculation | null;
 };
 
 export type DietReferenceValue = {
