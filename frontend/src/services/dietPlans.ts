@@ -1,5 +1,5 @@
 import { supabase } from "@/src/lib/supabase";
-import type { NutritionPlan, PlanEnergyCalculation } from "@/src/types/domain";
+import type { MacroDistribution, NutritionPlan, PlanEnergyCalculation } from "@/src/types/domain";
 
 export type DietPlanPatch = {
   title?: string;
@@ -8,6 +8,7 @@ export type DietPlanPatch = {
   status?: NutritionPlan["status"];
   target_calories?: number | null;
   energy_calculation?: PlanEnergyCalculation | null;
+  macro_distribution?: MacroDistribution | null;
 };
 
 export type DietReferenceValue = {

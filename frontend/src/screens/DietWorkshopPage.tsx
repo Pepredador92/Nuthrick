@@ -14,7 +14,9 @@ import {
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
 import { DietEnergyStep } from "@/src/components/diet/DietEnergyStep";
+import { DietMacrosStep } from "@/src/components/diet/DietMacrosStep";
 import type { EnergyReferenceContext } from "@/src/features/diet-energy/model";
+import { reconcileMacroDistribution } from "@/src/features/macros/model";
 import { calculateAge, consultationLabel, formatPatientDate } from "@/src/features/patients/patientUtils";
 import {
   createDietPlan,
@@ -25,7 +27,7 @@ import {
   type DietReferenceData,
 } from "@/src/services/dietPlans";
 import { getPatient, listConsultations, listPatients } from "@/src/services/patients";
-import type { Consultation, NutritionPlan, Patient, PlanEnergyCalculation } from "@/src/types/domain";
+import type { Consultation, MacroDistribution, NutritionPlan, Patient, PlanEnergyCalculation } from "@/src/types/domain";
 
 const steps = [
   { id: "energy", label: "Objetivo energético" },
@@ -187,19 +189,22 @@ function PlanContextHeader({
   );
 }
 
-function WorkshopNavigation({ targetReady }: { targetReady: boolean }) {
+type WorkshopStep = (typeof steps)[number]["id"];
+
+function WorkshopNavigation({ targetReady, macrosReady, activeStep, onSelect }: { targetReady: boolean; macrosReady: boolean; activeStep: WorkshopStep; onSelect: (step: WorkshopStep) => void }) {
   return (
     <nav className="mt-5 overflow-x-auto border-b border-[#dfe6e1]" aria-label="Secciones del Taller de dietas">
       <ol className="flex min-w-max gap-1">
         {steps.map((step, index) => {
-          const ready = step.id === "energy" ? true : step.id === "macros" ? targetReady : false;
+          const ready = step.id === "energy" ? true : step.id === "macros" ? targetReady : step.id === "equivalents" ? macrosReady : false;
           return (
           <li key={step.id}>
             <button
               type="button"
               disabled={!ready}
-              aria-current={ready ? "step" : undefined}
-              className={`flex items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${ready ? "bg-[#e7f0ea] text-[#285647]" : "cursor-not-allowed text-[#98a39e]"}`}
+              aria-current={activeStep === step.id ? "step" : undefined}
+              onClick={() => onSelect(step.id)}
+              className={`flex items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${activeStep === step.id && ready ? "bg-[#e7f0ea] text-[#285647]" : ready ? "text-[#537266] hover:bg-[#f4f8f5]" : "cursor-not-allowed text-[#98a39e]"}`}
             >
               <span className={`grid h-5 w-5 place-items-center rounded-full text-[10px] ${ready ? "bg-[#3d705d] text-white" : "bg-[#e9eeea] text-[#89958f]"}`}>{index + 1}</span>
               {step.label}
@@ -325,6 +330,8 @@ export function DietWorkshopPage() {
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const pendingEnergyCalculation = useRef<PlanEnergyCalculation | null>(null);
+  const pendingMacroDistribution = useRef<MacroDistribution | null>(null);
+  const [activeStep, setActiveStep] = useState<WorkshopStep>("energy");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -515,20 +522,32 @@ export function DietWorkshopPage() {
     weightSource: reference?.weight ? "consultation" : patient?.weight_kg !== null && patient?.weight_kg !== undefined ? "patient" : undefined,
     heightSource: reference?.height ? "consultation" : patient?.height_cm !== null && patient?.height_cm !== undefined ? "patient" : undefined,
   };
+  const energyReferenceWeightKg = plan.energy_calculation?.inputs.weight_kg.value ?? null;
+  const macrosReady = Boolean(plan.macro_distribution?.complete);
   return (
     <div className="mx-auto min-w-0 max-w-7xl pb-16 [overflow-wrap:anywhere]">
       <PlanContextHeader plan={{ ...plan, title }} patient={patient} consultation={consultation} saving={saving} onChangeContext={() => void openContextEditor()} onSaveAndExit={() => void (async () => {
         const saved = await saveTitle();
         if (!saved) return;
-        if (pendingEnergyCalculation.current) {
+        const pendingEnergy = pendingEnergyCalculation.current;
+        const pendingMacros = pendingMacroDistribution.current;
+        if (pendingEnergy || pendingMacros) {
           setSaving(true);
           try {
+            const nextTarget = pendingEnergy?.prescribed_target_kcal ?? saved.target_calories;
+            const nextEnergyWeight = pendingEnergy?.inputs.weight_kg.value ?? saved.energy_calculation?.inputs.weight_kg.value ?? null;
+            const macroToSave = pendingMacros
+              ? (nextTarget ? reconcileMacroDistribution(pendingMacros, nextTarget, nextEnergyWeight) : pendingMacros)
+              : pendingEnergy && saved.macro_distribution && nextTarget
+                ? reconcileMacroDistribution(saved.macro_distribution, nextTarget, nextEnergyWeight)
+                : undefined;
             const updated = await updateDietPlan(saved.id, {
-              energy_calculation: pendingEnergyCalculation.current,
-              target_calories: pendingEnergyCalculation.current.prescribed_target_kcal,
+              ...(pendingEnergy ? { energy_calculation: pendingEnergy, target_calories: pendingEnergy.prescribed_target_kcal } : {}),
+              ...(macroToSave ? { macro_distribution: macroToSave } : {}),
             });
             setPlan(updated);
             pendingEnergyCalculation.current = null;
+            pendingMacroDistribution.current = null;
           } finally {
             setSaving(false);
           }
@@ -536,7 +555,7 @@ export function DietWorkshopPage() {
         navigate(exitTarget);
       })().catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el plan."))} />
       {contextEditor && <ContextEditor currentPatient={patient} patients={patients} consultations={consultations} selectedPatientId={contextPatientId} selectedConsultationId={contextConsultationId} busy={busy} onPatient={(id) => void chooseContextPatient(id)} onConsultation={setContextConsultationId} onCancel={() => setContextEditor(false)} onSave={() => void saveContext()} />}
-      <WorkshopNavigation targetReady={Boolean(plan.target_calories && plan.target_calories > 0)} />
+      <WorkshopNavigation targetReady={Boolean(plan.target_calories && plan.target_calories > 0)} macrosReady={macrosReady} activeStep={activeStep} onSelect={setActiveStep} />
       {notice && <p role="status" className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]">{notice}</p>}
       {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{error}</p>}
       <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -546,7 +565,7 @@ export function DietWorkshopPage() {
               <input id="diet-plan-title" className="nuth-input mt-2" maxLength={120} required value={title} onChange={(event) => { setTitle(event.target.value); setNotice(""); }} onBlur={() => void saveTitle().catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el título."))} />
             </label>
           </section>
-          <DietEnergyStep
+          {activeStep === "energy" && <DietEnergyStep
             key={`${plan.id}:${reference?.weight?.value ?? ""}:${reference?.height?.value ?? ""}`}
             plan={plan}
             reference={energyReference}
@@ -554,17 +573,49 @@ export function DietWorkshopPage() {
             onSave={async (energy) => {
               setSaving(true);
               try {
-                const updated = await updateDietPlan(plan.id, { energy_calculation: energy, target_calories: energy.prescribed_target_kcal });
+                const macroSource = pendingMacroDistribution.current ?? plan.macro_distribution;
+                const macro = macroSource && energy.prescribed_target_kcal
+                  ? reconcileMacroDistribution(macroSource, energy.prescribed_target_kcal, energy.inputs.weight_kg.value)
+                  : undefined;
+                const updated = await updateDietPlan(plan.id, {
+                  energy_calculation: energy,
+                  target_calories: energy.prescribed_target_kcal,
+                  ...(macro ? { macro_distribution: macro } : {}),
+                });
                 setPlan(updated);
                 pendingEnergyCalculation.current = null;
+                if (macro) pendingMacroDistribution.current = null;
                 setNotice("Objetivo energético guardado automáticamente.");
               } finally {
                 setSaving(false);
               }
             }}
             onDraftChange={(energy) => { pendingEnergyCalculation.current = energy; }}
-            onContinue={() => setNotice("El paso de macronutrientes se habilitará en el Objetivo 4.")}
-          />
+            onContinue={() => { setNotice(""); setActiveStep("macros"); }}
+          />}
+          {activeStep === "macros" && <DietMacrosStep
+            plan={plan}
+            targetEnergyKcal={plan.target_calories}
+            energyReferenceWeightKg={energyReferenceWeightKg}
+            onSave={async (distribution) => {
+              setSaving(true);
+              try {
+                const updated = await updateDietPlan(plan.id, { macro_distribution: distribution });
+                setPlan(updated);
+                pendingMacroDistribution.current = null;
+                setNotice("Distribución de macronutrientes guardada automáticamente.");
+              } finally {
+                setSaving(false);
+              }
+            }}
+            onDraftChange={(distribution) => { pendingMacroDistribution.current = distribution; }}
+            onGoToEnergy={() => setActiveStep("energy")}
+            onContinue={() => { setNotice("El siguiente paso se habilitará al implementar equivalentes."); setActiveStep("equivalents"); }}
+          />}
+          {activeStep === "equivalents" && <section className="rounded-[24px] border border-dashed border-[#cdd9d1] bg-[#fbfcfa] p-8 text-center">
+            <p className="nuth-eyebrow">Próximo paso</p><h1 className="mt-2 text-2xl font-semibold text-[#173d36]">Equivalentes</h1><p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-[#718078]">La distribución quedó guardada. La construcción de equivalentes llegará en el siguiente objetivo del Taller.</p>
+            <button type="button" className="nuth-button-secondary mt-5" onClick={() => setActiveStep("macros")}>Volver a macronutrientes</button>
+          </section>}
         </div>
         <aside className="h-fit rounded-[24px] border border-[#dfe6e1] bg-[#f9fbf8] p-5 xl:sticky xl:top-56">
           <p className="text-sm font-semibold text-[#315e4f]">Preparado para continuar</p>

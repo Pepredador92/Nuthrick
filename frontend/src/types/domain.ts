@@ -358,6 +358,7 @@ export interface NutritionPlan {
   category: string | null;
   target_calories: number | null;
   energy_calculation: PlanEnergyCalculation | null;
+  macro_distribution: MacroDistribution | null;
   status: "draft" | "active" | "archived";
   created_at: string;
   updated_at: string;
@@ -405,6 +406,40 @@ export type PlanEnergyCalculation = {
     errors: Array<{ code: string; message: string; input?: string }>;
   };
   calculated_at: string;
+};
+
+export type MacroCode = "CARBOHYDRATE" | "PROTEIN" | "FAT";
+export type MacroInputMode = "percentage" | "grams" | "grams_per_kg";
+export type MacroReferenceWeightSource = "energy_calculation" | "manual" | "unavailable";
+
+/**
+ * Snapshot persisted with the plan. `input_value` is the only authoritative
+ * macro value; every other field is derived without intermediate rounding.
+ */
+export type PlanMacro = {
+  code: MacroCode;
+  input_mode: MacroInputMode;
+  input_value: number | null;
+  percentage: number | null;
+  kcal: number | null;
+  grams: number | null;
+  grams_per_kg: number | null;
+};
+
+export type MacroDistribution = {
+  version: 1;
+  target_energy_kcal: number;
+  reference_weight_kg: number | null;
+  reference_weight_source: MacroReferenceWeightSource;
+  reference_weight_override_kg: number | null;
+  macros: Record<MacroCode, PlanMacro>;
+  totals: {
+    percentage: number;
+    kcal: number;
+    difference_kcal: number;
+  };
+  complete: boolean;
+  updated_at: string;
 };
 
 export interface PublicProfileContent {
