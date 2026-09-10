@@ -48,6 +48,7 @@ const plan: NutritionPlan = {
   target_calories: null,
   energy_calculation: null,
   macro_distribution: null,
+  exchange_prescription: null,
   created_at: "2026-09-09T12:00:00Z",
   updated_at: "2026-09-09T12:00:00Z",
 };

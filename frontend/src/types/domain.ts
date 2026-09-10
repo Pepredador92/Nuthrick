@@ -359,6 +359,7 @@ export interface NutritionPlan {
   target_calories: number | null;
   energy_calculation: PlanEnergyCalculation | null;
   macro_distribution: MacroDistribution | null;
+  exchange_prescription: ExchangePrescription | null;
   status: "draft" | "active" | "archived";
   created_at: string;
   updated_at: string;
@@ -439,6 +440,36 @@ export type MacroDistribution = {
     difference_kcal: number;
   };
   complete: boolean;
+  updated_at: string;
+};
+
+export type ExchangeGroupCode =
+  | "VEGETABLES" | "FRUITS" | "CEREALS_NO_FAT" | "CEREALS_WITH_FAT" | "LEGUMES"
+  | "AOA_VERY_LOW_FAT" | "AOA_LOW_FAT" | "AOA_MODERATE_FAT" | "AOA_HIGH_FAT"
+  | "MILK_SKIM" | "MILK_SEMI_SKIM" | "MILK_WHOLE" | "MILK_WITH_SUGAR"
+  | "FATS_NO_PROTEIN" | "FATS_WITH_PROTEIN" | "SUGARS_NO_FAT" | "SUGARS_WITH_FAT";
+
+export type ExchangeTargetSnapshot = {
+  energy_kcal: number;
+  carbohydrate_g: number;
+  protein_g: number;
+  fat_g: number;
+};
+
+export type ExchangeDerivedTotals = ExchangeTargetSnapshot;
+export type ExchangeStatus = "not_started" | "editing" | "ready";
+
+export type ExchangePrescription = {
+  schema_version: 1;
+  exchange_system_code: string;
+  catalog_version: string;
+  target_snapshot: ExchangeTargetSnapshot;
+  confirmed_target_snapshot: ExchangeTargetSnapshot | null;
+  groups: Array<{ group_code: ExchangeGroupCode; portions: number }>;
+  derived_totals: ExchangeDerivedTotals;
+  differences: ExchangeDerivedTotals;
+  status: ExchangeStatus;
+  confirmed_at: string | null;
   updated_at: string;
 };
 

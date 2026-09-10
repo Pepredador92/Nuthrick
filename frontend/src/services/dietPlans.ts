@@ -1,5 +1,5 @@
 import { supabase } from "@/src/lib/supabase";
-import type { MacroDistribution, NutritionPlan, PlanEnergyCalculation } from "@/src/types/domain";
+import type { ExchangePrescription, MacroDistribution, NutritionPlan, PlanEnergyCalculation } from "@/src/types/domain";
 
 export type DietPlanPatch = {
   title?: string;
@@ -9,6 +9,7 @@ export type DietPlanPatch = {
   target_calories?: number | null;
   energy_calculation?: PlanEnergyCalculation | null;
   macro_distribution?: MacroDistribution | null;
+  exchange_prescription?: ExchangePrescription | null;
 };
 
 export type DietReferenceValue = {
