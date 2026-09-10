@@ -126,7 +126,12 @@ function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, 
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <label className="text-xs font-semibold text-[#52675e]">Peso (kg)
-              <input aria-label="Peso de referencia" className="nuth-input mt-1 w-32 !py-2" inputMode="decimal" type="number" min="0" step="any" value={draft.reference_weight_source === "manual" ? draft.reference_weight_kg ?? "" : ""} placeholder={hasReferenceWeight ? display(draft.reference_weight_kg, 1) : "Registrar"} onChange={(event) => update(setMacroReferenceWeight(draft, numeric(event.target.value)))} />
+              <input aria-label="Peso de referencia" className="nuth-input mt-1 w-32 !py-2" inputMode="decimal" type="number" min="0" step="any" value={draft.reference_weight_source === "manual" ? draft.reference_weight_kg ?? "" : ""} placeholder={hasReferenceWeight ? display(draft.reference_weight_kg, 1) : "Registrar"} onChange={(event) => {
+                const value = numeric(event.target.value);
+                update(value === null && draft.reference_weight_source === "manual"
+                  ? restoreEnergyReferenceWeight(draft, energyReferenceWeightKg)
+                  : setMacroReferenceWeight(draft, value));
+              }} />
             </label>
             {draft.reference_weight_source === "manual" && <button type="button" className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-[#3d705d]" onClick={() => update(restoreEnergyReferenceWeight(draft, energyReferenceWeightKg))}><RotateCcw size={13} /> Restaurar</button>}
           </div>
