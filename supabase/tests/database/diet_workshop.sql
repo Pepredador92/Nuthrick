@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(9);
+select plan(11);
 
 insert into auth.users(id,email) values
   ('a1000000-0000-4000-8000-000000000001','diet-owner@nuthrick.test'),
@@ -47,6 +47,16 @@ select throws_ok(
 select lives_ok(
   $$update public.nutrition_plans set title='Borrador recuperado' where title='Plan libre'$$,
   'the owner can continue editing a draft'
+);
+select lives_ok(
+  $$update public.nutrition_plans set meal_distribution='{"schema_version":1,"source_exchange_snapshot":null,"meal_times":[],"distribution":[],"derived_meal_totals":[],"status":"not_started"}'::jsonb where title='Borrador recuperado'$$,
+  'a versioned meal distribution can be persisted on the owned plan'
+);
+select throws_ok(
+  $$update public.nutrition_plans set meal_distribution='[]'::jsonb where title='Borrador recuperado'$$,
+  '23514',
+  null,
+  'meal distribution rejects non-object payloads'
 );
 
 select set_config('request.jwt.claim.sub','a2000000-0000-4000-8000-000000000002',true);

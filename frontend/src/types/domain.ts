@@ -360,6 +360,7 @@ export interface NutritionPlan {
   energy_calculation: PlanEnergyCalculation | null;
   macro_distribution: MacroDistribution | null;
   exchange_prescription: ExchangePrescription | null;
+  meal_distribution: MealDistribution | null;
   status: "draft" | "active" | "archived";
   created_at: string;
   updated_at: string;
@@ -474,6 +475,50 @@ export type ExchangePrescription = {
   suggestion_algorithm?: string;
   suggestion_applied_at?: string;
   updated_at: string;
+};
+
+export type MealType = "BREAKFAST" | "SNACK" | "MAIN_MEAL" | "DINNER" | "CUSTOM";
+export type MealDistributionStatus = "not_started" | "editing" | "ready";
+
+export type MealTime = {
+  id: string;
+  meal_type: MealType;
+  display_name: string;
+  time: string | null;
+  display_order: number;
+};
+
+export type MealDistributionEntry = {
+  group_code: ExchangeGroupCode;
+  meal_time_id: string;
+  portions: number;
+};
+
+export type MealNutritionTotal = ExchangeDerivedTotals & {
+  meal_time_id: string;
+};
+
+export type MealExchangeSnapshot = {
+  exchange_system_code: string;
+  catalog_version: string;
+  groups: Array<{ group_code: ExchangeGroupCode; portions: number }>;
+};
+
+export type MealDistribution = {
+  schema_version: 1;
+  source_exchange_snapshot: MealExchangeSnapshot | null;
+  meal_times: MealTime[];
+  distribution: MealDistributionEntry[];
+  derived_meal_totals: MealNutritionTotal[];
+  status: MealDistributionStatus;
+  confirmed_at: string | null;
+  updated_at: string;
+  suggestion_metadata?: {
+    source: "automatic";
+    algorithm: string;
+    generated_at: string;
+    base: "zero" | "current";
+  };
 };
 
 export interface PublicProfileContent {

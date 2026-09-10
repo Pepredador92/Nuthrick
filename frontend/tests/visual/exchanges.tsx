@@ -7,7 +7,7 @@ import "../../app/globals.css";
 const plan: NutritionPlan = {
   id: "visual-exchange-plan", professional_id: "visual-professional", patient_id: null, consultation_id: null,
   title: "Plan de verificación", assigned_at: "2026-09-10", review_date: null, plan_type: null, category: null,
-  target_calories: 2000, energy_calculation: null, macro_distribution: null, exchange_prescription: null,
+  target_calories: 2000, energy_calculation: null, macro_distribution: null, exchange_prescription: null, meal_distribution: null,
   status: "draft", created_at: "2026-09-10T09:00:00Z", updated_at: "2026-09-10T09:00:00Z",
 };
 

@@ -16,8 +16,10 @@ import { ErrorState, LoadingState } from "@/src/components/ui/Status";
 import { DietEnergyStep } from "@/src/components/diet/DietEnergyStep";
 import { DietMacrosStep } from "@/src/components/diet/DietMacrosStep";
 import { DietEquivalentsStep } from "@/src/components/diet/DietEquivalentsStep";
+import { DietMealDistributionStep } from "@/src/components/diet/DietMealDistributionStep";
 import type { EnergyReferenceContext } from "@/src/features/diet-energy/model";
 import { reconcileExchangePrescription } from "@/src/features/exchanges/model";
+import { reconcileMealDistribution } from "@/src/features/meal-distribution/model";
 import { reconcileMacroDistribution } from "@/src/features/macros/model";
 import { calculateAge, consultationLabel, formatPatientDate } from "@/src/features/patients/patientUtils";
 import {
@@ -29,7 +31,7 @@ import {
   type DietReferenceData,
 } from "@/src/services/dietPlans";
 import { getPatient, listConsultations, listPatients } from "@/src/services/patients";
-import type { Consultation, ExchangePrescription, ExchangeTargetSnapshot, MacroDistribution, NutritionPlan, Patient, PlanEnergyCalculation } from "@/src/types/domain";
+import type { Consultation, ExchangePrescription, ExchangeTargetSnapshot, MacroDistribution, MealDistribution, NutritionPlan, Patient, PlanEnergyCalculation } from "@/src/types/domain";
 
 const steps = [
   { id: "energy", label: "Objetivo energético" },
@@ -207,7 +209,7 @@ function WorkshopNavigation({ targetReady, macrosReady, activeStep, onSelect }: 
     <nav className="mt-5 overflow-x-auto border-b border-[#dfe6e1]" aria-label="Secciones del Taller de dietas">
       <ol className="flex min-w-max gap-1">
         {steps.map((step, index) => {
-          const ready = step.id === "energy" ? true : step.id === "macros" ? targetReady : step.id === "equivalents" ? macrosReady : false;
+          const ready = step.id === "energy" ? true : step.id === "macros" ? targetReady : step.id === "equivalents" || step.id === "meals" ? macrosReady : false;
           return (
           <li key={step.id}>
             <button
@@ -343,6 +345,7 @@ export function DietWorkshopPage() {
   const pendingEnergyCalculation = useRef<PlanEnergyCalculation | null>(null);
   const pendingMacroDistribution = useRef<MacroDistribution | null>(null);
   const pendingExchangePrescription = useRef<ExchangePrescription | null>(null);
+  const pendingMealDistribution = useRef<MealDistribution | null>(null);
   const [activeStep, setActiveStep] = useState<WorkshopStep>("energy");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -544,7 +547,7 @@ export function DietWorkshopPage() {
         if (!saved) return;
         const pendingEnergy = pendingEnergyCalculation.current;
         const pendingMacros = pendingMacroDistribution.current;
-        if (pendingEnergy || pendingMacros || pendingExchangePrescription.current) {
+        if (pendingEnergy || pendingMacros || pendingExchangePrescription.current || pendingMealDistribution.current) {
           setSaving(true);
           try {
             const nextTarget = pendingEnergy?.prescribed_target_kcal ?? saved.target_calories;
@@ -558,15 +561,19 @@ export function DietWorkshopPage() {
             const exchangeToSave = pendingExchangePrescription.current
               ? (nextExchangeTargets ? reconcileExchangePrescription(pendingExchangePrescription.current, nextExchangeTargets) : pendingExchangePrescription.current)
               : saved.exchange_prescription && nextExchangeTargets ? reconcileExchangePrescription(saved.exchange_prescription, nextExchangeTargets) : undefined;
+            const mealSource = pendingMealDistribution.current ?? saved.meal_distribution;
+            const mealToSave = mealSource && exchangeToSave ? reconcileMealDistribution(mealSource, exchangeToSave) : mealSource ?? undefined;
             const updated = await updateDietPlan(saved.id, {
               ...(pendingEnergy ? { energy_calculation: pendingEnergy, target_calories: pendingEnergy.prescribed_target_kcal } : {}),
               ...(macroToSave ? { macro_distribution: macroToSave } : {}),
               ...(exchangeToSave ? { exchange_prescription: exchangeToSave } : {}),
+              ...(mealToSave ? { meal_distribution: mealToSave } : {}),
             });
             setPlan(updated);
             pendingEnergyCalculation.current = null;
             pendingMacroDistribution.current = null;
             pendingExchangePrescription.current = null;
+            pendingMealDistribution.current = null;
           } finally {
             setSaving(false);
           }
@@ -598,16 +605,19 @@ export function DietWorkshopPage() {
                   : undefined;
                 const nextExchangeTargets = exchangeTargetsFor({ target_calories: energy.prescribed_target_kcal, macro_distribution: macro ?? plan.macro_distribution });
                 const exchange = plan.exchange_prescription && nextExchangeTargets ? reconcileExchangePrescription(plan.exchange_prescription, nextExchangeTargets) : undefined;
+                const meal = plan.meal_distribution && exchange ? reconcileMealDistribution(plan.meal_distribution, exchange) : undefined;
                 const updated = await updateDietPlan(plan.id, {
                   energy_calculation: energy,
                   target_calories: energy.prescribed_target_kcal,
                   ...(macro ? { macro_distribution: macro } : {}),
                   ...(exchange ? { exchange_prescription: exchange } : {}),
+                  ...(meal ? { meal_distribution: meal } : {}),
                 });
                 setPlan(updated);
                 pendingEnergyCalculation.current = null;
                 if (macro) pendingMacroDistribution.current = null;
                 if (exchange) pendingExchangePrescription.current = null;
+                if (meal) pendingMealDistribution.current = null;
                 setNotice("Objetivo energético guardado automáticamente.");
               } finally {
                 setSaving(false);
@@ -625,10 +635,12 @@ export function DietWorkshopPage() {
               try {
                 const nextExchangeTargets = exchangeTargetsFor({ target_calories: plan.target_calories, macro_distribution: distribution });
                 const exchange = plan.exchange_prescription && nextExchangeTargets ? reconcileExchangePrescription(plan.exchange_prescription, nextExchangeTargets) : undefined;
-                const updated = await updateDietPlan(plan.id, { macro_distribution: distribution, ...(exchange ? { exchange_prescription: exchange } : {}) });
+                const meal = plan.meal_distribution && exchange ? reconcileMealDistribution(plan.meal_distribution, exchange) : undefined;
+                const updated = await updateDietPlan(plan.id, { macro_distribution: distribution, ...(exchange ? { exchange_prescription: exchange } : {}), ...(meal ? { meal_distribution: meal } : {}) });
                 setPlan(updated);
                 pendingMacroDistribution.current = null;
                 if (exchange) pendingExchangePrescription.current = null;
+                if (meal) pendingMealDistribution.current = null;
                 setNotice("Distribución de macronutrientes guardada automáticamente.");
               } finally {
                 setSaving(false);
@@ -644,14 +656,31 @@ export function DietWorkshopPage() {
             onSave={async (prescription) => {
               setSaving(true);
               try {
-                const updated = await updateDietPlan(plan.id, { exchange_prescription: prescription });
+                const mealSource = pendingMealDistribution.current ?? plan.meal_distribution;
+                const meal = mealSource ? reconcileMealDistribution(mealSource, prescription) : undefined;
+                const updated = await updateDietPlan(plan.id, { exchange_prescription: prescription, ...(meal ? { meal_distribution: meal } : {}) });
                 setPlan(updated);
                 pendingExchangePrescription.current = null;
+                if (meal) pendingMealDistribution.current = null;
                 setNotice("Cuadro de equivalentes guardado automáticamente.");
               } finally { setSaving(false); }
             }}
             onDraftChange={(prescription) => { pendingExchangePrescription.current = prescription; }}
             onGoToMacros={() => setActiveStep("macros")}
+          />}
+          {activeStep === "meals" && <DietMealDistributionStep
+            plan={plan}
+            onSave={async (distribution) => {
+              setSaving(true);
+              try {
+                const updated = await updateDietPlan(plan.id, { meal_distribution: distribution });
+                setPlan(updated);
+                pendingMealDistribution.current = null;
+                setNotice("Distribución por tiempos guardada automáticamente.");
+              } finally { setSaving(false); }
+            }}
+            onDraftChange={(distribution) => { pendingMealDistribution.current = distribution; }}
+            onGoToEquivalents={() => setActiveStep("equivalents")}
           />}
         </div>
         <aside className="h-fit rounded-[24px] border border-[#dfe6e1] bg-[#f9fbf8] p-5 xl:sticky xl:top-56">

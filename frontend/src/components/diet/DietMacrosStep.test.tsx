@@ -17,6 +17,7 @@ const plan: NutritionPlan = {
   energy_calculation: null,
   macro_distribution: null,
   exchange_prescription: null,
+  meal_distribution: null,
   status: "draft",
   created_at: "2026-09-09T12:00:00Z",
   updated_at: "2026-09-09T12:00:00Z",

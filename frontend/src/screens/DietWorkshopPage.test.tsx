@@ -49,6 +49,7 @@ const plan: NutritionPlan = {
   energy_calculation: null,
   macro_distribution: null,
   exchange_prescription: null,
+  meal_distribution: null,
   created_at: "2026-09-09T12:00:00Z",
   updated_at: "2026-09-09T12:00:00Z",
 };
@@ -127,5 +128,19 @@ describe("DietWorkshopPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Nuevo plan libre" }));
     await waitFor(() => expect(api.createPlan).toHaveBeenCalledWith({ patientId: null, consultationId: null }));
     expect((await screen.findAllByText("Sin asignar")).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("enables Tiempos de comida after macros and guides back when the exchange inventory is empty", async () => {
+    api.getPlan.mockResolvedValue({
+      ...plan,
+      target_calories: 1800,
+      macro_distribution: { complete: true } as never,
+    });
+    mount("/app/diet-workshop/plan");
+    const meals = await screen.findByRole("button", { name: /Tiempos de comida/ });
+    expect(meals).toBeEnabled();
+    fireEvent.click(meals);
+    expect(screen.getByText("Define primero los equivalentes del día.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ir a Equivalentes" })).toBeInTheDocument();
   });
 });

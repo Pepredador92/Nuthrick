@@ -6,7 +6,7 @@ import type { NutritionPlan } from "@/src/types/domain";
 const plan: NutritionPlan = {
   id: "plan", professional_id: "professional", patient_id: "patient", consultation_id: "consultation", title: "Plan nutricional",
   assigned_at: "2026-09-09", review_date: null, plan_type: null, category: null, target_calories: 2000,
-  energy_calculation: null, macro_distribution: null, exchange_prescription: null, status: "draft",
+  energy_calculation: null, macro_distribution: null, exchange_prescription: null, meal_distribution: null, status: "draft",
   created_at: "2026-09-09T12:00:00Z", updated_at: "2026-09-09T12:00:00Z",
 };
 const targets = { energy_kcal: 2000, carbohydrate_g: 250, protein_g: 100, fat_g: 60 };
