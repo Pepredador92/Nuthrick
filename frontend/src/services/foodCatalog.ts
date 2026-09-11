@@ -32,6 +32,20 @@ export function normalizeFoodName(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es-MX").replace(/\s+/g, " ");
 }
 
+export function foodMatchesSearch(food: Pick<FoodItem, "normalized_name" | "aliases">, search: string) {
+  const normalized = normalizeFoodName(search);
+  if (!normalized) return true;
+  return [food.normalized_name, ...(food.aliases ?? [])]
+    .some((term) => normalizeFoodName(term).includes(normalized));
+}
+
+export function recipeMatchesSearch(recipe: Pick<Recipe, "normalized_name" | "tags">, search: string) {
+  const normalized = normalizeFoodName(search);
+  if (!normalized) return true;
+  return [recipe.normalized_name, ...(recipe.tags ?? [])]
+    .some((term) => normalizeFoodName(term).includes(normalized));
+}
+
 async function currentUserId() {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) throw new Error("Tu sesión expiró. Inicia sesión nuevamente.");
@@ -47,20 +61,23 @@ export async function listFoodItems(options: { search?: string; groupCode?: Exch
     .eq("active", true)
     .order("use_count", { ascending: false })
     .order("updated_at", { ascending: false })
-    .limit(100);
+    .limit(250);
   if (options.groupCode) query = query.eq("group_code", options.groupCode);
-  if (options.search?.trim()) query = query.ilike("normalized_name", `%${normalizeFoodName(options.search)}%`);
   const { data, error } = await query;
   if (error) throw new Error("No pudimos cargar el catálogo de alimentos.");
-  return (data ?? []) as FoodItem[];
+  const foods = (data ?? []) as FoodItem[];
+  return options.search?.trim() ? foods.filter((food) => foodMatchesSearch(food, options.search ?? "")) : foods;
 }
 
 export async function createCustomFood(input: CustomFoodInput) {
   const ownerId = await currentUserId();
   const payload = {
     owner_id: ownerId,
+    stable_code: null,
+    catalog_code: null,
     name: input.name.trim(),
     normalized_name: normalizeFoodName(input.name),
+    aliases: [],
     brand: null,
     category: null,
     exchange_system_code: EXCHANGE_SYSTEM_CODE,
@@ -69,6 +86,7 @@ export async function createCustomFood(input: CustomFoodInput) {
     portion_amount: input.portion_amount,
     portion_unit: input.portion_unit,
     portion_description: input.portion_description.trim(),
+    alternate_portions: [],
     edible_grams: null,
     energy_kcal: input.energy_kcal ?? null,
     carbohydrate_g: input.carbohydrate_g ?? null,
@@ -79,6 +97,7 @@ export async function createCustomFood(input: CustomFoodInput) {
     attributes: input.attributes ?? {},
     source: "PROFESSIONAL_CUSTOM",
     source_version: "1",
+    source_reference: null,
     is_custom: true,
     active: true,
   };
@@ -109,6 +128,7 @@ export async function createCustomRecipe(input: CustomRecipeInput) {
   const ownerId = await currentUserId();
   const { data: recipeRow, error: recipeError } = await supabase.from("recipes").insert({
     owner_id: ownerId,
+    stable_code: null,
     name: input.name.trim(),
     normalized_name: normalizeFoodName(input.name),
     description: input.description?.trim() || null,
@@ -116,8 +136,11 @@ export async function createCustomRecipe(input: CustomRecipeInput) {
     servings: 1,
     instructions: input.instructions?.trim() || null,
     image_path: null,
+    tags: [],
+    substitution_notes: null,
     source: "PROFESSIONAL_CUSTOM",
     source_version: "1",
+    source_reference: null,
     is_custom: true,
     active: true,
   }).select("*").single();

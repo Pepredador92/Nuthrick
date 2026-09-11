@@ -21,11 +21,11 @@ const mealDistribution: MealDistribution = {
   ], derived_meal_totals: [], status: "ready", confirmed_at: "2026-09-10T09:00:00Z", updated_at: "2026-09-10T09:00:00Z",
 };
 const papaya: FoodItem = {
-  id: "papaya", owner_id: "visual", name: "Papaya preparada", normalized_name: "papaya preparada", brand: null, category: null,
+  id: "papaya", owner_id: "visual", stable_code: null, catalog_code: null, name: "Papaya preparada", normalized_name: "papaya preparada", aliases: [], brand: null, category: null,
   exchange_system_code: "SMAE_NOM037_2012", exchange_catalog_version: "1.0.0", group_code: "FRUITS",
-  portion_amount: 1, portion_unit: "cup", portion_description: "1 taza", edible_grams: null,
+  portion_amount: 1, portion_unit: "cup", portion_description: "1 taza", alternate_portions: [], edible_grams: null,
   energy_kcal: null, carbohydrate_g: null, protein_g: null, fat_g: null, fiber_g: null, sodium_mg: null,
-  attributes: { gluten: "free", lactose: "free" }, source: "PROFESSIONAL_CUSTOM", source_version: "1", is_custom: true,
+  attributes: { gluten: "free", lactose: "free" }, source: "PROFESSIONAL_CUSTOM", source_version: "1", source_reference: null, is_custom: true,
   use_count: 2, active: true, created_at: "2026-09-10T09:00:00Z", updated_at: "2026-09-10T09:00:00Z",
 };
 let menu = createDietMenu(mealDistribution, () => "main");

@@ -528,11 +528,20 @@ export type FoodUnitCode =
 
 export type FoodAttributeValue = "contains" | "free" | "unknown";
 
+export type FoodPortionPresentation = {
+  amount: number;
+  unit: FoodUnitCode;
+  display: string;
+};
+
 export type FoodItem = {
   id: string;
   owner_id: string | null;
+  stable_code: string | null;
+  catalog_code: string | null;
   name: string;
   normalized_name: string;
+  aliases: string[];
   brand: string | null;
   category: string | null;
   exchange_system_code: string;
@@ -541,6 +550,7 @@ export type FoodItem = {
   portion_amount: number;
   portion_unit: FoodUnitCode;
   portion_description: string;
+  alternate_portions: FoodPortionPresentation[];
   edible_grams: number | null;
   energy_kcal: number | null;
   carbohydrate_g: number | null;
@@ -551,6 +561,7 @@ export type FoodItem = {
   attributes: Partial<Record<"gluten" | "lactose" | "milk" | "egg" | "peanut" | "tree_nuts" | "soy" | "fish" | "crustaceans" | "other", FoodAttributeValue>>;
   source: string;
   source_version: string;
+  source_reference: string | null;
   is_custom: boolean;
   use_count: number;
   active: boolean;
@@ -561,6 +572,7 @@ export type FoodItem = {
 export type Recipe = {
   id: string;
   owner_id: string | null;
+  stable_code: string | null;
   name: string;
   normalized_name: string;
   description: string | null;
@@ -568,8 +580,11 @@ export type Recipe = {
   servings: number;
   instructions: string | null;
   image_path: string | null;
+  tags: string[];
+  substitution_notes: string | null;
   source: string;
   source_version: string;
+  source_reference: string | null;
   is_custom: boolean;
   active: boolean;
   created_at: string;

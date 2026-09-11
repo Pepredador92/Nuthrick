@@ -30,20 +30,20 @@ const distribution: MealDistribution = {
 };
 
 const food = (id: string, name: string, group_code: FoodItem["group_code"], portion_amount = 1): FoodItem => ({
-  id, owner_id: "owner", name, normalized_name: name.toLowerCase(), brand: null, category: null,
+  id, owner_id: "owner", stable_code: null, catalog_code: null, name, normalized_name: name.toLowerCase(), aliases: [], brand: null, category: null,
   exchange_system_code: "SMAE_NOM037_2012", exchange_catalog_version: "1.0.0", group_code,
-  portion_amount, portion_unit: "piece", portion_description: `${portion_amount} pieza`, edible_grams: null,
+  portion_amount, portion_unit: "piece", portion_description: `${portion_amount} pieza`, alternate_portions: [], edible_grams: null,
   energy_kcal: null, carbohydrate_g: null, protein_g: null, fat_g: null, fiber_g: null, sodium_mg: null,
-  attributes: { gluten: "unknown" }, source: "PROFESSIONAL_CUSTOM", source_version: "1", is_custom: true,
+  attributes: { gluten: "unknown" }, source: "PROFESSIONAL_CUSTOM", source_version: "1", source_reference: null, is_custom: true,
   use_count: 0, active: true, created_at: "2026-09-10T00:00:00Z", updated_at: "2026-09-10T00:00:00Z",
 });
 
 const fruit = food("fruit", "Papaya", "FRUITS");
 const cereal = food("cereal", "Tortilla", "CEREALS_NO_FAT");
 const recipe = (): Recipe => ({
-  id: "recipe", owner_id: "owner", name: "Papaya con tortillas", normalized_name: "papaya con tortillas",
-  description: null, meal_types: ["BREAKFAST"], servings: 1, instructions: null, image_path: null,
-  source: "PROFESSIONAL_CUSTOM", source_version: "1", is_custom: true, active: true,
+  id: "recipe", owner_id: "owner", stable_code: null, name: "Papaya con tortillas", normalized_name: "papaya con tortillas",
+  description: null, meal_types: ["BREAKFAST"], servings: 1, instructions: null, image_path: null, tags: [], substitution_notes: null,
+  source: "PROFESSIONAL_CUSTOM", source_version: "1", source_reference: null, is_custom: true, active: true,
   created_at: "2026-09-10T00:00:00Z", updated_at: "2026-09-10T00:00:00Z",
   items: [
     { id: "ri1", owner_id: "owner", recipe_id: "recipe", food_item_id: fruit.id, amount: 1, unit: "piece", display_order: 0, food_snapshot: createFoodSnapshot(fruit), exchange_contribution: exchangeContributionForFood(fruit, 1), created_at: "" },

@@ -7,14 +7,17 @@ import type { FoodItem, MealDistribution, NutritionPlan, Recipe } from "@/src/ty
 const services = vi.hoisted(() => ({
   listFoodItems: vi.fn(), listRecipes: vi.fn(), createCustomFood: vi.fn(), createCustomRecipe: vi.fn(),
 }));
-vi.mock("@/src/services/foodCatalog", () => services);
+vi.mock("@/src/services/foodCatalog", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/src/services/foodCatalog")>()),
+  ...services,
+}));
 
 const food: FoodItem = {
-  id: "fruit", owner_id: "owner", name: "Papaya", normalized_name: "papaya", brand: null, category: null,
+  id: "fruit", owner_id: "owner", stable_code: null, catalog_code: null, name: "Papaya", normalized_name: "papaya", aliases: [], brand: null, category: null,
   exchange_system_code: "SMAE_NOM037_2012", exchange_catalog_version: "1.0.0", group_code: "FRUITS",
-  portion_amount: 1, portion_unit: "cup", portion_description: "1 taza", edible_grams: null,
+  portion_amount: 1, portion_unit: "cup", portion_description: "1 taza", alternate_portions: [], edible_grams: null,
   energy_kcal: null, carbohydrate_g: null, protein_g: null, fat_g: null, fiber_g: null, sodium_mg: null,
-  attributes: {}, source: "PROFESSIONAL_CUSTOM", source_version: "1", is_custom: true, use_count: 0, active: true,
+  attributes: {}, source: "PROFESSIONAL_CUSTOM", source_version: "1", source_reference: null, is_custom: true, use_count: 0, active: true,
   created_at: "2026-09-10T00:00:00Z", updated_at: "2026-09-10T00:00:00Z",
 };
 const mealDistribution: MealDistribution = {
@@ -24,9 +27,9 @@ const mealDistribution: MealDistribution = {
   derived_meal_totals: [], status: "ready", confirmed_at: "2026-09-10T00:00:00Z", updated_at: "2026-09-10T00:00:00Z",
 };
 const recipe: Recipe = {
-  id: "recipe", owner_id: "owner", name: "Papaya fresca", normalized_name: "papaya fresca", description: null,
-  meal_types: ["BREAKFAST"], servings: 1, instructions: null, image_path: null, source: "PROFESSIONAL_CUSTOM",
-  source_version: "1", is_custom: true, active: true, created_at: "", updated_at: "", items: [{
+  id: "recipe", owner_id: "owner", stable_code: null, name: "Papaya fresca", normalized_name: "papaya fresca", description: null,
+  meal_types: ["BREAKFAST"], servings: 1, instructions: null, image_path: null, tags: [], substitution_notes: null, source: "PROFESSIONAL_CUSTOM",
+  source_version: "1", source_reference: null, is_custom: true, active: true, created_at: "", updated_at: "", items: [{
     id: "item", owner_id: "owner", recipe_id: "recipe", food_item_id: food.id, amount: 1, unit: "cup", display_order: 0,
     food_snapshot: createFoodSnapshot(food), exchange_contribution: exchangeContributionForFood(food, 1), created_at: "",
   }],
@@ -64,11 +67,36 @@ describe("DietMenuStep", () => {
     const onDraftChange = vi.fn();
     render(<DietMenuStep plan={plan} onSave={vi.fn().mockResolvedValue(undefined)} onDraftChange={onDraftChange} onGoToMeals={vi.fn()} />);
     fireEvent.click(screen.getByText("Falta 1"));
-    expect(await screen.findByText("Filtrado por Frutas")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Frutas" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.change(screen.getByLabelText("Cantidad de Papaya"), { target: { value: "1" } });
     fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
     expect(screen.getByText("Completo")).toBeInTheDocument();
     await waitFor(() => expect(onDraftChange).toHaveBeenCalled());
+  });
+
+  it("finds a canonical catalog food through an alias", async () => {
+    const chicken = {
+      ...food,
+      id: "chicken",
+      owner_id: null,
+      stable_code: "MX_COOKED_CHICKEN_BREAST",
+      name: "Pechuga de pollo cocida sin piel",
+      normalized_name: "pechuga de pollo cocida sin piel",
+      aliases: ["pollo", "pollo cocido", "pollo deshebrado"],
+      group_code: "AOA_LOW_FAT" as const,
+      portion_amount: 40,
+      portion_unit: "g" as const,
+      portion_description: "40 g",
+      source: "NOM-037-SSA2-2012",
+      source_reference: "Apéndice F.3",
+      is_custom: false,
+    };
+    render(<DietMenuStep plan={plan} catalog={{ foods: [food, chicken], recipes: [] }} onSave={vi.fn()} onGoToMeals={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar alimento" }));
+    fireEvent.click(screen.getByRole("button", { name: "Todos" }));
+    fireEvent.change(screen.getByPlaceholderText("Buscar alimento"), { target: { value: "deshebrado" } });
+    expect(screen.getByText("Pechuga de pollo cocida sin piel")).toBeInTheDocument();
+    expect(screen.queryByText("Papaya")).not.toBeInTheDocument();
   });
 
   it("ranks and adds a reusable recipe by compatibility", async () => {
@@ -78,6 +106,16 @@ describe("DietMenuStep", () => {
     fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
     expect(screen.getByText("Papaya fresca")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirmar menú" })).toBeEnabled();
+  });
+
+  it("filters starter recipes by meal type without crowding the browser", async () => {
+    render(<DietMenuStep plan={plan} onSave={vi.fn()} onGoToMeals={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar receta" }));
+    await screen.findByText("Papaya fresca");
+    fireEvent.click(screen.getByRole("button", { name: "Cena" }));
+    expect(screen.queryByText("Papaya fresca")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Desayuno" }));
+    expect(screen.getByText("Papaya fresca")).toBeInTheDocument();
   });
 
   it("creates a custom food in context and uses it immediately", async () => {

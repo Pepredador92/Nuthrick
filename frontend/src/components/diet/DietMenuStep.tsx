@@ -17,12 +17,14 @@ import {
 import {
   createCustomFood,
   createCustomRecipe,
+  foodMatchesSearch,
   listFoodItems,
   listRecipes,
+  recipeMatchesSearch,
   type CustomFoodInput,
   type RecipeDraftItem,
 } from "@/src/services/foodCatalog";
-import type { DietMenu, ExchangeGroupCode, FoodItem, FoodUnitCode, NutritionPlan, Recipe } from "@/src/types/domain";
+import type { DietMenu, ExchangeGroupCode, FoodItem, FoodUnitCode, MealType, NutritionPlan, Recipe } from "@/src/types/domain";
 import { WorkshopStepFooter } from "./WorkshopStepFooter";
 
 type Props = {
@@ -42,6 +44,30 @@ const emptyFood: CustomFoodInput = {
   name: "", group_code: "VEGETABLES", portion_amount: 1, portion_unit: "g", portion_description: "",
 };
 const format = (value: number) => Number(value.toFixed(3)).toLocaleString("es-MX");
+
+type FoodCatalogFilter = "all" | "vegetables" | "fruits" | "cereals" | "legumes" | "aoa" | "milk" | "fats";
+type RecipeCatalogFilter = "all" | Extract<MealType, "BREAKFAST" | "MAIN_MEAL" | "DINNER">;
+
+const foodCatalogFilters: Array<{ id: FoodCatalogFilter; label: string; groups: ExchangeGroupCode[] }> = [
+  { id: "all", label: "Todos", groups: [] },
+  { id: "vegetables", label: "Verduras", groups: ["VEGETABLES"] },
+  { id: "fruits", label: "Frutas", groups: ["FRUITS"] },
+  { id: "cereals", label: "Cereales", groups: ["CEREALS_NO_FAT", "CEREALS_WITH_FAT"] },
+  { id: "legumes", label: "Leguminosas", groups: ["LEGUMES"] },
+  { id: "aoa", label: "AOA", groups: ["AOA_VERY_LOW_FAT", "AOA_LOW_FAT", "AOA_MODERATE_FAT", "AOA_HIGH_FAT"] },
+  { id: "milk", label: "Leches", groups: ["MILK_SKIM", "MILK_SEMI_SKIM", "MILK_WHOLE", "MILK_WITH_SUGAR"] },
+  { id: "fats", label: "Grasas", groups: ["FATS_NO_PROTEIN", "FATS_WITH_PROTEIN"] },
+];
+const recipeCatalogFilters: Array<{ id: RecipeCatalogFilter; label: string }> = [
+  { id: "all", label: "Todas" },
+  { id: "BREAKFAST", label: "Desayuno" },
+  { id: "MAIN_MEAL", label: "Comida" },
+  { id: "DINNER", label: "Cena" },
+];
+
+function initialFoodFilter(groupCode: ExchangeGroupCode | "all"): FoodCatalogFilter {
+  return foodCatalogFilters.find((filter) => filter.groups.includes(groupCode as ExchangeGroupCode))?.id ?? "all";
+}
 
 function MealNeeds({ rows, onSelect }: {
   rows: ReturnType<typeof calculateMenuStatus>["rows"];
@@ -94,14 +120,22 @@ function BrowserPanel({ mode, foods, recipes, groupCode, required, busy, onClose
 }) {
   const [search, setSearch] = useState("");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const normalized = search.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const visibleFoods = foods.filter((food) => (groupCode === "all" || food.group_code === groupCode) && food.normalized_name.includes(normalized));
-  const visibleRecipes = recipes.filter((recipe) => recipe.normalized_name.includes(normalized)).map((recipe) => ({ recipe, match: recipeCompatibilityScore(required, recipe) })).sort((a, b) => b.match.score - a.match.score);
+  const [foodFilter, setFoodFilter] = useState<FoodCatalogFilter>(() => initialFoodFilter(groupCode));
+  const [recipeFilter, setRecipeFilter] = useState<RecipeCatalogFilter>("all");
+  const selectedFoodGroups = foodCatalogFilters.find((filter) => filter.id === foodFilter)?.groups ?? [];
+  const visibleFoods = foods.filter((food) => (!selectedFoodGroups.length || selectedFoodGroups.includes(food.group_code)) && foodMatchesSearch(food, search));
+  const visibleRecipes = recipes
+    .filter((recipe) => (recipeFilter === "all" || recipe.meal_types.includes(recipeFilter)) && recipeMatchesSearch(recipe, search))
+    .map((recipe) => ({ recipe, match: recipeCompatibilityScore(required, recipe) }))
+    .sort((a, b) => b.match.score - a.match.score || a.recipe.name.localeCompare(b.recipe.name, "es-MX"));
   return <div className="rounded-2xl border border-[#bfd1c6] bg-white p-4 shadow-[0_18px_45px_rgba(23,61,54,.12)]">
-    <div className="flex items-center justify-between"><div><h3 className="font-semibold text-[#24463b]">{mode === "food" ? "Agregar alimento" : "Agregar receta"}</h3><p className="mt-1 text-xs text-[#718078]">{groupCode === "all" ? "Todo el catálogo" : `Filtrado por ${getExchangeGroup(groupCode).shortName}`}</p></div><button type="button" aria-label="Cerrar buscador" onClick={onClose}><X size={19} /></button></div>
+    <div className="flex items-center justify-between"><div><h3 className="font-semibold text-[#24463b]">{mode === "food" ? "Agregar alimento" : "Agregar receta"}</h3><p className="mt-1 text-xs text-[#718078]">Catálogo base de Nuthrick y contenido creado por ti</p></div><button type="button" aria-label="Cerrar buscador" onClick={onClose}><X size={19} /></button></div>
     <label className="relative mt-4 block"><Search className="absolute left-3 top-3 text-[#829087]" size={16} /><input className="nuth-input !pl-9" placeholder={mode === "food" ? "Buscar alimento" : "Buscar receta"} value={search} onChange={(e) => setSearch(e.target.value)} /></label>
+    <div aria-label={mode === "food" ? "Filtros de alimentos" : "Filtros de recetas"} className="mt-3 flex gap-2 overflow-x-auto pb-1">
+      {mode === "food" ? foodCatalogFilters.map((filter) => <button key={filter.id} type="button" aria-pressed={foodFilter === filter.id} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${foodFilter === filter.id ? "bg-[#173d36] text-white" : "bg-[#f1f5f1] text-[#52675e]"}`} onClick={() => setFoodFilter(filter.id)}>{filter.label}</button>) : recipeCatalogFilters.map((filter) => <button key={filter.id} type="button" aria-pressed={recipeFilter === filter.id} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${recipeFilter === filter.id ? "bg-[#173d36] text-white" : "bg-[#f1f5f1] text-[#52675e]"}`} onClick={() => setRecipeFilter(filter.id)}>{filter.label}</button>)}
+    </div>
     <div className="mt-3 max-h-80 space-y-2 overflow-y-auto pr-1">
-      {mode === "food" ? visibleFoods.map((food) => <div key={food.id} className="rounded-xl border border-[#e0e7e2] p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-[#315449]">{food.name}</p><p className="mt-1 text-xs text-[#718078]">1 equivalente · {food.portion_description} · {getExchangeGroup(food.group_code).shortName}</p>{food.is_custom && <span className="mt-2 inline-flex rounded-full bg-[#f2eee3] px-2 py-0.5 text-[10px] font-semibold text-[#75623d]">Personalizado</span>}</div><div className="flex shrink-0 items-center gap-2"><input aria-label={`Cantidad de ${food.name}`} type="number" min="0.001" step="0.5" className="nuth-input !w-20 !py-2" value={quantities[food.id] ?? food.portion_amount} onChange={(e) => setQuantities({ ...quantities, [food.id]: Number(e.target.value) })} /><button type="button" className="nuth-button !px-3 !py-2" onClick={() => onFood(food, quantities[food.id] ?? Number(food.portion_amount))}>Agregar</button></div></div></div>) : visibleRecipes.map(({ recipe, match }) => <div key={recipe.id} className="rounded-xl border border-[#e0e7e2] p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-[#315449]">{recipe.name}</p><p className="mt-1 text-xs text-[#718078]">{match.label} · {recipe.items.length} ingredientes</p>{match.excess > 0 && <p className="mt-1 text-xs text-[#a64a3d]">Excede {format(match.excess)} equivalentes en total.</p>}</div><button type="button" className="nuth-button !px-3 !py-2" onClick={() => onRecipe(recipe, 1)}>Agregar</button></div></div>)}
+      {mode === "food" ? visibleFoods.map((food) => <div key={food.id} className="rounded-xl border border-[#e0e7e2] p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-[#315449]">{food.name}</p><p className="mt-1 text-xs text-[#718078]">1 equivalente · {food.portion_description} · {getExchangeGroup(food.group_code).shortName}</p><span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${food.is_custom ? "bg-[#f2eee3] text-[#75623d]" : "bg-[#e8f3eb] text-[#35624e]"}`}>{food.is_custom ? "Personalizado" : "Catálogo Nuthrick"}</span></div><div className="flex shrink-0 items-center gap-2"><input aria-label={`Cantidad de ${food.name}`} type="number" min="0.001" step="0.5" className="nuth-input !w-20 !py-2" value={quantities[food.id] ?? food.portion_amount} onChange={(e) => setQuantities({ ...quantities, [food.id]: Number(e.target.value) })} /><button type="button" className="nuth-button !px-3 !py-2" onClick={() => onFood(food, quantities[food.id] ?? Number(food.portion_amount))}>Agregar</button></div></div></div>) : visibleRecipes.map(({ recipe, match }) => <div key={recipe.id} className="rounded-xl border border-[#e0e7e2] p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-[#315449]">{recipe.name}</p><p className="mt-1 text-xs text-[#718078]">{match.label} · {recipe.items.length} ingredientes</p><span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${recipe.is_custom ? "bg-[#f2eee3] text-[#75623d]" : "bg-[#e8f3eb] text-[#35624e]"}`}>{recipe.is_custom ? "Personal" : "Receta Nuthrick"}</span>{match.excess > 0 && <p className="mt-1 text-xs text-[#a64a3d]">Excede {format(match.excess)} equivalentes en total.</p>}</div><button type="button" className="nuth-button !px-3 !py-2" onClick={() => onRecipe(recipe, 1)}>Agregar</button></div></div>)}
       {((mode === "food" && !visibleFoods.length) || (mode === "recipe" && !visibleRecipes.length)) && <p className="rounded-xl bg-[#f7f9f7] p-4 text-center text-sm text-[#718078]">No hay resultados todavía.</p>}
     </div>
     <button type="button" className="nuth-button-secondary mt-3 w-full justify-center" disabled={busy} onClick={mode === "food" ? onNewFood : onNewRecipe}><Plus size={15} /> {mode === "food" ? "Agregar alimento personalizado" : "Crear receta"}</button>
