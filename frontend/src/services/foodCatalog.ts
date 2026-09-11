@@ -113,7 +113,7 @@ export async function listRecipes() {
   const ownerId = await currentUserId();
   const { data, error } = await supabase
     .from("recipes")
-    .select("*, recipe_items(*)")
+    .select("*, recipe_items!recipe_items_recipe_id_fkey(*)")
     .or(`owner_id.is.null,owner_id.eq.${ownerId}`)
     .eq("active", true)
     .order("updated_at", { ascending: false });

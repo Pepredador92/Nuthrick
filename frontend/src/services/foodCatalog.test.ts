@@ -1,7 +1,27 @@
-import { describe, expect, it } from "vitest";
-import { foodMatchesSearch, normalizeFoodName, recipeMatchesSearch } from "@/src/services/foodCatalog";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const database = vi.hoisted(() => {
+  const query = {
+    data: [], error: null,
+    select: vi.fn(), or: vi.fn(), eq: vi.fn(), order: vi.fn(),
+  };
+  for (const method of [query.select, query.or, query.eq, query.order]) method.mockReturnValue(query);
+  return {
+    query,
+    from: vi.fn(() => query),
+    getUser: vi.fn().mockResolvedValue({ data: { user: { id: "professional" } }, error: null }),
+  };
+});
+
+vi.mock("@/src/lib/supabase", () => ({
+  supabase: { auth: { getUser: database.getUser }, from: database.from },
+}));
+
+import { foodMatchesSearch, listRecipes, normalizeFoodName, recipeMatchesSearch } from "@/src/services/foodCatalog";
 
 describe("starter food and recipe catalog search", () => {
+  beforeEach(() => vi.clearAllMocks());
+
   it("normalizes accents, casing and repeated whitespace", () => {
     expect(normalizeFoodName("  ATÚN   en Agua ")).toBe("atun en agua");
   });
@@ -21,5 +41,10 @@ describe("starter food and recipe catalog search", () => {
     expect(recipeMatchesSearch(recipe, "ceviche")).toBe(true);
     expect(recipeMatchesSearch(recipe, "rapida")).toBe(true);
     expect(recipeMatchesSearch(recipe, "avena")).toBe(false);
+  });
+
+  it("uses the direct recipe foreign key when embedding ingredients", async () => {
+    await listRecipes();
+    expect(database.query.select).toHaveBeenCalledWith("*, recipe_items!recipe_items_recipe_id_fkey(*)");
   });
 });
