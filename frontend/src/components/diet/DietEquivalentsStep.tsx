@@ -13,6 +13,7 @@ import {
 } from "@/src/features/exchanges/model";
 import { suggestExchangePrescription, type ExchangeSuggestion } from "@/src/features/exchanges/suggestion";
 import type { ExchangeDerivedTotals, ExchangePrescription, ExchangeTargetSnapshot, NutritionPlan } from "@/src/types/domain";
+import { WorkshopStepFooter } from "./WorkshopStepFooter";
 
 type Props = {
   plan: NutritionPlan;
@@ -20,6 +21,7 @@ type Props = {
   onSave: (prescription: ExchangePrescription, immediate?: boolean) => Promise<void>;
   onDraftChange: (prescription: ExchangePrescription) => void;
   onGoToMacros: () => void;
+  onContinue?: () => void;
 };
 
 const number = (value: string) => {
@@ -63,7 +65,7 @@ function DifferenceMetric({ label, target, actual, difference, unit, precision =
   </div>;
 }
 
-function EquivalentEditor({ plan, targets, onSave, onDraftChange }: Omit<Props, "targets" | "onGoToMacros"> & { targets: ExchangeTargetSnapshot }) {
+function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, onContinue }: Omit<Props, "targets"> & { targets: ExchangeTargetSnapshot }) {
   const initial = useMemo(() => plan.exchange_prescription ? reconcileExchangePrescription(plan.exchange_prescription, targets) : createExchangePrescription(targets), [plan.exchange_prescription, targets]);
   const [draft, setDraft] = useState(initial);
   const [proposal, setProposal] = useState<ExchangeSuggestion | null>(null);
@@ -126,7 +128,7 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange }: Omit<Props, 
 
   return <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-4 sm:p-7">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div><p className="nuth-eyebrow">Paso 3</p><h1 className="mt-2 text-2xl font-semibold text-[#173d36]">Equivalentes del día</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">Ajusta las porciones del día. Podrás distribuirlas entre tiempos de comida en un paso posterior.</p></div>
+      <div><p className="nuth-eyebrow">Paso 3</p><h1 className="mt-2 text-2xl font-semibold text-[#173d36]">Equivalentes</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">Define las porciones del día.</p></div>
       <span className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${draft.status === "ready" ? "bg-[#eaf3ec] text-[#315e4f]" : draft.status === "editing" ? "bg-[#fff4df] text-[#7a5a28]" : "bg-[#f2f5f3] text-[#65756d]"}`}>{draft.status === "ready" ? <Check size={14} /> : <CircleAlert size={14} />}{draft.status === "ready" ? "Cuadro listo" : draft.status === "editing" ? "En edición" : "Sin iniciar"}</span>
     </div>
     {objectivesChangedSinceConfirmation(draft) && <p role="status" className="mt-4 rounded-xl bg-[#fff6e6] px-4 py-3 text-sm text-[#765827]">Los objetivos nutricionales cambiaron desde la última confirmación. Las porciones se conservaron; revisa el cuadro y confírmalo de nuevo cuando esté listo.</p>}
@@ -164,22 +166,23 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange }: Omit<Props, 
 
         {proposal ? <div className="mt-4 border-t border-[#dfe6e1] pt-4">
           <p className="text-xs leading-5 text-[#65756d]">Esta es la combinación más cercana encontrada. Revísala antes de aplicarla.</p>
-          <button type="button" className="nuth-button mt-4 w-full justify-center" onClick={applyProposal}>Aplicar propuesta</button>
-          <button type="button" className="nuth-button-secondary mt-2 w-full justify-center" onClick={() => setProposal(null)}>Conservar mis porciones</button>
-          <button type="button" className="mt-3 w-full text-center text-xs font-semibold text-[#477363] hover:text-[#24463b]" onClick={propose}>Volver a proponer</button>
+          <button type="button" aria-label="Aplicar propuesta" className="nuth-button mt-4 w-full justify-center" onClick={applyProposal}>Aplicar</button>
+          <button type="button" aria-label="Conservar mis porciones" className="nuth-button-secondary mt-2 w-full justify-center" onClick={() => setProposal(null)}>Descartar</button>
+          <button type="button" aria-label="Volver a proponer porciones" className="mt-3 w-full text-center text-xs font-semibold text-[#477363] hover:text-[#24463b]" onClick={propose}>Recalcular</button>
         </div> : <div className="mt-4 border-t border-[#dfe6e1] pt-4">
-          <button type="button" className="nuth-button w-full justify-center" onClick={propose}><Calculator size={16} /> Proponer porciones</button>
-          <p className="mt-2 text-center text-xs leading-5 text-[#718078]">Busca una combinación cercana a tus cuatro objetivos.</p>
-          {hasPortions && <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 text-xs text-[#52675e]"><input type="checkbox" checked={startFromCurrent} onChange={(event) => setStartFromCurrent(event.target.checked)} /> Ajustar desde mis porciones actuales</label>}
-          <button type="button" disabled={saveState === "saving"} className="nuth-button-secondary mt-4 w-full justify-center disabled:opacity-50" onClick={() => void confirm()}><Check size={16} /> {draft.status === "ready" ? "Confirmar nuevamente" : "Confirmar equivalentes"}</button>
+          <button type="button" aria-label="Proponer porciones" className="nuth-button w-full justify-center" onClick={propose}><Calculator size={16} /> Proponer</button>
+          <p className="mt-2 text-center text-xs leading-5 text-[#718078]">Calcula una combinación cercana a tus objetivos.</p>
+          {hasPortions && <details className="mt-3 text-xs text-[#52675e]"><summary className="cursor-pointer text-center font-semibold">Preferencias</summary><label className="mt-2 flex cursor-pointer items-center justify-center gap-2"><input type="checkbox" checked={startFromCurrent} onChange={(event) => setStartFromCurrent(event.target.checked)} /> Partir de mis porciones actuales</label></details>}
+          <button type="button" aria-label="Confirmar equivalentes" disabled={saveState === "saving"} className="nuth-button-secondary mt-4 w-full justify-center disabled:opacity-50" onClick={() => void confirm()}><Check size={16} /> Confirmar</button>
         </div>}
       </aside>
     </div>
     <div className="mt-4 flex items-center gap-2 text-xs text-[#74817d]">{saveState === "saving" ? <LoaderCircle size={14} className="animate-spin" /> : <ChevronDown size={14} className="rotate-[-90deg]" />}{saveState === "saving" ? "Guardando cuadro…" : saveState === "pending" ? "Cambios pendientes" : saveState === "error" ? "No se pudo guardar; intenta cambiar un campo nuevamente." : "Guardado automáticamente"}</div>
+    <WorkshopStepFooter onPrevious={onGoToMacros} onNext={onContinue} />
   </section>;
 }
 
-export function DietEquivalentsStep({ plan, targets, onSave, onDraftChange, onGoToMacros }: Props) {
+export function DietEquivalentsStep({ plan, targets, onSave, onDraftChange, onGoToMacros, onContinue }: Props) {
   if (!targets) return <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-5 sm:p-7"><p className="nuth-eyebrow">Paso 3</p><h1 className="mt-2 text-2xl font-semibold text-[#173d36]">Equivalentes</h1><div className="mt-5 rounded-2xl bg-[#fff6e6] p-5 text-sm leading-6 text-[#765827]"><p className="font-semibold">Completa primero la distribución de macronutrientes.</p><p className="mt-1">El cuadro dietosintético compara los equivalentes con el objetivo energético y los gramos derivados en el paso anterior.</p><button type="button" className="nuth-button mt-4" onClick={onGoToMacros}>Ir a macronutrientes</button></div></section>;
-  return <EquivalentEditor key={`${plan.id}:${plan.exchange_prescription?.updated_at ?? "new"}:${targets.energy_kcal}:${targets.carbohydrate_g}:${targets.protein_g}:${targets.fat_g}`} plan={plan} targets={targets} onSave={onSave} onDraftChange={onDraftChange} />;
+  return <EquivalentEditor key={`${plan.id}:${plan.exchange_prescription?.updated_at ?? "new"}:${targets.energy_kcal}:${targets.carbohydrate_g}:${targets.protein_g}:${targets.fat_g}`} plan={plan} targets={targets} onSave={onSave} onDraftChange={onDraftChange} onGoToMacros={onGoToMacros} onContinue={onContinue} />;
 }

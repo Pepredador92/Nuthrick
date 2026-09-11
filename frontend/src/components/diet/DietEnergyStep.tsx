@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, CircleAlert, LoaderCircle, RotateCcw, Sparkles } from "lucide-react";
+import { Check, ChevronDown, CircleAlert, LoaderCircle, RotateCcw } from "lucide-react";
+import { WorkshopStepFooter } from "./WorkshopStepFooter";
 import {
   activityLevelCatalog,
   energyMethodCatalog,
@@ -136,8 +137,8 @@ export function DietEnergyStep({ plan, reference, referenceLoading, onSave, onDr
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="nuth-eyebrow">Paso 1</p>
-          <h1 className="mt-2 text-2xl font-semibold text-[#173d36]">Objetivo energético</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">Calcula una referencia, documenta el criterio y define el objetivo prescrito para este plan.</p>
+          <h1 aria-label="Objetivo energético" className="mt-2 text-2xl font-semibold text-[#173d36]">Energía</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">Define el objetivo energético del día.</p>
         </div>
         <span className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${validTarget ? "bg-[#eaf3ec] text-[#315e4f]" : "bg-[#fff4df] text-[#7a5a28]"}`}>
           {validTarget ? <Check size={14} /> : <CircleAlert size={14} />}
@@ -222,7 +223,6 @@ export function DietEnergyStep({ plan, reference, referenceLoading, onSave, onDr
             <input aria-label="Objetivo prescrito (kcal/día)" className="mt-2 w-full rounded-xl border border-white/20 bg-white px-3 py-2.5 text-lg font-semibold text-[#173d36]" type="number" min="1" max="10000" value={draft.prescribed_target_kcal ?? ""} onChange={(event) => update(calculatePlanEnergy({ ...draft, prescribed_target_kcal: number(event.target.value) }))} />
           </label>
           {draft.results.total_kcal !== null && <button type="button" className="rounded-xl border border-white/30 px-4 py-3 text-sm font-semibold" onClick={() => update(calculatePlanEnergy({ ...draft, prescribed_target_kcal: Math.round(draft.results.total_kcal!) }))}>Usar GET</button>}
-          <button type="button" disabled={!canContinue} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#efbd6b] px-4 py-3 text-sm font-semibold text-[#173d36] disabled:cursor-not-allowed disabled:opacity-50" onClick={onContinue}><Sparkles size={16} /> Continuar a macronutrientes</button>
         </div>
         {targetDifference !== null && <p className="mt-3 text-xs text-white/70">Diferencia frente al GET: {targetDifference > 0 ? "+" : ""}{format(targetDifference)} kcal/día. Es una comparación matemática; el criterio clínico es del profesional.</p>}
         {!validTarget && <p className="mt-3 text-xs text-white/70">Para continuar, registra un objetivo entre 1 y 10,000 kcal/día.</p>}
@@ -232,6 +232,7 @@ export function DietEnergyStep({ plan, reference, referenceLoading, onSave, onDr
         {saveState === "saving" ? <LoaderCircle size={14} className="animate-spin" /> : <ChevronDown size={14} className="rotate-[-90deg]" />}
         {saveState === "saving" ? "Guardando trazabilidad…" : saveState === "pending" ? "Cambios pendientes" : saveState === "error" ? "No se pudo guardar; intenta cambiar un campo nuevamente." : "Guardado automáticamente"}
       </div>
+      <WorkshopStepFooter onNext={onContinue} nextDisabled={!canContinue} nextAriaLabel="Continuar a macronutrientes" nextHint={!validTarget ? "Registra un objetivo para continuar." : undefined} />
     </section>
   );
 }

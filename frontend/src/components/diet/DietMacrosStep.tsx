@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, CircleAlert, LoaderCircle, RotateCcw, Sparkles } from "lucide-react";
+import { Check, ChevronDown, CircleAlert, LoaderCircle, RotateCcw } from "lucide-react";
+import { WorkshopStepFooter } from "./WorkshopStepFooter";
 import { macroCatalog } from "@/src/features/macros/catalog";
 import {
   createMacroDistribution,
@@ -53,10 +54,10 @@ export function DietMacrosStep({ plan, targetEnergyKcal, energyReferenceWeightKg
     );
   }
 
-  return <MacroEditor key={`${plan.id}:${targetEnergyKcal}:${plan.macro_distribution?.updated_at ?? "new"}`} plan={plan} targetEnergyKcal={targetEnergyKcal} energyReferenceWeightKg={energyReferenceWeightKg} onSave={onSave} onDraftChange={onDraftChange} onContinue={onContinue} />;
+  return <MacroEditor key={`${plan.id}:${targetEnergyKcal}:${plan.macro_distribution?.updated_at ?? "new"}`} plan={plan} targetEnergyKcal={targetEnergyKcal} energyReferenceWeightKg={energyReferenceWeightKg} onSave={onSave} onDraftChange={onDraftChange} onGoToEnergy={onGoToEnergy} onContinue={onContinue} />;
 }
 
-function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, onDraftChange, onContinue }: Omit<Props, "targetEnergyKcal" | "onGoToEnergy"> & { targetEnergyKcal: number }) {
+function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, onDraftChange, onGoToEnergy, onContinue }: Omit<Props, "targetEnergyKcal"> & { targetEnergyKcal: number }) {
   const initial = useMemo(
     () => plan.macro_distribution ?? createMacroDistribution(targetEnergyKcal, energyReferenceWeightKg),
     [energyReferenceWeightKg, plan.macro_distribution, targetEnergyKcal],
@@ -100,8 +101,8 @@ function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="nuth-eyebrow">Paso 2</p>
-          <h1 className="mt-2 text-2xl font-semibold text-[#173d36]">Kilocalorías y macronutrientes</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">Define la distribución del plan. Cada macro conserva el modo y valor con el que fue capturado.</p>
+          <h1 aria-label="Kilocalorías y macronutrientes" className="mt-2 text-2xl font-semibold text-[#173d36]">Macros</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">Define la distribución del día.</p>
         </div>
         <span className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${draft.complete ? "bg-[#eaf3ec] text-[#315e4f]" : "bg-[#fff4df] text-[#7a5a28]"}`}>
           {draft.complete ? <Check size={14} /> : <CircleAlert size={14} />}
@@ -167,15 +168,15 @@ function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, 
           <div><p className="text-xs text-white/65">Distribución</p><p className="mt-1 text-xl font-semibold">{display(draft.totals.percentage, 1)}%</p></div>
           <div><p className="text-xs text-white/65">Diferencia</p><p className="mt-1 text-xl font-semibold">{draft.totals.difference_kcal > 0 ? "+" : ""}{display(draft.totals.difference_kcal, 1)} kcal</p></div>
         </div>
-        <div className="mt-5 flex flex-col gap-3 border-t border-white/15 pt-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-5 border-t border-white/15 pt-5">
           <p className="text-xs leading-5 text-white/70">Tolerancia de cierre: ±1 kcal. No se redistribuyen macros de forma automática.</p>
-          <button type="button" disabled={!draft.complete || saveState === "saving"} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#efbd6b] px-4 py-3 text-sm font-semibold text-[#173d36] disabled:cursor-not-allowed disabled:opacity-50" onClick={onContinue}><Sparkles size={16} /> Continuar a equivalentes</button>
         </div>
       </section>
       <div className="mt-4 flex items-center gap-2 text-xs text-[#74817d]">
         {saveState === "saving" ? <LoaderCircle size={14} className="animate-spin" /> : <ChevronDown size={14} className="rotate-[-90deg]" />}
         {saveState === "saving" ? "Guardando trazabilidad…" : saveState === "pending" ? "Cambios pendientes" : saveState === "error" ? "No se pudo guardar; intenta cambiar un campo nuevamente." : "Guardado automáticamente"}
       </div>
+      <WorkshopStepFooter onPrevious={onGoToEnergy} onNext={onContinue} nextDisabled={!draft.complete || saveState === "saving"} nextAriaLabel="Continuar a equivalentes" nextHint={!draft.complete ? "Completa la distribución para continuar." : undefined} />
     </section>
   );
 }

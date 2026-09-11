@@ -36,12 +36,12 @@ import { getPatient, listConsultations, listPatients } from "@/src/services/pati
 import type { Consultation, DietMenu, ExchangePrescription, ExchangeTargetSnapshot, MacroDistribution, MealDistribution, NutritionPlan, Patient, PlanEnergyCalculation } from "@/src/types/domain";
 
 const steps = [
-  { id: "energy", label: "Objetivo energético" },
-  { id: "macros", label: "Macronutrientes", ready: false },
-  { id: "equivalents", label: "Equivalentes", ready: false },
-  { id: "meals", label: "Tiempos de comida", ready: false },
-  { id: "menu", label: "Menú", ready: false },
-  { id: "review", label: "Revisión" },
+  { id: "energy", label: "Objetivo energético", shortLabel: "Energía" },
+  { id: "macros", label: "Macronutrientes", shortLabel: "Macros", ready: false },
+  { id: "equivalents", label: "Equivalentes", shortLabel: "Equivalentes", ready: false },
+  { id: "meals", label: "Tiempos de comida", shortLabel: "Tiempos", ready: false },
+  { id: "menu", label: "Menú", shortLabel: "Menú", ready: false },
+  { id: "review", label: "Revisión", shortLabel: "Revisión" },
 ] as const;
 
 function consultationStatus(consultation: Consultation) {
@@ -207,22 +207,26 @@ function PlanContextHeader({
 type WorkshopStep = (typeof steps)[number]["id"];
 
 function WorkshopNavigation({ targetReady, macrosReady, mealsReady, activeStep, onSelect }: { targetReady: boolean; macrosReady: boolean; mealsReady: boolean; activeStep: WorkshopStep; onSelect: (step: WorkshopStep) => void }) {
+  const activeIndex = steps.findIndex((step) => step.id === activeStep);
   return (
-    <nav className="mt-5 overflow-x-auto border-b border-[#dfe6e1]" aria-label="Secciones del Taller de dietas">
+    <nav className="mt-5 overflow-x-auto rounded-2xl border border-[#dfe6e1] bg-white p-1.5" aria-label="Secciones del Taller de dietas">
       <ol className="flex min-w-max gap-1">
         {steps.map((step, index) => {
           const ready = step.id === "energy" ? true : step.id === "macros" ? targetReady : step.id === "equivalents" || step.id === "meals" ? macrosReady : step.id === "menu" ? mealsReady : false;
+          const current = activeStep === step.id;
+          const completed = ready && index < activeIndex;
           return (
           <li key={step.id}>
             <button
               type="button"
               disabled={!ready}
-              aria-current={activeStep === step.id ? "step" : undefined}
+              aria-label={step.label}
+              aria-current={current ? "step" : undefined}
               onClick={() => onSelect(step.id)}
-              className={`flex items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${activeStep === step.id && ready ? "bg-[#e7f0ea] text-[#285647]" : ready ? "text-[#537266] hover:bg-[#f4f8f5]" : "cursor-not-allowed text-[#98a39e]"}`}
+              className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition sm:px-4 ${current && ready ? "bg-[#173d36] text-white shadow-sm" : completed ? "bg-[#eaf3ec] text-[#315e4f]" : ready ? "text-[#537266] hover:bg-[#f4f8f5]" : "cursor-not-allowed text-[#98a39e]"}`}
             >
-              <span className={`grid h-5 w-5 place-items-center rounded-full text-[10px] ${ready ? "bg-[#3d705d] text-white" : "bg-[#e9eeea] text-[#89958f]"}`}>{index + 1}</span>
-              {step.label}
+              <span className={`grid h-5 w-5 place-items-center rounded-full text-[10px] ${current && ready ? "bg-white/20 text-white" : completed ? "bg-[#3d705d] text-white" : ready ? "bg-[#e8f0eb] text-[#477363]" : "bg-[#e9eeea] text-[#89958f]"}`}>{completed ? <Check size={12} /> : index + 1}</span>
+              {step.shortLabel}
               {!ready && <LockKeyhole size={12} aria-label="Próximamente" />}
             </button>
           </li>
@@ -591,11 +595,10 @@ export function DietWorkshopPage() {
       <WorkshopNavigation targetReady={Boolean(plan.target_calories && plan.target_calories > 0)} macrosReady={macrosReady} mealsReady={Boolean(plan.meal_distribution?.distribution.some((item) => item.portions > 0))} activeStep={activeStep} onSelect={setActiveStep} />
       {notice && <p role="status" className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]">{notice}</p>}
       {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{error}</p>}
-      <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-5">
-          <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-5 sm:p-6">
+      <div className="mt-5 space-y-5">
+          <section className="rounded-2xl border border-[#dfe6e1] bg-white px-4 py-3 sm:px-5">
             <label className="block text-sm font-semibold text-[#315e4f]" htmlFor="diet-plan-title">Nombre del plan
-              <input id="diet-plan-title" className="nuth-input mt-2" maxLength={120} required value={title} onChange={(event) => { setTitle(event.target.value); setNotice(""); }} onBlur={() => void saveTitle().catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el título."))} />
+              <input id="diet-plan-title" className="nuth-input mt-1 !py-2" maxLength={120} required value={title} onChange={(event) => { setTitle(event.target.value); setNotice(""); }} onBlur={() => void saveTitle().catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el título."))} />
             </label>
           </section>
           {activeStep === "energy" && <DietEnergyStep
@@ -655,7 +658,7 @@ export function DietWorkshopPage() {
             }}
             onDraftChange={(distribution) => { pendingMacroDistribution.current = distribution; }}
             onGoToEnergy={() => setActiveStep("energy")}
-            onContinue={() => { setNotice("El siguiente paso se habilitará al implementar equivalentes."); setActiveStep("equivalents"); }}
+            onContinue={() => { setNotice(""); setActiveStep("equivalents"); }}
           />}
           {activeStep === "equivalents" && <DietEquivalentsStep
             plan={plan}
@@ -674,6 +677,7 @@ export function DietWorkshopPage() {
             }}
             onDraftChange={(prescription) => { pendingExchangePrescription.current = prescription; }}
             onGoToMacros={() => setActiveStep("macros")}
+            onContinue={() => setActiveStep("meals")}
           />}
           {activeStep === "meals" && <DietMealDistributionStep
             plan={plan}
@@ -691,6 +695,7 @@ export function DietWorkshopPage() {
             }}
             onDraftChange={(distribution) => { pendingMealDistribution.current = distribution; }}
             onGoToEquivalents={() => setActiveStep("equivalents")}
+            onContinue={() => setActiveStep("menu")}
           />}
           {activeStep === "menu" && <DietMenuStep
             plan={plan}
@@ -706,16 +711,6 @@ export function DietWorkshopPage() {
             onDraftChange={(menu) => { pendingDietMenu.current = menu; }}
             onGoToMeals={() => setActiveStep("meals")}
           />}
-        </div>
-        <aside className="h-fit rounded-[24px] border border-[#dfe6e1] bg-[#f9fbf8] p-5 xl:sticky xl:top-56">
-          <p className="text-sm font-semibold text-[#315e4f]">Preparado para continuar</p>
-          <p className="mt-2 text-sm leading-6 text-[#718078]">El borrador conserva sólo su contexto y nombre. Los datos clínicos permanecen en el expediente.</p>
-          <ul className="mt-4 space-y-3 text-sm text-[#51665d]">
-            <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#3d705d]" /> Paciente y consulta opcionales</li>
-            <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#3d705d]" /> Borrador recuperable</li>
-            <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-[#3d705d]" /> Fuente clínica sin duplicar</li>
-          </ul>
-        </aside>
       </div>
     </div>
   );
