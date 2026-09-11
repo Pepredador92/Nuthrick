@@ -54,7 +54,7 @@ describe("SMAE exchange prescription", () => {
     expect(applied.status).toBe("editing");
     expect(applied.confirmed_at).toBeNull();
     expect(applied.suggestion_source).toBe("automatic");
-    expect(applied.suggestion_algorithm).toBe("EXCHANGE_SUGGESTION_V1");
+    expect(applied.suggestion_algorithm).toBe("EXCHANGE_SUGGESTION_V2");
     expect(applied.groups.some((group) => group.portions > 0)).toBe(true);
   });
 });

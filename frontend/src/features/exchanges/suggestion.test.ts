@@ -9,6 +9,7 @@ import {
 } from "./suggestion";
 
 const standard = { energy_kcal: 2000, carbohydrate_g: 250, protein_g: 100, fat_g: 60 };
+const portions = (result: ReturnType<typeof suggestExchangePrescription>) => new Map(result.groups.map((group) => [group.groupCode, group.portions]));
 
 describe("exchange portion suggestions", () => {
   it("is deterministic, valid, non-negative, and uses practical half portions", () => {
@@ -60,6 +61,85 @@ describe("exchange portion suggestions", () => {
     const largest = Math.max(...suggestion.groups.map((group) => group.portions));
     expect(discretionary).toBeLessThan(total / 3);
     expect(largest).toBeLessThan(total * 0.65);
+  });
+
+  it("does not add sugars when the objectives can be fitted without them", () => {
+    const result = portions(suggestExchangePrescription({ targets: standard }));
+    expect(result.get("SUGARS_NO_FAT")).toBe(0);
+    expect(result.get("SUGARS_WITH_FAT")).toBe(0);
+    expect(result.get("MILK_WITH_SUGAR")).toBe(0);
+  });
+
+  it("prefers a nutritionally equivalent priority group over sugar", () => {
+    const catalog = exchangeCatalog.filter((group) => group.groupCode === "FRUITS" || group.groupCode === "SUGARS_NO_FAT");
+    const result = portions(suggestExchangePrescription({
+      targets: { energy_kcal: 120, carbohydrate_g: 30, protein_g: 0, fat_g: 0 },
+      exchangeCatalog: catalog,
+    }));
+    expect(result.get("FRUITS")).toBe(2);
+    expect(result.get("SUGARS_NO_FAT")).toBe(0);
+  });
+
+  it("builds a varied AUTO proposal when the targets make it viable", () => {
+    const result = portions(suggestExchangePrescription({ targets: standard }));
+    expect(result.get("VEGETABLES")).toBeGreaterThanOrEqual(1);
+    expect(result.get("FRUITS")).toBeGreaterThanOrEqual(1);
+    expect(result.get("CEREALS_NO_FAT")).toBeGreaterThanOrEqual(1);
+    const proteinSources = ["LEGUMES", "AOA_VERY_LOW_FAT", "AOA_LOW_FAT", "AOA_MODERATE_FAT", "AOA_HIGH_FAT"] as const;
+    expect(proteinSources.reduce((sum, code) => sum + (result.get(code) ?? 0), 0)).toBeGreaterThanOrEqual(1);
+    expect(result.get("LEGUMES")).toBeGreaterThan(0);
+  });
+
+  it("uses a discretionary group when the professional marks it INCLUDE", () => {
+    const result = portions(suggestExchangePrescription({
+      targets: standard,
+      options: { groupPreferences: { SUGARS_NO_FAT: "include" } },
+    }));
+    expect(result.get("SUGARS_NO_FAT")).toBeGreaterThan(0);
+  });
+
+  it("uses an AUTO discretionary group only when it unlocks a relevant fit improvement", () => {
+    const catalog = exchangeCatalog.filter((group) => group.groupCode === "SUGARS_NO_FAT");
+    const result = portions(suggestExchangePrescription({
+      targets: { energy_kcal: 400, carbohydrate_g: 100, protein_g: 0, fat_g: 0 },
+      exchangeCatalog: catalog,
+    }));
+    expect(result.get("SUGARS_NO_FAT")).toBeGreaterThan(0);
+  });
+
+  it("strongly penalizes a group marked AVOID without treating it as excluded", () => {
+    const automatic = portions(suggestExchangePrescription({ targets: standard }));
+    const avoided = portions(suggestExchangePrescription({ targets: standard, options: { groupPreferences: { FRUITS: "avoid" } } }));
+    expect(avoided.get("FRUITS")).toBeLessThan(automatic.get("FRUITS") ?? 0);
+  });
+
+  it("forces every milk group to zero when the professional marks them EXCLUDE", () => {
+    const result = portions(suggestExchangePrescription({
+      targets: standard,
+      options: { groupPreferences: { MILK_SKIM: "exclude", MILK_SEMI_SKIM: "exclude", MILK_WHOLE: "exclude", MILK_WITH_SUGAR: "exclude" } },
+    }));
+    const milkGroups = ["MILK_SKIM", "MILK_SEMI_SKIM", "MILK_WHOLE", "MILK_WITH_SUGAR"] as const;
+    expect(milkGroups.every((code) => result.get(code) === 0)).toBe(true);
+  });
+
+  it("uses legumes when AOA groups are excluded and the distribution allows it", () => {
+    const result = portions(suggestExchangePrescription({
+      targets: standard,
+      options: { groupPreferences: {
+        AOA_VERY_LOW_FAT: "exclude", AOA_LOW_FAT: "exclude", AOA_MODERATE_FAT: "exclude", AOA_HIGH_FAT: "exclude",
+      } },
+    }));
+    expect(result.get("LEGUMES")).toBeGreaterThan(0);
+    expect(result.get("AOA_VERY_LOW_FAT")).toBe(0);
+    expect(result.get("AOA_LOW_FAT")).toBe(0);
+    expect(result.get("AOA_MODERATE_FAT")).toBe(0);
+    expect(result.get("AOA_HIGH_FAT")).toBe(0);
+  });
+
+  it("favors lean AOA over high-fat AOA for a low-fat target", () => {
+    const result = portions(suggestExchangePrescription({ targets: { energy_kcal: 1800, carbohydrate_g: 160, protein_g: 180, fat_g: 30 } }));
+    expect((result.get("AOA_VERY_LOW_FAT") ?? 0) + (result.get("AOA_LOW_FAT") ?? 0)).toBeGreaterThan(0);
+    expect(result.get("AOA_HIGH_FAT")).toBe(0);
   });
 
   it("returns the best bounded result without inventing an exact fit", () => {

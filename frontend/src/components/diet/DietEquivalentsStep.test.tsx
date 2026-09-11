@@ -17,9 +17,12 @@ describe("DietEquivalentsStep", () => {
     const onDraftChange = vi.fn();
     render(<DietEquivalentsStep plan={plan} targets={targets} onSave={onSave} onDraftChange={onDraftChange} onGoToMacros={() => undefined} />);
 
-    expect(screen.getAllByText("Ver aporte")).toHaveLength(17);
-    expect(screen.getAllByText("1 equivalente:", { selector: "span" })).toHaveLength(17);
-    fireEvent.change(screen.getAllByLabelText("Porciones de Verduras")[0], { target: { value: "0.5" } });
+    expect(screen.queryByText("Ver aporte")).not.toBeInTheDocument();
+    expect(screen.getByText("Aún no has definido equivalentes.")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Agregar grupo"));
+    fireEvent.click(screen.getByRole("button", { name: /Verduras.*Agregar/ }));
+    expect(screen.getAllByText("1 equivalente:", { selector: "span" })).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText("Porciones de Verduras"), { target: { value: "0.5" } });
     expect(onDraftChange).toHaveBeenLastCalledWith(expect.objectContaining({
       derived_totals: expect.objectContaining({ energy_kcal: 12.5, carbohydrate_g: 2, protein_g: 1 }),
       status: "editing",
@@ -35,7 +38,7 @@ describe("DietEquivalentsStep", () => {
     render(<DietEquivalentsStep plan={plan} targets={targets} onSave={onSave} onDraftChange={onDraftChange} onGoToMacros={() => undefined} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Proponer porciones" }));
-    expect(screen.getByText("Vista previa de propuesta")).toBeInTheDocument();
+    expect(screen.getByText(/Propuesta lista/)).toBeInTheDocument();
     expect(screen.getByText("Sin aplicar")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Aplicar propuesta" })).toBeInTheDocument();
     expect(onDraftChange).not.toHaveBeenCalled();
@@ -55,9 +58,23 @@ describe("DietEquivalentsStep", () => {
       status: "editing",
       confirmed_at: null,
       suggestion_source: "automatic",
-      suggestion_algorithm: "EXCHANGE_SUGGESTION_V1",
+      suggestion_algorithm: "EXCHANGE_SUGGESTION_V2",
     }));
+    expect(screen.getAllByLabelText(/^Porciones de /).length).toBeLessThan(17);
+    expect(screen.queryByLabelText("Porciones de Azúcares sin grasa")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Porciones de Azúcares con grasa")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirmar equivalentes" })).toBeInTheDocument();
+  });
+
+  it("keeps preferences secondary and sends an explicit INCLUDE preference to the proposal", () => {
+    render(<DietEquivalentsStep plan={plan} targets={targets} onSave={vi.fn().mockResolvedValue(undefined)} onDraftChange={() => undefined} onGoToMacros={() => undefined} />);
+
+    fireEvent.click(screen.getByText("Preferencias"));
+    fireEvent.change(screen.getByLabelText("Preferencia de Azúcares sin grasa"), { target: { value: "include" } });
+    fireEvent.click(screen.getByRole("button", { name: "Proponer porciones" }));
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar propuesta" }));
+
+    expect(screen.getByLabelText("Porciones de Azúcares sin grasa")).toBeInTheDocument();
   });
 
   it("asks for macronutrients when the inherited targets are unavailable", () => {
