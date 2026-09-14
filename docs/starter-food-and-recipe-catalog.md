@@ -42,6 +42,41 @@ el catálogo matemático existente.
 - Las sustituciones se guardan como notas explícitas con cantidades. No se
   interpretan como un motor universal 1:1.
 
+## Auditoría de subtipos SMAE
+
+La iteración del Objetivo 7 contrastó los 42 alimentos globales contra las
+tablas citadas. Se corrigieron seis clasificaciones que estaban expresadas con
+un subtipo AOA demasiado amplio:
+
+- huevo entero: `AOA_MODERATE_FAT`;
+- clara de huevo: `AOA_VERY_LOW_FAT`;
+- pechuga de pollo: `AOA_VERY_LOW_FAT`;
+- bistec/res magra: `AOA_VERY_LOW_FAT`;
+- atún en agua: `AOA_VERY_LOW_FAT`;
+- pescado blanco: `AOA_VERY_LOW_FAT`.
+
+También se sincronizaron las porciones documentadas de pechuga, res, pescado y
+queso panela. Carne de cerdo magra y queso panela permanecen en
+`AOA_LOW_FAT`. Ningún alimento global queda con un código AOA genérico o con
+un código fuera del catálogo matemático. Las contribuciones de las recetas
+globales se regeneran desde sus `food_items`; los snapshots guardados en planes
+anteriores no se reescriben.
+
+## Compatibilidad y propuesta de menú
+
+El selector ordena recetas mediante una función determinista que recompensa
+cobertura y número de grupos cubiertos, favorece el tipo de comida y penaliza
+el exceso con más peso que un faltante. Los resultados se dividen en
+“Recomendadas” y “Otras recetas”, sin presentar el score como valoración
+clínica.
+
+El planificador `deterministic-menu-planner-v1` propone primero una receta
+compatible y después alimentos individuales para completar. Ajusta cantidades
+con incrementos prácticos por unidad, penaliza repeticiones y respeta solamente
+restricciones estructuradas; nunca infiere restricciones desde texto libre. La
+propuesta se muestra como vista previa y sólo se materializa en `diet_menu`
+cuando el profesional pulsa “Aplicar propuesta”.
+
 ## Exclusiones deliberadas
 
 No se precargaron queso Oaxaca “bajo en grasa”, queso sin lactosa ni bebida de

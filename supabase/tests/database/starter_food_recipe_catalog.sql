@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(21);
+select plan(30);
 
 select is(
   (select count(*)::integer from public.food_items where source in ('NOM-037-SSA2-2012','IMSS_SMAE_4E','DOF_SMAE_PORTIONS','IMSS_HEALTHY_MENU','MUNICIPIO_JUAREZ_EXCHANGE_LIST') and not is_custom),
@@ -72,7 +72,7 @@ select is(
 );
 select is(
   (select (exchange_contribution->0->>'portions')::numeric from public.recipe_items ri join public.recipes r on r.id = ri.recipe_id join public.food_items f on f.id = ri.food_item_id where r.stable_code = 'MX_CHICKEN_RICE_VEGETABLES' and f.stable_code = 'MX_COOKED_CHICKEN_BREAST'),
-  2.000000::numeric,
+  2.666667::numeric,
   'recipe exchanges are derived from ingredient amount and food portion'
 );
 select ok(
@@ -83,6 +83,28 @@ select ok(
   (select substitution_notes is not null from public.recipes where stable_code = 'MX_CHICKEN_RICE_VEGETABLES'),
   'quantity-aware substitution notes are preserved'
 );
+
+select ok(
+  (select every(group_code in (
+    'VEGETABLES','FRUITS','CEREALS_NO_FAT','CEREALS_WITH_FAT','LEGUMES',
+    'AOA_VERY_LOW_FAT','AOA_LOW_FAT','AOA_MODERATE_FAT','AOA_HIGH_FAT',
+    'MILK_SKIM','MILK_SEMI_SKIM','MILK_WHOLE','MILK_WITH_SUGAR',
+    'FATS_NO_PROTEIN','FATS_WITH_PROTEIN','SUGARS_NO_FAT','SUGARS_WITH_FAT'
+  )) from public.food_items where owner_id is null and catalog_code = 'NUTHRICK_MX_STARTER'),
+  'every global starter food has a valid exact group code'
+);
+select is(
+  (select count(*)::integer from public.food_items where owner_id is null and catalog_code = 'NUTHRICK_MX_STARTER' and group_code = 'AOA'),
+  0,
+  'no global food uses a generic AOA group'
+);
+select is((select group_code from public.food_items where stable_code = 'MX_WHOLE_EGG'), 'AOA_MODERATE_FAT', 'whole egg is moderate-fat AOA');
+select is((select group_code from public.food_items where stable_code = 'MX_EGG_WHITE'), 'AOA_VERY_LOW_FAT', 'egg white is very-low-fat AOA');
+select is((select group_code from public.food_items where stable_code = 'MX_COOKED_CHICKEN_BREAST'), 'AOA_VERY_LOW_FAT', 'chicken breast is very-low-fat AOA');
+select is((select group_code from public.food_items where stable_code = 'MX_COOKED_LEAN_BEEF'), 'AOA_VERY_LOW_FAT', 'documented lean beef is very-low-fat AOA');
+select is((select group_code from public.food_items where stable_code = 'MX_TUNA_WATER_DRAINED'), 'AOA_VERY_LOW_FAT', 'water-packed tuna is very-low-fat AOA');
+select is((select group_code from public.food_items where stable_code = 'MX_COOKED_WHITE_FISH'), 'AOA_VERY_LOW_FAT', 'white fish is very-low-fat AOA');
+select is((select portion_amount from public.food_items where stable_code = 'MX_PANELA_CHEESE'), 40.000::numeric, 'panela keeps its documented low-fat AOA portion');
 
 insert into auth.users(id,email) values
   ('b1000000-0000-4000-8000-000000000001','starter-owner@nuthrick.test');

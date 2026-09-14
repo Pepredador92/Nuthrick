@@ -6,14 +6,17 @@ import type {
   FoodItem,
   FoodSnapshot,
   MealDistribution,
+  MealType,
   Recipe,
+  RecipeItem,
 } from "@/src/types/domain";
 
 export const DIET_MENU_SCHEMA_VERSION = 1 as const;
 export const MENU_COMPARISON_TOLERANCE = 1e-6;
 
 const now = () => new Date().toISOString();
-const round = (value: number) => Math.round((value + Number.EPSILON) * 1_000_000) / 1_000_000;
+export const roundMenuNumber = (value: number) => Math.round((value + Number.EPSILON) * 1_000_000) / 1_000_000;
+const round = roundMenuNumber;
 const makeId = (prefix: string) => globalThis.crypto?.randomUUID?.() ?? `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 export function createFoodSnapshot(food: FoodItem): FoodSnapshot {
@@ -138,6 +141,78 @@ export function addRecipeToMenu(menu: DietMenu, mealDistribution: MealDistributi
   return withVariant(menu, { ...variant, meal_menus: variant.meal_menus.map((meal) => meal.meal_time_id === mealTimeId ? { ...meal, entries: [...meal.entries, entry] } : meal) });
 }
 
+export function adjustRecipeIngredients(recipe: Recipe, amounts: Record<string, number>): Recipe {
+  return {
+    ...recipe,
+    items: recipe.items.map((item) => {
+      const amount = Number(amounts[item.id] ?? item.amount);
+      if (!Number.isFinite(amount) || amount <= 0) return item;
+      return {
+        ...item,
+        amount: round(amount),
+        exchange_contribution: exchangeContributionForFood(item.food_snapshot, amount),
+      };
+    }),
+  };
+}
+
+export function recipeIngredientsChanged(original: Recipe, adjusted: Recipe) {
+  return original.items.some((item) => {
+    const next = adjusted.items.find((candidate) => candidate.id === item.id);
+    return !next || Math.abs(Number(next.amount) - Number(item.amount)) > MENU_COMPARISON_TOLERANCE;
+  });
+}
+
+export function updateRecipeMenuEntryIngredients(
+  menu: DietMenu,
+  mealDistribution: MealDistribution,
+  entryId: string,
+  items: Array<Pick<RecipeItem, "amount" | "unit" | "food_snapshot" | "exchange_contribution">>,
+) {
+  const variant = activeMenu(menu);
+  const mealMenus = variant.meal_menus.map((meal) => ({
+    ...meal,
+    entries: meal.entries.map((entry) => {
+      if (entry.id !== entryId || entry.type !== "recipe" || !entry.recipe_snapshot) return entry;
+      const factor = entry.quantity / Number(entry.recipe_snapshot.servings || 1);
+      return {
+        ...entry,
+        recipe_snapshot: { ...entry.recipe_snapshot, items: items.map((item) => ({ ...item })) },
+        exchange_contributions: aggregateContributions(items.flatMap((item) => item.exchange_contribution.map((value) => ({
+          group_code: value.group_code,
+          portions: round(value.portions * factor),
+        })))),
+      };
+    }),
+  }));
+  return withVariant(menu, { ...variant, meal_menus: mealMenus });
+}
+
+export function replaceRecipeMenuEntry(
+  menu: DietMenu,
+  mealDistribution: MealDistribution,
+  entryId: string,
+  recipe: Recipe,
+) {
+  const variant = activeMenu(menu);
+  const mealMenus = variant.meal_menus.map((meal) => ({
+    ...meal,
+    entries: meal.entries.map((entry) => {
+      if (entry.id !== entryId || entry.type !== "recipe") return entry;
+      const replacement = addRecipeToMenu(
+        createDietMenu(mealDistribution, () => "replacement-menu"),
+        mealDistribution,
+        meal.meal_time_id,
+        recipe,
+        entry.quantity,
+        entry.id,
+      ).menus[0].meal_menus.find((candidate) => candidate.meal_time_id === meal.meal_time_id)?.entries[0];
+      return replacement ?? entry;
+    }),
+  }));
+  return withVariant(menu, { ...variant, meal_menus: mealMenus });
+}
+
 export function updateMenuEntryQuantity(menu: DietMenu, mealDistribution: MealDistribution, entryId: string, quantity: number) {
   if (!Number.isFinite(quantity) || quantity <= 0) return menu;
   const variant = activeMenu(menu);
@@ -230,22 +305,88 @@ export function confirmDietMenu(menu: DietMenu, mealDistribution: MealDistributi
   };
 }
 
-export function recipeCompatibilityScore(required: Array<{ group_code: ExchangeGroupCode; portions: number }>, recipe: Recipe) {
+export type RecipeCompatibilityRestriction = {
+  excludedFoodIds?: string[];
+  excludedGroupCodes?: ExchangeGroupCode[];
+  excludedAttributes?: string[];
+};
+
+export type RecipeCompatibilityInput = {
+  pendingExchanges: Array<{ group_code: ExchangeGroupCode; portions: number }>;
+  recipe: Recipe;
+  mealType?: MealType;
+  restrictions?: RecipeCompatibilityRestriction;
+};
+
+export function scoreRecipeCompatibility({ pendingExchanges: required, recipe, mealType, restrictions }: RecipeCompatibilityInput) {
   const contributions = recipeExchangeContributions(recipe);
   const codes = new Set([...required.map((item) => item.group_code), ...contributions.map((item) => item.group_code)]);
   let covered = 0;
   let missing = 0;
   let excess = 0;
+  let groupsCovered = 0;
+  const coveredGroups: ExchangeGroupCode[] = [];
+  const missingGroups: Array<{ group_code: ExchangeGroupCode; portions: number }> = [];
+  const excessGroups: Array<{ group_code: ExchangeGroupCode; portions: number }> = [];
   for (const code of codes) {
     const needed = required.find((item) => item.group_code === code)?.portions ?? 0;
     const supplied = contributions.find((item) => item.group_code === code)?.portions ?? 0;
     covered += Math.min(needed, supplied);
-    missing += Math.max(0, needed - supplied);
-    excess += Math.max(0, supplied - needed);
+    const groupMissing = Math.max(0, needed - supplied);
+    const groupExcess = Math.max(0, supplied - needed);
+    missing += groupMissing;
+    excess += groupExcess;
+    if (needed > MENU_COMPARISON_TOLERANCE && supplied > MENU_COMPARISON_TOLERANCE) {
+      groupsCovered += 1;
+      coveredGroups.push(code);
+    }
+    if (groupMissing > MENU_COMPARISON_TOLERANCE) missingGroups.push({ group_code: code, portions: round(groupMissing) });
+    if (groupExcess > MENU_COMPARISON_TOLERANCE) excessGroups.push({ group_code: code, portions: round(groupExcess) });
   }
-  const score = round(Math.max(0, covered * 4 - excess * 5 - missing));
-  const label = excess <= MENU_COMPARISON_TOLERANCE && missing <= MENU_COMPARISON_TOLERANCE
-    ? "Cubre las porciones asignadas" : excess <= MENU_COMPARISON_TOLERANCE && covered > 0
-      ? "Alta compatibilidad" : excess < covered ? "Compatible" : "Compatibilidad parcial";
-  return { score, covered: round(covered), missing: round(missing), excess: round(excess), label, contributions };
+  const excludedFoodIds = new Set(restrictions?.excludedFoodIds ?? []);
+  const excludedGroupCodes = new Set(restrictions?.excludedGroupCodes ?? []);
+  const excludedAttributes = new Set(restrictions?.excludedAttributes ?? []);
+  const blocked = recipe.items.some((item) => excludedFoodIds.has(item.food_item_id ?? item.food_snapshot.id)
+    || excludedGroupCodes.has(item.food_snapshot.group_code)
+    || Object.entries(item.food_snapshot.attributes ?? {}).some(([attribute, value]) => value === "contains" && excludedAttributes.has(attribute)));
+  const desiredTotal = required.reduce((sum, item) => sum + item.portions, 0);
+  const coverageRatio = desiredTotal > MENU_COMPARISON_TOLERANCE ? covered / desiredTotal : 0;
+  const mealAffinity = !mealType ? 0 : recipe.meal_types.includes(mealType) ? 1 : recipe.meal_types.length ? -0.5 : 0;
+  const score = round(
+    covered * 8
+    + groupsCovered * 3
+    + mealAffinity * 4
+    - missing * 1.5
+    - excess * 10
+    - (blocked ? 1_000 : 0),
+  );
+  const label = blocked
+    ? "No compatible con restricciones"
+    : excess <= MENU_COMPARISON_TOLERANCE && missing <= MENU_COMPARISON_TOLERANCE
+      ? "Coincidencia exacta"
+      : excess <= MENU_COMPARISON_TOLERANCE && coverageRatio >= 0.65
+        ? "Buena coincidencia"
+        : covered > MENU_COMPARISON_TOLERANCE && excess < covered
+          ? "Coincidencia parcial"
+          : "Poco compatible";
+  return {
+    score,
+    covered: round(covered),
+    missing: round(missing),
+    excess: round(excess),
+    coverageRatio: round(coverageRatio),
+    groupsCovered,
+    coveredGroups,
+    missingGroups,
+    excessGroups,
+    mealAffinity,
+    blocked,
+    label,
+    contributions,
+  };
+}
+
+/** @deprecated Use scoreRecipeCompatibility when meal type or restrictions are available. */
+export function recipeCompatibilityScore(required: Array<{ group_code: ExchangeGroupCode; portions: number }>, recipe: Recipe) {
+  return scoreRecipeCompatibility({ pendingExchanges: required, recipe });
 }

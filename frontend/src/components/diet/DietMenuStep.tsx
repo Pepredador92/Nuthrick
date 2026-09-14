@@ -1,19 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Apple, Check, ChefHat, Plus, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, Apple, Check, ChefHat, Pencil, Plus, Search, Sparkles, Trash2, X } from "lucide-react";
 import { exchangeCatalog, getExchangeGroup } from "@/src/features/exchanges/catalog";
 import {
   activeMenu,
   addFoodToMenu,
   addRecipeToMenu,
+  adjustRecipeIngredients,
   calculateMenuStatus,
   confirmDietMenu,
   createDietMenu,
   reconcileDietMenu,
-  recipeCompatibilityScore,
+  recipeIngredientsChanged,
   removeMenuEntry,
   sameMealDistribution,
+  scoreRecipeCompatibility,
+  replaceRecipeMenuEntry,
   updateMenuEntryQuantity,
+  updateRecipeMenuEntryIngredients,
 } from "@/src/features/menu/model";
+import { proposeDietMenu, type MenuPlanningMode, type MenuProposal } from "@/src/features/menu/planner";
 import {
   createCustomFood,
   createCustomRecipe,
@@ -46,7 +51,7 @@ const emptyFood: CustomFoodInput = {
 const format = (value: number) => Number(value.toFixed(3)).toLocaleString("es-MX");
 
 type FoodCatalogFilter = "all" | "vegetables" | "fruits" | "cereals" | "legumes" | "aoa" | "milk" | "fats";
-type RecipeCatalogFilter = "all" | Extract<MealType, "BREAKFAST" | "MAIN_MEAL" | "DINNER">;
+type RecipeCatalogFilter = "all" | "best" | Extract<MealType, "BREAKFAST" | "MAIN_MEAL" | "DINNER">;
 
 const foodCatalogFilters: Array<{ id: FoodCatalogFilter; label: string; groups: ExchangeGroupCode[] }> = [
   { id: "all", label: "Todos", groups: [] },
@@ -60,6 +65,7 @@ const foodCatalogFilters: Array<{ id: FoodCatalogFilter; label: string; groups: 
 ];
 const recipeCatalogFilters: Array<{ id: RecipeCatalogFilter; label: string }> = [
   { id: "all", label: "Todas" },
+  { id: "best", label: "Mejor ajuste" },
   { id: "BREAKFAST", label: "Desayuno" },
   { id: "MAIN_MEAL", label: "Comida" },
   { id: "DINNER", label: "Cena" },
@@ -105,37 +111,43 @@ function CustomFoodForm({ initialGroup, busy, onCancel, onCreate }: {
   </div>;
 }
 
-function BrowserPanel({ mode, foods, recipes, groupCode, required, busy, onClose, onFood, onRecipe, onNewFood, onNewRecipe }: {
+function BrowserPanel({ mode, foods, recipes, groupCode, required, mealType, busy, onClose, onFood, onRecipe, onNewFood, onNewRecipe }: {
   mode: "food" | "recipe";
   foods: FoodItem[];
   recipes: Recipe[];
   groupCode: ExchangeGroupCode | "all";
   required: Array<{ group_code: ExchangeGroupCode; portions: number }>;
+  mealType: MealType;
   busy: boolean;
   onClose: () => void;
   onFood: (food: FoodItem, amount: number) => void;
-  onRecipe: (recipe: Recipe, servings: number) => void;
+  onRecipe: (recipe: Recipe) => void;
   onNewFood: () => void;
   onNewRecipe: () => void;
 }) {
   const [search, setSearch] = useState("");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [foodFilter, setFoodFilter] = useState<FoodCatalogFilter>(() => initialFoodFilter(groupCode));
+  const [exactGroup, setExactGroup] = useState<ExchangeGroupCode | null>(() => groupCode === "all" ? null : groupCode);
   const [recipeFilter, setRecipeFilter] = useState<RecipeCatalogFilter>("all");
-  const selectedFoodGroups = foodCatalogFilters.find((filter) => filter.id === foodFilter)?.groups ?? [];
+  const selectedFoodGroups = exactGroup ? [exactGroup] : foodCatalogFilters.find((filter) => filter.id === foodFilter)?.groups ?? [];
   const visibleFoods = foods.filter((food) => (!selectedFoodGroups.length || selectedFoodGroups.includes(food.group_code)) && foodMatchesSearch(food, search));
   const visibleRecipes = recipes
-    .filter((recipe) => (recipeFilter === "all" || recipe.meal_types.includes(recipeFilter)) && recipeMatchesSearch(recipe, search))
-    .map((recipe) => ({ recipe, match: recipeCompatibilityScore(required, recipe) }))
+    .filter((recipe) => ((recipeFilter === "all" || recipeFilter === "best") || recipe.meal_types.includes(recipeFilter)) && recipeMatchesSearch(recipe, search))
+    .map((recipe) => ({ recipe, match: scoreRecipeCompatibility({ pendingExchanges: required, recipe, mealType }) }))
+    .filter(({ match }) => recipeFilter !== "best" || (!match.blocked && match.covered > 0 && match.excess <= 0.5 && match.label !== "Poco compatible"))
     .sort((a, b) => b.match.score - a.match.score || a.recipe.name.localeCompare(b.recipe.name, "es-MX"));
+  const recommendedRecipes = visibleRecipes.filter(({ match }) => !match.blocked && match.covered > 0 && match.excess <= 0.5 && match.label !== "Poco compatible");
+  const otherRecipes = visibleRecipes.filter(({ recipe }) => !recommendedRecipes.some((candidate) => candidate.recipe.id === recipe.id));
+  const recipeCard = ({ recipe, match }: (typeof visibleRecipes)[number]) => <div key={recipe.id} className="rounded-xl border border-[#e0e7e2] p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-semibold text-[#315449]">{recipe.name}</p><p className="mt-1 text-xs font-semibold text-[#477363]">{match.label}</p><p className="mt-1 text-xs text-[#718078]">Cubre {format(match.covered)} de {format(match.covered + match.missing)} equivalentes · {recipe.items.length} ingredientes</p><div className="mt-2 flex flex-wrap gap-1">{match.coveredGroups.slice(0, 3).map((code) => <span key={code} className="rounded-full bg-[#edf5ef] px-2 py-0.5 text-[10px] font-semibold text-[#35624e]">✓ {getExchangeGroup(code).shortName}</span>)}{match.missingGroups.slice(0, 2).map((item) => <span key={item.group_code} className="rounded-full bg-[#fff7e7] px-2 py-0.5 text-[10px] font-semibold text-[#8a692d]">Falta {format(item.portions)} {getExchangeGroup(item.group_code).shortName}</span>)}</div><span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${recipe.is_custom ? "bg-[#f2eee3] text-[#75623d]" : "bg-[#e8f3eb] text-[#35624e]"}`}>{recipe.is_custom ? "Personal" : "Receta Nuthrick"}</span>{match.excess > 0 && <p className="mt-1 text-xs text-[#a64a3d]">Excede {format(match.excess)} equivalentes.</p>}</div><button type="button" className="nuth-button !px-3 !py-2" onClick={() => onRecipe(recipe)}>Revisar</button></div></div>;
   return <div className="rounded-2xl border border-[#bfd1c6] bg-white p-4 shadow-[0_18px_45px_rgba(23,61,54,.12)]">
-    <div className="flex items-center justify-between"><div><h3 className="font-semibold text-[#24463b]">{mode === "food" ? "Agregar alimento" : "Agregar receta"}</h3><p className="mt-1 text-xs text-[#718078]">Catálogo base de Nuthrick y contenido creado por ti</p></div><button type="button" aria-label="Cerrar buscador" onClick={onClose}><X size={19} /></button></div>
+    <div className="flex items-center justify-between"><div><h3 className="font-semibold text-[#24463b]">{mode === "food" ? exactGroup ? `Alimentos · ${getExchangeGroup(exactGroup).shortName}` : "Agregar alimento" : "Agregar receta"}</h3><p className="mt-1 text-xs text-[#718078]">Catálogo base de Nuthrick y contenido creado por ti</p></div><button type="button" aria-label="Cerrar buscador" onClick={onClose}><X size={19} /></button></div>
     <label className="relative mt-4 block"><Search className="absolute left-3 top-3 text-[#829087]" size={16} /><input className="nuth-input !pl-9" placeholder={mode === "food" ? "Buscar alimento" : "Buscar receta"} value={search} onChange={(e) => setSearch(e.target.value)} /></label>
     <div aria-label={mode === "food" ? "Filtros de alimentos" : "Filtros de recetas"} className="mt-3 flex gap-2 overflow-x-auto pb-1">
-      {mode === "food" ? foodCatalogFilters.map((filter) => <button key={filter.id} type="button" aria-pressed={foodFilter === filter.id} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${foodFilter === filter.id ? "bg-[#173d36] text-white" : "bg-[#f1f5f1] text-[#52675e]"}`} onClick={() => setFoodFilter(filter.id)}>{filter.label}</button>) : recipeCatalogFilters.map((filter) => <button key={filter.id} type="button" aria-pressed={recipeFilter === filter.id} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${recipeFilter === filter.id ? "bg-[#173d36] text-white" : "bg-[#f1f5f1] text-[#52675e]"}`} onClick={() => setRecipeFilter(filter.id)}>{filter.label}</button>)}
+      {mode === "food" ? exactGroup ? <button type="button" className="shrink-0 rounded-full bg-[#f1f5f1] px-3 py-1.5 text-xs font-semibold text-[#52675e]" onClick={() => { setExactGroup(null); setFoodFilter("all"); }}>Ver otros grupos</button> : foodCatalogFilters.map((filter) => <button key={filter.id} type="button" aria-pressed={foodFilter === filter.id} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${foodFilter === filter.id ? "bg-[#173d36] text-white" : "bg-[#f1f5f1] text-[#52675e]"}`} onClick={() => setFoodFilter(filter.id)}>{filter.label}</button>) : recipeCatalogFilters.map((filter) => <button key={filter.id} type="button" aria-pressed={recipeFilter === filter.id} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${recipeFilter === filter.id ? "bg-[#173d36] text-white" : "bg-[#f1f5f1] text-[#52675e]"}`} onClick={() => setRecipeFilter(filter.id)}>{filter.label}</button>)}
     </div>
     <div className="mt-3 max-h-80 space-y-2 overflow-y-auto pr-1">
-      {mode === "food" ? visibleFoods.map((food) => <div key={food.id} className="rounded-xl border border-[#e0e7e2] p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-[#315449]">{food.name}</p><p className="mt-1 text-xs text-[#718078]">1 equivalente · {food.portion_description} · {getExchangeGroup(food.group_code).shortName}</p><span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${food.is_custom ? "bg-[#f2eee3] text-[#75623d]" : "bg-[#e8f3eb] text-[#35624e]"}`}>{food.is_custom ? "Personalizado" : "Catálogo Nuthrick"}</span></div><div className="flex shrink-0 items-center gap-2"><input aria-label={`Cantidad de ${food.name}`} type="number" min="0.001" step="0.5" className="nuth-input !w-20 !py-2" value={quantities[food.id] ?? food.portion_amount} onChange={(e) => setQuantities({ ...quantities, [food.id]: Number(e.target.value) })} /><button type="button" className="nuth-button !px-3 !py-2" onClick={() => onFood(food, quantities[food.id] ?? Number(food.portion_amount))}>Agregar</button></div></div></div>) : visibleRecipes.map(({ recipe, match }) => <div key={recipe.id} className="rounded-xl border border-[#e0e7e2] p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-[#315449]">{recipe.name}</p><p className="mt-1 text-xs text-[#718078]">{match.label} · {recipe.items.length} ingredientes</p><span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${recipe.is_custom ? "bg-[#f2eee3] text-[#75623d]" : "bg-[#e8f3eb] text-[#35624e]"}`}>{recipe.is_custom ? "Personal" : "Receta Nuthrick"}</span>{match.excess > 0 && <p className="mt-1 text-xs text-[#a64a3d]">Excede {format(match.excess)} equivalentes en total.</p>}</div><button type="button" className="nuth-button !px-3 !py-2" onClick={() => onRecipe(recipe, 1)}>Agregar</button></div></div>)}
+      {mode === "food" ? visibleFoods.map((food) => <div key={food.id} className="rounded-xl border border-[#e0e7e2] p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-[#315449]">{food.name}</p><p className="mt-1 text-xs text-[#718078]">1 equivalente · {food.portion_description} · {getExchangeGroup(food.group_code).shortName}</p><span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${food.is_custom ? "bg-[#f2eee3] text-[#75623d]" : "bg-[#e8f3eb] text-[#35624e]"}`}>{food.is_custom ? "Personalizado" : "Catálogo Nuthrick"}</span></div><div className="flex shrink-0 items-center gap-2"><input aria-label={`Cantidad de ${food.name}`} type="number" min="0.001" step="0.5" className="nuth-input !w-20 !py-2" value={quantities[food.id] ?? food.portion_amount} onChange={(e) => setQuantities({ ...quantities, [food.id]: Number(e.target.value) })} /><button type="button" className="nuth-button !px-3 !py-2" onClick={() => onFood(food, quantities[food.id] ?? Number(food.portion_amount))}>Agregar</button></div></div></div>) : <>{recommendedRecipes.length > 0 && <div><p className="mb-2 text-[11px] font-bold uppercase tracking-[.12em] text-[#477363]">Recomendadas</p><div className="space-y-2">{recommendedRecipes.map(recipeCard)}</div></div>}{otherRecipes.length > 0 && <div className="pt-2"><p className="mb-2 text-[11px] font-bold uppercase tracking-[.12em] text-[#7b8781]">Otras recetas</p><div className="space-y-2">{otherRecipes.map(recipeCard)}</div></div>}</>}
       {((mode === "food" && !visibleFoods.length) || (mode === "recipe" && !visibleRecipes.length)) && <p className="rounded-xl bg-[#f7f9f7] p-4 text-center text-sm text-[#718078]">No hay resultados todavía.</p>}
     </div>
     <button type="button" className="nuth-button-secondary mt-3 w-full justify-center" disabled={busy} onClick={mode === "food" ? onNewFood : onNewRecipe}><Plus size={15} /> {mode === "food" ? "Agregar alimento personalizado" : "Crear receta"}</button>
@@ -161,6 +173,48 @@ function RecipeForm({ foods, busy, onCancel, onCreate }: { foods: FoodItem[]; bu
   </div>;
 }
 
+function RecipeAdjustPanel({ recipe, pending, mealType, initialAmounts, busy, onCancel, onUse, onSaveCopy }: {
+  recipe: Recipe;
+  pending: Array<{ group_code: ExchangeGroupCode; portions: number }>;
+  mealType: MealType;
+  initialAmounts?: Record<string, number>;
+  busy: boolean;
+  onCancel: () => void;
+  onUse: (recipe: Recipe) => void;
+  onSaveCopy: (name: string, recipe: Recipe) => void;
+}) {
+  const [amounts, setAmounts] = useState<Record<string, number>>(() => Object.fromEntries(recipe.items.map((item) => [item.id, initialAmounts?.[item.id] ?? Number(item.amount)])));
+  const [askCopy, setAskCopy] = useState(false);
+  const [copyName, setCopyName] = useState(`${recipe.name} — copia`);
+  const adjusted = useMemo(() => adjustRecipeIngredients(recipe, amounts), [amounts, recipe]);
+  const changed = recipeIngredientsChanged(recipe, adjusted);
+  const match = useMemo(() => scoreRecipeCompatibility({ pendingExchanges: pending, recipe: adjusted, mealType }), [adjusted, mealType, pending]);
+  const valid = recipe.items.every((item) => Number.isFinite(amounts[item.id]) && amounts[item.id] > 0);
+
+  return <div className="rounded-2xl border border-[#bfd1c6] bg-[#f9fbf8] p-4 shadow-[0_18px_45px_rgba(23,61,54,.12)]">
+    <div className="flex items-start justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-[.12em] text-[#477363]">Agregar receta</p><h3 className="mt-1 font-semibold text-[#24463b]">{recipe.name}</h3><p className="mt-1 text-xs text-[#718078]">Revisa las cantidades antes de incorporarla al plan.</p></div><button type="button" aria-label="Cerrar ajuste de receta" onClick={onCancel}><X size={19} /></button></div>
+    <div className="mt-4 space-y-2">{adjusted.items.map((item) => <label key={item.id} className="grid grid-cols-[minmax(0,1fr)_90px_auto] items-center gap-2 rounded-xl bg-white px-3 py-2"><span className="min-w-0 text-sm font-medium text-[#315449]">{item.food_snapshot.name}<span className="mt-0.5 block text-[11px] font-normal text-[#78867f]">{format(item.exchange_contribution[0]?.portions ?? 0)} {getExchangeGroup(item.food_snapshot.group_code).shortName}</span></span><input aria-label={`Cantidad de ${item.food_snapshot.name}`} type="number" min="0.001" step="0.5" className="nuth-input !py-2" value={amounts[item.id]} onChange={(event) => setAmounts({ ...amounts, [item.id]: Number(event.target.value) })} /><span className="text-xs text-[#718078]">{unitLabels[item.unit]}</span></label>)}</div>
+    <div className="mt-4 grid gap-3 rounded-xl border border-[#dce7df] bg-white p-3 sm:grid-cols-2"><div><p className="text-[11px] font-bold uppercase tracking-[.1em] text-[#718078]">Consume</p><p className="mt-1 text-xs leading-5 text-[#52675e]">{match.contributions.map((item) => `${format(item.portions)} ${getExchangeGroup(item.group_code).shortName}`).join(" · ") || "Sin equivalentes"}</p></div><div><p className="text-[11px] font-bold uppercase tracking-[.1em] text-[#718078]">Después de agregar</p><p className={`mt-1 text-xs font-semibold ${match.excess > 0 ? "text-[#a64a3d]" : "text-[#35624e]"}`}>{match.label} · faltan {format(match.missing)} · excede {format(match.excess)}</p></div></div>
+    {askCopy && changed ? <div className="mt-4 rounded-xl bg-[#fff7e7] p-3"><p className="text-sm font-semibold text-[#6d572c]">¿Guardar estos ajustes como una nueva receta?</p><p className="mt-1 text-xs text-[#806d49]">La receta de Nuthrick permanecerá intacta.</p><input aria-label="Nombre de la copia" className="nuth-input mt-3" value={copyName} onChange={(event) => setCopyName(event.target.value)} /><div className="mt-3 flex flex-wrap justify-end gap-2"><button type="button" className="nuth-button-secondary" onClick={() => onUse(adjusted)}>No, sólo este plan</button><button type="button" className="nuth-button" disabled={!copyName.trim() || busy} onClick={() => onSaveCopy(copyName.trim(), adjusted)}>Guardar copia</button></div></div> : <div className="mt-4 flex flex-wrap justify-end gap-2"><button type="button" className="nuth-button-secondary" onClick={onCancel}>Cancelar</button><button type="button" className="nuth-button" disabled={!valid || busy} onClick={() => changed ? setAskCopy(true) : onUse(adjusted)}>Agregar al menú</button></div>}
+  </div>;
+}
+
+function MenuProposalPanel({ proposal, mode, canReplace, onMode, onApply, onDiscard }: {
+  proposal: MenuProposal;
+  mode: MenuPlanningMode;
+  canReplace: boolean;
+  onMode: (mode: MenuPlanningMode) => void;
+  onApply: () => void;
+  onDiscard: () => void;
+}) {
+  return <div className="rounded-2xl border border-[#bfd1c6] bg-[#f9fbf8] p-4 shadow-[0_18px_45px_rgba(23,61,54,.12)]">
+    <div className="flex items-start justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-[.12em] text-[#477363]">Vista previa</p><h3 className="mt-1 font-semibold text-[#24463b]">Propuesta de menú</h3><p className="mt-1 text-xs text-[#718078]">Revísala antes de aplicarla. Nada se guarda automáticamente.</p></div><button type="button" aria-label="Descartar propuesta" onClick={onDiscard}><X size={19} /></button></div>
+    {canReplace && <div className="mt-3 flex w-fit rounded-xl bg-[#edf2ee] p-1"><button type="button" aria-pressed={mode === "complete"} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${mode === "complete" ? "bg-white text-[#24463b] shadow-sm" : "text-[#718078]"}`} onClick={() => onMode("complete")}>Completar pendientes</button><button type="button" aria-pressed={mode === "replace"} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${mode === "replace" ? "bg-white text-[#24463b] shadow-sm" : "text-[#718078]"}`} onClick={() => onMode("replace")}>Rehacer tiempo</button></div>}
+    <div className="mt-4 grid gap-3 md:grid-cols-2">{proposal.meals.map((meal) => <section key={meal.mealTimeId} className="rounded-xl border border-[#dce7df] bg-white p-3"><div className="flex items-center justify-between gap-2"><h4 className="text-sm font-semibold text-[#315449]">{meal.mealName}</h4><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${meal.complete ? "bg-[#e7f3e9] text-[#35624e]" : "bg-[#fff3dc] text-[#8a692d]"}`}>{meal.complete ? "Completo" : "Propuesta parcial"}</span></div><div className="mt-3 space-y-2">{meal.addedEntries.map((entry) => <div key={entry.id} className="rounded-lg bg-[#f5f8f5] px-3 py-2"><p className="text-sm font-medium text-[#315449]">{entry.name_snapshot}</p><p className="mt-0.5 text-[11px] text-[#718078]">{entry.type === "recipe" ? "Receta ajustable" : `${format(entry.quantity)} ${unitLabels[entry.unit]}`}</p></div>)}{!meal.addedEntries.length && <p className="text-xs text-[#718078]">No necesita cambios.</p>}</div>{meal.pending.length > 0 && <p className="mt-3 text-xs text-[#8a692d]">Falta: {meal.pending.map((item) => `${format(item.portions)} ${getExchangeGroup(item.group_code).shortName}`).join(" · ")}</p>}{meal.excess.length > 0 && <p className="mt-2 text-xs text-[#a64a3d]">Excede: {meal.excess.map((item) => `${format(item.portions)} ${getExchangeGroup(item.group_code).shortName}`).join(" · ")}</p>}</section>)}</div>
+    <div className="mt-4 flex justify-end gap-2"><button type="button" className="nuth-button-secondary" onClick={onDiscard}>Descartar</button><button type="button" className="nuth-button" onClick={onApply}>Aplicar propuesta</button></div>
+  </div>;
+}
+
 export function DietMenuStep({ plan, onSave, onDraftChange, onGoToMeals, catalog }: Props) {
   const distribution = plan.meal_distribution;
   const initial = useMemo(() => distribution ? reconcileDietMenu(plan.diet_menu ?? createDietMenu(distribution), distribution) : null, [distribution, plan.diet_menu]);
@@ -168,8 +222,12 @@ export function DietMenuStep({ plan, onSave, onDraftChange, onGoToMeals, catalog
   const [activeMealId, setActiveMealId] = useState(distribution?.meal_times[0]?.id ?? "");
   const [foods, setFoods] = useState<FoodItem[]>(catalog?.foods ?? []);
   const [recipes, setRecipes] = useState<Recipe[]>(catalog?.recipes ?? []);
-  const [panel, setPanel] = useState<"food" | "recipe" | "new_food" | "new_recipe" | null>(null);
+  const [panel, setPanel] = useState<"food" | "recipe" | "recipe_adjust" | "new_food" | "new_recipe" | null>(null);
   const [groupFilter, setGroupFilter] = useState<ExchangeGroupCode | "all">("all");
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [editingRecipeEntryId, setEditingRecipeEntryId] = useState<string | null>(null);
+  const [proposal, setProposal] = useState<MenuProposal | null>(null);
+  const [proposalMode, setProposalMode] = useState<MenuPlanningMode>("complete");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saveState, setSaveState] = useState<"saved" | "pending" | "saving">("saved");
@@ -191,24 +249,61 @@ export function DietMenuStep({ plan, onSave, onDraftChange, onGoToMeals, catalog
   const change = (next: DietMenu) => { setDraft(next); setError(""); };
   const open = (mode: "food" | "recipe", group: ExchangeGroupCode | "all" = "all") => { setGroupFilter(group); setPanel(mode); };
   const addFood = (food: FoodItem, amount: number) => { change(addFoodToMenu(draft, distribution, meal.id, food, amount)); setPanel(null); };
-  const addRecipe = (recipe: Recipe, servings: number) => { change(addRecipeToMenu(draft, distribution, meal.id, recipe, servings)); setPanel(null); };
+  const addRecipe = (recipe: Recipe, servings = 1) => { change(addRecipeToMenu(draft, distribution, meal.id, recipe, servings)); setPanel(null); setSelectedRecipe(null); };
+  const useAdjustedRecipe = (recipe: Recipe) => {
+    if (editingRecipeEntryId) change(updateRecipeMenuEntryIngredients(draft, distribution, editingRecipeEntryId, recipe.items));
+    else addRecipe(recipe);
+    setPanel(null);
+    setSelectedRecipe(null);
+    setEditingRecipeEntryId(null);
+  };
 
   const saveCustomFood = async (input: CustomFoodInput) => { setBusy(true); try { const food = await createCustomFood(input); setFoods([food, ...foods]); addFood(food, input.portion_amount); } catch (cause) { setError(cause instanceof Error ? cause.message : "No pudimos guardar el alimento."); } finally { setBusy(false); } };
   const saveRecipe = async (name: string, items: RecipeDraftItem[], description: string, instructions: string) => { setBusy(true); try { const recipe = await createCustomRecipe({ name, items, meal_types: [meal.meal_type], description, instructions }); setRecipes([recipe, ...recipes]); addRecipe(recipe, 1); } catch (cause) { setError(cause instanceof Error ? cause.message : "No pudimos guardar la receta."); } finally { setBusy(false); } };
+  const saveRecipeCopy = async (name: string, adjusted: Recipe) => {
+    const items = adjusted.items.map((item) => ({ food: foods.find((food) => food.id === item.food_item_id) ?? foods.find((food) => food.id === item.food_snapshot.id), amount: Number(item.amount) }));
+    if (items.some((item) => !item.food)) { setError("No pudimos relacionar todos los ingredientes con el catálogo actual."); return; }
+    setBusy(true);
+    try {
+      const copy = await createCustomRecipe({
+        name,
+        items: items as RecipeDraftItem[],
+        meal_types: adjusted.meal_types,
+        description: adjusted.description ?? undefined,
+        instructions: adjusted.instructions ?? undefined,
+      });
+      setRecipes([copy, ...recipes]);
+      if (editingRecipeEntryId) change(replaceRecipeMenuEntry(draft, distribution, editingRecipeEntryId, copy));
+      else addRecipe(copy);
+      setPanel(null);
+      setSelectedRecipe(null);
+      setEditingRecipeEntryId(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No pudimos guardar la copia de la receta.");
+    } finally { setBusy(false); }
+  };
+  const buildProposal = (mealTimeId: string | null, mode: MenuPlanningMode = "complete") => {
+    setProposalMode(mode);
+    setProposal(proposeDietMenu({ menu: draft, distribution, foods, recipes, mealTimeId, mode }));
+    setPanel(null);
+  };
   const confirm = async () => { const confirmed = confirmDietMenu(draft, distribution); if (confirmed === draft) return; setDraft(confirmed); setSaveState("saving"); try { await onSave(confirmed); setSaveState("saved"); } catch (cause) { setError(cause instanceof Error ? cause.message : "No pudimos confirmar el menú."); setSaveState("pending"); } };
 
   return <section className="min-w-0 overflow-hidden rounded-[24px] border border-[#dfe6e1] bg-white p-4 sm:p-6">
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="nuth-eyebrow">Paso 5</p><h1 aria-label="Construcción del menú" className="mt-2 text-2xl font-semibold text-[#173d36]">Menú</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">Convierte las porciones en alimentos y platillos.</p></div><span className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${draft.status === "ready" ? "bg-[#e6f2e8] text-[#35624e]" : "bg-[#f5efe1] text-[#79643b]"}`}>{draft.status === "ready" ? "Listo" : entries.length ? "En edición" : "Sin iniciar"}</span></div>
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="nuth-eyebrow">Paso 5</p><h1 aria-label="Construcción del menú" className="mt-2 text-2xl font-semibold text-[#173d36]">Menú</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">Convierte las porciones en alimentos y platillos.</p></div><div className="flex flex-wrap items-center gap-2"><button type="button" className="nuth-button" onClick={() => buildProposal(null)}><Sparkles size={15} /> Proponer</button><span className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${draft.status === "ready" ? "bg-[#e6f2e8] text-[#35624e]" : "bg-[#f5efe1] text-[#79643b]"}`}>{draft.status === "ready" ? "Listo" : entries.length ? "En edición" : "Sin iniciar"}</span></div></div>
+    <p className="mt-1 text-right text-xs text-[#718078]">Completa tus tiempos con alimentos y recetas compatibles.</p>
     {distribution.status !== "ready" && <p className="mt-4 rounded-xl bg-[#f7f3e9] px-4 py-3 text-sm text-[#725f35]">La distribución por tiempos todavía está en edición.</p>}
     {distributionChanged && <p className="mt-4 rounded-xl bg-[#fff2df] px-4 py-3 text-sm font-medium text-[#805d24]">La distribución de equivalentes cambió. Revisa nuevamente el menú.</p>}
     {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{error}</p>}
 
     <div className="mt-5 grid min-w-0 gap-4 lg:grid-cols-[190px_minmax(0,1fr)_230px]">
-      <aside className="min-w-0 overflow-hidden rounded-2xl bg-[#f5f8f5] p-3"><p className="px-2 text-[11px] font-bold uppercase tracking-[.12em] text-[#6f7f77]">Tiempos</p><div className="mt-2 flex max-w-full gap-2 overflow-x-auto lg:block lg:space-y-2 lg:overflow-visible">{distribution.meal_times.map((item) => { const rows = status.rows.filter((row) => row.meal_time_id === item.id); const issues = rows.filter((row) => row.state !== "complete").length; return <button key={item.id} type="button" onClick={() => { setActiveMealId(item.id); setPanel(null); }} className={`min-w-36 rounded-xl px-3 py-3 text-left lg:min-w-0 lg:w-full ${item.id === meal.id ? "bg-[#173d36] text-white" : "bg-white text-[#315449]"}`}><span className="block truncate text-sm font-semibold">{item.display_name}</span><span className={`mt-1 block text-xs ${item.id === meal.id ? "text-white/65" : "text-[#7a8881]"}`}>{item.time || "Sin hora"} · {issues ? `${issues} por completar` : "Completo"}</span></button>; })}</div></aside>
+      <aside className="min-w-0 overflow-hidden rounded-2xl bg-[#f5f8f5] p-3"><p className="px-2 text-[11px] font-bold uppercase tracking-[.12em] text-[#6f7f77]">Tiempos</p><div className="mt-2 flex max-w-full gap-2 overflow-x-auto lg:block lg:space-y-2 lg:overflow-visible">{distribution.meal_times.map((item) => { const rows = status.rows.filter((row) => row.meal_time_id === item.id); const issues = rows.filter((row) => row.state !== "complete").length; return <button key={item.id} type="button" onClick={() => { setActiveMealId(item.id); setPanel(null); setProposal(null); }} className={`min-w-36 rounded-xl px-3 py-3 text-left lg:min-w-0 lg:w-full ${item.id === meal.id ? "bg-[#173d36] text-white" : "bg-white text-[#315449]"}`}><span className="block truncate text-sm font-semibold">{item.display_name}</span><span className={`mt-1 block text-xs ${item.id === meal.id ? "text-white/65" : "text-[#7a8881]"}`}>{item.time || "Sin hora"} · {issues ? `${issues} por completar` : "Completo"}</span></button>; })}</div></aside>
 
-      <main className="min-w-0 rounded-2xl border border-[#e0e7e2] p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[.12em] text-[#477363]">{meal.time || "Hora abierta"}</p><h2 className="mt-1 text-xl font-semibold text-[#24463b]">{meal.display_name}</h2></div><div className="flex flex-wrap gap-2"><button type="button" aria-label="Agregar alimento" className="nuth-button-secondary !px-3 !py-2" onClick={() => open("food")}><Apple size={15} /> Alimento</button><button type="button" aria-label="Agregar receta" className="nuth-button-secondary !px-3 !py-2" onClick={() => open("recipe")}><ChefHat size={15} /> Receta</button></div></div>
-        <div className="mt-4 space-y-2">{entries.map((entry) => <div key={entry.id} className="rounded-xl bg-[#f8faf8] p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-semibold text-[#315449]">{entry.name_snapshot}</p><p className="mt-1 text-xs text-[#718078]">{entry.type === "recipe" ? "Receta" : entry.food_snapshot?.is_custom ? "Alimento personalizado" : "Alimento de catálogo"} · {entry.exchange_contributions.map((item) => `${format(item.portions)} ${getExchangeGroup(item.group_code).shortName}`).join(" · ")}</p></div><div className="flex shrink-0 items-center gap-2"><input aria-label={`Cantidad de ${entry.name_snapshot}`} type="number" min="0.001" step="0.5" className="nuth-input !w-20 !py-2" value={entry.quantity} onChange={(e) => change(updateMenuEntryQuantity(draft, distribution, entry.id, Number(e.target.value)))} /><span className="hidden text-xs text-[#718078] sm:inline">{unitLabels[entry.unit]}</span><button type="button" aria-label={`Eliminar ${entry.name_snapshot}`} onClick={() => change(removeMenuEntry(draft, distribution, entry.id))}><Trash2 size={16} className="text-[#a64a3d]" /></button></div></div></div>)}{!entries.length && <div className="rounded-xl border border-dashed border-[#ccd8d1] p-7 text-center"><ChefHat className="mx-auto text-[#789087]" size={22} /><p className="mt-3 font-semibold text-[#355c4e]">Construye este tiempo</p><p className="mt-1 text-sm text-[#74817d]">Agrega alimentos individuales, recetas o una combinación.</p></div>}</div>
-        {panel === "food" || panel === "recipe" ? <div className="mt-4"><BrowserPanel mode={panel} foods={foods} recipes={recipes} groupCode={groupFilter} required={requiredRemaining} busy={busy} onClose={() => setPanel(null)} onFood={addFood} onRecipe={addRecipe} onNewFood={() => setPanel("new_food")} onNewRecipe={() => setPanel("new_recipe")} /></div> : null}
+      <main className="min-w-0 rounded-2xl border border-[#e0e7e2] p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[.12em] text-[#477363]">{meal.time || "Hora abierta"}</p><h2 className="mt-1 text-xl font-semibold text-[#24463b]">{meal.display_name}</h2></div><div className="flex flex-wrap gap-2"><button type="button" className="nuth-button-secondary !px-3 !py-2" onClick={() => buildProposal(meal.id)}><Sparkles size={15} /> Proponer</button><button type="button" aria-label="Agregar alimento" className="nuth-button-secondary !px-3 !py-2" onClick={() => open("food")}><Apple size={15} /> Alimento</button><button type="button" aria-label="Agregar receta" className="nuth-button-secondary !px-3 !py-2" onClick={() => open("recipe")}><ChefHat size={15} /> Receta</button></div></div>
+        <div className="mt-4 space-y-2">{entries.map((entry) => <div key={entry.id} className="rounded-xl bg-[#f8faf8] p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-semibold text-[#315449]">{entry.name_snapshot}</p><p className="mt-1 text-xs text-[#718078]">{entry.type === "recipe" ? "Receta" : entry.food_snapshot?.is_custom ? "Alimento personalizado" : "Alimento de catálogo"} · {entry.exchange_contributions.map((item) => `${format(item.portions)} ${getExchangeGroup(item.group_code).shortName}`).join(" · ")}</p></div><div className="flex shrink-0 items-center gap-2"><input aria-label={`Cantidad de ${entry.name_snapshot}`} type="number" min="0.001" step="0.5" className="nuth-input !w-20 !py-2" value={entry.quantity} onChange={(e) => change(updateMenuEntryQuantity(draft, distribution, entry.id, Number(e.target.value)))} /><span className="hidden text-xs text-[#718078] sm:inline">{unitLabels[entry.unit]}</span>{entry.type === "recipe" && recipes.some((recipe) => recipe.id === entry.source_id) && <button type="button" aria-label={`Editar receta ${entry.name_snapshot}`} onClick={() => { const recipe = recipes.find((candidate) => candidate.id === entry.source_id) ?? null; setSelectedRecipe(recipe); setEditingRecipeEntryId(entry.id); setPanel("recipe_adjust"); }}><Pencil size={15} className="text-[#477363]" /></button>}<button type="button" aria-label={`Eliminar ${entry.name_snapshot}`} onClick={() => change(removeMenuEntry(draft, distribution, entry.id))}><Trash2 size={16} className="text-[#a64a3d]" /></button></div></div></div>)}{!entries.length && <div className="rounded-xl border border-dashed border-[#ccd8d1] p-7 text-center"><ChefHat className="mx-auto text-[#789087]" size={22} /><p className="mt-3 font-semibold text-[#355c4e]">Construye este tiempo</p><p className="mt-1 text-sm text-[#74817d]">Agrega alimentos individuales, recetas o una combinación.</p></div>}</div>
+        {proposal && <div className="mt-4"><MenuProposalPanel proposal={proposal} mode={proposalMode} canReplace={Boolean(proposal.mealTimeId && entries.length)} onMode={(mode) => buildProposal(proposal.mealTimeId, mode)} onApply={() => { change(proposal.menu); setProposal(null); }} onDiscard={() => setProposal(null)} /></div>}
+        {panel === "food" || panel === "recipe" ? <div className="mt-4"><BrowserPanel key={`${panel}-${groupFilter}`} mode={panel} foods={foods} recipes={recipes} groupCode={groupFilter} required={requiredRemaining} mealType={meal.meal_type} busy={busy} onClose={() => setPanel(null)} onFood={addFood} onRecipe={(recipe) => { setSelectedRecipe(recipe); setEditingRecipeEntryId(null); setPanel("recipe_adjust"); }} onNewFood={() => setPanel("new_food")} onNewRecipe={() => setPanel("new_recipe")} /></div> : null}
+        {panel === "recipe_adjust" && selectedRecipe && <div className="mt-4"><RecipeAdjustPanel key={`${selectedRecipe.id}-${editingRecipeEntryId ?? "new"}`} recipe={selectedRecipe} pending={requiredRemaining} mealType={meal.meal_type} initialAmounts={editingRecipeEntryId ? Object.fromEntries((entries.find((entry) => entry.id === editingRecipeEntryId)?.recipe_snapshot?.items ?? []).map((item, index) => [selectedRecipe.items[index]?.id, Number(item.amount)])) : undefined} busy={busy} onCancel={() => { setPanel("recipe"); setEditingRecipeEntryId(null); }} onUse={useAdjustedRecipe} onSaveCopy={(name, recipe) => void saveRecipeCopy(name, recipe)} /></div>}
         {panel === "new_food" && <div className="mt-4"><CustomFoodForm initialGroup={groupFilter === "all" ? (requiredRemaining[0]?.group_code ?? "VEGETABLES") : groupFilter} busy={busy} onCancel={() => setPanel("food")} onCreate={(input) => void saveCustomFood(input)} /></div>}
         {panel === "new_recipe" && <div className="mt-4"><RecipeForm foods={foods} busy={busy} onCancel={() => setPanel("recipe")} onCreate={(name, items, description, instructions) => void saveRecipe(name, items, description, instructions)} /></div>}
       </main>

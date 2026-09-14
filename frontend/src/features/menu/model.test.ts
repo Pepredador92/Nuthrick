@@ -11,7 +11,9 @@ import {
   exchangeContributionForFood,
   recipeCompatibilityScore,
   reconcileDietMenu,
+  replaceRecipeMenuEntry,
   removeMenuEntry,
+  scoreRecipeCompatibility,
   updateMenuEntryQuantity,
 } from "@/src/features/menu/model";
 import type { FoodItem, MealDistribution, Recipe } from "@/src/types/domain";
@@ -95,13 +97,33 @@ describe("diet menu model", () => {
     expect(snapshot?.items).toHaveLength(2);
   });
 
+  it("relinks an edited menu entry to the saved personal recipe copy", () => {
+    const menu = addRecipeToMenu(createDietMenu(distribution), distribution, breakfast, recipe(), 1, "recipe-entry");
+    const copy = { ...recipe(), id: "personal-copy", name: "Mi desayuno ajustado", source: "PROFESSIONAL_CUSTOM" as const };
+    const replaced = replaceRecipeMenuEntry(menu, distribution, "recipe-entry", copy);
+    const entry = replaced.menus[0].meal_menus[0].entries[0];
+    expect(entry).toMatchObject({ id: "recipe-entry", source_id: "personal-copy", name_snapshot: "Mi desayuno ajustado" });
+    expect(entry.recipe_snapshot?.recipe_id).toBe("personal-copy");
+  });
+
   it("scores exact, partial and excessive recipe compatibility deterministically", () => {
     const required = distribution.distribution.map(({ group_code, portions }) => ({ group_code, portions }));
-    expect(recipeCompatibilityScore(required, recipe()).label).toBe("Cubre las porciones asignadas");
+    expect(recipeCompatibilityScore(required, recipe()).label).toBe("Coincidencia exacta");
     const partial = { ...recipe(), items: recipe().items.slice(0, 1) };
-    expect(recipeCompatibilityScore(required, partial)).toMatchObject({ excess: 0, label: "Alta compatibilidad" });
+    expect(recipeCompatibilityScore(required, partial)).toMatchObject({ excess: 0, label: "Coincidencia parcial" });
     const excessive = { ...recipe(), items: [{ ...recipe().items[1], amount: 3, exchange_contribution: [{ group_code: "CEREALS_NO_FAT" as const, portions: 3 }] }] };
     expect(recipeCompatibilityScore(required, excessive).excess).toBe(1);
+  });
+
+  it("penalizes excess more than a comparable shortfall and rewards meal affinity", () => {
+    const required = [{ group_code: "FRUITS" as const, portions: 1 }];
+    const exact = { ...recipe(), meal_types: ["BREAKFAST" as const], items: recipe().items.slice(0, 1) };
+    const excess = { ...exact, items: [{ ...exact.items[0], exchange_contribution: [{ group_code: "FRUITS" as const, portions: 2 }] }] };
+    const partial = { ...exact, items: [{ ...exact.items[0], exchange_contribution: [{ group_code: "FRUITS" as const, portions: 0.5 }] }] };
+    expect(scoreRecipeCompatibility({ pendingExchanges: required, recipe: partial, mealType: "BREAKFAST" }).score)
+      .toBeGreaterThan(scoreRecipeCompatibility({ pendingExchanges: required, recipe: excess, mealType: "BREAKFAST" }).score);
+    expect(scoreRecipeCompatibility({ pendingExchanges: required, recipe: exact, mealType: "BREAKFAST" }).score)
+      .toBeGreaterThan(scoreRecipeCompatibility({ pendingExchanges: required, recipe: exact, mealType: "DINNER" }).score);
   });
 
   it("only confirms an exactly represented menu and stores a historical snapshot", () => {

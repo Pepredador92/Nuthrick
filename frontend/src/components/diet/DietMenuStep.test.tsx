@@ -67,7 +67,8 @@ describe("DietMenuStep", () => {
     const onDraftChange = vi.fn();
     render(<DietMenuStep plan={plan} onSave={vi.fn().mockResolvedValue(undefined)} onDraftChange={onDraftChange} onGoToMeals={vi.fn()} />);
     fireEvent.click(screen.getByText("Falta 1"));
-    expect(await screen.findByRole("button", { name: "Frutas" })).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByRole("heading", { name: "Alimentos · Frutas" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ver otros grupos" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Cantidad de Papaya"), { target: { value: "1" } });
     fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
     expect(screen.getByText("Completo")).toBeInTheDocument();
@@ -99,11 +100,27 @@ describe("DietMenuStep", () => {
     expect(screen.queryByText("Papaya")).not.toBeInTheDocument();
   });
 
+  it("filters a pending AOA subtype exactly and still allows manual expansion", async () => {
+    const veryLow = { ...food, id: "chicken", name: "Pechuga de pollo", normalized_name: "pechuga de pollo", group_code: "AOA_VERY_LOW_FAT" as const };
+    const moderate = { ...food, id: "egg", name: "Huevo entero", normalized_name: "huevo entero", group_code: "AOA_MODERATE_FAT" as const };
+    const aoaDistribution = { ...mealDistribution, distribution: [{ meal_time_id: "breakfast", group_code: "AOA_VERY_LOW_FAT" as const, portions: 1 }] };
+    render(<DietMenuStep plan={{ ...plan, meal_distribution: aoaDistribution }} catalog={{ foods: [veryLow, moderate], recipes: [] }} onSave={vi.fn()} onGoToMeals={vi.fn()} />);
+    fireEvent.click(screen.getByText("Falta 1"));
+    expect(screen.getByRole("heading", { name: "Alimentos · AOA muy bajos" })).toBeInTheDocument();
+    expect(screen.getByText("Pechuga de pollo")).toBeInTheDocument();
+    expect(screen.queryByText("Huevo entero")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Ver otros grupos" }));
+    fireEvent.click(screen.getByRole("button", { name: "AOA" }));
+    expect(screen.getByText("Pechuga de pollo")).toBeInTheDocument();
+    expect(screen.getByText("Huevo entero")).toBeInTheDocument();
+  });
+
   it("ranks and adds a reusable recipe by compatibility", async () => {
     render(<DietMenuStep plan={plan} onSave={vi.fn().mockResolvedValue(undefined)} onGoToMeals={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Agregar receta" }));
-    expect(await screen.findByText(/Cubre las porciones asignadas/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
+    expect(await screen.findByText("Coincidencia exacta")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Revisar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Agregar al menú" }));
     expect(screen.getByText("Papaya fresca")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirmar menú" })).toBeEnabled();
   });
@@ -136,8 +153,54 @@ describe("DietMenuStep", () => {
     expect(screen.getByRole("button", { name: "Confirmar menú" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Agregar receta" }));
     await screen.findByText("Papaya fresca");
-    fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revisar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Agregar al menú" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirmar menú" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ status: "ready" })));
+  });
+
+  it("reviews ingredient amounts and keeps adjustments in the plan snapshot", async () => {
+    const onDraftChange = vi.fn();
+    render(<DietMenuStep plan={plan} onSave={vi.fn().mockResolvedValue(undefined)} onDraftChange={onDraftChange} onGoToMeals={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar receta" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Revisar" }));
+    fireEvent.change(screen.getByLabelText("Cantidad de Papaya"), { target: { value: "0.5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Agregar al menú" }));
+    expect(screen.getByText("¿Guardar estos ajustes como una nueva receta?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "No, sólo este plan" }));
+    expect(screen.getByText("Papaya fresca")).toBeInTheDocument();
+    expect(recipe.items[0].amount).toBe(1);
+    await waitFor(() => expect(onDraftChange).toHaveBeenCalled());
+  });
+
+  it("can save adjusted ingredients as a personal copy", async () => {
+    render(<DietMenuStep plan={plan} onSave={vi.fn().mockResolvedValue(undefined)} onGoToMeals={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar receta" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Revisar" }));
+    fireEvent.change(screen.getByLabelText("Cantidad de Papaya"), { target: { value: "0.5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Agregar al menú" }));
+    fireEvent.change(screen.getByLabelText("Nombre de la copia"), { target: { value: "Papaya personal" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar copia" }));
+    await waitFor(() => expect(services.createCustomRecipe).toHaveBeenCalledWith(expect.objectContaining({ name: "Papaya personal" })));
+  });
+
+  it("previews and applies a deterministic proposal without saving immediately", async () => {
+    const onDraftChange = vi.fn();
+    render(<DietMenuStep plan={plan} catalog={{ foods: [food], recipes: [recipe] }} onSave={vi.fn().mockResolvedValue(undefined)} onDraftChange={onDraftChange} onGoToMeals={vi.fn()} />);
+    fireEvent.click(screen.getAllByRole("button", { name: "Proponer" })[0]);
+    expect(screen.getByRole("heading", { name: "Propuesta de menú" })).toBeInTheDocument();
+    expect(screen.getByText("Vista previa")).toBeInTheDocument();
+    expect(onDraftChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar propuesta" }));
+    await waitFor(() => expect(onDraftChange).toHaveBeenCalled());
+  });
+
+  it("discards a proposal without changing the persisted draft", () => {
+    const onDraftChange = vi.fn();
+    render(<DietMenuStep plan={plan} catalog={{ foods: [food], recipes: [recipe] }} onSave={vi.fn()} onDraftChange={onDraftChange} onGoToMeals={vi.fn()} />);
+    fireEvent.click(screen.getAllByRole("button", { name: "Proponer" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Descartar" }));
+    expect(screen.queryByRole("heading", { name: "Propuesta de menú" })).not.toBeInTheDocument();
+    expect(onDraftChange).not.toHaveBeenCalled();
   });
 });
