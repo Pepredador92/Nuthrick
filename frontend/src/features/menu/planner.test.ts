@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { activeMenu, addFoodToMenu, calculateMenuStatus, createDietMenu, createFoodSnapshot, exchangeContributionForFood } from "@/src/features/menu/model";
-import { practicalQuantity, proposeDietMenu } from "@/src/features/menu/planner";
+import { adjustRecipeToPending, exchangeGroupFamily, practicalQuantity, proposeDietMenu } from "@/src/features/menu/planner";
 import type { ExchangeGroupCode, FoodItem, FoodUnitCode, MealDistribution, MealType, Recipe } from "@/src/types/domain";
 
 const food = (id: string, name: string, group_code: ExchangeGroupCode, portion_amount = 1, portion_unit: FoodUnitCode = "piece", attributes: FoodItem["attributes"] = {}): FoodItem => ({
@@ -61,7 +61,7 @@ describe("deterministic menu planner", () => {
     const proposal = proposeDietMenu({ menu: createDietMenu(distribution), distribution, foods: [cereal, fruit, chicken, oil], recipes: [breakfastRecipe, lunchRecipe] });
     expect(proposal.meals).toHaveLength(3);
     expect(proposal.exact).toBe(true);
-    expect(activeMenu(proposal.menu).meal_menus.find((meal) => meal.meal_time_id === "breakfast")?.entries.map((entry) => entry.type)).toEqual(["recipe", "food"]);
+    expect(activeMenu(proposal.menu).meal_menus.find((meal) => meal.meal_time_id === "breakfast")?.entries.map((entry) => entry.type)).toEqual(["recipe", "food", "food"]);
     expect(calculateMenuStatus(proposal.menu, distribution).canConfirm).toBe(true);
   });
 
@@ -81,6 +81,43 @@ describe("deterministic menu planner", () => {
     const proposal = proposeDietMenu({ menu: base, distribution, foods: [cereal, fruit], recipes: [], mealTimeId: "breakfast" });
     expect(activeMenu(proposal.menu).meal_menus[0].entries.some((entry) => entry.id === "manual")).toBe(true);
     expect(proposal.meals[0].complete).toBe(true);
+  });
+
+  it("uses one individual food for an exact group instead of fragmenting it", () => {
+    const apple = food("apple", "Manzana", "FRUITS", 1, "piece");
+    const fruitOnly = { ...distribution, distribution: [{ meal_time_id: "breakfast", group_code: "FRUITS" as const, portions: 2 }] };
+    const proposal = proposeDietMenu({ menu: createDietMenu(fruitOnly), distribution: fruitOnly, foods: [fruit, apple], recipes: [], mealTimeId: "breakfast" });
+    const entries = activeMenu(proposal.menu).meal_menus[0].entries;
+    expect(entries).toHaveLength(1);
+    expect(entries[0].exchange_contributions).toEqual([{ group_code: "FRUITS", portions: 2 }]);
+  });
+
+  it("increases an existing food of the same group instead of adding a duplicate", () => {
+    const fruitOnly = { ...distribution, distribution: [{ meal_time_id: "breakfast", group_code: "FRUITS" as const, portions: 1 }] };
+    const base = addFoodToMenu(createDietMenu(fruitOnly), fruitOnly, "breakfast", fruit, 0.5, "manual-fruit");
+    const proposal = proposeDietMenu({ menu: base, distribution: fruitOnly, foods: [fruit], recipes: [], mealTimeId: "breakfast" });
+    const entries = activeMenu(proposal.menu).meal_menus[0].entries;
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ id: "manual-fruit", quantity: 1 });
+  });
+
+  it("does not mix milk subtypes merely to force exactness", () => {
+    const skim = food("skim", "Leche descremada", "MILK_SKIM", 1, "cup");
+    const semi = food("semi", "Leche semidescremada", "MILK_SEMI_SKIM", 1, "cup");
+    const milkDistribution = { ...distribution, distribution: [
+      { meal_time_id: "breakfast", group_code: "MILK_SKIM" as const, portions: 1 },
+      { meal_time_id: "breakfast", group_code: "MILK_SEMI_SKIM" as const, portions: 1 },
+    ] };
+    const proposal = proposeDietMenu({ menu: createDietMenu(milkDistribution), distribution: milkDistribution, foods: [skim, semi], recipes: [], mealTimeId: "breakfast" });
+    expect(activeMenu(proposal.menu).meal_menus[0].entries).toHaveLength(1);
+    expect(proposal.meals[0].pending).toHaveLength(1);
+    expect(exchangeGroupFamily("MILK_SKIM")).toBe(exchangeGroupFamily("MILK_SEMI_SKIM"));
+  });
+
+  it("caps automatic recipe ingredient adjustments at a practical factor", () => {
+    const adjusted = adjustRecipeToPending(breakfastRecipe, [{ group_code: "CEREALS_NO_FAT", portions: 5 }]);
+    expect(adjusted.items[0].amount).toBe(1.5);
+    expect(breakfastRecipe.items[0].amount).toBe(1);
   });
 
   it("rebuilds only the selected time when explicitly requested", () => {

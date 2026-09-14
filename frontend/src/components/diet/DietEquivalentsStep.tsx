@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Calculator, Check, ChevronDown, CircleAlert, Info, ListPlus, LoaderCircle, Minus, Plus, RotateCcw } from "lucide-react";
+import { Calculator, Check, CircleAlert, Info, ListPlus, LoaderCircle, Minus, Plus, RotateCcw } from "lucide-react";
 import { exchangeCatalog, exchangeCatalogCategories, type ExchangeCatalogGroup } from "@/src/features/exchanges/catalog";
 import {
   applyExchangeSuggestion,
@@ -14,6 +14,8 @@ import {
 import { suggestExchangePrescription, type ExchangeGroupPreference, type ExchangeSuggestion } from "@/src/features/exchanges/suggestion";
 import type { ExchangeDerivedTotals, ExchangeGroupCode, ExchangePrescription, ExchangeTargetSnapshot, NutritionPlan } from "@/src/types/domain";
 import { WorkshopStepFooter } from "./WorkshopStepFooter";
+import { AutosaveFeedback } from "./AutosaveFeedback";
+import { useChangeAutosave } from "./useChangeAutosave";
 
 type Props = {
   plan: NutritionPlan;
@@ -128,8 +130,9 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, 
   const [startFromCurrent, setStartFromCurrent] = useState(false);
   const [preferences, setPreferences] = useState<Partial<Record<ExchangeGroupCode, ExchangeGroupPreference>>>({});
   const [manualGroups, setManualGroups] = useState<Set<ExchangeGroupCode>>(() => new Set(initial.groups.filter((group) => group.portions > 0).map((group) => group.group_code)));
-  const [saveState, setSaveState] = useState<"saved" | "pending" | "saving" | "error">(plan.exchange_prescription && initial === plan.exchange_prescription ? "saved" : "pending");
   const planId = useRef(plan.id);
+  const autosave = useChangeAutosave({ initialValue: initial, onSave: (value) => onSave(value, true), onDraftChange });
+  const saveState = autosave.status;
 
   useEffect(() => {
     if (planId.current !== plan.id) {
@@ -138,25 +141,14 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, 
       setProposal(null);
       setPreferences({});
       setManualGroups(new Set(initial.groups.filter((group) => group.portions > 0).map((group) => group.group_code)));
-      setSaveState(plan.exchange_prescription && initial === plan.exchange_prescription ? "saved" : "pending");
     }
   }, [initial, plan.exchange_prescription, plan.id]);
 
-  const update = (next: ExchangePrescription) => {
+  const update = (next: ExchangePrescription, immediate = false) => {
     setDraft(next);
     setProposal(null);
-    onDraftChange(next);
-    setSaveState("pending");
+    autosave.change(next, { immediate });
   };
-
-  useEffect(() => {
-    if (saveState !== "pending") return;
-    const timer = window.setTimeout(() => {
-      setSaveState("saving");
-      void onSave(draft).then(() => setSaveState("saved")).catch(() => setSaveState("error"));
-    }, 700);
-    return () => window.clearTimeout(timer);
-  }, [draft, onSave, saveState]);
 
   const byCode = portionsByCode(draft);
   const proposedByCode = proposal ? new Map(proposal.groups.map((group) => [group.groupCode, group.portions])) : null;
@@ -165,15 +157,12 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, 
   const confirm = async () => {
     const next = confirmExchangePrescription(draft, targets);
     setDraft(next);
-    onDraftChange(next);
-    setSaveState("saving");
-    try { await onSave(next, true); setSaveState("saved"); }
-    catch { setSaveState("error"); }
+    await autosave.saveNow(next);
   };
   const reset = () => {
     if (hasPortions && !window.confirm("¿Restablecer todos los equivalentes? Esta acción deja las porciones del día en cero.")) return;
     setManualGroups(new Set());
-    update(resetExchangePrescription(targets));
+    update(resetExchangePrescription(targets), true);
   };
   const propose = () => setProposal(suggestExchangePrescription({
     targets,
@@ -182,7 +171,7 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, 
   }));
   const applyProposal = () => {
     if (!proposal) return;
-    update(applyExchangeSuggestion(draft, targets, proposal));
+    update(applyExchangeSuggestion(draft, targets, proposal), true);
   };
   const displayedTotals: ExchangeDerivedTotals = proposal?.totals ?? draft.derived_totals;
   const displayedDifferences: ExchangeDerivedTotals = proposal?.differences ?? draft.differences;
@@ -255,12 +244,12 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, 
         <PreferencesPanel preferences={preferences} onChange={setPreference} />
       </aside>
     </div>
-    <div className="mt-4 flex items-center gap-2 text-xs text-[#74817d]">{saveState === "saving" ? <LoaderCircle size={14} className="animate-spin" /> : <ChevronDown size={14} className="rotate-[-90deg]" />}{saveState === "saving" ? "Guardando cuadro…" : saveState === "pending" ? "Cambios pendientes" : saveState === "error" ? "No se pudo guardar; intenta cambiar un campo nuevamente." : "Guardado automáticamente"}</div>
+    <div className="mt-4 flex min-h-5 items-center gap-2">{saveState === "saving" && <LoaderCircle size={14} className="animate-spin text-[#3d705d]" />}<AutosaveFeedback status={saveState} savingLabel="Guardando cuadro…" /></div>
     <WorkshopStepFooter onPrevious={onGoToMacros} onNext={onContinue} />
   </section>;
 }
 
 export function DietEquivalentsStep({ plan, targets, onSave, onDraftChange, onGoToMacros, onContinue }: Props) {
   if (!targets) return <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-5 sm:p-7"><p className="nuth-eyebrow">Paso 3</p><h1 className="mt-2 text-2xl font-semibold text-[#173d36]">Equivalentes</h1><div className="mt-5 rounded-2xl bg-[#fff6e6] p-5 text-sm leading-6 text-[#765827]"><p className="font-semibold">Completa primero la distribución de macronutrientes.</p><p className="mt-1">El cuadro dietosintético compara los equivalentes con el objetivo energético y los gramos derivados en el paso anterior.</p><button type="button" className="nuth-button mt-4" onClick={onGoToMacros}>Ir a macronutrientes</button></div></section>;
-  return <EquivalentEditor key={`${plan.id}:${plan.exchange_prescription?.updated_at ?? "new"}:${targets.energy_kcal}:${targets.carbohydrate_g}:${targets.protein_g}:${targets.fat_g}`} plan={plan} targets={targets} onSave={onSave} onDraftChange={onDraftChange} onGoToMacros={onGoToMacros} onContinue={onContinue} />;
+  return <EquivalentEditor key={`${plan.id}:${targets.energy_kcal}:${targets.carbohydrate_g}:${targets.protein_g}:${targets.fat_g}`} plan={plan} targets={targets} onSave={onSave} onDraftChange={onDraftChange} onGoToMacros={onGoToMacros} onContinue={onContinue} />;
 }

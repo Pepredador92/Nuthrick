@@ -21,6 +21,8 @@ import {
 } from "@/src/features/meal-distribution/model";
 import type { ExchangeGroupCode, ExchangePrescription, MealDistribution, MealDistributionEntry, MealTime, NutritionPlan } from "@/src/types/domain";
 import { WorkshopStepFooter } from "./WorkshopStepFooter";
+import { AutosaveFeedback } from "./AutosaveFeedback";
+import { useChangeAutosave } from "./useChangeAutosave";
 
 type Props = {
   plan: NutritionPlan;
@@ -120,8 +122,9 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
   const [newName, setNewName] = useState("");
   const [newTime, setNewTime] = useState("");
   const [validationMessage, setValidationMessage] = useState("");
-  const [saveState, setSaveState] = useState<"saved" | "pending" | "saving" | "error">(plan.meal_distribution && initial === plan.meal_distribution ? "saved" : "pending");
   const planId = useRef(plan.id);
+  const autosave = useChangeAutosave({ initialValue: initial, onSave: (value) => onSave(value, true), onDraftChange });
+  const saveState = autosave.status;
 
   useEffect(() => {
     if (planId.current !== plan.id) {
@@ -129,26 +132,15 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
       setDraft(initial);
       setProposal(null);
       setSelectedMealId(initial.meal_times[0]?.id ?? "");
-      setSaveState(plan.meal_distribution && initial === plan.meal_distribution ? "saved" : "pending");
     }
   }, [initial, plan.id, plan.meal_distribution]);
 
-  const update = (next: MealDistribution) => {
+  const update = (next: MealDistribution, immediate = false) => {
     setDraft(next);
     setProposal(null);
     setValidationMessage("");
-    onDraftChange(next);
-    setSaveState("pending");
+    autosave.change(next, { immediate });
   };
-
-  useEffect(() => {
-    if (saveState !== "pending") return;
-    const timer = window.setTimeout(() => {
-      setSaveState("saving");
-      void onSave(draft).then(() => setSaveState("saved")).catch(() => setSaveState("error"));
-    }, 700);
-    return () => window.clearTimeout(timer);
-  }, [draft, onSave, saveState]);
 
   const displayedEntries = proposal?.distribution ?? draft.distribution;
   const displayedTotals = proposal?.derived_meal_totals ?? draft.derived_meal_totals;
@@ -166,25 +158,24 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
     const assigned = portionsAssignedToMeal(draft, meal.id);
     if (assigned > EPSILON && !window.confirm("Este tiempo tiene equivalentes distribuidos. Si lo eliminas, esas porciones volverán a quedar pendientes.")) return;
     const next = removeMealTime(draft, meal.id);
-    update(next);
+    update(next, true);
     if (selectedMealId === meal.id) setSelectedMealId(next.meal_times[0]?.id ?? "");
   };
   const createTime = () => {
     if (!newName.trim()) return setValidationMessage("Escribe un nombre para el nuevo tiempo.");
     const next = addMealTime(draft, newName, newTime || null);
-    update(next);
+    update(next, true);
     setSelectedMealId(next.meal_times.at(-1)?.id ?? selectedMealId);
     setNewName(""); setNewTime(""); setAdding(false);
   };
   const propose = () => setProposal(suggestMealDistribution(draft, prescription, currentHasValues && startFromCurrent));
-  const applyProposal = () => { if (proposal) update(applyMealDistributionSuggestion(draft, proposal)); };
+  const applyProposal = () => { if (proposal) update(applyMealDistributionSuggestion(draft, proposal), true); };
   const confirm = async () => {
     if (!currentSummary.canConfirm) return setValidationMessage("Resuelve las porciones pendientes o con exceso antes de confirmar.");
     if (draft.meal_times.some((meal) => !meal.display_name.trim())) return setValidationMessage("Todos los tiempos necesitan un nombre.");
     const next = confirmMealDistribution(draft, prescription);
-    setDraft(next); onDraftChange(next); setSaveState("saving");
-    try { await onSave(next, true); setSaveState("saved"); }
-    catch { setSaveState("error"); }
+    setDraft(next);
+    await autosave.saveNow(next);
   };
 
   return <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-4 sm:p-7">
@@ -247,7 +238,7 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
     </div>
 
     {validationMessage && <p role="alert" className="mt-4 rounded-xl bg-[#fff0e8] px-4 py-3 text-sm text-[#8a513b]">{validationMessage}</p>}
-    <div className="mt-4 flex items-center gap-2 text-xs text-[#74817d]">{saveState === "saving" ? <LoaderCircle size={14} className="animate-spin" /> : <ChevronRight size={14} />}{saveState === "saving" ? "Guardando distribución…" : saveState === "pending" ? "Cambios pendientes" : saveState === "error" ? "No se pudo guardar; intenta cambiar un valor nuevamente." : "Guardado automáticamente"}</div>
+    <div className="mt-4 flex min-h-5 items-center gap-2">{saveState === "saving" && <LoaderCircle size={14} className="animate-spin text-[#3d705d]" />}<AutosaveFeedback status={saveState} savingLabel="Guardando distribución…" /></div>
     <WorkshopStepFooter onPrevious={onGoToEquivalents} onNext={onContinue} nextDisabled={!plan.meal_distribution?.distribution.some((entry) => entry.portions > EPSILON)} nextHint={!plan.meal_distribution?.distribution.some((entry) => entry.portions > EPSILON) ? "Distribuye una porción para continuar." : undefined} />
   </section>;
 }

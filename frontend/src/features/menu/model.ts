@@ -14,6 +14,20 @@ import type {
 export const DIET_MENU_SCHEMA_VERSION = 1 as const;
 export const MENU_COMPARISON_TOLERANCE = 1e-6;
 
+const practicalSteps: Record<FoodItem["portion_unit"], number> = {
+  g: 10,
+  ml: 10,
+  piece: 0.5,
+  cup: 0.25,
+  tablespoon: 0.5,
+  teaspoon: 0.5,
+  slice: 0.5,
+  tortilla: 0.5,
+  glass: 0.5,
+  serving: 0.5,
+  unit: 0.5,
+};
+
 const now = () => new Date().toISOString();
 export const roundMenuNumber = (value: number) => Math.round((value + Number.EPSILON) * 1_000_000) / 1_000_000;
 const round = roundMenuNumber;
@@ -39,6 +53,12 @@ export function createFoodSnapshot(food: FoodItem): FoodSnapshot {
 export function exchangeContributionForFood(food: FoodItem | FoodSnapshot, amount: number) {
   const portions = Number(food.portion_amount) > 0 ? round(amount / Number(food.portion_amount)) : 0;
   return portions > MENU_COMPARISON_TOLERANCE ? [{ group_code: food.group_code, portions }] : [];
+}
+
+export function practicalFoodQuantity(value: number, unit: FoodItem["portion_unit"], minimum = practicalSteps[unit]) {
+  const step = practicalSteps[unit];
+  const quantized = Math.round(value / step) * step;
+  return round(Math.max(minimum, quantized));
 }
 
 function aggregateContributions(contributions: Array<{ group_code: ExchangeGroupCode; portions: number }>) {
@@ -156,11 +176,51 @@ export function adjustRecipeIngredients(recipe: Recipe, amounts: Record<string, 
   };
 }
 
+export function replaceRecipeIngredient(recipe: Recipe, itemId: string, replacement: FoodItem): Recipe {
+  return {
+    ...recipe,
+    items: recipe.items.map((item) => {
+      if (item.id !== itemId || item.food_snapshot.group_code !== replacement.group_code) return item;
+      const portions = item.exchange_contribution
+        .filter((value) => value.group_code === replacement.group_code)
+        .reduce((sum, value) => sum + Number(value.portions), 0);
+      const amount = practicalFoodQuantity(portions * Number(replacement.portion_amount), replacement.portion_unit);
+      return {
+        ...item,
+        food_item_id: replacement.id,
+        amount,
+        unit: replacement.portion_unit,
+        food_snapshot: createFoodSnapshot(replacement),
+        exchange_contribution: exchangeContributionForFood(replacement, amount),
+      };
+    }),
+  };
+}
+
 export function recipeIngredientsChanged(original: Recipe, adjusted: Recipe) {
   return original.items.some((item) => {
     const next = adjusted.items.find((candidate) => candidate.id === item.id);
-    return !next || Math.abs(Number(next.amount) - Number(item.amount)) > MENU_COMPARISON_TOLERANCE;
+    return !next
+      || (next.food_item_id ?? next.food_snapshot.id) !== (item.food_item_id ?? item.food_snapshot.id)
+      || next.unit !== item.unit
+      || Math.abs(Number(next.amount) - Number(item.amount)) > MENU_COMPARISON_TOLERANCE;
   });
+}
+
+export function replaceFoodEntriesWithRecipe(
+  menu: DietMenu,
+  mealDistribution: MealDistribution,
+  mealTimeId: string,
+  entryIds: string[],
+  recipe: Recipe,
+) {
+  const selectedIds = new Set(entryIds);
+  const withoutFoods = entryIds.reduce((next, entryId) => removeMenuEntry(next, mealDistribution, entryId), menu);
+  const selectedCount = activeMenu(menu).meal_menus
+    .find((meal) => meal.meal_time_id === mealTimeId)?.entries
+    .filter((entry) => selectedIds.has(entry.id) && entry.type === "food").length ?? 0;
+  if (!selectedCount) return menu;
+  return addRecipeToMenu(withoutFoods, mealDistribution, mealTimeId, recipe, 1);
 }
 
 export function updateRecipeMenuEntryIngredients(

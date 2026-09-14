@@ -8,8 +8,9 @@ import {
   recipeExchangeContributions,
   recipeIngredientsChanged,
   removeMenuEntry,
-  roundMenuNumber,
+  practicalFoodQuantity,
   scoreRecipeCompatibility,
+  updateMenuEntryQuantity,
   type RecipeCompatibilityRestriction,
 } from "@/src/features/menu/model";
 import type {
@@ -17,7 +18,6 @@ import type {
   DietMenuEntry,
   ExchangeGroupCode,
   FoodItem,
-  FoodUnitCode,
   MealDistribution,
   Recipe,
 } from "@/src/types/domain";
@@ -40,27 +40,37 @@ export type MenuProposal = {
   mealTimeId: string | null;
   meals: MenuProposalMeal[];
   exact: boolean;
-  algorithm: "deterministic-menu-planner-v1";
+  algorithm: "deterministic-menu-planner-v2";
 };
 
-const practicalSteps: Record<FoodUnitCode, number> = {
-  g: 10,
-  ml: 10,
-  piece: 0.5,
-  cup: 0.25,
-  tablespoon: 0.5,
-  teaspoon: 0.5,
-  slice: 0.5,
-  tortilla: 0.5,
-  glass: 0.5,
-  serving: 0.5,
-  unit: 0.5,
+export const MENU_PLANNER_WEIGHTS = {
+  repetition: 8,
+  recipeAdjustment: 3,
+  extraComponent: 1.25,
+  duplicateGroup: 2.5,
+  sameFamily: 6,
+  impracticalQuantity: 2,
 };
 
-export function practicalQuantity(value: number, unit: FoodUnitCode, minimum = practicalSteps[unit]) {
-  const step = practicalSteps[unit];
-  const quantized = Math.round(value / step) * step;
-  return roundMenuNumber(Math.max(minimum, quantized));
+export const practicalQuantity = practicalFoodQuantity;
+
+const familyByGroup: Partial<Record<ExchangeGroupCode, string>> = {
+  CEREALS_NO_FAT: "cereals",
+  CEREALS_WITH_FAT: "cereals",
+  AOA_VERY_LOW_FAT: "aoa",
+  AOA_LOW_FAT: "aoa",
+  AOA_MODERATE_FAT: "aoa",
+  AOA_HIGH_FAT: "aoa",
+  MILK_SKIM: "milk",
+  MILK_SEMI_SKIM: "milk",
+  MILK_WHOLE: "milk",
+  MILK_WITH_SUGAR: "milk",
+  FATS_NO_PROTEIN: "fats",
+  FATS_WITH_PROTEIN: "fats",
+};
+
+export function exchangeGroupFamily(groupCode: ExchangeGroupCode) {
+  return familyByGroup[groupCode] ?? groupCode;
 }
 
 function isFoodRestricted(food: Pick<FoodItem, "id" | "group_code" | "attributes">, restrictions: MenuPlanningRestrictions) {
@@ -82,11 +92,44 @@ export function adjustRecipeToPending(recipe: Recipe, pending: Array<{ group_cod
     const desiredFactor = supplied > MENU_COMPARISON_TOLERANCE && available > MENU_COMPARISON_TOLERANCE
       ? available / supplied
       : 1;
-    const boundedFactor = Math.min(2, Math.max(0.5, desiredFactor));
+    const boundedFactor = Math.min(1.5, Math.max(0.5, desiredFactor));
     amounts[item.id] = practicalQuantity(Number(item.amount) * boundedFactor, item.unit);
   }
 
   return adjustRecipeIngredients(recipe, amounts);
+}
+
+export function recipeAdjustmentPenalty(original: Recipe, adjusted: Recipe) {
+  return adjusted.items.reduce((penalty, item) => {
+    const base = original.items.find((candidate) => candidate.id === item.id);
+    if (!base || Number(base.amount) <= 0 || Number(item.amount) <= 0) return penalty;
+    return penalty + Math.abs(Math.log(Number(item.amount) / Number(base.amount))) * MENU_PLANNER_WEIGHTS.recipeAdjustment;
+  }, 0);
+}
+
+function duplicateGroupPenalty(recipe: Recipe) {
+  const counts = new Map<ExchangeGroupCode, number>();
+  for (const item of recipe.items) counts.set(item.food_snapshot.group_code, (counts.get(item.food_snapshot.group_code) ?? 0) + 1);
+  return [...counts.values()].reduce((sum, count) => sum + Math.max(0, count - 1) * MENU_PLANNER_WEIGHTS.duplicateGroup, 0);
+}
+
+function sameFamilyPenalty(recipe: Recipe) {
+  const codesByFamily = new Map<string, Set<ExchangeGroupCode>>();
+  for (const contribution of recipeExchangeContributions(recipe)) {
+    const family = exchangeGroupFamily(contribution.group_code);
+    const codes = codesByFamily.get(family) ?? new Set<ExchangeGroupCode>();
+    codes.add(contribution.group_code);
+    codesByFamily.set(family, codes);
+  }
+  return [...codesByFamily.values()].reduce((sum, codes) => sum + Math.max(0, codes.size - 1) * MENU_PLANNER_WEIGHTS.sameFamily, 0);
+}
+
+function impracticalQuantityPenalty(recipe: Recipe) {
+  return recipe.items.reduce((sum, item) => {
+    const practical = practicalQuantity(Number(item.amount), item.unit);
+    const reference = Math.max(Number(item.amount), practical, 0.001);
+    return sum + Math.abs(practical - Number(item.amount)) / reference * MENU_PLANNER_WEIGHTS.impracticalQuantity;
+  }, 0);
 }
 
 function entriesForMeal(menu: DietMenu, mealTimeId: string) {
@@ -118,9 +161,11 @@ function rankRecipes(
     .map((original) => {
       const recipe = adjustRecipeToPending(original, pending);
       const match = scoreRecipeCompatibility({ pendingExchanges: pending, recipe, mealType, restrictions });
-      const repetitionPenalty = usedRecipeIds.has(original.id) ? 8 : 0;
-      const adjustmentPenalty = recipeIngredientsChanged(original, recipe) ? 0.75 : 0;
-      return { original, recipe, match, score: match.score - repetitionPenalty - adjustmentPenalty };
+      const repetitionPenalty = usedRecipeIds.has(original.id) ? MENU_PLANNER_WEIGHTS.repetition : 0;
+      const adjustmentPenalty = recipeIngredientsChanged(original, recipe) ? recipeAdjustmentPenalty(original, recipe) : 0;
+      const remainingComponents = match.missingGroups.length * MENU_PLANNER_WEIGHTS.extraComponent;
+      const practicalityPenalty = duplicateGroupPenalty(recipe) + sameFamilyPenalty(recipe) + impracticalQuantityPenalty(recipe) + remainingComponents;
+      return { original, recipe, match, score: match.score - repetitionPenalty - adjustmentPenalty - practicalityPenalty };
     })
     .filter((candidate) => !candidate.match.blocked)
     .sort((a, b) => b.score - a.score || a.original.name.localeCompare(b.original.name, "es-MX"));
@@ -177,11 +222,34 @@ function proposeMeal(
     pending = pendingForMeal(next, distribution, mealTimeId);
   }
 
+  const familySelections = new Map<string, Set<ExchangeGroupCode>>();
+  for (const entry of entriesForMeal(next, mealTimeId)) for (const contribution of entry.exchange_contributions) {
+    const family = exchangeGroupFamily(contribution.group_code);
+    const codes = familySelections.get(family) ?? new Set<ExchangeGroupCode>();
+    codes.add(contribution.group_code);
+    familySelections.set(family, codes);
+  }
+
   for (const missing of pending) {
+    const family = exchangeGroupFamily(missing.group_code);
+    const selectedFamilyCodes = familySelections.get(family) ?? new Set<ExchangeGroupCode>();
+    const conflictingSubtype = selectedFamilyCodes.size > 0 && !selectedFamilyCodes.has(missing.group_code) && family !== missing.group_code;
+    if (conflictingSubtype && missing.portions <= 1.5) continue;
+
+    const existing = entriesForMeal(next, mealTimeId).find((entry) => entry.type === "food" && entry.food_snapshot?.group_code === missing.group_code);
+    if (existing?.food_snapshot) {
+      const quantity = practicalQuantity(existing.quantity + missing.portions * Number(existing.food_snapshot.portion_amount), existing.food_snapshot.portion_unit);
+      next = updateMenuEntryQuantity(next, distribution, existing.id, quantity);
+      selectedFamilyCodes.add(missing.group_code);
+      familySelections.set(family, selectedFamilyCodes);
+      continue;
+    }
     const selection = chooseFood(foods, missing.group_code, missing.portions, restrictions, usedFoodIds);
     if (!selection) continue;
     next = addFoodToMenu(next, distribution, mealTimeId, selection.food, selection.quantity, `proposal-food-${mealTimeId}-${missing.group_code}`);
     usedFoodIds.add(selection.food.id);
+    selectedFamilyCodes.add(missing.group_code);
+    familySelections.set(family, selectedFamilyCodes);
   }
 
   return next;
@@ -212,7 +280,7 @@ export function proposeDietMenu({
 
   const usedRecipeIds = new Set(activeMenu(next).meal_menus.flatMap((meal) => meal.entries.filter((entry) => entry.type === "recipe").map((entry) => entry.source_id)));
   const usedFoodIds = new Set(activeMenu(next).meal_menus.flatMap((meal) => meal.entries.flatMap((entry) => entry.type === "food" ? [entry.source_id] : entry.recipe_snapshot?.items.map((item) => item.food_snapshot.id) ?? [])));
-  const beforeIds = new Set(activeMenu(next).meal_menus.flatMap((meal) => meal.entries.map((entry) => entry.id)));
+  const beforeEntries = new Map(activeMenu(next).meal_menus.flatMap((meal) => meal.entries.map((entry) => [entry.id, JSON.stringify(entry)] as const)));
 
   for (const meal of targets) next = proposeMeal(next, distribution, meal.id, foods, recipes, restrictions, usedRecipeIds, usedFoodIds);
 
@@ -222,7 +290,7 @@ export function proposeDietMenu({
     return {
       mealTimeId: meal.id,
       mealName: meal.display_name,
-      addedEntries: entriesForMeal(next, meal.id).filter((entry) => !beforeIds.has(entry.id)),
+      addedEntries: entriesForMeal(next, meal.id).filter((entry) => beforeEntries.get(entry.id) !== JSON.stringify(entry)),
       pending: rows.filter((row) => row.remaining > MENU_COMPARISON_TOLERANCE).map((row) => ({ group_code: row.group_code, portions: row.remaining })),
       excess: rows.filter((row) => row.remaining < -MENU_COMPARISON_TOLERANCE).map((row) => ({ group_code: row.group_code, portions: -row.remaining })),
       complete: rows.length > 0 && rows.every((row) => row.state === "complete"),
@@ -235,6 +303,6 @@ export function proposeDietMenu({
     mealTimeId,
     meals,
     exact: meals.every((meal) => meal.complete),
-    algorithm: "deterministic-menu-planner-v1",
+    algorithm: "deterministic-menu-planner-v2",
   };
 }

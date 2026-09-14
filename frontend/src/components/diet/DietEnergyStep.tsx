@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, CircleAlert, LoaderCircle, RotateCcw } from "lucide-react";
+import { Check, CircleAlert, LoaderCircle, RotateCcw } from "lucide-react";
 import { WorkshopStepFooter } from "./WorkshopStepFooter";
 import {
   activityLevelCatalog,
@@ -17,6 +17,8 @@ import {
   type EnergyReferenceContext,
 } from "@/src/features/diet-energy/model";
 import type { NutritionPlan, PlanEnergyCalculation } from "@/src/types/domain";
+import { AutosaveFeedback } from "./AutosaveFeedback";
+import { useChangeAutosave } from "./useChangeAutosave";
 
 type Props = {
   plan: NutritionPlan;
@@ -92,31 +94,21 @@ function DataInput({
 export function DietEnergyStep({ plan, reference, referenceLoading, onSave, onDraftChange, onContinue }: Props) {
   const initial = useMemo(() => plan.energy_calculation ?? createPlanEnergyCalculation(reference), [plan.energy_calculation, reference]);
   const [draft, setDraft] = useState(initial);
-  const [saveState, setSaveState] = useState<"saved" | "pending" | "saving" | "error">(plan.energy_calculation ? "saved" : "pending");
   const lastPlanId = useRef(plan.id);
+  const autosave = useChangeAutosave({ initialValue: initial, onSave, onDraftChange });
+  const saveState = autosave.status;
 
   useEffect(() => {
     if (lastPlanId.current !== plan.id) {
       lastPlanId.current = plan.id;
       setDraft(initial);
-      setSaveState(plan.energy_calculation ? "saved" : "pending");
     }
   }, [initial, plan.energy_calculation, plan.id]);
 
   const update = (next: PlanEnergyCalculation) => {
     setDraft(next);
-    onDraftChange(next);
-    setSaveState("pending");
+    autosave.change(next);
   };
-
-  useEffect(() => {
-    if (saveState !== "pending") return;
-    const timer = window.setTimeout(() => {
-      setSaveState("saving");
-      void onSave(draft).then(() => setSaveState("saved")).catch(() => setSaveState("error"));
-    }, 700);
-    return () => window.clearTimeout(timer);
-  }, [draft, onSave, saveState]);
 
   const method = getEnergyMethod(draft.method_code);
   const pal = draft.activity.method_code === "PAL_FAO_WHO_UNU";
@@ -228,10 +220,7 @@ export function DietEnergyStep({ plan, reference, referenceLoading, onSave, onDr
         {!validTarget && <p className="mt-3 text-xs text-white/70">Para continuar, registra un objetivo entre 1 y 10,000 kcal/día.</p>}
       </section>
 
-      <div className="mt-4 flex items-center gap-2 text-xs text-[#74817d]">
-        {saveState === "saving" ? <LoaderCircle size={14} className="animate-spin" /> : <ChevronDown size={14} className="rotate-[-90deg]" />}
-        {saveState === "saving" ? "Guardando trazabilidad…" : saveState === "pending" ? "Cambios pendientes" : saveState === "error" ? "No se pudo guardar; intenta cambiar un campo nuevamente." : "Guardado automáticamente"}
-      </div>
+      <div className="mt-4 flex min-h-5 items-center gap-2">{saveState === "saving" && <LoaderCircle size={14} className="animate-spin text-[#3d705d]" />}<AutosaveFeedback status={saveState} savingLabel="Guardando trazabilidad…" /></div>
       <WorkshopStepFooter onNext={onContinue} nextDisabled={!canContinue} nextAriaLabel="Continuar a macronutrientes" nextHint={!validTarget ? "Registra un objetivo para continuar." : undefined} />
     </section>
   );

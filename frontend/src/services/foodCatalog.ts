@@ -24,6 +24,7 @@ export type CustomRecipeInput = {
   name: string;
   description?: string;
   instructions?: string;
+  substitution_notes?: string;
   meal_types?: MealType[];
   items: RecipeDraftItem[];
 };
@@ -137,7 +138,7 @@ export async function createCustomRecipe(input: CustomRecipeInput) {
     instructions: input.instructions?.trim() || null,
     image_path: null,
     tags: [],
-    substitution_notes: null,
+    substitution_notes: input.substitution_notes?.trim() || null,
     source: "PROFESSIONAL_CUSTOM",
     source_version: "1",
     source_reference: null,

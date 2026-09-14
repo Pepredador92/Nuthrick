@@ -176,4 +176,18 @@ describe("DietWorkshopPage", () => {
     expect(screen.getByRole("heading", { name: "Construcción del menú" })).toBeInTheDocument();
     expect(screen.getByText("Falta 1")).toBeInTheDocument();
   });
+
+  it("keeps Guardar y salir stable while a real save is in flight", async () => {
+    let finishSave: ((value: NutritionPlan) => void) | undefined;
+    api.updatePlan.mockImplementationOnce(() => new Promise<NutritionPlan>((resolve) => { finishSave = resolve; }));
+    mount("/app/diet-workshop/plan");
+    const title = await screen.findByLabelText("Nombre del plan");
+    const saveAndExit = screen.getByRole("button", { name: "Guardar y salir" });
+    fireEvent.change(title, { target: { value: "Plan actualizado" } });
+    fireEvent.blur(title);
+    await waitFor(() => expect(api.updatePlan).toHaveBeenCalledTimes(1));
+    expect(saveAndExit).toBeEnabled();
+    expect(saveAndExit).toHaveTextContent("Guardar y salir");
+    finishSave?.({ ...plan, title: "Plan actualizado" });
+  });
 });

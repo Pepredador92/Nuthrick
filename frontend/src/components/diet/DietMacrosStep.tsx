@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, CircleAlert, LoaderCircle, RotateCcw } from "lucide-react";
+import { Check, CircleAlert, LoaderCircle, RotateCcw } from "lucide-react";
 import { WorkshopStepFooter } from "./WorkshopStepFooter";
 import { macroCatalog } from "@/src/features/macros/catalog";
 import {
@@ -9,6 +9,8 @@ import {
   setMacroReferenceWeight,
 } from "@/src/features/macros/model";
 import type { MacroDistribution, MacroInputMode, NutritionPlan } from "@/src/types/domain";
+import { AutosaveFeedback } from "./AutosaveFeedback";
+import { useChangeAutosave } from "./useChangeAutosave";
 
 type Props = {
   plan: NutritionPlan;
@@ -54,7 +56,7 @@ export function DietMacrosStep({ plan, targetEnergyKcal, energyReferenceWeightKg
     );
   }
 
-  return <MacroEditor key={`${plan.id}:${targetEnergyKcal}:${plan.macro_distribution?.updated_at ?? "new"}`} plan={plan} targetEnergyKcal={targetEnergyKcal} energyReferenceWeightKg={energyReferenceWeightKg} onSave={onSave} onDraftChange={onDraftChange} onGoToEnergy={onGoToEnergy} onContinue={onContinue} />;
+  return <MacroEditor key={`${plan.id}:${targetEnergyKcal}`} plan={plan} targetEnergyKcal={targetEnergyKcal} energyReferenceWeightKg={energyReferenceWeightKg} onSave={onSave} onDraftChange={onDraftChange} onGoToEnergy={onGoToEnergy} onContinue={onContinue} />;
 }
 
 function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, onDraftChange, onGoToEnergy, onContinue }: Omit<Props, "targetEnergyKcal"> & { targetEnergyKcal: number }) {
@@ -63,31 +65,21 @@ function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, 
     [energyReferenceWeightKg, plan.macro_distribution, targetEnergyKcal],
   );
   const [draft, setDraft] = useState(initial);
-  const [saveState, setSaveState] = useState<"saved" | "pending" | "saving" | "error">(plan.macro_distribution ? "saved" : "pending");
   const planId = useRef(plan.id);
+  const autosave = useChangeAutosave({ initialValue: initial, onSave, onDraftChange });
+  const saveState = autosave.status;
 
   useEffect(() => {
     if (planId.current !== plan.id) {
       planId.current = plan.id;
       setDraft(initial);
-      setSaveState(plan.macro_distribution ? "saved" : "pending");
     }
   }, [initial, plan.id, plan.macro_distribution]);
 
   const update = (next: MacroDistribution) => {
     setDraft(next);
-    onDraftChange(next);
-    setSaveState("pending");
+    autosave.change(next);
   };
-
-  useEffect(() => {
-    if (saveState !== "pending") return;
-    const timer = window.setTimeout(() => {
-      setSaveState("saving");
-      void onSave(draft).then(() => setSaveState("saved")).catch(() => setSaveState("error"));
-    }, 700);
-    return () => window.clearTimeout(timer);
-  }, [draft, onSave, saveState]);
 
   const hasReferenceWeight = draft.reference_weight_kg !== null && draft.reference_weight_kg > 0;
   const hasData = Object.values(draft.macros).some((macro) => macro.input_value !== null);
@@ -172,10 +164,7 @@ function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, 
           <p className="text-xs leading-5 text-white/70">Tolerancia de cierre: ±1 kcal. No se redistribuyen macros de forma automática.</p>
         </div>
       </section>
-      <div className="mt-4 flex items-center gap-2 text-xs text-[#74817d]">
-        {saveState === "saving" ? <LoaderCircle size={14} className="animate-spin" /> : <ChevronDown size={14} className="rotate-[-90deg]" />}
-        {saveState === "saving" ? "Guardando trazabilidad…" : saveState === "pending" ? "Cambios pendientes" : saveState === "error" ? "No se pudo guardar; intenta cambiar un campo nuevamente." : "Guardado automáticamente"}
-      </div>
+      <div className="mt-4 flex min-h-5 items-center gap-2">{saveState === "saving" && <LoaderCircle size={14} className="animate-spin text-[#3d705d]" />}<AutosaveFeedback status={saveState} savingLabel="Guardando trazabilidad…" /></div>
       <WorkshopStepFooter onPrevious={onGoToEnergy} onNext={onContinue} nextDisabled={!draft.complete || saveState === "saving"} nextAriaLabel="Continuar a equivalentes" nextHint={!draft.complete ? "Completa la distribución para continuar." : undefined} />
     </section>
   );

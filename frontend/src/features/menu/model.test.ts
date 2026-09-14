@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import { createExchangePrescription } from "@/src/features/exchanges/model";
 import { createDefaultMealTimes } from "@/src/features/meal-distribution/model";
 import {
+  activeMenu,
   addFoodToMenu,
   addRecipeToMenu,
+  adjustRecipeIngredients,
+  calculateMenuUsage,
   calculateMenuStatus,
   confirmDietMenu,
   createDietMenu,
@@ -11,6 +14,9 @@ import {
   exchangeContributionForFood,
   recipeCompatibilityScore,
   reconcileDietMenu,
+  recipeIngredientsChanged,
+  replaceFoodEntriesWithRecipe,
+  replaceRecipeIngredient,
   replaceRecipeMenuEntry,
   removeMenuEntry,
   scoreRecipeCompatibility,
@@ -104,6 +110,50 @@ describe("diet menu model", () => {
     const entry = replaced.menus[0].meal_menus[0].entries[0];
     expect(entry).toMatchObject({ id: "recipe-entry", source_id: "personal-copy", name_snapshot: "Mi desayuno ajustado" });
     expect(entry.recipe_snapshot?.recipe_id).toBe("personal-copy");
+  });
+
+  it("substitutes only the exact group and preserves the original exchange contribution", () => {
+    const tortilla = { ...cereal, id: "tortilla", name: "Tortilla", portion_unit: "tortilla" as const, portion_amount: 1 };
+    const rice = { ...cereal, id: "rice", name: "Arroz cocido", portion_unit: "cup" as const, portion_amount: 0.5 };
+    const base = recipe();
+    const riceRecipe = {
+      ...base,
+      items: base.items.map((item) => item.id === "ri2" ? {
+        ...item,
+        food_item_id: rice.id,
+        amount: 1,
+        unit: rice.portion_unit,
+        food_snapshot: createFoodSnapshot(rice),
+        exchange_contribution: exchangeContributionForFood(rice, 1),
+      } : item),
+    };
+    const changed = replaceRecipeIngredient(riceRecipe, "ri2", tortilla);
+    expect(changed.items[1]).toMatchObject({ food_item_id: "tortilla", amount: 2, unit: "tortilla" });
+    expect(changed.items[1].exchange_contribution).toEqual([{ group_code: "CEREALS_NO_FAT", portions: 2 }]);
+    expect(recipeIngredientsChanged(riceRecipe, changed)).toBe(true);
+    expect(riceRecipe.items[1].food_item_id).toBe("rice");
+
+    const rejected = replaceRecipeIngredient(riceRecipe, "ri2", fruit);
+    expect(rejected.items[1].food_item_id).toBe("rice");
+  });
+
+  it("allows a manual amount after substitution without mutating the global recipe", () => {
+    const tortilla = { ...cereal, id: "tortilla", portion_unit: "tortilla" as const, portion_amount: 1 };
+    const original = recipe();
+    const substituted = replaceRecipeIngredient(original, "ri2", tortilla);
+    const manuallyAdjusted = adjustRecipeIngredients(substituted, { ri2: 1.5 });
+    expect(manuallyAdjusted.items[1].exchange_contribution).toEqual([{ group_code: "CEREALS_NO_FAT", portions: 1.5 }]);
+    expect(original.items[1]).toMatchObject({ food_item_id: "cereal", amount: 2 });
+  });
+
+  it("replaces proposed foods with a recipe while preserving exact menu usage", () => {
+    const withFruit = addFoodToMenu(createDietMenu(distribution), distribution, breakfast, fruit, 1, "proposal-fruit");
+    const withFoods = addFoodToMenu(withFruit, distribution, breakfast, cereal, 2, "proposal-cereal");
+    const before = calculateMenuUsage(withFoods);
+    const replaced = replaceFoodEntriesWithRecipe(withFoods, distribution, breakfast, ["proposal-fruit", "proposal-cereal"], recipe());
+    expect(calculateMenuUsage(replaced)).toEqual(before);
+    expect(activeMenu(replaced).meal_menus[0].entries).toHaveLength(1);
+    expect(activeMenu(replaced).meal_menus[0].entries[0].type).toBe("recipe");
   });
 
   it("scores exact, partial and excessive recipe compatibility deterministically", () => {
