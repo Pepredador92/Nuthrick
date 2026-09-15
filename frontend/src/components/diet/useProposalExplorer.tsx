@@ -19,7 +19,7 @@ export function useProposalExplorer<P, D>(key: string, context: string, identify
   const items = valid ? state.items : [];
   const proposal = valid && state.open ? items[state.index] ?? null : null;
   return {
-    proposal, message: valid ? message : "Las condiciones cambiaron. Genera una nueva propuesta.",
+    proposal, message: valid || state.items.length === 0 ? message : "Las condiciones cambiaron. Genera una nueva propuesta.",
     count: items.length, index: valid ? state.index : 0, canUndo: valid && state.undo !== null,
     generate: (generate: () => P[]) => {
       try {
