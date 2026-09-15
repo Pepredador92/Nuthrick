@@ -73,6 +73,7 @@ create table private.diet_library_backups (
 create index diet_library_backups_plan on private.diet_library_backups(plan_id, created_at desc);
 create index diet_library_backups_owner on private.diet_library_backups(owner_id);
 create index diet_library_backups_source on private.diet_library_backups(source_id);
+alter table private.diet_library_backups enable row level security;
 revoke all on private.diet_library_backups from public, anon, authenticated;
 
 -- Atomic replacement. Caller cannot update identity, goals, formula inputs or publication.
