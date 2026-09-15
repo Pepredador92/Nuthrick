@@ -49,7 +49,7 @@ describe("complete patient meal presentation", () => {
     expect(result.ingredients).toHaveLength(2);
     expect(result.instructions).toEqual([]);
   });
-  it("provides two alternatives with scaled quantities for all three target groups", () => {
+  it("provides two alternatives for AOA and cereals without substituting legumes or accompaniments", () => {
     const { menu, foods } = preparationFixture();
     const original = structuredClone(menu);
     const enriched = withPatientSubstitutions(menu, foods);
@@ -61,7 +61,8 @@ describe("complete patient meal presentation", () => {
       expect.objectContaining({ food: expect.objectContaining({ name: "Atún" }), amount: 66, equivalents: 2 }),
     ]));
     expect(result.ingredients.find(item => item.name === "Arroz")!.alternatives).toHaveLength(2);
-    expect(result.ingredients.find(item => item.name === "Frijoles")!.alternatives).toEqual(expect.arrayContaining([expect.objectContaining({ amount: 0.75, unit: "cup" })]));
+    expect(result.ingredients.find(item => item.name === "Frijoles")!.alternatives).toEqual([]);
+    expect(result.ingredients.find(item => item.role === "fruit")!.alternatives).toEqual([]);
     expect(menu).toEqual(original);
     expect(enriched.meal_options).toEqual(menu.meal_options);
     expect(enriched.week_plan!.days[0].assignments[0].option_snapshot.entries).toEqual(original.week_plan!.days[0].assignments[0].option_snapshot.entries);

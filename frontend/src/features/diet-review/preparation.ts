@@ -21,7 +21,7 @@ export type PatientPreparation = {
 };
 
 export const canSubstitute = (food?: FoodSnapshot) => Boolean(food && (
-  food.group_code.startsWith("AOA_") || food.group_code.startsWith("CEREALS_") || food.group_code === "LEGUMES"
+  food.group_code.startsWith("AOA_") || food.group_code.startsWith("CEREALS_")
 ));
 // JSONB may reorder object keys on persistence. Key order must not invalidate a version.
 const sourceKey = (option: MealOption) => JSON.stringify(option.entries, (_key, value: unknown) =>
