@@ -351,7 +351,7 @@ describe("DietMenuStep", () => {
     expect(recipe.items[0].food_item_id).toBe("fruit");
     expect(await screen.findByRole("dialog", { name: "Preparación guardada" })).toBeInTheDocument();
     expect(onSave).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Sí", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Sí" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
   });
 
@@ -454,6 +454,8 @@ describe("DietMenuStep", () => {
     render(<DietMenuStep plan={plan} catalog={{foods:[food],recipes:[]}} onSave={vi.fn()} onDraftChange={onDraftChange} onGoToMeals={vi.fn()}/>);
     fireEvent.click(screen.getByRole("button",{name:"Proponer alimentos y recetas para este tiempo de comida"}));
     fireEvent.click(screen.getByRole("button",{name:"Agregar bebida"}));
+    expect(screen.getByText(/Bebida opcional · sin aporte en equivalentes/)).toBeInTheDocument();
+    expect(screen.queryByText("Poco compatible")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button",{name:"Revisar"}));
     fireEvent.click(screen.getByRole("button",{name:"Agregar al menú"}));
     expect(screen.getByRole("heading",{name:"Agua natural · vaso de 240 ml"})).toBeInTheDocument();
