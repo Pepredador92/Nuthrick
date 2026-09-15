@@ -3,6 +3,7 @@
 ## Versiones
 
 - Catálogo: `NUTHRICK_MX_STARTER` / `1.0.0`.
+- Ampliación curada: `NUTHRICK_MX_SMAE_4E_2014` / `1.1.0`.
 - Sistema de equivalentes: `SMAE_NOM037_2012` / `1.0.0`.
 - Biblioteca: `NUTHRICK_STARTER_RECIPES` / `1.0.0`.
 
@@ -26,7 +27,9 @@ Cada alimento global conserva `catalog_code = NUTHRICK_MX_STARTER`, además de
 `source`, `source_version` y `source_reference`. No se
 completaron valores nutrimentales específicos cuando la fuente consultada sólo
 sustenta grupo y porción. Los promedios por equivalente continúan viviendo en
-el catálogo matemático existente.
+el catálogo matemático existente. La conciliación de candidatos, aliases,
+presentaciones alternativas, conflictos y exclusiones está en
+[`smae-curated-expansion.md`](smae-curated-expansion.md).
 
 ## Decisiones de normalización
 

@@ -36,6 +36,15 @@ describe("starter food and recipe catalog search", () => {
     expect(foodMatchesSearch(food, "atún")).toBe(false);
   });
 
+  it("keeps catalog aliases searchable without creating a second food identity", () => {
+    const food = {
+      normalized_name: "galletas de maiz horneadas sin grasa",
+      aliases: ["salmas", "galletas salmas"],
+    };
+    expect(foodMatchesSearch(food, "Salmas")).toBe(true);
+    expect(foodMatchesSearch(food, "galletas salmas")).toBe(true);
+  });
+
   it("finds recipes by name or descriptive tag", () => {
     const recipe = { normalized_name: "ceviche sencillo de pescado", tags: ["mexicana", "rápida"] };
     expect(recipeMatchesSearch(recipe, "ceviche")).toBe(true);

@@ -1,12 +1,64 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(30);
+select plan(40);
 
 select is(
   (select count(*)::integer from public.food_items where source in ('NOM-037-SSA2-2012','IMSS_SMAE_4E','DOF_SMAE_PORTIONS','IMSS_HEALTHY_MENU','MUNICIPIO_JUAREZ_EXCHANGE_LIST') and not is_custom),
   42,
   'the curated starter catalog contains forty-two global foods'
+);
+select is(
+  (select count(*)::integer from public.food_items where catalog_code = 'NUTHRICK_MX_SMAE_4E_2014' and owner_id is null and not is_custom),
+  86,
+  'the curated SMAE release contains eighty-six approved global foods'
+);
+select is(
+  (select count(*)::integer from public.food_items where owner_id is null and not is_custom),
+  128,
+  'the global catalog combines the starter and curated SMAE releases'
+);
+select is(
+  (select id from public.food_items where stable_code = 'MX_SMAE_FRUIT_MANDARINA'),
+  md5('nuthrick-food:MX_SMAE_FRUIT_MANDARINA')::uuid,
+  'curated SMAE food ids are stable and deterministic'
+);
+select is(
+  (select portion_amount from public.food_items where stable_code = 'MX_SMAE_CEREAL_NO_FAT_AVENA_COCIDA'),
+  0.750::numeric,
+  'fractional candidate portions are stored as numeric values'
+);
+select is(
+  (select portion_unit from public.food_items where stable_code = 'MX_SMAE_MILK_WHOLE_JOCOQUE'),
+  'tablespoon',
+  'cucharadas map to the internal tablespoon unit'
+);
+select ok(
+  (select source_reference = 'Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 23'
+   from public.food_items where stable_code = 'MX_SMAE_FRUIT_MANDARINA'),
+  'each curated row preserves its declared version and page reference'
+);
+select ok(
+  (select aliases @> array['huevo entero cocido', 'huevo entero fresco']
+   from public.food_items where stable_code = 'MX_WHOLE_EGG'),
+  'same-identity variants remain aliases instead of duplicate foods'
+);
+select ok(
+  (select alternate_portions @> '[{"amount":2,"unit":"piece","display":"2 piezas (naranja)"}]'::jsonb
+   from public.food_items where stable_code = 'MX_ORANGE_SEGMENTS'),
+  'same-identity orange presentation is structured as an alternate portion'
+);
+select ok(
+  (select attributes @> '{"soy":"contains"}'::jsonb
+   from public.food_items where stable_code = 'MX_SMAE_MILK_SKIM_BEBIDA_DE_SOYA'),
+  'structured restrictions can identify the soy beverage'
+);
+select is(
+  (select count(*)::integer from public.food_items
+   where owner_id is null and not is_custom and source = 'SMAE_4E_2014'
+     and name in ('Huevo frito', 'Frijoles refritos, caseros o enlatados', 'Pollo rostizado', 'Papas fritas a la francesa', 'Queso Oaxaca Lala Light')),
+  0,
+  'prepared foods with inseparable added fat do not enter the global catalog'
 );
 select is(
   (select count(*)::integer from public.recipes where source = 'NUTHRICK_STARTER_RECIPES' and source_version = '1.0.0' and not is_custom),
