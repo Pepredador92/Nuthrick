@@ -362,9 +362,53 @@ export interface NutritionPlan {
   exchange_prescription: ExchangePrescription | null;
   meal_distribution: MealDistribution | null;
   diet_menu: DietMenu | null;
+  /** Monotonic server-side revision for optimistic draft saves and publishing. */
+  draft_revision?: number;
+  /** The immutable version currently presented as the plan's latest publication. */
+  current_version_id?: string | null;
   status: "draft" | "active" | "archived";
   created_at: string;
   updated_at: string;
+}
+
+export type NutritionPlanVersionSnapshot = {
+  snapshot_schema_version: 1;
+  plan: {
+    id: string;
+    title: string;
+    assigned_at: string;
+    patient_id: string;
+    consultation_id: string | null;
+  };
+  patient: { id: string; full_name: string };
+  professional: { id: string; full_name: string; professional_title: string | null };
+  consultation: { id: string; date: string } | null;
+  prescription: {
+    target_calories: number;
+    energy_calculation: PlanEnergyCalculation | null;
+    macro_distribution: MacroDistribution | null;
+    exchange_prescription: ExchangePrescription | null;
+    meal_distribution: MealDistribution | null;
+  };
+  calendar: MenuWeekPlan["days"];
+  source_versions: { validation_rules_version: string; diet_menu_schema_version: number | null };
+};
+
+export interface NutritionPlanVersion {
+  id: string;
+  plan_id: string;
+  professional_id: string;
+  patient_id: string;
+  consultation_id: string | null;
+  version_number: number;
+  draft_revision: number;
+  snapshot_schema_version: number;
+  validation_rules_version: string;
+  content_hash: string;
+  idempotency_key: string;
+  snapshot: NutritionPlanVersionSnapshot;
+  published_at: string;
+  published_by: string;
 }
 
 export type PlanEnergyValueSource = "consultation" | "patient" | "plan_override" | "manual";

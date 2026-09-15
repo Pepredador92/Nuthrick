@@ -12,6 +12,8 @@ const api = vi.hoisted(() => ({
   listPlans: vi.fn(),
   createPlan: vi.fn(),
   updatePlan: vi.fn(),
+  listVersions: vi.fn(),
+  publishVersion: vi.fn(),
   loadReference: vi.fn(),
   listFoods: vi.fn(),
   listRecipes: vi.fn(),
@@ -68,6 +70,8 @@ vi.mock("@/src/services/dietPlans", () => ({
   listDietPlans: api.listPlans,
   createDietPlan: api.createPlan,
   updateDietPlan: api.updatePlan,
+  listDietPlanVersions: api.listVersions,
+  publishDietPlanVersion: api.publishVersion,
   loadDietReferenceData: api.loadReference,
 }));
 
@@ -99,6 +103,8 @@ beforeEach(() => {
   api.listPlans.mockResolvedValue([]);
   api.createPlan.mockResolvedValue(plan);
   api.updatePlan.mockImplementation(async (_id, patch) => ({ ...plan, ...patch }));
+  api.listVersions.mockResolvedValue([]);
+  api.publishVersion.mockResolvedValue({ version_id: "version", version_number: 1, published_at: "2026-09-15T00:00:00Z", reused: false, already_current: false });
   api.loadReference.mockResolvedValue({
     weight: { value: 72, unit: "kg", source: "consultation_measurements" },
     height: { value: 170, unit: "cm", source: "consultation_measurements" },

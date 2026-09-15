@@ -1,5 +1,5 @@
 import { supabase } from "@/src/lib/supabase";
-import type { DietMenu, ExchangePrescription, MacroDistribution, MealDistribution, NutritionPlan, PlanEnergyCalculation } from "@/src/types/domain";
+import type { DietMenu, ExchangePrescription, MacroDistribution, MealDistribution, NutritionPlan, NutritionPlanVersion, PlanEnergyCalculation } from "@/src/types/domain";
 
 export type DietPlanPatch = {
   title?: string;
@@ -13,6 +13,21 @@ export type DietPlanPatch = {
   meal_distribution?: MealDistribution | null;
   diet_menu?: DietMenu | null;
 };
+
+export class DietPlanRevisionConflictError extends Error {
+  constructor() {
+    super("Este borrador cambió en otra pestaña. Actualiza la revisión antes de guardar o publicar.");
+    this.name = "DietPlanRevisionConflictError";
+  }
+}
+
+function normalizeDietPlan(row: NutritionPlan): NutritionPlan {
+  return {
+    ...row,
+    draft_revision: Number(row.draft_revision ?? 1),
+    current_version_id: row.current_version_id ?? null,
+  };
+}
 
 export type DietReferenceValue = {
   value: number;
@@ -39,7 +54,7 @@ export async function listDietPlans(): Promise<NutritionPlan[]> {
     .select("*")
     .order("updated_at", { ascending: false });
   if (error) throw dietPlanError(error, "No pudimos cargar tus planes.");
-  return (data ?? []) as NutritionPlan[];
+  return (data ?? []).map((row) => normalizeDietPlan(row as NutritionPlan));
 }
 
 export async function getDietPlan(id: string): Promise<NutritionPlan | null> {
@@ -49,7 +64,7 @@ export async function getDietPlan(id: string): Promise<NutritionPlan | null> {
     .eq("id", id)
     .maybeSingle();
   if (error) throw dietPlanError(error, "No pudimos abrir este plan.");
-  return data as NutritionPlan | null;
+  return data ? normalizeDietPlan(data as NutritionPlan) : null;
 }
 
 export async function createDietPlan(context: {
@@ -68,25 +83,75 @@ export async function createDietPlan(context: {
     .select("*")
     .single();
   if (error) throw dietPlanError(error, "No pudimos crear el borrador del plan.");
-  return data as NutritionPlan;
+  return normalizeDietPlan(data as NutritionPlan);
 }
 
 export async function updateDietPlan(
   id: string,
   patch: DietPlanPatch,
+  expectedDraftRevision?: number,
 ): Promise<NutritionPlan> {
   const payload = {
     ...patch,
     ...(patch.title !== undefined ? { title: patch.title.trim() } : {}),
   };
-  const { data, error } = await supabase
+  let query = supabase
     .from("nutrition_plans")
     .update(payload)
-    .eq("id", id)
-    .select("*")
-    .single();
+    .eq("id", id);
+  if (Number.isFinite(expectedDraftRevision)) query = query.eq("draft_revision", expectedDraftRevision!);
+  const { data, error } = await query.select("*").maybeSingle();
+  if (!data && !error && expectedDraftRevision !== undefined) throw new DietPlanRevisionConflictError();
   if (error) throw dietPlanError(error, "No pudimos guardar el plan.");
-  return data as NutritionPlan;
+  if (!data) throw new Error("No pudimos guardar el plan.");
+  return normalizeDietPlan(data as NutritionPlan);
+}
+
+export async function listDietPlanVersions(planId: string): Promise<NutritionPlanVersion[]> {
+  const { data, error } = await supabase
+    .from("nutrition_plan_versions")
+    .select("*")
+    .eq("plan_id", planId)
+    .order("version_number", { ascending: false });
+  if (error) throw dietPlanError(error, "No pudimos cargar el historial de publicaciones.");
+  return (data ?? []) as NutritionPlanVersion[];
+}
+
+export type PublishDietPlanVersionResult = {
+  version_id: string;
+  version_number: number;
+  published_at: string;
+  reused: boolean;
+  already_current: boolean;
+};
+
+function readablePublicationError(detail: unknown) {
+  if (typeof detail !== "string") return "Revisa los pendientes antes de publicar.";
+  try {
+    const issues = JSON.parse(detail) as Array<{ message?: unknown }>;
+    const messages = issues
+      .map((issue) => typeof issue?.message === "string" ? issue.message : null)
+      .filter((message): message is string => Boolean(message));
+    return messages.length ? `Revisa los pendientes: ${messages.join(" ")}` : "Revisa los pendientes antes de publicar.";
+  } catch {
+    return "Revisa los pendientes antes de publicar.";
+  }
+}
+
+export async function publishDietPlanVersion(input: {
+  planId: string;
+  expectedDraftRevision: number;
+  idempotencyKey: string;
+}): Promise<PublishDietPlanVersionResult> {
+  const { data, error } = await supabase.rpc("publish_nutrition_plan_version", {
+    p_plan_id: input.planId,
+    p_expected_draft_revision: input.expectedDraftRevision,
+    p_idempotency_key: input.idempotencyKey,
+  });
+  if (error?.code === "40001") throw new DietPlanRevisionConflictError();
+  if (error?.code === "23514") throw new Error(readablePublicationError(error.details));
+  if (error) throw dietPlanError(error, "No pudimos publicar la versión del plan.");
+  return data as PublishDietPlanVersionResult;
 }
 
 export async function loadDietReferenceData(

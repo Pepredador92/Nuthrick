@@ -18,6 +18,7 @@ import { DietMacrosStep } from "@/src/components/diet/DietMacrosStep";
 import { DietEquivalentsStep } from "@/src/components/diet/DietEquivalentsStep";
 import { DietMealDistributionStep } from "@/src/components/diet/DietMealDistributionStep";
 import { DietMenuStep } from "@/src/components/diet/DietMenuStep";
+import { DietPlanReviewStep } from "@/src/components/diet/DietPlanReviewStep";
 import type { EnergyReferenceContext } from "@/src/features/diet-energy/model";
 import { reconcileExchangePrescription } from "@/src/features/exchanges/model";
 import { reconcileMealDistribution } from "@/src/features/meal-distribution/model";
@@ -29,12 +30,14 @@ import {
   createDietPlan,
   getDietPlan,
   listDietPlans,
+  listDietPlanVersions,
   loadDietReferenceData,
+  publishDietPlanVersion,
   updateDietPlan,
   type DietReferenceData,
 } from "@/src/services/dietPlans";
 import { getPatient, listConsultations, listPatients } from "@/src/services/patients";
-import type { Consultation, DietMenu, ExchangePrescription, ExchangeTargetSnapshot, MacroDistribution, MealDistribution, NutritionPlan, Patient, PlanEnergyCalculation } from "@/src/types/domain";
+import type { Consultation, DietMenu, ExchangePrescription, ExchangeTargetSnapshot, MacroDistribution, MealDistribution, NutritionPlan, NutritionPlanVersion, Patient, PlanEnergyCalculation } from "@/src/types/domain";
 
 const steps = [
   { id: "energy", label: "Objetivo energético", shortLabel: "Energía" },
@@ -211,7 +214,9 @@ function WorkshopNavigation({ targetReady, macrosReady, mealsReady, activeStep, 
     <nav className="mt-5 overflow-x-auto rounded-2xl border border-[#dfe6e1] bg-white p-1.5" aria-label="Secciones del Taller de dietas">
       <ol className="flex min-w-max gap-1">
         {steps.map((step, index) => {
-          const ready = step.id === "energy" ? true : step.id === "macros" ? targetReady : step.id === "equivalents" || step.id === "meals" ? macrosReady : step.id === "menu" ? mealsReady : false;
+          // Review is deliberately available even with pending work: it is the
+          // place that explains what still needs clinical confirmation.
+          const ready = step.id === "energy" || step.id === "review" ? true : step.id === "macros" ? targetReady : step.id === "equivalents" || step.id === "meals" ? macrosReady : step.id === "menu" ? mealsReady : false;
           const current = activeStep === step.id;
           const completed = ready && index < activeIndex;
           return (
@@ -335,6 +340,7 @@ export function DietWorkshopPage() {
   const [consultation, setConsultation] = useState<Consultation | null>(null);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [plans, setPlans] = useState<NutritionPlan[]>([]);
+  const [versions, setVersions] = useState<NutritionPlanVersion[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [reference, setReference] = useState<DietReferenceData | null>(null);
   const [title, setTitle] = useState("Plan nutricional");
@@ -346,6 +352,7 @@ export function DietWorkshopPage() {
   const [loading, setLoading] = useState(true);
   const [referenceLoading, setReferenceLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const pendingEnergyCalculation = useRef<PlanEnergyCalculation | null>(null);
   const pendingMacroDistribution = useRef<MacroDistribution | null>(null);
   const pendingExchangePrescription = useRef<ExchangePrescription | null>(null);
@@ -353,6 +360,7 @@ export function DietWorkshopPage() {
   const pendingDietMenu = useRef<DietMenu | null>(null);
   const planRef = useRef<NutritionPlan | null>(null);
   const planSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const publishIdempotencyKey = useRef<string | null>(null);
   const [activeStep, setActiveStep] = useState<WorkshopStep>("energy");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -369,7 +377,7 @@ export function DietWorkshopPage() {
         : patch;
       const changed = changedDietPlanPatch(current, reconciledPatch);
       if (!Object.keys(changed).length) return current;
-      const updated = await updateDietPlan(current.id, changed);
+      const updated = await updateDietPlan(current.id, changed, current.draft_revision ?? 1);
       planRef.current = updated;
       setPlan(updated);
       return updated;
@@ -449,6 +457,16 @@ export function DietWorkshopPage() {
     }, 0);
     return () => { active = false; window.clearTimeout(timer); };
   }, [plan?.consultation_id]);
+
+  useEffect(() => {
+    const planId = plan?.id;
+    if (!planId) return;
+    let active = true;
+    void listDietPlanVersions(planId)
+      .then((value) => { if (active) setVersions(value); })
+      .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "No pudimos cargar el historial de publicaciones."); });
+    return () => { active = false; };
+  }, [plan?.id]);
 
   useEffect(() => {
     if (!plan || title.trim() === savedTitle || !title.trim()) return;
@@ -544,6 +562,64 @@ export function DietWorkshopPage() {
     }
   };
 
+  const flushPendingDraft = async () => {
+    const titled = await saveTitle();
+    if (!titled) throw new Error("Escribe un nombre para guardar el plan.");
+    await planSaveQueue.current;
+    const saved = planRef.current ?? titled;
+    const pendingEnergy = pendingEnergyCalculation.current;
+    const pendingMacros = pendingMacroDistribution.current;
+    if (!pendingEnergy && !pendingMacros && !pendingExchangePrescription.current && !pendingMealDistribution.current && !pendingDietMenu.current) return saved;
+    const nextTarget = pendingEnergy?.prescribed_target_kcal ?? saved.target_calories;
+    const nextEnergyWeight = pendingEnergy?.inputs.weight_kg.value ?? saved.energy_calculation?.inputs.weight_kg.value ?? null;
+    const macroToSave = pendingMacros
+      ? (nextTarget ? reconcileMacroDistribution(pendingMacros, nextTarget, nextEnergyWeight) : pendingMacros)
+      : pendingEnergy && saved.macro_distribution && nextTarget
+        ? reconcileMacroDistribution(saved.macro_distribution, nextTarget, nextEnergyWeight)
+        : undefined;
+    const nextExchangeTargets = exchangeTargetsFor({ target_calories: nextTarget, macro_distribution: macroToSave ?? saved.macro_distribution });
+    const exchangeToSave = pendingExchangePrescription.current
+      ? (nextExchangeTargets ? reconcileExchangePrescription(pendingExchangePrescription.current, nextExchangeTargets) : pendingExchangePrescription.current)
+      : saved.exchange_prescription && nextExchangeTargets ? reconcileExchangePrescription(saved.exchange_prescription, nextExchangeTargets) : undefined;
+    const mealSource = pendingMealDistribution.current ?? saved.meal_distribution;
+    const mealToSave = mealSource && exchangeToSave ? reconcileMealDistribution(mealSource, exchangeToSave) : mealSource ?? undefined;
+    const menuSource = pendingDietMenu.current ?? saved.diet_menu;
+    const menuToSave = menuSource && mealToSave ? reconcileDietMenu(menuSource, mealToSave) : menuSource ?? undefined;
+    const updated = await savePlanPatch({
+      ...(pendingEnergy ? { energy_calculation: pendingEnergy, target_calories: pendingEnergy.prescribed_target_kcal } : {}),
+      ...(macroToSave ? { macro_distribution: macroToSave } : {}),
+      ...(exchangeToSave ? { exchange_prescription: exchangeToSave } : {}),
+      ...(mealToSave ? { meal_distribution: mealToSave } : {}),
+      ...(menuToSave ? { diet_menu: menuToSave } : {}),
+    });
+    pendingEnergyCalculation.current = null;
+    pendingMacroDistribution.current = null;
+    pendingExchangePrescription.current = null;
+    pendingMealDistribution.current = null;
+    pendingDietMenu.current = null;
+    return updated;
+  };
+
+  const publishVersion = async () => {
+    setPublishing(true);
+    setError("");
+    try {
+      const saved = await flushPendingDraft();
+      const idempotencyKey = publishIdempotencyKey.current ?? crypto.randomUUID();
+      publishIdempotencyKey.current = idempotencyKey;
+      const result = await publishDietPlanVersion({ planId: saved.id, expectedDraftRevision: saved.draft_revision ?? 1, idempotencyKey });
+      const [updated, history] = await Promise.all([getDietPlan(saved.id), listDietPlanVersions(saved.id)]);
+      if (updated) { planRef.current = updated; setPlan(updated); }
+      setVersions(history);
+      publishIdempotencyKey.current = null;
+      setNotice(result.already_current ? `La versión vigente v${result.version_number} ya contiene este plan.` : `Versión ${result.version_number} publicada.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No pudimos publicar la versión del plan.");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   if (loading) return <LoadingState label="Preparando Taller de dietas…" />;
   if (error && !plan && !patient && !plans.length) return <ErrorState message={error} onRetry={() => void load()} />;
   if (!dietPlanId && requestedPatientId && patient) {
@@ -566,45 +642,7 @@ export function DietWorkshopPage() {
   const exchangeTargets = exchangeTargetsFor(plan);
   return (
     <div className="mx-auto min-w-0 max-w-7xl pb-16 [overflow-wrap:anywhere]">
-      <PlanContextHeader plan={{ ...plan, title }} patient={patient} consultation={consultation} onChangeContext={() => void openContextEditor()} onSaveAndExit={() => void (async () => {
-        const saved = await saveTitle();
-        if (!saved) return;
-        const pendingEnergy = pendingEnergyCalculation.current;
-        const pendingMacros = pendingMacroDistribution.current;
-        if (pendingEnergy || pendingMacros || pendingExchangePrescription.current || pendingMealDistribution.current || pendingDietMenu.current) {
-          try {
-            const nextTarget = pendingEnergy?.prescribed_target_kcal ?? saved.target_calories;
-            const nextEnergyWeight = pendingEnergy?.inputs.weight_kg.value ?? saved.energy_calculation?.inputs.weight_kg.value ?? null;
-            const macroToSave = pendingMacros
-              ? (nextTarget ? reconcileMacroDistribution(pendingMacros, nextTarget, nextEnergyWeight) : pendingMacros)
-              : pendingEnergy && saved.macro_distribution && nextTarget
-                ? reconcileMacroDistribution(saved.macro_distribution, nextTarget, nextEnergyWeight)
-                : undefined;
-            const nextExchangeTargets = exchangeTargetsFor({ target_calories: nextTarget, macro_distribution: macroToSave ?? saved.macro_distribution });
-            const exchangeToSave = pendingExchangePrescription.current
-              ? (nextExchangeTargets ? reconcileExchangePrescription(pendingExchangePrescription.current, nextExchangeTargets) : pendingExchangePrescription.current)
-              : saved.exchange_prescription && nextExchangeTargets ? reconcileExchangePrescription(saved.exchange_prescription, nextExchangeTargets) : undefined;
-            const mealSource = pendingMealDistribution.current ?? saved.meal_distribution;
-            const mealToSave = mealSource && exchangeToSave ? reconcileMealDistribution(mealSource, exchangeToSave) : mealSource ?? undefined;
-            const menuSource = pendingDietMenu.current ?? saved.diet_menu;
-            const menuToSave = menuSource && mealToSave ? reconcileDietMenu(menuSource, mealToSave) : menuSource ?? undefined;
-            const updated = await savePlanPatch({
-              ...(pendingEnergy ? { energy_calculation: pendingEnergy, target_calories: pendingEnergy.prescribed_target_kcal } : {}),
-              ...(macroToSave ? { macro_distribution: macroToSave } : {}),
-              ...(exchangeToSave ? { exchange_prescription: exchangeToSave } : {}),
-              ...(mealToSave ? { meal_distribution: mealToSave } : {}),
-              ...(menuToSave ? { diet_menu: menuToSave } : {}),
-            });
-            planRef.current = updated;
-            pendingEnergyCalculation.current = null;
-            pendingMacroDistribution.current = null;
-            pendingExchangePrescription.current = null;
-            pendingMealDistribution.current = null;
-            pendingDietMenu.current = null;
-          } finally { /* the serialized queue owns the request lifecycle */ }
-        }
-        navigate(exitTarget);
-      })().catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el plan."))} />
+      <PlanContextHeader plan={{ ...plan, title }} patient={patient} consultation={consultation} onChangeContext={() => void openContextEditor()} onSaveAndExit={() => void flushPendingDraft().then(() => navigate(exitTarget)).catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el plan."))} />
       {contextEditor && <ContextEditor currentPatient={patient} patients={patients} consultations={consultations} selectedPatientId={contextPatientId} selectedConsultationId={contextConsultationId} busy={busy} onPatient={(id) => void chooseContextPatient(id)} onConsultation={setContextConsultationId} onCancel={() => setContextEditor(false)} onSave={() => void saveContext()} />}
       <WorkshopNavigation targetReady={Boolean(plan.target_calories && plan.target_calories > 0)} macrosReady={macrosReady} mealsReady={Boolean(plan.meal_distribution?.distribution.some((item) => item.portions > 0))} activeStep={activeStep} onSelect={setActiveStep} />
       {notice && <p role="status" className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]">{notice}</p>}
@@ -693,6 +731,18 @@ export function DietWorkshopPage() {
             }}
             onDraftChange={(menu) => { pendingDietMenu.current = menu; }}
             onGoToMeals={() => setActiveStep("meals")}
+          />}
+          {activeStep === "review" && <DietPlanReviewStep
+            plan={{ ...plan, title }}
+            patient={patient}
+            consultation={consultation}
+            versions={versions}
+            publishing={publishing}
+            onCorrect={(step) => setActiveStep(step)}
+            onPrepareSingleDay={(menu) => void savePlanPatch({ diet_menu: menu })
+              .then(() => setNotice("Día único preparado para revisión."))
+              .catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos preparar el calendario."))}
+            onPublish={() => void publishVersion()}
           />}
       </div>
     </div>
