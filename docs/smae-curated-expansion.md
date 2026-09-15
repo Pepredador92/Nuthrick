@@ -5,7 +5,7 @@
 - Catálogo incorporado: `NUTHRICK_MX_SMAE_4E_2014` / `1.1.0`.
 - Sistema matemático sin cambios: `SMAE_NOM037_2012` / `1.0.0`.
 - Migración inicial: `20260915170641_expand_curated_smae_catalog.sql`.
-- Conciliación posterior: `20260915180940_reconcile_portions_and_editorial_preparations.sql` (revisión 1.2.0). Véase el resultado vigente al final; las cifras de esta primera sección describen la importación inicial.
+- Conciliación posterior: `20260915183530_reconcile_portions_and_editorial_preparations.sql` (revisión 1.2.0). Véase el resultado vigente al final; las cifras de esta primera sección describen la importación inicial.
 - Fuente declarada por cada fila aprobada: *Sistema Mexicano de Alimentos
   Equivalentes*, 4.ª edición (2014), con la página indicada en el archivo de
   candidatos proporcionado. La migración guarda esa procedencia sin afirmar una

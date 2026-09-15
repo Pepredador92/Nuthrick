@@ -119,7 +119,7 @@ No se infieren sabor o aceptación a partir de una prueba matemática.
 
 ## Migración y controles
 
-`20260915180940_reconcile_portions_and_editorial_preparations.sql` es aditiva e
+`20260915183530_reconcile_portions_and_editorial_preparations.sql` es aditiva e
 idempotente, con guardas de propiedad global. No elimina filas, no cambia políticas
 ni reescribe planes o ingredientes históricos. La primera migración de 86 alimentos
 ya estaba aplicada antes de esta revisión; no se repite esa importación.
@@ -149,5 +149,30 @@ nutriólogos ni aseguran cualquier combinación clínica.
 
 ## Estado de entrega
 
-Las verificaciones remotas y el despliegue se registran al completar la entrega.
-Los cambios ajenos de LandingPage y `output/` quedan fuera del commit.
+- Implementación: `46afb8d`, subida a `origin/main` junto con la ampliación previa
+  `609b790`, sin force push. LandingPage y `output/` quedaron fuera.
+- Vercel: despliegue `dpl_F711MDhAVsXT9px323CMcC5Bnzdk`, estado **Ready**, alias
+  `https://nuthrick.vercel.app`, comprobado el 15/09/2026.
+- Migración remota aplicada correctamente; el archivo local adopta el timestamp
+  asignado por Supabase (`20260915183530`), con el mismo contenido probado.
+- Resultado remoto: 132 alimentos globales, 131 activos; 32 recetas globales;
+  25 ingredientes de las ocho nuevas preparaciones. RLS sigue activado en alimentos,
+  recetas, ingredientes y planes. No se modificaron políticas.
+- Los hashes de los dos planes originales y de las recetas personales son iguales
+  antes/después. Se creó un plan libre ficticio, sin paciente, exclusivamente para
+  QA y después se archivó de forma reversible para no dejarlo entre los borradores.
+- Navegador publicado, con sesión existente: abrir Menú, cargar catálogo, generar,
+  retirar ciruela y obtener durazno conservando arroz/huevo, aplicar, confirmar sin
+  navegar, organizar/aplicar un calendario de un día. Consultas de solo lectura
+  comprobaron menú nulo durante exploración, guardado tras aplicar, estado confirmado
+  y calendario de un día tras aplicar. La distribución era una fixture simplificada;
+  esto no valida la prescripción energética ni representa un plan para un paciente.
+- Verificación local: TypeScript, ESLint y build correctos; **443 pruebas** en
+  49 archivos excluyendo el landing ajeno; **51 comprobaciones SQL** de catálogo/RLS.
+  La suite completa produjo 445 correctas y un fallo previo del título del landing.
+- Persisten dos avisos de seguridad preexistentes, sin avisos nuevos de esta
+  migración: función de reapertura de consulta ejecutable por autenticados
+  ([explicación](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable))
+  y protección contra contraseñas filtradas desactivada
+  ([explicación](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)).
+  No se cambiaron credenciales ni configuración de autenticación en esta tarea.
