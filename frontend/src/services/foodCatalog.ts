@@ -27,23 +27,25 @@ export type CustomRecipeInput = {
   substitution_notes?: string;
   meal_types?: MealType[];
   items: RecipeDraftItem[];
+  servings?: number;
+  kind?: "recipe" | "drink";
 };
 
 export function normalizeFoodName(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("es-MX").replace(/\s+/g, " ");
 }
 
-export function foodMatchesSearch(food: Pick<FoodItem, "normalized_name" | "aliases">, search: string) {
+export function foodMatchesSearch(food: Pick<FoodItem, "normalized_name" | "aliases"> & Partial<Pick<FoodItem, "group_code" | "category">>, search: string) {
   const normalized = normalizeFoodName(search);
   if (!normalized) return true;
-  return [food.normalized_name, ...(food.aliases ?? [])]
+  return [food.normalized_name, food.category ?? "", food.group_code ?? "", ...(food.aliases ?? [])]
     .some((term) => normalizeFoodName(term).includes(normalized));
 }
 
-export function recipeMatchesSearch(recipe: Pick<Recipe, "normalized_name" | "tags">, search: string) {
+export function recipeMatchesSearch(recipe: Pick<Recipe, "normalized_name" | "tags"> & Partial<Pick<Recipe, "items" | "instructions">>, search: string) {
   const normalized = normalizeFoodName(search);
   if (!normalized) return true;
-  return [recipe.normalized_name, ...(recipe.tags ?? [])]
+  return [recipe.normalized_name, recipe.instructions ?? "", ...(recipe.tags ?? []), ...(recipe.items ?? []).map(item => item.food_snapshot.name)]
     .some((term) => normalizeFoodName(term).includes(normalized));
 }
 
@@ -126,6 +128,8 @@ export async function listRecipes() {
 }
 
 export async function createCustomRecipe(input: CustomRecipeInput) {
+  if (!input.items.length || input.items.some(item => !Number.isFinite(item.amount) || item.amount <= 0 || !Number.isFinite(Number(item.food.portion_amount)) || Number(item.food.portion_amount) <= 0)) throw new Error("Registra ingredientes y cantidades verificables; un aporte desconocido no equivale a cero.");
+  if (!Number.isFinite(input.servings ?? 1) || (input.servings ?? 1) <= 0) throw new Error("El rendimiento debe ser mayor que cero.");
   const ownerId = await currentUserId();
   const { data: recipeRow, error: recipeError } = await supabase.from("recipes").insert({
     owner_id: ownerId,
@@ -134,10 +138,10 @@ export async function createCustomRecipe(input: CustomRecipeInput) {
     normalized_name: normalizeFoodName(input.name),
     description: input.description?.trim() || null,
     meal_types: input.meal_types ?? [],
-    servings: 1,
+    servings: input.servings ?? 1,
     instructions: input.instructions?.trim() || null,
     image_path: null,
-    tags: [],
+    tags: input.kind === "drink" ? ["nuthrick:drink"] : [],
     substitution_notes: input.substitution_notes?.trim() || null,
     source: "PROFESSIONAL_CUSTOM",
     source_version: "1",
@@ -160,7 +164,11 @@ export async function createCustomRecipe(input: CustomRecipeInput) {
     exchange_contribution: exchangeContributionForFood(item.food, item.amount),
   }));
   const { data: itemRows, error: itemsError } = await supabase.from("recipe_items").insert(items).select("*");
-  if (itemsError) throw new Error("La receta se creó, pero no pudimos guardar sus ingredientes.");
+  if (itemsError) {
+    // Compensate only the row created by this request; never touch existing library recipes.
+    const { error: cleanupError } = await supabase.from("recipes").delete().eq("id", recipeRow.id).eq("owner_id", ownerId);
+    throw new Error(cleanupError ? "No pudimos completar los ingredientes. Quedó una preparación incompleta en la biblioteca; revisa el catálogo antes de reintentar." : "No pudimos guardar los ingredientes. Conservamos tu edición para que puedas reintentar.");
+  }
   return { ...recipeRow, items: (itemRows ?? []) as RecipeItem[] } as Recipe;
 }
 

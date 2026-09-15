@@ -173,7 +173,7 @@ describe("DietWorkshopPage", () => {
     const menu = await screen.findByRole("button", { name: /Menú/ });
     expect(menu).toBeEnabled();
     fireEvent.click(menu);
-    expect(screen.getByRole("heading", { name: "Construcción del menú" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Nuthrick a la Mesa" })).toBeInTheDocument();
     expect(screen.getByText("Falta 1")).toBeInTheDocument();
   });
 

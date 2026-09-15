@@ -92,13 +92,14 @@ describe("deterministic menu planner", () => {
     expect(entries[0].exchange_contributions).toEqual([{ group_code: "FRUITS", portions: 2 }]);
   });
 
-  it("increases an existing food of the same group instead of adding a duplicate", () => {
+  it("preserves existing quantities and adds the missing amount separately", () => {
     const fruitOnly = { ...distribution, distribution: [{ meal_time_id: "breakfast", group_code: "FRUITS" as const, portions: 1 }] };
     const base = addFoodToMenu(createDietMenu(fruitOnly), fruitOnly, "breakfast", fruit, 0.5, "manual-fruit");
     const proposal = proposeDietMenu({ menu: base, distribution: fruitOnly, foods: [fruit], recipes: [], mealTimeId: "breakfast" });
     const entries = activeMenu(proposal.menu).meal_menus[0].entries;
-    expect(entries).toHaveLength(1);
-    expect(entries[0]).toMatchObject({ id: "manual-fruit", quantity: 1 });
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toMatchObject({ id: "manual-fruit", quantity: 0.5 });
+    expect(proposal.meals[0].complete).toBe(true);
   });
 
   it("fills prescribed milk subtypes independently", () => {
@@ -156,9 +157,11 @@ describe("deterministic menu planner", () => {
 
     expect(proposal.algorithm).toBe("deterministic-menu-planner-v3");
     expect(proposal.meals[0]).toMatchObject({ complete: true, pending: [], excess: [] });
-    expect(entries.filter((entry) => entry.type === "recipe")).toHaveLength(1);
-    expect(individualGroups).toEqual(["AOA_LOW_FAT", "LEGUMES"]);
-    expect(individualGroups).not.toContain("AOA_VERY_LOW_FAT");
+    // This distribution cannot fit the original recipe ratios without extra residuals.
+    // Use practical individual foods rather than deforming the recipe.
+    expect(entries.filter((entry) => entry.type === "recipe")).toHaveLength(0);
+    expect(new Set(individualGroups).size).toBe(5);
+    expect(observedRecipe.items.map(item=>item.amount)).toEqual([0.5,30,0.5,1]);
   });
 
   it("rebuilds only the selected time when explicitly requested", () => {
@@ -201,7 +204,7 @@ describe("deterministic menu planner", () => {
     expect(proposal.meals[0]).toMatchObject({ complete: false, pending: [{ group_code: "FATS_NO_PROTEIN", portions: 1 }] });
   });
 
-  it("penalizes recipe repetition when an equally useful alternative exists", () => {
+  it("allows repetition when it matches both times, without forcing variety", () => {
     const alternative = recipe("alternative", "Otra tortilla", ["BREAKFAST", "MAIN_MEAL"], [{ food: cereal, amount: 1 }]);
     const repeatedDistribution = { ...distribution, distribution: [
       { meal_time_id: "breakfast", group_code: "CEREALS_NO_FAT" as const, portions: 1 },
@@ -209,7 +212,8 @@ describe("deterministic menu planner", () => {
     ] };
     const proposal = proposeDietMenu({ menu: createDietMenu(repeatedDistribution), distribution: repeatedDistribution, foods: [cereal], recipes: [breakfastRecipe, alternative] });
     const usedRecipes = activeMenu(proposal.menu).meal_menus.flatMap((meal) => meal.entries.filter((entry) => entry.type === "recipe").map((entry) => entry.source_id));
-    expect(new Set(usedRecipes).size).toBe(2);
+    expect(usedRecipes).toHaveLength(2);
+    expect(proposal.meals.filter(m=>m.mealTimeId!=="dinner").every(m=>m.complete)).toBe(true);
   });
 
   it("does not mutate global recipe definitions while adjusting a proposal", () => {

@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { DietMenuStep } from "@/src/components/diet/DietMenuStep";
-import { addFoodToMenu, createDietMenu } from "@/src/features/menu/model";
-import type { FoodItem, MealDistribution, NutritionPlan } from "@/src/types/domain";
+import { addFoodToMenu, createDietMenu, createFoodSnapshot, exchangeContributionForFood } from "@/src/features/menu/model";
+import type { FoodItem, MealDistribution, NutritionPlan, Recipe } from "@/src/types/domain";
+import type { CustomRecipeInput } from "@/src/services/foodCatalog";
 import "../../app/globals.css";
 
 const meals = [
@@ -17,6 +18,8 @@ const mealDistribution: MealDistribution = {
     { meal_time_id: "breakfast", group_code: "FRUITS", portions: 1 },
     { meal_time_id: "breakfast", group_code: "CEREALS_NO_FAT", portions: 2 },
     { meal_time_id: "breakfast", group_code: "MILK_SKIM", portions: 1 },
+    { meal_time_id: "breakfast", group_code: "AOA_MODERATE_FAT", portions: 2 },
+    { meal_time_id: "breakfast", group_code: "LEGUMES", portions: 1 },
     { meal_time_id: "lunch", group_code: "VEGETABLES", portions: 2 },
   ], derived_meal_totals: [], status: "ready", confirmed_at: "2026-09-10T09:00:00Z", updated_at: "2026-09-10T09:00:00Z",
 };
@@ -36,4 +39,23 @@ const plan: NutritionPlan = {
   exchange_prescription: null, meal_distribution: mealDistribution, diet_menu: menu, status: "draft", created_at: "", updated_at: "",
 };
 
-createRoot(document.getElementById("root")!).render(<main className="mx-auto min-h-screen max-w-[1440px] bg-[#f7f8f4] p-3 sm:p-8"><DietMenuStep plan={plan} catalog={{ foods: [papaya], recipes: [] }} onSave={async () => undefined} onGoToMeals={() => undefined} /></main>);
+const sampleFoods: FoodItem[] = [
+  {...papaya,stable_code:"MX_PAPAYA"},
+  {...papaya,id:"apple",name:"Manzana",normalized_name:"manzana",portion_unit:"piece",portion_description:"1 pieza"},
+  {...papaya,id:"milk",stable_code:"MX_SKIM_MILK",name:"Leche descremada",normalized_name:"leche descremada",group_code:"MILK_SKIM",portion_amount:1,portion_description:"1 taza (240 ml)",attributes:{lactose:"contains"}},
+  {...papaya,id:"tortilla",name:"Tortilla de maíz",normalized_name:"tortilla de maiz",group_code:"CEREALS_NO_FAT",portion_unit:"tortilla",portion_description:"1 tortilla"},
+  {...papaya,id:"bread",name:"Pan integral",normalized_name:"pan integral",group_code:"CEREALS_NO_FAT",portion_unit:"slice",portion_description:"1 rebanada"},
+  {...papaya,id:"egg",name:"Huevo cocido",normalized_name:"huevo cocido",group_code:"AOA_MODERATE_FAT",portion_unit:"piece",portion_description:"1 pieza",attributes:{egg:"contains"}},
+  {...papaya,id:"beans",name:"Frijoles cocidos",normalized_name:"frijoles cocidos",group_code:"LEGUMES",portion_amount:.5,portion_unit:"cup",portion_description:"½ taza"},
+  {...papaya,id:"veg",name:"Nopales cocidos",normalized_name:"nopales cocidos",group_code:"VEGETABLES",portion_amount:1,portion_unit:"cup",portion_description:"1 taza"},
+];
+async function fakeRecipe(input: CustomRecipeInput):Promise<Recipe> {
+  const id=crypto.randomUUID();
+  return {id,owner_id:"visual",stable_code:null,name:input.name,normalized_name:input.name.toLocaleLowerCase("es-MX"),servings:input.servings??1,instructions:input.instructions??null,substitution_notes:input.substitution_notes??null,description:input.description??null,meal_types:input.meal_types??[],image_path:null,tags:input.kind==="drink"?["nuthrick:drink"]:[],source:"FICTITIOUS_BROWSER_TEST",source_version:"1",source_reference:null,is_custom:true,active:true,created_at:"",updated_at:"",items:input.items.map((item,index)=>({id:`${id}-${index}`,owner_id:"visual",recipe_id:id,food_item_id:item.food.id,amount:item.amount,unit:item.food.portion_unit,display_order:index,food_snapshot:createFoodSnapshot(item.food),exchange_contribution:exchangeContributionForFood(item.food,item.amount),created_at:""}))};
+}
+function Harness(){
+  const [saves,setSaves]=useState(0);
+  const [librarySaves,setLibrarySaves]=useState(0);
+  return <main className="mx-auto min-h-screen max-w-[1440px] bg-[#f7f8f4] p-3 sm:p-8"><p className="mb-4 text-xs" role="status">Caso ficticio · sin conexión de guardado. Guardados de menú: {saves}. Biblioteca: {librarySaves}.</p><DietMenuStep plan={plan} catalog={{foods:sampleFoods,recipes:[]}} recipeWriter={async input=>{setLibrarySaves(n=>n+1);return fakeRecipe(input);}} onSave={async()=>{setSaves(n=>n+1);}} onGoToMeals={()=>undefined}/></main>;
+}
+createRoot(document.getElementById("root")!).render(<Harness/>);

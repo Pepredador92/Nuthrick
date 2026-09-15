@@ -12,7 +12,7 @@ import type {
 } from "@/src/types/domain";
 
 export const DIET_MENU_SCHEMA_VERSION = 1 as const;
-/** Differences at or below one tenth of an exchange are clinically impractical for automatic completion. */
+/** UI/solver comparison tolerance in exchanges, not a clinical quality threshold. Actual differences remain available. */
 export const MENU_COMPARISON_TOLERANCE = 0.1;
 const MENU_NUMERIC_EPSILON = 1e-6;
 
@@ -138,6 +138,8 @@ export function addFoodToMenu(menu: DietMenu, mealDistribution: MealDistribution
 
 export function addRecipeToMenu(menu: DietMenu, mealDistribution: MealDistribution, mealTimeId: string, recipe: Recipe, servings = 1, id = makeId("entry")) {
   if (!Number.isFinite(servings) || servings <= 0) return menu;
+  const verifiedWater = recipe.id === "nuthrick-water-v1" && recipe.source === "CDC_PLAIN_WATER" && recipe.tags?.includes("nuthrick:drink");
+  if (!Number.isFinite(Number(recipe.servings)) || Number(recipe.servings) <= 0 || (!recipe.items.length && !verifiedWater) || recipe.items.some(item=>!Number.isFinite(Number(item.amount)) || Number(item.amount)<=0 || !item.exchange_contribution.length)) return menu;
   const entry: DietMenuEntry = {
     id,
     type: "recipe",
@@ -145,15 +147,20 @@ export function addRecipeToMenu(menu: DietMenu, mealDistribution: MealDistributi
     name_snapshot: recipe.name,
     quantity: round(servings),
     unit: "recipe_serving",
+    culinary_role: recipe.tags?.includes("nuthrick:drink") ? "drink" : undefined,
     recipe_snapshot: {
       recipe_id: recipe.id,
       name: recipe.name,
       servings: recipe.servings,
       instructions: recipe.instructions,
+      tags: [...(recipe.tags ?? [])],
+      substitution_notes: recipe.substitution_notes,
+      source_reference: recipe.source_reference,
+      source: recipe.source,
       items: recipe.items.map((item) => ({
         amount: Number(item.amount),
         unit: item.unit,
-        food_snapshot: { ...item.food_snapshot },
+        food_snapshot: structuredClone(item.food_snapshot),
         exchange_contribution: item.exchange_contribution.map((value) => ({ ...value })),
       })),
     },
@@ -232,7 +239,7 @@ export function replaceFoodMenuEntry(
 }
 
 export function recipeIngredientsChanged(original: Recipe, adjusted: Recipe) {
-  return original.items.some((item) => {
+  return original.items.length !== adjusted.items.length || original.name !== adjusted.name || original.instructions !== adjusted.instructions || original.substitution_notes !== adjusted.substitution_notes || original.items.some((item) => {
     const next = adjusted.items.find((candidate) => candidate.id === item.id);
     return !next
       || (next.food_item_id ?? next.food_snapshot.id) !== (item.food_item_id ?? item.food_snapshot.id)
@@ -324,7 +331,8 @@ export function replaceMenuEntriesWithRecipe(
     .filter((entry) => selectedIds.has(entry.id)).length ?? 0;
   if (!selectedCount) return menu;
   const withoutEntries = entryIds.reduce((next, entryId) => removeMenuEntry(next, mealDistribution, entryId), menu);
-  return addRecipeToMenu(withoutEntries, mealDistribution, mealTimeId, recipe, 1);
+  // Selected quantities constitute the entire batch, not one of its servings.
+  return addRecipeToMenu(withoutEntries, mealDistribution, mealTimeId, recipe, Number(recipe.servings));
 }
 
 /** @deprecated Use replaceMenuEntriesWithRecipe for foods and expanded recipe snapshots. */
@@ -422,7 +430,7 @@ export function calculateMenuUsage(menu: DietMenu) {
 
 export function calculateMenuStatus(menu: DietMenu, mealDistribution: MealDistribution) {
   const usage = calculateMenuUsage(menu);
-  const rows = mealDistribution.distribution.filter((item) => item.portions > MENU_COMPARISON_TOLERANCE).map((required) => {
+  const rows = mealDistribution.distribution.filter((item) => item.portions > 0).map((required) => {
     const used = usage.find((item) => item.meal_time_id === required.meal_time_id && item.group_code === required.group_code)?.portions ?? 0;
     const remaining = round(required.portions - used);
     return {
@@ -434,7 +442,7 @@ export function calculateMenuStatus(menu: DietMenu, mealDistribution: MealDistri
   });
   for (const used of usage) {
     if (!rows.some((row) => row.meal_time_id === used.meal_time_id && row.group_code === used.group_code) && used.portions > MENU_COMPARISON_TOLERANCE) {
-      rows.push({ ...used, used: used.portions, remaining: -used.portions, state: "excess" as const });
+      rows.push({ ...used, portions: 0, used: used.portions, remaining: -used.portions, state: "excess" as const });
     }
   }
   return {
@@ -484,6 +492,8 @@ export type RecipeCompatibilityRestriction = {
   excludedFoodIds?: string[];
   excludedGroupCodes?: ExchangeGroupCode[];
   excludedAttributes?: string[];
+  likedFoodIds?: string[];
+  avoidedFoodIds?: string[];
 };
 
 export type RecipeCompatibilityInput = {
@@ -538,7 +548,7 @@ export function scoreRecipeCompatibility({ pendingExchanges: required, recipe, m
   const label = blocked
     ? "No compatible con restricciones"
     : excess <= MENU_COMPARISON_TOLERANCE && missing <= MENU_COMPARISON_TOLERANCE
-      ? "Coincidencia exacta"
+      ? "Dentro de tolerancia"
       : excess <= MENU_COMPARISON_TOLERANCE && coverageRatio >= 0.65
         ? "Buena coincidencia"
         : covered > MENU_COMPARISON_TOLERANCE && excess < covered

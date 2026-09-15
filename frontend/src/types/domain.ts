@@ -618,12 +618,17 @@ export type DietMenuEntry = {
   name_snapshot: string;
   quantity: number;
   unit: FoodUnitCode | "recipe_serving";
+  culinary_role?: "main" | "side" | "fruit" | "drink" | "other";
   food_snapshot?: FoodSnapshot;
   recipe_snapshot?: {
     recipe_id: string;
     name: string;
     servings: number;
     instructions: string | null;
+    tags?: string[];
+    substitution_notes?: string | null;
+    source_reference?: string | null;
+    source?: string;
     items: Array<Pick<RecipeItem, "amount" | "unit" | "food_snapshot" | "exchange_contribution">>;
   };
   exchange_contributions: Array<{ group_code: ExchangeGroupCode; portions: number }>;
@@ -645,6 +650,7 @@ export type DietMenuStatus = "not_started" | "editing" | "ready";
 
 export type DietMenu = {
   schema_version: 1;
+  food_preferences?: Record<string, "like" | "avoid" | "exclude">;
   source_meal_distribution_snapshot: MealDistribution | null;
   menus: DietMenuVariant[];
   active_menu_id: string;

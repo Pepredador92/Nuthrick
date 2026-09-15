@@ -10,9 +10,9 @@ import {
   removeMenuEntry,
   practicalFoodQuantity,
   scoreRecipeCompatibility,
-  updateMenuEntryQuantity,
   type RecipeCompatibilityRestriction,
 } from "@/src/features/menu/model";
+import { isDrink, menuSignature, recipeHasKnownContributions } from "./mesa";
 import type {
   DietMenu,
   DietMenuEntry,
@@ -44,11 +44,11 @@ export type MenuProposal = {
 };
 
 export const MENU_PLANNER_WEIGHTS = {
-  repetition: 8,
+  repetition: 1,
   recipeAdjustment: 3,
   extraComponent: 1.25,
-  duplicateGroup: 2.5,
-  sameFamily: 6,
+  duplicateGroup: 0,
+  sameFamily: 0,
   impracticalQuantity: 2,
 };
 
@@ -73,7 +73,7 @@ export function exchangeGroupFamily(groupCode: ExchangeGroupCode) {
   return familyByGroup[groupCode] ?? groupCode;
 }
 
-function isFoodRestricted(food: Pick<FoodItem, "id" | "group_code" | "attributes">, restrictions: MenuPlanningRestrictions) {
+export function isFoodRestricted(food: Pick<FoodItem, "id" | "group_code" | "attributes">, restrictions: MenuPlanningRestrictions) {
   if (restrictions.excludedFoodIds?.includes(food.id)) return true;
   if (restrictions.excludedGroupCodes?.includes(food.group_code)) return true;
   const excludedAttributes = new Set(restrictions.excludedAttributes ?? []);
@@ -84,16 +84,11 @@ export function adjustRecipeToPending(recipe: Recipe, pending: Array<{ group_cod
   const recipeGroups = new Map(recipeExchangeContributions(recipe).map((item) => [item.group_code, item.portions]));
   const pendingGroups = new Map(pending.map((item) => [item.group_code, item.portions]));
   const amounts: Record<string, number> = {};
-
+  const factors = [...recipeGroups].map(([code, supplied]) => supplied > 0 ? (pendingGroups.get(code) ?? 0) / supplied : 1).sort((a,b) => a-b);
+  // One bounded batch factor preserves ingredient ratios and recipe identity.
+  const factor = Math.min(2, Math.max(0.5, factors[Math.floor(factors.length / 2)] ?? 1));
   for (const item of recipe.items) {
-    const groupCode = item.food_snapshot.group_code;
-    const available = pendingGroups.get(groupCode) ?? 0;
-    const supplied = recipeGroups.get(groupCode) ?? 0;
-    const desiredFactor = supplied > MENU_COMPARISON_TOLERANCE && available > MENU_COMPARISON_TOLERANCE
-      ? available / supplied
-      : 1;
-    const boundedFactor = Math.min(2, Math.max(0.5, desiredFactor));
-    amounts[item.id] = practicalQuantity(Number(item.amount) * boundedFactor, item.unit);
+    amounts[item.id] = Number(item.amount) * factor;
   }
 
   return adjustRecipeIngredients(recipe, amounts);
@@ -136,8 +131,8 @@ function entriesForMeal(menu: DietMenu, mealTimeId: string) {
   return activeMenu(menu).meal_menus.find((meal) => meal.meal_time_id === mealTimeId)?.entries ?? [];
 }
 
-function clearMeal(menu: DietMenu, distribution: MealDistribution, mealTimeId: string) {
-  return entriesForMeal(menu, mealTimeId).reduce(
+function clearMeal(menu: DietMenu, distribution: MealDistribution, mealTimeId: string, fixedEntryIds: string[]) {
+  return entriesForMeal(menu, mealTimeId).filter(entry => !fixedEntryIds.includes(entry.id)).reduce(
     (next, entry) => removeMenuEntry(next, distribution, entry.id),
     menu,
   );
@@ -158,7 +153,7 @@ function rankRecipes(
   usedRecipeIds: Set<string>,
 ) {
   return recipes
-    .filter((recipe) => recipe.active)
+    .filter((recipe) => recipe.active && !isDrink(recipe) && recipeHasKnownContributions(recipe))
     .map((original) => {
       const recipe = adjustRecipeToPending(original, pending);
       const match = scoreRecipeCompatibility({ pendingExchanges: pending, recipe, mealType, restrictions });
@@ -166,7 +161,8 @@ function rankRecipes(
       const adjustmentPenalty = recipeIngredientsChanged(original, recipe) ? recipeAdjustmentPenalty(original, recipe) : 0;
       const remainingComponents = match.missingGroups.length * MENU_PLANNER_WEIGHTS.extraComponent;
       const practicalityPenalty = duplicateGroupPenalty(recipe) + sameFamilyPenalty(recipe) + impracticalQuantityPenalty(recipe) + remainingComponents;
-      return { original, recipe, match, score: match.score - repetitionPenalty - adjustmentPenalty - practicalityPenalty };
+      const preference = recipe.items.reduce((sum,item) => sum + (restrictions.likedFoodIds?.includes(item.food_snapshot.id) ? 2 : 0) - (restrictions.avoidedFoodIds?.includes(item.food_snapshot.id) ? 3 : 0),0);
+      return { original, recipe, match, score: match.score - repetitionPenalty - adjustmentPenalty - practicalityPenalty + preference };
     })
     .filter((candidate) => !candidate.match.blocked)
     .sort((a, b) => b.score - a.score || a.original.name.localeCompare(b.original.name, "es-MX"));
@@ -178,20 +174,24 @@ function chooseFood(
   neededPortions: number,
   restrictions: MenuPlanningRestrictions,
   usedFoodIds: Set<string>,
+  alternative: number,
 ) {
-  return foods
+  const candidates = foods
     .filter((food) => food.active && food.group_code === groupCode && !isFoodRestricted(food, restrictions))
     .map((food) => {
       const quantity = practicalQuantity(neededPortions * Number(food.portion_amount), food.portion_unit);
       const supplied = quantity / Number(food.portion_amount);
       return { food, quantity, excess: Math.max(0, supplied - neededPortions), mismatch: Math.abs(supplied - neededPortions) };
     })
-    .sort((a, b) => a.excess - b.excess
-      || a.mismatch - b.mismatch
+    .sort((a, b) => a.mismatch - b.mismatch
+      || Number(restrictions.avoidedFoodIds?.includes(a.food.id) ?? false) - Number(restrictions.avoidedFoodIds?.includes(b.food.id) ?? false)
+      || Number(restrictions.likedFoodIds?.includes(b.food.id) ?? false) - Number(restrictions.likedFoodIds?.includes(a.food.id) ?? false)
       || Number(usedFoodIds.has(a.food.id)) - Number(usedFoodIds.has(b.food.id))
       || Number(b.food.is_custom) - Number(a.food.is_custom)
       || b.food.use_count - a.food.use_count
-      || a.food.name.localeCompare(b.food.name, "es-MX"))[0];
+      || a.food.name.localeCompare(b.food.name, "es-MX"));
+  const comparable = candidates.filter(c => c.mismatch <= (candidates[0]?.mismatch ?? 0) + MENU_COMPARISON_TOLERANCE);
+  return comparable[alternative % Math.max(1, comparable.length)];
 }
 
 function proposeMeal(
@@ -203,7 +203,8 @@ function proposeMeal(
   restrictions: MenuPlanningRestrictions,
   usedRecipeIds: Set<string>,
   usedFoodIds: Set<string>,
-) {
+  alternative: number,
+): DietMenu {
   const meal = distribution.meal_times.find((item) => item.id === mealTimeId);
   if (!meal) return menu;
   let next = menu;
@@ -211,31 +212,32 @@ function proposeMeal(
   if (!pending.length) return next;
 
   const ranked = rankRecipes(recipes, pending, meal.meal_type, restrictions, usedRecipeIds);
-  const best = ranked.find((candidate) => candidate.match.covered >= 1
+  const viable = ranked.filter((candidate) => candidate.match.covered >= 1
     && candidate.match.excess <= 0.25
     && candidate.score > 0
     && candidate.match.label !== "Poco compatible");
+  const comparable = viable.filter(candidate => candidate.score >= (viable[0]?.score ?? 0) - 5);
+  const best = alternative % 4 === 3 ? undefined : comparable[alternative % Math.max(1, comparable.length)];
 
   if (best) {
-    next = addRecipeToMenu(next, distribution, mealTimeId, best.recipe, 1, `proposal-recipe-${mealTimeId}`);
+    next = addRecipeToMenu(next, distribution, mealTimeId, best.recipe, 1, `proposal-recipe-${mealTimeId}-${entriesForMeal(next, mealTimeId).length}`);
     usedRecipeIds.add(best.original.id);
     for (const item of best.recipe.items) usedFoodIds.add(item.food_item_id ?? item.food_snapshot.id);
     pending = pendingForMeal(next, distribution, mealTimeId);
   }
 
   for (const missing of pending) {
-    const existing = entriesForMeal(next, mealTimeId).find((entry) => entry.type === "food" && entry.food_snapshot?.group_code === missing.group_code);
-    if (existing?.food_snapshot) {
-      const quantity = practicalQuantity(existing.quantity + missing.portions * Number(existing.food_snapshot.portion_amount), existing.food_snapshot.portion_unit);
-      next = updateMenuEntryQuantity(next, distribution, existing.id, quantity);
-      continue;
-    }
-    const selection = chooseFood(foods, missing.group_code, missing.portions, restrictions, usedFoodIds);
+    const selection = chooseFood(foods, missing.group_code, missing.portions, restrictions, usedFoodIds, alternative);
     if (!selection) continue;
-    next = addFoodToMenu(next, distribution, mealTimeId, selection.food, selection.quantity, `proposal-food-${mealTimeId}-${missing.group_code}`);
+    next = addFoodToMenu(next, distribution, mealTimeId, selection.food, selection.quantity, `proposal-food-${mealTimeId}-${missing.group_code}-${entriesForMeal(next, mealTimeId).length}`);
     usedFoodIds.add(selection.food.id);
   }
 
+  if (best) {
+    const direct = proposeMeal(menu, distribution, mealTimeId, foods, [], restrictions, new Set(usedRecipeIds), new Set(usedFoodIds), alternative);
+    const error = (value: DietMenu) => calculateMenuStatus(value, distribution).rows.filter(row => row.meal_time_id === mealTimeId).reduce((sum,row)=>sum+Math.abs(row.remaining),0);
+    if (error(direct) + MENU_COMPARISON_TOLERANCE < error(next)) return direct;
+  }
   return next;
 }
 
@@ -247,6 +249,9 @@ export function proposeDietMenu({
   mealTimeId = null,
   mode = "complete",
   restrictions = {},
+  alternative = 0,
+  fixedEntryIds = [],
+  fixedMealIds = [],
 }: {
   menu: DietMenu;
   distribution: MealDistribution;
@@ -255,18 +260,22 @@ export function proposeDietMenu({
   mealTimeId?: string | null;
   mode?: MenuPlanningMode;
   restrictions?: MenuPlanningRestrictions;
+  alternative?: number;
+  fixedEntryIds?: string[];
+  fixedMealIds?: string[];
 }): MenuProposal {
   const targets = distribution.meal_times
     .filter((meal) => !mealTimeId || meal.id === mealTimeId)
+    .filter((meal) => !fixedMealIds.includes(meal.id))
     .sort((a, b) => a.display_order - b.display_order);
   let next = menu;
-  if (mode === "replace") for (const meal of targets) next = clearMeal(next, distribution, meal.id);
+  if (mode === "replace") for (const meal of targets) next = clearMeal(next, distribution, meal.id, fixedEntryIds);
 
   const usedRecipeIds = new Set(activeMenu(next).meal_menus.flatMap((meal) => meal.entries.filter((entry) => entry.type === "recipe").map((entry) => entry.source_id)));
   const usedFoodIds = new Set(activeMenu(next).meal_menus.flatMap((meal) => meal.entries.flatMap((entry) => entry.type === "food" ? [entry.source_id] : entry.recipe_snapshot?.items.map((item) => item.food_snapshot.id) ?? [])));
   const beforeEntries = new Map(activeMenu(next).meal_menus.flatMap((meal) => meal.entries.map((entry) => [entry.id, JSON.stringify(entry)] as const)));
 
-  for (const meal of targets) next = proposeMeal(next, distribution, meal.id, foods, recipes, restrictions, usedRecipeIds, usedFoodIds);
+  for (const meal of targets) next = proposeMeal(next, distribution, meal.id, foods, recipes, restrictions, usedRecipeIds, usedFoodIds, alternative);
 
   const status = calculateMenuStatus(next, distribution);
   const meals = targets.map((meal) => {
@@ -289,4 +298,15 @@ export function proposeDietMenu({
     exact: meals.every((meal) => meal.complete),
     algorithm: "deterministic-menu-planner-v3",
   };
+}
+
+export function menuAlternatives(input: Parameters<typeof proposeDietMenu>[0]): MenuProposal[] {
+  const seen = new Set([menuSignature(input.menu)]);
+  const results: MenuProposal[] = [];
+  for (let alternative = 0; alternative < 16; alternative++) {
+    const proposal = proposeDietMenu({ ...input, alternative });
+    const key = menuSignature(proposal.menu);
+    if (!seen.has(key)) { results.push(proposal); seen.add(key); }
+  }
+  return results;
 }

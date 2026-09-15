@@ -21,6 +21,8 @@ export function useProposalExplorer<P, D>(key: string, context: string, identify
   return {
     proposal, message: valid || state.items.length === 0 ? message : "Las condiciones cambiaron. Genera una nueva propuesta.",
     count: items.length, index: valid ? state.index : 0, canUndo: valid && state.undo !== null,
+    edit: (next: P) => { if (valid && state.open) save({ ...state, items: items.map((item, index) => index === state.index ? next : item) }); },
+    restart: (next: P) => save({ context, items: [next], index: 0, open: true, undo: valid ? state.undo : null }),
     generate: (generate: () => P[]) => {
       try {
         const candidates = generate();
@@ -32,15 +34,17 @@ export function useProposalExplorer<P, D>(key: string, context: string, identify
       } catch (e) { setMessage(e instanceof Error ? e.message : "No pudimos generar la propuesta."); }
     },
     navigate: (direction: number) => save({ ...state, index: Math.max(0, Math.min(items.length - 1, state.index + direction)), open: true }),
-    discard: () => save({ ...state, open: false }),
-    invalidate: () => save({ context, items: [], index: 0, open: false, undo: null }),
+    discard: () => { setMessage(""); save({ ...state, open: false }); },
+    invalidate: () => { setMessage(""); save({ context, items: [], index: 0, open: false, undo: null }); },
     apply: (draft: D, apply: (p: P) => void) => {
       if (!proposal) return;
+      setMessage("");
       save({ ...state, open: false, undo: structuredClone(draft) });
       apply(proposal);
     },
     undo: (restore: (draft: D) => void) => {
       if (!valid || state.undo === null) return;
+      setMessage("");
       restore(structuredClone(state.undo));
       save({ ...state, open: false, undo: null });
     },

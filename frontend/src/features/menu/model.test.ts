@@ -217,7 +217,7 @@ describe("diet menu model", () => {
 
   it("scores exact, partial and excessive recipe compatibility deterministically", () => {
     const required = distribution.distribution.map(({ group_code, portions }) => ({ group_code, portions }));
-    expect(recipeCompatibilityScore(required, recipe()).label).toBe("Coincidencia exacta");
+    expect(recipeCompatibilityScore(required, recipe()).label).toBe("Dentro de tolerancia");
     const partial = { ...recipe(), items: recipe().items.slice(0, 1) };
     expect(recipeCompatibilityScore(required, partial)).toMatchObject({ excess: 0, label: "Coincidencia parcial" });
     const excessive = { ...recipe(), items: [{ ...recipe().items[1], amount: 3, exchange_contribution: [{ group_code: "CEREALS_NO_FAT" as const, portions: 3 }] }] };
