@@ -63,6 +63,15 @@ const recipe = (): Recipe => ({
 });
 
 describe("diet menu model", () => {
+  it("retains all menu entries and requests review when upstream distribution is reopened", () => {
+    const draft = addRecipeToMenu(createDietMenu(distribution), distribution, breakfast, recipe());
+    const ready = confirmDietMenu(draft, distribution);
+    expect(ready.status).toBe("ready");
+    const next = reconcileDietMenu(ready, { ...distribution, status: "editing" });
+    expect(next.status).toBe("editing");
+    expect(next.confirmed_at).toBeNull();
+    expect(next.menus).toEqual(ready.menus);
+  });
   it("creates a versioned main menu with every meal time", () => {
     const menu = createDietMenu(distribution, () => "menu-main");
     expect(menu.active_menu_id).toBe("menu-main");

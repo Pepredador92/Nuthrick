@@ -1,0 +1,34 @@
+import { act, renderHook } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+import { clearProposalSession, useProposalExplorer } from "./useProposalExplorer";
+beforeEach(clearProposalSession);
+it("navigates A-B-A, discards without writes, restores a manual draft and invalidates stale proposals", () => {
+  const save = vi.fn();
+  const { result, rerender } = renderHook(({ context }) => useProposalExplorer<string, { value: number }>("plan:step", context, p => p), { initialProps: { context: "targets-a" } });
+  act(() => result.current.generate(() => ["A", "B"]));
+  act(() => result.current.generate(() => ["A", "B"]));
+  expect(result.current.proposal).toBe("B");
+  act(() => result.current.navigate(-1));
+  expect(result.current.proposal).toBe("A");
+  act(() => result.current.discard());
+  expect(save).not.toHaveBeenCalled();
+  act(() => result.current.navigate(0));
+  act(() => result.current.apply({ value: 1.33 }, save));
+  expect(save).toHaveBeenCalledWith("A");
+  act(() => result.current.undo(save));
+  expect(save).toHaveBeenLastCalledWith({ value: 1.33 });
+  rerender({ context: "targets-b" });
+  expect(result.current.proposal).toBeNull();
+  act(() => result.current.apply({ value: 99 }, save));
+  expect(save).toHaveBeenCalledTimes(2);
+});
+it("recovers history after switching steps and keeps the last option when exhausted", () => {
+  const first = renderHook(() => useProposalExplorer<string, number>("session", "same", p => p));
+  act(() => first.result.current.generate(() => ["A"]));
+  first.unmount();
+  const next = renderHook(() => useProposalExplorer<string, number>("session", "same", p => p));
+  expect(next.result.current.proposal).toBe("A");
+  act(() => next.result.current.generate(() => ["A"]));
+  expect(next.result.current.proposal).toBe("A");
+  expect(next.result.current.message).toMatch(/más opciones/);
+});

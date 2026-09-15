@@ -462,7 +462,7 @@ export function sameMealDistribution(snapshot: MealDistribution | null, current:
 export function reconcileDietMenu(menu: DietMenu, mealDistribution: MealDistribution) {
   const variant = ensureMealMenus(activeMenu(menu), mealDistribution);
   const rebuilt = { ...menu, menus: menu.menus.map((item) => item.id === variant.id ? variant : item), updated_at: now() };
-  if (menu.status === "ready" && !sameMealDistribution(menu.source_meal_distribution_snapshot, mealDistribution)) {
+  if (menu.status === "ready" && (mealDistribution.status !== "ready" || !sameMealDistribution(menu.source_meal_distribution_snapshot, mealDistribution))) {
     return { ...rebuilt, derived_exchange_usage: calculateMenuUsage(rebuilt), status: "editing" as const, confirmed_at: null };
   }
   return { ...rebuilt, derived_exchange_usage: calculateMenuUsage(rebuilt) };

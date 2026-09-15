@@ -214,7 +214,7 @@ export function confirmMealDistribution(current: MealDistribution, prescription:
 export type MealDistributionSuggestion = {
   distribution: MealDistributionEntry[];
   derived_meal_totals: MealNutritionTotal[];
-  metadata: { algorithm: typeof MEAL_DISTRIBUTION_SUGGESTION_VERSION; generated_at: string; base: "zero" | "current" };
+  metadata: { algorithm: typeof MEAL_DISTRIBUTION_SUGGESTION_VERSION | "MEAL_PREPARATION_V2"; generated_at: string; base: "zero" | "current" };
 };
 
 function weightFor(groupCode: ExchangeGroupCode, meal: MealTime) {

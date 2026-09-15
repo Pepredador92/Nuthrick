@@ -1,5 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { clearProposalSession } from "./useProposalExplorer";
+vi.mock("./usePreparationCatalog", () => ({ usePreparationCatalog: () => ({ loading: false }) }));
+beforeEach(clearProposalSession);
 import { createExchangePrescription, setExchangePortions } from "@/src/features/exchanges/model";
 import { applyMealDistributionSuggestion, createMealDistribution, suggestMealDistribution } from "@/src/features/meal-distribution/model";
 import type { ExchangePrescription, NutritionPlan } from "@/src/types/domain";
@@ -79,7 +82,7 @@ describe("DietMealDistributionStep", () => {
     expect(screen.queryByText("Vista previa")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Proponer distribución" }));
     fireEvent.click(screen.getByRole("button", { name: "Aplicar propuesta" }));
-    expect(onDraftChange).toHaveBeenLastCalledWith(expect.objectContaining({ status: "editing", suggestion_metadata: expect.objectContaining({ algorithm: "MEAL_DISTRIBUTION_V1" }) }));
+    expect(onDraftChange).toHaveBeenLastCalledWith(expect.objectContaining({ status: "editing", suggestion_metadata: expect.objectContaining({ algorithm: "MEAL_PREPARATION_V2" }) }));
   });
 
   it("confirms a complete applied proposal immediately with a snapshot", async () => {

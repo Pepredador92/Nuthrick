@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Calculator, Check, CircleAlert, Info, ListPlus, LoaderCircle, Minus, Plus, RotateCcw } from "lucide-react";
 import { exchangeCatalog, exchangeCatalogCategories, type ExchangeCatalogGroup } from "@/src/features/exchanges/catalog";
 import {
@@ -11,13 +11,17 @@ import {
   setExchangePortions,
   totalExchangePortions,
 } from "@/src/features/exchanges/model";
-import { suggestExchangePrescription, type ExchangeGroupPreference, type ExchangeSuggestion } from "@/src/features/exchanges/suggestion";
+import { type ExchangeGroupPreference, type ExchangeSuggestion } from "@/src/features/exchanges/suggestion";
+import { exchangeAlternatives, exchangeKey, describeExchanges, preparationLimitations, type PreparationCatalog } from "@/src/features/diet-workshop/proposals";
+import { ProposalNavigation, useProposalExplorer, useProposalSetting } from "./useProposalExplorer";
+import { usePreparationCatalog } from "./usePreparationCatalog";
 import type { ExchangeDerivedTotals, ExchangeGroupCode, ExchangePrescription, ExchangeTargetSnapshot, NutritionPlan } from "@/src/types/domain";
 import { WorkshopStepFooter } from "./WorkshopStepFooter";
 import { AutosaveFeedback } from "./AutosaveFeedback";
 import { useChangeAutosave } from "./useChangeAutosave";
 
 type Props = {
+  catalog?: PreparationCatalog;
   plan: NutritionPlan;
   targets: ExchangeTargetSnapshot | null;
   onSave: (prescription: ExchangePrescription, immediate?: boolean) => Promise<void>;
@@ -123,37 +127,32 @@ function GroupPicker({ activeCodes, onAdd }: { activeCodes: ReadonlySet<Exchange
   </details>;
 }
 
-function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, onContinue }: Omit<Props, "targets"> & { targets: ExchangeTargetSnapshot }) {
+function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, onContinue, catalog: suppliedCatalog }: Omit<Props, "targets"> & { targets: ExchangeTargetSnapshot }) {
   const initial = useMemo(() => plan.exchange_prescription ? reconcileExchangePrescription(plan.exchange_prescription, targets) : createExchangePrescription(targets), [plan.exchange_prescription, targets]);
   const [draft, setDraft] = useState(initial);
-  const [proposal, setProposal] = useState<ExchangeSuggestion | null>(null);
-  const [startFromCurrent, setStartFromCurrent] = useState(false);
-  const [preferences, setPreferences] = useState<Partial<Record<ExchangeGroupCode, ExchangeGroupPreference>>>({});
+  const [startFromCurrent, setStartFromCurrent] = useProposalSetting(`${plan.id}:exchange-start`, false);
+  const [preferences, setPreferences] = useProposalSetting<Partial<Record<ExchangeGroupCode, ExchangeGroupPreference>>>(`${plan.id}:preferences`, {});
+  const [locked, setLocked] = useProposalSetting<Partial<Record<ExchangeGroupCode, number>>>(`${plan.id}:exchange-locks`, {});
+  const preparation = usePreparationCatalog(suppliedCatalog);
+  const explorer = useProposalExplorer<ExchangeSuggestion, ExchangePrescription>(`${plan.id}:exchange-history`, JSON.stringify({ targets, preferences, locked, startFromCurrent, times: plan.meal_distribution?.meal_times, catalog: preparation.catalog }), exchangeKey);
+  const proposal = explorer.proposal;
   const [manualGroups, setManualGroups] = useState<Set<ExchangeGroupCode>>(() => new Set(initial.groups.filter((group) => group.portions > 0).map((group) => group.group_code)));
-  const planId = useRef(plan.id);
   const autosave = useChangeAutosave({ initialValue: initial, onSave: (value) => onSave(value, true), onDraftChange });
   const saveState = autosave.status;
 
-  useEffect(() => {
-    if (planId.current !== plan.id) {
-      planId.current = plan.id;
-      setDraft(initial);
-      setProposal(null);
-      setPreferences({});
-      setManualGroups(new Set(initial.groups.filter((group) => group.portions > 0).map((group) => group.group_code)));
-    }
-  }, [initial, plan.exchange_prescription, plan.id]);
-
-  const update = (next: ExchangePrescription, immediate = false) => {
+  const update = (next: ExchangePrescription, immediate = false, exploring = false) => {
     setDraft(next);
-    setProposal(null);
+    if (!exploring) explorer.invalidate();
     autosave.change(next, { immediate });
   };
 
   const byCode = portionsByCode(draft);
   const proposedByCode = proposal ? new Map(proposal.groups.map((group) => [group.groupCode, group.portions])) : null;
   const hasPortions = draft.groups.some((group) => group.portions > 0);
-  const change = (code: ExchangeCatalogGroup["groupCode"], value: number) => update(setExchangePortions(draft, targets, code, value));
+  const change = (code: ExchangeCatalogGroup["groupCode"], value: number) => {
+    if (locked[code] !== undefined) setLocked({ ...locked, [code]: value });
+    update(setExchangePortions(draft, targets, code, value));
+  };
   const confirm = async () => {
     const next = confirmExchangePrescription(draft, targets);
     setDraft(next);
@@ -164,14 +163,14 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, 
     setManualGroups(new Set());
     update(resetExchangePrescription(targets), true);
   };
-  const propose = () => setProposal(suggestExchangePrescription({
+  const propose = () => explorer.generate(() => exchangeAlternatives({
     targets,
     currentPortions: draft.groups,
-    options: { startFromCurrent: hasPortions && startFromCurrent, groupPreferences: preferences },
-  }));
+    options: { startFromCurrent: hasPortions && startFromCurrent, groupPreferences: preferences, lockedGroups: locked },
+  }, preparation.catalog, plan.meal_distribution));
   const applyProposal = () => {
     if (!proposal) return;
-    update(applyExchangeSuggestion(draft, targets, proposal), true);
+    explorer.apply(draft, p => update(applyExchangeSuggestion(draft, targets, p), true, true));
   };
   const displayedTotals: ExchangeDerivedTotals = proposal?.totals ?? draft.derived_totals;
   const displayedDifferences: ExchangeDerivedTotals = proposal?.differences ?? draft.differences;
@@ -185,8 +184,8 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, 
     groups: exchangeCatalog.filter((group) => group.category === category.category && activeCodes.has(group.groupCode)),
   })).filter((category) => category.groups.length > 0);
   const setPreference = (code: ExchangeGroupCode, value: ExchangeGroupPreference) => {
-    setPreferences((current) => ({ ...current, [code]: value }));
-    setProposal(null);
+    setPreferences({ ...preferences, [code]: value });
+    explorer.discard();
   };
 
   return <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-4 sm:p-7">
@@ -211,6 +210,7 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, 
               return <div key={group.groupCode} className="flex items-center justify-between gap-3 border-b border-[#edf1ee] py-3">
                 <div className="min-w-0 flex-1"><GroupContribution group={group} portions={portions} /></div>
                 <PortionInput group={group} portions={portions} disabled={Boolean(proposal)} onChange={(value) => change(group.groupCode, value)} />
+                {!proposal && <button type="button" aria-label={`Fijar ${group.groupName}`} aria-pressed={locked[group.groupCode] !== undefined} className="rounded-lg px-2 py-2 text-xs text-[#315e4f] hover:bg-[#edf5ef]" onClick={() => { const next = { ...locked }; if (next[group.groupCode] !== undefined) delete next[group.groupCode]; else next[group.groupCode] = byCode.get(group.groupCode) ?? 0; setLocked(next); }}>{locked[group.groupCode] !== undefined ? "Fijado" : "Fijar"}</button>}
               </div>;
             })}</div>
           </section>)}
@@ -233,11 +233,16 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, 
           <DifferenceMetric label="Grasas" target={targets.fat_g} actual={displayedTotals.fat_g} difference={displayedDifferences.fat_g} unit="g" />
         </div>
 
+        <ProposalNavigation count={explorer.count} index={explorer.index} onNavigate={explorer.navigate} />
+        {proposal && <p className="my-3 text-xs leading-5 text-[#52675e]">{describeExchanges(proposal)}</p>}
+        {proposal && <p className="my-2 text-xs leading-5 text-[#8a642b]">{preparationLimitations(proposal.groups.filter(g => g.portions > 0).map(g => g.groupCode), preparation.catalog)}</p>}
+        {(explorer.message || preparation.error) && <p role="status" className="my-3 text-xs leading-5 text-[#8a642b]">{explorer.message || preparation.error}</p>}
+        {explorer.canUndo && <button type="button" className="my-2 text-xs font-semibold text-[#315e4f]" onClick={() => explorer.undo(previous => update(reconcileExchangePrescription(previous, targets), true, true))}>Deshacer aplicación</button>}
         {proposal ? <div className="mt-4 border-t border-[#dfe6e1] pt-4">
-          <div className="grid grid-cols-2 gap-2"><button type="button" aria-label="Aplicar propuesta" className="nuth-button justify-center" onClick={applyProposal}>Aplicar</button><button type="button" aria-label="Conservar mis porciones" className="nuth-button-secondary justify-center" onClick={() => setProposal(null)}>Descartar</button></div>
-          <button type="button" aria-label="Volver a proponer porciones" className="mt-3 w-full text-center text-xs font-semibold text-[#477363] hover:text-[#24463b]" onClick={propose}>Recalcular</button>
+          <div className="grid grid-cols-2 gap-2"><button type="button" aria-label="Aplicar propuesta" className="nuth-button justify-center" onClick={applyProposal}>Aplicar</button><button type="button" aria-label="Conservar mis porciones" className="nuth-button-secondary justify-center" onClick={explorer.discard}>Descartar</button></div>
+          <button type="button" aria-label="Volver a proponer porciones" className="mt-3 w-full text-center text-xs font-semibold text-[#477363] hover:text-[#24463b]" onClick={propose}>Otra propuesta</button>
         </div> : <div className="mt-4 border-t border-[#dfe6e1] pt-4">
-          <button type="button" aria-label="Proponer porciones" className="nuth-button w-full justify-center" onClick={propose}><Calculator size={16} /> Proponer</button>
+          <button type="button" disabled={preparation.loading} aria-label="Proponer porciones" className="nuth-button w-full justify-center" onClick={propose}><Calculator size={16} /> {preparation.loading ? "Preparando…" : explorer.count ? "Otra propuesta" : "Proponer"}</button>
           {hasPortions && <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 text-xs text-[#52675e]"><input type="checkbox" checked={startFromCurrent} onChange={(event) => setStartFromCurrent(event.target.checked)} /> Partir de mis porciones actuales</label>}
           <button type="button" aria-label="Confirmar equivalentes" disabled={saveState === "saving"} className="nuth-button-secondary mt-3 w-full justify-center disabled:opacity-50" onClick={() => void confirm()}><Check size={16} /> Confirmar</button>
         </div>}
@@ -249,7 +254,7 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, 
   </section>;
 }
 
-export function DietEquivalentsStep({ plan, targets, onSave, onDraftChange, onGoToMacros, onContinue }: Props) {
+export function DietEquivalentsStep({ plan, targets, onSave, onDraftChange, onGoToMacros, onContinue, catalog }: Props) {
   if (!targets) return <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-5 sm:p-7"><p className="nuth-eyebrow">Paso 3</p><h1 className="mt-2 text-2xl font-semibold text-[#173d36]">Equivalentes</h1><div className="mt-5 rounded-2xl bg-[#fff6e6] p-5 text-sm leading-6 text-[#765827]"><p className="font-semibold">Completa primero la distribución de macronutrientes.</p><p className="mt-1">El cuadro dietosintético compara los equivalentes con el objetivo energético y los gramos derivados en el paso anterior.</p><button type="button" className="nuth-button mt-4" onClick={onGoToMacros}>Ir a macronutrientes</button></div></section>;
-  return <EquivalentEditor key={`${plan.id}:${targets.energy_kcal}:${targets.carbohydrate_g}:${targets.protein_g}:${targets.fat_g}`} plan={plan} targets={targets} onSave={onSave} onDraftChange={onDraftChange} onGoToMacros={onGoToMacros} onContinue={onContinue} />;
+  return <EquivalentEditor key={`${plan.id}:${targets.energy_kcal}:${targets.carbohydrate_g}:${targets.protein_g}:${targets.fat_g}`} catalog={catalog} plan={plan} targets={targets} onSave={onSave} onDraftChange={onDraftChange} onGoToMacros={onGoToMacros} onContinue={onContinue} />;
 }

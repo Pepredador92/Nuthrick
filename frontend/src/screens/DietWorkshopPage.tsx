@@ -363,7 +363,11 @@ export function DietWorkshopPage() {
     const run = async () => {
       const current = planRef.current;
       if (!current) throw new Error("No pudimos encontrar el plan que intentas guardar.");
-      const changed = changedDietPlanPatch(current, patch);
+      const menuSource = pendingDietMenu.current ?? current.diet_menu;
+      const reconciledPatch = patch.meal_distribution && menuSource && !patch.diet_menu
+        ? { ...patch, diet_menu: reconcileDietMenu(menuSource, patch.meal_distribution) }
+        : patch;
+      const changed = changedDietPlanPatch(current, reconciledPatch);
       if (!Object.keys(changed).length) return current;
       const updated = await updateDietPlan(current.id, changed);
       planRef.current = updated;

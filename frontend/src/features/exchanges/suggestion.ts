@@ -1,7 +1,7 @@
 import type { ExchangeDerivedTotals, ExchangeGroupCode, ExchangeTargetSnapshot } from "@/src/types/domain";
 import { exchangeCatalog as defaultExchangeCatalog, type ExchangeCatalogGroup } from "./catalog";
 
-export const EXCHANGE_SUGGESTION_ALGORITHM_VERSION = "EXCHANGE_SUGGESTION_V2";
+export const EXCHANGE_SUGGESTION_ALGORITHM_VERSION = "EXCHANGE_SUGGESTION_V3";
 export const EXCHANGE_SUGGESTION_INCREMENT = 0.5;
 
 /**
@@ -26,7 +26,7 @@ export const EXCHANGE_SUGGESTION_GROUP_TIERS: Record<ExchangeGroupCode, Exchange
   LEGUMES: "priority",
   AOA_VERY_LOW_FAT: "priority",
   AOA_LOW_FAT: "priority",
-  AOA_MODERATE_FAT: "secondary",
+  AOA_MODERATE_FAT: "priority",
   AOA_HIGH_FAT: "secondary",
   MILK_SKIM: "complementary",
   MILK_SEMI_SKIM: "complementary",
@@ -217,7 +217,7 @@ export function suggestExchangePrescription({
   }
   const initialPortions = exchangeCatalog.map((group) => {
     const lockedValue = locked.get(group.groupCode);
-    if (lockedValue !== undefined) return snap(lockedValue, increment, conservativeLimits[group.groupCode]);
+    if (lockedValue !== undefined) return lockedValue;
     return options.startFromCurrent ? snap(current.get(group.groupCode) ?? 0, increment, conservativeLimits[group.groupCode]) : 0;
   });
 

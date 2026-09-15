@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Calculator, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Clock3, LoaderCircle, Plus, Trash2 } from "lucide-react";
 import { exchangeCatalog } from "@/src/features/exchanges/catalog";
 import {
@@ -15,7 +15,6 @@ import {
   reconcileMealDistribution,
   removeMealTime,
   setDistributedPortions,
-  suggestMealDistribution,
   updateMealTime,
   type MealDistributionSuggestion,
 } from "@/src/features/meal-distribution/model";
@@ -23,8 +22,12 @@ import type { ExchangeGroupCode, ExchangePrescription, MealDistribution, MealDis
 import { WorkshopStepFooter } from "./WorkshopStepFooter";
 import { AutosaveFeedback } from "./AutosaveFeedback";
 import { useChangeAutosave } from "./useChangeAutosave";
+import { mealAlternatives, mealKey, describeMeals, preparationLimitations, type PreparationCatalog } from "@/src/features/diet-workshop/proposals";
+import { ProposalNavigation, useProposalExplorer, useProposalSetting } from "./useProposalExplorer";
+import { usePreparationCatalog } from "./usePreparationCatalog";
 
 type Props = {
+  catalog?: PreparationCatalog;
   plan: NutritionPlan;
   onSave: (distribution: MealDistribution, immediate?: boolean) => Promise<void>;
   onDraftChange: (distribution: MealDistribution) => void;
@@ -111,33 +114,28 @@ function MealNutritionSummary({ mealTimes, totals }: { mealTimes: MealTime[]; to
   </details>;
 }
 
-function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onGoToEquivalents, onContinue }: Props & { prescription: ExchangePrescription }) {
-  const initial = useMemo(() => plan.meal_distribution ? reconcileMealDistribution(plan.meal_distribution, prescription) : createMealDistribution(), [plan.meal_distribution, prescription]);
+function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onGoToEquivalents, onContinue, catalog: suppliedCatalog }: Props & { prescription: ExchangePrescription }) {
+  const [emptyDistribution] = useProposalSetting(`${plan.id}:initial-times`, createMealDistribution());
+  const initial = useMemo(() => plan.meal_distribution ? reconcileMealDistribution(plan.meal_distribution, prescription) : emptyDistribution, [plan.meal_distribution, prescription, emptyDistribution]);
   const [draft, setDraft] = useState(initial);
-  const [proposal, setProposal] = useState<MealDistributionSuggestion | null>(null);
-  const [startFromCurrent, setStartFromCurrent] = useState(false);
+  const [startFromCurrent, setStartFromCurrent] = useProposalSetting(`${plan.id}:meal-start`, false);
+  const [locked, setLocked] = useProposalSetting<string[]>(`${plan.id}:meal-locks`, []);
+  const preparation = usePreparationCatalog(suppliedCatalog);
+  const explorer = useProposalExplorer<MealDistributionSuggestion, MealDistribution>(`${plan.id}:meal-history`, JSON.stringify({ groups: prescription.groups, targets: prescription.target_snapshot, times: draft.meal_times, locked: draft.distribution.filter(e => locked.includes(e.meal_time_id)), lockedIds: locked, startFromCurrent, catalog: preparation.catalog }), mealKey);
+  const proposal = explorer.proposal;
+  const setProposal = (value: null) => { if (value === null) explorer.discard(); };
   const [showZeros, setShowZeros] = useState(false);
   const [selectedMealId, setSelectedMealId] = useState(initial.meal_times[0]?.id ?? "");
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newTime, setNewTime] = useState("");
   const [validationMessage, setValidationMessage] = useState("");
-  const planId = useRef(plan.id);
   const autosave = useChangeAutosave({ initialValue: initial, onSave: (value) => onSave(value, true), onDraftChange });
   const saveState = autosave.status;
 
-  useEffect(() => {
-    if (planId.current !== plan.id) {
-      planId.current = plan.id;
-      setDraft(initial);
-      setProposal(null);
-      setSelectedMealId(initial.meal_times[0]?.id ?? "");
-    }
-  }, [initial, plan.id, plan.meal_distribution]);
-
-  const update = (next: MealDistribution, immediate = false) => {
+  const update = (next: MealDistribution, immediate = false, exploring = false) => {
     setDraft(next);
-    setProposal(null);
+    if (!exploring) explorer.invalidate();
     setValidationMessage("");
     autosave.change(next, { immediate });
   };
@@ -168,8 +166,8 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
     setSelectedMealId(next.meal_times.at(-1)?.id ?? selectedMealId);
     setNewName(""); setNewTime(""); setAdding(false);
   };
-  const propose = () => setProposal(suggestMealDistribution(draft, prescription, currentHasValues && startFromCurrent));
-  const applyProposal = () => { if (proposal) update(applyMealDistributionSuggestion(draft, proposal), true); };
+  const propose = () => explorer.generate(() => mealAlternatives(draft, prescription, locked, currentHasValues && startFromCurrent, preparation.catalog));
+  const applyProposal = () => explorer.apply(draft, p => update(applyMealDistributionSuggestion(draft, p), true, true));
   const confirm = async () => {
     if (!currentSummary.canConfirm) return setValidationMessage("Resuelve las porciones pendientes o con exceso antes de confirmar.");
     if (draft.meal_times.some((meal) => !meal.display_name.trim())) return setValidationMessage("Todos los tiempos necesitan un nombre.");
@@ -197,6 +195,7 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
       <div className="mt-3 flex gap-3 overflow-x-auto pb-2">
         {mealTimes.map((meal, index) => <MealTimeEditor key={meal.id} meal={meal} index={index} count={mealTimes.length} assigned={portionsAssignedToMeal(draft, meal.id)} onChange={(values) => update(updateMealTime(draft, meal.id, values))} onMove={(direction) => update(moveMealTime(draft, meal.id, direction))} onRemove={() => removeTime(meal)} />)}
       </div>
+      <details className="mt-2 text-xs text-[#52675e]"><summary className="cursor-pointer font-semibold">Conservar tiempos</summary><p className="my-2">Fija todas las cantidades de un tiempo al generar alternativas.</p><div className="flex flex-wrap gap-3">{mealTimes.map(meal => <label key={meal.id} className="flex items-center gap-2"><input type="checkbox" checked={locked.includes(meal.id)} onChange={() => setLocked(locked.includes(meal.id) ? locked.filter(id => id !== meal.id) : [...locked, meal.id])} />{meal.display_name}</label>)}</div></details>
     </section>
 
     <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_290px] xl:items-start">
@@ -233,7 +232,15 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
         <dl className="mt-4 space-y-2 border-t border-[#dfe6e1] pt-4 text-sm"><div className="flex justify-between gap-3"><dt className="text-[#718078]">Distribuidos</dt><dd className="font-semibold tabular-nums text-[#24463b]">{format(displayedSummary.assignedPortions)} / {format(displayedSummary.availablePortions)} eq.</dd></div></dl>
         {!proposal && <RemainingExchanges entries={displayedEntries} prescription={prescription} />}
 
-        {proposal ? <div className="mt-4 border-t border-[#dfe6e1] pt-4"><button type="button" aria-label="Aplicar propuesta" className="nuth-button w-full justify-center" onClick={applyProposal}>Aplicar</button><button type="button" aria-label="Conservar mi distribución" className="nuth-button-secondary mt-2 w-full justify-center" onClick={() => setProposal(null)}>Descartar</button><button type="button" aria-label="Volver a proponer" className="mt-3 w-full text-center text-xs font-semibold text-[#477363]" onClick={propose}>Recalcular</button></div> : <div className="mt-4 border-t border-[#dfe6e1] pt-4"><button type="button" aria-label="Proponer distribución" className="nuth-button w-full justify-center" onClick={propose}><Calculator size={16} /> Proponer</button>{currentHasValues && <details className="mt-3 text-xs text-[#52675e]"><summary className="cursor-pointer text-center font-semibold">Preferencias</summary><label className="mt-2 flex items-center justify-center gap-2"><input type="checkbox" checked={startFromCurrent} onChange={(event) => setStartFromCurrent(event.target.checked)} /> Partir de mi distribución actual</label></details>}<button type="button" aria-label="Confirmar distribución" disabled={!currentSummary.canConfirm || saveState === "saving"} className="nuth-button-secondary mt-4 w-full justify-center disabled:cursor-not-allowed disabled:opacity-45" onClick={() => void confirm()}><Check size={16} /> Confirmar</button>{!currentSummary.canConfirm && <p className="mt-2 text-center text-[11px] leading-4 text-[#718078]">Completa pendientes y excesos para confirmar.</p>}</div>}
+        <ProposalNavigation count={explorer.count} index={explorer.index} onNavigate={explorer.navigate} />
+        {proposal && <details className="my-3 text-xs text-[#52675e]"><summary className="cursor-pointer font-semibold">Totales y diferencia frente al objetivo</summary><div className="mt-2 space-y-1">{([
+          ["Energía", "energy_kcal", "kcal"], ["Carbohidratos", "carbohydrate_g", "g"], ["Proteína", "protein_g", "g"], ["Grasas", "fat_g", "g"],
+        ] as const).map(([label, key, unit]) => { const total = displayedTotals.reduce((sum, m) => sum + m[key], 0); const delta = total - prescription.target_snapshot[key]; return <p key={key}>{label}: {format(total)} {unit} · {delta > 0 ? "+" : ""}{format(delta)} {unit}</p>; })}</div></details>}
+        {proposal && <p className="my-3 text-xs leading-5 text-[#52675e]">{describeMeals(proposal, draft, locked)}</p>}
+        {proposal && <p className="my-2 text-xs leading-5 text-[#8a642b]">{preparationLimitations(prescription.groups.filter(g => g.portions > 0).map(g => g.group_code), preparation.catalog)}</p>}
+        {(explorer.message || preparation.error) && <p role="status" className="my-3 text-xs leading-5 text-[#8a642b]">{explorer.message || preparation.error}</p>}
+        {explorer.canUndo && <button type="button" className="my-2 text-xs font-semibold text-[#315e4f]" onClick={() => explorer.undo(previous => update(reconcileMealDistribution(previous, prescription), true, true))}>Deshacer aplicación</button>}
+        {proposal ? <div className="mt-4 border-t border-[#dfe6e1] pt-4"><button type="button" aria-label="Aplicar propuesta" className="nuth-button w-full justify-center" onClick={applyProposal}>Aplicar</button><button type="button" aria-label="Conservar mi distribución" className="nuth-button-secondary mt-2 w-full justify-center" onClick={() => setProposal(null)}>Descartar</button><button type="button" aria-label="Volver a proponer" className="mt-3 w-full text-center text-xs font-semibold text-[#477363]" onClick={propose}>Otra propuesta</button></div> : <div className="mt-4 border-t border-[#dfe6e1] pt-4"><button type="button" disabled={preparation.loading} aria-label="Proponer distribución" className="nuth-button w-full justify-center" onClick={propose}><Calculator size={16} /> {preparation.loading ? "Preparando…" : explorer.count ? "Otra propuesta" : "Proponer"}</button>{currentHasValues && <details className="mt-3 text-xs text-[#52675e]"><summary className="cursor-pointer text-center font-semibold">Preferencias</summary><label className="mt-2 flex items-center justify-center gap-2"><input type="checkbox" checked={startFromCurrent} onChange={(event) => setStartFromCurrent(event.target.checked)} /> Partir de mi distribución actual</label></details>}<button type="button" aria-label="Confirmar distribución" disabled={!currentSummary.canConfirm || saveState === "saving"} className="nuth-button-secondary mt-4 w-full justify-center disabled:cursor-not-allowed disabled:opacity-45" onClick={() => void confirm()}><Check size={16} /> Confirmar</button>{!currentSummary.canConfirm && <p className="mt-2 text-center text-[11px] leading-4 text-[#718078]">Completa pendientes y excesos para confirmar.</p>}</div>}
       </aside>
     </div>
 
@@ -243,9 +250,9 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
   </section>;
 }
 
-export function DietMealDistributionStep({ plan, onSave, onDraftChange, onGoToEquivalents, onContinue }: Props) {
+export function DietMealDistributionStep({ plan, onSave, onDraftChange, onGoToEquivalents, onContinue, catalog }: Props) {
   const prescription = plan.exchange_prescription;
   const hasExchanges = prescription?.groups.some((group) => group.portions > EPSILON);
   if (!prescription || !hasExchanges) return <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-5 sm:p-7"><p className="nuth-eyebrow">Paso 4</p><h1 className="mt-2 text-2xl font-semibold text-[#173d36]">Tiempos de comida</h1><div className="mt-5 rounded-2xl bg-[#fff6e6] p-5 text-sm leading-6 text-[#765827]"><p className="font-semibold">Define primero los equivalentes del día.</p><p className="mt-1">Este paso distribuye el inventario existente; no crea porciones nuevas.</p><button type="button" className="nuth-button mt-4" onClick={onGoToEquivalents}>Ir a Equivalentes</button></div></section>;
-  return <MealDistributionEditor plan={plan} prescription={prescription} onSave={onSave} onDraftChange={onDraftChange} onGoToEquivalents={onGoToEquivalents} onContinue={onContinue} />;
+  return <MealDistributionEditor key={plan.id} catalog={catalog} plan={plan} prescription={prescription} onSave={onSave} onDraftChange={onDraftChange} onGoToEquivalents={onGoToEquivalents} onContinue={onContinue} />;
 }

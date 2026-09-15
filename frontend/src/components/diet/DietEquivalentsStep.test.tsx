@@ -1,5 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { clearProposalSession } from "./useProposalExplorer";
+vi.mock("./usePreparationCatalog", () => ({ usePreparationCatalog: () => ({ loading: false }) }));
+beforeEach(clearProposalSession);
 import { DietEquivalentsStep } from "./DietEquivalentsStep";
 import type { NutritionPlan } from "@/src/types/domain";
 
@@ -12,6 +15,28 @@ const plan: NutritionPlan = {
 const targets = { energy_kcal: 2000, carbohydrate_g: 250, protein_g: 100, fat_g: 60 };
 
 describe("DietEquivalentsStep", () => {
+  it("explores A-B-A without saving, applies, and restores manual portions", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const onDraftChange = vi.fn();
+    render(<DietEquivalentsStep plan={{ ...plan, id: "history-plan" }} targets={targets} onSave={onSave} onDraftChange={onDraftChange} onGoToMacros={vi.fn()} />);
+    fireEvent.click(screen.getByText("Agregar grupo"));
+    fireEvent.click(screen.getByRole("button", { name: /Verduras.*Agregar/ }));
+    fireEvent.change(screen.getByLabelText("Porciones de Verduras"), { target: { value: "1.33" } });
+    const manual = onDraftChange.mock.calls.at(-1)![0];
+    await waitFor(() => expect(onSave).toHaveBeenCalled(), { timeout: 1200 });
+    onSave.mockClear(); onDraftChange.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Proponer porciones" }));
+    const first = screen.getByLabelText("Porciones de Verduras").getAttribute("value");
+    fireEvent.click(screen.getByRole("button", { name: "Volver a proponer porciones" }));
+    expect(screen.getByText("Propuesta 2 de 2")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Propuesta anterior" }));
+    expect(screen.getByLabelText("Porciones de Verduras")).toHaveAttribute("value", first);
+    expect(onSave).not.toHaveBeenCalled(); expect(onDraftChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar propuesta" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: "Deshacer aplicación" }));
+    expect(onDraftChange.mock.calls.at(-1)![0].groups).toEqual(manual.groups);
+  });
   it("edits decimal portions, keeps the contribution secondary, and confirms without requiring an exact match", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const onDraftChange = vi.fn();
@@ -58,7 +83,7 @@ describe("DietEquivalentsStep", () => {
       status: "editing",
       confirmed_at: null,
       suggestion_source: "automatic",
-      suggestion_algorithm: "EXCHANGE_SUGGESTION_V2",
+      suggestion_algorithm: "EXCHANGE_SUGGESTION_V3",
     }));
     expect(screen.getAllByLabelText(/^Porciones de /).length).toBeLessThan(17);
     expect(screen.queryByLabelText("Porciones de Azúcares sin grasa")).not.toBeInTheDocument();
