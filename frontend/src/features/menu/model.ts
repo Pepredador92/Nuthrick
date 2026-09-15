@@ -197,6 +197,38 @@ export function replaceRecipeIngredient(recipe: Recipe, itemId: string, replacem
   };
 }
 
+/** Replaces an individual menu food with an exact-group equivalent. */
+export function replaceFoodMenuEntry(
+  menu: DietMenu,
+  mealDistribution: MealDistribution,
+  entryId: string,
+  replacement: FoodItem,
+) {
+  const variant = activeMenu(menu);
+  let changed = false;
+  const mealMenus = variant.meal_menus.map((meal) => ({
+    ...meal,
+    entries: meal.entries.map((entry) => {
+      if (entry.id !== entryId || entry.type !== "food" || !entry.food_snapshot || entry.food_snapshot.group_code !== replacement.group_code) return entry;
+      const portions = entry.exchange_contributions
+        .filter((value) => value.group_code === replacement.group_code)
+        .reduce((sum, value) => sum + Number(value.portions), 0);
+      const quantity = practicalFoodQuantity(portions * Number(replacement.portion_amount), replacement.portion_unit);
+      changed = true;
+      return {
+        ...entry,
+        source_id: replacement.id,
+        name_snapshot: replacement.name,
+        quantity,
+        unit: replacement.portion_unit,
+        food_snapshot: createFoodSnapshot(replacement),
+        exchange_contributions: exchangeContributionForFood(replacement, quantity),
+      };
+    }),
+  }));
+  return changed ? withVariant(menu, { ...variant, meal_menus: mealMenus }) : menu;
+}
+
 export function recipeIngredientsChanged(original: Recipe, adjusted: Recipe) {
   return original.items.some((item) => {
     const next = adjusted.items.find((candidate) => candidate.id === item.id);

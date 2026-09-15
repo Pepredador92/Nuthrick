@@ -16,6 +16,7 @@ import {
   reconcileDietMenu,
   recipeIngredientsChanged,
   replaceFoodEntriesWithRecipe,
+  replaceFoodMenuEntry,
   replaceRecipeIngredient,
   replaceRecipeMenuEntry,
   removeMenuEntry,
@@ -144,6 +145,16 @@ describe("diet menu model", () => {
     const manuallyAdjusted = adjustRecipeIngredients(substituted, { ri2: 1.5 });
     expect(manuallyAdjusted.items[1].exchange_contribution).toEqual([{ group_code: "CEREALS_NO_FAT", portions: 1.5 }]);
     expect(original.items[1]).toMatchObject({ food_item_id: "cereal", amount: 2 });
+  });
+
+  it("exchanges an individual food entry inside its exact group and preserves portions", () => {
+    const guava = { ...fruit, id: "guava", name: "Guayaba", portion_amount: 0.5, portion_unit: "cup" as const };
+    const original = addFoodToMenu(createDietMenu(distribution), distribution, breakfast, fruit, 1, "fruit-entry");
+    const exchanged = replaceFoodMenuEntry(original, distribution, "fruit-entry", guava);
+    const entry = activeMenu(exchanged).meal_menus[0].entries[0];
+    expect(entry).toMatchObject({ source_id: "guava", name_snapshot: "Guayaba", quantity: 0.5, unit: "cup" });
+    expect(entry.exchange_contributions).toEqual([{ group_code: "FRUITS", portions: 1 }]);
+    expect(replaceFoodMenuEntry(original, distribution, "fruit-entry", cereal)).toBe(original);
   });
 
   it("replaces proposed foods with a recipe while preserving exact menu usage", () => {

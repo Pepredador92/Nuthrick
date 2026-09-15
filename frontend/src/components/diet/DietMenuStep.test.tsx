@@ -197,9 +197,9 @@ describe("DietMenuStep", () => {
   it("previews and applies a deterministic proposal without saving immediately", async () => {
     const onDraftChange = vi.fn();
     render(<DietMenuStep plan={plan} catalog={{ foods: [food], recipes: [recipe] }} onSave={vi.fn().mockResolvedValue(undefined)} onDraftChange={onDraftChange} onGoToMeals={vi.fn()} />);
-    fireEvent.click(screen.getAllByRole("button", { name: "Proponer" })[0]);
-    expect(screen.getByRole("heading", { name: "Propuesta lista" })).toBeInTheDocument();
-    expect(screen.getByText("Vista previa")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Proponer alimentos y recetas para todos los tiempos pendientes" }));
+    expect(screen.getByRole("heading", { name: "Propuesta del día" })).toBeInTheDocument();
+    expect(screen.getByText("Vista previa editable")).toBeInTheDocument();
     expect(onDraftChange).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Aplicar propuesta" }));
     await waitFor(() => expect(onDraftChange).toHaveBeenCalled());
@@ -208,9 +208,9 @@ describe("DietMenuStep", () => {
   it("discards a proposal without changing the persisted draft", () => {
     const onDraftChange = vi.fn();
     render(<DietMenuStep plan={plan} catalog={{ foods: [food], recipes: [recipe] }} onSave={vi.fn()} onDraftChange={onDraftChange} onGoToMeals={vi.fn()} />);
-    fireEvent.click(screen.getAllByRole("button", { name: "Proponer" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Proponer alimentos y recetas para todos los tiempos pendientes" }));
     fireEvent.click(screen.getByRole("button", { name: "Descartar" }));
-    expect(screen.queryByRole("heading", { name: "Propuesta lista" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Propuesta del día" })).not.toBeInTheDocument();
     expect(onDraftChange).not.toHaveBeenCalled();
   });
 
@@ -223,7 +223,7 @@ describe("DietMenuStep", () => {
       ],
     };
     render(<DietMenuStep plan={{ ...plan, meal_distribution: twoGroupDistribution }} catalog={{ foods: [food, cerealFood], recipes: [] }} onSave={vi.fn()} onGoToMeals={vi.fn()} />);
-    fireEvent.click(screen.getAllByRole("button", { name: "Proponer" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Proponer alimentos y recetas para todos los tiempos pendientes" }));
     fireEvent.click(screen.getByRole("button", { name: "Crear receta" }));
     expect(screen.getByText(/1 taza · Papaya/)).toBeInTheDocument();
     expect(screen.getByText(/2 tortilla · Tortilla/)).toBeInTheDocument();
@@ -238,7 +238,7 @@ describe("DietMenuStep", () => {
     })));
     expect(await screen.findByText("¿Usar “Papaya fresca” en el menú?")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "No" }));
-    expect(screen.getByRole("heading", { name: "Propuesta lista" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Propuesta del día" })).toBeInTheDocument();
   });
 
   it("can cancel recipe creation without changing the proposal", () => {
@@ -247,10 +247,10 @@ describe("DietMenuStep", () => {
       { meal_time_id: "breakfast", group_code: "CEREALS_NO_FAT" as const, portions: 2 },
     ] };
     render(<DietMenuStep plan={{ ...plan, meal_distribution: twoGroupDistribution }} catalog={{ foods: [food, cerealFood], recipes: [] }} onSave={vi.fn()} onGoToMeals={vi.fn()} />);
-    fireEvent.click(screen.getAllByRole("button", { name: "Proponer" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Proponer alimentos y recetas para todos los tiempos pendientes" }));
     fireEvent.click(screen.getByRole("button", { name: "Crear receta" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
-    expect(screen.getByRole("heading", { name: "Propuesta lista" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Propuesta del día" })).toBeInTheDocument();
     expect(services.createCustomRecipe).not.toHaveBeenCalled();
   });
 
@@ -278,7 +278,7 @@ describe("DietMenuStep", () => {
       })),
     }));
     render(<DietMenuStep plan={{ ...plan, meal_distribution: twoGroupDistribution }} catalog={{ foods: [food, cerealFood], recipes: [] }} onSave={vi.fn()} onDraftChange={onDraftChange} onGoToMeals={vi.fn()} />);
-    fireEvent.click(screen.getAllByRole("button", { name: "Proponer" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Proponer alimentos y recetas para todos los tiempos pendientes" }));
     fireEvent.click(screen.getByRole("button", { name: "Crear receta" }));
     fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Desayuno personal" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
@@ -301,11 +301,12 @@ describe("DietMenuStep", () => {
     render(<DietMenuStep plan={plan} catalog={{ foods: [food, apple, cerealFood], recipes: [recipe] }} onSave={vi.fn()} onGoToMeals={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Agregar receta" }));
     fireEvent.click(await screen.findByRole("button", { name: "Revisar" }));
-    const selector = screen.getByRole("combobox", { name: "Alimento para Papaya" });
+    fireEvent.click(screen.getByRole("button", { name: "Intercambiar Papaya" }));
+    const selector = screen.getByRole("listbox", { name: "Alternativas para Papaya" });
     expect(selector).toHaveTextContent("Papaya");
     expect(selector).toHaveTextContent("Manzana");
     expect(selector).not.toHaveTextContent("Tortilla");
-    fireEvent.change(selector, { target: { value: "apple" } });
+    fireEvent.click(screen.getByRole("option", { name: /Manzana/ }));
     expect(screen.getByLabelText("Cantidad de Manzana")).toHaveValue(1);
     fireEvent.click(screen.getByRole("button", { name: "Agregar al menú" }));
     fireEvent.change(screen.getByLabelText("Nombre de la copia"), { target: { value: "Fruta personal" } });
@@ -315,5 +316,41 @@ describe("DietMenuStep", () => {
       items: [expect.objectContaining({ food: expect.objectContaining({ id: "apple" }), amount: 1 })],
     })));
     expect(recipe.items[0].food_item_id).toBe("fruit");
+  });
+
+  it("distinguishes day and time proposals, and keeps a food exchange temporary until Apply", async () => {
+    const preferredPapaya = { ...food, use_count: 20 };
+    const guava = { ...food, id: "guava", name: "Guayaba", normalized_name: "guayaba", portion_amount: 0.5, portion_description: "½ taza" };
+    const onDraftChange = vi.fn();
+    render(<DietMenuStep plan={plan} catalog={{ foods: [preferredPapaya, guava], recipes: [] }} onSave={vi.fn()} onDraftChange={onDraftChange} onGoToMeals={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Proponer alimentos y recetas para todos los tiempos pendientes" })).toHaveTextContent("Proponer día");
+    expect(screen.getByRole("button", { name: "Proponer alimentos y recetas para este tiempo de comida" })).toHaveTextContent("Proponer tiempo");
+    fireEvent.click(screen.getByRole("button", { name: "Proponer alimentos y recetas para todos los tiempos pendientes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Intercambiar Papaya" }));
+    const alternatives = screen.getByRole("listbox", { name: "Alternativas para Papaya" });
+    expect(alternatives).toHaveTextContent("Papaya");
+    expect(alternatives).toHaveTextContent("Guayaba");
+    fireEvent.click(screen.getByRole("option", { name: /Guayaba/ }));
+    expect(screen.getByRole("button", { name: "Intercambiar Guayaba" })).toBeInTheDocument();
+    expect(onDraftChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar propuesta" }));
+    await waitFor(() => expect(onDraftChange).toHaveBeenCalled());
+    const savedMenu = onDraftChange.mock.calls.at(-1)?.[0];
+    expect(activeMenu(savedMenu).meal_menus[0].entries[0]).toMatchObject({ name_snapshot: "Guayaba", quantity: 0.5 });
+    expect(calculateMenuUsage(savedMenu)).toContainEqual({ meal_time_id: "breakfast", group_code: "FRUITS", portions: 1 });
+  });
+
+  it("keeps an explicitly written recipe name instead of replacing it after ingredient edits", () => {
+    const twoGroupDistribution = { ...mealDistribution, distribution: [
+      ...mealDistribution.distribution,
+      { meal_time_id: "breakfast", group_code: "CEREALS_NO_FAT" as const, portions: 2 },
+    ] };
+    render(<DietMenuStep plan={{ ...plan, meal_distribution: twoGroupDistribution }} catalog={{ foods: [food, cerealFood], recipes: [] }} onSave={vi.fn()} onGoToMeals={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Proponer alimentos y recetas para todos los tiempos pendientes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Crear receta" }));
+    expect(screen.getByLabelText("Nombre")).toHaveValue("Tortilla con papaya");
+    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Mi desayuno favorito" } });
+    fireEvent.click(screen.getByRole("button", { name: "Quitar Tortilla" }));
+    expect(screen.getByLabelText("Nombre")).toHaveValue("Mi desayuno favorito");
   });
 });
