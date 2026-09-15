@@ -9,10 +9,12 @@ import {
   calculateMenuStatus,
   confirmDietMenu,
   createDietMenu,
+  expandMenuEntriesToRecipeItems,
+  MENU_COMPARISON_TOLERANCE,
   reconcileDietMenu,
   recipeIngredientsChanged,
-  replaceFoodEntriesWithRecipe,
   replaceFoodMenuEntry,
+  replaceMenuEntriesWithRecipe,
   replaceRecipeIngredient,
   removeMenuEntry,
   sameMealDistribution,
@@ -189,7 +191,7 @@ function FoodExchangeSelector({ food, foods, onSelect, className = "" }: {
     .sort((a, b) => a.name.localeCompare(b.name, "es-MX"));
 
   return <div className={`relative min-w-0 ${className}`}>
-    <button type="button" aria-label={`Intercambiar ${food.name}`} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)} className="flex min-w-0 items-center gap-1 text-left text-sm font-semibold text-[#315449] hover:text-[#173d36]">
+    <button type="button" aria-label={`Intercambiar ${food.name}`} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)} className="-mx-1 flex min-w-0 cursor-pointer items-center gap-1 rounded-lg px-1 py-0.5 text-left text-sm font-semibold text-[#315449] transition-colors hover:bg-[#edf5ef] hover:text-[#173d36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79a792]">
       <span className="truncate">{food.name}</span><ChevronRight size={15} className="shrink-0 text-[#789087]" />
     </button>
     {open && <div role="listbox" aria-label={`Alternativas para ${food.name}`} className="absolute left-0 top-[calc(100%+.4rem)] z-30 max-h-56 min-w-56 overflow-y-auto rounded-xl border border-[#bfd1c6] bg-white p-2 shadow-[0_14px_32px_rgba(23,61,54,.16)]">
@@ -200,11 +202,12 @@ function FoodExchangeSelector({ food, foods, onSelect, className = "" }: {
   </div>;
 }
 
-function RecipeForm({ foods, busy, initialItems = [], submitLabel = "Guardar y usar", onCancel, onCreate }: {
+function RecipeForm({ foods, busy, initialItems = [], submitLabel = "Guardar y usar", context = "Se guardará para reutilizarla con otros pacientes.", onCancel, onCreate }: {
   foods: FoodItem[];
   busy: boolean;
   initialItems?: RecipeDraftItem[];
   submitLabel?: string;
+  context?: string;
   onCancel: () => void;
   onCreate: (name: string, items: RecipeDraftItem[], description: string, instructions: string, substitutions: string) => void;
 }) {
@@ -219,7 +222,7 @@ function RecipeForm({ foods, busy, initialItems = [], submitLabel = "Guardar y u
   const selected = foods.find((food) => food.id === foodId);
   const autoName = useMemo(() => generateRecipeName(items.map((item) => item.food)), [items]);
   const name = nameMode === "manual" ? manualName : autoName;
-  return <div className="rounded-2xl border border-[#cfdcd4] bg-[#f9fbf8] p-4"><div className="flex items-center justify-between"><div><h3 className="font-semibold text-[#24463b]">Crear receta</h3><p className="mt-1 text-xs text-[#718078]">Se guardará para reutilizarla con otros pacientes.</p></div><button type="button" aria-label="Cerrar receta" onClick={onCancel}><X size={18} /></button></div>
+  return <div className="rounded-2xl border border-[#cfdcd4] bg-[#f9fbf8] p-4"><div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold text-[#24463b]">Crear receta</h3><p className="mt-1 max-w-2xl text-xs leading-5 text-[#718078]">{context}</p></div><button type="button" aria-label="Cerrar receta" onClick={onCancel}><X size={18} /></button></div>
     <label className="mt-4 block text-xs font-semibold text-[#52675e]">Nombre<input className="nuth-input mt-1" value={name} onChange={(e) => { setManualName(e.target.value); setNameMode("manual"); }} /></label>
     <label className="mt-3 block text-xs font-semibold text-[#52675e]">Descripción opcional<input className="nuth-input mt-1" placeholder="Ej. Desayuno rápido con fruta" value={description} onChange={(e) => setDescription(e.target.value)} /></label>
     <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_110px_auto]"><select aria-label="Alimento de la receta" className="nuth-input" value={foodId} onChange={(e) => { const food = foods.find((item) => item.id === e.target.value); setFoodId(e.target.value); setAmount(Number(food?.portion_amount ?? 1)); }}>{foods.map((food) => <option key={food.id} value={food.id}>{food.name}</option>)}</select><input aria-label="Cantidad del ingrediente" type="number" min="0.001" step="0.5" className="nuth-input" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /><button type="button" className="nuth-button-secondary justify-center" disabled={!selected || amount <= 0} onClick={() => selected && setItems([...items, { food: selected, amount }])}>Añadir</button></div>
@@ -308,7 +311,7 @@ function MenuProposalPanel({ proposal, mode, canReplace, foods, onMode, onApply,
     <div className="flex items-start justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-[.12em] text-[#477363]">Vista previa editable</p><h3 className="mt-1 font-semibold text-[#24463b]">{isDay ? "Propuesta del día" : `Propuesta para ${proposal.meals[0]?.mealName ?? "este tiempo"}`}</h3><p className="mt-1 text-xs text-[#718078]">{complete} tiempos completos{pending ? ` · ${pending} con pendiente` : ""}. Pulsa un alimento para intercambiarlo; nada se guarda hasta aplicar.</p></div><button type="button" aria-label="Descartar propuesta" onClick={onDiscard}><X size={19} /></button></div>
     {canReplace && <div className="mt-3 flex w-fit rounded-xl bg-[#edf2ee] p-1"><button type="button" aria-pressed={mode === "complete"} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${mode === "complete" ? "bg-white text-[#24463b] shadow-sm" : "text-[#718078]"}`} onClick={() => onMode("complete")}>Completar pendientes</button><button type="button" aria-pressed={mode === "replace"} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${mode === "replace" ? "bg-white text-[#24463b] shadow-sm" : "text-[#718078]"}`} onClick={() => onMode("replace")}>Rehacer tiempo</button></div>}
     <div className="mt-4 grid min-w-0 gap-3">{proposal.meals.map((meal) => {
-      const individualFoods = meal.addedEntries.filter((entry) => entry.type === "food");
+      const derivedIngredients = expandMenuEntriesToRecipeItems(meal.addedEntries, foods);
       const coverage = [...meal.addedEntries.flatMap((entry) => entry.exchange_contributions.map((item) => item.group_code))];
       return <section key={meal.mealTimeId} className="min-w-0 rounded-xl border border-[#dce7df] bg-white p-3">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
@@ -318,11 +321,11 @@ function MenuProposalPanel({ proposal, mode, canReplace, foods, onMode, onApply,
         <div className="mt-3 divide-y divide-[#edf1ee]">{meal.addedEntries.map((entry) => <div key={entry.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 py-2.5">
           {entry.type === "food" && entry.food_snapshot
             ? <FoodExchangeSelector food={{ id: entry.source_id, name: entry.name_snapshot, group_code: entry.food_snapshot.group_code }} foods={foods} onSelect={(replacement) => onExchangeFood(entry.id, replacement)} />
-            : <button type="button" className="min-w-0 text-left text-sm font-semibold text-[#315449] hover:text-[#173d36]" onClick={() => onEditRecipe(entry, meal)}><span className="block break-words">{entry.name_snapshot}</span><span className="mt-0.5 block text-[11px] font-normal text-[#718078]">Editar receta</span></button>}
+            : <button type="button" className="-mx-1 min-w-0 cursor-pointer rounded-lg px-1 py-0.5 text-left text-sm font-semibold text-[#315449] transition-colors hover:bg-[#edf5ef] hover:text-[#173d36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79a792]" onClick={() => onEditRecipe(entry, meal)}><span className="block break-words">{entry.name_snapshot}</span><span className="mt-0.5 block text-[11px] font-normal text-[#54776a]">Revisar ingredientes</span></button>}
           <p className="shrink-0 whitespace-nowrap text-right text-sm text-[#52675e]">{entry.type === "recipe" ? `${format(entry.quantity)} porción` : `${format(entry.quantity)} ${unitLabels[entry.unit]}`}</p>
           <p className="col-span-2 min-w-0 break-words text-[11px] leading-4 text-[#78867f]">{entry.exchange_contributions.map((item) => `${getExchangeGroup(item.group_code).shortName} · ${format(item.portions)} eq`).join(" · ")}</p>
         </div>)}{!meal.addedEntries.length && <p className="py-2 text-xs text-[#718078]">No necesita cambios.</p>}</div>
-        {individualFoods.length >= 2 && <button type="button" className="mt-3 text-xs font-semibold text-[#3d705d]" onClick={() => onCreateRecipe(meal)}><Plus size={13} className="mr-1 inline" />Crear receta</button>}
+        {meal.addedEntries.length >= 2 && derivedIngredients.length >= 2 && <button type="button" className="mt-3 text-xs font-semibold text-[#3d705d]" onClick={() => onCreateRecipe(meal)}><Plus size={13} className="mr-1 inline" />Crear receta</button>}
         <div className="mt-3 border-t border-[#edf1ee] pt-3"><p className="text-[10px] font-bold uppercase tracking-[.1em] text-[#718078]">Cobertura</p><div className="mt-2 flex flex-wrap gap-1">{[...new Set(coverage)].map((code) => <span key={code} className="rounded-full bg-[#edf5ef] px-2 py-0.5 text-[10px] font-semibold text-[#35624e]">✓ {getExchangeGroup(code).shortName}</span>)}</div>{meal.pending.length > 0 && <p className="mt-2 break-words text-xs text-[#8a692d]">Falta: {meal.pending.map((item) => `${format(item.portions)} ${getExchangeGroup(item.group_code).shortName}`).join(" · ")}</p>}{meal.excess.length > 0 && <p className="mt-2 break-words text-xs text-[#a64a3d]">Excede: {meal.excess.map((item) => `${format(item.portions)} ${getExchangeGroup(item.group_code).shortName}`).join(" · ")}</p>}</div>
       </section>;
     })}</div>
@@ -427,8 +430,8 @@ export function DietMenuStep({ plan, onSave, onDraftChange, onGoToMeals, catalog
       return {
         ...proposalMeal,
         addedEntries: proposalMeal.addedEntries.map((entry) => nextEntries.find((candidate) => candidate.id === entry.id) ?? entry),
-        pending: rows.filter((row) => row.remaining > 0.000001).map((row) => ({ group_code: row.group_code, portions: row.remaining })),
-        excess: rows.filter((row) => row.remaining < -0.000001).map((row) => ({ group_code: row.group_code, portions: -row.remaining })),
+        pending: rows.filter((row) => row.remaining > MENU_COMPARISON_TOLERANCE).map((row) => ({ group_code: row.group_code, portions: row.remaining })),
+        excess: rows.filter((row) => row.remaining < -MENU_COMPARISON_TOLERANCE).map((row) => ({ group_code: row.group_code, portions: -row.remaining })),
         complete: rows.length > 0 && rows.every((row) => row.state === "complete"),
       };
     });
@@ -446,15 +449,12 @@ export function DietMenuStep({ plan, onSave, onDraftChange, onGoToMeals, catalog
     setPanel("proposal_recipe_adjust");
   };
   const startProposalRecipe = (proposalMeal: MenuProposalMeal) => {
-    const individualFoods = proposalMeal.addedEntries.filter((entry) => entry.type === "food" && entry.food_snapshot);
-    if (individualFoods.length < 2) return;
-    setProposalRecipeDraft({ mealTimeId: proposalMeal.mealTimeId, entries: individualFoods });
+    const entries = proposalMeal.addedEntries.filter((entry) => (entry.type === "food" && entry.food_snapshot) || (entry.type === "recipe" && entry.recipe_snapshot));
+    if (entries.length < 2 || expandMenuEntriesToRecipeItems(entries, foods).length < 2) return;
+    setProposalRecipeDraft({ mealTimeId: proposalMeal.mealTimeId, entries });
     setPanel("proposal_recipe");
   };
-  const proposalRecipeItems = proposalRecipeDraft?.entries.flatMap((entry) => {
-    const food = foods.find((candidate) => candidate.id === entry.source_id || candidate.id === entry.food_snapshot?.id);
-    return food ? [{ food, amount: entry.quantity }] : [];
-  }) ?? [];
+  const proposalRecipeItems = proposalRecipeDraft ? expandMenuEntriesToRecipeItems(proposalRecipeDraft.entries, foods) : [];
   const saveProposalRecipe = async (name: string, items: RecipeDraftItem[], description: string, instructions: string, substitutions: string) => {
     if (!proposalRecipeDraft) return;
     const proposalMeal = distribution.meal_times.find((candidate) => candidate.id === proposalRecipeDraft.mealTimeId);
@@ -470,7 +470,7 @@ export function DietMenuStep({ plan, onSave, onDraftChange, onGoToMeals, catalog
   const finishProposalRecipe = (useRecipe: boolean) => {
     if (useRecipe && proposal && createdProposalRecipe) {
       const entryIds = createdProposalRecipe.entries.map((entry) => entry.id);
-      const nextMenu = replaceFoodEntriesWithRecipe(proposal.menu, distribution, createdProposalRecipe.mealTimeId, entryIds, createdProposalRecipe.recipe);
+      const nextMenu = replaceMenuEntriesWithRecipe(proposal.menu, distribution, createdProposalRecipe.mealTimeId, entryIds, createdProposalRecipe.recipe);
       const nextRecipeEntry = activeMenu(nextMenu).meal_menus.find((candidate) => candidate.meal_time_id === createdProposalRecipe.mealTimeId)?.entries.find((entry) => entry.type === "recipe" && entry.source_id === createdProposalRecipe.recipe.id);
       setProposal({ ...proposal, menu: nextMenu, meals: proposal.meals.map((proposalMeal) => proposalMeal.mealTimeId !== createdProposalRecipe.mealTimeId ? proposalMeal : { ...proposalMeal, addedEntries: [...proposalMeal.addedEntries.filter((entry) => !entryIds.includes(entry.id)), ...(nextRecipeEntry ? [nextRecipeEntry] : [])] }) });
     }
@@ -500,7 +500,7 @@ export function DietMenuStep({ plan, onSave, onDraftChange, onGoToMeals, catalog
         {panel === "recipe_adjust" && selectedRecipe && <div className="mt-4"><RecipeAdjustPanel key={`${selectedRecipe.id}-${editingRecipeEntryId ?? "new"}`} recipe={selectedRecipe} foods={foods} pending={requiredRemaining} mealType={meal.meal_type} busy={busy} onCancel={() => { setPanel("recipe"); setEditingRecipeEntryId(null); }} onUse={useAdjustedRecipe} onSaveCopy={(name, recipe) => void saveRecipeCopy(name, recipe)} /></div>}
         {panel === "new_food" && <div className="mt-4"><CustomFoodForm initialGroup={groupFilter === "all" ? (requiredRemaining[0]?.group_code ?? "VEGETABLES") : groupFilter} busy={busy} onCancel={() => setPanel("food")} onCreate={(input) => void saveCustomFood(input)} /></div>}
         {panel === "new_recipe" && <div className="mt-4"><RecipeForm foods={foods} busy={busy} onCancel={() => setPanel("recipe")} onCreate={(name, items, description, instructions, substitutions) => void saveRecipe(name, items, description, instructions, substitutions)} /></div>}
-        {panel === "proposal_recipe" && proposalRecipeDraft && <div className="mt-4"><RecipeForm foods={foods} busy={busy} initialItems={proposalRecipeItems} submitLabel="Guardar" onCancel={() => { setPanel(null); setProposalRecipeDraft(null); }} onCreate={(...values) => void saveProposalRecipe(...values)} /></div>}
+        {panel === "proposal_recipe" && proposalRecipeDraft && <div className="mt-4"><RecipeForm foods={foods} busy={busy} initialItems={proposalRecipeItems} submitLabel="Guardar" context="Incluye todos los componentes visibles de la propuesta. Las recetas se expanden a sus ingredientes; puedes quitar lo que no quieras agrupar." onCancel={() => { setPanel(null); setProposalRecipeDraft(null); }} onCreate={(...values) => void saveProposalRecipe(...values)} /></div>}
         {panel === "proposal_recipe_use" && createdProposalRecipe && <div className="mt-4"><UseCreatedRecipePanel recipe={createdProposalRecipe.recipe} onKeepFoods={() => finishProposalRecipe(false)} onUseRecipe={() => finishProposalRecipe(true)} /></div>}
         {panel === "proposal_recipe_adjust" && proposalRecipeEdit && proposalRecipeEntry && <ProposalRecipeEditor key={proposalRecipeEdit.entryId} entry={proposalRecipeEntry} recipe={proposalRecipeEdit.recipe} foods={foods} onCancel={() => { setPanel(null); setProposalRecipeEdit(null); }} onChange={(nextRecipe) => { if (!proposal) return; updateProposalMenu(updateRecipeMenuEntryIngredients(proposal.menu, distribution, proposalRecipeEdit.entryId, nextRecipe.items)); setProposalRecipeEdit((current) => current ? { ...current, recipe: nextRecipe } : current); }} />}
       </main>

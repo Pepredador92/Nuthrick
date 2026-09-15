@@ -32,4 +32,13 @@ describe("generateRecipeName", () => {
       ingredient("Jitomate", "VEGETABLES"),
     ])).toBe("Atún con tostadas y aguacate");
   });
+
+  it("uses one principal AOA and then the next prescribed groups", () => {
+    expect(generateRecipeName([
+      ingredient("Atún en agua", "AOA_VERY_LOW_FAT"),
+      ingredient("Tostada horneada", "CEREALS_NO_FAT"),
+      ingredient("Frijoles cocidos", "LEGUMES"),
+      ingredient("Clara de huevo", "AOA_VERY_LOW_FAT"),
+    ])).toBe("Atún con tostadas y frijoles");
+  });
 });

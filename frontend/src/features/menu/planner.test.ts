@@ -61,7 +61,7 @@ describe("deterministic menu planner", () => {
     const proposal = proposeDietMenu({ menu: createDietMenu(distribution), distribution, foods: [cereal, fruit, chicken, oil], recipes: [breakfastRecipe, lunchRecipe] });
     expect(proposal.meals).toHaveLength(3);
     expect(proposal.exact).toBe(true);
-    expect(activeMenu(proposal.menu).meal_menus.find((meal) => meal.meal_time_id === "breakfast")?.entries.map((entry) => entry.type)).toEqual(["recipe", "food", "food"]);
+    expect(activeMenu(proposal.menu).meal_menus.find((meal) => meal.meal_time_id === "breakfast")?.entries.map((entry) => entry.type)).toEqual(["recipe", "food"]);
     expect(calculateMenuStatus(proposal.menu, distribution).canConfirm).toBe(true);
   });
 
@@ -101,7 +101,7 @@ describe("deterministic menu planner", () => {
     expect(entries[0]).toMatchObject({ id: "manual-fruit", quantity: 1 });
   });
 
-  it("does not mix milk subtypes merely to force exactness", () => {
+  it("fills prescribed milk subtypes independently", () => {
     const skim = food("skim", "Leche descremada", "MILK_SKIM", 1, "cup");
     const semi = food("semi", "Leche semidescremada", "MILK_SEMI_SKIM", 1, "cup");
     const milkDistribution = { ...distribution, distribution: [
@@ -109,15 +109,56 @@ describe("deterministic menu planner", () => {
       { meal_time_id: "breakfast", group_code: "MILK_SEMI_SKIM" as const, portions: 1 },
     ] };
     const proposal = proposeDietMenu({ menu: createDietMenu(milkDistribution), distribution: milkDistribution, foods: [skim, semi], recipes: [], mealTimeId: "breakfast" });
-    expect(activeMenu(proposal.menu).meal_menus[0].entries).toHaveLength(1);
-    expect(proposal.meals[0].pending).toHaveLength(1);
+    expect(activeMenu(proposal.menu).meal_menus[0].entries).toHaveLength(2);
+    expect(proposal.meals[0].pending).toEqual([]);
+    expect(proposal.meals[0].complete).toBe(true);
     expect(exchangeGroupFamily("MILK_SKIM")).toBe(exchangeGroupFamily("MILK_SEMI_SKIM"));
   });
 
   it("caps automatic recipe ingredient adjustments at a practical factor", () => {
     const adjusted = adjustRecipeToPending(breakfastRecipe, [{ group_code: "CEREALS_NO_FAT", portions: 5 }]);
-    expect(adjusted.items[0].amount).toBe(1.5);
+    expect(adjusted.items[0].amount).toBe(2);
     expect(breakfastRecipe.items[0].amount).toBe(1);
+  });
+
+  it("covers the recorded lunch case without redundant AOA subtypes or tiny residual foods", () => {
+    const vegetables = food("vegetables", "Jitomate", "VEGETABLES", 1, "piece");
+    const toast = food("toast", "Tostada horneada", "CEREALS_NO_FAT", 1, "tortilla");
+    const beans = food("beans", "Frijoles cocidos", "LEGUMES", 0.5, "cup");
+    const tuna = food("tuna", "Atún en agua", "AOA_VERY_LOW_FAT", 30, "g");
+    const lowFatProtein = food("low-fat", "Pechuga de pollo", "AOA_LOW_FAT", 40, "g");
+    const observedRecipe = recipe("observed", "Tostadas de atún con frijoles", ["MAIN_MEAL"], [
+      { food: toast, amount: 0.5 },
+      { food: tuna, amount: 30 },
+      { food: beans, amount: 0.5 },
+      { food: vegetables, amount: 1 },
+    ]);
+    const observedDistribution: MealDistribution = {
+      ...distribution,
+      distribution: [
+        { meal_time_id: "lunch", group_code: "VEGETABLES", portions: 1.5 },
+        { meal_time_id: "lunch", group_code: "CEREALS_NO_FAT", portions: 1 },
+        { meal_time_id: "lunch", group_code: "LEGUMES", portions: 3 },
+        { meal_time_id: "lunch", group_code: "AOA_VERY_LOW_FAT", portions: 2 },
+        { meal_time_id: "lunch", group_code: "AOA_LOW_FAT", portions: 1.5 },
+      ],
+    };
+
+    const proposal = proposeDietMenu({
+      menu: createDietMenu(observedDistribution),
+      distribution: observedDistribution,
+      foods: [vegetables, toast, beans, tuna, lowFatProtein],
+      recipes: [observedRecipe],
+      mealTimeId: "lunch",
+    });
+    const entries = activeMenu(proposal.menu).meal_menus.find((meal) => meal.meal_time_id === "lunch")?.entries ?? [];
+    const individualGroups = entries.flatMap((entry) => entry.type === "food" && entry.food_snapshot ? [entry.food_snapshot.group_code] : []);
+
+    expect(proposal.algorithm).toBe("deterministic-menu-planner-v3");
+    expect(proposal.meals[0]).toMatchObject({ complete: true, pending: [], excess: [] });
+    expect(entries.filter((entry) => entry.type === "recipe")).toHaveLength(1);
+    expect(individualGroups).toEqual(["AOA_LOW_FAT", "LEGUMES"]);
+    expect(individualGroups).not.toContain("AOA_VERY_LOW_FAT");
   });
 
   it("rebuilds only the selected time when explicitly requested", () => {

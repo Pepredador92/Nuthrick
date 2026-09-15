@@ -12,7 +12,9 @@ import type {
 } from "@/src/types/domain";
 
 export const DIET_MENU_SCHEMA_VERSION = 1 as const;
-export const MENU_COMPARISON_TOLERANCE = 1e-6;
+/** Differences at or below one tenth of an exchange are clinically impractical for automatic completion. */
+export const MENU_COMPARISON_TOLERANCE = 0.1;
+const MENU_NUMERIC_EPSILON = 1e-6;
 
 const practicalSteps: Record<FoodItem["portion_unit"], number> = {
   g: 10,
@@ -52,7 +54,7 @@ export function createFoodSnapshot(food: FoodItem): FoodSnapshot {
 
 export function exchangeContributionForFood(food: FoodItem | FoodSnapshot, amount: number) {
   const portions = Number(food.portion_amount) > 0 ? round(amount / Number(food.portion_amount)) : 0;
-  return portions > MENU_COMPARISON_TOLERANCE ? [{ group_code: food.group_code, portions }] : [];
+  return portions > MENU_NUMERIC_EPSILON ? [{ group_code: food.group_code, portions }] : [];
 }
 
 export function practicalFoodQuantity(value: number, unit: FoodItem["portion_unit"], minimum = practicalSteps[unit]) {
@@ -64,7 +66,7 @@ export function practicalFoodQuantity(value: number, unit: FoodItem["portion_uni
 function aggregateContributions(contributions: Array<{ group_code: ExchangeGroupCode; portions: number }>) {
   const totals = new Map<ExchangeGroupCode, number>();
   for (const item of contributions) totals.set(item.group_code, round((totals.get(item.group_code) ?? 0) + item.portions));
-  return [...totals.entries()].map(([group_code, portions]) => ({ group_code, portions })).filter((item) => item.portions > MENU_COMPARISON_TOLERANCE);
+  return [...totals.entries()].map(([group_code, portions]) => ({ group_code, portions })).filter((item) => item.portions > MENU_NUMERIC_EPSILON);
 }
 
 export function recipeExchangeContributions(recipe: Recipe, servings = 1) {
@@ -235,11 +237,81 @@ export function recipeIngredientsChanged(original: Recipe, adjusted: Recipe) {
     return !next
       || (next.food_item_id ?? next.food_snapshot.id) !== (item.food_item_id ?? item.food_snapshot.id)
       || next.unit !== item.unit
-      || Math.abs(Number(next.amount) - Number(item.amount)) > MENU_COMPARISON_TOLERANCE;
+      || Math.abs(Number(next.amount) - Number(item.amount)) > MENU_NUMERIC_EPSILON;
   });
 }
 
-export function replaceFoodEntriesWithRecipe(
+function foodFromSnapshot(snapshot: FoodSnapshot, catalog: FoodItem[]): FoodItem {
+  const current = catalog.find((food) => food.id === snapshot.id);
+  return {
+    ...(current ?? {
+      id: snapshot.id,
+      owner_id: null,
+      stable_code: null,
+      catalog_code: null,
+      name: snapshot.name,
+      normalized_name: snapshot.name.toLocaleLowerCase("es-MX"),
+      aliases: [],
+      brand: null,
+      category: null,
+      exchange_system_code: snapshot.exchange_system_code,
+      exchange_catalog_version: snapshot.exchange_catalog_version,
+      group_code: snapshot.group_code,
+      portion_amount: snapshot.portion_amount,
+      portion_unit: snapshot.portion_unit,
+      portion_description: snapshot.portion_description,
+      alternate_portions: [],
+      edible_grams: null,
+      energy_kcal: null,
+      carbohydrate_g: null,
+      protein_g: null,
+      fat_g: null,
+      fiber_g: null,
+      sodium_mg: null,
+      attributes: snapshot.attributes,
+      source: snapshot.source,
+      source_version: snapshot.source_version,
+      source_reference: null,
+      is_custom: snapshot.is_custom,
+      use_count: 0,
+      active: true,
+      created_at: "",
+      updated_at: "",
+    }),
+    ...snapshot,
+    attributes: { ...snapshot.attributes },
+  };
+}
+
+/** Expands visible foods and recipe snapshots into flat food ingredients for a derived recipe. */
+export function expandMenuEntriesToRecipeItems(entries: DietMenuEntry[], catalog: FoodItem[]) {
+  const ingredients = new Map<string, { food: FoodItem; amount: number; order: number }>();
+  const add = (snapshot: FoodSnapshot, amount: number) => {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    const food = foodFromSnapshot(snapshot, catalog);
+    const key = `${food.id}:${snapshot.portion_unit}`;
+    const existing = ingredients.get(key);
+    ingredients.set(key, {
+      food,
+      amount: round((existing?.amount ?? 0) + amount),
+      order: existing?.order ?? ingredients.size,
+    });
+  };
+
+  for (const entry of entries) {
+    if (entry.type === "food" && entry.food_snapshot) add(entry.food_snapshot, entry.quantity);
+    if (entry.type === "recipe" && entry.recipe_snapshot) {
+      const factor = entry.quantity / Number(entry.recipe_snapshot.servings || 1);
+      for (const item of entry.recipe_snapshot.items) add(item.food_snapshot, Number(item.amount) * factor);
+    }
+  }
+
+  return [...ingredients.values()]
+    .sort((a, b) => a.order - b.order)
+    .map(({ food, amount }) => ({ food, amount }));
+}
+
+export function replaceMenuEntriesWithRecipe(
   menu: DietMenu,
   mealDistribution: MealDistribution,
   mealTimeId: string,
@@ -247,12 +319,23 @@ export function replaceFoodEntriesWithRecipe(
   recipe: Recipe,
 ) {
   const selectedIds = new Set(entryIds);
-  const withoutFoods = entryIds.reduce((next, entryId) => removeMenuEntry(next, mealDistribution, entryId), menu);
   const selectedCount = activeMenu(menu).meal_menus
     .find((meal) => meal.meal_time_id === mealTimeId)?.entries
-    .filter((entry) => selectedIds.has(entry.id) && entry.type === "food").length ?? 0;
+    .filter((entry) => selectedIds.has(entry.id)).length ?? 0;
   if (!selectedCount) return menu;
-  return addRecipeToMenu(withoutFoods, mealDistribution, mealTimeId, recipe, 1);
+  const withoutEntries = entryIds.reduce((next, entryId) => removeMenuEntry(next, mealDistribution, entryId), menu);
+  return addRecipeToMenu(withoutEntries, mealDistribution, mealTimeId, recipe, 1);
+}
+
+/** @deprecated Use replaceMenuEntriesWithRecipe for foods and expanded recipe snapshots. */
+export function replaceFoodEntriesWithRecipe(
+  menu: DietMenu,
+  mealDistribution: MealDistribution,
+  mealTimeId: string,
+  entryIds: string[],
+  recipe: Recipe,
+) {
+  return replaceMenuEntriesWithRecipe(menu, mealDistribution, mealTimeId, entryIds, recipe);
 }
 
 export function updateRecipeMenuEntryIngredients(
@@ -426,8 +509,8 @@ export function scoreRecipeCompatibility({ pendingExchanges: required, recipe, m
     covered += Math.min(needed, supplied);
     const groupMissing = Math.max(0, needed - supplied);
     const groupExcess = Math.max(0, supplied - needed);
-    missing += groupMissing;
-    excess += groupExcess;
+    missing += groupMissing > MENU_COMPARISON_TOLERANCE ? groupMissing : 0;
+    excess += groupExcess > MENU_COMPARISON_TOLERANCE ? groupExcess : 0;
     if (needed > MENU_COMPARISON_TOLERANCE && supplied > MENU_COMPARISON_TOLERANCE) {
       groupsCovered += 1;
       coveredGroups.push(code);

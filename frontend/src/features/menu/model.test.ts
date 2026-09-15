@@ -12,11 +12,13 @@ import {
   createDietMenu,
   createFoodSnapshot,
   exchangeContributionForFood,
+  expandMenuEntriesToRecipeItems,
   recipeCompatibilityScore,
   reconcileDietMenu,
   recipeIngredientsChanged,
   replaceFoodEntriesWithRecipe,
   replaceFoodMenuEntry,
+  replaceMenuEntriesWithRecipe,
   replaceRecipeIngredient,
   replaceRecipeMenuEntry,
   removeMenuEntry,
@@ -155,6 +157,43 @@ describe("diet menu model", () => {
     expect(entry).toMatchObject({ source_id: "guava", name_snapshot: "Guayaba", quantity: 0.5, unit: "cup" });
     expect(entry.exchange_contributions).toEqual([{ group_code: "FRUITS", portions: 1 }]);
     expect(replaceFoodMenuEntry(original, distribution, "fruit-entry", cereal)).toBe(original);
+  });
+
+  it("keeps an exact residual for traceability but treats at most 0.1 exchange as covered", () => {
+    const tolerantDistribution = { ...distribution, distribution: [{ meal_time_id: breakfast, group_code: "FRUITS" as const, portions: 2 }] };
+    const menu = addFoodToMenu(createDietMenu(tolerantDistribution), tolerantDistribution, breakfast, fruit, 1.917);
+    const status = calculateMenuStatus(menu, tolerantDistribution);
+    expect(status.rows[0]).toMatchObject({ remaining: 0.083, state: "complete" });
+    expect(status.canConfirm).toBe(true);
+  });
+
+  it("expands a recipe snapshot plus visible foods into one flat derived recipe", () => {
+    const beans = food("beans", "Frijoles", "LEGUMES", 0.5);
+    const withRecipe = addRecipeToMenu(createDietMenu(distribution), distribution, breakfast, recipe(), 1, "base-recipe");
+    const proposal = addFoodToMenu(withRecipe, distribution, breakfast, beans, 0.5, "extra-beans");
+    const entries = activeMenu(proposal).meal_menus[0].entries;
+    const items = expandMenuEntriesToRecipeItems(entries, [fruit, cereal, beans]);
+    expect(items.map((item) => ({ id: item.food.id, amount: item.amount }))).toEqual([
+      { id: "fruit", amount: 1 },
+      { id: "cereal", amount: 2 },
+      { id: "beans", amount: 0.5 },
+    ]);
+
+    const derived = { ...recipe(), id: "derived", items: items.map((item, index) => ({
+      id: `derived-${index}`,
+      owner_id: "owner",
+      recipe_id: "derived",
+      food_item_id: item.food.id,
+      amount: item.amount,
+      unit: item.food.portion_unit,
+      display_order: index,
+      food_snapshot: createFoodSnapshot(item.food),
+      exchange_contribution: exchangeContributionForFood(item.food, item.amount),
+      created_at: "",
+    })) };
+    const replaced = replaceMenuEntriesWithRecipe(proposal, distribution, breakfast, entries.map((entry) => entry.id), derived);
+    expect(activeMenu(replaced).meal_menus[0].entries).toHaveLength(1);
+    expect(activeMenu(replaced).meal_menus[0].entries[0]).toMatchObject({ type: "recipe", source_id: "derived" });
   });
 
   it("replaces proposed foods with a recipe while preserving exact menu usage", () => {

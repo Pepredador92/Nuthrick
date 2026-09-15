@@ -24,6 +24,15 @@ const groupPriority: Record<RecipeNameIngredient["group_code"], number> = {
   SUGARS_WITH_FAT: 6,
 };
 
+function namingBucket(groupCode: RecipeNameIngredient["group_code"]) {
+  if (groupCode.startsWith("AOA_")) return "aoa";
+  if (groupCode.startsWith("CEREALS_")) return "cereals";
+  if (groupCode.startsWith("MILK_")) return "milk";
+  if (groupCode.startsWith("FATS_")) return "fats";
+  if (groupCode.startsWith("SUGARS_")) return "sugars";
+  return groupCode;
+}
+
 const friendlyNames: Array<[RegExp, string]> = [
   [/huevo/i, "Huevo"],
   [/(pechuga de )?pollo/i, "Pollo"],
@@ -56,11 +65,13 @@ function isInsignificant(ingredient: RecipeNameIngredient) {
 /** Produces a concise, deterministic, patient-friendly recipe name. */
 export function generateRecipeName(ingredients: RecipeNameIngredient[]) {
   const seen = new Set<string>();
+  const usedBuckets = new Set<string>();
   const names = ingredients
     .filter((ingredient) => !isInsignificant(ingredient))
     .map((ingredient, index) => ({
       name: displayName(ingredient),
       priority: groupPriority[ingredient.group_code],
+      bucket: namingBucket(ingredient.group_code),
       index,
     }))
     .filter((ingredient) => {
@@ -70,6 +81,11 @@ export function generateRecipeName(ingredients: RecipeNameIngredient[]) {
       return true;
     })
     .sort((a, b) => a.priority - b.priority || a.index - b.index)
+    .filter((ingredient) => {
+      if (usedBuckets.has(ingredient.bucket)) return false;
+      usedBuckets.add(ingredient.bucket);
+      return true;
+    })
     .slice(0, 3)
     .map((ingredient) => ingredient.name);
 

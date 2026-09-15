@@ -40,7 +40,7 @@ export type MenuProposal = {
   mealTimeId: string | null;
   meals: MenuProposalMeal[];
   exact: boolean;
-  algorithm: "deterministic-menu-planner-v2";
+  algorithm: "deterministic-menu-planner-v3";
 };
 
 export const MENU_PLANNER_WEIGHTS = {
@@ -92,7 +92,7 @@ export function adjustRecipeToPending(recipe: Recipe, pending: Array<{ group_cod
     const desiredFactor = supplied > MENU_COMPARISON_TOLERANCE && available > MENU_COMPARISON_TOLERANCE
       ? available / supplied
       : 1;
-    const boundedFactor = Math.min(1.5, Math.max(0.5, desiredFactor));
+    const boundedFactor = Math.min(2, Math.max(0.5, desiredFactor));
     amounts[item.id] = practicalQuantity(Number(item.amount) * boundedFactor, item.unit);
   }
 
@@ -146,7 +146,8 @@ function clearMeal(menu: DietMenu, distribution: MealDistribution, mealTimeId: s
 function pendingForMeal(menu: DietMenu, distribution: MealDistribution, mealTimeId: string) {
   return calculateMenuStatus(menu, distribution).rows
     .filter((row) => row.meal_time_id === mealTimeId && row.remaining > MENU_COMPARISON_TOLERANCE)
-    .map((row) => ({ group_code: row.group_code, portions: row.remaining }));
+    .map((row) => ({ group_code: row.group_code, portions: row.remaining, used: row.used }))
+    .sort((a, b) => Number(a.used > MENU_COMPARISON_TOLERANCE) - Number(b.used > MENU_COMPARISON_TOLERANCE));
 }
 
 function rankRecipes(
@@ -222,34 +223,17 @@ function proposeMeal(
     pending = pendingForMeal(next, distribution, mealTimeId);
   }
 
-  const familySelections = new Map<string, Set<ExchangeGroupCode>>();
-  for (const entry of entriesForMeal(next, mealTimeId)) for (const contribution of entry.exchange_contributions) {
-    const family = exchangeGroupFamily(contribution.group_code);
-    const codes = familySelections.get(family) ?? new Set<ExchangeGroupCode>();
-    codes.add(contribution.group_code);
-    familySelections.set(family, codes);
-  }
-
   for (const missing of pending) {
-    const family = exchangeGroupFamily(missing.group_code);
-    const selectedFamilyCodes = familySelections.get(family) ?? new Set<ExchangeGroupCode>();
-    const conflictingSubtype = selectedFamilyCodes.size > 0 && !selectedFamilyCodes.has(missing.group_code) && family !== missing.group_code;
-    if (conflictingSubtype && missing.portions <= 1.5) continue;
-
     const existing = entriesForMeal(next, mealTimeId).find((entry) => entry.type === "food" && entry.food_snapshot?.group_code === missing.group_code);
     if (existing?.food_snapshot) {
       const quantity = practicalQuantity(existing.quantity + missing.portions * Number(existing.food_snapshot.portion_amount), existing.food_snapshot.portion_unit);
       next = updateMenuEntryQuantity(next, distribution, existing.id, quantity);
-      selectedFamilyCodes.add(missing.group_code);
-      familySelections.set(family, selectedFamilyCodes);
       continue;
     }
     const selection = chooseFood(foods, missing.group_code, missing.portions, restrictions, usedFoodIds);
     if (!selection) continue;
     next = addFoodToMenu(next, distribution, mealTimeId, selection.food, selection.quantity, `proposal-food-${mealTimeId}-${missing.group_code}`);
     usedFoodIds.add(selection.food.id);
-    selectedFamilyCodes.add(missing.group_code);
-    familySelections.set(family, selectedFamilyCodes);
   }
 
   return next;
@@ -303,6 +287,6 @@ export function proposeDietMenu({
     mealTimeId,
     meals,
     exact: meals.every((meal) => meal.complete),
-    algorithm: "deterministic-menu-planner-v2",
+    algorithm: "deterministic-menu-planner-v3",
   };
 }

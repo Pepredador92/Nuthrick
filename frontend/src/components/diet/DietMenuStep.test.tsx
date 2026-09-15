@@ -241,6 +241,24 @@ describe("DietMenuStep", () => {
     expect(screen.getByRole("heading", { name: "Propuesta del día" })).toBeInTheDocument();
   });
 
+  it("expands a proposed recipe with its additional food before creating a derived recipe", () => {
+    const twoGroupDistribution = {
+      ...mealDistribution,
+      distribution: [
+        ...mealDistribution.distribution,
+        { meal_time_id: "breakfast", group_code: "CEREALS_NO_FAT" as const, portions: 2 },
+      ],
+    };
+    render(<DietMenuStep plan={{ ...plan, meal_distribution: twoGroupDistribution }} catalog={{ foods: [food, cerealFood], recipes: [recipe] }} onSave={vi.fn()} onGoToMeals={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Proponer alimentos y recetas para todos los tiempos pendientes" }));
+    expect(screen.getByText("Revisar ingredientes")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Crear receta" }));
+    expect(screen.getByText(/Incluye todos los componentes visibles/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre")).toHaveValue("Tortilla con papaya");
+    expect(screen.getByText(/1 taza · Papaya/)).toBeInTheDocument();
+    expect(screen.getByText(/2 tortilla · Tortilla/)).toBeInTheDocument();
+  });
+
   it("can cancel recipe creation without changing the proposal", () => {
     const twoGroupDistribution = { ...mealDistribution, distribution: [
       ...mealDistribution.distribution,
