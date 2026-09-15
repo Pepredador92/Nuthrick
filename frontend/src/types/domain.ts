@@ -693,6 +693,14 @@ export type DietMenuVariant = {
 
 export type DietMenuStatus = "not_started" | "editing" | "ready";
 
+export type PatientFoodAlternative = {
+  food: FoodSnapshot;
+  amount: number;
+  unit: FoodUnitCode;
+  equivalents: number;
+  source_reference: string | null;
+};
+
 /** A complete alternative for one meal, never a whole-day variant. */
 export type MealOption = {
   id: string;
@@ -703,6 +711,12 @@ export type MealOption = {
   confirmed_at: string | null;
   prescription_key: string | null;
   revision: number;
+  /** Publication-only metadata. Never changes prescribed entries or the recipe library. */
+  patient_substitutions?: {
+    schema_version: 1;
+    source_key: string;
+    ingredients: Record<string, PatientFoodAlternative[]>;
+  };
 };
 export type WeekDayCode = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
 export type MenuDayAssignment = {

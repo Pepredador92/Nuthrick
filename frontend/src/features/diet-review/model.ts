@@ -1,6 +1,7 @@
 import { optionIsEligible, optionPortionDifferences } from "@/src/features/menu/options";
 import { getExchangeGroup } from "@/src/features/exchanges/catalog";
 import { assignment, dayName, weekProblems } from "@/src/features/menu/week";
+import { patientPreparation, type PatientPreparation } from "./preparation";
 import type { DietMenu, DietMenuEntry, MealDistribution, NutritionPlan, NutritionPlanVersionSnapshot } from "@/src/types/domain";
 
 export type PublicationIssue = {
@@ -102,7 +103,7 @@ export function prepareSingleDayForReview(menu: DietMenu, distribution: MealDist
   };
 }
 
-export type PatientPlanMeal = { name: string; time: string | null; entries: DietMenuEntry[] };
+export type PatientPlanMeal = { name: string; time: string | null; entries: DietMenuEntry[]; preparation: PatientPreparation };
 export type PatientPlanDay = { name: string; meals: PatientPlanMeal[] };
 export type PatientPlanView = { title: string; patientName: string; days: PatientPlanDay[] };
 
@@ -119,6 +120,7 @@ function patientView(title: string, patientName: string, distribution: MealDistr
           name: byId.get(applied.meal_time_id)?.display_name ?? "Tiempo de comida",
           time: byId.get(applied.meal_time_id)?.time ?? null,
           entries: applied.option_snapshot.entries,
+          preparation: patientPreparation(applied.option_snapshot),
         })),
     })),
   };

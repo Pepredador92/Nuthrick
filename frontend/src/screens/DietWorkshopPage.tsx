@@ -19,6 +19,8 @@ import { DietEquivalentsStep } from "@/src/components/diet/DietEquivalentsStep";
 import { DietMealDistributionStep } from "@/src/components/diet/DietMealDistributionStep";
 import { DietMenuStep } from "@/src/components/diet/DietMenuStep";
 import { DietPlanReviewStep } from "@/src/components/diet/DietPlanReviewStep";
+import { withPatientSubstitutions } from "@/src/features/diet-review/preparation";
+import type { FoodItem } from "@/src/types/domain";
 import type { EnergyReferenceContext } from "@/src/features/diet-energy/model";
 import { reconcileExchangePrescription } from "@/src/features/exchanges/model";
 import { reconcileMealDistribution } from "@/src/features/meal-distribution/model";
@@ -600,11 +602,14 @@ export function DietWorkshopPage() {
     return updated;
   };
 
-  const publishVersion = async () => {
+  const publishVersion = async (foods: FoodItem[]) => {
     setPublishing(true);
     setError("");
     try {
-      const saved = await flushPendingDraft();
+      let saved = await flushPendingDraft();
+      if (saved.diet_menu) {
+        saved = await savePlanPatch({ diet_menu: withPatientSubstitutions(saved.diet_menu, foods) });
+      }
       const idempotencyKey = publishIdempotencyKey.current ?? crypto.randomUUID();
       publishIdempotencyKey.current = idempotencyKey;
       const result = await publishDietPlanVersion({ planId: saved.id, expectedDraftRevision: saved.draft_revision ?? 1, idempotencyKey });
@@ -742,7 +747,7 @@ export function DietWorkshopPage() {
             onPrepareSingleDay={(menu) => void savePlanPatch({ diet_menu: menu })
               .then(() => setNotice("Día único preparado para revisión."))
               .catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos preparar el calendario."))}
-            onPublish={() => void publishVersion()}
+            onPublish={(foods) => void publishVersion(foods)}
           />}
       </div>
     </div>

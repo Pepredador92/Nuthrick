@@ -1,38 +1,12 @@
-import { useMemo, useState } from "react";
-import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, Eye, FileCheck2, History, LoaderCircle, Sparkles } from "lucide-react";
-import { patientPlanViewFromDraft, patientPlanViewFromVersion, prepareSingleDayForReview, validateNutritionPlanForPublication, type PatientPlanView, type PublicationIssue } from "@/src/features/diet-review/model";
-import type { Consultation, DietMenuEntry, NutritionPlan, NutritionPlanVersion, Patient } from "@/src/types/domain";
+import { useEffect, useMemo, useState } from "react";
+import { AlertCircle, ArrowRight, CheckCircle2, Eye, FileCheck2, History, LoaderCircle, Sparkles } from "lucide-react";
+import { patientPlanViewFromDraft, patientPlanViewFromVersion, prepareSingleDayForReview, validateNutritionPlanForPublication, type PublicationIssue } from "@/src/features/diet-review/model";
+import { withPatientSubstitutions } from "@/src/features/diet-review/preparation";
+import { PatientPlanPreview as PatientPreview } from "./PatientPlanPreview";
+import { listFoodItems } from "@/src/services/foodCatalog";
+import type { Consultation, FoodItem, NutritionPlan, NutritionPlanVersion, Patient } from "@/src/types/domain";
 
 type Step = "energy" | "macros" | "equivalents" | "meals" | "menu";
-
-function quantity(entry: DietMenuEntry) {
-  const value = Number.isInteger(entry.quantity) ? String(entry.quantity) : entry.quantity.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
-  return `${value} ${entry.unit === "recipe_serving" ? (entry.quantity === 1 ? "porción" : "porciones") : entry.unit}`;
-}
-
-function PatientPreview({ value }: { value: PatientPlanView }) {
-  return <section className="rounded-2xl border border-[#d8e4dc] bg-[#fcfdfb] p-4 sm:p-5" aria-label="Vista para paciente">
-    <p className="nuth-eyebrow">Vista para paciente</p>
-    <h3 className="mt-1 text-lg font-semibold text-[#173d36]">{value.title}</h3>
-    <p className="mt-1 text-sm text-[#6d7d75]">{value.patientName} · {value.days.length} {value.days.length === 1 ? "día" : "días"}</p>
-    <div className="mt-4 space-y-3">
-      {value.days.map((day) => <details key={day.name} className="rounded-xl border border-[#e1e8e3] bg-white p-3" open={value.days.length === 1}>
-        <summary className="cursor-pointer list-none font-semibold text-[#244b3e]">{day.name}<ChevronDown className="float-right mt-0.5" size={17} /></summary>
-        <div className="mt-3 space-y-3">
-          {day.meals.map((meal) => <article key={`${day.name}-${meal.name}`} className="border-l-2 border-[#9ab7a6] pl-3">
-            <h4 className="text-sm font-semibold text-[#25463a]">{meal.name}{meal.time ? <span className="ml-2 font-normal text-[#708078]">{meal.time}</span> : null}</h4>
-            <ul className="mt-2 space-y-2 text-sm text-[#53665d]">
-              {meal.entries.map((entry) => <li key={entry.id}>
-                <span className="font-medium text-[#294b3f]">{entry.name_snapshot}</span><span className="text-[#708078]"> · {quantity(entry)}</span>
-                {entry.type === "recipe" && entry.recipe_snapshot ? <details className="mt-1 text-xs text-[#607268]"><summary className="cursor-pointer font-semibold">Ver ingredientes e indicaciones</summary><ul className="mt-1 list-disc pl-5">{entry.recipe_snapshot.items.map((item, index) => <li key={`${entry.id}-${index}`}>{item.amount} {item.unit} · {item.food_snapshot.name}</li>)}</ul>{entry.recipe_snapshot.instructions ? <p className="mt-2 leading-5">{entry.recipe_snapshot.instructions}</p> : null}</details> : null}
-              </li>)}
-            </ul>
-          </article>)}
-        </div>
-      </details>)}
-    </div>
-  </section>;
-}
 
 function IssueRow({ issue, onCorrect }: { issue: PublicationIssue; onCorrect: (issue: PublicationIssue) => void }) {
   return <li className="flex flex-col gap-3 rounded-xl border border-[#f0d3ca] bg-[#fff8f5] p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -58,12 +32,21 @@ export function DietPlanReviewStep({
   publishing: boolean;
   onCorrect: (step: Step, day?: string, mealTimeId?: string) => void;
   onPrepareSingleDay: (menu: NonNullable<NutritionPlan["diet_menu"]>) => void;
-  onPublish: () => void;
+  onPublish: (foods: FoodItem[]) => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [openedVersion, setOpenedVersion] = useState<NutritionPlanVersion | null>(null);
+  const [foods, setFoods] = useState<FoodItem[] | null>(null);
+  const [catalogError, setCatalogError] = useState("");
+  const [catalogAttempt, setCatalogAttempt] = useState(0);
+  useEffect(() => {
+    let active = true;
+    listFoodItems().then(value => { if (active) { setFoods(value); setCatalogError(""); } })
+      .catch(() => { if (active) setCatalogError("No pudimos preparar las sustituciones. Intenta cargar el catálogo nuevamente."); });
+    return () => { active = false; };
+  }, [catalogAttempt]);
   const validation = useMemo(() => validateNutritionPlanForPublication(plan), [plan]);
-  const preview = useMemo(() => patientPlanViewFromDraft(plan, patient?.full_name || "Paciente"), [plan, patient?.full_name]);
+  const preview = useMemo(() => patientPlanViewFromDraft({ ...plan, diet_menu: plan.diet_menu && foods ? withPatientSubstitutions(plan.diet_menu, foods) : plan.diet_menu }, patient?.full_name || "Paciente"), [plan, patient?.full_name, foods]);
   const preparedSingleDay = plan.diet_menu && plan.meal_distribution ? prepareSingleDayForReview(plan.diet_menu, plan.meal_distribution) : null;
   const currentVersion = versions.find((version) => version.id === plan.current_version_id) ?? null;
 
@@ -99,15 +82,16 @@ export function DietPlanReviewStep({
         <section className="rounded-xl border border-[#e1e8e3] p-4"><p className="nuth-eyebrow">3 · Prescripción</p><div className="mt-2 grid gap-3 sm:grid-cols-3"><p className="text-sm"><span className="block text-xs text-[#7a8881]">Energía</span><strong>{plan.target_calories ?? "—"}{plan.target_calories ? " kcal" : ""}</strong></p><p className="text-sm"><span className="block text-xs text-[#7a8881]">Equivalentes</span><strong>{plan.exchange_prescription?.status === "ready" ? "Confirmados" : "Pendientes"}</strong></p><p className="text-sm"><span className="block text-xs text-[#7a8881]">Tiempos</span><strong>{plan.meal_distribution?.meal_times.length ?? 0}</strong></p></div></section>
       </div>
       <div className="space-y-5">
+        {catalogError ? <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{catalogError}<button type="button" className="ml-2 underline" onClick={() => setCatalogAttempt(value => value + 1)}>Reintentar</button></p> : !foods ? <p className="text-sm text-[#60736a]">Preparando sustituciones…</p> : <p className="text-xs leading-5 text-[#60736a]">Revisa las sustituciones antes de publicar. Conservan el subgrupo y los equivalentes del catálogo; no se agregan a la comida.</p>}
         <PatientPreview value={preview} />
         <section className="rounded-2xl border border-[#dfe7e1] p-4"><p className="nuth-eyebrow">5 · Publicación e historial</p><h2 className="mt-1 text-lg font-semibold">Conservar versión</h2><p className="mt-2 text-sm leading-6 text-[#6b7a73]">Publicar crea una versión clínica inmutable. El borrador seguirá disponible para futuras ediciones.</p>
-          <button type="button" disabled={!validation.canPublish || publishing} className="nuth-button mt-4 w-full justify-center" onClick={() => setConfirming(true)}>{publishing ? <LoaderCircle className="animate-spin" size={16} /> : <FileCheck2 size={16} />}Publicar versión</button>
+          <button type="button" disabled={!validation.canPublish || publishing || !foods} className="nuth-button mt-4 w-full justify-center" onClick={() => setConfirming(true)}>{publishing ? <LoaderCircle className="animate-spin" size={16} /> : <FileCheck2 size={16} />}Publicar versión</button>
           {validation.info.map((issue) => <p key={issue.code} className="mt-3 text-xs leading-5 text-[#60736a]">{issue.message}</p>)}
           <div className="mt-5 border-t border-[#e6ece7] pt-4"><p className="flex items-center gap-2 text-sm font-semibold"><History size={16} />Historial</p>{versions.length ? <ul className="mt-3 space-y-2">{versions.map((version) => <li key={version.id} className="flex items-center justify-between gap-2 rounded-xl bg-[#f6f8f6] p-3 text-sm"><span><strong>v{version.version_number}</strong>{version.id === plan.current_version_id ? <span className="ml-2 text-xs font-semibold text-[#397258]">Vigente</span> : null}<span className="mt-0.5 block text-xs text-[#74827b]">{new Intl.DateTimeFormat("es-MX", { dateStyle: "medium", timeStyle: "short" }).format(new Date(version.published_at))}</span></span><button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => setOpenedVersion(version)}><Eye size={14} />Ver</button></li>)}</ul> : <p className="mt-3 text-sm text-[#708078]">Aún no hay versiones publicadas.</p>}</div>
         </section>
       </div>
     </div>
-    {confirming && <div role="dialog" aria-modal="true" aria-label="Confirmar publicación" className="fixed inset-0 z-50 grid place-items-center bg-[#18382d]/35 p-4"><div className="w-full max-w-md rounded-[24px] bg-white p-6 shadow-xl"><p className="nuth-eyebrow">Confirmar publicación</p><h2 className="mt-2 text-xl font-semibold">¿Publicar esta versión?</h2><p className="mt-3 text-sm leading-6 text-[#687871]">Se conservará para {patient?.full_name || "el paciente"} con {preview.days.length} {preview.days.length === 1 ? "día" : "días"}. No se enviará ni compartirá todavía.</p><div className="mt-5 flex justify-end gap-2"><button type="button" className="nuth-button-secondary" onClick={() => setConfirming(false)}>Cancelar</button><button type="button" className="nuth-button" onClick={() => { setConfirming(false); onPublish(); }}>Publicar versión</button></div></div></div>}
-    {openedVersion && <div role="dialog" aria-modal="true" aria-label={`Versión ${openedVersion.version_number}`} className="fixed inset-0 z-50 overflow-y-auto bg-[#18382d]/35 p-4"><div className="mx-auto my-6 w-full max-w-3xl rounded-[24px] bg-white p-5 shadow-xl sm:p-7"><div className="flex items-start justify-between gap-4"><div><p className="nuth-eyebrow">Versión histórica</p><h2 className="mt-1 text-xl font-semibold">v{openedVersion.version_number}</h2></div><button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => setOpenedVersion(null)}>Cerrar</button></div><div className="mt-5"><PatientPreview value={patientPlanViewFromVersion(openedVersion.snapshot)} /></div></div></div>}
+    {confirming && <div role="dialog" aria-modal="true" aria-label="Confirmar publicación" className="fixed inset-0 z-50 grid place-items-center bg-[#18382d]/35 p-4"><div className="w-full max-w-md rounded-[24px] bg-white p-6 shadow-xl"><p className="nuth-eyebrow">Confirmar publicación</p><h2 className="mt-2 text-xl font-semibold">¿Publicar esta versión?</h2><p className="mt-3 text-sm leading-6 text-[#687871]">Se conservará para {patient?.full_name || "el paciente"} con {preview.days.length} {preview.days.length === 1 ? "día" : "días"}, incluyendo las sustituciones revisadas. No se enviará ni compartirá todavía.</p><div className="mt-5 flex justify-end gap-2"><button type="button" className="nuth-button-secondary" onClick={() => setConfirming(false)}>Cancelar</button><button type="button" className="nuth-button" onClick={() => { setConfirming(false); if (foods) onPublish(foods); }}>Publicar versión</button></div></div></div>}
+    {openedVersion && <div role="dialog" aria-modal="true" aria-label={`Versión ${openedVersion.version_number}`} className="fixed inset-0 z-50 overflow-y-auto bg-[#18382d]/35 p-4"><div className="mx-auto my-6 w-full max-w-3xl rounded-[24px] bg-white p-5 shadow-xl sm:p-7"><div className="flex items-start justify-between gap-4"><div><p className="nuth-eyebrow">Versión histórica</p><h2 className="mt-1 text-xl font-semibold">v{openedVersion.version_number}</h2></div><button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => setOpenedVersion(null)}>Cerrar</button></div><div className="mt-5"><PatientPreview historical value={patientPlanViewFromVersion(openedVersion.snapshot)} /></div></div></div>}
   </section>;
 }
