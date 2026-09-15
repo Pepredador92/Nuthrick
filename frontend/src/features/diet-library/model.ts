@@ -37,7 +37,8 @@ import { createMacroDistribution, patchMacroInput } from "@/src/features/macros/
 export type LibraryTargetMode = "preserve" | "reference";
 export function referenceMacros(target: ExchangeTargetSnapshot | null) {
   if (!target || !Object.values(target).every(v => Number.isFinite(v) && v >= 0) || target.energy_kcal <= 0 || target.energy_kcal > 10000) return null;
-  let result = createMacroDistribution(target.energy_kcal, null);
+  // nutrition_plans.target_calories stores whole kcal. Keep every goal in sync.
+  let result = createMacroDistribution(Math.round(target.energy_kcal), null);
   result = patchMacroInput(result, "PROTEIN", "grams", target.protein_g);
   result = patchMacroInput(result, "CARBOHYDRATE", "grams", target.carbohydrate_g);
   result = patchMacroInput(result, "FAT", "grams", target.fat_g);
@@ -542,8 +543,9 @@ export function prepareLibraryBase(
   idFactory = () => crypto.randomUUID(),
   targetMode: LibraryTargetMode = "preserve",
 ) {
+  const reference = referenceMacros(item.content.reference_targets);
   const target = targetMode === "reference"
-    ? (referenceMacros(item.content.reference_targets) ? item.content.reference_targets : null)
+    ? (reference && item.content.reference_targets ? { ...item.content.reference_targets, energy_kcal: reference.target_energy_kcal } : null)
     : currentTargets(current);
   if (!target)
     throw new Error(targetMode === "reference" ? "La base no tiene objetivos de referencia completos y coherentes." : "Completa Energía y Macros antes de usar una base.");

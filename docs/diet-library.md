@@ -44,13 +44,14 @@ Verificación local: 34 pruebas relacionadas aprobadas, tipos y lint correctos, 
 
 ## Ampliación: aportaciones y objetivos (15 septiembre de 2026)
 
-`library_contributions_and_targets` y `seed_anonymized_pdf_library` están aplicadas en el mismo proyecto. No volver a ejecutar las migraciones de estructura.
+`library_contributions_and_targets`, `seed_anonymized_pdf_library` y `normalize_library_reference_energy` están aplicadas en el mismo proyecto. No volver a ejecutar las migraciones de estructura.
 
 - Mi biblioteca → Ver dieta → Aportar a Nuthrick exige consentimiento explícito de derechos y revisión de datos personales. Congela nombre/contenido/revisión; los cambios posteriores de la base privada no alteran la aportación.
 - Aportaciones muestra el estado y permite retirar envíos pendientes. Solo un revisor autorizado puede ver la cola completa, aprobar o devolver con motivo. Publicar conserva el original privado y evita duplicar contenido idéntico.
 - La lista `private.diet_library_reviewers` permanece vacía: falta que el propietario indique expresamente la cuenta revisora. No deducir permisos de correo, metadatos editables ni del hecho de haber iniciado sesión. Su alta requiere verificar el correo en Auth y el perfil profesional; nunca incluir cuentas reales en migraciones o fixtures.
 - `apply_diet_library_with_targets` valida los objetivos de la base en el servidor, conserva la identidad del caso y respalda también calorías, macros y cálculo energético. La recuperación revierte esos objetivos; el control de revisión impide borrar cambios posteriores. No importa el peso o datos clínicos de otro caso.
 - Los resultados reales del menú se muestran separados del objetivo. La energía 4/4/9 calculada a partir de gramos puede diferir de la energía promedio del catálogo de equivalentes; se explicita la procedencia.
+- Los objetivos se normalizan a kcal enteras, igual que la columna existente del plan: Energía, Macros y equivalentes conservan el mismo objetivo. Los aportes de ingredientes no se redondean ni se alteran. Se probó la carga/restauración remota con una base de referencia decimal en un borrador sin paciente, revertido al terminar.
 
 ## Importación curada de PDF
 

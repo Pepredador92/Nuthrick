@@ -152,9 +152,9 @@ export async function createDietLibraryEditingDraft(
       patient_id: null,
       consultation_id: null,
       status: "draft",
-      target_calories: target?.energy_kcal ?? null,
+      target_calories: macro?.target_energy_kcal ?? null,
       macro_distribution: macro,
-      ...copyLibraryWorkspace(content, target ?? undefined),
+      ...copyLibraryWorkspace(content, target && macro ? { ...target, energy_kcal: macro.target_energy_kcal } : undefined),
     })
     .select("*")
     .single();

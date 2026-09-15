@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildPdfLibrary, parseIngredient } from '../../../../scripts/build-pdf-library';
-import { libraryNutrition, referenceMacros } from './model';
+import { currentTargets, libraryNutrition, referenceMacros } from './model';
 describe('curated PDF import',()=>{
  it('parses fractions without matching banana as a tuna can',()=>{
    expect(parseIngredient('½ plátano')?.amount).toBe(0.5);
@@ -22,5 +22,11 @@ describe('curated PDF import',()=>{
    const base=buildPdfLibrary().find(x=>x.provenance.declared_energy?.includes('1,400'))!;
    expect(base).toBeDefined(); expect(base.content.reference_targets).toBeNull();
    expect(base.provenance.notes.join(' ')).toContain('cantidad');
+ });
+ it('keeps imported macro goals aligned with whole-kcal plan storage',()=>{
+   const target=buildPdfLibrary().find(x=>x.ready)!.content.reference_targets!;
+   const macro=referenceMacros(target)!;
+   expect(macro.target_energy_kcal).toBe(Math.round(target.energy_kcal));
+   expect(currentTargets({target_calories:Math.round(target.energy_kcal),macro_distribution:macro})).not.toBeNull();
  });
 });
