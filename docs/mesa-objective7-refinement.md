@@ -80,11 +80,19 @@ los aportes siguen siendo promedios del grupo, no análisis de cada alimento.
 
 ## Inventario culinario
 
-**Los once PDF de planes no estaban disponibles como archivos adjuntos accesibles
-en esta sesión.** No se atribuye a ellos una extracción. Las familias se basan en
-el texto autorizado; las nuevas cantidades están identificadas como decisiones
-editoriales revisables. No hay nombres, diagnósticos, tratamientos, suplementos,
-datos de contacto ni reglas de etapas clínicas en las semillas nuevas.
+El 15/09/2026 se revisó en una sesión privada y autorizada un corpus de once
+documentos: diez con contenido culinario y uno exclusivamente de composición
+corporal. La correspondencia entre cada referencia y su archivo original se
+mantiene fuera del repositorio. La biblioteca global conserva únicamente patrones
+culinarios reutilizables; no contiene nombres, diagnósticos, antropometría,
+tratamientos, suplementos, contactos, reglas de seguimiento ni condiciones de
+avance entre etapas.
+
+Las etapas de los documentos se interpretan como contexto clínico de origen, no
+como días del calendario ni como opciones intercambiables. Las alternativas con
+“o” y las opciones A/B permanecen excluyentes y se validan por separado antes de
+confirmarlas. Las sustituciones observadas sirven de referencia profesional, no
+de regla universal de equivalencias.
 
 | Familia | Existentes conservadas | Nuevas / decisión |
 | --- | --- | --- |
@@ -100,22 +108,40 @@ datos de contacto ni reglas de etapas clínicas en las semillas nuevas.
 | Pasta/pescado | — | Pasta con pescado cocido, verduras y aceite medido |
 | Bebidas | Agua y bebidas estructuradas del motor existente | Licuado de plátano con leche; aporta leche y fruta exactamente una vez |
 
-Total: **24 recetas existentes + ocho nuevas = 32 recetas globales**. Las ocho
-nuevas contienen 25 ingredientes estructurados, rendimiento de una ración,
-tipos de tiempo y procedencia editorial. Se corrigen instrucciones de nueve
-preparaciones existentes para no introducir aceite, verduras o aderezos no
-contabilizados; se sustituyen indicaciones universales de sustitución por revisión
-y recálculo. Los ingredientes de recetas personales y snapshots aplicados no cambian.
+Total: **24 recetas existentes + ocho plantillas editoriales = 32 recetas
+globales**. La revisión del corpus no añadió una receta por gramaje, fruta,
+bebida, fecha o versión de un plan: las variantes observadas ya corresponden a
+una de estas preparaciones o a un acompañamiento editable. Las ocho plantillas
+contienen 25 ingredientes estructurados, rendimiento de una ración y tipos de
+tiempo; su procedencia dice explícitamente que se usó sólo el patrón culinario.
+Se corrigen instrucciones de nueve preparaciones existentes para no introducir
+aceite, verduras o aderezos no contabilizados; se sustituyen indicaciones
+universales de sustitución por revisión y recálculo. Los ingredientes de recetas
+personales y snapshots aplicados no cambian.
+
+La normalización conservada es: avena incorpora el líquido con que se cuece y
+deja el huevo como acompañamiento; molletes dejan fruta y leche fuera; pollo y
+carne con verduras dejan arroz, frijoles, tortillas, aguacate y fruta fuera;
+tostadas montadas no absorben yogur ni fruta; quesadillas no absorben sus
+acompañamientos; y pan tostado conserva sus ingredientes preparados dejando el
+yogur fuera. Esto evita doble conteo y permite adaptar cada opción a la
+prescripción vigente sin deformar la preparación.
+
+Se registraron como ambigüedades, sin inventar conversiones: lácteos genéricos o
+alternativos, verduras sin cantidad, grasa mencionada sólo en el procedimiento,
+fruta alternativa, atún sin presentación de lata y sustituciones con unidades
+distintas. Cuando el catálogo no tiene una identidad o medida verificable, se
+mantiene la plantilla editable y la decisión se realiza al construir la opción.
 
 No se multiplica toda una opción para ajustar un acompañamiento: la receta y
 los componentes separados usan las operaciones existentes. Dentro de una receta
 se conserva el editor de ingredientes. Las opciones A/B son variantes excluyentes
 del banco, nunca la suma de ambas; confirmar/asignar requiere validar cada opción.
 
-Pendientes de fuentes: comprobar los once originales, técnica real de cada plato,
-ambigüedades de lata/leche/verduras/aceite y correspondencias de versiones. No se
-promedian cantidades de pacientes ni se incorporan suplementos particulares.
-No se infieren sabor o aceptación a partir de una prueba matemática.
+Queda pendiente una futura validación nutricional independiente de cualquier
+producto de marca o medida no cubierta por el catálogo. No se promedian
+cantidades de pacientes ni se incorporan suplementos particulares. No se infiere
+sabor o aceptación a partir de una prueba matemática.
 
 ## Migración y controles
 
@@ -124,7 +150,11 @@ idempotente, con guardas de propiedad global. No elimina filas, no cambia polít
 ni reescribe planes o ingredientes históricos. La primera migración de 86 alimentos
 ya estaba aplicada antes de esta revisión; no se repite esa importación.
 
-Pruebas de base de datos: 40 de catálogo/RLS y 11 de conciliación/editorial,
+`20260915192044_record_authorized_plan_corpus_review.sql` sólo actualiza la
+procedencia no identificable de las ocho plantillas editoriales. No crea tablas,
+no modifica RLS, ni toca planes, recetas personales o snapshots históricos.
+
+Pruebas de base de datos: 40 de catálogo/RLS y 13 de conciliación/editorial,
 incluyendo alimentos personales escribibles solo por su propietario y globales
 no modificables por `authenticated`. Reaplicar la migración no duplica alimentos,
 recetas ni ingredientes.
@@ -151,10 +181,14 @@ nutriólogos ni aseguran cualquier combinación clínica.
 
 - Implementación: `46afb8d`, subida a `origin/main` junto con la ampliación previa
   `609b790`, sin force push. LandingPage y `output/` quedaron fuera.
+- Revisión autorizada del corpus culinario y su trazabilidad no identificable:
+  `4785090`, sin modificar la biblioteca por porciones particulares ni crear
+  recetas duplicadas.
 - Vercel: despliegue `dpl_F711MDhAVsXT9px323CMcC5Bnzdk`, estado **Ready**, alias
   `https://nuthrick.vercel.app`, comprobado el 15/09/2026.
-- Migración remota aplicada correctamente; el archivo local adopta el timestamp
-  asignado por Supabase (`20260915183530`), con el mismo contenido probado.
+- Migraciones remotas aplicadas correctamente; el archivo local adopta el timestamp
+  asignado por Supabase para la conciliación (`20260915183530`) y para el registro
+  de procedencia del corpus (`20260915192044`), con el mismo contenido probado.
 - Resultado remoto: 132 alimentos globales, 131 activos; 32 recetas globales;
   25 ingredientes de las ocho nuevas preparaciones. RLS sigue activado en alimentos,
   recetas, ingredientes y planes. No se modificaron políticas.
@@ -168,7 +202,7 @@ nutriólogos ni aseguran cualquier combinación clínica.
   y calendario de un día tras aplicar. La distribución era una fixture simplificada;
   esto no valida la prescripción energética ni representa un plan para un paciente.
 - Verificación local: TypeScript, ESLint y build correctos; **443 pruebas** en
-  49 archivos excluyendo el landing ajeno; **51 comprobaciones SQL** de catálogo/RLS.
+  49 archivos excluyendo el landing ajeno; **53 comprobaciones SQL** de catálogo/RLS.
   La suite completa produjo 445 correctas y un fallo previo del título del landing.
 - Persisten dos avisos de seguridad preexistentes, sin avisos nuevos de esta
   migración: función de reapertura de consulta ejecutable por autenticados
