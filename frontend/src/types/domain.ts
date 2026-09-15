@@ -648,8 +648,33 @@ export type DietMenuVariant = {
 
 export type DietMenuStatus = "not_started" | "editing" | "ready";
 
+/** A complete alternative for one meal, never a whole-day variant. */
+export type MealOption = {
+  id: string;
+  meal_time_id: string;
+  name: string;
+  entries: DietMenuEntry[];
+  status: "draft" | "confirmed";
+  confirmed_at: string | null;
+  prescription_key: string | null;
+  revision: number;
+};
+export type WeekDayCode = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+export type MenuDayAssignment = {
+  meal_time_id: string;
+  option_id: string;
+  option_snapshot: MealOption;
+  fixed: boolean;
+};
+export type MenuWeekPlan = {
+  schema_version: 1;
+  days: Array<{ day: WeekDayCode; assignments: MenuDayAssignment[] }>;
+};
+
 export type DietMenu = {
   schema_version: 1;
+  meal_options?: MealOption[];
+  week_plan?: MenuWeekPlan | null;
   food_preferences?: Record<string, "like" | "avoid" | "exclude">;
   source_meal_distribution_snapshot: MealDistribution | null;
   menus: DietMenuVariant[];

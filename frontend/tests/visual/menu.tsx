@@ -5,6 +5,7 @@ import { addFoodToMenu, createDietMenu, createFoodSnapshot, exchangeContribution
 import type { FoodItem, MealDistribution, NutritionPlan, Recipe } from "@/src/types/domain";
 import type { CustomRecipeInput } from "@/src/services/foodCatalog";
 import "../../app/globals.css";
+import { weeklyFixture } from "../fixtures/weeklyMenu";
 
 const meals = [
   { id: "breakfast", meal_type: "BREAKFAST" as const, display_name: "Desayuno", time: "08:00", display_order: 0 },
@@ -56,6 +57,9 @@ async function fakeRecipe(input: CustomRecipeInput):Promise<Recipe> {
 function Harness(){
   const [saves,setSaves]=useState(0);
   const [librarySaves,setLibrarySaves]=useState(0);
+  const [weekly] = useState(() => weeklyFixture());
+  const weeklyMode = new URLSearchParams(window.location.search).has("weekly");
+  if (weeklyMode) return <main className="mx-auto min-h-screen max-w-[1440px] bg-[#f7f8f4] p-3 sm:p-8"><p className="mb-4 text-xs" role="status">Caso ficticio · distribución simplificada para probar la interfaz; no es una dieta. Guardados de menú: {saves}.</p><DietMenuStep plan={{...plan,id:"weekly-visual",diet_menu:weekly.menu,meal_distribution:weekly.distribution}} catalog={{foods:weekly.foods,recipes:[]}} onSave={async()=>setSaves(n=>n+1)} onGoToMeals={()=>undefined}/></main>;
   return <main className="mx-auto min-h-screen max-w-[1440px] bg-[#f7f8f4] p-3 sm:p-8"><p className="mb-4 text-xs" role="status">Caso ficticio · sin conexión de guardado. Guardados de menú: {saves}. Biblioteca: {librarySaves}.</p><DietMenuStep plan={plan} catalog={{foods:sampleFoods,recipes:[]}} recipeWriter={async input=>{setLibrarySaves(n=>n+1);return fakeRecipe(input);}} onSave={async()=>{setSaves(n=>n+1);}} onGoToMeals={()=>undefined}/></main>;
 }
 createRoot(document.getElementById("root")!).render(<Harness/>);

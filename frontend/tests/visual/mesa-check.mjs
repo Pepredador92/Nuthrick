@@ -39,7 +39,7 @@ try {
   await page.getByRole('button',{name:'Revisar',exact:true}).click();
   await page.getByRole('button',{name:'Agregar al menú',exact:true}).click();
   assert.equal(await saveCount(),4);
-  await page.getByRole('button',{name:'Proponer alimentos y recetas para este tiempo de comida',exact:true}).click();
+  await page.getByRole('button',{name:'Proponer opción',exact:true}).click();
   await page.getByRole('button',{name:'Aplicar propuesta',exact:true}).waitFor();
   assert.equal(await saveCount(),4);
   await page.screenshot({path:output+'desktop-preview.png',fullPage:true});
@@ -52,7 +52,7 @@ try {
   }
   await page.getByRole('button',{name:'Descartar',exact:true}).click();
   assert.equal(await saveCount(),4);
-  await page.getByRole('button',{name:'Proponer alimentos y recetas para este tiempo de comida',exact:true}).click();
+  await page.getByRole('button',{name:'Proponer opción',exact:true}).click();
   // The exploration may have exhausted its finite alternatives; recover a previously shown option.
   if(!(await page.getByRole('button',{name:'Aplicar propuesta'}).count())) await page.getByRole('button',{name:'Recuperar propuestas'}).click();
   await page.getByRole('button',{name:'Aplicar propuesta',exact:true}).click();
@@ -63,7 +63,7 @@ try {
   assert.equal(await saveCount(),6);
   await page.screenshot({path:output+'classic.png',fullPage:true});
   await page.getByRole('button',{name:'Volver a la mesa'}).click();
-  await page.getByRole('button',{name:'Ver el día',exact:true}).click();
+  await page.getByRole('button',{name:'Comparar opciones activas',exact:true}).click();
   for(const width of [1440,768,390]) {
     await page.setViewportSize({width,height:900});
     await page.screenshot({path:output+`mesa-${width}.png`,fullPage:true});
