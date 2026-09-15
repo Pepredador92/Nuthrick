@@ -1,0 +1,602 @@
+[
+  {
+    "code": "PDF01-D1",
+    "page": 2,
+    "declared_energy": null,
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Avena con plátano, huevo e ISO100",
+        "ingredients": "½ taza de avena cruda (40 g), 1 taza de leche entera (240 ml), 1 plátano mediano, 1 huevo, 2 cucharaditas de crema de cacahuate (10 g) y 1 scoop de proteína ISO100 de chocolate.",
+        "preparation": "Cocer la avena con la leche. Agregar el plátano y la crema de cacahuate. Acompañar con el huevo completamente cocido."
+      },
+      {
+        "time": "Comida",
+        "name": "Pollo con arroz, frijoles y tortillas",
+        "ingredients": "90 g de pollo cocido (aproximadamente el tamaño de la palma), ¾ de taza de arroz cocido, ½ taza de frijoles, 2 tortillas, ¼ de aguacate, 1 taza de verduras, 1 cucharadita de aceite y 1 naranja.",
+        "preparation": "Cocinar el pollo con las verduras y el aceite. Servir con arroz, frijoles, tortillas, aguacate y naranja."
+      },
+      {
+        "time": "Cena",
+        "name": "Huevos con frijoles, nopales y queso",
+        "ingredients": "2 huevos, ⅓ de taza de frijoles, 1 taza de nopales con jitomate y cebolla, 30 g de queso panela, 2 tortillas, ⅛ de aguacate y 1 guayaba.",
+        "preparation": "Cocinar los nopales con jitomate y cebolla. Agregar los huevos y cocinar completamente. Servir con frijoles, queso, tortillas, aguacate y guayaba."
+      }
+    ]
+  },
+  {
+    "code": "PDF01-D2",
+    "page": 3,
+    "declared_energy": null,
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Huevos con frijoles, tortillas, leche e ISO100",
+        "ingredients": "2 huevos, ½ taza de frijoles, 3 tortillas, 1 taza de leche entera (240 ml), 1 plátano, 1 cucharadita de aceite y 1 scoop de proteína ISO100 de chocolate.",
+        "preparation": "Cocinar los huevos con el aceite y servir con frijoles y tortillas. Tomar la leche y comer el plátano al terminar."
+      },
+      {
+        "time": "Comida",
+        "name": "Carne deshebrada con papa y tortillas",
+        "ingredients": "90 g de carne de res deshebrada magra, 1 papa mediana, ½ taza de frijoles, 3 tortillas, ¼ de aguacate, 1 taza de ensalada y 1 naranja.",
+        "preparation": "Cocinar la carne con jitomate, cebolla y verduras. Acompañar con papa cocida, frijoles, tortillas, aguacate y naranja."
+      },
+      {
+        "time": "Cena",
+        "name": "Tostadas de atún con aguacate",
+        "ingredients": "1 lata de atún en agua escurrida, 3 tostadas horneadas, ½ taza de frijoles, ¼ de aguacate, 1 taza de verduras picadas, 1 taza de yogur natural y 1 manzana.",
+        "preparation": "Mezclar el atún con jitomate, cebolla y verduras. Servir sobre las tostadas con frijoles y aguacate. Comer el yogur y la manzana al terminar."
+      }
+    ]
+  },
+  {
+    "code": "PDF01-D3",
+    "page": 4,
+    "declared_energy": null,
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Molletes con queso, fruta e ISO100",
+        "ingredients": "½ bolillo, ½ taza de frijoles, 60 g de queso panela, jitomate y cebolla, 1 taza de leche entera (240 ml), 1 taza de papaya y 1 scoop de proteína ISO100 de chocolate.",
+        "preparation": "Untar los frijoles en el bolillo y agregar el queso. Calentar hasta que el queso se suavice. Acompañar con leche y papaya."
+      },
+      {
+        "time": "Comida",
+        "name": "Pasta con pollo y verduras",
+        "ingredients": "100 g de pollo cocido, 1½ tazas de pasta cocida, 1 taza de verduras, 1 cucharadita de aceite, ¼ de aguacate, 2 tortillas y 1 naranja.",
+        "preparation": "Cocinar el pollo y las verduras con el aceite. Mezclar con la pasta y servir con tortillas, aguacate y naranja."
+      },
+      {
+        "time": "Cena",
+        "name": "Quesadillas con frijoles y huevo",
+        "ingredients": "3 tortillas, 40 g de queso panela, ⅓ de taza de frijoles, 1 huevo, 1 taza de verduras, ⅛ de aguacate y 1 plátano.",
+        "preparation": "Preparar las quesadillas con el queso. Acompañar con frijoles, huevo cocido, verduras, aguacate y plátano."
+      }
+    ]
+  },
+  {
+    "code": "PDF02-D1",
+    "page": 2,
+    "declared_energy": "1,700–1,800 kcal al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Huevos con frijoles y fruta",
+        "ingredients": "2 huevos, 1 tortilla, ⅓ de taza de frijoles, 1 taza de papaya o 1 manzana y 1 cucharadita de aceite.",
+        "preparation": "Cocinar los huevos con el aceite y servir con frijoles y tortilla. Comer la fruta entera al terminar. No agregar azúcar."
+      },
+      {
+        "time": "Comida",
+        "name": "Pollo con arroz y verduras",
+        "ingredients": "150 g de pollo cocido, ½ taza de arroz cocido, ½ taza de frijoles, 1 tortilla, ¼ de aguacate y 1½ tazas de verduras.",
+        "preparation": "Cocinar el pollo con cebolla y especias. Servir con arroz, frijoles, tortilla, aguacate y verduras. Tomar agua simple."
+      },
+      {
+        "time": "Cena",
+        "name": "Carne con tortillas y verduras",
+        "ingredients": "150 g de carne de res magra, 2 tortillas, ⅓ de taza de frijoles, 1 taza de verduras y ¼ de aguacate.",
+        "preparation": "Cocinar la carne y preparar los tacos. Acompañar con frijoles, verduras y aguacate. Evitar refresco, jugos y aguas endulzadas."
+      }
+    ]
+  },
+  {
+    "code": "PDF02-D2",
+    "page": 3,
+    "declared_energy": "1,700–1,800 kcal al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Avena con huevo y fruta",
+        "ingredients": "40 g de avena cruda, 1 taza de leche descremada o bebida sin azúcar, 2 huevos, ½ plátano y 1 cucharadita de crema de cacahuate.",
+        "preparation": "Cocer la avena sin azúcar. Agregar el plátano y la crema de cacahuate. Acompañar con los huevos completamente cocidos."
+      },
+      {
+        "time": "Comida",
+        "name": "Carne con arroz y ensalada",
+        "ingredients": "150 g de carne de res magra, ¾ de taza de arroz cocido, ½ taza de frijoles, 1 tortilla, ¼ de aguacate y 1½ tazas de verduras.",
+        "preparation": "Cocinar la carne con cebolla y especias. Servir con arroz, frijoles, tortilla, aguacate y verduras. Mantener agua simple como bebida."
+      },
+      {
+        "time": "Cena",
+        "name": "Quesadillas de pollo",
+        "ingredients": "150 g de pollo deshebrado, 2 tortillas, 40 g de queso panela, ⅓ de taza de frijoles y 1½ tazas de verduras.",
+        "preparation": "Preparar las quesadillas con pollo y queso. Acompañar con frijoles y verduras. No añadir salsas azucaradas."
+      }
+    ]
+  },
+  {
+    "code": "PDF03-D1",
+    "page": 2,
+    "declared_energy": null,
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Avena con plátano y huevo",
+        "ingredients": "½ taza de avena cruda (40 g), 1 taza de leche entera (240 ml), 1 plátano mediano, 1 huevo y 2 cucharaditas de crema de cacahuate (10 g).",
+        "preparation": "Cocer la avena con la leche. Agregar el plátano y la crema de cacahuate. Acompañar con el huevo completamente cocido."
+      },
+      {
+        "time": "Comida",
+        "name": "Pollo con arroz, frijoles y tortillas",
+        "ingredients": "90 g de pollo cocido (aproximadamente el tamaño de la palma), ¾ de taza de arroz cocido, ½ taza de frijoles, 2 tortillas, ¼ de aguacate, 1 taza de verduras, 1 cucharadita de aceite y 1 naranja.",
+        "preparation": "Cocinar el pollo con las verduras y el aceite. Servir con arroz, frijoles, tortillas, aguacate y naranja."
+      },
+      {
+        "time": "Cena",
+        "name": "Huevos con frijoles, nopales y queso",
+        "ingredients": "2 huevos, ⅓ de taza de frijoles, 1 taza de nopales con jitomate y cebolla, 30 g de queso panela, 2 tortillas, ⅛ de aguacate y 1 guayaba.",
+        "preparation": "Cocinar los nopales con jitomate y cebolla. Agregar los huevos y cocinar completamente. Servir con frijoles, queso, tortillas, aguacate y guayaba."
+      }
+    ]
+  },
+  {
+    "code": "PDF03-D2",
+    "page": 3,
+    "declared_energy": null,
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Huevos con frijoles, tortillas y leche",
+        "ingredients": "2 huevos, ½ taza de frijoles, 3 tortillas, 1 taza de leche entera (240 ml), 1 plátano y 1 cucharadita de aceite.",
+        "preparation": "Cocinar los huevos con el aceite y servir con frijoles y tortillas. Tomar la leche y comer el plátano al terminar."
+      },
+      {
+        "time": "Comida",
+        "name": "Carne deshebrada con papa y tortillas",
+        "ingredients": "90 g de carne de res deshebrada magra, 1 papa mediana, ½ taza de frijoles, 3 tortillas, ¼ de aguacate, 1 taza de ensalada y 1 naranja.",
+        "preparation": "Cocinar la carne con jitomate, cebolla y verduras. Acompañar con papa cocida, frijoles, tortillas, aguacate y naranja."
+      },
+      {
+        "time": "Cena",
+        "name": "Tostadas de atún con aguacate",
+        "ingredients": "1 lata de atún en agua escurrida, 3 tostadas horneadas, ½ taza de frijoles, ¼ de aguacate, 1 taza de verduras picadas, 1 taza de yogur natural y 1 manzana.",
+        "preparation": "Mezclar el atún con jitomate, cebolla y verduras. Servir sobre las tostadas con frijoles y aguacate. Comer el yogur y la manzana al terminar."
+      }
+    ]
+  },
+  {
+    "code": "PDF03-D3",
+    "page": 4,
+    "declared_energy": null,
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Molletes con queso y fruta",
+        "ingredients": "½ bolillo, ½ taza de frijoles, 60 g de queso panela, jitomate y cebolla, 1 taza de leche entera (240 ml) y 1 taza de papaya.",
+        "preparation": "Untar los frijoles en el bolillo y agregar el queso. Calentar hasta que el queso se suavice. Acompañar con leche y papaya."
+      },
+      {
+        "time": "Comida",
+        "name": "Pasta con pollo y verduras",
+        "ingredients": "100 g de pollo cocido, 1½ tazas de pasta cocida, 1 taza de verduras, 1 cucharadita de aceite, ¼ de aguacate, 2 tortillas y 1 naranja.",
+        "preparation": "Cocinar el pollo y las verduras con el aceite. Mezclar con la pasta y servir con tortillas, aguacate y naranja."
+      },
+      {
+        "time": "Cena",
+        "name": "Quesadillas con frijoles y huevo",
+        "ingredients": "3 tortillas, 40 g de queso panela, ⅓ de taza de frijoles, 1 huevo, 1 taza de verduras, ⅛ de aguacate y 1 plátano.",
+        "preparation": "Preparar las quesadillas con el queso. Acompañar con frijoles, huevo cocido, verduras, aguacate y plátano."
+      }
+    ]
+  },
+  {
+    "code": "PDF04-D1",
+    "page": 2,
+    "declared_energy": "1,900 kcal al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Huevos con frijoles y fruta",
+        "ingredients": "2 huevos, ½ taza de frijoles, 2 tortillas, 1 taza de papaya o manzana y 1 cucharadita de aceite.",
+        "preparation": "Cocinar los huevos con el aceite y servir con frijoles y tortillas. Comer la fruta al terminar."
+      },
+      {
+        "time": "Comida",
+        "name": "Pollo con arroz y verduras",
+        "ingredients": "150 g de pollo cocido, ¾ de taza de arroz cocido, ½ taza de frijoles, 2 tortillas, ¼ de aguacate y 1 taza de verduras que aceptes.",
+        "preparation": "Cocinar el pollo con cebolla y especias. Servir con arroz, frijoles, tortillas, aguacate y verduras."
+      },
+      {
+        "time": "Cena",
+        "name": "Carne con papa y ensalada",
+        "ingredients": "120 g de carne de res magra, 1 papa mediana, 2 tortillas, 1 taza de verduras y 1 manzana.",
+        "preparation": "Cocinar la carne con cebolla y especias. Acompañar con papa cocida, tortillas, verduras y manzana."
+      }
+    ]
+  },
+  {
+    "code": "PDF04-D2",
+    "page": 3,
+    "declared_energy": "1,900–2,000 kcal al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Mollete con huevo y fruta",
+        "ingredients": "½ bolillo, ½ taza de frijoles, 40 g de queso panela, 1 huevo, 1 taza de fruta y café sin azúcar añadido.",
+        "preparation": "Untar los frijoles en el bolillo y agregar el queso. Calentar. Acompañar con el huevo y la fruta."
+      },
+      {
+        "time": "Comida",
+        "name": "Carne con arroz y verduras",
+        "ingredients": "150 g de carne de res magra, 1 taza de arroz cocido, ½ taza de frijoles, 2 tortillas, ¼ de aguacate y 1 taza de verduras.",
+        "preparation": "Cocinar la carne con cebolla, chile y especias. Servir con arroz, frijoles, tortillas, aguacate y verduras."
+      },
+      {
+        "time": "Cena",
+        "name": "Quesadillas de pollo",
+        "ingredients": "3 tortillas, 40 g de queso panela, 120 g de pollo deshebrado, ⅓ de taza de frijoles, 1 taza de verduras y 1 naranja.",
+        "preparation": "Preparar las quesadillas con el queso y el pollo. Acompañar con frijoles, verduras y naranja."
+      }
+    ]
+  },
+  {
+    "code": "PDF04-D3",
+    "page": 4,
+    "declared_energy": "1,900–2,000 kcal al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Avena con huevo y plátano",
+        "ingredients": "50 g de avena cruda, 1 taza de leche, 2 huevos, ½ plátano y 1 cucharadita de crema de cacahuate.",
+        "preparation": "Cocer la avena con la leche. Agregar el plátano y la crema de cacahuate. Acompañar con los huevos completamente cocidos."
+      },
+      {
+        "time": "Comida",
+        "name": "Pollo con pasta y verduras",
+        "ingredients": "150 g de pollo cocido, 1 taza de pasta cocida, 1 taza de verduras, 1 cucharadita de aceite, ¼ de aguacate y 1 fruta.",
+        "preparation": "Cocinar el pollo y las verduras con el aceite. Mezclar con la pasta y servir con aguacate y fruta."
+      },
+      {
+        "time": "Cena",
+        "name": "Tacos de carne con frijoles",
+        "ingredients": "120 g de carne de res magra, 3 tortillas, ½ taza de frijoles, 30 g de queso panela, ¼ de aguacate, 1 taza de verduras y 1 taza de papaya.",
+        "preparation": "Cocinar la carne con cebolla y especias. Preparar los tacos y acompañar con frijoles, queso, aguacate, verduras y papaya."
+      }
+    ]
+  },
+  {
+    "code": "PDF05-D1",
+    "page": 2,
+    "declared_energy": "2,600 kcal y 160 g de proteína al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Huevos con frijoles, tortillas y fruta",
+        "ingredients": "3 huevos, ½ taza de frijoles, 3 tortillas, ½ aguacate, 1 plátano, 1 taza de leche entera y 1 cucharadita de aceite.",
+        "preparation": "Cocinar los huevos con el aceite y servir con frijoles, tortillas y aguacate. Tomar la leche y comer el plátano al terminar."
+      },
+      {
+        "time": "Comida",
+        "name": "Pollo con arroz, frijoles y tortillas",
+        "ingredients": "180 g de pollo cocido, 1½ tazas de arroz cocido, ½ taza de frijoles, 3 tortillas, ¼ de aguacate y 1 taza de verduras que sí acepte.",
+        "preparation": "Cocinar el pollo con cebolla, chile o especias. Servir con arroz, frijoles, tortillas, aguacate y verduras."
+      },
+      {
+        "time": "Cena",
+        "name": "Tostadas de atún con frijoles y yogur",
+        "ingredients": "1 lata de atún en agua escurrida, 3 tostadas horneadas, ½ taza de frijoles, ¼ de aguacate, 1 taza de verduras picadas, 1 taza de yogur natural y 1 manzana.",
+        "preparation": "Mezclar el atún con cebolla, chile y verduras. Servir sobre las tostadas con frijoles y aguacate. Comer el yogur y la manzana al terminar."
+      }
+    ]
+  },
+  {
+    "code": "PDF05-D2",
+    "page": 3,
+    "declared_energy": "2,700 kcal y 160 g de proteína al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Molletes con queso y leche",
+        "ingredients": "1 bolillo, ½ taza de frijoles, 60 g de queso panela, cebolla y chile al gusto, 1 taza de leche entera y 1 manzana.",
+        "preparation": "Untar los frijoles en el bolillo y agregar el queso. Calentar hasta que el queso se suavice. Acompañar con leche y manzana."
+      },
+      {
+        "time": "Comida",
+        "name": "Carne con papa, arroz y tortillas",
+        "ingredients": "160 g de carne de res magra, 1 papa mediana, 1 taza de arroz cocido, ½ taza de frijoles, 3 tortillas, ¼ de aguacate y 1 taza de verduras.",
+        "preparation": "Cocinar la carne con cebolla, chile y especias. Acompañar con papa, arroz, frijoles, tortillas, aguacate y verduras."
+      },
+      {
+        "time": "Cena",
+        "name": "Quesadillas de pollo con frijoles",
+        "ingredients": "4 tortillas, 60 g de queso panela, 120 g de pollo deshebrado, ⅓ de taza de frijoles, 1 taza de verduras, 1 naranja y 1 cucharadita de aceite.",
+        "preparation": "Preparar las quesadillas con el queso y el pollo. Acompañar con frijoles, verduras y naranja."
+      }
+    ]
+  },
+  {
+    "code": "PDF05-D3",
+    "page": 4,
+    "declared_energy": "2,700–2,800 kcal y 160–170 g de proteína al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Avena con leche, plátano y huevo",
+        "ingredients": "80 g de avena cruda, 1½ tazas de leche entera, 1 plátano, 2 huevos y 1 cucharada de crema de cacahuate.",
+        "preparation": "Cocer la avena con la leche. Agregar el plátano y la crema de cacahuate. Acompañar con los huevos completamente cocidos."
+      },
+      {
+        "time": "Comida",
+        "name": "Pasta con pollo y verduras",
+        "ingredients": "180 g de pollo cocido, 1¾ tazas de pasta cocida, 1 taza de verduras, 2 cucharaditas de aceite, ¼ de aguacate, 2 tortillas y 1 naranja.",
+        "preparation": "Cocinar el pollo y las verduras con el aceite. Mezclar con la pasta y servir con tortillas, aguacate y naranja."
+      },
+      {
+        "time": "Cena",
+        "name": "Tacos de carne con frijoles y fruta",
+        "ingredients": "120 g de carne de res magra, 4 tortillas, ½ taza de frijoles, 40 g de queso panela, ¼ de aguacate, 1 taza de verduras y 1 taza de papaya.",
+        "preparation": "Cocinar la carne con cebolla, chile y especias. Preparar los tacos y acompañar con frijoles, queso, aguacate, verduras y papaya."
+      }
+    ]
+  },
+  {
+    "code": "PDF06-D1",
+    "page": 2,
+    "declared_energy": "1,700–1,800 kcal al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Huevos con frijoles y fruta",
+        "ingredients": "2 huevos, 2 tortillas, ½ taza de frijoles, 1 taza de papaya o manzana y 1 cucharadita de aceite.",
+        "preparation": "Cocinar los huevos con el aceite y servir con frijoles y tortillas. Comer la fruta entera al terminar. No agregar azúcar."
+      },
+      {
+        "time": "Comida",
+        "name": "Pollo con arroz y verduras",
+        "ingredients": "150 g de pollo cocido, ½ taza de arroz cocido, ½ taza de frijoles, 2 tortillas, ¼ de aguacate y 1 taza de verduras.",
+        "preparation": "Cocinar el pollo con cebolla y especias. Servir con arroz, frijoles, tortillas, aguacate y verduras. Tomar agua simple."
+      },
+      {
+        "time": "Cena",
+        "name": "Carne con tortillas y verduras",
+        "ingredients": "120 g de carne de res magra, 2 tortillas, 1 taza de verduras, ¼ de aguacate y 1 naranja pequeña.",
+        "preparation": "Cocinar la carne y preparar los tacos. Acompañar con verduras y aguacate. Evitar refresco, jugos y aguas endulzadas."
+      }
+    ]
+  },
+  {
+    "code": "PDF06-D2",
+    "page": 3,
+    "declared_energy": "1,750–1,850 kcal al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Avena con huevo y fruta",
+        "ingredients": "40 g de avena cruda, 1 taza de leche descremada o bebida sin azúcar, 2 huevos, ½ plátano y 1 cucharadita de crema de cacahuate.",
+        "preparation": "Cocer la avena sin azúcar. Agregar el plátano y la crema de cacahuate. Acompañar con los huevos completamente cocidos."
+      },
+      {
+        "time": "Comida",
+        "name": "Carne con arroz y ensalada",
+        "ingredients": "150 g de carne de res magra, ¾ de taza de arroz cocido, ½ taza de frijoles, 2 tortillas, ¼ de aguacate y 1 taza de verduras.",
+        "preparation": "Cocinar la carne con cebolla y especias. Servir con arroz, frijoles, tortillas, aguacate y verduras. Mantener agua simple como bebida."
+      },
+      {
+        "time": "Cena",
+        "name": "Quesadillas de pollo",
+        "ingredients": "150 g de pollo deshebrado, 2 tortillas, 40 g de queso panela, ⅓ de taza de frijoles y 1 taza de verduras.",
+        "preparation": "Preparar las quesadillas con pollo y queso. Acompañar con frijoles y verduras. No añadir salsas azucaradas."
+      }
+    ]
+  },
+  {
+    "code": "PDF07-D1",
+    "page": 2,
+    "declared_energy": "1,400–1,450 kcal al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Huevos con frijoles y fruta",
+        "ingredients": "2 huevos, 2 tortillas, ½ taza de frijoles, 1 taza de papaya o manzana y 1 cucharadita de aceite.",
+        "preparation": "Cocinar los huevos con el aceite y servir con frijoles y tortillas. Comer la fruta al terminar."
+      },
+      {
+        "time": "Comida",
+        "name": "Pollo con arroz y verduras",
+        "ingredients": "120 g de pollo cocido, ½ taza de arroz cocido, ½ taza de frijoles, 2 tortillas, ¼ de aguacate y 1 taza de verduras.",
+        "preparation": "Cocinar el pollo con cebolla y especias. Servir con arroz, frijoles, tortillas, aguacate y verduras."
+      },
+      {
+        "time": "Cena",
+        "name": "Carne con tortillas y verduras",
+        "ingredients": "120 g de carne de res magra, 3 tortillas, 1 taza de verduras, 30 g de queso panela.",
+        "preparation": "Cocinar la carne con cebolla y especias. Preparar los tacos y acompañar con verduras, queso y naranja."
+      }
+    ]
+  },
+  {
+    "code": "PDF07-D2",
+    "page": 3,
+    "declared_energy": "1,450–1,500 kcal al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Avena con huevo y plátano",
+        "ingredients": "40 g de avena cruda, 1 taza de leche, 1 huevo, 2 claras, ½ plátano y 1 cucharadita de crema de cacahuate.",
+        "preparation": "Cocer la avena con la leche. Agregar el plátano y la crema de cacahuate. Acompañar con el huevo y las claras completamente cocidos."
+      },
+      {
+        "time": "Comida",
+        "name": "Pollo con arroz y ensalada",
+        "ingredients": "120 g de pollo cocido, ¾ de taza de arroz cocido, ½ taza de frijoles, 2 tortillas, ¼ de aguacate y 1 taza de verduras.",
+        "preparation": "Cocinar el pollo con cebolla y especias. Servir con arroz, frijoles, tortillas, aguacate y verduras."
+      },
+      {
+        "time": "Cena",
+        "name": "Tacos de huevo con queso",
+        "ingredients": "2 huevos, 60 g de queso panela, 3 tortillas, 1 taza de verduras, ¼ de aguacate y 1 taza de papaya.",
+        "preparation": "Cocinar los huevos y servir en las tortillas con queso, verduras y aguacate. Comer la papaya al terminar."
+      }
+    ]
+  },
+  {
+    "code": "PDF09-D1",
+    "page": 2,
+    "declared_energy": "1,900–2,000 kcal al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Avena con huevo y fruta",
+        "ingredients": "60 g de avena cruda, 1 taza de bebida de soya fortificada, 2 huevos, 1 plátano pequeño y 1 cucharadita de crema de cacahuate.",
+        "preparation": "Cocer la avena con la bebida de soya. Agregar el plátano y la crema de cacahuate. Acompañar con los huevos completamente cocidos."
+      },
+      {
+        "time": "Comida",
+        "name": "Pollo con arroz y verduras",
+        "ingredients": "180 g de pollo cocido, 1 taza de arroz cocido, ½ taza de frijoles, 3 tortillas, ¼ de aguacate y 1 taza de verduras.",
+        "preparation": "Cocinar el pollo con cebolla y especias suaves. Servir con arroz, frijoles, tortillas, aguacate y verduras."
+      },
+      {
+        "time": "Cena",
+        "name": "Tacos de carne y verduras",
+        "ingredients": "160 g de carne de res magra, 4 tortillas, 1 taza de verduras, ¼ de aguacate y 1 taza de papaya.",
+        "preparation": "Cocinar la carne con cebolla y especias suaves. Preparar los tacos y acompañar con verduras, aguacate y papaya."
+      }
+    ]
+  },
+  {
+    "code": "PDF09-D2",
+    "page": 3,
+    "declared_energy": "1,950–2,050 kcal al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Tostadas con huevo y frijoles",
+        "ingredients": "3 huevos, 4 tostadas horneadas, ½ taza de frijoles, ¼ de aguacate y 1 taza de fruta.",
+        "preparation": "Preparar los huevos y servir sobre las tostadas con frijoles y aguacate. Comer la fruta al terminar."
+      },
+      {
+        "time": "Comida",
+        "name": "Carne con pasta y verduras",
+        "ingredients": "180 g de carne de res magra, 1¼ de taza de pasta cocida, 1 taza de verduras, 1 cucharadita de aceite y 1 fruta.",
+        "preparation": "Cocinar la carne y las verduras con el aceite. Servir con la pasta y la fruta. Evitar picante si aumenta la acidez."
+      },
+      {
+        "time": "Cena",
+        "name": "Pollo con tortillas y aguacate",
+        "ingredients": "180 g de pollo deshebrado, 4 tortillas, ½ taza de frijoles, 1 taza de verduras, ¼ de aguacate y 1 taza de papaya.",
+        "preparation": "Preparar los tacos con el pollo y acompañar con frijoles, verduras, aguacate y papaya. Cena con suficiente anticipación."
+      }
+    ]
+  },
+  {
+    "code": "PDF10-D1",
+    "page": 2,
+    "declared_energy": "1,550–1,650 kcal al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Huevos con tortilla y yogurt",
+        "ingredients": "2 huevos, 1 tortilla de maíz, ⅙ de aguacate, ½ taza de nopales o champiñones y ¾ de taza de yogurt natural sin azúcar.",
+        "preparation": "Preparar los huevos con verduras y servir con la tortilla y aguacate. Comer el yogurt sin azúcar al terminar."
+      },
+      {
+        "time": "Comida",
+        "name": "Ensalada de arroz con pollo o atún",
+        "ingredients": "120 g de pollo cocido o atún en agua, ⅔ de taza de arroz integral cocido, ¼ de aguacate, 1 taza de verduras y 1 cucharadita de aceite de oliva.",
+        "preparation": "Mezclar el arroz con la proteína, verduras y aguacate. Usar limón y hierbas en lugar de aderezos cremosos."
+      },
+      {
+        "time": "Cena",
+        "name": "Quesadillas de bistec y nopales",
+        "ingredients": "2 tortillas de maíz, 90 g de bistec magro, 40 g de queso Oaxaca light o panela y 1 taza de nopales con cebolla.",
+        "preparation": "Cocinar el bistec y preparar las quesadillas con el queso. Acompañar con nopales y salsa casera."
+      }
+    ]
+  },
+  {
+    "code": "PDF10-D2",
+    "page": 3,
+    "declared_energy": "1,600–1,700 kcal al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Toast de huevo con aguacate",
+        "ingredients": "1 rebanada de pan integral, 2 huevos, 2 claras, ⅙ de aguacate, ½ taza de champiñones y ¾ de taza de yogurt natural sin azúcar.",
+        "preparation": "Cocinar los huevos y champiñones. Servir sobre el pan con aguacate y acompañar con yogurt."
+      },
+      {
+        "time": "Comida",
+        "name": "Ceviche o ensalada de pescado",
+        "ingredients": "120 g de pescado blanco, 4 tostadas horneadas, ⅙ de aguacate, pepino, jitomate, zanahoria y cebolla al gusto.",
+        "preparation": "Cocinar completamente el pescado y mezclar con verduras, limón y cilantro. Servir sobre las tostadas con aguacate."
+      },
+      {
+        "time": "Cena",
+        "name": "Pasta con pescado o tacos de bistec",
+        "ingredients": "Opción A: ¾ de taza de pasta integral cocida, 120 g de pescado blanco, 1 taza de jitomates cherry y ¼ de aguacate. Opción B: 2 tortillas, 90 g de bistec, 40 g de queso y 1 taza de nopales.",
+        "preparation": "Elegir una opción. Cocinar con 1 cucharadita de aceite de oliva y hierbas. Mantener la porción de queso y aceite indicada."
+      }
+    ]
+  },
+  {
+    "code": "PDF11-D1",
+    "page": 2,
+    "declared_energy": "1,750–1,850 kcal al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Avena con huevo y fruta",
+        "ingredients": "50 g de avena cruda, 1 taza de bebida de soya fortificada, 2 huevos, ½ plátano y 1 cucharadita de crema de cacahuate.",
+        "preparation": "Cocer la avena con la bebida de soya. Agregar el plátano y la crema de cacahuate. Acompañar con los huevos completamente cocidos."
+      },
+      {
+        "time": "Comida",
+        "name": "Pollo con arroz y verduras",
+        "ingredients": "150 g de pollo cocido, 1 taza de arroz cocido, ½ taza de frijoles, 2 tortillas, ¼ de aguacate y 1 taza de verduras.",
+        "preparation": "Cocinar el pollo con cebolla y especias. Servir con arroz, frijoles, tortillas, aguacate y verduras."
+      },
+      {
+        "time": "Cena",
+        "name": "Tacos de carne y verduras",
+        "ingredients": "120 g de carne de res magra, 3 tortillas, 1 taza de verduras, ¼ de aguacate y 1 taza de papaya.",
+        "preparation": "Cocinar la carne con cebolla y especias. Preparar los tacos y acompañar con verduras, aguacate y papaya."
+      }
+    ]
+  },
+  {
+    "code": "PDF11-D2",
+    "page": 3,
+    "declared_energy": "1,800–1,900 kcal al día",
+    "meals": [
+      {
+        "time": "Desayuno",
+        "name": "Tostadas con huevo y frijoles",
+        "ingredients": "2 huevos, 3 tostadas horneadas, ½ taza de frijoles, ¼ de aguacate y 1 taza de fruta.",
+        "preparation": "Preparar los huevos y servir sobre las tostadas con frijoles y aguacate. Comer la fruta al terminar."
+      },
+      {
+        "time": "Comida",
+        "name": "Carne con pasta y verduras",
+        "ingredients": "150 g de carne de res magra, 1 taza de pasta cocida, 1 taza de verduras, 1 cucharadita de aceite y 1 fruta.",
+        "preparation": "Cocinar la carne y las verduras con el aceite. Servir con la pasta y la fruta."
+      },
+      {
+        "time": "Cena",
+        "name": "Pollo con tortillas y aguacate",
+        "ingredients": "150 g de pollo deshebrado, 3 tortillas, ½ taza de frijoles, 1 taza de verduras, ¼ de aguacate y 1 taza de papaya.",
+        "preparation": "Preparar los tacos con el pollo y acompañar con frijoles, verduras, aguacate y papaya."
+      }
+    ]
+  }
+]

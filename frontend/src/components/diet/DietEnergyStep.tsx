@@ -92,7 +92,7 @@ function DataInput({
 }
 
 export function DietEnergyStep({ plan, reference, referenceLoading, onSave, onDraftChange, onContinue }: Props) {
-  const initial = useMemo(() => plan.energy_calculation ?? createPlanEnergyCalculation(reference), [plan.energy_calculation, reference]);
+  const initial = useMemo(() => plan.energy_calculation ?? calculatePlanEnergy({ ...createPlanEnergyCalculation(reference), ...(plan.target_calories ? { mode: "manual" as const, method_code: "MANUAL_ENERGY_TARGET", prescribed_target_kcal: plan.target_calories } : {}) }), [plan.energy_calculation, plan.target_calories, reference]);
   const [draft, setDraft] = useState(initial);
   const lastPlanId = useRef(plan.id);
   const autosave = useChangeAutosave({ initialValue: initial, onSave, onDraftChange });

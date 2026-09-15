@@ -1,0 +1,831 @@
+[
+  {
+    "id": "f6f9b996-6d83-ecb8-ab4a-c725886b2039",
+    "stable_code": "MX_APPLE",
+    "name": "Manzana pequeña",
+    "group_code": "FRUITS",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "piece",
+    "portion_description": "1 pieza pequeña",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Frutas",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "8292b99f-dca2-3305-d09c-da06a50c7756",
+    "stable_code": "MX_AVOCADO",
+    "name": "Aguacate",
+    "group_code": "FATS_NO_PROTEIN",
+    "portion_amount": "0.333",
+    "portion_fraction": {
+      "original": "⅓ de pieza",
+      "numerator": 1,
+      "denominator": 3
+    },
+    "portion_unit": "piece",
+    "portion_description": "⅓ de pieza",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Grasas monoinsaturadas",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "af0edfe6-7c38-51f0-7f83-9b764f883445",
+    "stable_code": "MX_BAKED_TOSTADA",
+    "name": "Tostada de maíz horneada",
+    "group_code": "CEREALS_NO_FAT",
+    "portion_amount": "2.000",
+    "portion_fraction": null,
+    "portion_unit": "piece",
+    "portion_description": "2 tostadas",
+    "alternate_portions": [],
+    "source": "IMSS_SMAE_4E",
+    "source_version": "2022",
+    "source_reference": "Procedimiento IMSS 2250-003-002 · Cereales",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "gluten": "unknown"
+    }
+  },
+  {
+    "id": "0475b27c-c7ab-8389-3d0d-7739e50d038f",
+    "stable_code": "MX_BANANA",
+    "name": "Plátano",
+    "group_code": "FRUITS",
+    "portion_amount": "0.500",
+    "portion_fraction": null,
+    "portion_unit": "piece",
+    "portion_description": "½ pieza",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Frutas",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "55bd6781-7537-0842-54ef-42b582b0123b",
+    "stable_code": "MX_BOLILLO_NO_CRUMB",
+    "name": "Bolillo sin migajón",
+    "group_code": "CEREALS_NO_FAT",
+    "portion_amount": "0.333",
+    "portion_fraction": {
+      "original": "⅓ de bolillo",
+      "numerator": 1,
+      "denominator": 3
+    },
+    "portion_unit": "piece",
+    "portion_description": "⅓ de bolillo",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Pan y tortilla",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "gluten": "contains"
+    }
+  },
+  {
+    "id": "968648d8-ef4c-93de-170c-d29cce0233b7",
+    "stable_code": "MX_COOKED_BEANS",
+    "name": "Frijoles cocidos",
+    "group_code": "LEGUMES",
+    "portion_amount": "0.500",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "½ taza",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Leguminosas",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "5a548e7e-1b1b-93d5-433d-21c4bd8cd890",
+    "stable_code": "MX_COOKED_BROWN_RICE",
+    "name": "Arroz integral cocido",
+    "group_code": "CEREALS_NO_FAT",
+    "portion_amount": "0.500",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "½ taza",
+    "alternate_portions": [],
+    "source": "DOF_SMAE_PORTIONS",
+    "source_version": "2018",
+    "source_reference": "DOF 03/05/2018 · Tabla 4, cereales y tubérculos",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "eb14f68f-352b-b8e9-47b2-f82db557c305",
+    "stable_code": "MX_COOKED_CARROT",
+    "name": "Zanahoria cocida",
+    "group_code": "VEGETABLES",
+    "portion_amount": "0.500",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "½ taza",
+    "alternate_portions": [],
+    "source": "DOF_SMAE_PORTIONS",
+    "source_version": "2018",
+    "source_reference": "DOF 03/05/2018 · Tabla 4, verduras",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "7fe078b9-0d95-7cdc-5ebc-c7cb13efb8c2",
+    "stable_code": "MX_COOKED_CHICKEN_BREAST",
+    "name": "Pechuga de pollo cocida sin piel",
+    "group_code": "AOA_VERY_LOW_FAT",
+    "portion_amount": "30.000",
+    "portion_fraction": null,
+    "portion_unit": "g",
+    "portion_description": "30 g",
+    "alternate_portions": [
+      {
+        "unit": "cup",
+        "amount": 0.25,
+        "display": "1/4 taza (pollo deshebrado)"
+      }
+    ],
+    "source": "DOF_SMAE_PORTIONS",
+    "source_version": "2018",
+    "source_reference": "DOF 03/05/2018 · AOA muy bajo aporte de grasa · Pechuga de pollo",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "fc5a4cd1-0279-c1b1-d1aa-be6a5269343c",
+    "stable_code": "MX_COOKED_LEAN_BEEF",
+    "name": "Carne de res magra cocida",
+    "group_code": "AOA_VERY_LOW_FAT",
+    "portion_amount": "30.000",
+    "portion_fraction": null,
+    "portion_unit": "g",
+    "portion_description": "30 g",
+    "alternate_portions": [],
+    "source": "DOF_SMAE_PORTIONS",
+    "source_version": "2018",
+    "source_reference": "DOF 03/05/2018 · AOA muy bajo aporte de grasa · Bistec de res",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "cb6e08a5-a60a-c6c6-0704-cbd5cc75ddb7",
+    "stable_code": "MX_COOKED_LEAN_PORK",
+    "name": "Carne de cerdo magra cocida",
+    "group_code": "AOA_LOW_FAT",
+    "portion_amount": "40.000",
+    "portion_fraction": null,
+    "portion_unit": "g",
+    "portion_description": "40 g",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · AOA bajo en grasa, peso cocido",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "d1bb54cb-facb-0e09-2323-108c6020bd61",
+    "stable_code": "MX_COOKED_NOPAL",
+    "name": "Nopal cocido picado",
+    "group_code": "VEGETABLES",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "1 taza",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Verduras",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "f759059d-a680-9a43-5bae-9c7c518508e3",
+    "stable_code": "MX_COOKED_PASTA",
+    "name": "Pasta cocida",
+    "group_code": "CEREALS_NO_FAT",
+    "portion_amount": "0.500",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "½ taza",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Cereales",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "gluten": "contains"
+    }
+  },
+  {
+    "id": "d927ac6c-ef78-3b4d-5322-8087586a95ce",
+    "stable_code": "MX_COOKED_POTATO",
+    "name": "Papa cocida",
+    "group_code": "CEREALS_NO_FAT",
+    "portion_amount": "0.500",
+    "portion_fraction": null,
+    "portion_unit": "piece",
+    "portion_description": "½ pieza",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Tubérculos",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "767d457e-3000-72c8-2395-89eec0292c44",
+    "stable_code": "MX_COOKED_WHITE_FISH",
+    "name": "Pescado blanco cocido",
+    "group_code": "AOA_VERY_LOW_FAT",
+    "portion_amount": "40.000",
+    "portion_fraction": null,
+    "portion_unit": "g",
+    "portion_description": "40 g",
+    "alternate_portions": [],
+    "source": "DOF_SMAE_PORTIONS",
+    "source_version": "2018",
+    "source_reference": "DOF 03/05/2018 · AOA muy bajo aporte de grasa · Filete de pescado",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "fish": "contains"
+    }
+  },
+  {
+    "id": "8b2b108e-33b2-dd18-7977-d537e62ab945",
+    "stable_code": "MX_COOKED_WHITE_RICE",
+    "name": "Arroz blanco cocido",
+    "group_code": "CEREALS_NO_FAT",
+    "portion_amount": "0.500",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "½ taza",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Cereales",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "f382948f-03ee-7cc6-f1bb-ea9cdebd4409",
+    "stable_code": "MX_COOKED_WHOLE_WHEAT_PASTA",
+    "name": "Pasta integral cocida",
+    "group_code": "CEREALS_NO_FAT",
+    "portion_amount": "0.500",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "½ taza",
+    "alternate_portions": [],
+    "source": "DOF_SMAE_PORTIONS",
+    "source_version": "2018",
+    "source_reference": "DOF 03/05/2018 · Tabla 4, cereales y tubérculos",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "gluten": "contains"
+    }
+  },
+  {
+    "id": "63de0d01-3345-a496-0512-7002958c08a6",
+    "stable_code": "MX_CORN_TORTILLA",
+    "name": "Tortilla de maíz",
+    "group_code": "CEREALS_NO_FAT",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "tortilla",
+    "portion_description": "1 tortilla",
+    "alternate_portions": [
+      {
+        "unit": "g",
+        "amount": 30,
+        "display": "aprox. 30 g"
+      }
+    ],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Pan y tortilla",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "gluten": "unknown"
+    }
+  },
+  {
+    "id": "79fe56da-ad76-b53c-c996-5f0660b51032",
+    "stable_code": "MX_EGG_WHITE",
+    "name": "Clara de huevo",
+    "group_code": "AOA_VERY_LOW_FAT",
+    "portion_amount": "2.000",
+    "portion_fraction": null,
+    "portion_unit": "piece",
+    "portion_description": "2 piezas",
+    "alternate_portions": [],
+    "source": "DOF_SMAE_PORTIONS",
+    "source_version": "2018",
+    "source_reference": "DOF 03/05/2018 · AOA muy bajo aporte de grasa · Clara de huevo",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "egg": "contains"
+    }
+  },
+  {
+    "id": "6d9c7ece-6775-c89f-b049-8e7c96794a54",
+    "stable_code": "MX_GUAVA",
+    "name": "Guayaba",
+    "group_code": "FRUITS",
+    "portion_amount": "2.000",
+    "portion_fraction": null,
+    "portion_unit": "piece",
+    "portion_description": "2 piezas",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Frutas",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "a1191252-367e-b364-d8e4-d66bcefec889",
+    "stable_code": "MX_LETTUCE",
+    "name": "Lechuga",
+    "group_code": "VEGETABLES",
+    "portion_amount": "3.000",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "3 tazas",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Verduras",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "23231c0d-b0d7-99d8-9c17-265057f2d5df",
+    "stable_code": "MX_MIXED_VEGETABLES",
+    "name": "Verduras mixtas",
+    "group_code": "VEGETABLES",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "1 taza",
+    "alternate_portions": [],
+    "source": "IMSS_HEALTHY_MENU",
+    "source_version": "2024",
+    "source_reference": "Cartera de alimentación IMSS · preparaciones con verduras mixtas",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "c2737d5b-e7a0-b5ae-abe1-1f2667fdfff6",
+    "stable_code": "MX_NATURAL_SKIM_YOGURT",
+    "name": "Yogur natural descremado sin azúcar",
+    "group_code": "MILK_SKIM",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "1 taza (240 ml)",
+    "alternate_portions": [
+      {
+        "unit": "ml",
+        "amount": 240,
+        "display": "240 ml"
+      }
+    ],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Lácteos bajos en grasa",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "milk": "contains",
+      "lactose": "contains"
+    }
+  },
+  {
+    "id": "ed8a0f18-ff66-0367-f545-546291cb8842",
+    "stable_code": "MX_OLIVE_OIL",
+    "name": "Aceite de oliva",
+    "group_code": "FATS_NO_PROTEIN",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "teaspoon",
+    "portion_description": "1 cucharadita",
+    "alternate_portions": [
+      {
+        "unit": "ml",
+        "amount": 5,
+        "display": "5 ml"
+      }
+    ],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Grasas monoinsaturadas",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "a429d197-da31-9263-381d-b96d0759a411",
+    "stable_code": "MX_ORANGE_SEGMENTS",
+    "name": "Naranja en gajos",
+    "group_code": "FRUITS",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "1 taza",
+    "alternate_portions": [
+      {
+        "unit": "piece",
+        "amount": 2,
+        "display": "2 piezas (naranja)"
+      }
+    ],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Frutas",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "e8ab9f70-d535-d4b6-fa58-340ce289bc7a",
+    "stable_code": "MX_PANELA_CHEESE",
+    "name": "Queso panela",
+    "group_code": "AOA_LOW_FAT",
+    "portion_amount": "40.000",
+    "portion_fraction": null,
+    "portion_unit": "g",
+    "portion_description": "40 g",
+    "alternate_portions": [],
+    "source": "DOF_SMAE_PORTIONS",
+    "source_version": "2018",
+    "source_reference": "DOF 03/05/2018 · AOA bajo aporte de grasa · Queso panela",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "milk": "contains",
+      "lactose": "unknown"
+    }
+  },
+  {
+    "id": "77894f51-0821-6201-4dc0-7fb077a8785e",
+    "stable_code": "MX_PAPAYA",
+    "name": "Papaya picada",
+    "group_code": "FRUITS",
+    "portion_amount": "0.667",
+    "portion_fraction": {
+      "original": "⅔ de taza",
+      "numerator": 2,
+      "denominator": 3
+    },
+    "portion_unit": "cup",
+    "portion_description": "⅔ de taza",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Frutas",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "a333c884-67bb-0be0-4d9d-6d5131b4b410",
+    "stable_code": "MX_PEANUT_BUTTER",
+    "name": "Crema de cacahuate",
+    "group_code": "FATS_WITH_PROTEIN",
+    "portion_amount": "2.000",
+    "portion_fraction": null,
+    "portion_unit": "teaspoon",
+    "portion_description": "2 cucharaditas",
+    "alternate_portions": [
+      {
+        "unit": "g",
+        "amount": 11,
+        "display": "aprox. 11 g"
+      }
+    ],
+    "source": "MUNICIPIO_JUAREZ_EXCHANGE_LIST",
+    "source_version": "s.f.",
+    "source_reference": "Listado público de alimentos y porciones · Grasas monoinsaturadas",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "peanut": "contains"
+    }
+  },
+  {
+    "id": "19ab5a01-ad09-565d-9ad3-9544493633c3",
+    "stable_code": "MX_POBLANO_PEPPER",
+    "name": "Chile poblano",
+    "group_code": "VEGETABLES",
+    "portion_amount": "0.500",
+    "portion_fraction": null,
+    "portion_unit": "piece",
+    "portion_description": "½ pieza",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Verduras",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "a66a9889-36cb-8b14-4167-fd909d40d36a",
+    "stable_code": "MX_RAW_CUCUMBER",
+    "name": "Pepino",
+    "group_code": "VEGETABLES",
+    "portion_amount": "1.500",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "1½ tazas",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Verduras",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "25231fcf-5e74-fda7-735c-6cff4650a676",
+    "stable_code": "MX_RAW_MUSHROOM",
+    "name": "Champiñón crudo",
+    "group_code": "VEGETABLES",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "1 taza",
+    "alternate_portions": [],
+    "source": "DOF_SMAE_PORTIONS",
+    "source_version": "2018",
+    "source_reference": "DOF 03/05/2018 · Tabla 4, verduras",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "30769d31-a9e9-3c28-7658-97c44a48f042",
+    "stable_code": "MX_RAW_ONION",
+    "name": "Cebolla cruda",
+    "group_code": "VEGETABLES",
+    "portion_amount": "0.500",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "½ taza",
+    "alternate_portions": [],
+    "source": "DOF_SMAE_PORTIONS",
+    "source_version": "2018",
+    "source_reference": "DOF 03/05/2018 · Tabla 4, verduras",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "acb98a95-ae59-ba34-70fd-d8ef5ef1b922",
+    "stable_code": "MX_ROLLED_OATS",
+    "name": "Avena en hojuelas",
+    "group_code": "CEREALS_NO_FAT",
+    "portion_amount": "0.333",
+    "portion_fraction": {
+      "original": "⅓ de taza",
+      "numerator": 1,
+      "denominator": 3
+    },
+    "portion_unit": "cup",
+    "portion_description": "⅓ de taza",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Cereales",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "gluten": "unknown"
+    }
+  },
+  {
+    "id": "dbff552f-98c2-78fb-5060-ea864947a198",
+    "stable_code": "MX_SEMI_SKIM_MILK",
+    "name": "Leche semidescremada",
+    "group_code": "MILK_SEMI_SKIM",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "1 taza (240 ml)",
+    "alternate_portions": [
+      {
+        "unit": "ml",
+        "amount": 240,
+        "display": "240 ml"
+      }
+    ],
+    "source": "DOF_SMAE_PORTIONS",
+    "source_version": "2018",
+    "source_reference": "DOF 03/05/2018 · Tabla 4, leches",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "milk": "contains",
+      "lactose": "contains"
+    }
+  },
+  {
+    "id": "1805300b-303b-8e4a-7a14-3f9b67655892",
+    "stable_code": "MX_SKIM_MILK",
+    "name": "Leche descremada",
+    "group_code": "MILK_SKIM",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "1 taza (240 ml)",
+    "alternate_portions": [
+      {
+        "unit": "ml",
+        "amount": 240,
+        "display": "240 ml"
+      }
+    ],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Lácteos bajos en grasa",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "milk": "contains",
+      "lactose": "contains"
+    }
+  },
+  {
+    "id": "000847e1-717f-97fb-88cf-d0ce1d1ab701",
+    "stable_code": "MX_TOMATO",
+    "name": "Jitomate",
+    "group_code": "VEGETABLES",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "piece",
+    "portion_description": "1 pieza",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Verduras",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "bddb03be-c8c1-f7db-6ebd-b8f925333a5c",
+    "stable_code": "MX_TUNA_WATER_DRAINED",
+    "name": "Atún en agua escurrido",
+    "group_code": "AOA_VERY_LOW_FAT",
+    "portion_amount": "30.000",
+    "portion_fraction": null,
+    "portion_unit": "g",
+    "portion_description": "30 g",
+    "alternate_portions": [],
+    "source": "DOF_SMAE_PORTIONS",
+    "source_version": "2018",
+    "source_reference": "DOF 03/05/2018 · AOA muy bajo aporte de grasa · Atún en agua drenado",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "fish": "contains"
+    }
+  },
+  {
+    "id": "a98f83e4-0c39-6e7c-58b8-4f7f5d41101d",
+    "stable_code": "MX_VEGETABLE_OIL",
+    "name": "Aceite vegetal",
+    "group_code": "FATS_NO_PROTEIN",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "teaspoon",
+    "portion_description": "1 cucharadita",
+    "alternate_portions": [
+      {
+        "unit": "ml",
+        "amount": 5,
+        "display": "5 ml"
+      }
+    ],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Grasas",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  },
+  {
+    "id": "2802203a-3950-bd92-fe0c-3cc02b099bfa",
+    "stable_code": "MX_WHOLE_EGG",
+    "name": "Huevo entero",
+    "group_code": "AOA_MODERATE_FAT",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "piece",
+    "portion_description": "1 pieza",
+    "alternate_portions": [],
+    "source": "IMSS_SMAE_4E",
+    "source_version": "2021",
+    "source_reference": "Procedimiento IMSS 2660-003-013 · Huevo entero fresco · AOA moderado",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "egg": "contains"
+    }
+  },
+  {
+    "id": "2c1b3829-c4a1-0caf-235f-8c9244c2c947",
+    "stable_code": "MX_WHOLE_MILK",
+    "name": "Leche entera",
+    "group_code": "MILK_WHOLE",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "1 taza (240 ml)",
+    "alternate_portions": [
+      {
+        "unit": "ml",
+        "amount": 240,
+        "display": "240 ml"
+      }
+    ],
+    "source": "DOF_SMAE_PORTIONS",
+    "source_version": "2018",
+    "source_reference": "DOF 03/05/2018 · Tabla 4, leches",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "milk": "contains",
+      "lactose": "contains"
+    }
+  },
+  {
+    "id": "968752b0-424b-96f1-a1d6-33e72fff30f1",
+    "stable_code": "MX_WHOLE_WHEAT_BREAD",
+    "name": "Pan integral",
+    "group_code": "CEREALS_NO_FAT",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "slice",
+    "portion_description": "1 rebanada",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Pan y tortilla",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "gluten": "contains"
+    }
+  },
+  {
+    "id": "67684541-f7ee-7de8-7dba-23bd625ec86e",
+    "stable_code": "MX_ZUCCHINI",
+    "name": "Calabacita",
+    "group_code": "VEGETABLES",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "piece",
+    "portion_description": "1 pieza",
+    "alternate_portions": [],
+    "source": "NOM-037-SSA2-2012",
+    "source_version": "2012",
+    "source_reference": "Apéndice informativo F.3 · Verduras",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {}
+  }
+]

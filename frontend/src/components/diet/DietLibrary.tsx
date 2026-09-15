@@ -15,13 +15,17 @@ import {
   makeLibraryContent,
   type DietLibraryItem,
   type LibraryContent,
+  type LibraryTargetMode,
+  referenceMacros,
 } from "@/src/features/diet-library/model";
 import {
   archiveDietLibrary,
   listDietLibrary,
   saveDietLibrary,
   dietLibraryRecovery,
+  submitLibraryContribution,
 } from "@/src/services/dietLibrary";
+import { LibraryContributions } from "./LibraryContributions";
 import { PatientPlanPreview } from "./PatientPlanPreview";
 import { dayName } from "@/src/features/menu/week";
 
@@ -151,7 +155,7 @@ export function DietLibrary({
   plan?: NutritionPlan;
   suggestions?: boolean;
   capture?: () => Promise<NutritionPlan>;
-  onApply?: (item: DietLibraryItem, token: string) => Promise<void>;
+  onApply?: (item: DietLibraryItem, token: string, mode: LibraryTargetMode) => Promise<void>;
   onRestore?: (token: string) => Promise<void>;
   onEdit?: (item: DietLibraryItem) => Promise<void>;
   editingSource?: { id: string; revision: number };
@@ -169,6 +173,9 @@ export function DietLibrary({
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<DietLibraryItem | null>(null);
   const [confirm, setConfirm] = useState(false);
+  const [targetMode, setTargetMode] = useState<LibraryTargetMode>("preserve");
+  const [sharing, setSharing] = useState(false);
+  const [shareConsent, setShareConsent] = useState(false);
   const [saving, setSaving] = useState<LibraryContent | null>(null);
   const [name, setName] = useState("");
   const [editing, setEditing] = useState<DietLibraryItem | null>(null);
@@ -264,6 +271,9 @@ export function DietLibrary({
   const inspect = (item: DietLibraryItem) => {
     setSelected(item);
     setConfirm(false);
+    setSharing(false);
+    setShareConsent(false);
+    setTargetMode(target ? "preserve" : "reference");
     operation.current = crypto.randomUUID();
     setOpen(true);
   };
@@ -570,6 +580,12 @@ export function DietLibrary({
                 {libraryReady(selected.content) ? "Completa" : "Pendiente"}
               </p>
               <NutritionComparison content={selected.content} target={target} />
+              {selected.provenance && <div className="mb-4 rounded-xl bg-white p-3 text-xs text-[#64786d]">
+                <p className="font-semibold">{selected.provenance.label}</p>
+                {selected.provenance.declared_energy && <p>Meta declarada en el documento: {selected.provenance.declared_energy}. No es el aporte calculado del menú.</p>}
+                {selected.provenance.target_basis && <p>{selected.provenance.target_basis}</p>}
+                {selected.provenance.notes?.map((text, index) => <p key={index} className="mt-1">{text}</p>)}
+              </div>}
               {target && (
                 <p className="mb-4 text-xs text-[#64786d]">
                   Orden: menor diferencia relativa de energía y gramos de los
@@ -593,6 +609,14 @@ export function DietLibrary({
                 restricciones no verificadas requieren revisión profesional.
               </p>
               <PatientPlanPreview value={libraryPreview(selected)} />
+              {sharing && <div className="mt-4 space-y-3 rounded-xl border bg-white p-4 text-sm">
+                <h3 className="font-semibold">Aportar a la biblioteca de Nuthrick</h3>
+                <p>Se enviará una copia de esta revisión. Solo después de aprobarse estará disponible para los demás nutriólogos. Los cambios futuros de tu base no se compartirán automáticamente.</p>
+                <label className="flex items-start gap-2"><input type="checkbox" checked={shareConsent} onChange={e => setShareConsent(e.target.checked)} />Revisé todos los textos y no contienen datos personales. Tengo autorización para compartir estas preparaciones y permitir su reutilización y adaptación en Nuthrick.</label>
+                <div className="flex flex-wrap gap-2"><button className="nuth-button" disabled={busy || !shareConsent} onClick={() => void run(async () => {
+                  await submitLibraryContribution(selected, shareConsent); close(); setNotice("Aportación enviada. Puedes seguir su estado en Aportaciones; aún no es pública.");
+                })}>Enviar a revisión</button><button className="nuth-button-secondary" disabled={busy} onClick={() => setSharing(false)}>Cancelar envío</button></div>
+              </div>}
               {confirm ? (
                 <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
                   <h3 className="font-semibold">
@@ -600,10 +624,16 @@ export function DietLibrary({
                   </h3>
                   <p className="mt-2">
                     Reemplazará equivalentes, tiempos, opciones y calendario.
-                    Mantendrá paciente, consulta, energía y macros. Se guardará
-                    el menú anterior para recuperarlo mientras no hagas nuevos
+                    Mantendrá paciente y consulta. Se guardará
+                    el trabajo anterior para recuperarlo mientras no hagas nuevos
                     cambios.
                   </p>
+                  <fieldset className="mt-3 space-y-2">
+                    <legend className="font-semibold">¿Qué objetivos quieres usar?</legend>
+                    <label className="flex items-start gap-2"><input type="radio" name="library-target" value="preserve" disabled={!target || busy} checked={targetMode === "preserve"} onChange={() => setTargetMode("preserve")} />Conservar los objetivos actuales del paciente{!target && " (completa Energía y Macros primero)"}</label>
+                    <label className="flex items-start gap-2"><input type="radio" name="library-target" value="reference" disabled={!referenceMacros(selected.content.reference_targets) || busy} checked={targetMode === "reference"} onChange={() => setTargetMode("reference")} />Cargar los objetivos de referencia de la base{!referenceMacros(selected.content.reference_targets) && " (no disponibles o incompletos)"}</label>
+                  </fieldset>
+                  <NutritionComparison content={selected.content} target={targetMode === "reference" ? selected.content.reference_targets : target} />
                   <p className="mt-2">
                     Las cantidades no se escalan. Deberás revisar
                     compatibilidad, confirmar las opciones y revisar nuevamente
@@ -612,10 +642,10 @@ export function DietLibrary({
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       className="nuth-button"
-                      disabled={busy}
+                      disabled={busy || (targetMode === "preserve" ? !target : !referenceMacros(selected.content.reference_targets))}
                       onClick={() =>
                         void run(async () => {
-                          await onApply!(selected, operation.current!);
+                          await onApply!(selected, operation.current!, targetMode);
                           close();
                           setNotice(
                             "Copia aplicada. Revisa equivalentes y confirma nuevamente las opciones.",
@@ -641,7 +671,7 @@ export function DietLibrary({
                       className="nuth-button"
                       disabled={
                         busy ||
-                        !target ||
+                        (!target && !referenceMacros(selected.content.reference_targets)) ||
                         selected.archived ||
                         !!restrictions?.excluded.length
                       }
@@ -657,8 +687,10 @@ export function DietLibrary({
                     <Copy size={16} />
                     Crear copia
                   </button>
+                  {!selected.owner_id && onEdit && !selected.archived && <button className="nuth-button-secondary" disabled={busy} onClick={() => void run(async () => { await onEdit(selected); close(); })}>Abrir copia en Taller</button>}
                   {selected.owner_id && (
                     <>
+                      {!selected.archived && <button className="nuth-button-secondary" disabled={busy} onClick={() => { setSharing(true); setShareConsent(false); }}>Aportar a Nuthrick</button>}
                       {onEdit && !selected.archived && (
                         <button
                           className="nuth-button-secondary"
@@ -702,7 +734,7 @@ export function DietLibrary({
                   )}
                 </div>
               )}
-              {!target && (
+              {!plan && (
                 <p className="mt-3 text-sm">
                   Para usarla, abre un borrador y completa Energía y Macros.
                   Para editar cantidades, úsala como base y luego actualiza su
@@ -733,7 +765,9 @@ export function DietLibrary({
                 >
                   Biblioteca de Nuthrick
                 </button>
+                <button className={scope === "contributions" ? "nuth-button" : "nuth-button-secondary"} onClick={() => setScope("contributions")}>Aportaciones</button>
               </div>
+              {scope === "contributions" ? <LibraryContributions /> : <>
               <div className="my-4 flex flex-wrap gap-3">
                 <input
                   aria-label="Buscar en biblioteca"
@@ -772,7 +806,7 @@ export function DietLibrary({
                 <p className="py-8 text-center text-sm text-[#64786d]">
                   {scope === "mine"
                     ? "Aún no hay bases en esta selección. Guarda un borrador para reutilizarlo."
-                    : "No hay bases de Nuthrick publicadas en esta selección. Tu contenido privado nunca se comparte aquí."}
+                    : "No hay bases de Nuthrick publicadas en esta selección. Solo se publican copias revisadas."}
                 </p>
               )}
               <button
@@ -782,6 +816,7 @@ export function DietLibrary({
               >
                 Actualizar biblioteca
               </button>
+              </>}
             </>
           )}
         </LibraryDialog>

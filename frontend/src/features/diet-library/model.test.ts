@@ -12,6 +12,7 @@ import {
   makeLibraryContent,
   prepareLibraryBase,
   editLibraryTexts,
+  referenceMacros,
   type DietLibraryItem,
 } from "./model";
 import type { NutritionPlan } from "@/src/types/domain";
@@ -66,6 +67,19 @@ function fixture() {
   return { plan, content, item };
 }
 describe("reusable library boundaries", () => {
+  it("accepts coherent reference targets without copying weight or changing portions", () => {
+    const { plan, item } = fixture();
+    const original = JSON.stringify(item.content);
+    plan.target_calories = null; plan.macro_distribution = null;
+    expect(() => prepareLibraryBase(item, plan)).toThrow();
+    const copied = prepareLibraryBase(item, plan, undefined, "reference");
+    expect(copied.exchange_prescription.target_snapshot).toEqual(item.content.reference_targets);
+    expect(JSON.stringify(item.content)).toBe(original);
+    expect(referenceMacros(item.content.reference_targets)?.reference_weight_kg).toBeNull();
+    item.content.reference_targets!.protein_g = 10000;
+    expect(referenceMacros(item.content.reference_targets)).toBeNull();
+    expect(() => prepareLibraryBase(item, plan, undefined, "reference")).toThrow(/coherentes/);
+  });
   it("excludes clinical metadata and preferences through an allowlist, including unexpected nested keys", () => {
     const { plan } = fixture();
     plan.diet_menu!.food_preferences = { secret: "exclude" };

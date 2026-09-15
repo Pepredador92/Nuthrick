@@ -664,10 +664,10 @@ export function DietWorkshopPage() {
     setActiveStep("equivalents");
     setNotice("Borrador actualizado. Revisa equivalentes, tiempos, opciones y sustituciones antes de publicar.");
   };
-  const applyLibrary = async (item: DietLibraryItem, token: string) => {
+  const applyLibrary = async (item: DietLibraryItem, token: string, targetMode: "preserve" | "reference") => {
     const saved = await flushPendingDraft();
     await planSaveQueue.current;
-    acceptLibraryUpdate(await applyDietLibrary(item, planRef.current ?? saved, token));
+    acceptLibraryUpdate(await applyDietLibrary(item, planRef.current ?? saved, token, targetMode));
   };
   const restoreLibrary = async (token: string) => {
     const saved = await flushPendingDraft();

@@ -32,6 +32,17 @@ import {
   exchangeCatalog,
 } from "@/src/features/exchanges/catalog";
 import { patientPlanViewFromDraft } from "@/src/features/diet-review/model";
+import { createMacroDistribution, patchMacroInput } from "@/src/features/macros/model";
+
+export type LibraryTargetMode = "preserve" | "reference";
+export function referenceMacros(target: ExchangeTargetSnapshot | null) {
+  if (!target || !Object.values(target).every(v => Number.isFinite(v) && v >= 0) || target.energy_kcal <= 0 || target.energy_kcal > 10000) return null;
+  let result = createMacroDistribution(target.energy_kcal, null);
+  result = patchMacroInput(result, "PROTEIN", "grams", target.protein_g);
+  result = patchMacroInput(result, "CARBOHYDRATE", "grams", target.carbohydrate_g);
+  result = patchMacroInput(result, "FAT", "grams", target.fat_g);
+  return result.complete ? result : null;
+}
 
 export type LibraryContent = {
   schema_version: 1;
@@ -49,6 +60,7 @@ export type DietLibraryItem = {
   archived: boolean;
   created_at: string;
   updated_at: string;
+  provenance?: { kind: string; label: string; notes?: string[]; declared_energy?: string; target_basis?: string } | null;
 };
 const zero = (): ExchangeTargetSnapshot => ({
   energy_kcal: 0,
@@ -528,10 +540,13 @@ export function prepareLibraryBase(
   item: DietLibraryItem,
   current: NutritionPlan,
   idFactory = () => crypto.randomUUID(),
+  targetMode: LibraryTargetMode = "preserve",
 ) {
-  const target = currentTargets(current);
+  const target = targetMode === "reference"
+    ? (referenceMacros(item.content.reference_targets) ? item.content.reference_targets : null)
+    : currentTargets(current);
   if (!target)
-    throw new Error("Completa Energía y Macros antes de usar una base.");
+    throw new Error(targetMode === "reference" ? "La base no tiene objetivos de referencia completos y coherentes." : "Completa Energía y Macros antes de usar una base.");
   if (
     libraryRestrictions(item.content, current.diet_menu?.food_preferences)
       .excluded.length

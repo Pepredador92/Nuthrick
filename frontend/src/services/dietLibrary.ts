@@ -4,12 +4,10 @@ import {
   prepareLibraryBase,
   type DietLibraryItem,
   type LibraryContent,
+  type LibraryTargetMode,
+  referenceMacros,
 } from "@/src/features/diet-library/model";
 import type { NutritionPlan } from "@/src/types/domain";
-import {
-  createMacroDistribution,
-  patchMacroInput,
-} from "@/src/features/macros/model";
 
 const fail = (error: { message?: string; code?: string }) =>
   new Error(
@@ -94,14 +92,16 @@ export async function applyDietLibrary(
   item: DietLibraryItem,
   plan: NutritionPlan,
   token: string,
+  targetMode: LibraryTargetMode = "preserve",
 ): Promise<NutritionPlan> {
-  const { data, error } = await supabase.rpc("apply_diet_library", {
+  const { data, error } = await supabase.rpc("apply_diet_library_with_targets", {
     p_plan_id: plan.id,
     p_expected_revision: plan.draft_revision ?? 1,
     p_source_id: item.id,
     p_source_revision: item.revision,
     p_token: token,
-    p_content: prepareLibraryBase(item, plan),
+    p_content: prepareLibraryBase(item, plan, undefined, targetMode),
+    p_target_mode: targetMode,
   });
   if (error) throw fail(error);
   return data as NutritionPlan;
@@ -144,17 +144,7 @@ export async function createDietLibraryEditingDraft(
     );
   const content = (source.data as DietLibraryItem).content;
   const target = content.reference_targets;
-  let macro = target ? createMacroDistribution(target.energy_kcal, null) : null;
-  if (macro && target) {
-    macro = patchMacroInput(macro, "PROTEIN", "grams", target.protein_g);
-    macro = patchMacroInput(
-      macro,
-      "CARBOHYDRATE",
-      "grams",
-      target.carbohydrate_g,
-    );
-    macro = patchMacroInput(macro, "FAT", "grams", target.fat_g);
-  }
+  const macro = referenceMacros(target);
   const { data, error } = await supabase
     .from("nutrition_plans")
     .insert({
@@ -170,4 +160,38 @@ export async function createDietLibraryEditingDraft(
     .single();
   if (error) throw fail(error);
   return data as NutritionPlan;
+}
+
+export type LibraryContribution = {
+  id: string; source_id: string; source_revision: number; name: string; content: LibraryContent;
+  status: "pending" | "approved" | "rejected" | "withdrawn";
+  created_at: string; review_note: string | null; published_item_id: string | null;
+};
+export async function libraryContributionAccess() {
+  const { data, error } = await supabase.rpc("can_review_diet_library");
+  if (error) throw fail(error);
+  return data === true;
+}
+export async function listLibraryContributions(): Promise<LibraryContribution[]> {
+  const rows: LibraryContribution[] = [];
+  for (let offset = 0; ; offset += 100) {
+    const { data, error } = await supabase.from("diet_library_contributions")
+      .select("id,source_id,source_revision,name,content,status,created_at,review_note,published_item_id")
+      .order("created_at", { ascending: false }).order("id").range(offset, offset + 99);
+    if (error) throw fail(error);
+    rows.push(...(data ?? []) as LibraryContribution[]);
+    if (!data || data.length < 100) return rows;
+  }
+}
+export async function submitLibraryContribution(item: DietLibraryItem, consent: boolean) {
+  const { error } = await supabase.rpc("submit_diet_library", { p_source_id: item.id, p_revision: item.revision, p_consent: consent });
+  if (error) throw fail(error);
+}
+export async function withdrawLibraryContribution(id: string) {
+  const { error } = await supabase.rpc("withdraw_diet_library_contribution", { p_id: id });
+  if (error) throw fail(error);
+}
+export async function reviewLibraryContribution(id: string, approve: boolean, note: string, reviewed: boolean) {
+  const { error } = await supabase.rpc("review_diet_library_contribution", { p_id: id, p_approve: approve, p_note: note, p_reviewed: reviewed });
+  if (error) throw fail(error);
 }

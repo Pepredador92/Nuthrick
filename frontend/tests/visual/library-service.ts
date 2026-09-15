@@ -81,3 +81,8 @@ export async function archiveDietLibrary(
 export async function dietLibraryRecovery() {
   return null;
 }
+export async function submitLibraryContribution() {}
+export async function listLibraryContributions() { return []; }
+export async function libraryContributionAccess() { return false; }
+export async function reviewLibraryContribution() {}
+export async function withdrawLibraryContribution() {}

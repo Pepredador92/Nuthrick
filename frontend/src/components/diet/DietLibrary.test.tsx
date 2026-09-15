@@ -15,12 +15,14 @@ import {
   listDietLibrary,
   saveDietLibrary,
   dietLibraryRecovery,
+  submitLibraryContribution,
 } from "@/src/services/dietLibrary";
 vi.mock("@/src/services/dietLibrary", () => ({
   listDietLibrary: vi.fn(),
   saveDietLibrary: vi.fn(),
   dietLibraryRecovery: vi.fn(),
   archiveDietLibrary: vi.fn(),
+  submitLibraryContribution: vi.fn(),
 }));
 function example(owner: string | null = "owner") {
   const { menu, distribution } = weeklyFixture([1, 1, 1]);
@@ -119,7 +121,7 @@ describe("diet library controls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Usar como base" }));
     expect(apply).not.toHaveBeenCalled();
     expect(
-      screen.getByText(/Mantendrá paciente, consulta, energía y macros/),
+      screen.getByText(/Mantendrá paciente y consulta/),
     ).toBeVisible();
     fireEvent.click(
       screen.getByRole("button", { name: "Guardar respaldo y usar base" }),
@@ -142,6 +144,37 @@ describe("diet library controls", () => {
     expect(
       screen.queryByRole("button", { name: "Archivar" }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Aportar a Nuthrick" })).not.toBeInTheDocument();
+  });
+  it("shares only after explicit consent and does not publish directly", async () => {
+    const { item } = example();
+    vi.mocked(listDietLibrary).mockResolvedValue([item]);
+    vi.mocked(submitLibraryContribution).mockResolvedValue(undefined);
+    render(<DietLibrary />);
+    fireEvent.click(screen.getByRole("button", { name: "Mi biblioteca" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Ver dieta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Aportar a Nuthrick" }));
+    const send = screen.getByRole("button", { name: "Enviar a revisión" });
+    expect(send).toBeDisabled();
+    expect(submitLibraryContribution).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Tengo autorización para compartir/ }));
+    fireEvent.click(send);
+    await waitFor(() => expect(submitLibraryContribution).toHaveBeenCalledWith(item, true));
+    expect(await screen.findByRole("status")).toHaveTextContent("aún no es pública");
+  });
+  it("can load reference targets into a blank plan with explicit selection", async () => {
+    const { plan, item } = example();
+    plan.target_calories = null; plan.macro_distribution = null;
+    const apply = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(listDietLibrary).mockResolvedValue([item]);
+    render(<DietLibrary plan={plan} onApply={apply} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mi biblioteca" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Ver dieta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Usar como base" }));
+    expect(screen.getByRole("radio", { name: /Conservar los objetivos/ })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: /Cargar los objetivos/ })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar respaldo y usar base" }));
+    await waitFor(() => expect(apply).toHaveBeenCalledWith(item, expect.any(String), "reference"));
   });
   it("reports connection errors and offers retry instead of replacing the workshop", async () => {
     vi.mocked(listDietLibrary).mockRejectedValue(new Error("Sin conexión"));
