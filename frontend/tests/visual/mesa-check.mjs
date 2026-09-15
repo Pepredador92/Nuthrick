@@ -17,6 +17,7 @@ try {
   await page.getByPlaceholder('Buscar alimento', {exact:true}).fill('tortilla');
   await page.getByRole('button',{name:'Agregar',exact:true}).click();
   assert.equal(await saveCount(),1);
+  await page.getByRole('article').filter({has:page.getByRole('heading',{name:'Tortilla de maíz',exact:true})}).getByText('Revisar o ajustar',{exact:true}).click();
   await page.getByRole('button',{name:'Intercambiar Tortilla de maíz',exact:true}).click();
   await page.getByRole('option',{name:/Pan integral/}).click();
   assert.equal(await saveCount(),2);
@@ -32,6 +33,7 @@ try {
   assert.equal(await saveCount(),2);
   await page.getByRole('button',{name:'Sí',exact:true}).click();
   assert.equal(await saveCount(),3);
+  await page.getByRole('article').filter({has:page.getByRole('heading',{name:'Preparación ficticia de pan',exact:true})}).getByText('Revisar o ajustar',{exact:true}).click();
   assert.equal(await page.getByRole('spinbutton',{name:'Cantidad de Preparación ficticia de pan',exact:true}).inputValue(),'2');
   assert.equal(await page.getByRole('heading',{name:'Papaya preparada',exact:true}).count(),1);
   await page.getByRole('button',{name:'Agregar bebida',exact:true}).click();

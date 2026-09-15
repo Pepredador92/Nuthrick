@@ -7,15 +7,12 @@ import { foodMatchesSearch, recipeMatchesSearch, type CustomFoodInput, type Reci
 import type { ExchangeGroupCode, FoodItem, FoodUnitCode, MealType, Recipe } from "@/src/types/domain";
 import { isDrink, isVerifiedWater, recipeHasKnownContributions } from "@/src/features/menu/mesa";
 import { isFoodRestricted } from "@/src/features/menu/planner";
-const unitLabels: Record<FoodUnitCode | "recipe_serving", string> = {
-  g: "g", ml: "ml", piece: "pieza", cup: "taza", tablespoon: "cucharada",
-  teaspoon: "cucharadita", slice: "rebanada", tortilla: "tortilla", glass: "vaso",
-  serving: "porción", unit: "unidad", recipe_serving: "porción",
-};
+import { foodUnitLabels, formatFoodQuantity } from "@/src/features/menu/units";
+const unitLabels = foodUnitLabels;
 const emptyFood: CustomFoodInput = {
   name: "", group_code: "VEGETABLES", portion_amount: 1, portion_unit: "g", portion_description: "",
 };
-const format = (value: number) => Number(value.toFixed(3)).toLocaleString("es-MX");
+const format = formatFoodQuantity;
 
 type FoodCatalogFilter = "all" | "vegetables" | "fruits" | "cereals" | "legumes" | "aoa" | "milk" | "fats";
 type RecipeCatalogFilter = "all" | "best" | Extract<MealType, "BREAKFAST" | "MAIN_MEAL" | "DINNER">;
@@ -100,7 +97,17 @@ export function BrowserPanel({ mode, foods, recipes, groupCode, required, mealTy
   const [exactGroup, setExactGroup] = useState<ExchangeGroupCode | null>(() => groupCode === "all" ? null : groupCode);
   const [recipeFilter, setRecipeFilter] = useState<RecipeCatalogFilter>("all");
   const selectedFoodGroups = exactGroup ? [exactGroup] : foodCatalogFilters.find((filter) => filter.id === foodFilter)?.groups ?? [];
-  const visibleFoods = foods.filter((food) => !isFoodRestricted(food, restrictions) && (!selectedFoodGroups.length || selectedFoodGroups.includes(food.group_code)) && (foodMatchesSearch(food, search) || getExchangeGroup(food.group_code).groupName.toLocaleLowerCase("es-MX").includes(search.toLocaleLowerCase("es-MX")))).sort((a,b) => Number(required.some(r=>r.group_code===b.group_code && r.portions>0.1))-Number(required.some(r=>r.group_code===a.group_code && r.portions>0.1)) || Number(restrictions.avoidedFoodIds?.includes(a.id) ?? false)-Number(restrictions.avoidedFoodIds?.includes(b.id) ?? false));
+  const mismatch = (food: FoodItem) => {
+    const need = required.find(r=>r.group_code===food.group_code)?.portions ?? 1;
+    return Math.abs(practicalFoodQuantity(need*Number(food.portion_amount),food.portion_unit)/Number(food.portion_amount)-need);
+  };
+  const visibleFoods = foods.filter((food) => food.active && !isFoodRestricted(food, restrictions) && (!selectedFoodGroups.length || selectedFoodGroups.includes(food.group_code)) && (foodMatchesSearch(food, search) || getExchangeGroup(food.group_code).groupName.toLocaleLowerCase("es-MX").includes(search.toLocaleLowerCase("es-MX"))))
+    .sort((a,b) => Number(required.some(r=>r.group_code===b.group_code && r.portions>0.1))-Number(required.some(r=>r.group_code===a.group_code && r.portions>0.1))
+      || Math.floor(mismatch(a)*10)-Math.floor(mismatch(b)*10)
+      || Number(restrictions.avoidedFoodIds?.includes(a.id) ?? false)-Number(restrictions.avoidedFoodIds?.includes(b.id) ?? false)
+      || Number(restrictions.likedFoodIds?.includes(b.id) ?? false)-Number(restrictions.likedFoodIds?.includes(a.id) ?? false)
+      || Number(usedFoodIds.includes(a.id))-Number(usedFoodIds.includes(b.id))
+      || b.use_count-a.use_count || a.name.localeCompare(b.name,"es-MX"));
   const visibleRecipes = recipes
     .filter((recipe) => isDrink(recipe) === (mode === "drink") && recipeHasKnownContributions(recipe) && ((recipeFilter === "all" || recipeFilter === "best") || recipe.meal_types.includes(recipeFilter)) && recipeMatchesSearch(recipe, search))
     .map((recipe) => ({ recipe, match: scoreRecipeCompatibility({ pendingExchanges: required, recipe, mealType, restrictions }) }))

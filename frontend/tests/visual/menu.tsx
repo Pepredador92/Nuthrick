@@ -59,6 +59,11 @@ function Harness(){
   const [librarySaves,setLibrarySaves]=useState(0);
   const [weekly] = useState(() => weeklyFixture());
   const weeklyMode = new URLSearchParams(window.location.search).has("weekly");
+  if (new URLSearchParams(window.location.search).has("exploration")) {
+    const distribution:MealDistribution={...mealDistribution,distribution:mealDistribution.distribution.filter(r=>r.meal_time_id==="lunch"||["FRUITS","CEREALS_NO_FAT","AOA_MODERATE_FAT"].includes(r.group_code)).map(r=>r.group_code==="AOA_MODERATE_FAT"?{...r,portions:1}:r)};
+    const foods:FoodItem[]=[{...papaya,id:"guava",name:"Guayaba",portion_unit:"piece",use_count:100},{...papaya,id:"apple",name:"Manzana",portion_unit:"piece",use_count:50},{...papaya,id:"pear",name:"Pera",portion_unit:"piece",use_count:0},...sampleFoods.filter(f=>f.id==="egg"||f.id==="tortilla"||f.id==="veg")];
+    return <main className="mx-auto min-h-screen max-w-[1440px] bg-[#f7f8f4] p-3 sm:p-8"><p role="status">Caso ficticio · Guardados de menú: {saves}.</p><DietMenuStep plan={{...plan,id:"exploration-visual",diet_menu:null,meal_distribution:distribution}} catalog={{foods,recipes:[]}} onSave={async()=>setSaves(n=>n+1)} onGoToMeals={()=>undefined}/></main>;
+  }
   if (weeklyMode) return <main className="mx-auto min-h-screen max-w-[1440px] bg-[#f7f8f4] p-3 sm:p-8"><p className="mb-4 text-xs" role="status">Caso ficticio · distribución simplificada para probar la interfaz; no es una dieta. Guardados de menú: {saves}.</p><DietMenuStep plan={{...plan,id:"weekly-visual",diet_menu:weekly.menu,meal_distribution:weekly.distribution}} catalog={{foods:weekly.foods,recipes:[]}} onSave={async()=>setSaves(n=>n+1)} onGoToMeals={()=>undefined}/></main>;
   return <main className="mx-auto min-h-screen max-w-[1440px] bg-[#f7f8f4] p-3 sm:p-8"><p className="mb-4 text-xs" role="status">Caso ficticio · sin conexión de guardado. Guardados de menú: {saves}. Biblioteca: {librarySaves}.</p><DietMenuStep plan={plan} catalog={{foods:sampleFoods,recipes:[]}} recipeWriter={async input=>{setLibrarySaves(n=>n+1);return fakeRecipe(input);}} onSave={async()=>{setSaves(n=>n+1);}} onGoToMeals={()=>undefined}/></main>;
 }

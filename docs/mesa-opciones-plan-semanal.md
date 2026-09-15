@@ -59,4 +59,4 @@ Opciones, calendario aplicado, snapshots y fijaciones del calendario se guardan.
 
 Pruebas reproducibles: `frontend/tests/visual/week-check.mjs` y `frontend/tests/visual/mesa-check.mjs`, con la configuración Vite visual en el puerto 4175. La variable `MESA_PLAYWRIGHT_MODULE` permite usar Playwright instalado externamente. Las capturas de QA son locales en `output/mesa-week/` y `output/mesa/`; no son datos reales ni parte del catálogo.
 
-El landing tenía cambios locales ajenos y un test de título desactualizado antes de esta iteración. Se conservaron intactos; ese fallo se informa por separado de las pruebas del módulo. Esta entrega queda local, sin despliegue a producción.
+El landing tenía cambios locales ajenos y un test de título desactualizado antes de esta iteración. Se conservaron intactos; ese fallo se informa por separado de las pruebas del módulo. El estado de la revisión posterior, exploraciones y despliegue se documenta en [Objetivo 7: mesa contextual](mesa-objective7-refinement.md).

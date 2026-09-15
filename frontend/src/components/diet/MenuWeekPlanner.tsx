@@ -7,11 +7,12 @@ import { activeMenu, calculateMenuUsage } from "@/src/features/menu/model";
 import { exchangeNutrition } from "@/src/features/menu/mesa";
 import { getExchangeGroup } from "@/src/features/exchanges/catalog";
 import { ProposalNavigation, useProposalExplorer } from "./useProposalExplorer";
+import { foodUnitLabels, formatFoodQuantity } from "@/src/features/menu/units";
 
 type Props = { planId: string; menu: DietMenu; distribution: MealDistribution; onChange: (menu: DietMenu) => void; onEditMeal: (mealId: string) => void; onVariant: (option: MealOption, day: WeekDayCode) => void };
 const button = "nuth-button-secondary !px-3 !py-2 !text-xs";
-const quantity = (n: number) => n.toLocaleString("es-MX", { maximumFractionDigits: 3 });
-const unitNames: Record<string, string> = { cup: "taza", piece: "pieza", serving: "porción", recipe_serving: "porción", tablespoon: "cucharada", teaspoon: "cucharadita", glass: "vaso", slice: "rebanada", tortilla: "tortilla", unit: "unidad" };
+const quantity = formatFoodQuantity;
+const unitNames = foodUnitLabels;
 function Contents({ option, onClose }: { option: MealOption; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { const d = ref.current; d?.showModal?.(); return () => d?.close?.(); }, []);

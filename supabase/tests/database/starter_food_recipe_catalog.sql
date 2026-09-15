@@ -10,12 +10,12 @@ select is(
 );
 select is(
   (select count(*)::integer from public.food_items where catalog_code = 'NUTHRICK_MX_SMAE_4E_2014' and owner_id is null and not is_custom),
-  86,
-  'the curated SMAE release contains eighty-six approved global foods'
+  90,
+  'the curated SMAE release contains ninety rows including one pending clarification'
 );
 select is(
   (select count(*)::integer from public.food_items where owner_id is null and not is_custom),
-  128,
+  132,
   'the global catalog combines the starter and curated SMAE releases'
 );
 select is(
@@ -61,7 +61,7 @@ select is(
   'prepared foods with inseparable added fat do not enter the global catalog'
 );
 select is(
-  (select count(*)::integer from public.recipes where source = 'NUTHRICK_STARTER_RECIPES' and source_version = '1.0.0' and not is_custom),
+  (select count(*)::integer from public.recipes where source = 'NUTHRICK_STARTER_RECIPES' and not is_custom),
   24,
   'the starter library contains twenty-four global recipes'
 );

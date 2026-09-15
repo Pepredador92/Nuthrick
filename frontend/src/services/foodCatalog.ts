@@ -1,6 +1,7 @@
-import { EXCHANGE_CATALOG_VERSION, EXCHANGE_SYSTEM_CODE } from "@/src/features/exchanges/catalog";
+import { EXCHANGE_CATALOG_VERSION, EXCHANGE_SYSTEM_CODE, getExchangeGroup } from "@/src/features/exchanges/catalog";
 import { createFoodSnapshot, exchangeContributionForFood } from "@/src/features/menu/model";
 import { supabase } from "@/src/lib/supabase";
+import { normalizeCatalogPortion } from "@/src/features/menu/units";
 import type { ExchangeGroupCode, FoodAttributeValue, FoodItem, FoodUnitCode, MealType, Recipe, RecipeItem } from "@/src/types/domain";
 
 export type CustomFoodInput = {
@@ -38,7 +39,8 @@ export function normalizeFoodName(value: string) {
 export function foodMatchesSearch(food: Pick<FoodItem, "normalized_name" | "aliases"> & Partial<Pick<FoodItem, "group_code" | "category">>, search: string) {
   const normalized = normalizeFoodName(search);
   if (!normalized) return true;
-  return [food.normalized_name, food.category ?? "", food.group_code ?? "", ...(food.aliases ?? [])]
+  const group = food.group_code ? getExchangeGroup(food.group_code) : null;
+  return [food.normalized_name, food.category ?? "", food.group_code ?? "", group?.groupName ?? "", group?.shortName ?? "", ...(food.aliases ?? [])]
     .some((term) => normalizeFoodName(term).includes(normalized));
 }
 
@@ -57,18 +59,21 @@ async function currentUserId() {
 
 export async function listFoodItems(options: { search?: string; groupCode?: ExchangeGroupCode } = {}) {
   const ownerId = await currentUserId();
-  let query = supabase
-    .from("food_items")
-    .select("*")
-    .or(`owner_id.is.null,owner_id.eq.${ownerId}`)
-    .eq("active", true)
-    .order("use_count", { ascending: false })
-    .order("updated_at", { ascending: false })
-    .limit(250);
-  if (options.groupCode) query = query.eq("group_code", options.groupCode);
-  const { data, error } = await query;
-  if (error) throw new Error("No pudimos cargar el catálogo de alimentos.");
-  const foods = (data ?? []) as FoodItem[];
+  const foods: FoodItem[] = [];
+  const pageSize = 250;
+  for (let offset = 0; ; offset += pageSize) {
+    let query = supabase
+      .from("food_items")
+      .select("*")
+      .or(`owner_id.is.null,owner_id.eq.${ownerId}`)
+      .eq("active", true)
+      .order("id", { ascending: true });
+    if (options.groupCode) query = query.eq("group_code", options.groupCode);
+    const { data, error } = await query.range(offset, offset + pageSize - 1);
+    if (error) throw new Error("No pudimos cargar el catálogo de alimentos.");
+    foods.push(...((data ?? []) as FoodItem[]).map(normalizeCatalogPortion));
+    if ((data?.length ?? 0) < pageSize) break;
+  }
   return options.search?.trim() ? foods.filter((food) => foodMatchesSearch(food, options.search ?? "")) : foods;
 }
 

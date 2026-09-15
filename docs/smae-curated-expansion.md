@@ -4,7 +4,8 @@
 
 - Catálogo incorporado: `NUTHRICK_MX_SMAE_4E_2014` / `1.1.0`.
 - Sistema matemático sin cambios: `SMAE_NOM037_2012` / `1.0.0`.
-- Migración: `20260915165455_expand_curated_smae_catalog.sql`.
+- Migración inicial: `20260915170641_expand_curated_smae_catalog.sql`.
+- Conciliación posterior: `20260915180940_reconcile_portions_and_editorial_preparations.sql` (revisión 1.2.0). Véase el resultado vigente al final; las cifras de esta primera sección describen la importación inicial.
 - Fuente declarada por cada fila aprobada: *Sistema Mexicano de Alimentos
   Equivalentes*, 4.ª edición (2014), con la página indicada en el archivo de
   candidatos proporcionado. La migración guarda esa procedencia sin afirmar una
@@ -37,9 +38,11 @@ convertir el primer despliegue en un listado excesivo.
 
 - `taza` y `tazas` se guardan como `cup`; `cucharada` como `tablespoon`; y
   `cucharadita` como `teaspoon`.
-- Piezas, piezas medianas y mitades usan `piece`; rebanadas usan `slice`; los
-  gramos mantienen `g`. Las fracciones se almacenan como números exactos a tres
-  decimales, por ejemplo `3/4` es `0.750`.
+- La importación inicial guardaba mitades como `piece` y tercios redondeados a tres
+  decimales. Esto se corrige en 1.2.0: `half` representa mitades; `portion_fraction`
+  conserva numerador, denominador y expresión original para los tercios documentados.
+  La lectura del catálogo normaliza su valor para nuevos cálculos. Los snapshots
+  históricos no se reescriben. Rebanadas usan `slice`; gramos mantienen `g`.
 - Los nombres se guardan sin acentos en `normalized_name` y la presentación
   legible permanece en `portion_description`.
 - Las galletas de maíz horneadas se registran como categoría genérica, con
@@ -55,8 +58,8 @@ Los aliases cubren, entre otros, calabacita alargada, cebolla blanca rebanada,
 jitomate bola, nopal cocido, pollo sin piel, pescado fileteado, bistec/filete
 de res, carne de cerdo, leche semidescremada 1%/2% y huevo entero fresco o
 cocido. Las presentaciones alternativas aprobadas son naranja en piezas, pollo
-deshebrado en taza y atún escurrido en lata. Todas conservan la identidad y el
-grupo ya publicados.
+deshebrado en taza y atún escurrido en lata. En 1.2.0 se retira esta última
+presentación porque no identifica el tamaño de lata; se conserva el atún en gramos.
 
 ## Inventario de conflictos y exclusiones
 
@@ -81,9 +84,9 @@ criterios clínicos y de uso real, no por el solo hecho de aparecer en la fuente
 El selector ya filtra por grupo y por atributos estructurados. El planificador
 continúa priorizando compatibilidad con los equivalentes requeridos, restricciones
 y cantidades prácticas; no usa la fecha de alta del alimento como criterio. El
-catálogo global resultante tiene 128 filas, por debajo del límite de lectura
-actual de 250, y conserva el índice de búsqueda activo por nombre normalizado y
-grupo.
+catálogo global inicial tenía 128 filas. En 1.2.0 la lectura pagina de 250 en 250,
+con orden estable, hasta cargar todos los alimentos accesibles. La búsqueda ya
+no queda limitada a los primeros 250 alimentos globales y personales.
 
 ## Seguridad y reversibilidad
 
@@ -92,3 +95,35 @@ las propias, y sólo pueden escribir filas `is_custom` de su propiedad. La
 migración usa IDs deterministas y `ON CONFLICT` sobre esos IDs, con una guarda
 adicional que impide sobrescribir una fila personal. No elimina filas globales.
 Aplicarla de nuevo no duplica los alimentos, aliases ni presentaciones.
+
+## Resultado vigente de la revisión 1.2.0
+
+El archivo [smae-candidate-decisions.json](smae-candidate-decisions.json) contiene
+una decisión principal, identidad, medida y motivo por cada uno de los 179 candidatos.
+
+| Decisión principal | Cantidad |
+| --- | ---: |
+| Ya incorporado | 85 |
+| Nuevo en esta revisión | 4 |
+| Alias | 32 |
+| Presentación alternativa | 2 |
+| Conflicto | 15 |
+| Excluido | 5 |
+| Diferido | 36 |
+| Total | 179 |
+
+Los cuatro nuevos son cheddar, Chihuahua, Cotija y asadero. Identidad, grupo y
+medida se cotejaron visualmente en el libro original, PDF página 81 / impresa 79.
+Nuez de la India se verificó en PDF 103 / impresa 101: **15 mitades**, no piezas.
+No se afirma que todos los 179 registros se hayan verificado en el original.
+
+Chía pasa de incorporada a conflicto: el Excel declara cucharaditas y el original
+cucharadas, con pesos bruto/neto que requieren aclaración (PDF 102). Queda inactiva
+para nuevas selecciones, sin eliminarse ni alterar usos anteriores. El atún en lata
+pasa de presentación alternativa a conflicto. No se duplica la bebida de soya ni
+se generaliza el queso de marca excluido.
+
+Resultado global: **132 filas, 131 activas**. Las 86 incorporaciones iniciales
+siguen existiendo; una está pendiente de aclaración. Esta revisión añade cuatro,
+no 179. Los promedios matemáticos SMAE continúan en `1.0.0`, independientes de
+esta revisión editorial y de la edición bibliográfica de 2014.

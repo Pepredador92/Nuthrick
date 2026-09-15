@@ -30,5 +30,23 @@ it("recovers history after switching steps and keeps the last option when exhaus
   expect(next.result.current.proposal).toBe("A");
   act(() => next.result.current.generate(() => ["A"]));
   expect(next.result.current.proposal).toBe("A");
-  expect(next.result.current.message).toMatch(/más opciones/);
+  expect(next.result.current.message).toMatch(/otra alternativa adecuada/);
+});
+
+it("remembers the original composition after editing and isolates mounted option sessions", () => {
+  const { result, rerender } = renderHook(({ key }) => useProposalExplorer<string, number>(key,"prescription",p=>p), {initialProps:{key:"option-A"}});
+  act(()=>result.current.generate(()=>["A","B","C"]));
+  act(()=>result.current.edit("A edited"));
+  act(()=>result.current.generate(()=>["A","B","C"]));
+  expect(result.current.proposal).toBe("B");
+  act(()=>result.current.navigate(-1));
+  expect(result.current.proposal).toBe("A edited");
+  act(()=>result.current.generate(()=>["A","B","C"]));
+  expect(result.current.proposal).toBe("C");
+  rerender({key:"option-B"});
+  expect(result.current.proposal).toBeNull();
+  act(()=>result.current.generate(()=>["A"]));
+  rerender({key:"option-A"});
+  expect(result.current.proposal).toBe("C");
+  expect(result.current.count).toBe(3);
 });

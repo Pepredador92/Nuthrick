@@ -1,6 +1,7 @@
 import { getExchangeGroup } from "@/src/features/exchanges/catalog";
 import { activeMenu, calculateMenuStatus, calculateMenuUsage, createFoodSnapshot, exchangeContributionForFood, roundMenuNumber, type RecipeCompatibilityRestriction } from "./model";
 import type { DietMenu, DietMenuEntry, FoodItem, MealDistribution, Recipe } from "@/src/types/domain";
+import { entryComposition } from "./composition";
 
 export const MESA_COPY = { name: "Nuthrick a la Mesa", subtitle: "Menús para disfrutar, pensados para cada paciente.", needs: "Por completar", menu: "Tu menú", pantry: "Despensa" };
 export const ROLE_LABELS = { main: "Preparación principal", side: "Acompañamientos", fruit: "Fruta", drink: "Bebida opcional", other: "Otros componentes" };
@@ -33,8 +34,8 @@ export function entryRole(entry: DietMenuEntry): keyof typeof ROLE_LABELS {
   if (entry.food_snapshot?.group_code === "FRUITS") return "fruit";
   return "other"; // Unknown culinary relationships are deliberately not inferred.
 }
-export function menuSignature(menu: DietMenu) {
-  return JSON.stringify(activeMenu(menu).meal_menus.map(meal => [meal.meal_time_id, meal.entries.map(entry => [entry.type, entry.source_id, entry.quantity, entry.recipe_snapshot?.items.map(item => [item.food_snapshot.id, item.amount])]).sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))]));
+export function menuSignature(menu: DietMenu, mealId?: string | null) {
+  return JSON.stringify(activeMenu(menu).meal_menus.filter(m=>!mealId||m.meal_time_id===mealId).sort((a,b) => a.meal_time_id.localeCompare(b.meal_time_id)).map(meal => [meal.meal_time_id, meal.entries.map(entryComposition).sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))]));
 }
 
 /** Preserve chosen proposal content without persisting the rest of the exploration. */

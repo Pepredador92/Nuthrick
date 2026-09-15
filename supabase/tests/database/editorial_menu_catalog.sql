@@ -1,0 +1,17 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+set search_path=public,extensions;
+select plan(11);
+select is((select count(*)::int from food_items where owner_id is null and active),131,'131 active global foods after four additions and one clarification');
+select is((select portion_unit from food_items where stable_code='MX_SMAE_FAT_WITH_PROTEIN_NUEZ_DE_LA_INDIA_SIN_SAL'),'half','cashews retain halves as their actual calculation unit');
+select is((select portion_fraction->>'denominator' from food_items where stable_code='MX_SMAE_FRUIT_MAMEY'),'3','thirds preserve their rational source denominator');
+select ok(not (select active from food_items where stable_code='MX_SMAE_FAT_WITH_PROTEIN_CHIA'),'ambiguous chia portion is pending clarification');
+select is((select count(*)::int from food_items f, lateral jsonb_array_elements(f.alternate_portions) p where f.stable_code='MX_TUNA_WATER_DRAINED' and p->>'display' like '%lata%'),0,'unspecified can is not presented as a known gram conversion');
+select is((select count(*)::int from recipes where owner_id is null and source='NUTHRICK_EDITORIAL_PREPARATIONS'),8,'eight editorial culinary preparations');
+select is((select count(*)::int from recipe_items i join recipes r on r.id=i.recipe_id where r.source='NUTHRICK_EDITORIAL_PREPARATIONS'),25,'all twenty-five planned ingredients are present');
+select is((select count(*)::int from recipe_items i join recipes r on r.id=i.recipe_id join food_items f on f.id=i.food_item_id where r.source='NUTHRICK_EDITORIAL_PREPARATIONS' and ((i.exchange_contribution->0->>'portions')::numeric <> round(i.amount/f.portion_amount,6) or i.unit<>f.portion_unit)),0,'contributions derive only once from each structured ingredient');
+select is((select count(*)::int from recipe_items i join recipes r on r.id=i.recipe_id join food_items f on f.id=i.food_item_id where r.stable_code='MX_EDITORIAL_OATS_BANANA_PEANUT_MILK' and f.stable_code='MX_SKIM_MILK'),1,'cooking milk occurs once inside the oats recipe');
+select ok((select instructions like '%completamente cocido%' and name='Ensalada de pescado cocido' from recipes where stable_code='MX_FISH_CEVICHE'),'fish remains fully cooked');
+select is((select count(*)::int from recipe_items i join recipes r on r.id=i.recipe_id join food_items f on f.id=i.food_item_id where r.stable_code in ('MX_EDITORIAL_CHICKEN_VEGETABLES','MX_EDITORIAL_BEEF_VEGETABLES') and f.group_code in ('FRUITS','MILK_SKIM','CEREALS_NO_FAT','LEGUMES')),0,'main preparations leave independent sides and drinks outside the recipe');
+select * from finish();
+rollback;

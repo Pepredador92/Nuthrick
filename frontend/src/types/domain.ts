@@ -523,7 +523,7 @@ export type MealDistribution = {
 };
 
 export type FoodUnitCode =
-  | "g" | "ml" | "piece" | "cup" | "tablespoon" | "teaspoon"
+  | "g" | "ml" | "piece" | "half" | "cup" | "tablespoon" | "teaspoon"
   | "slice" | "tortilla" | "glass" | "serving" | "unit";
 
 export type FoodAttributeValue = "contains" | "free" | "unknown";
@@ -550,6 +550,7 @@ export type FoodItem = {
   portion_amount: number;
   portion_unit: FoodUnitCode;
   portion_description: string;
+  portion_fraction?: { numerator: number; denominator: number; original: string } | null;
   alternate_portions: FoodPortionPresentation[];
   edible_grams: number | null;
   energy_kcal: number | null;

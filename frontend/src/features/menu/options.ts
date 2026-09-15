@@ -50,8 +50,9 @@ export function ensureOptionBank(menu: DietMenu, distribution: MealDistribution)
 export function saveOptionBank(menu: DietMenu, distribution: MealDistribution, options: MealOption[]): DietMenu {
   return projectOptions({ ...menu, meal_options: options, status: "editing", confirmed_at: null, updated_at: new Date().toISOString() }, distribution);
 }
-export function commitOptionEdits(root: DietMenu, projection: DietMenu, distribution: MealDistribution, selection: Record<string, string>) {
+export function commitOptionEdits(root: DietMenu, projection: DietMenu, distribution: MealDistribution, selection: Record<string, string>, onlyMealId?: string) {
   const options = (root.meal_options ?? []).map(option => {
+    if (onlyMealId && option.meal_time_id !== onlyMealId) return option;
     const selected = selection[option.meal_time_id] ?? root.meal_options?.find(o => o.meal_time_id === option.meal_time_id)?.id;
     if (option.id !== selected) return option;
     const entries = activeMenu(projection).meal_menus.find(m => m.meal_time_id === option.meal_time_id)?.entries ?? [];
@@ -71,8 +72,9 @@ export function confirmOption(menu: DietMenu, distribution: MealDistribution, id
 }
 
 /** Undo the selected option only; retain a calendar or other bank edits made meanwhile. */
-export function restoreOptionEdits(root: DietMenu, previous: DietMenu, distribution: MealDistribution, selection: Record<string, string>) {
+export function restoreOptionEdits(root: DietMenu, previous: DietMenu, distribution: MealDistribution, selection: Record<string, string>, onlyMealId?: string) {
   const restored = (root.meal_options ?? []).map(option => {
+    if (onlyMealId && option.meal_time_id !== onlyMealId) return option;
     const selected = selection[option.meal_time_id] ?? root.meal_options?.find(o => o.meal_time_id === option.meal_time_id)?.id;
     return option.id === selected ? structuredClone(previous.meal_options?.find(o => o.id === option.id) ?? option) : option;
   });

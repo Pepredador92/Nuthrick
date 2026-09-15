@@ -155,7 +155,7 @@ describe("deterministic menu planner", () => {
     const entries = activeMenu(proposal.menu).meal_menus.find((meal) => meal.meal_time_id === "lunch")?.entries ?? [];
     const individualGroups = entries.flatMap((entry) => entry.type === "food" && entry.food_snapshot ? [entry.food_snapshot.group_code] : []);
 
-    expect(proposal.algorithm).toBe("deterministic-menu-planner-v3");
+    expect(proposal.algorithm).toBe("deterministic-menu-planner-v4");
     expect(proposal.meals[0]).toMatchObject({ complete: true, pending: [], excess: [] });
     // This distribution cannot fit the original recipe ratios without extra residuals.
     // Use practical individual foods rather than deforming the recipe.

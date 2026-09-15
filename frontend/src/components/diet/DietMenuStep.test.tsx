@@ -62,6 +62,35 @@ describe("DietMenuStep", () => {
     services.createCustomRecipe.mockResolvedValue(recipe);
   });
 
+  it("removes guava, explores two other fruits, preserves egg and tortillas, and undoes preview rejection without saving", () => {
+    const egg:FoodItem={...food,id:"egg",name:"Huevo",group_code:"AOA_MODERATE_FAT",portion_unit:"piece"};
+    const guava={...food,id:"guava",name:"Guayaba",use_count:100};
+    const apple={...food,id:"apple",name:"Manzana",use_count:50};
+    const pear={...food,id:"pear",name:"Pera",use_count:0};
+    const distribution:MealDistribution={...mealDistribution,distribution:[...mealDistribution.distribution,{meal_time_id:"breakfast",group_code:"AOA_MODERATE_FAT",portions:1},{meal_time_id:"breakfast",group_code:"CEREALS_NO_FAT",portions:2}]};
+    const onSave=vi.fn().mockResolvedValue(undefined);
+    render(<DietMenuStep plan={{...plan,meal_distribution:distribution}} catalog={{foods:[guava,apple,pear,egg,cerealFood],recipes:[]}} onSave={onSave} onGoToMeals={vi.fn()}/>);
+    fireEvent.click(screen.getByRole("button",{name:"Proponer opción"}));
+    const remove=(name:string)=>{const article=screen.getByRole("heading",{name}).closest("article")!;const details=article.querySelector("details")!;details.open=true;fireEvent.click(within(article).getByRole("button",{name:`Eliminar ${name}`}));};
+    remove("Guayaba");
+    fireEvent.click(screen.getByRole("button",{name:"Otra propuesta"}));
+    expect(screen.getByRole("heading",{name:"Manzana"})).toBeInTheDocument();
+    expect(screen.getByLabelText("Cantidad de Huevo")).toHaveValue(1);
+    expect(screen.getByLabelText("Cantidad de Tortilla")).toHaveValue(2);
+    remove("Manzana");
+    fireEvent.click(screen.getByRole("button",{name:"Deshacer edición de propuesta"}));
+    expect(screen.getByRole("heading",{name:"Manzana"})).toBeInTheDocument();
+    expect(screen.getByText(/1 alternativas descartadas/)).toBeInTheDocument();
+    remove("Manzana");
+    fireEvent.click(screen.getByRole("button",{name:"Otra propuesta"}));
+    expect(screen.getByRole("heading",{name:"Pera"})).toBeInTheDocument();
+    expect(screen.queryByRole("heading",{name:"Guayaba"})).not.toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button",{name:"Descartar"}));
+    expect(screen.queryByRole("heading",{name:"Huevo"})).not.toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
   it("guides back when no meal distribution exists", () => {
     render(<DietMenuStep plan={{ ...plan, meal_distribution: null }} onSave={vi.fn()} onGoToMeals={vi.fn()} />);
     expect(screen.getByText("Distribuye primero los equivalentes entre tiempos de comida.")).toBeInTheDocument();
@@ -162,7 +191,7 @@ describe("DietMenuStep", () => {
   it("confirms immediately only when every equivalent is represented", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(<DietMenuStep plan={plan} onSave={onSave} onGoToMeals={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "Confirmar opción" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Confirmar opción" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Agregar receta" }));
     await screen.findByText("Papaya fresca");
     fireEvent.click(screen.getByRole("button", { name: "Revisar" }));
@@ -361,7 +390,7 @@ describe("DietMenuStep", () => {
     const onDraftChange = vi.fn();
     render(<DietMenuStep plan={plan} catalog={{ foods: [preferredPapaya, guava], recipes: [] }} onSave={vi.fn()} onDraftChange={onDraftChange} onGoToMeals={vi.fn()} />);
     expect(screen.queryByRole("button", { name: "Proponer día" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Proponer opción" })).toHaveTextContent("Proponer opción");
+    expect(screen.getByRole("button", { name: "Proponer opción" })).toHaveTextContent("Proponer");
     fireEvent.click(screen.getByRole("button", { name: "Proponer opción" }));
     fireEvent.click(screen.getByRole("button", { name: "Intercambiar Papaya" }));
     const alternatives = screen.getByRole("listbox", { name: "Alternativas para Papaya" });

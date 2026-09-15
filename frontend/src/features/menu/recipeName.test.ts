@@ -30,7 +30,7 @@ describe("generateRecipeName", () => {
       ingredient("Tostada horneada", "CEREALS_NO_FAT"),
       ingredient("Aguacate", "FATS_WITH_PROTEIN"),
       ingredient("Jitomate", "VEGETABLES"),
-    ])).toBe("Atún con tostadas y aguacate");
+    ])).toBe("Tostadas de atún");
   });
 
   it("uses one principal AOA and then the next prescribed groups", () => {
@@ -39,6 +39,6 @@ describe("generateRecipeName", () => {
       ingredient("Tostada horneada", "CEREALS_NO_FAT"),
       ingredient("Frijoles cocidos", "LEGUMES"),
       ingredient("Clara de huevo", "AOA_VERY_LOW_FAT"),
-    ])).toBe("Atún con tostadas y frijoles");
+    ])).toBe("Tostadas de atún con frijoles");
   });
 });

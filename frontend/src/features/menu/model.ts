@@ -20,6 +20,7 @@ const practicalSteps: Record<FoodItem["portion_unit"], number> = {
   g: 10,
   ml: 10,
   piece: 0.5,
+  half: 1,
   cup: 0.25,
   tablespoon: 0.5,
   teaspoon: 0.5,
@@ -58,6 +59,7 @@ export function exchangeContributionForFood(food: FoodItem | FoodSnapshot, amoun
 }
 
 export function practicalFoodQuantity(value: number, unit: FoodItem["portion_unit"], minimum = practicalSteps[unit]) {
+  if (["piece","cup","slice","tortilla"].includes(unit) && value > 0 && Math.abs(value * 3 - Math.round(value * 3)) < 0.005 && Math.round(value * 3) > 0) return round(Math.round(value * 3) / 3);
   const step = practicalSteps[unit];
   const quantized = Math.round(value / step) * step;
   return round(Math.max(minimum, quantized));

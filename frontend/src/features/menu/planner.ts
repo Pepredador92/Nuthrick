@@ -13,6 +13,7 @@ import {
   type RecipeCompatibilityRestriction,
 } from "@/src/features/menu/model";
 import { isDrink, menuSignature, recipeHasKnownContributions } from "./mesa";
+import { preparationKey } from "./composition";
 import type {
   DietMenu,
   DietMenuEntry,
@@ -40,7 +41,7 @@ export type MenuProposal = {
   mealTimeId: string | null;
   meals: MenuProposalMeal[];
   exact: boolean;
-  algorithm: "deterministic-menu-planner-v3";
+  algorithm: "deterministic-menu-planner-v4";
 };
 
 export const MENU_PLANNER_WEIGHTS = {
@@ -226,9 +227,12 @@ function proposeMeal(
     pending = pendingForMeal(next, distribution, mealTimeId);
   }
 
+  let remainingSeed = alternative;
   for (const missing of pending) {
-    const selection = chooseFood(foods, missing.group_code, missing.portions, restrictions, usedFoodIds, alternative);
+    const selection = chooseFood(foods, missing.group_code, missing.portions, restrictions, usedFoodIds, remainingSeed);
     if (!selection) continue;
+    const radix = Math.max(1, foods.filter(food=>food.active && food.group_code===missing.group_code && !isFoodRestricted(food,restrictions)).length);
+    remainingSeed = Math.floor(remainingSeed / radix);
     next = addFoodToMenu(next, distribution, mealTimeId, selection.food, selection.quantity, `proposal-food-${mealTimeId}-${missing.group_code}-${entriesForMeal(next, mealTimeId).length}`);
     usedFoodIds.add(selection.food.id);
   }
@@ -236,7 +240,10 @@ function proposeMeal(
   if (best) {
     const direct = proposeMeal(menu, distribution, mealTimeId, foods, [], restrictions, new Set(usedRecipeIds), new Set(usedFoodIds), alternative);
     const error = (value: DietMenu) => calculateMenuStatus(value, distribution).rows.filter(row => row.meal_time_id === mealTimeId).reduce((sum,row)=>sum+Math.abs(row.remaining),0);
-    if (error(direct) + MENU_COMPARISON_TOLERANCE < error(next)) return direct;
+    // Keep a recognizable preparation when the numerical difference is small.
+    // Never hide an excess beyond the comparison tolerance.
+    const hasExcess = calculateMenuStatus(next, distribution).rows.some(row => row.meal_time_id === mealTimeId && row.state === "excess");
+    if (error(direct) + (hasExcess ? MENU_COMPARISON_TOLERANCE : 0.25) < error(next)) return direct;
   }
   return next;
 }
@@ -252,6 +259,8 @@ export function proposeDietMenu({
   alternative = 0,
   fixedEntryIds = [],
   fixedMealIds = [],
+  rejectedFoodIds = [],
+  rejectedPreparations = [],
 }: {
   menu: DietMenu;
   distribution: MealDistribution;
@@ -263,6 +272,8 @@ export function proposeDietMenu({
   alternative?: number;
   fixedEntryIds?: string[];
   fixedMealIds?: string[];
+  rejectedFoodIds?: string[];
+  rejectedPreparations?: string[];
 }): MenuProposal {
   const targets = distribution.meal_times
     .filter((meal) => !mealTimeId || meal.id === mealTimeId)
@@ -275,7 +286,9 @@ export function proposeDietMenu({
   const usedFoodIds = new Set(activeMenu(next).meal_menus.flatMap((meal) => meal.entries.flatMap((entry) => entry.type === "food" ? [entry.source_id] : entry.recipe_snapshot?.items.map((item) => item.food_snapshot.id) ?? [])));
   const beforeEntries = new Map(activeMenu(next).meal_menus.flatMap((meal) => meal.entries.map((entry) => [entry.id, JSON.stringify(entry)] as const)));
 
-  for (const meal of targets) next = proposeMeal(next, distribution, meal.id, foods, recipes, restrictions, usedRecipeIds, usedFoodIds, alternative);
+  const eligibleFoods = foods.filter(food => !rejectedFoodIds.includes(food.id));
+  const eligibleRecipes = recipes.filter(recipe => !rejectedPreparations.includes(preparationKey(recipe)) && !recipe.items.some(item => rejectedFoodIds.includes(item.food_snapshot.id)));
+  for (const meal of targets) next = proposeMeal(next, distribution, meal.id, eligibleFoods, eligibleRecipes, restrictions, usedRecipeIds, usedFoodIds, alternative);
 
   const status = calculateMenuStatus(next, distribution);
   const meals = targets.map((meal) => {
@@ -296,16 +309,17 @@ export function proposeDietMenu({
     mealTimeId,
     meals,
     exact: meals.every((meal) => meal.complete),
-    algorithm: "deterministic-menu-planner-v3",
+    algorithm: "deterministic-menu-planner-v4",
   };
 }
 
+export const MENU_ALTERNATIVE_EVALUATION_LIMIT = 96;
 export function menuAlternatives(input: Parameters<typeof proposeDietMenu>[0]): MenuProposal[] {
-  const seen = new Set([menuSignature(input.menu)]);
+  const seen = new Set([menuSignature(input.menu,input.mealTimeId)]);
   const results: MenuProposal[] = [];
-  for (let alternative = 0; alternative < 16; alternative++) {
+  for (let alternative = 0; alternative < MENU_ALTERNATIVE_EVALUATION_LIMIT; alternative++) {
     const proposal = proposeDietMenu({ ...input, alternative });
-    const key = menuSignature(proposal.menu);
+    const key = menuSignature(proposal.menu,input.mealTimeId);
     if (!seen.has(key)) { results.push(proposal); seen.add(key); }
   }
   return results;

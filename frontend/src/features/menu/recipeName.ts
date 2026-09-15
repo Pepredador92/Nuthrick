@@ -64,6 +64,12 @@ function isInsignificant(ingredient: RecipeNameIngredient) {
 
 /** Produces a concise, deterministic, patient-friendly recipe name. */
 export function generateRecipeName(ingredients: RecipeNameIngredient[]) {
+  const has = (pattern: RegExp) => ingredients.some(item=>pattern.test(item.name));
+  const protein = has(/pollo/i) ? "pollo" : has(/at[uú]n/i) ? "atún" : has(/huevo/i) ? "huevo" : has(/res|bistec|carne/i) ? "carne" : "";
+  if (has(/bolillo/i) && has(/frijol/i) && has(/queso/i)) return "Molletes con frijoles y queso";
+  if (has(/tostada/i) && protein) return `Tostadas de ${protein}${has(/frijol/i)?" con frijoles":""}`;
+  if (has(/tortilla/i) && has(/queso/i)) return `Quesadillas${protein?` de ${protein}`:has(/frijol/i)?" con frijoles":" con queso"}`;
+  if (has(/avena/i)) return has(/pl[aá]tano/i) ? "Avena con plátano" : has(/papaya/i) ? "Avena con papaya" : "Avena";
   const seen = new Set<string>();
   const usedBuckets = new Set<string>();
   const names = ingredients
