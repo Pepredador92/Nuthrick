@@ -188,11 +188,14 @@ function MenuWorkspace({ plan, onSave, onDraftChange, onGoToMeals, catalog, reci
     article?.querySelector<HTMLInputElement>("input[type=number]")?.focus();
     setNotice(`${getExchangeGroup(row!.group_code).shortName}: exceden ${format(-row!.remaining)} eq. Revisa ${contributor.name_snapshot}.`);
   };
-  const primaryLabel = !entries.length ? "Proponer" : excessRow ? "Revisar exceso" : pendingRow ? `Completar ${getExchangeGroup(pendingRow.group_code).shortName.toLocaleLowerCase("es-MX")}` : selectedOption && optionIsEligible(draft,distribution,selectedOption) ? "Agregar otra opción" : "Confirmar opción";
+  const optionConfirmed = selectedOption && optionIsEligible(draft,distribution,selectedOption);
+  const portionDifferences = rows.filter(r => r.state !== "complete");
+  const primaryLabel = !entries.length ? "Proponer" : optionConfirmed ? "Agregar otra opción" : excessRow ? "Revisar exceso" : pendingRow ? `Completar ${getExchangeGroup(pendingRow.group_code).shortName.toLocaleLowerCase("es-MX")}` : "Confirmar opción";
   const confirmationBlocked = primaryLabel === "Confirmar opción" && !optionCanConfirm(draft,distribution,selectedOption);
   const nextPendingTime = distribution.meal_times.find(m=>m.id!==meal.id && (draft.meal_options??[]).some(o=>o.meal_time_id===m.id&&!optionIsEligible(draft,distribution,o)));
   const primaryAction = () => {
     if (!entries.length) buildProposal(meal.id);
+    else if (optionConfirmed) addOption();
     else if (excessRow) reviewExcess();
     else if (pendingRow) openPantry("food",pendingRow.group_code);
     else if (optionIsEligible(draft,distribution,selectedOption)) addOption();
@@ -242,6 +245,16 @@ function MenuWorkspace({ plan, onSave, onDraftChange, onGoToMeals, catalog, reci
     </section>
     {sourceNeedsReview&&<p className="mb-4 rounded-xl bg-amber-50 p-3 text-xs text-amber-900">Revisa esta opción con la distribución vigente. Sus alimentos se conservan; la confirmación anterior no aplica a esta prescripción.</p>}
 
+    {!proposal && entries.length > 0 && portionDifferences.length > 0 && <section aria-label="Diferencias de porciones" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      <p className="font-semibold">{optionConfirmed ? "Confirmada con diferencias" : "Las porciones difieren de la distribución"}</p>
+      <p className="mt-1 text-xs leading-5">{optionConfirmed ? "Conservamos las cantidades que elegiste." : "Puedes confirmar esta opción con las cantidades actuales según tu criterio profesional."}</p>
+      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">{portionDifferences.map(row => <li key={row.group_code}>{getExchangeGroup(row.group_code).shortName}: {format(row.used)} de {format(row.portions)} eq · {row.remaining > 0 ? "faltan" : "exceden"} {format(Math.abs(row.remaining))}</li>)}</ul>
+      {!optionConfirmed && <button type="button" disabled={loading || busy || !optionCanConfirm(draft, distribution, selectedOption)} className="nuth-button mt-3 !text-xs" onClick={() => {
+        persistRoot(confirmOption(draft, distribution, selectedOption.id));
+        setNotice("Opción confirmada con diferencias. Ya puedes incluirla en el plan por días.");
+      }}>Confirmar con estas porciones</button>}
+    </section>}
+
     {notice&&<p role="status" className="my-3 rounded-xl bg-[#edf4ef] p-3 text-xs">{notice}</p>}
     {libraryNotice&&<p role="status" className="my-3 rounded-xl bg-sky-50 p-3 text-xs text-sky-800">{libraryNotice}</p>}
     {explorer.message&&<p role="status" className="my-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-900">{explorer.message}</p>}
@@ -267,7 +280,7 @@ function MenuWorkspace({ plan, onSave, onDraftChange, onGoToMeals, catalog, reci
       </aside>
     </div>
     {reviewDay&&<section className="mt-5 rounded-2xl border border-[#dce5dc] bg-white p-4"><h2 className="font-semibold">Comparación de las opciones activas</h2><div className="mt-3 grid gap-3 sm:grid-cols-2">{distribution.meal_times.map(m=><div className="rounded-xl bg-[#f5f7f0] p-3" key={m.id}><h3 className="text-sm font-semibold">{m.display_name}</h3>{variant.meal_menus.find(v=>v.meal_time_id===m.id)?.entries.map(e=><p className="mt-2 text-xs" key={e.id}>{e.name_snapshot} · {format(e.quantity)} {units[e.unit]} · {ROLE_LABELS[entryRole(e)]}</p>)}{status.rows.filter(r=>r.meal_time_id===m.id&&r.state!=="complete").map(r=><p key={r.group_code} className="mt-2 text-xs text-[#9d663e]">{getExchangeGroup(r.group_code).shortName}: {r.remaining>0?"faltan":"exceden"} {format(Math.abs(r.remaining))} eq</p>)}</div>)}</div>{observations.map(message=><p key={message} className="mt-3 text-xs text-[#856b44]">{message}</p>)}<p className="mt-3 text-xs text-[#7b887e]">Revisión del profesional: estas observaciones no califican el sabor, la saciedad ni la calidad clínica.</p></section>}
-    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-[#dce5dc] pt-5"><div><p className="text-sm font-semibold">{rows.every(r=>r.state==="complete")&&entries.length?"Equivalentes de esta opción cubiertos":"Opción por completar"}</p><p className="mt-1 text-xs text-[#7c8b7d]">{rows.filter(r=>r.state==="pending").length} grupos pendientes · {rows.filter(r=>r.state==="excess").length} con exceso</p></div></div></>}
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-[#dce5dc] pt-5"><div><p className="text-sm font-semibold">{optionConfirmed&&portionDifferences.length?"Confirmada con diferencias":rows.every(r=>r.state==="complete")&&entries.length?"Equivalentes de esta opción cubiertos":"Opción por completar"}</p><p className="mt-1 text-xs text-[#7c8b7d]">{rows.filter(r=>r.state==="pending").length} grupos por debajo · {rows.filter(r=>r.state==="excess").length} por encima de la distribución</p></div></div></>}
     </>}
     <div className="mt-3 flex justify-end gap-3"><AutosaveFeedback status={autosave.status}/>{autosave.status==="error"&&<button className="text-sm underline" onClick={()=>void autosave.saveNow()}>Reintentar guardado</button>}</div>
     <div className="[&_footer]:static"><WorkshopStepFooter onPrevious={onGoToMeals} finalStep/></div>

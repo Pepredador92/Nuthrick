@@ -1,11 +1,35 @@
 import { describe, expect, it } from "vitest";
 import { weeklyFixture } from "../../../tests/fixtures/weeklyMenu";
 import { automaticDays, dayMenu, organizeWeek, weekAlternatives, weekProblems, WEEK_DAYS } from "./week";
-import { commitOptionEdits, confirmOption, ensureOptionBank, newMealOption, optionIsEligible, projectOptions, restoreOptionEdits, saveOptionBank } from "./options";
+import { commitOptionEdits, confirmOption, ensureOptionBank, newMealOption, optionCanConfirm, optionIsEligible, optionPortionDifferences, projectOptions, restoreOptionEdits, saveOptionBank } from "./options";
 import { activeMenu, calculateMenuUsage, confirmDietMenu, updateMenuEntryQuantity } from "./model";
 const days = WEEK_DAYS.map(d => d.id);
 
 describe("meal options and weekly scheduling", () => {
+  it.each([0.5, 1.5])("confirms %s portions against a one-portion target and carries them into the calendar", portions => {
+    const f = weeklyFixture([1, 1, 1]);
+    const option = f.menu.meal_options![0];
+    option.status = "draft";
+    option.entries[0].quantity = portions;
+    option.entries[0].exchange_contributions[0].portions = portions;
+    const entries = structuredClone(option.entries);
+    expect(optionCanConfirm(f.menu, f.distribution, option)).toBe(true);
+    expect(optionPortionDifferences(f.menu, f.distribution, option)).toEqual([expect.objectContaining({ used: portions, portions: 1 })]);
+    const confirmed = confirmOption(f.menu, f.distribution, option.id);
+    const week = organizeWeek({ ...f, menu: confirmed, days: ["mon", "tue"] });
+    expect(weekProblems(confirmed, f.distribution, week)).toEqual([]);
+    expect(week.days.every(day => JSON.stringify(day.assignments[0].option_snapshot.entries) === JSON.stringify(entries))).toBe(true);
+  });
+  it("still rejects empty, invalid or excluded entries", () => {
+    const f = weeklyFixture([1, 1, 1]);
+    const option = f.menu.meal_options![0];
+    expect(optionCanConfirm(f.menu, f.distribution, { ...option, entries: [] })).toBe(false);
+    option.entries[0].quantity = 0;
+    expect(optionCanConfirm(f.menu, f.distribution, option)).toBe(false);
+    option.entries[0].quantity = 1;
+    f.menu.food_preferences = { [f.foods[0].id]: "exclude" };
+    expect(optionCanConfirm(f.menu, f.distribution, option)).toBe(false);
+  });
   it("counts complete options, not their foods and drinks", () => {
     const one = weeklyFixture([1, 1, 1]); expect(automaticDays(one.menu, one.distribution)).toBe(1);
     const f = weeklyFixture(); expect(automaticDays(f.menu, f.distribution)).toBe(5);

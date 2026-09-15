@@ -1,4 +1,5 @@
 import { clearProposalSession } from "./useProposalExplorer";
+import { weeklyFixture } from "../../../tests/fixtures/weeklyMenu";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DietMenuStep } from "@/src/components/diet/DietMenuStep";
@@ -53,6 +54,23 @@ const plan: NutritionPlan = {
 };
 
 describe("DietMenuStep", () => {
+  it.each([0.5, 1.5])("allows explicitly confirming %s portions with a visible warning", async portions => {
+    const f = weeklyFixture([1, 1, 1]);
+    const option = f.menu.meal_options![0];
+    option.status = "draft";
+    option.entries[0].quantity = portions;
+    option.entries[0].exchange_contributions[0].portions = portions;
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<DietMenuStep plan={{ ...plan, meal_distribution: f.distribution, diet_menu: f.menu }} catalog={{ foods: f.foods, recipes: [] }} onSave={onSave} onGoToMeals={vi.fn()} />);
+    expect(screen.getByText("Las porciones difieren de la distribución")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar con estas porciones" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    const saved = onSave.mock.calls.at(-1)![0];
+    expect(saved.meal_options[0].status).toBe("confirmed");
+    expect(saved.meal_options[0].entries[0].quantity).toBe(portions);
+    expect(screen.queryByRole("button", { name: "Confirmar con estas porciones" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Agregar otra opción de desayuno" })).toBeEnabled();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     clearProposalSession();

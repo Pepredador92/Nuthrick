@@ -33,6 +33,15 @@ function readyPlan(): NutritionPlan {
 }
 
 describe("publication review", () => {
+  it("allows publication of confirmed differences with a warning for the applied day", () => {
+    const plan = readyPlan();
+    const entry = plan.diet_menu!.week_plan!.days[0].assignments[0].option_snapshot.entries[0];
+    entry.quantity = 1.5;
+    entry.exchange_contributions[0].portions = 1.5;
+    const result = validateNutritionPlanForPublication(plan);
+    expect(result.canPublish).toBe(true);
+    expect(result.warnings).toEqual([expect.objectContaining({ code: "APPLIED_PORTION_DIFFERENCES", day: "mon", mealTimeId: "breakfast" })]);
+  });
   it("validates each applied day without summing unused options", () => {
     const plan = readyPlan();
     expect(validateNutritionPlanForPublication(plan)).toMatchObject({ canPublish: true, errors: [] });

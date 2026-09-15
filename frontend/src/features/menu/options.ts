@@ -19,12 +19,15 @@ export function projectOptions(menu: DietMenu, distribution: MealDistribution, s
   return { ...next, derived_exchange_usage: calculateMenuUsage(next) };
 }
 
-export function optionCanConfirm(menu: DietMenu, distribution: MealDistribution, option: MealOption) {
+export function optionPortionDifferences(menu: DietMenu, distribution: MealDistribution, option: MealOption) {
   const projected = projectOptions({ ...menu, meal_options: [option] }, distribution);
-  const rows = calculateMenuStatus(projected, distribution).rows.filter(r => r.meal_time_id === option.meal_time_id);
+  return calculateMenuStatus(projected, distribution).rows.filter(r => r.meal_time_id === option.meal_time_id && r.state !== "complete");
+}
+
+export function optionCanConfirm(menu: DietMenu, distribution: MealDistribution, option: MealOption) {
   const restrictions = menuRestrictions(menu);
   return distribution.status === "ready" && distribution.meal_times.some(m => m.id === option.meal_time_id)
-    && option.name.trim().length > 0 && option.entries.length > 0 && rows.every(r => r.state === "complete")
+    && option.name.trim().length > 0 && option.entries.length > 0
     && option.entries.every(e => Number.isFinite(e.quantity) && e.quantity > 0
       && e.exchange_contributions.every(c => Number.isFinite(c.portions) && c.portions >= 0)
       && (e.recipe_snapshot ? recipeHasKnownContributions(recipeFromEntry(e)!) : Boolean(e.food_snapshot && e.exchange_contributions.length > 0))

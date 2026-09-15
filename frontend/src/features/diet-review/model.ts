@@ -1,4 +1,5 @@
-import { optionIsEligible } from "@/src/features/menu/options";
+import { optionIsEligible, optionPortionDifferences } from "@/src/features/menu/options";
+import { getExchangeGroup } from "@/src/features/exchanges/catalog";
 import { assignment, dayName, weekProblems } from "@/src/features/menu/week";
 import type { DietMenu, DietMenuEntry, MealDistribution, NutritionPlan, NutritionPlanVersionSnapshot } from "@/src/types/domain";
 
@@ -63,6 +64,14 @@ export function validateNutritionPlanForPublication(plan: NutritionPlan): Public
       if (used.has(applied.meal_time_id))
         errors.push(error("DAY_ASSIGNMENT_DUPLICATED", `${dayName(day.day)} tiene un tiempo duplicado.`, { step: "menu", day: day.day, mealTimeId: applied.meal_time_id }));
       used.add(applied.meal_time_id);
+      const differences = optionPortionDifferences(menu, distribution, applied.option_snapshot);
+      if (differences.length) {
+        const mealName = distribution.meal_times.find(meal => meal.id === applied.meal_time_id)?.display_name ?? "Tiempo de comida";
+        warnings.push({
+          code: "APPLIED_PORTION_DIFFERENCES", severity: "warning", step: "menu", day: day.day, mealTimeId: applied.meal_time_id,
+          message: `${dayName(day.day)} · ${mealName}: porciones distintas a la distribución (${differences.map(row => `${getExchangeGroup(row.group_code).shortName}: ${row.used} de ${row.portions} eq`).join("; ")}).`,
+        });
+      }
       if (applied.option_snapshot.meal_time_id !== applied.meal_time_id || !optionIsEligible(menu, distribution, applied.option_snapshot))
         errors.push(error("APPLIED_OPTION_INVALID", `${dayName(day.day)} tiene una opción que necesita revisión.`, { step: "menu", day: day.day, mealTimeId: applied.meal_time_id }));
       if (!applied.option_snapshot.entries.length || applied.option_snapshot.entries.some((entry) => !validEntry(entry)))
