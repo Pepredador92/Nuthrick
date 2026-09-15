@@ -70,6 +70,13 @@ describe("deterministic menu planner", () => {
     expect(entrySignature(proposeDietMenu(input))).toEqual(entrySignature(proposeDietMenu(input)));
   });
 
+  it("breaks close ties in favor of a curated everyday preparation", () => {
+    const generic = { ...breakfastRecipe, id: "generic-breakfast", name: "Cereal de prueba" };
+    const curated = { ...breakfastRecipe, id: "curated-breakfast", name: "Avena cotidiana", source: "NUTHRICK_EDITORIAL_PREPARATIONS" as const };
+    const proposal = proposeDietMenu({ menu: createDietMenu(distribution), distribution, foods: [cereal, fruit], recipes: [generic, curated], mealTimeId: "breakfast" });
+    expect(activeMenu(proposal.menu).meal_menus[0].entries.find((entry) => entry.type === "recipe")?.source_id).toBe("curated-breakfast");
+  });
+
   it("can propose only one time", () => {
     const proposal = proposeDietMenu({ menu: createDietMenu(distribution), distribution, foods: [cereal, fruit], recipes: [breakfastRecipe], mealTimeId: "breakfast" });
     expect(proposal.meals.map((meal) => meal.mealTimeId)).toEqual(["breakfast"]);

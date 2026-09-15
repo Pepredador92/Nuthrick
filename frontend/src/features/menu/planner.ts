@@ -55,6 +55,15 @@ export const MENU_PLANNER_WEIGHTS = {
 
 export const practicalQuantity = practicalFoodQuantity;
 
+function curatedDailyRecipeBonus(recipe: Recipe) {
+  // The curated culinary library reflects the professional's everyday Mexican
+  // meal patterns. It breaks only close mathematical ties; compatibility and
+  // restrictions continue to decide whether a recipe can be proposed at all.
+  if (recipe.source === "NUTHRICK_EDITORIAL_PREPARATIONS") return 2;
+  if (recipe.source === "NUTHRICK_STARTER_RECIPES") return 1;
+  return 0;
+}
+
 const familyByGroup: Partial<Record<ExchangeGroupCode, string>> = {
   CEREALS_NO_FAT: "cereals",
   CEREALS_WITH_FAT: "cereals",
@@ -163,7 +172,7 @@ function rankRecipes(
       const remainingComponents = match.missingGroups.length * MENU_PLANNER_WEIGHTS.extraComponent;
       const practicalityPenalty = duplicateGroupPenalty(recipe) + sameFamilyPenalty(recipe) + impracticalQuantityPenalty(recipe) + remainingComponents;
       const preference = recipe.items.reduce((sum,item) => sum + (restrictions.likedFoodIds?.includes(item.food_snapshot.id) ? 2 : 0) - (restrictions.avoidedFoodIds?.includes(item.food_snapshot.id) ? 3 : 0),0);
-      return { original, recipe, match, score: match.score - repetitionPenalty - adjustmentPenalty - practicalityPenalty + preference };
+      return { original, recipe, match, score: match.score - repetitionPenalty - adjustmentPenalty - practicalityPenalty + preference + curatedDailyRecipeBonus(original) };
     })
     .filter((candidate) => !candidate.match.blocked)
     .sort((a, b) => b.score - a.score || a.original.name.localeCompare(b.original.name, "es-MX"));

@@ -33,10 +33,10 @@ const inventory = (values: Partial<Record<ExchangeGroupCode, number>> = {}): Exc
 };
 
 describe("meal distribution model", () => {
-  it("creates five editable default meal times with stable ids", () => {
+  it("creates three editable main meal times with stable ids", () => {
     const value = createMealDistribution(ids());
-    expect(value.meal_times.map((meal) => meal.display_name)).toEqual(["Desayuno", "Colación 1", "Comida", "Colación 2", "Cena"]);
-    expect(new Set(value.meal_times.map((meal) => meal.id)).size).toBe(5);
+    expect(value.meal_times.map((meal) => meal.display_name)).toEqual(["Desayuno", "Comida", "Cena"]);
+    expect(new Set(value.meal_times.map((meal) => meal.id)).size).toBe(3);
     expect(value.status).toBe("not_started");
   });
 
@@ -100,7 +100,7 @@ describe("meal distribution model", () => {
     value = updateMealTime(value, value.meal_times[0].id, { display_name: "Preentreno", meal_type: "SNACK" });
     value = updateMealTime(value, value.meal_times[1].id, { display_name: "Cena", meal_type: "DINNER" });
     const proposal = suggestMealDistribution(value, exchange);
-    expect(new Set(proposal.distribution.map((entry) => entry.meal_time_id))).toEqual(new Set(value.meal_times.map((meal) => meal.id)));
+    expect(proposal.distribution.every((entry) => value.meal_times.some((meal) => meal.id === entry.meal_time_id))).toBe(true);
     expect(calculateGroupDistribution(proposal.distribution, "CEREALS_NO_FAT")).toBe(3);
   });
 

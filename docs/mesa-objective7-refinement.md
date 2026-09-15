@@ -23,6 +23,11 @@ prescripción diaria o distribución por tiempos.
   dentro de “Revisar o ajustar”. Los excesos llevan al componente aportante y
   enfocan su cantidad. Los pendientes abren la despensa en el grupo exacto.
 - Diálogos nativos: Escape cierra y devuelve el foco al control de apertura.
+- En los planes nuevos, la propuesta inicia con **Desayuno, Comida y Cena**. Las
+  colaciones se agregan solo cuando el profesional las necesita. Al proponer, se
+  priorizan preparaciones cotidianas de la biblioteca compatibles con ese tiempo
+  y se completan únicamente los acompañamientos pendientes. Las distribuciones
+  ya guardadas nunca se reducen ni se reordenan automáticamente.
 
 La exploración se aísla por plan/tiempo/opción. Conserva historial editable,
 firmas vistas, rechazos e intención de edición por separado. Se recupera al

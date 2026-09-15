@@ -75,7 +75,7 @@ describe("diet menu model", () => {
   it("creates a versioned main menu with every meal time", () => {
     const menu = createDietMenu(distribution, () => "menu-main");
     expect(menu.active_menu_id).toBe("menu-main");
-    expect(menu.menus[0].meal_menus).toHaveLength(5);
+    expect(menu.menus[0].meal_menus).toHaveLength(3);
     expect(menu.status).toBe("not_started");
   });
 

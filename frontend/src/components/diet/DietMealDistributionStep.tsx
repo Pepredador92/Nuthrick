@@ -178,7 +178,7 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
 
   return <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-4 sm:p-7">
     <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div><p className="nuth-eyebrow">Paso 4</p><h1 aria-label="Tiempos de comida" className="mt-2 text-2xl font-semibold text-[#173d36]">Tiempos</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">Distribuye las porciones entre tus tiempos.</p></div>
+      <div><p className="nuth-eyebrow">Paso 4</p><h1 aria-label="Tiempos de comida" className="mt-2 text-2xl font-semibold text-[#173d36]">Tiempos</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">La propuesta inicial parte de desayuno, comida y cena. Puedes agregar colaciones o tiempos personalizados cuando lo necesites.</p></div>
       <span className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${draft.status === "ready" ? "bg-[#eaf3ec] text-[#315e4f]" : draft.status === "editing" ? "bg-[#fff4df] text-[#7a5a28]" : "bg-[#f2f5f3] text-[#65756d]"}`}>{draft.status === "ready" ? <Check size={14} /> : <CircleAlert size={14} />}{draft.status === "ready" ? "Distribución lista" : draft.status === "editing" ? "En edición" : "Sin iniciar"}</span>
     </header>
 
@@ -236,7 +236,7 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
         {proposal && <details className="my-3 text-xs text-[#52675e]"><summary className="cursor-pointer font-semibold">Totales y diferencia frente al objetivo</summary><div className="mt-2 space-y-1">{([
           ["Energía", "energy_kcal", "kcal"], ["Carbohidratos", "carbohydrate_g", "g"], ["Proteína", "protein_g", "g"], ["Grasas", "fat_g", "g"],
         ] as const).map(([label, key, unit]) => { const total = displayedTotals.reduce((sum, m) => sum + m[key], 0); const delta = total - prescription.target_snapshot[key]; return <p key={key}>{label}: {format(total)} {unit} · {delta > 0 ? "+" : ""}{format(delta)} {unit}</p>; })}</div></details>}
-        {proposal && <p className="my-3 text-xs leading-5 text-[#52675e]">{describeMeals(proposal, draft, locked)}</p>}
+        {proposal && <p className="my-3 text-xs leading-5 text-[#52675e]">Propuesta cotidiana: prioriza preparaciones reconocibles de la biblioteca antes de completar con acompañamientos. {describeMeals(proposal, draft, locked)}</p>}
         {proposal && <p className="my-2 text-xs leading-5 text-[#8a642b]">{preparationLimitations(prescription.groups.filter(g => g.portions > 0).map(g => g.group_code), preparation.catalog)}</p>}
         {(explorer.message || preparation.error) && <p role="status" className="my-3 text-xs leading-5 text-[#8a642b]">{explorer.message || preparation.error}</p>}
         {explorer.canUndo && <button type="button" className="my-2 text-xs font-semibold text-[#315e4f]" onClick={() => explorer.undo(previous => update(reconcileMealDistribution(previous, prescription), true, true))}>Deshacer aplicación</button>}

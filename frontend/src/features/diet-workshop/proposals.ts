@@ -16,6 +16,19 @@ export const exchangeKey = (p: ExchangeSuggestion) => JSON.stringify(p.groups.ma
 export const mealKey = (p: MealDistributionSuggestion) => JSON.stringify(p.distribution.filter(e => e.portions > 0).map(e => [e.meal_time_id, e.group_code, e.portions]).sort());
 const maxError = (p: ExchangeSuggestion, targets: SuggestExchangePrescriptionInput["targets"]) => Math.max(...Object.entries(p.differences).map(([key, value]) => Math.abs(value) / Math.max(1, targets[key as keyof typeof targets])));
 
+function everydayRecipePriority(recipe: Recipe, meal: MealDistribution["meal_times"][number]) {
+  const groups = new Set(recipeExchangeContributions(recipe).map(item => item.group_code));
+  const has = (code: ExchangeGroupCode) => groups.has(code);
+  const hasAoa = [...groups].some(code => code.startsWith("AOA_"));
+  const hasMilk = [...groups].some(code => code.startsWith("MILK_"));
+  let score = recipe.source === "NUTHRICK_EDITORIAL_PREPARATIONS" ? 8 : recipe.source === "NUTHRICK_STARTER_RECIPES" ? 5 : 0;
+  score += recipe.meal_types.includes(meal.meal_type) ? 6 : -20;
+  if (meal.meal_type === "BREAKFAST") score += (has("CEREALS_NO_FAT") ? 3 : 0) + (hasAoa ? 3 : 0) + (has("FRUITS") ? 2 : 0) + (hasMilk ? 1 : 0);
+  if (meal.meal_type === "MAIN_MEAL") score += (hasAoa ? 3 : 0) + (has("VEGETABLES") ? 3 : 0) + (has("CEREALS_NO_FAT") || has("LEGUMES") ? 2 : 0);
+  if (meal.meal_type === "DINNER") score += (hasAoa ? 3 : 0) + (has("CEREALS_NO_FAT") || has("LEGUMES") ? 2 : 0) + (has("VEGETABLES") ? 2 : 0);
+  return score;
+}
+
 export function preparationQuality(groups: Array<{ groupCode: ExchangeGroupCode; portions: number }>, catalog?: PreparationCatalog) {
   const active = groups.filter(g => g.portions > 0);
   const milk = active.filter(g => family(g.groupCode) === "MILK").length;
@@ -114,12 +127,19 @@ export function mealAlternatives(current: MealDistribution, prescription: Exchan
     };
     const inventory = new Map(prescription.groups.map(g => [g.group_code, round(g.portions - fixed.filter(e => e.group_code === g.group_code).reduce((s, e) => s + e.portions, 0))]));
     if (!free.length && [...inventory.values()].some(n => n > PROPOSAL_POLICY.inventoryEpsilon)) throw new Error("Todos los tiempos están conservados y quedan porciones pendientes. Libera un tiempo para distribuirlas.");
-    // Seed a feasible preparation; the remaining inventory can also form simple foods.
-    const recipes = catalog?.recipes.filter(r => r.active && recipeExchangeContributions(r).length > 1 && recipeExchangeContributions(r).every(c => (inventory.get(c.group_code) ?? 0) >= c.portions)) ?? [];
-    if (recipes.length && free.length && variant % 3 === 0) {
-      const r = recipes[Math.floor(variant / 3) % recipes.length];
-      const m = free.find(m => r.meal_types.includes(m.meal_type)) ?? free[0];
-      for (const c of recipeExchangeContributions(r)) { put(c.group_code, m.id, c.portions); inventory.set(c.group_code, round((inventory.get(c.group_code) ?? 0) - c.portions)); }
+    // Seed every proposal with a familiar, feasible preparation when the catalog
+    // allows it. The three default times then resolve as breakfast, main meal and
+    // dinner rather than as a generic group-only split.
+    const recipeCandidates = (catalog?.recipes ?? [])
+      .filter(recipe => recipe.active && !recipe.tags.includes("nuthrick:drink") && recipeExchangeContributions(recipe).length > 1 && recipeExchangeContributions(recipe).every(c => (inventory.get(c.group_code) ?? 0) >= c.portions))
+      .flatMap(recipe => free.filter(meal => recipe.meal_types.includes(meal.meal_type)).map(meal => ({ recipe, meal, score: everydayRecipePriority(recipe, meal) })))
+      .sort((a, b) => b.score - a.score || a.recipe.name.localeCompare(b.recipe.name, "es-MX") || a.meal.display_order - b.meal.display_order);
+    if (recipeCandidates.length) {
+      const selected = recipeCandidates[variant % recipeCandidates.length];
+      for (const contribution of recipeExchangeContributions(selected.recipe)) {
+        put(contribution.group_code, selected.meal.id, contribution.portions);
+        inventory.set(contribution.group_code, round((inventory.get(contribution.group_code) ?? 0) - contribution.portions));
+      }
     }
     for (const [code, total] of [...inventory].sort(([a], [b]) => priority(a) - priority(b))) {
       if (total <= PROPOSAL_POLICY.inventoryEpsilon || !free.length) continue;

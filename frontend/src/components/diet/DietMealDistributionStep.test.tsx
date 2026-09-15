@@ -34,7 +34,8 @@ describe("DietMealDistributionStep", () => {
     const onDraftChange = vi.fn();
     render(<DietMealDistributionStep plan={plan} onSave={onSave} onDraftChange={onDraftChange} onGoToEquivalents={vi.fn()} />);
     expect(screen.getByLabelText("Nombre de Desayuno")).toHaveValue("Desayuno");
-    expect(screen.getByLabelText("Nombre de Colación 1")).toHaveValue("Colación 1");
+    expect(screen.getByLabelText("Nombre de Comida")).toHaveValue("Comida");
+    expect(screen.getByLabelText("Nombre de Cena")).toHaveValue("Cena");
     fireEvent.change(screen.getAllByLabelText("Verduras en Desayuno")[0], { target: { value: "1.5" } });
     expect(onDraftChange).toHaveBeenLastCalledWith(expect.objectContaining({ distribution: expect.arrayContaining([expect.objectContaining({ group_code: "VEGETABLES", portions: 1.5 })]), status: "editing" }));
     await waitFor(() => expect(onSave).toHaveBeenCalled(), { timeout: 1200 });
