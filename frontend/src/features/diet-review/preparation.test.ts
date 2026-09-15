@@ -88,6 +88,15 @@ describe("complete patient meal presentation", () => {
     expect(patientPreparation(saved).substitutionsReviewed).toBe(false);
     expect(patientPreparation(saved).ingredients[0].alternatives).toEqual([]);
   });
+  it("preserves substitutions when database JSON objects return in another key order", () => {
+    const { menu, foods } = preparationFixture();
+    const option = withPatientSubstitutions(menu, foods).week_plan!.days[0].assignments[0].option_snapshot;
+    const reordered = JSON.parse(JSON.stringify(option), (_key, value: unknown) =>
+      value !== null && typeof value === "object" && !Array.isArray(value)
+        ? Object.fromEntries(Object.entries(value).reverse()) : value) as MealOption;
+    expect(patientPreparation(reordered)).toEqual(patientPreparation(option));
+    expect(patientPreparation(reordered).substitutionsReviewed).toBe(true);
+  });
   it("is deterministic and does not invent alternatives when the catalog is insufficient", () => {
     const { menu, foods } = preparationFixture();
     expect(withPatientSubstitutions(menu, foods)).toEqual(withPatientSubstitutions(menu, [...foods].reverse()));

@@ -23,7 +23,11 @@ export type PatientPreparation = {
 export const canSubstitute = (food?: FoodSnapshot) => Boolean(food && (
   food.group_code.startsWith("AOA_") || food.group_code.startsWith("CEREALS_") || food.group_code === "LEGUMES"
 ));
-const sourceKey = (option: MealOption) => JSON.stringify(option.entries);
+// JSONB may reorder object keys on persistence. Key order must not invalidate a version.
+const sourceKey = (option: MealOption) => JSON.stringify(option.entries, (_key, value: unknown) =>
+  value !== null && typeof value === "object" && !Array.isArray(value)
+    ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b, "en")))
+    : value);
 
 /** Read-only presentation: historical quantities and recipe definitions are never rewritten. */
 export function patientPreparation(option: MealOption): PatientPreparation {
