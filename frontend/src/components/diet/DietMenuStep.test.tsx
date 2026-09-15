@@ -330,7 +330,8 @@ describe("DietMenuStep", () => {
 
   it("offers only exact-group ingredient substitutes and saves them as a copy", async () => {
     const apple = { ...food, id: "apple", name: "Manzana", normalized_name: "manzana", portion_unit: "piece" as const, portion_description: "1 pieza" };
-    render(<DietMenuStep plan={plan} catalog={{ foods: [food, apple, cerealFood], recipes: [recipe] }} onSave={vi.fn()} onGoToMeals={vi.fn()} />);
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<DietMenuStep plan={plan} catalog={{ foods: [food, apple, cerealFood], recipes: [recipe] }} onSave={onSave} onGoToMeals={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Agregar receta" }));
     fireEvent.click(await screen.findByRole("button", { name: "Revisar" }));
     fireEvent.click(screen.getByRole("button", { name: "Intercambiar Papaya" }));
@@ -348,6 +349,10 @@ describe("DietMenuStep", () => {
       items: [expect.objectContaining({ food: expect.objectContaining({ id: "apple" }), amount: 1 })],
     })));
     expect(recipe.items[0].food_item_id).toBe("fruit");
+    expect(await screen.findByRole("dialog", { name: "Preparación guardada" })).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Sí", exact: true }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
   });
 
   it("distinguishes day and time proposals, and keeps a food exchange temporary until Apply", async () => {
