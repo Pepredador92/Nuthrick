@@ -19,6 +19,9 @@ import { DietEquivalentsStep } from "@/src/components/diet/DietEquivalentsStep";
 import { DietMealDistributionStep } from "@/src/components/diet/DietMealDistributionStep";
 import { DietMenuStep } from "@/src/components/diet/DietMenuStep";
 import { DietPlanReviewStep } from "@/src/components/diet/DietPlanReviewStep";
+import { DietLibrary } from "@/src/components/diet/DietLibrary";
+import { applyDietLibrary, createDietLibraryEditingDraft, restoreDietLibrary } from "@/src/services/dietLibrary";
+import { libraryKind, type DietLibraryItem } from "@/src/features/diet-library/model";
 import { withPatientSubstitutions } from "@/src/features/diet-review/preparation";
 import type { FoodItem } from "@/src/types/domain";
 import type { EnergyReferenceContext } from "@/src/features/diet-energy/model";
@@ -336,6 +339,8 @@ export function DietWorkshopPage() {
   const navigate = useNavigate();
   const requestedPatientId = searchParams.get("patientId");
   const requestedConsultationId = searchParams.get("consultationId");
+  const libraryEditId = searchParams.get("libraryEdit");
+  const libraryEditRevision = Number(searchParams.get("libraryRevision"));
   const creatingDirect = useRef(false);
   const [plan, setPlan] = useState<NutritionPlan | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -366,6 +371,7 @@ export function DietWorkshopPage() {
   const [activeStep, setActiveStep] = useState<WorkshopStep>("energy");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [libraryEpoch, setLibraryEpoch] = useState(0);
 
   useEffect(() => { planRef.current = plan; }, [plan]);
 
@@ -625,12 +631,18 @@ export function DietWorkshopPage() {
     }
   };
 
+  const editLibraryInWorkshop = async (item: DietLibraryItem) => {
+    if (planRef.current) await flushPendingDraft();
+    const created = await createDietLibraryEditingDraft(item);
+    setActiveStep("energy");
+    navigate(`/app/diet-workshop/${created.id}?libraryEdit=${item.id}&libraryRevision=${item.revision}`);
+  };
   if (loading) return <LoadingState label="Preparando Taller de dietas…" />;
   if (error && !plan && !patient && !plans.length) return <ErrorState message={error} onRetry={() => void load()} />;
   if (!dietPlanId && requestedPatientId && patient) {
     return <SourcePicker patient={patient} consultations={consultations} selectedId={selectedConsultationId} busy={busy} error={error} onSelect={setSelectedConsultationId} onCreate={(consultationId) => void create(patient.id, consultationId)} />;
   }
-  if (!dietPlanId && !requestedPatientId) return <WorkshopLanding plans={plans} busy={busy} onCreate={() => void create(null, null)} />;
+  if (!dietPlanId && !requestedPatientId) return <div className="space-y-5"><WorkshopLanding plans={plans} busy={busy} onCreate={() => void create(null, null)} /><DietLibrary onEdit={editLibraryInWorkshop}/></div>;
   if (!plan) return <ErrorState message={error || "No pudimos abrir este plan."} onRetry={() => void load()} />;
 
   const exitTarget = patient ? `/app/patients/${patient.id}` : "/app/diet-workshop";
@@ -645,6 +657,23 @@ export function DietWorkshopPage() {
   const energyReferenceWeightKg = plan.energy_calculation?.inputs.weight_kg.value ?? null;
   const macrosReady = Boolean(plan.macro_distribution?.complete);
   const exchangeTargets = exchangeTargetsFor(plan);
+  const acceptLibraryUpdate = (updated: NutritionPlan) => {
+    planRef.current = updated;
+    setPlan(updated);
+    setLibraryEpoch(value => value + 1);
+    setActiveStep("equivalents");
+    setNotice("Borrador actualizado. Revisa equivalentes, tiempos, opciones y sustituciones antes de publicar.");
+  };
+  const applyLibrary = async (item: DietLibraryItem, token: string) => {
+    const saved = await flushPendingDraft();
+    await planSaveQueue.current;
+    acceptLibraryUpdate(await applyDietLibrary(item, planRef.current ?? saved, token));
+  };
+  const restoreLibrary = async (token: string) => {
+    const saved = await flushPendingDraft();
+    await planSaveQueue.current;
+    acceptLibraryUpdate(await restoreDietLibrary(planRef.current ?? saved, token));
+  };
   return (
     <div className="mx-auto min-w-0 max-w-7xl pb-16 [overflow-wrap:anywhere]">
       <PlanContextHeader plan={{ ...plan, title }} patient={patient} consultation={consultation} onChangeContext={() => void openContextEditor()} onSaveAndExit={() => void flushPendingDraft().then(() => navigate(exitTarget)).catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el plan."))} />
@@ -652,12 +681,16 @@ export function DietWorkshopPage() {
       <WorkshopNavigation targetReady={Boolean(plan.target_calories && plan.target_calories > 0)} macrosReady={macrosReady} mealsReady={Boolean(plan.meal_distribution?.distribution.some((item) => item.portions > 0))} activeStep={activeStep} onSelect={setActiveStep} />
       {notice && <p role="status" className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]">{notice}</p>}
       {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{error}</p>}
-      <div className="mt-5 space-y-5">
+      <div className="mt-5 space-y-5" key={libraryEpoch}>
           <section className="rounded-2xl border border-[#dfe6e1] bg-white px-4 py-3 sm:px-5">
-            <label className="block text-sm font-semibold text-[#315e4f]" htmlFor="diet-plan-title">Nombre del plan
+            <label className="block text-sm font-semibold text-[#315e4f]" htmlFor="diet-plan-title">{plan.diet_menu?.week_plan?.days.length ? `Nombre de ${libraryKind(plan.diet_menu.week_plan.days.length).toLocaleLowerCase()}` : "Nombre del borrador"}
               <input id="diet-plan-title" className="nuth-input mt-1 !py-2" maxLength={120} required value={title} onChange={(event) => { setTitle(event.target.value); setNotice(""); }} onBlur={() => void saveTitle().catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el título."))} />
             </label>
           </section>
+          {libraryEditId && <p className="text-sm text-[#52705c]">Editas una copia de trabajo. Para actualizar la base, usa Guardar en biblioteca. La publicación clínica no es necesaria.</p>}
+          <DietLibrary plan={plan} capture={flushPendingDraft} suggestions={activeStep === "equivalents" || activeStep === "macros"} onApply={applyLibrary} onRestore={restoreLibrary} onEdit={editLibraryInWorkshop}
+            editingSource={libraryEditId && libraryEditRevision>0 ? {id:libraryEditId,revision:libraryEditRevision} : undefined}
+            onSaved={saved=>{if(libraryEditId===saved.id){const params=new URLSearchParams(searchParams);params.set('libraryRevision',String(saved.revision));navigate(`/app/diet-workshop/${plan.id}?${params}`,{replace:true});}}}/>
           {activeStep === "energy" && <DietEnergyStep
             key={`${plan.id}:${reference?.weight?.value ?? ""}:${reference?.height?.value ?? ""}`}
             plan={plan}

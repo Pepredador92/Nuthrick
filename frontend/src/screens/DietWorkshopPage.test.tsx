@@ -187,7 +187,7 @@ describe("DietWorkshopPage", () => {
     let finishSave: ((value: NutritionPlan) => void) | undefined;
     api.updatePlan.mockImplementationOnce(() => new Promise<NutritionPlan>((resolve) => { finishSave = resolve; }));
     mount("/app/diet-workshop/plan");
-    const title = await screen.findByLabelText("Nombre del plan");
+    const title = await screen.findByLabelText("Nombre del borrador");
     const saveAndExit = screen.getByRole("button", { name: "Guardar y salir" });
     fireEvent.change(title, { target: { value: "Plan actualizado" } });
     fireEvent.blur(title);
