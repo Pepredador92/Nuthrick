@@ -26,8 +26,8 @@ select set_config('request.jwt.claim.sub','95000000-0000-4000-8000-000000000002'
 select throws_ok($$select public.delete_consultation_record((select id from public.consultations where patient_id='96000000-0000-4000-8000-000000000003'))$$,'42501','Consultation unavailable','another professional cannot delete a consultation');
 select set_config('request.jwt.claim.sub','94000000-0000-4000-8000-000000000001',true);
 select lives_ok($$select public.delete_consultation_record((select id from public.consultations where patient_id='96000000-0000-4000-8000-000000000003'))$$, 'owner can delete a consultation');
-select is((select count(*) from public.consultations where patient_id='96000000-0000-4000-8000-000000000003'),0::bigint,'deleting removes the consultation');
-select is((select count(*) from public.consultation_snapshots where patient_id='96000000-0000-4000-8000-000000000003'),0::bigint,'deleting removes its snapshots');
+select is((select count(*) from public.consultations where patient_id='96000000-0000-4000-8000-000000000003' and deleted_at is null),0::bigint,'deleting removes the consultation from the active history');
+select is((select count(*) from public.consultation_snapshots where patient_id='96000000-0000-4000-8000-000000000003'),2::bigint,'deleting preserves its historical snapshots');
 
 select * from finish();
 rollback;

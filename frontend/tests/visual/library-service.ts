@@ -9,6 +9,7 @@ import {
   patchMacroInput,
 } from "@/src/features/macros/model";
 import type { NutritionPlan } from "@/src/types/domain";
+import { buildPdfLibrary } from "../../../scripts/build-pdf-library";
 const { menu, distribution } = weeklyFixture([2, 2, 2]);
 menu.week_plan = {
   schema_version: 1,
@@ -40,6 +41,7 @@ export const plan = {
   diet_menu: menu,
 } as NutritionPlan;
 let items: DietLibraryItem[] = [
+  ...buildPdfLibrary().map((base,i)=>({...base,id:`system-${i}`,owner_id:null,revision:2,archived:false,created_at:"",updated_at:""})),
   {
     id: "example",
     owner_id: "visual",

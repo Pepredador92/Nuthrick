@@ -124,7 +124,7 @@ function ConfirmDialog({
   const description = note
     ? "La nota dejará de mostrarse en el historial."
     : consultation
-      ? "Se eliminarán las respuestas y revisiones de esta consulta. Las mediciones, notas y planes asociados se conservarán en la ficha, pero quedarán sin consulta asociada."
+      ? "La consulta dejará de aparecer en Consultas recientes y en el historial de consultas. Sus datos, mediciones, notas y planes se conservarán con su procedencia; los valores seguirán disponibles en Evolución."
       : action === "archive"
         ? `La ficha de ${patientName} dejará de aparecer entre los activos, pero conservará su historial.`
         : `La ficha de ${patientName} dejará de aparecer en tus listados. Su información histórica se conservará de forma segura.`;
@@ -374,6 +374,8 @@ function ConsultationHistoryOverview({
 }
 
 function HistoryModal({
+  error,
+  notice,
   tab,
   onTab,
   onClose,
@@ -390,6 +392,8 @@ function HistoryModal({
   onExportConsultationPdf,
   onDeleteConsultation,
 }: {
+  error: string;
+  notice: string;
   tab: HistoryTab;
   onTab: (tab: HistoryTab) => void;
   onClose: () => void;
@@ -448,6 +452,7 @@ function HistoryModal({
             <X size={20} />
           </button>
         </header>
+        {error ? <p role="alert" className="mx-5 mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p> : notice ? <p role="status" className="mx-5 mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p> : null}
         <nav className="flex gap-1 overflow-x-auto border-b border-[#e3eae4] px-5 sm:px-7">
           {(
             [
@@ -889,6 +894,7 @@ export function PatientDetailPage() {
   const run = async (action: () => Promise<void>, message: string) => {
     setBusy(true);
     setError("");
+    setNotice("");
     try {
       await action();
       setNotice(message);
@@ -1011,7 +1017,7 @@ export function PatientDetailPage() {
       await deleteConsultationRecord(id);
       setConsultations((current) => current.filter((item) => item.id !== id));
       setSelectedConsultationId((current) => (current === id ? null : current));
-    }, "Consulta eliminada. Las mediciones, notas y planes se conservaron sin vínculo a esa consulta.");
+    }, "Consulta retirada del historial. Sus datos y planes se conservaron con su procedencia.");
   };
   const addNote = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1470,6 +1476,8 @@ export function PatientDetailPage() {
       </div>
       {historyOpen && (
         <HistoryModal
+          error={error}
+          notice={notice}
           tab={historyTab}
           onTab={setHistoryTab}
           onClose={() => setHistoryOpen(false)}

@@ -316,6 +316,7 @@ export async function listConsultations(
     .from("consultations")
     .select("*")
     .eq("patient_id", patientId)
+    .is("deleted_at", null)
     .order("consultation_date", { ascending: false });
   return unwrap((data ?? []) as Consultation[], error);
 }

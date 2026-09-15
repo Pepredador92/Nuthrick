@@ -84,11 +84,13 @@ function EvolutionMatrix({
                 >
                   <button
                     type="button"
+                    disabled={Boolean(consultation.deleted_at) || !onOpenConsultation}
                     onClick={() => onOpenConsultation?.(consultation.id)}
                     className="w-full text-left font-semibold text-[#24473d] hover:text-[#3d705d] focus:outline-none focus:ring-2 focus:ring-[#76a78e] focus:ring-offset-2"
                     aria-label={`Abrir consulta del ${consultationDate(consultation.consultation_date)}`}
                   >
                     {consultationDate(consultation.consultation_date)}
+                    {consultation.deleted_at ? <span className="mt-1 block text-xs font-normal text-[#74817d]">Consulta retirada · datos conservados</span> : null}
                   </button>
                 </th>
               );
@@ -115,6 +117,7 @@ function EvolutionMatrix({
                     {point ? (
                       <button
                         type="button"
+                        disabled={Boolean(consultation.deleted_at) || !onOpenConsultation}
                         onClick={() => onOpenConsultation?.(consultation.id)}
                         className="max-w-full break-words text-left font-medium text-[#183f34] hover:text-[#3d705d] focus:outline-none focus:ring-2 focus:ring-[#76a78e] focus:ring-offset-2"
                         title={provenanceText(point, item)}

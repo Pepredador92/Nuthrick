@@ -47,6 +47,7 @@ export function referenceMacros(target: ExchangeTargetSnapshot | null) {
 
 export type LibraryContent = {
   schema_version: 1;
+  estimation?: DietMenu["library_estimation"];
   reference_targets: ExchangeTargetSnapshot | null;
   exchange_groups: ExchangePrescription["groups"];
   distribution: MealDistribution;
@@ -302,6 +303,7 @@ export function makeLibraryContent(
   return {
     schema_version: 1,
     reference_targets: currentTargets(plan),
+    ...(plan.diet_menu?.library_estimation ? { estimation: structuredClone(plan.diet_menu.library_estimation) } : {}),
     exchange_groups: contributions(plan.exchange_prescription?.groups ?? []),
     distribution,
     menu,
@@ -620,6 +622,7 @@ export function copyLibraryWorkspace(
   }));
   copy.menu.active_menu_id = id(copy.menu.active_menu_id);
   copy.menu.food_preferences = structuredClone(preferences);
+  copy.menu.library_estimation = structuredClone(copy.estimation);
   copy.menu.status = "editing";
   copy.menu.confirmed_at = null;
   copy.menu.source_meal_distribution_snapshot = null;

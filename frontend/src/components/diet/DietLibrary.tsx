@@ -340,13 +340,24 @@ export function DietLibrary({
         </p>
         {values.length === count && count > 0 && (
           <p className="mt-2 text-sm font-medium">
-            {number(Math.min(...values))}
+            {number(Math.round(Math.min(...values)))}
             {Math.max(...values) !== Math.min(...values)
-              ? `–${number(Math.max(...values))}`
+              ? `–${number(Math.round(Math.max(...values)))}`
               : ""}{" "}
-            kcal / día
+            kcal / día{item.content.estimation ? " · Aproximadas" : ""}
           </p>
         )}
+        {values.length === count && count > 0 && <div className="mt-3 grid grid-cols-3 gap-2" aria-label="Distribución de macronutrientes">
+          {([['protein_g','Proteína','bg-emerald-50 text-emerald-900',4],['fat_g','Grasa','bg-amber-50 text-amber-900',9],['carbohydrate_g','Carbohidratos','bg-sky-50 text-sky-900',4]] as const).map(([key,label,color,factor])=>{
+            const grams=nutrition.map(d=>d.totals![key]);
+            const t=nutrition[0].totals!;
+            const macroEnergy=t.protein_g*4+t.fat_g*9+t.carbohydrate_g*4;
+            return <div key={key} className={`min-w-0 rounded-lg p-2 text-xs ${color}`}>
+              <span className="block break-words">{label}</span><strong className="mt-1 block">{number(Math.min(...grams))}{Math.min(...grams)!==Math.max(...grams)?`–${number(Math.max(...grams))}`:''} g</strong>
+              {count===1 && macroEnergy>0 && <span title="Porcentaje energético calculado con factores 4/4/9">{number(t[key]*factor/macroEnergy*100)} %</span>}
+            </div>;
+          })}
+        </div>}
         {target && libraryReady(item.content) && (
           <p className="mt-1 text-xs text-[#64786d]">
             Diferencia media del día más distante:{" "}
@@ -580,6 +591,13 @@ export function DietLibrary({
                 {libraryReady(selected.content) ? "Completa" : "Pendiente"}
               </p>
               <NutritionComparison content={selected.content} target={target} />
+              {selected.content.estimation && <div className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-950">
+                <p className="font-semibold">Aportes aproximados</p><p className="mt-1">{selected.content.estimation.method}</p>
+                <details className="mt-2"><summary className="cursor-pointer font-medium">Ver supuestos y fuentes</summary>
+                  <ul className="mt-2 list-disc space-y-1 pl-5">{selected.content.estimation.assumptions.map((note,i)=><li key={i}>{note}</li>)}</ul>
+                  <p className="mt-2 break-words text-xs">{selected.content.estimation.sources.join(' · ')}</p>
+                </details>
+              </div>}
               {selected.provenance && <div className="mb-4 rounded-xl bg-white p-3 text-xs text-[#64786d]">
                 <p className="font-semibold">{selected.provenance.label}</p>
                 {selected.provenance.declared_energy && <p>Meta declarada en el documento: {selected.provenance.declared_energy}. No es el aporte calculado del menú.</p>}
@@ -772,7 +790,7 @@ export function DietLibrary({
                 <input
                   aria-label="Buscar en biblioteca"
                   placeholder="Buscar por nombre"
-                  className="nuth-input min-w-0 flex-1"
+                  className="nuth-input min-w-0 basis-full sm:basis-0 sm:flex-1"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />

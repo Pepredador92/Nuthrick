@@ -193,6 +193,7 @@ export interface Consultation {
   status: "draft" | "completed" | "cancelled";
   summary: string | null;
   completed_at: string | null;
+  deleted_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -732,6 +733,7 @@ export type MenuWeekPlan = {
 
 export type DietMenu = {
   schema_version: 1;
+  library_estimation?: { method: string; assumptions: string[]; sources: string[] };
   meal_options?: MealOption[];
   week_plan?: MenuWeekPlan | null;
   food_preferences?: Record<string, "like" | "avoid" | "exclude">;

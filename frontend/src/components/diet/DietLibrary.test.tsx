@@ -84,6 +84,23 @@ beforeEach(() => {
   });
 });
 describe("diet library controls", () => {
+  it("shows estimated calories and all three macronutrients with inspectable assumptions", async () => {
+    const {plan,item}=example(null);
+    item.content.estimation={method:"Promedios del catálogo",assumptions:["Atún: 100 g drenados por lata"],sources:["Catálogo Nuthrick"]};
+    vi.mocked(listDietLibrary).mockResolvedValue([item]);
+    render(<DietLibrary plan={plan} />);
+    fireEvent.click(screen.getByRole("button", {name:"Mi biblioteca"}));
+    fireEvent.click(await screen.findByRole("button", {name:"Biblioteca de Nuthrick"}));
+    const macros=await screen.findByLabelText("Distribución de macronutrientes");
+    expect(macros).toHaveTextContent("Proteína");
+    expect(macros).toHaveTextContent("Grasa");
+    expect(macros).toHaveTextContent("Carbohidratos");
+    expect(screen.getByText(/Aproximadas/)).toBeVisible();
+    fireEvent.click(screen.getByRole("button",{name:"Ver dieta"}));
+    expect(screen.getByText("Aportes aproximados")).toBeVisible();
+    fireEvent.click(screen.getByText("Ver supuestos y fuentes"));
+    expect(screen.getByText("Atún: 100 g drenados por lata")).toBeVisible();
+  });
   it("saves without a patient only after explicit privacy review and a neutral name", async () => {
     const { plan } = example();
     const capture = vi.fn().mockResolvedValue(plan);

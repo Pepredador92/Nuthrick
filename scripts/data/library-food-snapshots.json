@@ -1,5 +1,24 @@
 [
   {
+    "id": "6cf47565-1b8f-8538-92e0-14399f90e4c3",
+    "stable_code": "MX_SMAE_MILK_SKIM_BEBIDA_DE_SOYA",
+    "name": "Bebida de soya",
+    "group_code": "MILK_SKIM",
+    "portion_amount": "1.000",
+    "portion_fraction": null,
+    "portion_unit": "cup",
+    "portion_description": "1 taza",
+    "alternate_portions": [],
+    "source": "SMAE_4E_2014",
+    "source_version": "4a ed. 2014",
+    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 85",
+    "exchange_system_code": "SMAE_NOM037_2012",
+    "exchange_catalog_version": "1.0.0",
+    "attributes": {
+      "soy": "contains"
+    }
+  },
+  {
     "id": "f6f9b996-6d83-ecb8-ab4a-c725886b2039",
     "stable_code": "MX_APPLE",
     "name": "Manzana pequeña",
