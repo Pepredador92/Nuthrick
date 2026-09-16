@@ -77,6 +77,7 @@ Corregida y publicada la fecha inicial de la vista pública: después de conocer
 
 ### Iteración visual del perfil (15 septiembre, después de la prueba real)
 
+- Publicada la versión `2401f26` en `https://nuthrick.vercel.app`, despliegue `dpl_2KEuoq3vsXPvnjfwPhB7Q8rSyWhW` READY. Construcción Vercel y comprobaciones SSR aisladas correctas. Publicación desde archivo aislado de Git, sin cambios pendientes de Landing.
 - `PublicBookingPanel` reutilizado dentro de `/p/:slug` y en la subruta `/p/:slug/agendar`. No existe un segundo motor ni se cambiaron los permisos/RPC/OAuth; sin nuevas migraciones ni cambios en el Taller de dietas.
 - Panel a la derecha en escritorio y debajo de la presentación en móvil. El enlace superior «Agendar cita» conduce al panel aunque no haya teléfono o correo público. Se conserva la información del perfil, contactos y ubicaciones; el precio aproximado aparece una sola vez, sin pagos/suscripciones.
 - Modalidades en tarjetas, días disponibles en una fila desplazable, horarios de un solo día, navegación semanal y fecha limitada al horizonte. Los horarios extensos tienen su propio desplazamiento vertical.
