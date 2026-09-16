@@ -1,19 +1,13 @@
-import { BadgeCheck, Building2, ExternalLink, GraduationCap, Languages, LoaderCircle, Mail, MapPin, MessageCircle, Stethoscope, UsersRound } from 'lucide-react';
+import { Building2, ExternalLink, GraduationCap, Languages, LoaderCircle, MapPin, Stethoscope, UsersRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { PublicBookingPanel } from './PublicBookingPage';
+import { PublicProfessionalHeader } from '@/src/features/profile/PublicProfessionalHeader';
 import { Logo } from '@/src/components/ui/Logo';
 import { getPublicProfile } from '@/src/services/profile';
 import type { PublicProfileContent } from '@/src/types/domain';
 
-const modalityLabels = { online: 'En línea', in_person: 'Presencial', hybrid: 'Híbrida' };
 const educationTypeLabels = { degree: 'Grado académico', course: 'Curso', training: 'Capacitación', diploma: 'Diplomado', specialty: 'Especialidad', masters: 'Maestría', doctorate: 'Doctorado' };
-
-function whatsappUrl(contact: { countryCode?: string; value: string }) {
-  const countryCode = (contact.countryCode ?? '').replace(/\D/g, '');
-  const number = contact.value.replace(/\D/g, '');
-  return `https://wa.me/${countryCode}${number}`;
-}
 
 function mapUrl(location: { address: string; mapUrl?: string }) {
   return location.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.address)}`;
@@ -47,9 +41,7 @@ export function PublicProfilePage() {
   if (loading) return <main className="grid min-h-screen place-items-center bg-[#f7f8f4]"><div className="text-center"><LoaderCircle className="mx-auto animate-spin text-[#527a6b]" /><p className="mt-4 text-sm text-[#687672]">Abriendo perfil…</p></div></main>;
   if (error || !profile) return <main className="grid min-h-screen place-items-center bg-[#f7f8f4] p-6 text-center"><div><Logo /><h1 className="mt-10 text-3xl font-semibold">Perfil no disponible</h1><p className="mt-3 text-[#687672]">Este enlace no existe o el profesional aún no lo ha publicado.</p><Link to="/" className="nuth-button mt-7">Conocer Nuthrick</Link></div></main>;
 
-  const modalities = profile.careModalities.map((item) => modalityLabels[item]);
   const fee = profile.approximateFee !== undefined ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: profile.currency ?? 'MXN', maximumFractionDigits: 2 }).format(profile.approximateFee) : null;
-  const contacts = profile.contacts ?? [];
   const locations = profile.locations ?? profile.business?.locations ?? [];
 
   return <main className="min-h-screen overflow-x-hidden bg-[#f7f8f4] text-[#17312c]">
@@ -57,8 +49,7 @@ export function PublicProfilePage() {
     <div className="mx-auto w-full max-w-7xl min-w-0 px-5 pb-20 pt-8 sm:px-8">
       <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,400px)]">
       <div className="min-w-0">
-      <section className="relative max-w-full overflow-hidden rounded-[36px] bg-[#173d36] px-6 py-8 text-white sm:px-8 sm:py-10"><div className="absolute -right-20 -top-20 h-80 w-80 rounded-full border-[70px] border-white/5" /><div className="relative flex min-w-0 flex-col gap-6 sm:flex-row sm:items-center"><div className="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-[32px] bg-[#e4b272] text-4xl font-semibold text-[#17312c] shadow-xl">{profile.avatarUrl ? <img src={profile.avatarUrl} alt={`Foto de ${profile.name}`} className="h-full w-full object-cover" /> : profile.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('')}</div><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-[.16em] text-[#efbd6b]">Perfil profesional</p><h1 className="mt-3 break-words text-3xl font-semibold tracking-[-.04em] sm:text-4xl">{profile.name}</h1>{profile.professionalTitle && <p className="mt-3 break-words text-lg text-white/65">{profile.professionalTitle}</p>}{profile.licenseNumber && <p className="mt-2 flex min-w-0 gap-2 text-sm text-white/60"><BadgeCheck className="shrink-0" size={15} /><span className="min-w-0 break-words">Cédula profesional: {profile.licenseNumber}</span></p>}<div className="mt-5 flex flex-wrap gap-2">{modalities.map((item) => <span key={item} className="rounded-full bg-white/10 px-3 py-1.5 text-xs">{item}</span>)}{profile.country && <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs"><MapPin size={12} />{profile.country}</span>}</div></div></div></section>
-      {contacts.length > 0 && <section className="mt-5 rounded-3xl border border-[#dfe5e1] bg-white p-4 shadow-sm sm:p-5"><div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap"><div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap">{contacts.map((contact) => contact.type === 'phone' ? <a key={`top-${contact.type}-${contact.value}`} href={whatsappUrl(contact)} target="_blank" rel="noreferrer" className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1fb857] sm:w-auto"><MessageCircle size={20} />WhatsApp{contact.label ? ` · ${contact.label}` : ''}</a> : <a key={`top-${contact.type}-${contact.value}`} href={`mailto:${encodeURIComponent(contact.value)}`} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#edf4ef] px-4 py-3 text-sm font-semibold text-[#356454] transition hover:bg-[#e1eee5] sm:w-auto"><Mail size={19} />{contact.label || 'Correo electrónico'}</a>)}</div></div></section>}
+      <PublicProfessionalHeader profile={profile}/>
       </div>
       <aside id="agendar" aria-label="Reservar una cita" className="min-w-0 scroll-mt-5 rounded-3xl border border-[#dfe5e1] bg-white p-5 shadow-sm sm:p-6 lg:sticky lg:top-5 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:max-h-[calc(100dvh-2.5rem)] lg:overflow-y-auto">
         <PublicBookingPanel key={slug} slug={slug} compact fee={fee}/>
@@ -75,7 +66,6 @@ export function PublicProfilePage() {
           {!profile.business && locations.length > 0 && <section className="nuth-public-card"><div className="flex items-center gap-2"><MapPin size={19} /><h2 className="text-lg font-semibold">Ubicaciones</h2></div><div className="mt-5 space-y-2">{locations.map((location) => <a key={`${location.name}-${location.address}`} href={mapUrl(location)} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 rounded-xl bg-[#edf4ef] px-4 py-3 text-sm font-semibold text-[#356454]"><span className="flex min-w-0 items-center gap-2"><MapPin className="shrink-0" size={17} /><span className="min-w-0"><span className="block truncate">{location.name}</span><span className="mt-0.5 block truncate text-xs font-normal text-[#6b7974]">{location.address}</span></span></span><ExternalLink className="shrink-0" size={15} /></a>)}</div></section>}
           {profile.education.length > 0 && <section className="nuth-public-card"><div className="flex items-center gap-2"><GraduationCap size={19} /><h2 className="text-lg font-semibold">Educación</h2></div><div className="mt-5 space-y-4">{profile.education.map((item) => <div key={`${item.degree}-${item.graduationYear}`}><p className="text-sm font-semibold">{item.degree}</p>{item.educationType && <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#4c7163]">{educationTypeLabels[item.educationType]}</p>}<p className="mt-1 text-xs text-[#73807b]">{item.institution} · {item.graduationYear}</p></div>)}</div></section>}
           {profile.spokenLanguages.length > 0 && <section className="nuth-public-card"><div className="flex items-center gap-2"><Languages size={19} /><h2 className="text-lg font-semibold">Idiomas</h2></div><p className="mt-3 text-sm text-[#687672]">{profile.spokenLanguages.join(' · ')}</p></section>}
-          {profile.links.length > 0 && <section className="nuth-public-card"><h2 className="text-lg font-semibold">Enlaces</h2><div className="mt-4 grid gap-2">{profile.links.map((link) => <a key={`${link.type}-${link.url}`} href={link.url} target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-xl bg-[#f2f5f1] px-4 py-3 text-sm font-semibold">{link.title}<ExternalLink size={15} /></a>)}</div></section>}
         </aside>
       </div>
       </div>

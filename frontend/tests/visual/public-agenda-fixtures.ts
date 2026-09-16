@@ -15,9 +15,9 @@ export async function getPublicProfile(): Promise<PublicProfileContent> {
     biography:'Un plan que se adapta a ti.\n\nTe acompaño a construir hábitos que puedas disfrutar y mantener, con atención cercana y objetivos claros en cada consulta.',
     specialties:['Nutrición clínica','Educación alimentaria','Salud digestiva'],careModalities:['online','in_person'],
     spokenLanguages:['Español'],approximateFee:550,currency:'MXN',country:'México',conditions:['Salud metabólica'],
-    populations:['Adultos'],contacts:[],education:[{degree:'Licenciatura en Nutrición',institution:'Institución de ejemplo',graduationYear:2020}],
+    populations:['Adultos'],contacts:[{type:'phone',countryCode:'+52',value:'4920000001'}],education:[{degree:'Licenciatura en Nutrición',institution:'Institución de ejemplo',graduationYear:2020}],
     business:{name:'Consultorio de nutrición',type:'Atención presencial'},locations:[{name:'Consultorio Centro',address:'Dirección de ejemplo, Zacatecas, México'}],
-    links:[],gallery:[]};
+    links:[{type:'instagram',title:'Instagram',url:'https://instagram.com/example'},{type:'facebook',title:'Facebook',url:'https://facebook.com/example'},{type:'tiktok',title:'TikTok',url:'https://tiktok.com/@example'},{type:'youtube',title:'YouTube',url:'https://youtube.com/@example'},{type:'custom',title:'Mi sitio web',url:'https://example.com'}],gallery:[]};
 }
 export async function agendaApi<T>(op: string, args: Record<string, unknown> = {}): Promise<T> {
   if(op==='availability') {
