@@ -1,0 +1,2 @@
+create index availability_booking_owner_location_idx
+  on public.availability_slots(professional_id,booking_location_id);

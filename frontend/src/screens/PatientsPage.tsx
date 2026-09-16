@@ -54,19 +54,21 @@ type StatusFilter = "all" | "active" | "archived";
 type PortalFilter = "all" | "enabled" | "disabled";
 type SortOption = "created_desc" | "created_asc" | "name_asc" | "activity_desc";
 
-function PatientModal({
+export function PatientModal({
   onClose,
   onSaved,
+  initialContact,
 }: {
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (patient: Patient) => void;
+  initialContact?: { name: string; email: string; timezone: string };
 }) {
   const [draft, setDraft] = useState({
-    name: "",
-    email: "",
+    name: initialContact?.name || "",
+    email: initialContact?.email || "",
     country: "+52",
     phone: "",
-    timezone: "America/Mexico_City",
+    timezone: initialContact?.timezone || "America/Mexico_City",
     weight: "",
     height: "",
     gender: "",
@@ -112,7 +114,7 @@ function PatientModal({
         );
         return;
       }
-      await createPatient({
+      const created = await createPatient({
         full_name: name,
         email: email || null,
         country_code: normalizedPhone ? draft.country : null,
@@ -125,7 +127,7 @@ function PatientModal({
         birth_date: draft.birth || null,
         portal_access_enabled: draft.portal,
       });
-      onSaved();
+      onSaved(created);
     } catch (cause) {
       setError(
         cause instanceof Error

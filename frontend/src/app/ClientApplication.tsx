@@ -26,6 +26,9 @@ import { PatientDetailPage } from "@/src/screens/PatientDetailPage";
 import { ConsultationPage } from "@/src/screens/ConsultationPage";
 import { ConsultationTemplateEditorPage } from "@/src/screens/ConsultationTemplateEditorPage";
 import { DietWorkshopPage } from "@/src/screens/DietWorkshopPage";
+import { AgendaPage } from "@/src/screens/AgendaPage";
+import { PublicBookingPage } from "@/src/screens/PublicBookingPage";
+import { AgendaResponsePage } from "@/src/screens/AgendaResponsePage";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -62,6 +65,7 @@ export function ClientApplication() {
             <Route path="/app" element={<PrivateLayout />}>
               <Route index element={<DashboardPage />} />
               <Route path="profile" element={<ProfilePage />} />
+              <Route path="agenda" element={<AgendaPage />} />
               <Route path="patients" element={<PatientsPage />} />
               <Route
                 path="patients/:patientId"
@@ -84,6 +88,8 @@ export function ClientApplication() {
             </Route>
           </Route>
           <Route path="/p/:slug" element={<PublicProfilePage />} />
+          <Route path="/p/:slug/agendar" element={<PublicBookingPage />} />
+          <Route path="/agenda/responder" element={<AgendaResponsePage />} />
           <Route path="/privacy" element={<LegalPage type="privacy" />} />
           <Route path="/terms" element={<LegalPage type="terms" />} />
           <Route path="*" element={<NotFoundPage />} />
