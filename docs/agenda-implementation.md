@@ -1,5 +1,9 @@
 # Agenda — checkpoint de implementación (15 septiembre 2026)
 
+## Perfil profesional: cabecera y redes centradas
+
+Versión `bad6521` publicada en `https://nuthrick.vercel.app`, despliegue `dpl_J2CdHW18LhnUuUM31QQzFGubAAuM` READY. `PublicProfessionalHeader` centra fotografía circular, nombre, título, cédula y modalidades; reúne contactos y todos los enlaces públicos activos en una franja centrada con etiquetas e iconos, sin repetir la antigua sección Enlaces. Omite destinos ejecutables y repeticiones exactas. Sin cambios de datos, API o reservas. Navegador real: José Olmedo con WhatsApp e Instagram juntos; fixture local con seis destinos verificado visualmente. Typecheck/lint/build correctos, 525 pruebas en 64 archivos excluyendo Landing ajeno. Publicación aislada, conserva cambios pendientes de Landing y output. La prueba de override móvil volvió a devolver 1280 px; no se declara una nueva validación móvil.
+
 ## Actualización vigente: reserva, datos básicos y confirmación profesional
 
 Esta sección sustituye las reglas anteriores de alta manual y confirmación inmediata para **nuevas reservas públicas**. Los checkpoints inferiores conservan la evidencia histórica.
