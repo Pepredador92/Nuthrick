@@ -4,6 +4,8 @@
 
 Esta sección sustituye las reglas anteriores de alta manual y confirmación inmediata para **nuevas reservas públicas**. Los checkpoints inferiores conservan la evidencia histórica.
 
+Publicada la versión `9f6fc03` en `https://nuthrick.vercel.app`, despliegue `dpl_9SgnxVUPDr1WcBUtiVCqPCsX5nEf` READY, desde `/tmp/nuthrick-agenda-registration.yb0yoc` (archivo aislado de Git, sin Landing pendiente). Verificados en el sitio real: horarios del 18/19 visibles sin desplegar, Nutrición Clínica preseleccionada, precio único, sin enlace duplicado; «Reservar» navega a `/p/jose-olmedo/agendar/datos` y muestra los campos básicos y consentimiento. No se completó una reserva real. Regresión final: **521 pruebas correctas en 63 archivos**, excluyendo el cambio ajeno de Landing. Compilación Vercel y tres comprobaciones SSR correctas. Continúan avisos preexistentes de dependencias (9 vulnerabilidades del instalador), sin actualización forzada fuera de alcance.
+
 - Migración aplicada `20260916015845_agenda_patient_registration.sql`; Edge `agenda` v2 ACTIVE, mismo proyecto `qlsqhvyrslclmlstlemn`. Se conserva autenticación personalizada, verificaciones, permisos y modo de correo de prueba.
 - Perfil: eliminado el enlace duplicado «Agendar cita»; costo en un bloque compacto. Días/horas visibles al cargar, con modalidad disponible preseleccionada, pero sin seleccionar una hora por el visitante.
 - «Reservar» abre `/p/:slug/agendar/datos`. El estado de navegación contiene únicamente horario/modalidad, nunca información personal, códigos o pruebas. Los datos de formulario permanecen en memoria; cambiar el horario dentro del paso conserva contacto/verificación. No se almacena información personal en localStorage.
