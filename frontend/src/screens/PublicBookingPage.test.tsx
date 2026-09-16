@@ -15,7 +15,7 @@ beforeEach(()=>{api.mockImplementation(async(op)=>{
   if(op==='book')return {id:'appointment',status:'confirmed',start:availability.slots[0].start};
   return {};
 });});
-afterEach(()=>{cleanup();vi.clearAllMocks();window.history.replaceState(null,'','/');});
+afterEach(()=>{cleanup();vi.clearAllMocks();vi.useRealTimers();window.history.replaceState(null,'','/');});
 async function verifyContact(){
   mount(); await screen.findByText('Agenda una cita con Profesional de prueba');
   fireEvent.click(await screen.findByRole('button',{name:/10:00/}));
@@ -28,6 +28,15 @@ async function verifyContact(){
   await screen.findByRole('button',{name:'Confirmar cita'});
 }
 describe('public booking',()=>{
+  it('starts on the professional current date, not the UTC next day',async()=>{
+    vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-09-16T00:30:00Z'));
+    mount();await screen.findByText('Agenda una cita con Profesional de prueba');
+    await waitFor(()=>expect(screen.getByLabelText('Ver la semana a partir de')).toHaveValue('2026-09-15'));
+    expect(api).toHaveBeenCalledWith('availability',{slug:'prueba',from:'2026-09-15'});
+    fireEvent.change(screen.getByLabelText('Ver la semana a partir de'),{target:{value:'2026-09-18'}});
+    await waitFor(()=>expect(api).toHaveBeenCalledWith('availability',{slug:'prueba',from:'2026-09-18'}));
+    expect(screen.getByLabelText('Ver la semana a partir de')).toHaveValue('2026-09-18');
+  });
   it('shows the visited professional and requires a slot before email verification',async()=>{
     mount();await screen.findByText('Agenda una cita con Profesional de prueba');
     expect(screen.getByRole('button',{name:'Verificar correo'})).toBeDisabled();

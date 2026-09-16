@@ -35,12 +35,20 @@ export function PublicBookingPage() {
   const [result, setResult] = useState<AgendaResult | null>(null);
   const [refresh, setRefresh] = useState(0);
   const operation = useRef({ fingerprint: "", key: "" });
+  const initialDateForProfile = useRef<string | null>(null);
   useEffect(() => {
     let active = true;
     void agendaApi<AgendaAvailability>("availability", { slug, from })
       .then((value) => {
         if (!active) return;
         setData(value);
+        // UTC may already be tomorrow while the professional is still working
+        // today. Resolve the initial date once we know their IANA timezone;
+        // never reset a date the visitor chooses subsequently.
+        if (initialDateForProfile.current !== slug) {
+          initialDateForProfile.current = slug;
+          setFrom(dateInZone(new Date().toISOString(), value.timezone));
+        }
         if (value.options.length === 1)
           setOption(
             `${value.options[0].modality}|${value.options[0].location_id || ""}`,
