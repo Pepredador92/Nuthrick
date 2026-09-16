@@ -1,5 +1,13 @@
 # Agenda — checkpoint de implementación (15 septiembre 2026)
 
+## Envío a destinatarios reales habilitado (15 septiembre, 20:19 México)
+
+Con autorización explícita del usuario, guardado `AGENDA_EMAIL_MODE=production` en los secretos de Edge Functions de `qlsqhvyrslclmlstlemn`, verificado en el panel a las `2026-09-16 02:19:53 UTC`. Esta configuración sustituye la restricción de destinatarios de los checkpoints históricos inferiores. No cambia credenciales, permisos OAuth, verificación de correo, límites de envío ni confirmación profesional. No requiere nuevo despliegue.
+
+- Verificación remota no entregable: `send_code` con dirección del dominio reservado `example.invalid` y `slug=null` devolvió `invalid_input`, después de superar `allowRecipient`; ya no devuelve `email_test_mode`. La validación de contexto impide crear un código/trabajo o enviar un correo para esa prueba.
+- Verificación del transporte: una solicitud de código al remitente autorizado devolvió `delivery=sent`, ID `76d85177-5248-4afe-8723-8f5a76d7dfd3`. Gmail aceptó el envío; no se leyó la bandeja, no se verificó el código y no se creó paciente, reserva ni evento. No se ha probado entrega a una bandeja externa distinta.
+- Google Auth Platform continúa en **Prueba**, un usuario de prueba. «Publicar app» está deshabilitado hasta completar la información de marca. Es independiente de la restricción de destinatarios eliminada: los pacientes reciben códigos sin conectarse al OAuth del remitente. Los refresh tokens de esta configuración expiran a los siete días según [Google](https://developers.google.com/identity/protocols/oauth2#expiration), por lo que falta preparar la publicación y reconexión para operación sostenida. No se publicaron permisos ni se modificó Nuthrick Web. Sigue pendiente rotar el secreto compartido previamente en la conversación.
+
 ## Perfil profesional: cabecera y redes centradas
 
 Versión `bad6521` publicada en `https://nuthrick.vercel.app`, despliegue `dpl_J2CdHW18LhnUuUM31QQzFGubAAuM` READY. `PublicProfessionalHeader` centra fotografía circular, nombre, título, cédula y modalidades; reúne contactos y todos los enlaces públicos activos en una franja centrada con etiquetas e iconos, sin repetir la antigua sección Enlaces. Omite destinos ejecutables y repeticiones exactas. Sin cambios de datos, API o reservas. Navegador real: José Olmedo con WhatsApp e Instagram juntos; fixture local con seis destinos verificado visualmente. Typecheck/lint/build correctos, 525 pruebas en 64 archivos excluyendo Landing ajeno. Publicación aislada, conserva cambios pendientes de Landing y output. La prueba de override móvil volvió a devolver 1280 px; no se declara una nueva validación móvil.
