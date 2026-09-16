@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, CalendarDays, Check, Clock, Mail } from "lucide-react";
+import { ArrowLeft, Building2, CalendarDays, Check, Clock, Mail, ShieldCheck, Video } from "lucide-react";
 import { Logo } from "@/src/components/ui/Logo";
+import { AgendaDayPicker } from "@/src/features/profile/AgendaDayPicker";
 import {
   AgendaError,
   agendaApi,
@@ -12,11 +13,22 @@ import {
   type AgendaSlot,
 } from "@/src/services/agenda";
 
-const localClock = (instant: string, timezone: string) => new Intl.DateTimeFormat('es-MX', {hour:'2-digit',minute:'2-digit',hour12:false,timeZone:timezone}).format(new Date(instant));
-
 export function PublicBookingPage() {
+  const { slug = '' } = useParams();
+  return <main><PublicBookingPanel key={slug} slug={slug}/></main>;
+}
+
+/** Both public routes share the same verification, idempotency and booking flow. */
+export function PublicBookingPanel({ slug, compact = false, fee }: { slug: string; compact?: boolean; fee?: string | null }) {
+  const Heading = compact ? 'h2' : 'h1';
   const [openedAt] = useState(() => Date.now());
-  const { slug = "" } = useParams();
+  const [contactStep, setContactStep] = useState(false);
+  const stepTitle = useRef<HTMLHeadingElement>(null);
+  const previousContactStep = useRef(false);
+  useEffect(() => {
+    if (compact && previousContactStep.current !== contactStep) stepTitle.current?.focus();
+    previousContactStep.current = contactStep;
+  }, [compact, contactStep]);
   const [from, setFrom] = useState(new Date().toISOString().slice(0, 10));
   const [data, setData] = useState<AgendaAvailability | null>(null);
   const [option, setOption] = useState("");
@@ -86,36 +98,31 @@ export function PublicBookingPage() {
   const filtered = (data?.slots || []).filter(
     (s) => s.modality === mode && (s.locationId || "") === (locationId || ""),
   );
-  const groups = filtered.reduce<Record<string, AgendaSlot[]>>((out, slot) => {
-    const day = dateInZone(slot.start, data!.timezone);
-    (out[day] ||= []).push(slot);
-    return out;
-  }, {});
   const location = data?.locations.find((l) => l.id === selected?.locationId);
   const inputClass =
     "mt-2 w-full min-w-0 rounded-xl border border-[#dce4df] bg-white px-4 py-3 text-base";
 
   return (
-    <main className="min-h-screen bg-[#f6f7f3] p-4 text-[#173d36] sm:p-8">
+    <div className={compact ? "min-w-0 text-[#173d36] [overflow-wrap:anywhere]" : "min-h-screen bg-[#f6f7f3] p-4 text-[#173d36] [overflow-wrap:anywhere] sm:p-8"}>
       <div className="mx-auto max-w-4xl">
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        {!compact && <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <Logo />
           <Link to={`/p/${slug}`} className="flex items-center gap-2 text-sm">
             <ArrowLeft size={16} />
             Volver al perfil
           </Link>
-        </header>
+        </header>}
         {result ? (
           <section
-            className="rounded-3xl border border-[#dce4df] bg-white p-6 sm:p-10"
+            className={compact ? "min-w-0 py-2" : "rounded-3xl border border-[#dce4df] bg-white p-6 sm:p-10"}
             aria-live="polite"
           >
             <Check className="mb-5 rounded-full bg-[#e7f2e9] p-2" size={44} />
-            <h1 className="text-3xl font-semibold">
+            <Heading className={compact ? "text-2xl font-semibold" : "text-3xl font-semibold"}>
               {result.status === "confirmed"
                 ? "Tu cita quedó agendada."
                 : "Tu solicitud fue enviada."}
-            </h1>
+            </Heading>
             <p className="mt-3 text-[#64786e]">
               {result.status === "confirmed"
                 ? "Esta es tu confirmación en Nuthrick."
@@ -132,19 +139,20 @@ export function PublicBookingPage() {
               {selected?.modality === "online" ? "En línea" : location?.name}
             </p>
             {location && <p className="mt-1 text-sm">{location.address}</p>}
-            <Link to={`/p/${slug}`} className="nuth-button mt-8">
+            {!compact && <Link to={`/p/${slug}`} className="nuth-button mt-8">
               Volver al perfil
-            </Link>
+            </Link>}
           </section>
         ) : (
           <>
-            <h1 className="max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
+            <Heading className={compact ? "text-xl font-semibold tracking-tight" : "max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl"}>
               {data ? `Agenda una cita con ${data.name}` : "Agenda una cita"}
-            </h1>
+            </Heading>
+            {fee && <p className="mt-3 flex flex-wrap items-baseline justify-between gap-2 text-sm text-[#64786e]">Costo aproximado <span className="text-lg font-semibold text-[#173d36]">{fee}</span></p>}
             {data && (
               <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[#64786e]">
-                <Clock size={16} />
-                {data.duration} minutos · Horarios en {data.timezone}
+                <span className="inline-flex items-center gap-2"><Clock size={16} />{data.duration} minutos</span>
+                <span className="min-w-0 break-words">· Horarios en {data.timezone}</span>
               </p>
             )}
             {error && (
@@ -170,105 +178,49 @@ export function PublicBookingPage() {
               </p>
             ) : (
               data && (
-                <div className="mt-7 grid min-w-0 gap-6 md:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-                  <section className="min-w-0 rounded-3xl border border-[#dce4df] bg-white p-5 sm:p-6">
-                    <h2 className="text-lg font-semibold">
+                <div className={compact ? "mt-5 min-w-0 border-t border-[#e5ebe7] pt-5" : "mt-7 grid min-w-0 gap-6 md:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]"}>
+                  {(!compact || !contactStep) && <section className={compact ? "min-w-0" : "min-w-0 rounded-3xl border border-[#dce4df] bg-white p-5 sm:p-6"}>
+                    <h2 ref={compact ? stepTitle : undefined} tabIndex={-1} className={compact ? 'sr-only' : 'text-lg font-semibold outline-none'}>
                       1. Elige tu horario
                     </h2>
                     {options.length > 1 && (
-                      <label className="mt-5 block text-sm font-medium">
-                        ¿Cómo prefieres tu consulta?
-                        <select
-                          className={inputClass}
-                          value={option}
-                          onChange={(e) => {
-                            setOption(e.target.value);
-                            setSelected(null);
-                          }}
-                        >
-                          <option value="">Selecciona una opción</option>
-                          {options.map((o) => (
-                            <option
-                              key={`${o.modality}|${o.location_id || ""}`}
-                              value={`${o.modality}|${o.location_id || ""}`}
-                            >
-                              {o.modality === "online"
-                                ? "En línea"
-                                : data.locations.find(
-                                    (l) => l.id === o.location_id,
-                                  )?.name || "Presencial"}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                      <fieldset className={compact ? 'min-w-0' : 'mt-4 min-w-0'} disabled={working}>
+                        <legend className="text-sm font-medium">¿Cómo prefieres tu consulta?</legend>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          {options.map(o => {
+                            const value = `${o.modality}|${o.location_id || ''}`;
+                            const Icon = o.modality === 'online' ? Video : Building2;
+                            return <label key={value} className="relative min-w-0 cursor-pointer">
+                              <input type="radio" name={`booking-option-${slug}`} className="peer sr-only" checked={option === value}
+                                onChange={() => { setOption(value); setSelected(null); }}/>
+                              <span className="flex min-h-20 min-w-0 flex-col gap-2 rounded-2xl border border-[#dce4df] p-3 text-sm peer-checked:border-[#356454] peer-checked:bg-[#eaf3ed] peer-checked:ring-1 peer-checked:ring-[#356454] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">
+                                <Icon size={18} aria-hidden="true"/>
+                                <span className="break-words font-medium">{o.modality === 'online' ? 'En línea' : data.locations.find(l => l.id === o.location_id)?.name || 'Presencial'}</span>
+                              </span>
+                            </label>;
+                          })}
+                        </div>
+                      </fieldset>
                     )}
                     {!requestMode ? (
                       <>
-                        <label className="mt-5 block text-sm">
-                          Ver la semana a partir de
-                          <input
-                            className={inputClass}
-                            type="date"
-                            value={from}
-                            min={dateInZone(
-                              new Date().toISOString(),
-                              data.timezone,
-                            )}
-                            max={dateInZone(
-                              new Date(
-                                openedAt + data.horizonDays * 86400000,
-                              ).toISOString(),
-                              data.timezone,
-                            )}
-                            onChange={(e) => {
-                              setFrom(e.target.value);
-                              setLoading(true);
-                            }}
-                          />
-                        </label>
                         {data.connectionError ? (
                           <p className="mt-5 rounded-xl bg-[#fff5dc] p-4 text-sm">
                             No pudimos comprobar el calendario. Reintenta o
                             solicita un horario pendiente de confirmación.
                           </p>
-                        ) : option && Object.entries(groups).length ? (
-                          <div className="mt-6 max-h-[32rem] space-y-5 overflow-y-auto pr-1">
-                            {Object.entries(groups).map(([day, slots]) => (
-                              <div key={day}>
-                                <h3 className="mb-3 text-sm font-semibold capitalize">
-                                  {new Intl.DateTimeFormat("es-MX", {
-                                    weekday: "long",
-                                    day: "numeric",
-                                    month: "long",
-                                    timeZone: data.timezone,
-                                  }).format(new Date(slots[0].start))}
-                                </h3>
-                                <div className="grid grid-cols-3 gap-2">
-                                  {slots.map((slot) => (
-                                    <button
-                                      type="button"
-                                      key={slot.start}
-                                      aria-pressed={
-                                        selected?.start === slot.start
-                                      }
-                                      onClick={() => choose(slot)}
-                                      className={`rounded-xl border px-2 py-3 text-sm ${selected?.start === slot.start ? "border-[#173d36] bg-[#173d36] text-white" : "border-[#dce4df] hover:bg-[#edf4ef]"}`}
-                                    >
-                                      <span className="block whitespace-nowrap">{localClock(slot.start,data.timezone)}</span>
-                                      {slots.some(other=>other.start!==slot.start && localClock(other.start,data.timezone)===localClock(slot.start,data.timezone)) && <span className="mt-1 block whitespace-nowrap text-[10px]">{new Intl.DateTimeFormat('es-MX',{timeZone:data.timezone,timeZoneName:'shortOffset'}).formatToParts(new Date(slot.start)).find(part=>part.type==='timeZoneName')?.value}</span>}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                        ) : option ? (
+                          <AgendaDayPicker key={`${option}|${from}`} hasSchedule={data.hasSchedule}
+                            slots={filtered} timezone={data.timezone} from={from}
+                            min={dateInZone(new Date().toISOString(), data.timezone)}
+                            max={dateInZone(new Date(openedAt + data.horizonDays * 86400000).toISOString(), data.timezone)}
+                            selected={selected} disabled={working}
+                            onFrom={value => { setFrom(value); setLoading(true); }}
+                            onSelect={choose} onClear={() => setSelected(null)}
+                          />
                         ) : (
                           <p className="mt-5 text-sm text-[#64786e]">
-                            {!option && options.length > 1
-                              ? "Selecciona la modalidad para ver los horarios."
-                              : !data.hasSchedule
-                                ? "Por el momento no hay horarios disponibles."
-                                : "Estos días no tienen horarios libres. Prueba otra fecha."}
+                            {options.length > 1 ? 'Selecciona la modalidad para ver los horarios.' : 'Por el momento no hay horarios disponibles.'}
                           </p>
                         )}
                       </>
@@ -322,8 +274,10 @@ export function PublicBookingPage() {
                         </button>
                       </>
                     )}
+                    {compact && <button type="button" className="nuth-button mt-5 w-full" disabled={!selected || working}
+                      onClick={() => setContactStep(true)}>Continuar con mis datos</button>}
                     {data.requestsEnabled && (
-                      <div className="mt-6 border-t border-[#e5ebe7] pt-5">
+                      <div className="mt-4 border-t border-[#e5ebe7] pt-4">
                         <p className="text-sm text-[#64786e]">
                           {requestMode
                             ? "¿Prefieres un horario disponible?"
@@ -342,9 +296,11 @@ export function PublicBookingPage() {
                         </button>
                       </div>
                     )}
-                  </section>
-                  <section className="min-w-0 self-start rounded-3xl border border-[#dce4df] bg-white p-5 sm:p-6">
-                    <h2 className="text-lg font-semibold">2. Tus datos</h2>
+                    {compact && <p className="mt-5 flex items-center justify-center gap-2 text-xs text-[#64786e]"><ShieldCheck size={15}/>Sin cuenta ni datos clínicos</p>}
+                  </section>}
+                  {(!compact || contactStep) && <section className={compact ? "min-w-0" : "min-w-0 self-start rounded-3xl border border-[#dce4df] bg-white p-5 sm:p-6"}>
+                    {compact && <button type="button" disabled={working} onClick={() => setContactStep(false)} className="mb-4 flex min-h-11 items-center gap-2 text-sm font-medium"><ArrowLeft size={16}/>Cambiar horario</button>}
+                    <h2 ref={compact ? stepTitle : undefined} tabIndex={-1} className="text-lg font-semibold outline-none">2. Tus datos</h2>
                     <p className="mt-2 text-sm text-[#64786e]">
                       Sin crear una cuenta ni compartir información clínica.
                     </p>
@@ -515,6 +471,7 @@ export function PublicBookingPage() {
                                 e.code === "slot_taken"
                               ) {
                                 setSelected(null);
+                                setContactStep(false);
                                 setRefresh((r) => r + 1);
                               }
                               throw e;
@@ -529,13 +486,13 @@ export function PublicBookingPage() {
                             : "Confirmar cita"}
                       </button>
                     )}
-                  </section>
+                  </section>}
                 </div>
               )
             )}
           </>
         )}
       </div>
-    </main>
+    </div>
   );
 }

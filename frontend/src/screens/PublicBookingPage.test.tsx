@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PublicBookingPage } from './PublicBookingPage';
+import { PublicBookingPage, PublicBookingPanel } from './PublicBookingPage';
 import { AgendaResponsePage } from './AgendaResponsePage';
 import { agendaApi, AgendaError } from '@/src/services/agenda';
 vi.mock('@/src/services/agenda', async original => ({...(await original<typeof import('@/src/services/agenda')>()),agendaApi:vi.fn()}));
@@ -28,6 +28,56 @@ async function verifyContact(){
   await screen.findByRole('button',{name:'Confirmar cita'});
 }
 describe('public booking',()=>{
+  it('keeps the embedded panel compact and preserves contact when changing the day',async()=>{
+    const nextSlot={...availability.slots[0],start:'2026-09-21T17:00:00Z',end:'2026-09-21T18:00:00Z'};
+    api.mockResolvedValue({...availability,slots:[...availability.slots,nextSlot]});
+    render(<MemoryRouter><PublicBookingPanel slug="prueba" compact/></MemoryRouter>);
+    await screen.findByRole('button',{name:'10:00'});
+    expect(screen.queryByLabelText('Nombre completo')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:'11:00'})).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'10:00'}));
+    fireEvent.click(screen.getByRole('button',{name:'Continuar con mis datos'}));
+    expect(screen.getByRole('heading',{name:'2. Tus datos'})).toHaveFocus();
+    fireEvent.change(screen.getByLabelText('Nombre completo'),{target:{value:'Contacto ficticio'}});
+    fireEvent.change(screen.getByLabelText('Correo electrónico'),{target:{value:'test@example.invalid'}});
+    fireEvent.click(screen.getByRole('button',{name:'Cambiar horario'}));
+    expect(screen.getByRole('heading',{name:'1. Elige tu horario'})).toHaveFocus();
+    fireEvent.click(screen.getByRole('button',{name:/lunes, 21 de septiembre/}));
+    expect(screen.getByRole('button',{name:'Continuar con mis datos'})).toBeDisabled();
+    expect(screen.queryByRole('button',{name:'10:00'})).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'11:00'}));
+    fireEvent.click(screen.getByRole('button',{name:'Continuar con mis datos'}));
+    expect(screen.getByLabelText('Nombre completo')).toHaveValue('Contacto ficticio');
+    expect(screen.getByLabelText('Correo electrónico')).toHaveValue('test@example.invalid');
+    fireEvent.click(screen.getByRole('button',{name:'Cambiar horario'}));
+    expect(screen.getByRole('button',{name:'11:00'})).toHaveAttribute('aria-pressed','true');
+    expect(api.mock.calls.every(([op])=>op==='availability')).toBe(true);
+  });
+  it('shows only the selected modality and clears its selection when switching',async()=>{
+    api.mockResolvedValue({...availability,locations:[{id:'clinic',name:'Consultorio de prueba',address:'Dirección sintética'}],
+      options:[...availability.options,{modality:'in_person',location_id:'clinic'}],
+      slots:[...availability.slots,{...availability.slots[0],modality:'in_person',locationId:'clinic',start:'2026-09-20T18:00:00Z'}]});
+    mount();await screen.findByLabelText('En línea');
+    expect(screen.queryByRole('button',{name:'10:00'})).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('En línea'));
+    fireEvent.click(screen.getByRole('button',{name:'10:00'}));
+    fireEvent.click(screen.getByLabelText('Consultorio de prueba'));
+    expect(screen.queryByRole('button',{name:'10:00'})).not.toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'12:00'})).toHaveAttribute('aria-pressed','false');
+    expect(screen.getByRole('button',{name:'Verificar correo'})).toBeDisabled();
+  });
+  it('distinguishes missing availability from a full week',async()=>{
+    api.mockResolvedValue({...availability,hasSchedule:false,slots:[]});
+    mount();await screen.findByText('Por el momento no hay horarios disponibles.');
+    expect(screen.getByRole('button',{name:'Solicitar otro horario'})).toBeInTheDocument();
+    expect(screen.queryByText('Estos días no tienen horarios libres. Prueba otra fecha.')).not.toBeInTheDocument();
+  });
+  it('does not offer stale slots when Google availability could not be checked',async()=>{
+    api.mockResolvedValue({...availability,connectionError:true});
+    mount();await screen.findByText(/No pudimos comprobar el calendario/);
+    expect(screen.queryByRole('button',{name:'10:00'})).not.toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Solicitar otro horario'})).toBeInTheDocument();
+  });
   it('starts on the professional current date, not the UTC next day',async()=>{
     vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-09-16T00:30:00Z'));
     mount();await screen.findByText('Agenda una cita con Profesional de prueba');

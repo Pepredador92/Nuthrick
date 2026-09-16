@@ -1,8 +1,8 @@
 # Agenda — checkpoint de implementación (15 septiembre 2026)
 
-## Estado: publicado para pruebas; Google conectado; reserva completa pendiente
+## Estado: publicado para pruebas; reserva y cancelación verificadas; iteración visual del perfil
 
-Aplicadas al proyecto correcto las migraciones `20260916004238_agenda_booking_core.sql`, `20260916004248_agenda_worker_schedule.sql` y `20260916004412_agenda_slot_location_index.sql`. Archivos locales alineados con las versiones asignadas por Supabase remoto. Función `agenda` desplegada, versión 1. Pantallas publicadas con autorización expresa en `https://nuthrick.vercel.app`; versión más reciente `b1b9b5c` (despliegue `dpl_D2xTcCP5SywGFN1bKdWwoJSUEuDa`, READY), incluye fecha inicial IANA. Se publicó una copia aislada del commit, sin cambios ajenos de Landing. Verificados HTTP 200 en login/agenda, inicio de sesión original de Google, carga autenticada de Agenda/Configuración y guardado de modalidades. Gmail aceptó el primer correo real de verificación; todavía no se ha confirmado una cita ni creado un evento de Google.
+Aplicadas al proyecto correcto las migraciones `20260916004238_agenda_booking_core.sql`, `20260916004248_agenda_worker_schedule.sql` y `20260916004412_agenda_slot_location_index.sql`. Archivos locales alineados con las versiones asignadas por Supabase remoto. Función `agenda` desplegada, versión 1. Pantallas publicadas con autorización expresa en `https://nuthrick.vercel.app`; versión anterior al ajuste visual `b1b9b5c` (despliegue `dpl_D2xTcCP5SywGFN1bKdWwoJSUEuDa`, READY), incluye fecha inicial IANA. Se publica una copia aislada del commit, sin cambios ajenos de Landing. Verificados HTTP 200 en login/agenda, inicio de sesión original de Google, carga autenticada de Agenda/Configuración y guardado de modalidades. Reserva, correo, evento de Google, reconciliación y cancelación reales verificados con un único contacto ficticio autorizado; el horario quedó libre y no se creó ningún expediente clínico.
 
 El usuario confirmó **susy.asistencia.online@gmail.com** como dirección correcta y destinatario de prueba. Sin dominio propio: sitio `https://nuthrick.vercel.app`, proyecto Supabase **qlsqhvyrslclmlstlemn**. No usar Charry Mary.
 
@@ -27,7 +27,7 @@ Se conservan cambios ajenos previos en `LandingPage.tsx`, `LandingPage.test.tsx`
 - Límites de API por IP, de correo por dirección y global; no se registran cuerpos, códigos, tokens o respuestas privadas de proveedores.
 - Resolución autenticada de horas para bloqueos y contrapropuestas, incluso con perfil privado. Corregida ambigüedad SQL de la variable del generador de horas; validación temprana de consultorios propios mediante FK compuesta.
 - Recuperación de trabajos interrumpidos con número de intento: una respuesta antigua no sobrescribe un intento nuevo; inserción/cancelación de un mismo evento se procesan en orden. Incertidumbre de envío de correo preservada.
-- Reconciliación de citas futuras con Google: detecta eventos movidos/eliminados y cruces externos sin modificar eventos ajenos ni leer títulos/asistentes. Revisión asociada a la versión de conexión, tiempo máximo compartido entre páginas/calendarios y aviso visible al profesional. Solo será periódica cuando se active el worker.
+- Reconciliación de citas futuras con Google: detecta eventos movidos/eliminados y cruces externos sin modificar eventos ajenos ni leer títulos/asistentes. Revisión asociada a la versión de conexión, tiempo máximo compartido entre páginas/calendarios y aviso visible al profesional. Worker periódico activo y verificado.
 - Diálogos nativos con Escape y restauración de foco. Alta de paciente reutiliza el formulario existente con contacto precargado; crear el expediente no lo vincula automáticamente: requiere pulsar Vincular.
 
 ## Estados
@@ -74,6 +74,17 @@ Corregida y publicada la fecha inicial de la vista pública: después de conocer
 - Ejecutar los 14 escenarios de aceptación contra Supabase real, RLS y Google configurado; ver documento original del usuario.
 
 ## Verificación local realizada
+
+### Iteración visual del perfil (15 septiembre, después de la prueba real)
+
+- `PublicBookingPanel` reutilizado dentro de `/p/:slug` y en la subruta `/p/:slug/agendar`. No existe un segundo motor ni se cambiaron los permisos/RPC/OAuth; sin nuevas migraciones ni cambios en el Taller de dietas.
+- Panel a la derecha en escritorio y debajo de la presentación en móvil. El enlace superior «Agendar cita» conduce al panel aunque no haya teléfono o correo público. Se conserva la información del perfil, contactos y ubicaciones; el precio aproximado aparece una sola vez, sin pagos/suscripciones.
+- Modalidades en tarjetas, días disponibles en una fila desplazable, horarios de un solo día, navegación semanal y fecha limitada al horizonte. Los horarios extensos tienen su propio desplazamiento vertical.
+- En el panel integrado, captura de contacto solo después de elegir horario y continuar. Regresar conserva nombre, correo y verificación; cambiar de día o modalidad retira la selección anterior. Foco de teclado restaurado al cambiar de paso. La confirmación final y los estados de solicitud permanecen diferenciados.
+- 518 pruebas correctas en 63 archivos (excluyendo únicamente el cambio previo de Landing), typecheck/lint y compilación correctos. Nuevas pruebas: integración sin contactos públicos, fecha/modalidad sin selección obsoleta, datos conservados al regresar, falta de disponibilidad y Google inaccesible.
+- Vista aislada con datos sintéticos y **sin llamadas a Supabase, Google ni correo**, usando `public-agenda.vite.config.ts`. Navegador: flujo completo hasta confirmación, fecha modificada y contacto conservado; sin desbordamiento de página en 320, 390, 768 y 1440 px. La fila de días se desplaza internamente en pantallas pequeñas.
+
+### Motor y regresión anteriores
 
 - `node scripts/test-agenda-db.mjs`: fixtures sintéticos, transacción revertida; horarios, perfil privado, uso/intentos de código, idempotencia y reutilización, exclusión y citas consecutivas, contacto preservado, vinculación ajena rechazada, fallo de notificación sin perder cita, Google sin permiso fresco bloqueado, solicitudes, revisiones/tokens, DST y lectura RLS ajena.
 - `npx deno check --config supabase/functions/agenda/deno.json supabase/functions/agenda/index.ts`.
