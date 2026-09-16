@@ -89,6 +89,7 @@ export function ClientApplication() {
           </Route>
           <Route path="/p/:slug" element={<PublicProfilePage />} />
           <Route path="/p/:slug/agendar" element={<PublicBookingPage />} />
+          <Route path="/p/:slug/agendar/datos" element={<PublicBookingPage />} />
           <Route path="/agenda/responder" element={<AgendaResponsePage />} />
           <Route path="/privacy" element={<LegalPage type="privacy" />} />
           <Route path="/terms" element={<LegalPage type="terms" />} />

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Building2, CalendarDays, Check, Clock, Mail, ShieldCheck, Video } from "lucide-react";
 import { Logo } from "@/src/components/ui/Logo";
 import { AgendaDayPicker } from "@/src/features/profile/AgendaDayPicker";
+import { calculateAge, normalizePhone } from "@/src/features/patients/patientUtils";
+import './PublicBookingPage.css';
 import {
   AgendaError,
   agendaApi,
@@ -13,30 +15,38 @@ import {
   type AgendaSlot,
 } from "@/src/services/agenda";
 
+type BookingSelection = { slot: AgendaSlot; from: string; requestMode: boolean };
 export function PublicBookingPage() {
   const { slug = '' } = useParams();
-  return <main><PublicBookingPanel key={slug} slug={slug}/></main>;
+  const route = useLocation();
+  const selection = route.pathname.endsWith('/datos') ? route.state as BookingSelection | null : null;
+  return <main><PublicBookingPanel key={slug + route.pathname} slug={slug} initialSelection={selection}/></main>;
 }
 
 /** Both public routes share the same verification, idempotency and booking flow. */
-export function PublicBookingPanel({ slug, compact = false, fee }: { slug: string; compact?: boolean; fee?: string | null }) {
+export function PublicBookingPanel({ slug, compact = false, fee, initialSelection }: { slug: string; compact?: boolean; fee?: string | null; initialSelection?: BookingSelection | null }) {
+  const navigate = useNavigate();
   const Heading = compact ? 'h2' : 'h1';
   const [openedAt] = useState(() => Date.now());
-  const [contactStep, setContactStep] = useState(false);
+  const [contactStep, setContactStep] = useState(!!initialSelection?.slot);
   const stepTitle = useRef<HTMLHeadingElement>(null);
   const previousContactStep = useRef(false);
   useEffect(() => {
-    if (compact && previousContactStep.current !== contactStep) stepTitle.current?.focus();
+    if (previousContactStep.current !== contactStep) stepTitle.current?.focus();
     previousContactStep.current = contactStep;
   }, [compact, contactStep]);
-  const [from, setFrom] = useState(new Date().toISOString().slice(0, 10));
+  const [from, setFrom] = useState(initialSelection?.from || new Date().toISOString().slice(0, 10));
   const [data, setData] = useState<AgendaAvailability | null>(null);
-  const [option, setOption] = useState("");
-  const [selected, setSelected] = useState<AgendaSlot | null>(null);
-  const [requestMode, setRequestMode] = useState(false);
+  const [option, setOption] = useState(initialSelection?.slot ? `${initialSelection.slot.modality}|${initialSelection.slot.locationId || ''}` : '');
+  const [selected, setSelected] = useState<AgendaSlot | null>(initialSelection?.slot || null);
+  const [requestMode, setRequestMode] = useState(initialSelection?.requestMode || false);
   const [requestTime, setRequestTime] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [birthDate, setBirthDate] = useState('');
+  const [countryCode, setCountryCode] = useState('+52');
+  const [localPhone, setLocalPhone] = useState('');
+  const [consent, setConsent] = useState(false);
   const [challenge, setChallenge] = useState("");
   const [code, setCode] = useState("");
   const [proof, setProof] = useState("");
@@ -47,7 +57,7 @@ export function PublicBookingPanel({ slug, compact = false, fee }: { slug: strin
   const [result, setResult] = useState<AgendaResult | null>(null);
   const [refresh, setRefresh] = useState(0);
   const operation = useRef({ fingerprint: "", key: "" });
-  const initialDateForProfile = useRef<string | null>(null);
+  const initialDateForProfile = useRef<string | null>(initialSelection ? slug : null);
   useEffect(() => {
     let active = true;
     void agendaApi<AgendaAvailability>("availability", { slug, from })
@@ -61,10 +71,13 @@ export function PublicBookingPanel({ slug, compact = false, fee }: { slug: strin
           initialDateForProfile.current = slug;
           setFrom(dateInZone(new Date().toISOString(), value.timezone));
         }
-        if (value.options.length === 1)
-          setOption(
-            `${value.options[0].modality}|${value.options[0].location_id || ""}`,
-          );
+        // Open the schedule immediately, preferring a modality with actual
+        // availability. Never replace a visitor's explicit choice on refresh.
+        setOption(current => {
+          if (current) return current;
+          const first = value.options.find(o => value.slots.some(s => s.modality === o.modality && s.locationId === o.location_id)) || value.options[0];
+          return first ? `${first.modality}|${first.location_id || ''}` : '';
+        });
         setError(current => current.startsWith('Este horario acaba de ocuparse.') ? current : '');
       })
       .catch((e) => {
@@ -99,12 +112,21 @@ export function PublicBookingPanel({ slug, compact = false, fee }: { slug: strin
     (s) => s.modality === mode && (s.locationId || "") === (locationId || ""),
   );
   const location = data?.locations.find((l) => l.id === selected?.locationId);
+  const today = dateInZone(new Date().toISOString(), data?.timezone || 'America/Mexico_City');
+  const age = calculateAge(birthDate || null, new Date(`${today}T12:00:00`));
+  const phone = normalizePhone(countryCode, localPhone);
+  const validRegistration = name.trim().length >= 2 && birthDate >= '1900-01-01' && birthDate <= today && age !== null && /^\+[1-9][0-9]{7,14}$/.test(phone) && /^\+[1-9][0-9]{0,2}$/.test(countryCode) && consent;
+  const continueToDetails = () => {
+    if (!selected) return;
+    if (initialSelection) setContactStep(true);
+    else navigate(`/p/${slug}/agendar/datos`, { state: { slot: selected, from, requestMode } satisfies BookingSelection });
+  };
   const inputClass =
     "mt-2 w-full min-w-0 rounded-xl border border-[#dce4df] bg-white px-4 py-3 text-base";
 
   return (
     <div className={compact ? "min-w-0 text-[#173d36] [overflow-wrap:anywhere]" : "min-h-screen bg-[#f6f7f3] p-4 text-[#173d36] [overflow-wrap:anywhere] sm:p-8"}>
-      <div className="mx-auto max-w-4xl">
+      <div className={compact ? 'mx-auto max-w-4xl' : 'mx-auto max-w-2xl'}>
         {!compact && <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <Logo />
           <Link to={`/p/${slug}`} className="flex items-center gap-2 text-sm">
@@ -114,17 +136,18 @@ export function PublicBookingPanel({ slug, compact = false, fee }: { slug: strin
         </header>}
         {result ? (
           <section
-            className={compact ? "min-w-0 py-2" : "rounded-3xl border border-[#dce4df] bg-white p-6 sm:p-10"}
+            className="relative isolate overflow-hidden rounded-3xl border border-[#dce4df] bg-white p-6 sm:p-10"
             aria-live="polite"
           >
+            {result.status === 'pending_confirmation' && <div className="booking-confetti" aria-hidden="true">{Array.from({ length: 24 }, (_, i) => <span key={i} style={{ left: `${(i * 37) % 100}%`, backgroundColor: ['#437964','#d5af68','#9abbb0'][i % 3], animationDelay: `${(i % 6) * 0.08}s`, rotate: `${i * 31}deg` }}/>)}</div>}
             <Check className="mb-5 rounded-full bg-[#e7f2e9] p-2" size={44} />
             <Heading className={compact ? "text-2xl font-semibold" : "text-3xl font-semibold"}>
-              {result.status === "confirmed"
+              {result.status === 'pending_confirmation' ? 'Tu reserva se registró correctamente' : result.status === "confirmed"
                 ? "Tu cita quedó agendada."
                 : "Tu solicitud fue enviada."}
             </Heading>
             <p className="mt-3 text-[#64786e]">
-              {result.status === "confirmed"
+              {result.status === 'pending_confirmation' ? 'Gracias por agendar tu cita. Tu nutriólogo se pondrá en contacto contigo para confirmar tu reserva.' : result.status === "confirmed"
                 ? "Esta es tu confirmación en Nuthrick."
                 : "Necesita confirmación del nutriólogo. El horario aún no está reservado."}
             </p>
@@ -148,7 +171,7 @@ export function PublicBookingPanel({ slug, compact = false, fee }: { slug: strin
             <Heading className={compact ? "text-xl font-semibold tracking-tight" : "max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl"}>
               {data ? `Agenda una cita con ${data.name}` : "Agenda una cita"}
             </Heading>
-            {fee && <p className="mt-3 flex flex-wrap items-baseline justify-between gap-2 text-sm text-[#64786e]">Costo aproximado <span className="text-lg font-semibold text-[#173d36]">{fee}</span></p>}
+            {fee && <div className="mt-4 rounded-xl bg-[#edf4ef] px-4 py-3"><p className="text-xs text-[#64786e]">Costo aproximado de la consulta</p><p className="mt-1 text-xl font-semibold tabular-nums text-[#173d36]">{fee}</p></div>}
             {data && (
               <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[#64786e]">
                 <span className="inline-flex items-center gap-2"><Clock size={16} />{data.duration} minutos</span>
@@ -178,9 +201,9 @@ export function PublicBookingPanel({ slug, compact = false, fee }: { slug: strin
               </p>
             ) : (
               data && (
-                <div className={compact ? "mt-5 min-w-0 border-t border-[#e5ebe7] pt-5" : "mt-7 grid min-w-0 gap-6 md:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]"}>
-                  {(!compact || !contactStep) && <section className={compact ? "min-w-0" : "min-w-0 rounded-3xl border border-[#dce4df] bg-white p-5 sm:p-6"}>
-                    <h2 ref={compact ? stepTitle : undefined} tabIndex={-1} className={compact ? 'sr-only' : 'text-lg font-semibold outline-none'}>
+                <div className={compact ? "mt-5 min-w-0 border-t border-[#e5ebe7] pt-5" : "mt-7 min-w-0"}>
+                  {!contactStep && <section className={compact ? "min-w-0" : "min-w-0 rounded-3xl border border-[#dce4df] bg-white p-5 sm:p-6"}>
+                    <h2 ref={stepTitle} tabIndex={-1} className={compact ? 'sr-only' : 'text-lg font-semibold outline-none'}>
                       1. Elige tu horario
                     </h2>
                     {options.length > 1 && (
@@ -274,8 +297,8 @@ export function PublicBookingPanel({ slug, compact = false, fee }: { slug: strin
                         </button>
                       </>
                     )}
-                    {compact && <button type="button" className="nuth-button mt-5 w-full" disabled={!selected || working}
-                      onClick={() => setContactStep(true)}>Continuar con mis datos</button>}
+                    <button type="button" className="nuth-button mt-5 w-full" disabled={!selected || working}
+                      onClick={continueToDetails}>{requestMode ? 'Solicitar este horario' : 'Reservar'}</button>
                     {data.requestsEnabled && (
                       <div className="mt-4 border-t border-[#e5ebe7] pt-4">
                         <p className="text-sm text-[#64786e]">
@@ -298,11 +321,11 @@ export function PublicBookingPanel({ slug, compact = false, fee }: { slug: strin
                     )}
                     {compact && <p className="mt-5 flex items-center justify-center gap-2 text-xs text-[#64786e]"><ShieldCheck size={15}/>Sin cuenta ni datos clínicos</p>}
                   </section>}
-                  {(!compact || contactStep) && <section className={compact ? "min-w-0" : "min-w-0 self-start rounded-3xl border border-[#dce4df] bg-white p-5 sm:p-6"}>
-                    {compact && <button type="button" disabled={working} onClick={() => setContactStep(false)} className="mb-4 flex min-h-11 items-center gap-2 text-sm font-medium"><ArrowLeft size={16}/>Cambiar horario</button>}
-                    <h2 ref={compact ? stepTitle : undefined} tabIndex={-1} className="text-lg font-semibold outline-none">2. Tus datos</h2>
+                  {contactStep && <section className={compact ? "min-w-0" : "min-w-0 self-start rounded-3xl border border-[#dce4df] bg-white p-5 sm:p-6"}>
+                    <button type="button" disabled={working} onClick={() => setContactStep(false)} className="mb-4 flex min-h-11 items-center gap-2 text-sm font-medium"><ArrowLeft size={16}/>Cambiar horario</button>
+                    <h2 ref={stepTitle} tabIndex={-1} className="text-lg font-semibold outline-none">2. Tus datos</h2>
                     <p className="mt-2 text-sm text-[#64786e]">
-                      Sin crear una cuenta ni compartir información clínica.
+                      Tus datos básicos se registrarán en el espacio de tu nutriólogo. No necesitas crear una cuenta.
                     </p>
                     {selected ? (
                       <div className="mt-5 rounded-xl bg-[#edf4ef] p-4 text-sm">
@@ -333,6 +356,20 @@ export function PublicBookingPanel({ slug, compact = false, fee }: { slug: strin
                         onChange={(e) => setName(e.target.value)}
                       />
                     </label>
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                      <label className="block text-sm font-medium">Fecha de nacimiento
+                        <input type="date" autoComplete="bday" min="1900-01-01" max={today} className={inputClass} value={birthDate} onChange={e => setBirthDate(e.target.value)}/>
+                        {birthDate && age !== null && birthDate <= today && <span className="mt-2 block text-xs text-[#64786e]">{age} años · calculados automáticamente</span>}
+                      </label>
+                      <div><label className="block text-sm font-medium">Lada internacional
+                        <input aria-label="Lada internacional" autoComplete="tel-country-code" maxLength={4} className={inputClass} value={countryCode} onChange={e => setCountryCode(e.target.value)} list="booking-calling-codes"/>
+                        <datalist id="booking-calling-codes"><option value="+52">México</option><option value="+1">EE. UU. / Canadá</option><option value="+34">España</option><option value="+57">Colombia</option><option value="+54">Argentina</option></datalist>
+                      </label></div>
+                    </div>
+                    <label className="mt-4 block text-sm font-medium">Número de WhatsApp
+                      <input type="tel" autoComplete="tel-national" inputMode="tel" maxLength={20} className={inputClass} value={localPhone} onChange={e => setLocalPhone(e.target.value)}/>
+                      <span className="mt-2 block text-xs font-normal text-[#64786e]">Sin la lada internacional; la agregamos automáticamente.</span>
+                    </label>
                     <label className="mt-4 block text-sm font-medium">
                       Correo electrónico
                       <input
@@ -349,14 +386,15 @@ export function PublicBookingPanel({ slug, compact = false, fee }: { slug: strin
                         }}
                       />
                     </label>
+                    <label className="mt-5 flex items-start gap-3 text-sm text-[#64786e]"><input type="checkbox" className="mt-1 size-4 shrink-0 accent-[#356454]" checked={consent} onChange={e => setConsent(e.target.checked)}/><span>Autorizo que {data.name} registre mis datos básicos para gestionar mi cita.</span></label>
                     {!proof ? (
                       <>
                         <button
                           className="nuth-button mt-4 w-full"
                           disabled={
                             !selected ||
-                            name.trim().length < 2 ||
-                            !email ||
+                            !validRegistration ||
+                            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
                             working
                           }
                           onClick={() =>
@@ -435,7 +473,7 @@ export function PublicBookingPanel({ slug, compact = false, fee }: { slug: strin
                     {proof && (
                       <button
                         disabled={
-                          !selected || name.trim().length < 2 || working
+                          !selected || !validRegistration || working
                         }
                         className="nuth-button mt-5 w-full"
                         onClick={() =>
@@ -446,6 +484,7 @@ export function PublicBookingPanel({ slug, compact = false, fee }: { slug: strin
                               start: selected!.start,
                               modality: selected!.modality,
                               locationId: selected!.locationId,
+                              registration: { birthDate, countryCode, phone, consent },
                             };
                             const fingerprint = JSON.stringify({
                               payload,
@@ -483,7 +522,7 @@ export function PublicBookingPanel({ slug, compact = false, fee }: { slug: strin
                           ? "Confirmando…"
                           : requestMode
                             ? "Enviar solicitud"
-                            : "Confirmar cita"}
+                            : "Completar reserva"}
                       </button>
                     )}
                   </section>}

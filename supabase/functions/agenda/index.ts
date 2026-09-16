@@ -105,7 +105,7 @@ async function oauthCallback(url: URL) {
   await server('oauth_save',{owner:saved.professional_id,purpose:saved.purpose,email,encryptedToken:await encrypt(key(),data.refresh_token)});
   return new Response(null,{status:303,headers:{Location:`${site}/app/agenda?connected=${saved.purpose}`,'Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});
 }
-type Entry = {id:string;contact_email:string;contact_name:string;starts_at:string;ends_at:string;timezone:string;modality:string;location_snapshot?:{name:string;address:string};status:string};
+type Entry = {id:string;contact_email:string;contact_name:string;starts_at:string;ends_at:string;timezone:string;modality:string;location_snapshot?:{name:string;address:string};status:string;source?:string;requires_confirmation?:boolean;registration_consented_at?:string};
 type Job = {id:string;professional_id:string;subject_id:string;kind:string;revision:number;attempts:number;payload:Record<string,string>;entry:Entry|null;request:(Entry&{revision:number;expires_at:string})|null;professional:{name:string;slug:string}};
 function logistics(entry: Entry,professionalName: string) {
   const date=new Intl.DateTimeFormat('es-MX',{dateStyle:'full',timeStyle:'short',timeZone:entry.timezone}).format(new Date(entry.starts_at));
@@ -169,7 +169,11 @@ async function deliverMail(job: Job): Promise<string> {
     else if(job.kind==='cancellation') message=`Tu cita fue cancelada.\n\n${details}`;
     else {
       if(entry.status!=='confirmed') throw new Error('appointment_cancelled');
-      subject='Tu cita quedó agendada'; message=`Tu cita quedó agendada en Nuthrick.\n\n${details}`;
+      if (entry.source === 'public' && entry.registration_consented_at && !entry.requires_confirmation && job.revision === 1) throw new Error('reservation_superseded');
+      if(entry.requires_confirmation) {
+        subject='Tu reserva se registró correctamente';
+        message=`Gracias por agendar tu cita. Tu nutriólogo se pondrá en contacto contigo para confirmar tu reserva.\n\n${details}`;
+      } else { subject='Tu cita quedó agendada'; message=`Tu cita quedó agendada en Nuthrick.\n\n${details}`; }
     }
   }
   const token=await googleToken(sender.encrypted_refresh_token);
@@ -287,7 +291,7 @@ Deno.serve(async req => {
       const start=parseInstant(payload.start),ctx=await context(body.slug,start.slice(0,10),1);
       const end=new Date(Date.parse(start)+ctx.duration*60000).toISOString();
       const permit=payload.kind==='appointment'?await busyPermit(ctx.professionalId,start,end):null;
-      const result=await rpc<Json>('agenda_book',{p_slug:body.slug,p_proof_hash:await sha256(proof),p_operation_key:operationKey,p_payload:payload,p_busy_check:permit});
+      const result=await rpc<Json>('agenda_book_registered',{p_slug:body.slug,p_proof_hash:await sha256(proof),p_operation_key:operationKey,p_payload:payload,p_busy_check:permit});
       // Booking success never depends on the subsequent notification network call.
       EdgeRuntime.waitUntil(work(ctx.professionalId,String(result.id)).catch(()=>undefined));
       return respond(result);
@@ -342,6 +346,11 @@ Deno.serve(async req => {
       if(replay.error) throw new Error(replay.error);
       if(replay.result) return respond(replay.result);
       let permit: string|null=null;
+      if(payload.action==='confirm_reservation') {
+        const {data:entry,error}=await db.from('agenda_entries').select('starts_at,ends_at').eq('id',validUUID(payload.id)).eq('professional_id',user.id).single();
+        if(error||!entry) throw new Error('not_found');
+        permit=await busyPermit(user.id,entry.starts_at,entry.ends_at);
+      }
       if(['accept','propose'].includes(String(payload.action))) {
         const {data:request,error}=await db.from('agenda_requests').select('*').eq('id',validUUID(payload.id)).eq('professional_id',user.id).single();
         if(error||!request) throw new Error('not_found');
@@ -351,7 +360,7 @@ Deno.serve(async req => {
         permit=await busyPermit(user.id,start,new Date(Date.parse(start)+settings.default_duration_minutes*60000).toISOString());
         if(payload.action==='propose') { const token=secretToken(); payload.tokenHash=await sha256(token);payload.encryptedToken=await encrypt(key(),token); }
       }
-      const result=await rpc('agenda_manage',{p_actor:user.id,p_operation_key:operationKey,p_payload:payload,p_busy_check:permit});
+      const result=await rpc(payload.action==='confirm_reservation'?'agenda_confirm_reservation':'agenda_manage',{p_actor:user.id,p_operation_key:operationKey,p_payload:payload,p_busy_check:permit});
       EdgeRuntime.waitUntil(work(user.id).catch(()=>undefined)); return respond(result);
     }
     if(op==='retry_sync') { await server('retry_sync',{owner:user.id,id:validUUID(body.id)});return respond({jobs:await work(user.id,String(body.id))}); }
@@ -361,7 +370,7 @@ Deno.serve(async req => {
     // responses. Return only a controlled vocabulary, not raw SQL/provider errors.
     const message=error instanceof Error?error.message:'';
     const known=['invalid_email','invalid_time','invalid_input','invalid_id','invalid_code','invalid_action','invalid_option','invalid_patient','invalid_calendars','invalid_request','invalid_transition','outside_schedule','not_found','slot_taken','google_unavailable','configuration_required','mail_not_connected','email_test_mode','rate_limited','unauthorized','profile_unavailable','booking_unavailable','verification_required','idempotency_mismatch','invalid_token','token_used','request_expired','authorization_required','authorization_cancelled','invalid_oauth_state','wrong_sender'];
-    const code=known.includes(message)?message:'temporarily_unavailable';
+    const code=[...known,'registration_required','invalid_birth_date','invalid_phone'].includes(message)?message:'temporarily_unavailable';
     return respond({error:code},code==='unauthorized'?401:code==='rate_limited'?429:code==='slot_taken'?409:400);
   }
 });

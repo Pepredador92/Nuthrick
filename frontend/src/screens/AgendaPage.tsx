@@ -84,6 +84,7 @@ export function AgendaPage() {
   const [patient, setPatient] = useState("");
   const [creatingPatient, setCreatingPatient] = useState(false);
   const [cancelEntry, setCancelEntry] = useState<AgendaEntry | null>(null);
+  const [confirmEntry, setConfirmEntry] = useState<AgendaEntry | null>(null);
   const [minimumNotice, setMinimumNotice] = useState(120);
   const [publicEnabled, setPublicEnabled] = useState(true);
   const [requestsEnabled, setRequestsEnabled] = useState(true);
@@ -250,6 +251,7 @@ export function AgendaPage() {
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
+                  {e.requires_confirmation && <p className="mb-3 inline-block rounded-full bg-[#fff1d5] px-3 py-1 text-xs font-semibold text-[#795620]">Reserva pendiente de confirmación</p>}
                   <p className="text-xs font-semibold text-[#64786e]">
                     {e.kind === "block"
                       ? "Tiempo bloqueado"
@@ -276,8 +278,11 @@ export function AgendaPage() {
                       {e.contact_email}
                     </p>
                   )}
+                  {e.contact_phone && <a className="mt-2 inline-block text-sm font-medium underline underline-offset-4" href={`https://wa.me/${e.contact_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer">WhatsApp · {e.contact_phone}</a>}
+                  {e.registration_status === 'review' && !e.patient_id && <p className="mt-2 text-xs text-[#795620]">Revisa si ya tiene expediente antes de vincular o dar de alta.</p>}
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  {e.requires_confirmation && <button disabled={working} className="nuth-button" onClick={() => setConfirmEntry(e)}>Confirmar reserva</button>}
                   {e.kind === "appointment" && !e.patient_id && (
                     <button
                       className="nuth-button-secondary"
@@ -328,7 +333,7 @@ export function AgendaPage() {
                   </span>
                   <span>
                     Google:{" "}
-                    {{
+                    {e.requires_confirmation ? 'se sincroniza al confirmar' : {
                       not_connected: "sin conexión",
                       pending: "pendiente",
                       synced: "sincronizado",
@@ -664,16 +669,23 @@ export function AgendaPage() {
           }}
         />
       )}
-      {!creatingPatient && (activeRequest || linkEntry || cancelEntry) && (
+      {!creatingPatient && (activeRequest || linkEntry || cancelEntry || confirmEntry) && (
         <AgendaDialog
           busy={working}
           close={() => {
             setActiveRequest(null);
             setLinkEntry(null);
             setCancelEntry(null);
+            setConfirmEntry(null);
           }}
         >
-          {activeRequest ? (
+          {confirmEntry ? <>
+            <h2 className="pr-16 text-xl font-semibold">Confirmar la reserva</h2>
+            <p className="mt-4 font-medium">{confirmEntry.contact_name}</p>
+            <p className="mt-2 text-sm">{agendaDate(confirmEntry.starts_at, confirmEntry.timezone)}</p>
+            <p className="mt-4 text-sm text-[#64786e]">Se enviará la confirmación al paciente y se sincronizará la cita con Google si está conectado.</p>
+            <button disabled={working} className="nuth-button mt-5" onClick={() => run(async () => { await manage({ action: 'confirm_reservation', id: confirmEntry.id }); setConfirmEntry(null); setNotice('Reserva confirmada.'); })}>Confirmar y notificar</button>
+          </> : activeRequest ? (
             <>
               <h2 className="pr-16 text-xl font-semibold">
                 {activeRequest.contact_name}

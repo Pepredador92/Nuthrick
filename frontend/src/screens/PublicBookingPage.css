@@ -1,0 +1,8 @@
+.booking-confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: -1; }
+.booking-confetti span { position: absolute; top: -16px; width: 7px; height: 12px; border-radius: 2px; opacity: 0; animation: booking-celebrate 2.6s ease-out forwards; }
+@keyframes booking-celebrate {
+  8% { opacity: .85; }
+  75% { opacity: .6; }
+  100% { transform: translate(28px, 480px) rotate(280deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .booking-confetti { display: none; } .booking-confetti span { animation: none; } }

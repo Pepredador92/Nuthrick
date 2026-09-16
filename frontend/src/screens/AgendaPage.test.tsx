@@ -110,6 +110,18 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 describe("private agenda", () => {
+  it('confirms a pending reservation only after the explicit confirmation dialog', async () => {
+    vi.mocked(loadAgenda).mockResolvedValue({entries:[{...entry,requires_confirmation:true,registration_status:'review',contact_phone:'+524920000001'}],requests:[]});
+    mount();
+    await screen.findByText('Reserva pendiente de confirmación');
+    expect(screen.getByRole('link',{name:/WhatsApp/})).toHaveAttribute('href','https://wa.me/524920000001');
+    expect(screen.getByText(/se sincroniza al confirmar/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'Confirmar reserva'}));
+    expect(api.mock.calls.some(([op])=>op==='manage')).toBe(false);
+    fireEvent.click(screen.getByRole('button',{name:'Confirmar y notificar'}));
+    await screen.findByText('Reserva confirmada.');
+    expect(api).toHaveBeenCalledWith('manage',{payload:{action:'confirm_reservation',id:'appointment'},operationKey:expect.any(String)},true);
+  });
   it("resolves internal blocks with verified private auth, not a public slug", async () => {
     mount();
     await screen.findByText("Persona ficticia");

@@ -37,6 +37,6 @@ export async function agendaApi<T>(op: string, args: Record<string, unknown> = {
   }
   if(op==='send_code') return {id:'preview',delivery:'sent'} as T;
   if(op==='verify_code') return {proof:'preview-only'} as T;
-  if(op==='book') return {id:'preview',status:'confirmed',start:(args.payload as {start:string}).start} as T;
+  if(op==='book') return {id:'preview',status:'pending_confirmation',start:(args.payload as {start:string}).start} as T;
   throw new Error('Operación no disponible en esta vista previa sintética.');
 }

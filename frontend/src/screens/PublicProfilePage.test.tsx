@@ -16,7 +16,7 @@ afterEach(cleanup);
 it('embeds a single booking flow even without public contact details or a published weekly schedule',async()=>{
   render(<MemoryRouter initialEntries={['/p/prueba']}><Routes><Route path="/p/:slug" element={<PublicProfilePage/>}/></Routes></MemoryRouter>);
   await screen.findByRole('heading',{name:'Nutrióloga de prueba'});
-  expect(screen.getByRole('link',{name:'Agendar cita'})).toHaveAttribute('href','#agendar');
+  expect(screen.queryByRole('link',{name:'Agendar cita'})).not.toBeInTheDocument();
   expect(screen.getAllByRole('complementary',{name:'Reservar una cita'})).toHaveLength(1);
   await screen.findByText('Por el momento no hay horarios disponibles.');
   expect(screen.getByRole('button',{name:'Solicitar otro horario'})).toBeInTheDocument();

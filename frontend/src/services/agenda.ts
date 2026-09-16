@@ -39,6 +39,9 @@ export type AgendaEntry = {
   contact_name: string | null;
   contact_email: string | null;
   patient_id: string | null;
+  requires_confirmation?: boolean;
+  contact_phone?: string | null;
+  registration_status?: 'none' | 'created' | 'review';
   calendar_status: string;
   calendar_checked_at?: string | null;
   calendar_check_error?: string | null;
@@ -57,6 +60,9 @@ export type AgendaRequest = {
   revision: number;
 };
 const messages: Record<string, string> = {
+  registration_required: 'Completa tus datos básicos y autoriza su registro para continuar.',
+  invalid_birth_date: 'Revisa tu fecha de nacimiento. No puede estar en el futuro.',
+  invalid_phone: 'Revisa tu número de WhatsApp y la lada internacional.',
   slot_taken: "Este horario acaba de ocuparse. Elige otro para continuar.",
   profile_unavailable: "Este perfil no está disponible para nuevas reservas.",
   booking_unavailable: "Por el momento no hay horarios disponibles.",
