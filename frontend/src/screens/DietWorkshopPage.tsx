@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   CalendarRange,
   Check,
-  ChevronRight,
   ClipboardPenLine,
   LoaderCircle,
   LockKeyhole,
@@ -20,6 +19,7 @@ import { DietMealDistributionStep } from "@/src/components/diet/DietMealDistribu
 import { DietMenuStep } from "@/src/components/diet/DietMenuStep";
 import { DietPlanReviewStep } from "@/src/components/diet/DietPlanReviewStep";
 import { DietLibrary } from "@/src/components/diet/DietLibrary";
+import { PlanOrganization } from "@/src/components/diet/PlanOrganization";
 import { applyDietLibrary, createDietLibraryEditingDraft, restoreDietLibrary } from "@/src/services/dietLibrary";
 import { libraryKind, type DietLibraryItem } from "@/src/features/diet-library/model";
 import { withPatientSubstitutions } from "@/src/features/diet-review/preparation";
@@ -295,8 +295,7 @@ function ContextEditor({
   );
 }
 
-function WorkshopLanding({ plans, busy, onCreate }: { plans: NutritionPlan[]; busy: boolean; onCreate: () => void }) {
-  const drafts = plans.filter((plan) => plan.status === "draft");
+function WorkshopLanding({ busy, onCreate }: { busy: boolean; onCreate: () => void }) {
   return (
     <div className="mx-auto max-w-5xl">
       <header className="rounded-[28px] bg-[#173d36] p-6 text-white sm:p-8">
@@ -311,24 +310,6 @@ function WorkshopLanding({ plans, busy, onCreate }: { plans: NutritionPlan[]; bu
           </button>
         </div>
       </header>
-      <section className="mt-6">
-        <div className="flex items-end justify-between gap-3">
-          <div><p className="nuth-eyebrow">Continuar trabajando</p><h2 className="mt-2 text-2xl font-semibold">Borradores recientes</h2></div>
-          <span className="text-sm text-[#74817d]">{drafts.length}</span>
-        </div>
-        {drafts.length ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {drafts.map((plan) => (
-              <Link key={plan.id} to={`/app/diet-workshop/${plan.id}`} className="group rounded-2xl border border-[#dfe6e1] bg-white p-5 transition hover:border-[#8fab9a] hover:shadow-sm">
-                <div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-[#24463b]">{plan.title}</p><p className="mt-2 text-xs text-[#7b8982]">Actualizado {formatPatientDate(plan.updated_at)}</p></div><ChevronRight size={18} className="text-[#82908a] group-hover:text-[#3d705d]" /></div>
-                <p className="mt-4 text-xs font-semibold text-[#607269]">{plan.patient_id ? "Paciente asignado" : "Plan libre"} · Borrador</p>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-4 rounded-2xl border border-dashed border-[#cdd9d1] bg-white p-8 text-center text-sm text-[#74817d]">Aún no tienes planes en borrador.</div>
-        )}
-      </section>
     </div>
   );
 }
@@ -642,7 +623,7 @@ export function DietWorkshopPage() {
   if (!dietPlanId && requestedPatientId && patient) {
     return <SourcePicker patient={patient} consultations={consultations} selectedId={selectedConsultationId} busy={busy} error={error} onSelect={setSelectedConsultationId} onCreate={(consultationId) => void create(patient.id, consultationId)} />;
   }
-  if (!dietPlanId && !requestedPatientId) return <div className="space-y-5"><WorkshopLanding plans={plans} busy={busy} onCreate={() => void create(null, null)} /><DietLibrary onEdit={editLibraryInWorkshop}/></div>;
+  if (!dietPlanId && !requestedPatientId) return <div className="space-y-5"><WorkshopLanding busy={busy} onCreate={() => void create(null, null)} /><PlanOrganization plans={plans} onChange={setPlans} onCreate={() => void create(null, null)}/><div id="diet-library"><DietLibrary onEdit={editLibraryInWorkshop}/></div></div>;
   if (!plan) return <ErrorState message={error || "No pudimos abrir este plan."} onRetry={() => void load()} />;
 
   const exitTarget = patient ? `/app/patients/${patient.id}` : "/app/diet-workshop";

@@ -51,10 +51,22 @@ function dietPlanError(error: { code?: string } | null, fallback: string) {
 export async function listDietPlans(): Promise<NutritionPlan[]> {
   const { data, error } = await supabase
     .from("nutrition_plans")
-    .select("*")
+    .select("*, patients!nutrition_plans_professional_id_patient_id_fkey(full_name), nutrition_plan_versions!nutrition_plan_versions_professional_id_plan_id_fkey(version_number)")
     .order("updated_at", { ascending: false });
   if (error) throw dietPlanError(error, "No pudimos cargar tus planes.");
-  return (data ?? []).map((row) => normalizeDietPlan(row as NutritionPlan));
+  return (data ?? []).map((row) => {
+    const versions = row.nutrition_plan_versions as Array<{version_number: number}>;
+    return normalizeDietPlan({ ...row, patient_name: row.patients?.full_name ?? null,
+      has_published_versions: versions.length > 0,
+      published_version_number: versions.length ? Math.max(...versions.map(v => v.version_number)) : null } as NutritionPlan);
+  });
+}
+
+export async function deleteDietDraft(id: string, revision: number): Promise<void> {
+  const { error } = await supabase.rpc("delete_nutrition_plan_draft", { p_plan_id: id, p_expected_revision: revision });
+  if (error?.code === "40001") throw new DietPlanRevisionConflictError();
+  if (error?.code === "23514") throw new Error("Este plan tiene publicaciones o ya no es un borrador. Su historial está protegido.");
+  if (error) throw dietPlanError(error, "No pudimos eliminar el borrador. Intenta de nuevo.");
 }
 
 export async function getDietPlan(id: string): Promise<NutritionPlan | null> {

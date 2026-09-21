@@ -348,6 +348,9 @@ export interface QuestionnaireResponse {
   updated_at: string;
 }
 export interface NutritionPlan {
+  patient_name?: string | null;
+  published_version_number?: number | null;
+  has_published_versions?: boolean;
   id: string;
   professional_id: string;
   patient_id: string | null;
