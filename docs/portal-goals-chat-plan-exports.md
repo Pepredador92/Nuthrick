@@ -28,7 +28,7 @@
 ## Calidad y despliegue
 
 21. Pruebas nuevas: origen/publicación explícita de objetivos; chat de ambos roles y duplicados/IME; menú de exportación y permisos; modelos PDF/TEX y caracteres especiales; v1/v2; revocación; aislamiento SQL; reducción acotada de logotipos con transparencia.
-22. Copia limpia del commit `04efd72`: **559 pruebas Vitest en 76 archivos**, todas pasan. Además, **2 pruebas Deno** del logotipo, integración SQL y prueba de concurrencia de códigos pasan. En el árbol de trabajo original hay un fallo ajeno en `LandingPage.test.tsx` por texto esperado distinto al H1; se preservaron ambos cambios pendientes de Landing, sin publicarlos ni eliminar pruebas.
+22. Copia limpia de la entrega: **560 pruebas Vitest en 76 archivos**, todas pasan (incluye la regresión de edición de pacientes sin correo). Además, **2 pruebas Deno** del logotipo, integración SQL y prueba de concurrencia de códigos pasan. En el árbol de trabajo original hay un fallo ajeno en `LandingPage.test.tsx` por texto esperado distinto al H1; se preservaron ambos cambios pendientes de Landing, sin publicarlos ni eliminar pruebas.
 23. TypeScript: pasa.
 24. ESLint: pasa sin errores. La copia limpia conserva un warning preexistente de `SecondShiftVisual` sin uso en LandingPage; no se modificó ese trabajo ajeno.
 25. Build de producción: pasa; comprobación Vercel incluida.

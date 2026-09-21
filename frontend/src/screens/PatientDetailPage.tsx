@@ -864,10 +864,6 @@ export function PatientDetailPage() {
       setError("Escribe un número de teléfono válido.");
       return;
     }
-    if (form.get("portal_access_enabled") && !email) {
-      setError("Para activar el portal necesitas un correo.");
-      return;
-    }
     await run(async () => {
       const updated = await updatePatient(patient.id, {
         full_name: String(form.get("full_name") || "").trim(),
@@ -1218,7 +1214,7 @@ export function PatientDetailPage() {
                 Permitir acceso al portal/app
               </span>
               <span className="mt-1 block text-xs text-[#75827d]">
-                Requiere un correo electrónico.
+                Acceso con correo o con un código de un solo uso generado desde Superlink y chat.
               </span>
             </span>
           </label>

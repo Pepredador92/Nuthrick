@@ -3,6 +3,7 @@ import {fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {MemoryRouter,Route,Routes} from 'react-router-dom';
 import {PatientDetailPage} from './PatientDetailPage';
 import {deleteConsultationRecord} from '@/src/services/consultations';
+import {updatePatient} from '@/src/services/patients';
 vi.mock('@/src/lib/supabase',()=>({supabase:{}}));
 vi.mock('@/src/features/auth/AuthProvider',()=>({useAuth:()=>({user:{id:'owner'}})}));
 vi.mock('@/src/components/patients/EvolutionCharts',()=>({PatientEvolutionCharts:()=>null}));
@@ -24,6 +25,14 @@ async function openDelete() {
  fireEvent.click(screen.getByRole('button',{name:'Eliminar consulta'}));
 }
 describe('consultation removal feedback',()=>{
+ it('allows saving portal access without email for the manual-code flow',async()=>{
+  vi.mocked(updatePatient).mockResolvedValue({id:'patient',full_name:'Paciente de prueba',status:'active',email:null,portal_access_enabled:true} as Awaited<ReturnType<typeof updatePatient>>);
+  render(<MemoryRouter initialEntries={['/patients/patient']}><Routes><Route path="/patients/:patientId" element={<PatientDetailPage/>}/></Routes></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button',{name:'Editar datos'}));
+  fireEvent.click(screen.getByRole('checkbox',{name:/Permitir acceso al portal/}));
+  fireEvent.submit(screen.getByRole('button',{name:'Guardar',exact:true}).closest('form')!);
+  await waitFor(()=>expect(updatePatient).toHaveBeenCalledWith('patient',expect.objectContaining({email:null,portal_access_enabled:true})));
+ });
  it('removes the consultation from both history and recent list after success',async()=>{
   vi.mocked(deleteConsultationRecord).mockResolvedValue(undefined);
   await openDelete();
