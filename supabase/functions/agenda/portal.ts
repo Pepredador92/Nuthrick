@@ -121,7 +121,14 @@ export async function portalRequest(req: Request, body: Json, deps: Dependencies
   if (action === 'plan' || action === 'plan_preview' || action==='plan_version') return {plan:projectPortalPlan(result.plan)};
   if(action==='export_plan') {
     if(!deps.document)throw new Error('document_unavailable');
-    const document=await deps.document(result.plan,result.professional,body.format as 'pdf'|'tex');
+    let document:Json;
+    try { document=await deps.document(result.plan,result.professional,body.format as 'pdf'|'tex'); }
+    catch(error) {
+      // Operational diagnostics only: never log document data or error messages,
+      // which can contain user-provided text or storage identifiers.
+      console.error('portal_document_failed',error instanceof Error?error.name:'Error',error instanceof Error?error.stack?.split('\n').slice(1,4).join('\n'):'');
+      throw error;
+    }
     // Revalidate after rendering, so revocation or a different shared version
     // during generation cannot deliver a stale document.
     const current=await call(action,{...actor,...data});

@@ -33,7 +33,13 @@ async function planDocument(plan:unknown,professional:unknown,format:'pdf'|'tex'
   // Only an owner-bound storage path from the authorized SQL lookup, never a URL from the request.
   if(typeof path==='string' && /^[a-f0-9-]+\/logo\/[A-Za-z0-9._-]+$/.test(path)) {
     const {data}=await db.storage.from('professional-media').download(path);
-    if(data && data.size<=3*1024*1024 && ['image/png','image/jpeg'].includes(data.type))logo=`data:${data.type};base64,${base64Bytes(new Uint8Array(await data.arrayBuffer()))}`;
+    if(data && data.size<=3*1024*1024 && ['image/png','image/jpeg'].includes(data.type)) {
+      try {
+        const bytes=new Uint8Array(await data.arrayBuffer());
+        const raster=data.type==='image/png'?(await import('./document-logo.ts')).letterheadPng(bytes):bytes;
+        logo=`data:${data.type};base64,${base64Bytes(raster)}`;
+      } catch { /* Optional malformed or oversized branding never hides the plan. */ }
+    }
   }
   const bytes=format==='pdf'?renderPlanPdf(model,logo):new TextEncoder().encode(renderPlanTex(model,logo));
   if(bytes.length>8*1024*1024)throw new Error('document_too_large');

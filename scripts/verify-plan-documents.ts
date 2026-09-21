@@ -13,4 +13,7 @@ const logo='data:image/png;base64,'+btoa(String.fromCharCode(...encode({width:2,
 await Deno.writeTextFile(new URL('plan-logo.tex',dir),renderPlanTex(model,logo));
 model.plan.days=model.plan.days.slice(0,1);model.plan.days[0].meals=model.plan.days[0].meals.slice(0,3);
 await Deno.writeFile(new URL('plan-tres-tiempos.pdf',dir),renderPlanPdf(model));
+// Layout-only stress case: synthetic alternatives, not clinical suggestions.
+model.plan.days[0].meals[0].ingredients[0].alternatives=Array.from({length:20},(_,i)=>({name:`Alternativa ficticia ${i+1}: descripción larga de prueba para verificar saltos de línea y mantener cantidades legibles`,amount:i+1,unit:'g'}));
+await Deno.writeFile(new URL('plan-sustituciones.pdf',dir),renderPlanPdf(model,logo));
 console.log('Synthetic PDF and TEX fixtures ready.');

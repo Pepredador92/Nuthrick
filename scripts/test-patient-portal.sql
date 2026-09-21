@@ -19,6 +19,7 @@ insert into public.consultations values
  ('20000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','draft',null,'PRIVATE DRAFT'),
  ('20000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000002','completed',null,'OTHER PATIENT');
 alter table public.professional_profiles add column license_number text, add column storage_key uuid default gen_random_uuid();
+alter table public.patients add column birth_date date, add column phone text, add column country_code text;
 alter table public.consultations add column consultation_date timestamptz default now();
 create table public.consultation_snapshots(consultation_id uuid,patient_id uuid,professional_id uuid,revision integer,structure jsonb);
 create table public.consultation_answers(consultation_id uuid,patient_id uuid,professional_id uuid,revision integer,question_key text,response_area text,value jsonb);
@@ -26,6 +27,7 @@ create table public.professional_businesses(professional_id uuid,establishment_n
 create table public.professional_contacts(id uuid,professional_id uuid,display_order integer,label text,country_code text,contact_value text);
 create table public.professional_locations(id uuid,professional_id uuid,is_active boolean,address text,display_order integer);
 -- MIGRATION INSERTION POINT --
+create trigger patients_validate_fields before insert or update on public.patients for each row execute function private.validate_patient_fields();
 create function pg_temp.assert(value boolean,message text) returns void language plpgsql as $$ begin if value is distinct from true then raise exception '%',message; end if; end $$;
 create function pg_temp.reject(q text) returns void language plpgsql as $$ begin begin execute q; exception when others then return; end; raise exception 'Expected rejection'; end $$;
 select pg_temp.assert(not has_function_privilege('anon','public.patient_portal(text,jsonb)','execute'),'Anon RPC leak');

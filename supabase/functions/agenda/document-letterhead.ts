@@ -3,7 +3,7 @@ export interface ProfessionalDocumentInfo {
  fullName:string; professionalTitle?:string|null;licenseNumber?:string|null;businessName?:string|null;businessAddress?:string|null;contactLines?:string[];logoUrl?:string|null;
 }
 /** Shared letterhead used by consultation and published-plan documents. */
-export function drawProfessionalHeader(pdf:jsPDF,professional:ProfessionalDocumentInfo,logo:string|null,compact=false):number {
+export function drawProfessionalHeader(pdf:jsPDF,professional:ProfessionalDocumentInfo,logo:string|null,compact=false,compression:'FAST'|'NONE'='FAST'):number {
  const margin=16,pageWidth=pdf.internal.pageSize.getWidth(); let cursor=18;
 
     const brand =
@@ -43,7 +43,11 @@ export function drawProfessionalHeader(pdf:jsPDF,professional:ProfessionalDocume
 
     if (logo) {
       try {
-        const properties = pdf.getImageProperties(logo);
+        // PNG dimensions live in IHDR. Avoid decoding a large PNG twice
+        // (getImageProperties and addImage), especially in the Edge runtime.
+        const pngHeader=logo.startsWith('data:image/png;base64,')?atob(logo.split(',')[1].slice(0,44)):null;
+        const dimension=(at:number)=>pngHeader!.charCodeAt(at)*16777216+pngHeader!.charCodeAt(at+1)*65536+pngHeader!.charCodeAt(at+2)*256+pngHeader!.charCodeAt(at+3);
+        const properties=pngHeader&&pngHeader.length>=24?{width:dimension(16),height:dimension(20),fileType:'PNG'}:pdf.getImageProperties(logo);
         const scale = Math.min(28 / properties.width, 28 / properties.height);
         const width = properties.width * scale;
         const height = properties.height * scale;
@@ -55,7 +59,7 @@ export function drawProfessionalHeader(pdf:jsPDF,professional:ProfessionalDocume
           width,
           height,
           undefined,
-          "FAST",
+          compression,
         );
       } catch {
         // The professional identity remains readable if an optional image is unavailable.

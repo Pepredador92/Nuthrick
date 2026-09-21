@@ -43,8 +43,8 @@ export function planDocumentBlocks(model:PublishedNutritionPlanDocumentModel):Pl
 }
 export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:string|null=null):Uint8Array {
  const pdf=new jsPDF({unit:'mm',format:'a4'}),width=pdf.internal.pageSize.getWidth(),bottom=pdf.internal.pageSize.getHeight()-19;
- let y=drawProfessionalHeader(pdf,model.professional,logo);
- const page=()=>{pdf.addPage();y=drawProfessionalHeader(pdf,model.professional,logo,true);};
+ let y=drawProfessionalHeader(pdf,model.professional,logo,false,'NONE');
+ const page=()=>{pdf.addPage();y=drawProfessionalHeader(pdf,model.professional,logo,true,'NONE');};
  const write=(text:string,size=10,bold=false,gap=5)=>{
   pdf.setFont('helvetica',bold?'bold':'normal');pdf.setFontSize(size);
   const lines=pdf.splitTextToSize(text,width-32) as string[];

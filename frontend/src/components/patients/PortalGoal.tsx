@@ -1,13 +1,12 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useState} from 'react';
 import {portalAction,type PortalContent} from '@/src/services/patientPortal';
 import {portalDate} from './PortalContentView';
 type Goal={consultationId:string;date:string;revision:number;questionKey:string;content:string};
 export function PortalGoal({patientId,content,onChange}:{patientId:string;content:PortalContent;onChange:(content:PortalContent)=>void}){
  const [goals,setGoals]=useState<Goal[]>([]),[error,setError]=useState(''),[loading,setLoading]=useState(true),[custom,setCustom]=useState(Boolean(content.goal&&!content.goalSource));
- const inFlight=useRef(false);
  useEffect(()=>{
-  let active=true;
-  const load=async()=>{if(inFlight.current)return;inFlight.current=true;try{const result=await portalAction<{goals:Goal[]}>({patientId},'goal_candidates');if(active){setGoals(result.goals);setError('');}}catch{if(active)setError('No pudimos consultar el objetivo. Intenta nuevamente al volver a esta pantalla.');}finally{inFlight.current=false;if(active)setLoading(false);}};
+  let active=true,inFlight=false;
+  const load=async()=>{if(inFlight)return;inFlight=true;try{const result=await portalAction<{goals:Goal[]}>({patientId},'goal_candidates');if(active){setGoals(result.goals);setError('');}}catch{if(active)setError('No pudimos consultar el objetivo. Intenta nuevamente al volver a esta pantalla.');}finally{inFlight=false;if(active)setLoading(false);}};
   void load();window.addEventListener('focus',load);
   return()=>{active=false;window.removeEventListener('focus',load);};
  },[patientId]);
