@@ -29,6 +29,9 @@ import { DietWorkshopPage } from "@/src/screens/DietWorkshopPage";
 import { AgendaPage } from "@/src/screens/AgendaPage";
 import { PublicBookingPage } from "@/src/screens/PublicBookingPage";
 import { AgendaResponsePage } from "@/src/screens/AgendaResponsePage";
+import { PatientPortalPage } from "@/src/screens/PatientPortalPage";
+import { PatientPortalOwnerPage } from "@/src/screens/PatientPortalOwnerPage";
+import { PatientMessagesPage } from "@/src/screens/PatientMessagesPage";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -66,7 +69,9 @@ export function ClientApplication() {
               <Route index element={<DashboardPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="agenda" element={<AgendaPage />} />
+              <Route path="messages" element={<PatientMessagesPage />} />
               <Route path="patients" element={<PatientsPage />} />
+              <Route path="patients/:patientId/portal" element={<PatientPortalOwnerPage />} />
               <Route
                 path="patients/:patientId"
                 element={<PatientDetailPage />}
@@ -91,6 +96,7 @@ export function ClientApplication() {
           <Route path="/p/:slug/agendar" element={<PublicBookingPage />} />
           <Route path="/p/:slug/agendar/datos" element={<PublicBookingPage />} />
           <Route path="/agenda/responder" element={<AgendaResponsePage />} />
+          <Route path="/mi-espacio" element={<PatientPortalPage />} />
           <Route path="/privacy" element={<LegalPage type="privacy" />} />
           <Route path="/terms" element={<LegalPage type="terms" />} />
           <Route path="*" element={<NotFoundPage />} />

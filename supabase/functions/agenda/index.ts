@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { codeHash, decrypt, encrypt, gmailMessage, normalizeEmail, overlaps, parseInstant, readFreeBusy, secretToken, sha256 } from './security.ts';
 import { checkCalendarConflict } from './calendar-reconciliation.ts';
+import { portalRequest } from './portal.ts';
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
 const env = (name: string) => { const value=Deno.env.get(name); if (!value) throw new Error('configuration_required'); return value; };
@@ -176,9 +177,15 @@ async function deliverMail(job: Job): Promise<string> {
       } else { subject='Tu cita quedó agendada'; message=`Tu cita quedó agendada en Nuthrick.\n\n${details}`; }
     }
   }
+  return sendPortalMail(to,subject,message,job.id);
+}
+async function sendPortalMail(to: string, subject: string, message: string, id: string): Promise<string> {
+  allowRecipient(to);
+  const {sender}=await credentials();
+  if(!sender) throw new Error('mail_not_connected');
   const token=await googleToken(sender.encrypted_refresh_token);
   let res: Response;
-  try { res=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(15000),body:JSON.stringify({raw:gmailMessage(sender.email,to,subject,message,job.id)})}); }
+  try { res=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(15000),body:JSON.stringify({raw:gmailMessage(sender.email,to,subject,message,id)})}); }
   catch { throw new Error('mail_delivery_unknown'); }
   if(res.status>=500) throw new Error('mail_delivery_unknown');
   if(!res.ok) throw new Error('mail_send_failed');
@@ -225,10 +232,11 @@ Deno.serve(async req => {
     if(req.method!=='POST') return respond({error:'method_not_allowed'},405);
     const origin=req.headers.get('origin');
     if(origin&&origin!==site) throw new Error('unauthorized');
-    if(Number(req.headers.get('content-length')||0)>16000) throw new Error('invalid_input');
-    const text=await req.text(); if(text.length>16000) throw new Error('invalid_input');
+    if(Number(req.headers.get('content-length')||0)>120000) throw new Error('invalid_input');
+    const text=await req.text(); if(text.length>120000) throw new Error('invalid_input');
     const body=JSON.parse(text) as Json;
     const op=String(body.op||'');
+    if(!op.startsWith('portal_')&&text.length>16000) throw new Error('invalid_input');
     if(op==='worker') {
       if(req.headers.get('authorization')!==`Bearer ${env('AGENDA_WORKER_SECRET')}`) throw new Error('unauthorized');
       await server('expire');
@@ -240,6 +248,14 @@ Deno.serve(async req => {
     // mutations. Also limit each email globally to prevent multi-IP mail abuse.
     const ip=req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()||'unknown';
     await limit(`agenda:ip:${ip}`,120,60);
+    if(op.startsWith('portal_')) {
+      try { return respond(await portalRequest(req,body,{rpc:args=>rpc('patient_portal',args),owner:async req=>(await ownerFromRequest(req)).id,limit,mail:sendPortalMail,key:key()})); }
+      catch(error) {
+        const code=error instanceof Error?error.message:'';
+        const safe=['portal_unavailable','email_required','stale_revision','invalid_consultation','invalid_input','invalid_code','invalid_action','unauthorized','rate_limited','note_limit','idempotency_mismatch','mail_not_connected','mail_send_failed','mail_delivery_unknown','email_test_mode'];
+        return respond({error:safe.includes(code)?code:'temporarily_unavailable'},400);
+      }
+    }
     if(op==='availability') {
       const ctx=await context(body.slug,body.from);
       let connectionError=false;

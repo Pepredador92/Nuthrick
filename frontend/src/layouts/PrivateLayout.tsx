@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronDown, ClipboardList, LayoutDashboard, LogOut, Menu, PanelLeftClose, Salad, UserRound, UsersRound, X } from 'lucide-react';
+import { CalendarDays, ChevronDown, ClipboardList, LayoutDashboard, LogOut, Menu, MessageCircle, PanelLeftClose, Salad, UserRound, UsersRound, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Logo } from '@/src/components/ui/Logo';
@@ -9,6 +9,7 @@ const nav = [
   { label: 'Perfil', href: '/app/profile', icon: UserRound },
   { label: 'Pacientes', href: '/app/patients', icon: UsersRound },
   { label: 'Agenda', href: '/app/agenda', icon: CalendarDays },
+  { label: 'Mensajes', href: '/app/messages', icon: MessageCircle },
   { label: 'Taller de dietas', href: '/app/diet-workshop', icon: Salad },
   { label: 'Plantillas', href: '/app/consultation-templates/initial', icon: ClipboardList },
 ];

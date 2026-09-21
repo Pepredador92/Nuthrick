@@ -1,0 +1,117 @@
+-- Synthetic local schema. The runner rolls back ALL objects and data.
+create role anon nologin;
+create role authenticated nologin;
+create role service_role nologin bypassrls;
+create schema private;
+grant usage on schema public,private to service_role;
+create table public.professional_profiles(id uuid primary key,full_name text,professional_title text);
+create table public.patients(id uuid primary key,professional_id uuid,full_name text,email text,portal_access_enabled boolean default false,status text default 'active',deleted_at timestamptz);
+create table public.consultations(id uuid primary key,professional_id uuid,patient_id uuid,status text,deleted_at timestamptz,summary text);
+grant all on public.professional_profiles,public.patients,public.consultations to service_role;
+insert into public.professional_profiles values ('00000000-0000-0000-0000-000000000001','Nutrióloga ficticia','Nutrición'),('00000000-0000-0000-0000-000000000002','Ajeno','Nutrición');
+insert into public.patients(id,professional_id,full_name,email) values
+ ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','Paciente sintético','patient@example.invalid'),
+ ('10000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000002','Otro','other@example.invalid');
+insert into public.consultations values
+ ('20000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','completed',null,'PRIVATE CLINICAL SUMMARY'),
+ ('20000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','draft',null,'PRIVATE DRAFT'),
+ ('20000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000002','completed',null,'OTHER PATIENT');
+-- MIGRATION INSERTION POINT --
+create function pg_temp.assert(value boolean,message text) returns void language plpgsql as $$ begin if value is distinct from true then raise exception '%',message; end if; end $$;
+create function pg_temp.reject(q text) returns void language plpgsql as $$ begin begin execute q; exception when others then return; end; raise exception 'Expected rejection'; end $$;
+select pg_temp.assert(not has_function_privilege('anon','public.patient_portal(text,jsonb)','execute'),'Anon RPC leak');
+select pg_temp.assert(not has_function_privilege('authenticated','public.patient_portal(text,jsonb)','execute'),'Authenticated RPC leak');
+select pg_temp.assert(not has_table_privilege('authenticated','private.portal_notes','select'),'Private notes leak');
+select pg_temp.assert((select bool_and(relrowsecurity) from pg_class where oid in ('private.patient_portals'::regclass,'private.portal_challenges'::regclass,'private.portal_sessions'::regclass,'private.portal_messages'::regclass,'private.portal_notes'::regclass)),'RLS missing');
+select pg_temp.assert(not (select prosecdef from pg_proc where oid='public.patient_portal(text,jsonb)'::regprocedure),'RPC must be invoker');
+do $$
+declare owner jsonb:='{"owner":"00000000-0000-0000-0000-000000000001","patientId":"10000000-0000-0000-0000-000000000001"}';
+  actor jsonb:='{"sessionHash":"session-1"}'; result jsonb; cid uuid:='30000000-0000-0000-0000-000000000001'; data jsonb; msg jsonb;
+begin
+  perform pg_temp.assert(public.patient_portal('view',owner)->>'patientName'='Paciente sintético','Owner view');
+  perform pg_temp.assert(public.patient_portal('view',owner||'{"owner":"00000000-0000-0000-0000-000000000002"}')->>'error'='portal_unavailable','Cross-owner leak');
+  perform pg_temp.assert(public.patient_portal('view',actor)->>'error'='portal_unavailable','No session leaked');
+  perform public.patient_portal('link',owner||'{"linkHash":"link-one","encryptedLink":"encrypted-fixture"}');
+  perform pg_temp.assert(public.patient_portal('view',actor)->>'error'='portal_unavailable','Link without OTP leaked');
+  perform pg_temp.assert(public.patient_portal('challenge','{"linkHash":"link-one","email":"wrong@example.invalid"}')->>'error'='portal_unavailable','Wrong recipient');
+  data:=jsonb_build_object('id',cid,'linkHash','link-one','email','patient@example.invalid','codeHash','correct');
+  perform public.patient_portal('challenge',data);
+  perform pg_temp.assert(public.patient_portal('verify',data||'{"codeHash":"wrong","newSessionHash":"bad"}')->>'error'='invalid_code','Wrong code');
+  perform pg_temp.assert((select attempts=1 from private.portal_challenges where id=cid),'Attempts not persisted');
+  perform pg_temp.assert(public.patient_portal('verify',data||'{"newSessionHash":"session-1"}')->>'verified'='true','Verify failed');
+  perform pg_temp.assert(public.patient_portal('verify',data||'{"newSessionHash":"session-2"}')->>'error'='invalid_code','Code replay allowed');
+  result:=public.patient_portal('view',actor);
+  perform pg_temp.assert(not(result ? 'encryptedLink') and not(result ? 'link') and result::text not like '%PRIVATE%' and result::text not like '%@%','Patient DTO leak');
+  data:='{"goal":"Caminar","instructions":"Indicaciones visibles","results":[],"consultations":[{"id":"20000000-0000-0000-0000-000000000001","date":"2026-09-16","title":"Consulta","summary":"Resumen para paciente"}]}';
+  perform public.patient_portal('publish',owner||jsonb_build_object('revision',0,'shared',data));
+  perform pg_temp.assert(public.patient_portal('view',actor)->'shared'->>'goal'='Caminar','Share invisible');
+  perform pg_temp.assert(public.patient_portal('publish',owner||jsonb_build_object('revision',0,'shared',data))->>'error'='stale_revision','Lost update');
+  perform pg_temp.assert(public.patient_portal('publish',actor||jsonb_build_object('revision',1,'shared',data))->>'error'='invalid_action','Patient published');
+  perform pg_temp.reject(format('select public.patient_portal(%L,%L)','publish',owner||jsonb_build_object('revision',1,'shared',replace(data::text,'20000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000002')::jsonb)));
+  perform pg_temp.reject(format('select public.patient_portal(%L,%L)','publish',owner||jsonb_build_object('revision',1,'shared',replace(data::text,'20000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000003')::jsonb)));
+  msg:='{"clientId":"40000000-0000-0000-0000-000000000001","body":"Hola"}';
+  result:=public.patient_portal('message',owner||msg);
+  perform pg_temp.assert(public.patient_portal('message',owner||msg)=result,'Message retry');
+  perform pg_temp.assert(public.patient_portal('message',owner||msg||'{"body":"Different"}')->>'error'='idempotency_mismatch','Message overwrite');
+  perform pg_temp.assert(public.patient_portal('view',actor)->>'unread'='1','Unread missing');
+  perform pg_temp.assert(jsonb_array_length(public.patient_portal('inbox',owner||'{"search":"","offset":0}')->'patients')=1,'Inbox missing own patient');
+  perform pg_temp.assert(jsonb_array_length(public.patient_portal('inbox',owner||'{"owner":"00000000-0000-0000-0000-000000000002","search":"","offset":0}')->'patients')=0,'Inbox cross-owner leak');
+  perform public.patient_portal('message',actor||msg);
+  perform pg_temp.assert(jsonb_array_length(public.patient_portal('messages',actor)->'messages')=2,'Conversation missing');
+  perform public.patient_portal('read',actor||result);
+  perform pg_temp.assert(public.patient_portal('view',actor)->>'unread'='0','Read cursor');
+  perform public.patient_portal('note',actor||'{"id":"50000000-0000-0000-0000-000000000001","body":"Mi duda privada"}');
+  perform pg_temp.assert(public.patient_portal('notes',owner)->>'error'='invalid_action','Professional read personal notes');
+  perform pg_temp.assert(public.patient_portal('view',owner)::text not like '%duda privada%','Notes leak into owner overview');
+  perform pg_temp.assert(jsonb_array_length(public.patient_portal('notes',actor)->'notes')=1,'Note missing');
+  perform public.patient_portal('note',actor||'{"id":"50000000-0000-0000-0000-000000000001","body":"Editada","done":true}');
+  perform pg_temp.assert(public.patient_portal('notes',actor)->'notes'->0->>'done'='true','Note edit');
+  update private.portal_sessions set expires_at=now()-interval '1 second' where token_hash='session-1';
+  perform pg_temp.assert(public.patient_portal('view',actor)->>'error'='portal_unavailable','Expired session works');
+  update private.portal_sessions set expires_at=now()+interval '2 hours' where token_hash='session-1';
+  update private.patient_portals set link_expires_at=now()-interval '1 second' where patient_id=(owner->>'patientId')::uuid;
+  perform pg_temp.assert(public.patient_portal('message',owner||msg)->>'error'='portal_unavailable','Expired link accepts professional messages');
+  update private.patient_portals set link_expires_at=now()+interval '90 days' where patient_id=(owner->>'patientId')::uuid;
+  update public.consultations set deleted_at=now() where id='20000000-0000-0000-0000-000000000001';
+  perform pg_temp.assert(jsonb_array_length(public.patient_portal('view',actor)->'shared'->'consultations')=0,'Deleted consultation still shared');
+  update public.consultations set deleted_at=null where id='20000000-0000-0000-0000-000000000001';
+  update public.patients set portal_access_enabled=false where id=(owner->>'patientId')::uuid;
+  perform pg_temp.assert(public.patient_portal('messages',actor)->>'error'='portal_unavailable','Disabled session works');
+  update public.patients set portal_access_enabled=true,email='changed@example.invalid' where id=(owner->>'patientId')::uuid;
+  perform pg_temp.assert(public.patient_portal('notes',actor)->>'error'='portal_unavailable','Changed email session works');
+  update public.patients set email='patient@example.invalid',status='archived' where id=(owner->>'patientId')::uuid;
+  perform pg_temp.assert(public.patient_portal('view',actor)->>'error'='portal_unavailable','Archived access');
+  update public.patients set status='active' where id=(owner->>'patientId')::uuid;
+  perform public.patient_portal('revoke',owner);
+  perform pg_temp.assert(public.patient_portal('view',actor)->>'error'='portal_unavailable','Revoked access');
+  perform pg_temp.assert((select count(*)=2 from private.portal_messages),'Revocation deleted chat');
+  perform pg_temp.assert((select count(*)=1 from private.portal_notes),'Revocation deleted notes');
+  perform public.patient_portal('link',owner||'{"linkHash":"link-two","encryptedLink":"encrypted-fixture"}');
+  cid:=gen_random_uuid(); data:=jsonb_build_object('id',cid,'linkHash','link-two','email','patient@example.invalid','codeHash','correct');
+  perform public.patient_portal('challenge',data);
+  for i in 1..5 loop perform public.patient_portal('verify',data||'{"codeHash":"wrong","newSessionHash":"bad"}'); end loop;
+  perform pg_temp.assert(public.patient_portal('verify',data||'{"newSessionHash":"bad"}')->>'error'='invalid_code','Bruteforce unlocked');
+  cid:=gen_random_uuid(); data:=data||jsonb_build_object('id',cid); perform public.patient_portal('challenge',data);
+  update private.portal_challenges set expires_at=now()-interval '1 second' where id=cid;
+  perform pg_temp.assert(public.patient_portal('verify',data||'{"newSessionHash":"bad"}')->>'error'='invalid_code','Expired code');
+end $$;
+-- Exercise the exact runtime role, including invoker permissions and keyset paging.
+set local role service_role;
+do $$
+declare owner jsonb:='{"owner":"00000000-0000-0000-0000-000000000001","patientId":"10000000-0000-0000-0000-000000000001"}';
+  page jsonb; older jsonb; cursor jsonb;
+begin
+  if public.patient_portal('view',owner)->>'patientName'<>'Paciente sintético' then raise exception 'Service role cannot read'; end if;
+  for i in 1..55 loop
+    perform public.patient_portal('message',owner||jsonb_build_object('clientId',gen_random_uuid(),'body','Paging '||i));
+  end loop;
+  page:=public.patient_portal('messages',owner);
+  if jsonb_array_length(page->'messages')<>50 then raise exception 'First page size'; end if;
+  older:=public.patient_portal('messages',owner||jsonb_build_object('before',page->'before'));
+  if jsonb_array_length(older->'messages')<>7 then raise exception 'Older page missing'; end if;
+  cursor:=jsonb_build_object('at',older->'messages'->6->>'created_at','id',older->'messages'->6->>'id');
+  page:=public.patient_portal('messages',owner||jsonb_build_object('after',cursor));
+  if jsonb_array_length(page->'messages')<>50 then raise exception 'Incremental page missing'; end if;
+end $$;
+reset role;
+select 'Portal isolation, publication, OTP, chat and notes: OK';

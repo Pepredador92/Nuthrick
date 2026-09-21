@@ -9,6 +9,7 @@ import {
   FileDown,
   FileText,
   LoaderCircle,
+  Link2,
   Plus,
   RotateCcw,
   Salad,
@@ -1371,6 +1372,7 @@ export function PatientDetailPage() {
                   Evolución
                 </button>
               </div>
+              <Link className="nuth-button-secondary justify-center" to={`/app/patients/${patient.id}/portal`}><Link2 size={16} />Superlink y chat</Link>
               <details className="border-t border-[#edf1ed] pt-3">
                 <summary className="cursor-pointer text-xs font-semibold text-[#74817d] marker:text-[#82908a]">
                   Administrar paciente
