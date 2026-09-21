@@ -1,5 +1,6 @@
 import { codeHash, encrypt, decrypt, secretToken, sha256, normalizeEmail } from './security.ts';
 import { sanitizePortalContent, uuid } from './portal-content.ts';
+import { projectPortalPlan } from './portal-plan.ts';
 
 type Json = Record<string, unknown>;
 type Dependencies = {
@@ -13,6 +14,11 @@ const token = (v: unknown) => {
   if (typeof v !== 'string' || !/^[A-Za-z0-9_-]{40,100}$/.test(v)) throw new Error('portal_unavailable');
   return v;
 };
+function randomCode(digits: number) {
+  const range = 10 ** digits, limit = Math.floor(4294967296 / range) * range;
+  let n: number; do { n = crypto.getRandomValues(new Uint32Array(1))[0]; } while (n >= limit);
+  return String(n % range).padStart(digits, '0');
+}
 
 /** Dedicated purposes; an Agenda booking proof can never become a portal session. */
 export async function portalRequest(req: Request, body: Json, deps: Dependencies): Promise<Json> {
@@ -37,11 +43,17 @@ export async function portalRequest(req: Request, body: Json, deps: Dependencies
     await deps.limit(`agenda:email:${email}`, 3, 900);
     await deps.limit('agenda:all-mail', 60, 3600);
     const id = crypto.randomUUID();
-    let n: number; do { n = crypto.getRandomValues(new Uint32Array(1))[0]; } while (n >= 4294000000);
-    const code = String(n % 1000000).padStart(6, '0');
+    const code = randomCode(6);
     const target = await call('challenge', { id, linkHash, email, codeHash: await codeHash(deps.key, id, code) });
     await deps.mail(String(target.email), 'Tu acceso privado a Nuthrick', `Tu código de acceso es: ${code}\n\nVence en 10 minutos. No compartas este código. Si no solicitaste entrar a tu espacio de paciente, ignora este mensaje.`, id);
     return { id, delivery: 'sent' };
+  } else if (body.op === 'portal_verify_professional') {
+    const linkHash = await sha256(token(body.link));
+    if (typeof body.code !== 'string' || !/^\d{8}$/.test(body.code)) throw new Error('invalid_code');
+    await deps.limit(`portal:professional-verify:${linkHash}`, 10, 900);
+    const session = secretToken();
+    await call('verify_professional', {linkHash,codeHash:await codeHash(deps.key,linkHash,`professional:${body.code}`),newSessionHash:await sha256(session)});
+    return {session,expiresAt:new Date(Date.now()+7200000).toISOString()};
   } else if (body.op === 'portal_verify') {
     const id = uuid(body.id);
     if (typeof body.code !== 'string' || !/^\d{6}$/.test(body.code)) throw new Error('invalid_code');
@@ -54,11 +66,22 @@ export async function portalRequest(req: Request, body: Json, deps: Dependencies
   } else throw new Error('invalid_action');
 
   const allowed = body.op === 'portal_owner'
-    ? ['view', 'link', 'revoke', 'publish', 'messages', 'message', 'read']
-    : ['view', 'messages', 'message', 'read', 'notes', 'note', 'delete_note', 'logout'];
+    ? ['view', 'link', 'revoke', 'publish', 'messages', 'message', 'read', 'issue_code', 'plan', 'plan_options', 'plan_preview', 'share_plan']
+    : ['view', 'messages', 'message', 'read', 'notes', 'note', 'delete_note', 'logout', 'plan'];
   if (!allowed.includes(action)) throw new Error('invalid_action');
   // Whitelist each payload; never spread untrusted JSON into actor fields.
   let data: Json = {};
+  if (action === 'issue_code') {
+    if (body.identityConfirmed !== true) throw new Error('identity_confirmation_required');
+    await deps.limit(`portal:issue:${actor.owner}:${actor.patientId}`,3,900);
+    const space = await call('view',actor);
+    if (!space.enabled || !space.encryptedLink) throw new Error('portal_unavailable');
+    const linkHash = await sha256(await decrypt(deps.key,String(space.encryptedLink)));
+    const code = randomCode(8);
+    const result = await call('issue_code',{...actor,identityConfirmed:true,id:crypto.randomUUID(),linkHash,codeHash:await codeHash(deps.key,linkHash,`professional:${code}`)});
+    return {code,expiresAt:result.expiresAt};
+  }
+  if (action === 'plan_preview' || action === 'share_plan') data={planId:body.planId===null && action==='share_plan' ? null : uuid(body.planId)};
   if (action === 'link') {
     const raw = secretToken();
     await call(action, { ...actor, linkHash: await sha256(raw), encryptedLink: await encrypt(deps.key, raw) });
@@ -82,6 +105,7 @@ export async function portalRequest(req: Request, body: Json, deps: Dependencies
     data = { [body.before ? 'before' : 'after']: { id: uuid(cursor.id), at: cursor.at } };
   }
   const result = await call(action, { ...actor, ...data });
+  if (action === 'plan' || action === 'plan_preview') return {plan:projectPortalPlan(result.plan)};
   if (action === 'view') {
     // Defense in depth: old or malformed snapshots also cannot leak metadata.
     result.shared = sanitizePortalContent(result.shared);

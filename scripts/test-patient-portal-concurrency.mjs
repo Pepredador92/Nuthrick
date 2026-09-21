@@ -14,15 +14,17 @@ function run(db, sql) {
   return result.stdout.trim();
 }
 const children = [];
+const manual = process.argv.includes('--manual');
 let created = false;
 try {
   run('postgres', `create database ${database};`); created = true;
-  const name = readdirSync(new URL('../supabase/migrations/', import.meta.url)).find(n => n.endsWith('_patient_superlink.sql'));
+  const migrations = readdirSync(new URL('../supabase/migrations/', import.meta.url)).filter(n=>n.endsWith('_patient_superlink.sql')||n.endsWith('_patient_portal_plan_and_manual_code.sql')).sort().map(n=>read(`../supabase/migrations/${n}`).replace(/^begin;\s*/m,'').replace(/commit;\s*$/,'')).join('\n');
   const setup = read('./test-patient-portal.sql').split('-- MIGRATION INSERTION POINT --')[0];
-  run(database, remap(`begin;${setup}\n${read(`../supabase/migrations/${name}`).replace(/^begin;\s*/m, '').replace(/commit;\s*$/, '')}\ncommit;`));
+  run(database, remap(`begin;${setup}\n${migrations}\ncommit;`));
   run(database, `select public.patient_portal('link','{"owner":"00000000-0000-0000-0000-000000000001","patientId":"10000000-0000-0000-0000-000000000001","linkHash":"race-link","encryptedLink":"fixture"}');
     select public.patient_portal('challenge','{"id":"30000000-0000-0000-0000-000000000001","linkHash":"race-link","email":"patient@example.invalid","codeHash":"correct"}');`);
-  const verify = hash => `select public.patient_portal('verify','{"id":"30000000-0000-0000-0000-000000000001","linkHash":"race-link","codeHash":"correct","newSessionHash":"${hash}"}');`;
+  if(manual) run(database,`select public.patient_portal('issue_code','{"owner":"00000000-0000-0000-0000-000000000001","patientId":"10000000-0000-0000-0000-000000000001","id":"30000000-0000-0000-0000-000000000002","linkHash":"race-link","codeHash":"correct","identityConfirmed":true}');`);
+  const verify = hash => `select public.patient_portal('${manual?'verify_professional':'verify'}','{"id":"30000000-0000-0000-0000-000000000001","linkHash":"race-link","codeHash":"correct","newSessionHash":"${hash}"}');`;
   function session(app) {
     const child = spawn('psql', ['-X', '-h', '/tmp', '-d', database, '-v', 'ON_ERROR_STOP=1', '-At'], { env: { ...process.env, PGAPPNAME: app } });
     children.push(child);

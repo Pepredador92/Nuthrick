@@ -52,11 +52,13 @@ beforeEach(() => {
   vi.mocked(portalAction).mockImplementation(async (_access, action) =>
     action === "view"
       ? view
-      : action === "notes"
-        ? { notes: [] }
-        : action === "messages"
-          ? { messages: [], before: null }
-          : { ok: true },
+      : action === "plan"
+        ? { plan: null }
+        : action === "notes"
+          ? { notes: [] }
+          : action === "messages"
+            ? { messages: [], before: null }
+            : { ok: true },
   );
 });
 function open() {
@@ -78,9 +80,38 @@ async function login() {
     target: { value: "123456" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Entrar a mi espacio" }));
+  await screen.findByText("Hola, Paciente sintético");
+  fireEvent.click(screen.getByRole("tab", { name: "Mi guía" }));
   await screen.findByText("Objetivo acordado");
 }
 describe("patient space", () => {
+  it("accepts a professional code without requesting an email", async () => {
+    open();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Tengo un código de mi nutriólogo" }),
+    );
+    expect(
+      screen.queryByLabelText("Correo registrado con tu nutriólogo"),
+    ).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Código de 8 dígitos"), {
+      target: { value: "12345678" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Entrar a mi espacio" }),
+    );
+    await screen.findByText("Hola, Paciente sintético");
+    expect(portalApi).toHaveBeenCalledWith(
+      "portal_verify_professional",
+      expect.objectContaining({ code: "12345678" }),
+    );
+    expect(portalApi).not.toHaveBeenCalledWith(
+      "portal_code",
+      expect.anything(),
+    );
+    await screen.findByText(
+      "Tu nutriólogo aún no ha compartido un plan publicado en este espacio.",
+    );
+  });
   it("does not request clinical data before both link and email verification", async () => {
     open();
     expect(screen.queryByText("Objetivo acordado")).not.toBeInTheDocument();

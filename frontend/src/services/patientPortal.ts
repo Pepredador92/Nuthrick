@@ -4,6 +4,7 @@ import type {
   SharedResult,
 } from "../../../supabase/functions/agenda/portal-content";
 export type { PortalContent, SharedResult };
+export type { PortalPlan } from "../../../supabase/functions/agenda/portal-plan";
 export type PortalAccess = { patientId: string } | { session: string };
 export type PortalView = {
   patientName: string;
@@ -33,8 +34,12 @@ export type MessagePage = {
   before: { id: string; at: string } | null;
 };
 const errors: Record<string, string> = {
+  invalid_plan:
+    "Este plan no está publicado, fue archivado o no puede mostrarse. Revísalo en el Taller de dietas.",
+  identity_confirmation_required:
+    "Confirma que identificaste al paciente antes de generar su código.",
   portal_unavailable:
-    "Este acceso no está disponible o tu sesión terminó. Abre tu enlace y verifica tu correo de nuevo.",
+    "Este acceso no está disponible o tu sesión terminó. Abre tu enlace y solicita un nuevo código.",
   invalid_code:
     "El código no es válido o ya venció. Revisa el correo o solicita otro.",
   email_required:

@@ -4,9 +4,13 @@
 
 En la ficha del paciente, **Superlink y chat** abre la administración de su espacio. El nutriólogo redacta el objetivo y las indicaciones, selecciona resultados e historial finalizado, revisa la vista del paciente y publica explícitamente. Las entrevistas y notas clínicas no se copian. Los resúmenes visibles se redactan por separado.
 
-El enlace se crea para el correo guardado en la ficha. Se copia para compartirlo por el canal que el profesional elija; el sistema no envía invitaciones automáticamente. El paciente necesita ese enlace y un código enviado a su correo. La ruta pública sin enlace no revela información: `/mi-espacio`.
+El enlace se puede crear con o sin correo en la ficha. Se copia para compartirlo por el canal que el profesional elija; el sistema no envía invitaciones automáticamente. El paciente necesita ese enlace y un código: el de seis dígitos enviado a su correo o el de ocho dígitos generado por su nutriólogo tras confirmar su identidad. La ruta pública sin enlace no revela información: `/mi-espacio`.
 
-El paciente tiene cinco secciones: Mi guía, Resultados, Consultas, Chat y Mis notas. Ambos participantes pueden iniciar el chat. **Mensajes** en la navegación profesional reúne las conversaciones y sus mensajes pendientes de lectura. Las notas personales son exclusivamente del paciente, con edición y marcado como resueltas; no se muestran al profesional.
+El paciente tiene seis secciones: Mi plan, Mi guía, Resultados, Consultas, Chat y Mis notas. Ambos participantes pueden iniciar el chat. **Mensajes** en la navegación profesional reúne las conversaciones y sus mensajes pendientes de lectura. Las notas personales son exclusivamente del paciente, con edición y marcado como resueltas; no se muestran al profesional.
+
+En **Compartir**, el profesional selecciona y revisa un plan publicado del Taller y confirma su publicación en **Mi plan**. Se muestra la versión publicada actual del plan seleccionado, nunca los cambios del borrador. Publicar una nueva versión de ese plan actualiza también el portal; archivarlo retira su contenido. Se puede dejar de compartir sin eliminar el plan. La respuesta al paciente contiene únicamente días, tiempos, ingredientes, cantidades, preparación y sustituciones revisadas; no el snapshot interno ni cálculos clínicos. Recetas y alimentos sueltos se unifican en la presentación compacta existente.
+
+Para pacientes sin correo, **Generar código de acceso** requiere confirmar que el profesional verificó la identidad. El código se muestra una sola vez, vence en diez minutos y admite un único acceso. El paciente elige **Tengo un código de mi nutriólogo**. No se envía automáticamente ni se conserva en texto plano; generar otro invalida el anterior. Esta alternativa no elimina el acceso por correo.
 
 ## Privacidad y límites
 
@@ -14,6 +18,7 @@ El paciente tiene cinco secciones: Mi guía, Resultados, Consultas, Chat y Mis n
 - RPC `patient_portal` con `SECURITY INVOKER`, ejecutable solo por `service_role`. Edge autentica al profesional mediante `Auth.getUser`, valida propiedad o sesión y construye los parámetros mediante listas permitidas; nunca confía en el actor recibido en el cuerpo.
 - Enlace aleatorio de 256 bits en el fragmento de URL, hash en DB y copia cifrada para que el propietario pueda recuperarlo. Caduca en 90 días. Renovarlo invalida sesiones y códigos anteriores.
 - Código de un solo uso: 10 minutos, 5 intentos, HMAC separado por ID y propósito. Verificación concurrente serializada: solo una sesión por código.
+- Código profesional: ocho dígitos criptográficamente aleatorios, HMAC vinculado al enlace y propósito separado del OTP de correo. Máximo tres generaciones por paciente/profesional en quince minutos y diez verificaciones por enlace en quince minutos, además de los cinco intentos por código. Confirmación de identidad obligatoria también en servidor.
 - Sesión aleatoria, hash en servidor y vigencia de 2 horas. El navegador la mantiene solo en memoria: recargar solicita un nuevo código. Respuestas `no-store`, sin referentes y página `noindex`.
 - Revocar impide el acceso y borra sesiones, pero conserva los mensajes y las notas. Archivar/eliminar al paciente, deshabilitar el portal o cambiar su correo impide usar la sesión anterior.
 - Solo resultados de consultas finalizadas del paciente. Las series conservan método/procedencia por separado. Los resultados son una instantánea revisada: cambios posteriores requieren republicar. Eliminar o reabrir una consulta retira su contenido del portal aunque exista una instantánea antigua.
@@ -47,3 +52,11 @@ Advisors no añade advertencias de seguridad nuevas. Las cinco tablas privadas g
 ## Vista visual local
 
 Desde `frontend`: `npx vite --config tests/visual/portal.vite.config.ts` y abrir `http://127.0.0.1:4182/tests/visual/portal.html` (no `file://`). Son fixtures sin conexión a Supabase ni Gmail. Correo ficticio `valeria@example.invalid`, código `123456`; `?owner` muestra la administración. No usar ese código en producción.
+
+## Ampliación: plan del Taller y acceso sin correo (21 septiembre 2026)
+
+- Typecheck, lint, build, Deno check y 544 pruebas en 70 archivos aprobados; Landing sigue excluido por ser una tarea independiente. Una ejecución tuvo un fallo intermitente en la prueba ajena de plantillas de entrevista; la repetición aislada y la suite completa pasaron sin cambios a ese módulo.
+- Pruebas SQL de plan publicado/borrador, propiedad del plan y de su versión, retiro al archivar, acceso sin correo, identidad obligatoria, separación de canales, vencimiento, límites y revocación. Pruebas concurrentes de OTP por correo y código profesional: una sola sesión por código.
+- Interacción visual local en escritorio y móvil de 375 px; seis pestañas visibles. Código profesional ficticio de la vista local: `12345678`.
+- Migración `20260921202541_patient_portal_plan_and_manual_code` aplicada en Nuthrick. RPC sigue siendo invoker, sin ejecución para anon/authenticated y con ejecución para service_role. Edge `agenda` v5 ACTIVE. Advisors mantiene exactamente las categorías y cantidades anteriores, sin nuevos avisos.
+- No se compartieron planes ni se generaron códigos para pacientes reales durante la validación.

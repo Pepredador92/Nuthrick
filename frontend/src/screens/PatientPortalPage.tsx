@@ -8,6 +8,7 @@ import {
   LogOut,
   MessageCircle,
   NotebookPen,
+  Utensils,
 } from "lucide-react";
 import {
   portalApi,
@@ -18,6 +19,7 @@ import {
 import { PortalContentView } from "@/src/components/patients/PortalContentView";
 import { PortalChat } from "@/src/components/patients/PortalChat";
 import { PortalNotes } from "@/src/components/patients/PortalNotes";
+import { PortalPatientPlan } from "@/src/components/patients/PortalPlan";
 import "./PatientPortal.css";
 
 export function PatientPortalPage() {
@@ -30,19 +32,22 @@ function PatientPortalContent() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [challenge, setChallenge] = useState("");
+  const [method, setMethod] = useState<"email" | "professional">("email");
   const [session, setSession] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [view, setView] = useState<PortalView | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState("today");
+  const [tab, setTab] = useState("plan");
   const access = useMemo(() => ({ session }), [session]);
   function expire() {
     setSession("");
     setView(null);
     setChallenge("");
     setCode("");
-    setError("Tu sesión terminó. Verifica tu correo para volver a entrar.");
+    setError(
+      "Tu sesión terminó. Solicita un nuevo código para volver a entrar.",
+    );
   }
   useEffect(() => {
     if (!session) return;
@@ -102,7 +107,9 @@ function PatientPortalContent() {
     setError("");
     try {
       const result = await portalApi<{ session: string; expiresAt: string }>(
-        "portal_verify",
+        method === "professional"
+          ? "portal_verify_professional"
+          : "portal_verify",
         { link, id: challenge, code },
       );
       setExpiresAt(result.expiresAt);
@@ -156,7 +163,7 @@ function PatientPortalContent() {
               Tu seguimiento, en un solo lugar.
             </h1>
             <p className="mt-3 text-sm leading-6 text-[#74817d]">
-              Resultados, indicaciones y una conversación directa con tu
+              Tu plan alimenticio, resultados y una conversación directa con tu
               nutriólogo.
             </p>
             {!/^[A-Za-z0-9_-]{40,100}$/.test(link) ? (
@@ -169,47 +176,87 @@ function PatientPortalContent() {
                 className="mt-6 space-y-4"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  void (challenge ? verify() : sendCode());
+                  void (challenge || method === "professional"
+                    ? verify()
+                    : sendCode());
                 }}
               >
-                <div>
-                  <label
-                    htmlFor="portal-email"
-                    className="text-sm font-semibold"
+                <div
+                  className="flex flex-col gap-2"
+                  aria-label="Método de acceso"
+                >
+                  <button
+                    type="button"
+                    className="nuth-button-secondary justify-center"
+                    aria-pressed={method === "email"}
+                    disabled={busy}
+                    onClick={() => {
+                      setMethod("email");
+                      setCode("");
+                      setChallenge("");
+                      setError("");
+                    }}
                   >
-                    Correo registrado con tu nutriólogo
-                  </label>
-                  <input
-                    id="portal-email"
-                    type="email"
-                    className="nuth-input mt-2"
-                    required
-                    maxLength={320}
-                    autoComplete="email"
-                    value={email}
-                    disabled={!!challenge || busy}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
+                    Recibir código por correo
+                  </button>
+                  <button
+                    type="button"
+                    className="nuth-button-secondary justify-center"
+                    aria-pressed={method === "professional"}
+                    disabled={busy}
+                    onClick={() => {
+                      setMethod("professional");
+                      setCode("");
+                      setChallenge("");
+                      setError("");
+                    }}
+                  >
+                    Tengo un código de mi nutriólogo
+                  </button>
                 </div>
-                {challenge && (
+                {method === "email" && (
+                  <div>
+                    <label
+                      htmlFor="portal-email"
+                      className="text-sm font-semibold"
+                    >
+                      Correo registrado con tu nutriólogo
+                    </label>
+                    <input
+                      id="portal-email"
+                      type="email"
+                      className="nuth-input mt-2"
+                      required
+                      maxLength={320}
+                      autoComplete="email"
+                      value={email}
+                      disabled={!!challenge || busy}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </div>
+                )}
+                {(challenge || method === "professional") && (
                   <div>
                     <p className="mb-3 text-sm text-[#53685e]">
-                      Te enviamos un código. Revisa también la carpeta de correo
-                      no deseado.
+                      {method === "professional"
+                        ? "Escribe el código de un solo uso que te entregó tu nutriólogo. No necesitas correo."
+                        : "Te enviamos un código. Revisa también la carpeta de correo no deseado."}
                     </p>
                     <label
                       htmlFor="portal-code"
                       className="text-sm font-semibold"
                     >
-                      Código de 6 dígitos
+                      Código de {method === "professional" ? 8 : 6} dígitos
                     </label>
                     <input
                       id="portal-code"
                       className="nuth-input mt-2 text-center text-xl tracking-[.3em]"
                       inputMode="numeric"
                       autoComplete="one-time-code"
-                      pattern="[0-9]{6}"
-                      maxLength={6}
+                      pattern={
+                        method === "professional" ? "[0-9]{8}" : "[0-9]{6}"
+                      }
+                      maxLength={method === "professional" ? 8 : 6}
                       required
                       value={code}
                       onChange={(e) =>
@@ -224,7 +271,7 @@ function PatientPortalContent() {
                 >
                   {busy
                     ? "Un momento…"
-                    : challenge
+                    : challenge || method === "professional"
                       ? "Entrar a mi espacio"
                       : "Recibir código de acceso"}
                 </button>
@@ -281,6 +328,7 @@ function PatientPortalContent() {
                   className="portal-tabs"
                 >
                   {[
+                    { id: "plan", label: "Mi plan", Icon: Utensils },
                     { id: "today", label: "Mi guía", Icon: ClipboardList },
                     { id: "results", label: "Resultados", Icon: Activity },
                     { id: "history", label: "Consultas", Icon: CalendarDays },
@@ -308,7 +356,9 @@ function PatientPortalContent() {
                   role="tabpanel"
                   aria-labelledby={`tab-${tab}`}
                 >
-                  {tab === "chat" ? (
+                  {tab === "plan" ? (
+                    <PortalPatientPlan access={access} />
+                  ) : tab === "chat" ? (
                     <PortalChat
                       key={session}
                       access={access}

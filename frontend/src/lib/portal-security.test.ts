@@ -5,6 +5,7 @@ import { portalRequest } from "../../../supabase/functions/agenda/portal";
 import {
   secretToken,
   sha256,
+  encrypt,
 } from "../../../supabase/functions/agenda/security";
 const content = {
   goal: "Objetivo",
@@ -27,6 +28,67 @@ function dependencies() {
   };
 }
 describe("patient-only portal boundary", () => {
+  it("issues a random manual code only after verified owner and identity acknowledgement, never emails it", async () => {
+    const d = dependencies(),
+      link = secretToken();
+    d.rpc
+      .mockResolvedValueOnce({
+        enabled: true,
+        encryptedLink: await encrypt(d.key, link),
+      })
+      .mockResolvedValueOnce({ expiresAt: "2026-09-21T20:00:00Z" });
+    const result = await portalRequest(
+      req,
+      {
+        op: "portal_owner",
+        action: "issue_code",
+        patientId,
+        identityConfirmed: true,
+        owner: "INJECTED",
+      },
+      d,
+    );
+    expect(result.code).toMatch(/^\d{8}$/);
+    expect(d.owner).toHaveBeenCalledOnce();
+    expect(d.mail).not.toHaveBeenCalled();
+    const sent = d.rpc.mock.calls[1][0].p_data as Record<string, unknown>;
+    expect(sent.owner).toBe(owner);
+    expect(sent).not.toHaveProperty("code");
+    expect(sent.linkHash).toBe(await sha256(link));
+    const verify = dependencies();
+    verify.key = d.key;
+    verify.rpc.mockResolvedValue({ verified: true });
+    await portalRequest(
+      req,
+      { op: "portal_verify_professional", link, code: result.code },
+      verify,
+    );
+    const verified = verify.rpc.mock.calls[0][0].p_data as Record<
+      string,
+      unknown
+    >;
+    expect(verified.codeHash).toBe(sent.codeHash);
+    expect(verified).not.toHaveProperty("email");
+    await expect(
+      portalRequest(
+        req,
+        { op: "portal_owner", action: "issue_code", patientId },
+        dependencies(),
+      ),
+    ).rejects.toThrow("identity_confirmation_required");
+    await expect(
+      portalRequest(
+        req,
+        {
+          op: "portal_patient",
+          action: "issue_code",
+          session: secretToken(),
+          identityConfirmed: true,
+        },
+        dependencies(),
+      ),
+    ).rejects.toThrow("invalid_action");
+  });
   it("strips clinical metadata at every nested level and preserves methods independently", () => {
     const point = {
       consultationId: patientId,

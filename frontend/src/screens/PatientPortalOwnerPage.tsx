@@ -24,6 +24,8 @@ import {
   portalDate,
 } from "@/src/components/patients/PortalContentView";
 import { PortalChat } from "@/src/components/patients/PortalChat";
+import { PortalAccessCode } from "@/src/components/patients/PortalAccessCode";
+import { PortalPlanSharing } from "@/src/components/patients/PortalPlanSharing";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
 import "./PatientPortal.css";
 
@@ -238,7 +240,9 @@ function OwnerPortal({ patientId }: { patientId: string }) {
               {view.enabled ? "Acceso habilitado" : "Acceso no disponible"}
             </h2>
             <p className="mt-2 text-sm text-[#74817d]">
-              El código se envía a {email || "un correo aún no registrado"}.
+              {email
+                ? `Código por correo a ${email} o generado por ti.`
+                : "Sin correo registrado. Puedes generar un código tras verificar al paciente."}
             </p>
             {view.enabled && view.expiresAt && (
               <p className="mt-1 text-xs text-[#74817d]">
@@ -254,7 +258,7 @@ function OwnerPortal({ patientId }: { patientId: string }) {
               </button>
             )}
             <button
-              disabled={busy || !email}
+              disabled={busy}
               className="nuth-button-secondary"
               onClick={() => setConfirm("link")}
             >
@@ -288,7 +292,7 @@ function OwnerPortal({ patientId }: { patientId: string }) {
           >
             <p className="text-sm">
               {confirm === "link"
-                ? `Se habilitará el acceso con verificación a ${email}. Cualquier enlace y sesión anterior dejará de funcionar. La información solo se comparte al publicarla.`
+                ? `Se habilitará el acceso con código ${email ? "por correo o generado por ti" : "generado por ti tras verificar al paciente"}. Cualquier enlace y sesión anterior dejará de funcionar. Solo verá la información y el plan que decidas compartir.`
                 : "Se cerrará el acceso del paciente. No se borran el expediente, los mensajes ni sus notas."}
             </p>
             <div className="mt-3 flex gap-4">
@@ -305,7 +309,11 @@ function OwnerPortal({ patientId }: { patientId: string }) {
             </div>
           </div>
         )}
+        {view.enabled && (
+          <PortalAccessCode key={view.link} patientId={patientId} />
+        )}
       </section>
+      {tab === "share" && <PortalPlanSharing patientId={patientId} />}
       {notice && (
         <p role="status" className="mt-4 rounded-xl bg-[#edf5e9] p-4 text-sm">
           {notice}

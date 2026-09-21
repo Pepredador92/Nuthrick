@@ -33,14 +33,23 @@ vi.mock("@/src/services/longitudinalHistory", () => ({
 }));
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(portalAction).mockResolvedValue({
-    enabled: false,
-    patientName: "Paciente sintético",
-    professional: { name: "Profesional" },
-    unread: 0,
-    revision: 0,
-    shared: { goal: "", instructions: "", results: [], consultations: [] },
-  });
+  vi.mocked(portalAction).mockImplementation(async (_access, action) =>
+    action === "plan_options"
+      ? { plans: [], selectedPlanId: null }
+      : {
+          enabled: false,
+          patientName: "Paciente sintético",
+          professional: { name: "Profesional" },
+          unread: 0,
+          revision: 0,
+          shared: {
+            goal: "",
+            instructions: "",
+            results: [],
+            consultations: [],
+          },
+        },
+  );
 });
 it("requires deliberate preview/publication and never imports the private consultation summary", async () => {
   render(
@@ -56,8 +65,7 @@ it("requires deliberate preview/publication and never imports the private consul
   await screen.findByText("Su guía nutricional");
   expect(screen.queryByText("PRIVATE SUMMARY")).not.toBeInTheDocument();
   expect(screen.queryByText("PRIVATE DRAFT")).not.toBeInTheDocument();
-  expect(screen.getAllByRole("checkbox")).toHaveLength(1);
-  fireEvent.click(screen.getByRole("checkbox"));
+  fireEvent.click(screen.getByRole("checkbox", { name: /Consulta de inicio/ }));
   expect(
     screen.getByRole("textbox", { name: /Resumen para el paciente/ }),
   ).toHaveValue("");

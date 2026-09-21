@@ -252,7 +252,7 @@ Deno.serve(async req => {
       try { return respond(await portalRequest(req,body,{rpc:args=>rpc('patient_portal',args),owner:async req=>(await ownerFromRequest(req)).id,limit,mail:sendPortalMail,key:key()})); }
       catch(error) {
         const code=error instanceof Error?error.message:'';
-        const safe=['portal_unavailable','email_required','stale_revision','invalid_consultation','invalid_input','invalid_code','invalid_action','unauthorized','rate_limited','note_limit','idempotency_mismatch','mail_not_connected','mail_send_failed','mail_delivery_unknown','email_test_mode'];
+        const safe=['portal_unavailable','email_required','stale_revision','invalid_consultation','invalid_plan','identity_confirmation_required','invalid_input','invalid_code','invalid_action','unauthorized','rate_limited','note_limit','idempotency_mismatch','mail_not_connected','mail_send_failed','mail_delivery_unknown','email_test_mode'];
         return respond({error:safe.includes(code)?code:'temporarily_unavailable'},400);
       }
     }

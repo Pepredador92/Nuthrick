@@ -1,6 +1,8 @@
 // In-memory visual fixtures. No Supabase, Gmail, patient records or network writes.
 import type { PortalView, PortalContent, PortalMessage, PortalNote } from '../../src/services/patientPortal';
 const cid = '20000000-0000-0000-0000-000000000001';
+const plan = {title:'Mi semana de alimentación',versionNumber:2,publishedAt:'2026-09-21',days:[{name:'Lunes',meals:[{name:'Desayuno',time:'08:00',title:'Huevos con frijoles y tortilla',ingredients:[{name:'Huevo entero',amount:2,unit:'pieza',alternatives:[{name:'Pollo cocido',amount:60,unit:'g'},{name:'Pescado cocido',amount:60,unit:'g'}]},{name:'Tortilla de maíz',amount:2,unit:'tortilla',alternatives:[]},{name:'Frijoles cocidos',amount:0.5,unit:'taza',alternatives:[]},{name:'Plátano',amount:0.5,unit:'pieza',alternatives:[]},{name:'Agua natural',amount:240,unit:'ml',alternatives:[]}],instructions:['Cocina los huevos y acompaña con frijoles y tortillas. Sirve la fruta y el agua al lado.']}]}]};
+let selectedPlanId: string|null = 'plan-fixture';
 const shared: PortalContent = {
   goal: 'Construir una rutina de alimentación que se adapte a mis horarios y me ayude a sentirme con más energía.',
   instructions: 'Mantén tus tres comidas principales y lleva una colación cuando tengas una jornada larga.\n\nIncluye verduras en comida y cena. Ten agua a la mano durante el día.\n\nEn nuestra próxima consulta revisaremos cómo te sentiste con estos cambios.',
@@ -17,10 +19,15 @@ export class PortalError extends Error { code = 'portal_unavailable'; }
 export function portalLink(link: string) { return `https://example.invalid/mi-espacio#${link}`; }
 export async function portalApi(op: string, data: Record<string, unknown>) {
   if (op === 'portal_code') return { id: 'fixture-challenge' };
-  if (op === 'portal_verify') { if (data.code !== '123456') throw new Error('En esta prueba local usa 123456.'); return { session: 'fixture-session', expiresAt: new Date(Date.now()+7200000).toISOString() }; }
+  if (op === 'portal_verify' || op === 'portal_verify_professional') { if (data.code !== (op==='portal_verify'?'123456':'12345678')) throw new Error('Código de prueba incorrecto.'); return { session: 'fixture-session', expiresAt: new Date(Date.now()+7200000).toISOString() }; }
   return {};
 }
 export async function portalAction(access: Record<string, unknown>, action: string, data: Record<string, unknown> = {}) {
+  if(action==='plan_options')return {plans:[{id:'plan-fixture',title:plan.title,version_number:2,published_at:plan.publishedAt}],selectedPlanId};
+  if(action==='plan_preview')return {plan};
+  if(action==='plan')return {plan:selectedPlanId?plan:null};
+  if(action==='share_plan'){selectedPlanId=data.planId as string|null;return {ok:true};}
+  if(action==='issue_code')return {code:'12345678',expiresAt:new Date(Date.now()+600000).toISOString()};
   if (action === 'view') return { ...view, unread: messages.some(m => m.sender === 'professional') ? 1 : 0 };
   if (action === 'messages') {
     const after = data.after as { id: string } | undefined;
