@@ -524,6 +524,8 @@ export function ConsultationTemplateEditorPage() {
           ))}
         </nav>
       </header>
+      {overview && notice && <p role="status" className="mt-4 rounded-xl bg-[#edf5ef] p-4 text-sm text-[#315e4f]">{notice}</p>}
+      {overview && error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] p-4 text-sm text-[#963f32]">{error}</p>}
       {overview && (
         <section
           className="mt-5 rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-7"
@@ -785,7 +787,7 @@ export function ConsultationTemplateEditorPage() {
             system &&
             loaded.template.source_template_id !== system.template.id && (
               <div className="mt-4 rounded-xl bg-[#fff6e5] p-4 text-sm text-[#7b5d30]">
-                Hay una versión predeterminado más reciente. Tu copia no se ha
+                Hay un diseño recomendado más reciente. Tu copia no se ha
                 sobrescrito.
                 <button
                   type="button"
