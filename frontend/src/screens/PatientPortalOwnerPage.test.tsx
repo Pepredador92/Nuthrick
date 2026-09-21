@@ -34,7 +34,7 @@ vi.mock("@/src/services/longitudinalHistory", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(portalAction).mockImplementation(async (_access, action) =>
-    action === "plan_options"
+    action === "goal_candidates" ? {goals:[{consultationId:"complete",date:"2026-09-10",revision:1,questionKey:"objectives",content:"Objetivo autorizado"}]} : action === "plan_options"
       ? { plans: [], selectedPlanId: null }
       : {
           enabled: false,
@@ -69,9 +69,7 @@ it("requires deliberate preview/publication and never imports the private consul
   expect(
     screen.getByRole("textbox", { name: /Resumen para el paciente/ }),
   ).toHaveValue("");
-  fireEvent.change(screen.getByLabelText("Objetivo acordado"), {
-    target: { value: "Objetivo autorizado" },
-  });
+  fireEvent.click(await screen.findByRole('checkbox',{name:'Compartir objetivo'}));
   expect(
     vi.mocked(portalAction).mock.calls.some((c) => c[1] === "publish"),
   ).toBe(false);

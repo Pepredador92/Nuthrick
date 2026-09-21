@@ -25,6 +25,7 @@ import {
   LoadingState,
   SuccessNote,
 } from "@/src/components/ui/Status";
+import {PublishedPlanHistory} from "@/src/components/patients/PublishedPlanHistory";
 import { PatientEvolutionTable } from "@/src/components/patients/PatientEvolutionTable";
 import { PatientEvolutionCharts } from "@/src/components/patients/EvolutionCharts";
 import { EvolutionExportDialog } from "@/src/components/patients/EvolutionExportDialog";
@@ -47,7 +48,6 @@ import {
   deletePatientNote,
   deletePatient,
   getPatient,
-  listNutritionPlans,
   listPatientNotes,
   listProgressPhotos,
   listConsultations,
@@ -72,7 +72,6 @@ import { getSignedMediaUrl } from "@/src/services/media";
 import { loadProfessionalDocumentProfile } from "@/src/services/profile";
 import type {
   Consultation,
-  NutritionPlan,
   Patient,
   PatientMeasurement,
   PatientNote,
@@ -81,7 +80,7 @@ import type {
   QuestionnaireSubmission,
 } from "@/src/types/domain";
 
-type HistoryTab = "consultations" | "plans" | "notes";
+type HistoryTab = "timeline" | "consultations" | "plans" | "notes";
 type ConfirmAction =
   "archive" | "delete" | "note-delete" | "consultation-delete";
 
@@ -383,7 +382,7 @@ function HistoryModal({
   consultations,
   selectedConsultationId,
   onSelectConsultation,
-  plans,
+  patientId,
   notes,
   onCreateNote,
   onEditNote,
@@ -401,7 +400,7 @@ function HistoryModal({
   consultations: Consultation[];
   selectedConsultationId: string | null;
   onSelectConsultation: (id: string) => void;
-  plans: NutritionPlan[];
+  patientId: string;
   notes: PatientNote[];
   onCreateNote: (event: FormEvent<HTMLFormElement>) => void;
   onEditNote: (note: PatientNote) => void;
@@ -457,6 +456,7 @@ function HistoryModal({
         <nav className="flex gap-1 overflow-x-auto border-b border-[#e3eae4] px-5 sm:px-7">
           {(
             [
+              ["timeline", "Todo"],
               ["consultations", "Consultas"],
               ["plans", "Planes"],
               ["notes", "Notas"],
@@ -534,59 +534,7 @@ function HistoryModal({
               />
             </div>
           )}
-          {tab === "plans" && (
-            <div>
-              {plans.length ? (
-                <div className="overflow-x-auto rounded-2xl border border-[#dfe5e1]">
-                  <table className="w-full min-w-[650px] text-left text-sm">
-                    <thead className="bg-[#f5f7f3] text-xs uppercase text-[#82908a]">
-                      <tr>
-                        <th className="px-4 py-3">Consulta</th>
-                        <th className="px-4 py-3">Asignado</th>
-                        <th className="px-4 py-3">Revisión</th>
-                        <th className="px-4 py-3">Tipo</th>
-                        <th className="px-4 py-3">Calorías</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#edf1ed]">
-                      {plans.map((plan) => (
-                        <tr key={plan.id}>
-                          <td className="px-4 py-3">
-                            {consultations.find(
-                              (item) => item.id === plan.consultation_id,
-                            )
-                              ? consultationLabel(
-                                  consultations.find(
-                                    (item) => item.id === plan.consultation_id,
-                                  )!,
-                                )
-                              : "Sin consulta"}
-                          </td>
-                          <td className="px-4 py-3">
-                            {formatPatientDate(plan.assigned_at)}
-                          </td>
-                          <td className="px-4 py-3">
-                            {formatPatientDate(plan.review_date)}
-                          </td>
-                          <td className="px-4 py-3">{plan.plan_type || "—"}</td>
-                          <td className="px-4 py-3">
-                            {plan.target_calories
-                              ? `${plan.target_calories} kcal`
-                              : "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <EmptyState
-                  title="No hay planes registrados."
-                  description="El historial quedará disponible cuando conectemos el módulo de planes."
-                />
-              )}
-            </div>
-          )}
+          {(tab === "plans" || tab === "timeline") && <PublishedPlanHistory key={tab} patientId={patientId} consultations={tab === "timeline" ? consultations : []} onConsultation={id=>{onSelectConsultation(id);onTab("consultations");}}/>}
           {tab === "notes" && (
             <div className="grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
               <form
@@ -798,7 +746,6 @@ export function PatientDetailPage() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [notes, setNotes] = useState<PatientNote[]>([]);
-  const [plans, setPlans] = useState<NutritionPlan[]>([]);
   const [photos, setPhotos] = useState<PatientProgressPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -823,11 +770,10 @@ export function PatientDetailPage() {
     setLoading(true);
     setError("");
     try {
-      const [p, c, n, pl, ph] = await Promise.all([
+      const [p, c, n, ph] = await Promise.all([
         getPatient(patientId),
         listConsultations(patientId),
         listPatientNotes(patientId),
-        listNutritionPlans(patientId),
         listProgressPhotos(patientId),
       ]);
       if (!p) {
@@ -840,7 +786,6 @@ export function PatientDetailPage() {
       setPatient(p);
       setConsultations(c);
       setNotes(n);
-      setPlans(pl);
       setSelectedConsultationId((current) => current ?? c[0]?.id ?? null);
       setPhotos(
         await Promise.all(
@@ -1486,7 +1431,7 @@ export function PatientDetailPage() {
           consultations={consultations}
           selectedConsultationId={selectedConsultationId}
           onSelectConsultation={setSelectedConsultationId}
-          plans={plans}
+          patientId={patient.id}
           notes={notes}
           onCreateNote={addNote}
           onEditNote={(note) => void editNote(note)}

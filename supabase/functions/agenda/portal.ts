@@ -9,6 +9,7 @@ type Dependencies = {
   limit: (bucket: string, max: number, seconds: number) => Promise<void>;
   mail: (to: string, subject: string, message: string, id: string) => Promise<string>;
   key: string;
+  document?: (plan:unknown,professional:unknown,format:'pdf'|'tex')=>Promise<Json>;
 };
 const token = (v: unknown) => {
   if (typeof v !== 'string' || !/^[A-Za-z0-9_-]{40,100}$/.test(v)) throw new Error('portal_unavailable');
@@ -66,11 +67,23 @@ export async function portalRequest(req: Request, body: Json, deps: Dependencies
   } else throw new Error('invalid_action');
 
   const allowed = body.op === 'portal_owner'
-    ? ['view', 'link', 'revoke', 'publish', 'messages', 'message', 'read', 'issue_code', 'plan', 'plan_options', 'plan_preview', 'share_plan']
-    : ['view', 'messages', 'message', 'read', 'notes', 'note', 'delete_note', 'logout', 'plan'];
+    ? ['view', 'link', 'revoke', 'publish', 'messages', 'message', 'read', 'issue_code', 'plan', 'plan_options', 'plan_preview', 'share_plan','goal_candidates','plan_history','plan_version','export_plan']
+    : ['view', 'messages', 'message', 'read', 'notes', 'note', 'delete_note', 'logout', 'plan','export_plan'];
   if (!allowed.includes(action)) throw new Error('invalid_action');
   // Whitelist each payload; never spread untrusted JSON into actor fields.
   let data: Json = {};
+  if(action==='plan_history') {
+    if(body.offset!==undefined && (!Number.isInteger(body.offset)||Number(body.offset)<0||Number(body.offset)>10000))throw new Error('invalid_input');
+    data={offset:body.offset||0};
+  }
+  if(action==='plan_version')data={versionId:uuid(body.versionId)};
+  if(action==='export_plan') {
+    const owner=body.op==='portal_owner';
+    if(body.format!=='pdf' && !(owner&&body.format==='tex'))throw new Error('invalid_action');
+    if(!owner && ('planId' in body || 'versionId' in body))throw new Error('invalid_action');
+    data={format:body.format,...(owner?{versionId:uuid(body.versionId)}:{})};
+    await deps.limit(`portal:export:${actor.owner||actor.sessionHash}`,10,300);
+  }
   if (action === 'issue_code') {
     if (body.identityConfirmed !== true) throw new Error('identity_confirmation_required');
     await deps.limit(`portal:issue:${actor.owner}:${actor.patientId}`,3,900);
@@ -105,7 +118,16 @@ export async function portalRequest(req: Request, body: Json, deps: Dependencies
     data = { [body.before ? 'before' : 'after']: { id: uuid(cursor.id), at: cursor.at } };
   }
   const result = await call(action, { ...actor, ...data });
-  if (action === 'plan' || action === 'plan_preview') return {plan:projectPortalPlan(result.plan)};
+  if (action === 'plan' || action === 'plan_preview' || action==='plan_version') return {plan:projectPortalPlan(result.plan)};
+  if(action==='export_plan') {
+    if(!deps.document)throw new Error('document_unavailable');
+    const document=await deps.document(result.plan,result.professional,body.format as 'pdf'|'tex');
+    // Revalidate after rendering, so revocation or a different shared version
+    // during generation cannot deliver a stale document.
+    const current=await call(action,{...actor,...data});
+    if(JSON.stringify(current.plan)!==JSON.stringify(result.plan))throw new Error('invalid_plan');
+    return document;
+  }
   if (action === 'view') {
     // Defense in depth: old or malformed snapshots also cannot leak metadata.
     result.shared = sanitizePortalContent(result.shared);

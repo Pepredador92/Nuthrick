@@ -24,6 +24,8 @@ export function PortalChat({
   const [loading, setLoading] = useState(true);
   const [olderBusy, setOlderBusy] = useState(false);
   const nonce = useRef<{ body: string; id: string } | null>(null);
+  const sendLock = useRef(false);
+  const composing = useRef(false);
   const latest = useRef<{ id: string; at: string } | null>(null);
   const list = useRef<HTMLDivElement>(null);
   const firstScroll = useRef(true);
@@ -116,7 +118,8 @@ export function PortalChat({
     firstScroll.current = false;
   }, [messages.length]);
   async function send() {
-    if (!draft.trim() || sending) return;
+    if (!draft.trim() || sendLock.current) return;
+    sendLock.current = true;
     setSending(true);
     setError("");
     const body = draft.trim();
@@ -138,6 +141,7 @@ export function PortalChat({
           : "No se pudo enviar. Tu mensaje sigue aquí.",
       );
     } finally {
+      sendLock.current = false;
       setSending(false);
     }
   }
@@ -245,6 +249,13 @@ export function PortalChat({
             value={draft}
             disabled={sending}
             onChange={(e) => setDraft(e.target.value)}
+            onCompositionStart={() => { composing.current = true; }}
+            onCompositionEnd={() => { composing.current = false; }}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" || e.shiftKey || composing.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
+              e.preventDefault();
+              if (!e.repeat) void send();
+            }}
           />
           <button
             className="nuth-button !px-4"

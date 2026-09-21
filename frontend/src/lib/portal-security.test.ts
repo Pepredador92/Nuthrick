@@ -28,6 +28,18 @@ function dependencies() {
   };
 }
 describe("patient-only portal boundary", () => {
+  it('rejects patient version injection and TEX before reading a plan',async()=>{
+    for(const data of [{format:'tex'},{format:'pdf',versionId:owner},{format:'pdf',planId:owner}]){
+      const d=dependencies();await expect(portalRequest(req,{op:'portal_patient',session:secretToken(),action:'export_plan',...data},d)).rejects.toThrow('invalid_action');expect(d.rpc).not.toHaveBeenCalled();
+    }
+  });
+  it('revalidates authorization and the shared version after rendering before returning bytes',async()=>{
+    const d={...dependencies(),document:vi.fn(async()=>({base64:'SAFE'}))};
+    d.rpc.mockResolvedValueOnce({plan:{versionNumber:2},professional:{}}).mockResolvedValueOnce({error:'portal_unavailable'});
+    await expect(portalRequest(req,{op:'portal_patient',session:secretToken(),action:'export_plan',format:'pdf'},d)).rejects.toThrow('portal_unavailable');expect(d.document).toHaveBeenCalledOnce();
+    d.rpc.mockResolvedValueOnce({plan:{versionNumber:2},professional:{}}).mockResolvedValueOnce({plan:{versionNumber:3},professional:{}});
+    await expect(portalRequest(req,{op:'portal_patient',session:secretToken(),action:'export_plan',format:'pdf'},d)).rejects.toThrow('invalid_plan');
+  });
   it("issues a random manual code only after verified owner and identity acknowledgement, never emails it", async () => {
     const d = dependencies(),
       link = secretToken();

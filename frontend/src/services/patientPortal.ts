@@ -34,6 +34,8 @@ export type MessagePage = {
   before: { id: string; at: string } | null;
 };
 const errors: Record<string, string> = {
+  invalid_goal: "El objetivo de la consulta cambió o ya no está disponible. Actualiza la selección antes de publicar.",
+  document_too_large: "El plan es demasiado extenso para exportarlo. Revisa su contenido con tu nutriólogo.",
   invalid_plan:
     "Este plan no está publicado, fue archivado o no puede mostrarse. Revísalo en el Taller de dietas.",
   identity_confirmation_required:

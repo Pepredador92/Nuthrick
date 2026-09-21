@@ -6,6 +6,7 @@ import {
 } from "@/src/services/patientPortal";
 import { formatFoodQuantity } from "@/src/features/menu/units";
 import { portalDate } from "./PortalContentView";
+import {PlanExport} from './PlanExport';
 
 export function PortalPlanContent({ plan }: { plan: PortalPlan | null }) {
   if (!plan)
@@ -145,5 +146,5 @@ export function PortalPatientPlan({ access }: { access: PortalAccess }) {
   }, [access]);
   if (loading) return <p role="status">Cargando tu plan…</p>;
   if (error) return <p role="alert">{error}</p>;
-  return <PortalPlanContent plan={plan} />;
+  return <>{plan&&<div className="mb-3 flex justify-end"><PlanExport access={access}/></div>}<PortalPlanContent plan={plan} /></>;
 }

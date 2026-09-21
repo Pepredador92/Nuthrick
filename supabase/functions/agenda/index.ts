@@ -24,6 +24,21 @@ async function rpc<T>(name: string, args: Json): Promise<T> {
 const server = <T>(action: string,data: Json={}) => rpc<T>('agenda_server',{p_action:action,p_data:data});
 const credentials = (owner?: string) => server<Credentials>('credentials',{owner});
 const key = () => env('AGENDA_ENCRYPTION_KEY');
+const base64Bytes=(bytes:Uint8Array)=>{let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(text);};
+async function planDocument(plan:unknown,professional:unknown,format:'pdf'|'tex'):Promise<Json> {
+  const {buildPlanDocument,renderPlanPdf,renderPlanTex,planFileName}=await import('./plan-document.ts');
+  const model=buildPlanDocument(plan,professional);
+  let logo:string|null=null;
+  const path=(professional as Json).logoPath;
+  // Only an owner-bound storage path from the authorized SQL lookup, never a URL from the request.
+  if(typeof path==='string' && /^[a-f0-9-]+\/logo\/[A-Za-z0-9._-]+$/.test(path)) {
+    const {data}=await db.storage.from('professional-media').download(path);
+    if(data && data.size<=3*1024*1024 && ['image/png','image/jpeg'].includes(data.type))logo=`data:${data.type};base64,${base64Bytes(new Uint8Array(await data.arrayBuffer()))}`;
+  }
+  const bytes=format==='pdf'?renderPlanPdf(model,logo):new TextEncoder().encode(renderPlanTex(model,logo));
+  if(bytes.length>8*1024*1024)throw new Error('document_too_large');
+  return {filename:planFileName(model,format),mime:format==='pdf'?'application/pdf':'application/x-tex;charset=utf-8',base64:base64Bytes(bytes)};
+}
 function validUUID(value: unknown): string { if(typeof value!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value)) throw new Error('invalid_id'); return value; }
 async function limit(bucket: string,max: number,seconds: number) {
   if(!await rpc<boolean>('agenda_rate_limit',{p_bucket_hash:await sha256(bucket),p_max:max,p_seconds:seconds})) throw new Error('rate_limited');
@@ -249,10 +264,10 @@ Deno.serve(async req => {
     const ip=req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()||'unknown';
     await limit(`agenda:ip:${ip}`,120,60);
     if(op.startsWith('portal_')) {
-      try { return respond(await portalRequest(req,body,{rpc:args=>rpc('patient_portal',args),owner:async req=>(await ownerFromRequest(req)).id,limit,mail:sendPortalMail,key:key()})); }
+      try { return respond(await portalRequest(req,body,{rpc:args=>rpc('patient_portal',args),owner:async req=>(await ownerFromRequest(req)).id,limit,mail:sendPortalMail,key:key(),document:planDocument})); }
       catch(error) {
         const code=error instanceof Error?error.message:'';
-        const safe=['portal_unavailable','email_required','stale_revision','invalid_consultation','invalid_plan','identity_confirmation_required','invalid_input','invalid_code','invalid_action','unauthorized','rate_limited','note_limit','idempotency_mismatch','mail_not_connected','mail_send_failed','mail_delivery_unknown','email_test_mode'];
+        const safe=['portal_unavailable','email_required','stale_revision','invalid_consultation','invalid_plan','invalid_goal','document_too_large','identity_confirmation_required','invalid_input','invalid_code','invalid_action','unauthorized','rate_limited','note_limit','idempotency_mismatch','mail_not_connected','mail_send_failed','mail_delivery_unknown','email_test_mode'];
         return respond({error:safe.includes(code)?code:'temporarily_unavailable'},400);
       }
     }

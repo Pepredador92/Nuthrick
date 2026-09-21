@@ -4,6 +4,7 @@ export type SharedResult = {
 };
 export type PortalContent = {
   goal: string; instructions: string; results: SharedResult[];
+  goalSource?: {consultationId:string;revision:number;questionKey:string}|null;
   consultations: { id: string; date: string; title: string; summary: string }[];
 };
 export const uuid = (v: unknown): string => {
@@ -31,7 +32,8 @@ const date = (v: unknown) => {
 export function sanitizePortalContent(value: unknown): PortalContent {
   const content = obj(value);
   return {
-    goal: str(content.goal, 1000), instructions: str(content.instructions, 12000),
+    goal: str(content.goal, 12000), instructions: str(content.instructions, 12000),
+    ...(content.goalSource ? {goalSource:goalSource(content.goalSource)} : {}),
     results: arr(content.results, 60).map(value => {
       const r = obj(value);
       return { id: str(r.id, 500, true), label: str(r.label, 250, true), unit: str(r.unit, 80), method: str(r.method, 300),
@@ -46,4 +48,9 @@ export function sanitizePortalContent(value: unknown): PortalContent {
       return { id: uuid(c.id), date: date(c.date), title: str(c.title, 160, true), summary: str(c.summary, 2000) };
     }),
   };
+}
+function goalSource(value:unknown) {
+ const source=obj(value);
+ if(!Number.isInteger(source.revision)||Number(source.revision)<1||!['objectives','next_objectives'].includes(String(source.questionKey)))throw new Error('invalid_input');
+ return {consultationId:uuid(source.consultationId),revision:Number(source.revision),questionKey:String(source.questionKey)};
 }

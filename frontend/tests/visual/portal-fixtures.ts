@@ -23,6 +23,10 @@ export async function portalApi(op: string, data: Record<string, unknown>) {
   return {};
 }
 export async function portalAction(access: Record<string, unknown>, action: string, data: Record<string, unknown> = {}) {
+  if(action==='goal_candidates')return {goals:[{consultationId:cid,date:'2026-09-21',revision:1,questionKey:'objectives',content:'Organizar mis horarios de alimentación.'}]};
+  if(action==='plan_history')return {plans:[{id:'version-fixture',title:plan.title,version_number:2,published_at:plan.publishedAt}],hasMore:false};
+  if(action==='plan_version')return {plan};
+  if(action==='export_plan')throw new Error('La maqueta no genera documentos clínicos.');
   if(action==='plan_options')return {plans:[{id:'plan-fixture',title:plan.title,version_number:2,published_at:plan.publishedAt}],selectedPlanId};
   if(action==='plan_preview')return {plan};
   if(action==='plan')return {plan:selectedPlanId?plan:null};

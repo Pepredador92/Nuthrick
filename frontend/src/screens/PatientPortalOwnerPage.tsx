@@ -26,6 +26,7 @@ import {
 import { PortalChat } from "@/src/components/patients/PortalChat";
 import { PortalAccessCode } from "@/src/components/patients/PortalAccessCode";
 import { PortalPlanSharing } from "@/src/components/patients/PortalPlanSharing";
+import { PortalGoal } from "@/src/components/patients/PortalGoal";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
 import "./PatientPortal.css";
 
@@ -381,20 +382,7 @@ function OwnerPortal({ patientId }: { patientId: string }) {
         <div className="space-y-5">
           <section className="portal-card">
             <h2 className="font-semibold">Su guía nutricional</h2>
-            <label
-              htmlFor="share-goal"
-              className="mb-2 mt-5 block text-sm font-semibold"
-            >
-              Objetivo acordado
-            </label>
-            <textarea
-              id="share-goal"
-              className="nuth-input min-h-24"
-              maxLength={1000}
-              value={draft.goal}
-              onChange={(e) => setDraft({ ...draft, goal: e.target.value })}
-              placeholder="Un objetivo claro, escrito para tu paciente."
-            />
+            <PortalGoal patientId={patientId} content={draft} onChange={setDraft}/>
             <label
               htmlFor="share-instructions"
               className="mb-2 mt-5 block text-sm font-semibold"

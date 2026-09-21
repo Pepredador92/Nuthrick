@@ -18,6 +18,13 @@ insert into public.consultations values
  ('20000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','completed',null,'PRIVATE CLINICAL SUMMARY'),
  ('20000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','draft',null,'PRIVATE DRAFT'),
  ('20000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000002','completed',null,'OTHER PATIENT');
+alter table public.professional_profiles add column license_number text, add column storage_key uuid default gen_random_uuid();
+alter table public.consultations add column consultation_date timestamptz default now();
+create table public.consultation_snapshots(consultation_id uuid,patient_id uuid,professional_id uuid,revision integer,structure jsonb);
+create table public.consultation_answers(consultation_id uuid,patient_id uuid,professional_id uuid,revision integer,question_key text,response_area text,value jsonb);
+create table public.professional_businesses(professional_id uuid,establishment_name text,address text,logo_path text);
+create table public.professional_contacts(id uuid,professional_id uuid,display_order integer,label text,country_code text,contact_value text);
+create table public.professional_locations(id uuid,professional_id uuid,is_active boolean,address text,display_order integer);
 -- MIGRATION INSERTION POINT --
 create function pg_temp.assert(value boolean,message text) returns void language plpgsql as $$ begin if value is distinct from true then raise exception '%',message; end if; end $$;
 create function pg_temp.reject(q text) returns void language plpgsql as $$ begin begin execute q; exception when others then return; end; raise exception 'Expected rejection'; end $$;
@@ -160,4 +167,52 @@ begin
   perform public.patient_portal('revoke',owner);
   perform pg_temp.assert(public.patient_portal('view',actor)->>'error'='portal_unavailable','Manual session not revoked');
 end $$;
-select 'Portal isolation, publication, OTP, chat and notes: OK';
+do $$
+declare owner jsonb:='{"owner":"00000000-0000-0000-0000-000000000001","patientId":"10000000-0000-0000-0000-000000000001"}';
+ actor jsonb:='{"sessionHash":"export-session"}'; goals jsonb; shared jsonb; rev integer; result jsonb;
+begin
+ insert into public.consultation_snapshots select id,patient_id,professional_id,1,'{"sections":[{"questions":[{"question_key":"objectives","response_area":"professional_assessment"}]}]}' from public.consultations;
+ insert into public.consultation_answers select id,patient_id,professional_id,1,'objectives','professional_assessment','[{"objetivo":"Acuerdo inicial","prioridad":"Principal","private":"SECRET"}]' from public.consultations;
+ update public.consultations set consultation_date='2026-09-01' where id='20000000-0000-0000-0000-000000000001';
+ update public.consultations set consultation_date='2026-09-21' where id='20000000-0000-0000-0000-000000000002';
+ goals:=public.patient_portal('goal_candidates',owner)->'goals';
+ perform pg_temp.assert(jsonb_array_length(goals)=1 and goals->0->>'content'='Acuerdo inicial','Draft or foreign objective leaked');
+ perform pg_temp.assert(goals::text not like '%SECRET%','Objective included private repeatable fields');
+ shared:=jsonb_build_object('goal',goals->0->>'content','goalSource',(goals->0)-'content'-'date','instructions','','results','[]'::jsonb,'consultations','[]'::jsonb);
+ rev:=(public.patient_portal('view',owner)->>'revision')::integer;
+ perform public.patient_portal('publish',owner||jsonb_build_object('revision',rev,'shared',shared));
+ perform public.patient_portal('link',owner||'{"linkHash":"export-link","encryptedLink":"fixture"}');
+ insert into private.portal_sessions(token_hash,patient_id,link_hash,email) values('export-session',(owner->>'patientId')::uuid,'export-link',null);
+ perform pg_temp.assert(public.patient_portal('view',actor)->'shared'->>'goal'='Acuerdo inicial','Objective unavailable');
+ perform pg_temp.assert(not (public.patient_portal('view',actor)->'shared' ? 'goalSource'),'Objective internal reference exposed');
+ update public.consultations set status='completed' where id='20000000-0000-0000-0000-000000000002';
+ update public.consultation_answers set value='[{"objetivo":"Nuevo acuerdo"}]' where consultation_id='20000000-0000-0000-0000-000000000002';
+ goals:=public.patient_portal('goal_candidates',owner)->'goals';
+ perform pg_temp.assert(goals->0->>'content'='Nuevo acuerdo','Newest goal not offered');
+ perform pg_temp.assert(public.patient_portal('view',actor)->'shared'->>'goal'='Acuerdo inicial','Objective silently republished');
+ perform pg_temp.assert((select value->0->>'objetivo'='Acuerdo inicial' from public.consultation_answers where consultation_id='20000000-0000-0000-0000-000000000001'),'History overwritten');
+ rev:=(public.patient_portal('view',owner)->>'revision')::integer;
+ perform pg_temp.assert(public.patient_portal('publish',owner||jsonb_build_object('revision',rev,'shared',jsonb_set(shared,'{goal}','"Injected"')))->>'error'='invalid_goal','Unverified goal source accepted');
+ perform public.patient_portal('publish',owner||jsonb_build_object('revision',rev,'shared',shared||'{"goal":"","goalSource":null}'));
+ perform pg_temp.assert(public.patient_portal('view',actor)->'shared'->>'goal'='','Objective cannot be hidden');
+ update public.consultations set deleted_at=now() where id='20000000-0000-0000-0000-000000000002';
+ perform pg_temp.assert(jsonb_array_length(public.patient_portal('goal_candidates',owner)->'goals')=1,'Deleted objective offered');
+ insert into public.nutrition_plan_versions values('80000000-0000-0000-0000-000000000002','70000000-0000-0000-0000-000000000001',(owner->>'owner')::uuid,(owner->>'patientId')::uuid,2,now(),'{"plan":{"title":"VERSIÓN DOS"}}');
+ update public.nutrition_plans set current_version_id='80000000-0000-0000-0000-000000000002' where id='70000000-0000-0000-0000-000000000001';
+ insert into public.nutrition_plans values('70000000-0000-0000-0000-000000000003',(owner->>'owner')::uuid,(owner->>'patientId')::uuid,'draft',null);
+ perform pg_temp.assert(jsonb_array_length(public.patient_portal('plan_history',owner)->'versions')=2,'Draft counted as a published version');
+ result:=public.patient_portal('export_plan',owner||'{"format":"pdf","versionId":"80000000-0000-0000-0000-000000000001"}');
+ perform pg_temp.assert(result->'plan'->>'versionNumber'='1','v1 export replaced by v2');
+ perform pg_temp.assert(public.patient_portal('plan_version',owner||'{"versionId":"80000000-0000-0000-0000-000000000002"}')->'plan'->>'versionNumber'='2','v2 view mismatch');
+ perform pg_temp.assert(public.patient_portal('export_plan',owner||'{"format":"pdf","versionId":"70000000-0000-0000-0000-000000000003"}')->>'error'='invalid_plan','Draft exported');
+ perform pg_temp.assert(public.patient_portal('export_plan',owner||'{"format":"pdf","owner":"00000000-0000-0000-0000-000000000002","versionId":"80000000-0000-0000-0000-000000000001"}')->>'error'='portal_unavailable','Foreign professional exported');
+ perform pg_temp.assert(public.patient_portal('export_plan',actor||'{"format":"pdf"}')->>'error'='invalid_plan','Unshared plan exported');
+ perform public.patient_portal('share_plan',owner||'{"planId":"70000000-0000-0000-0000-000000000001"}');
+ perform pg_temp.assert(public.patient_portal('export_plan',actor||'{"format":"pdf"}')->'plan'->>'versionNumber'='2','Shared current version unavailable');
+ perform pg_temp.assert(public.patient_portal('export_plan',actor||'{"format":"tex"}')->>'error'='invalid_action','Patient exported TEX');
+ perform pg_temp.assert(public.patient_portal('export_plan',actor||'{"format":"pdf","versionId":"80000000-0000-0000-0000-000000000001"}')->>'error'='invalid_action','Patient chose historical version');
+ perform pg_temp.assert(public.patient_portal('plan_history',actor)->>'error'='invalid_action','Patient enumerated versions');
+ perform public.patient_portal('revoke',owner);
+ perform pg_temp.assert(public.patient_portal('export_plan',actor||'{"format":"pdf"}')->>'error'='portal_unavailable','Revoked patient exported');
+end $$;
+select 'Portal isolation, goals, immutable exports, OTP, chat and notes: OK';
