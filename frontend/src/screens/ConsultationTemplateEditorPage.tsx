@@ -553,6 +553,33 @@ export function ConsultationTemplateEditorPage() {
                 ? " · Recomendado por Nuthrick"
                 : " · Diseño personal"}
           </p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button
+              className="nuth-button"
+              disabled={saving}
+              onClick={() => {
+                if (readonly) void copy(loaded);
+                else {
+                  setPreview(false);
+                  setOverview(false);
+                }
+              }}
+            >
+              Personalizar consulta
+            </button>
+            <button
+              className="nuth-button-secondary"
+              onClick={() => {
+                setPreview(true);
+                setOverview(false);
+                setPreviewValues({});
+                setActive(0);
+              }}
+            >
+              <Eye size={16} />
+              Vista previa
+            </button>
+          </div>
           <ol className="mt-5 grid gap-2 sm:grid-cols-2">
             {loaded.sections.map((s, index) => (
               <li key={s.id}>
@@ -590,33 +617,6 @@ export function ConsultationTemplateEditorPage() {
               </li>
             ))}
           </ol>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <button
-              className="nuth-button"
-              disabled={saving}
-              onClick={() => {
-                if (readonly) void copy(loaded);
-                else {
-                  setPreview(false);
-                  setOverview(false);
-                }
-              }}
-            >
-              Personalizar consulta
-            </button>
-            <button
-              className="nuth-button-secondary"
-              onClick={() => {
-                setPreview(true);
-                setOverview(false);
-                setPreviewValues({});
-                setActive(0);
-              }}
-            >
-              <Eye size={16} />
-              Vista previa
-            </button>
-          </div>
           <p className="mt-3 text-xs text-[#74817d]">
             Los cambios no modifican consultas anteriores.
             {readonly && " Al personalizar se crea una copia propia."}

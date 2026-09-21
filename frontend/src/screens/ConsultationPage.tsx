@@ -53,22 +53,6 @@ import type {
   Patient,
 } from "@/src/types/domain";
 
-const conversationalPrompts: Record<string, string> = {
-  main_reason: "¿Qué te trae a consulta el día de hoy?",
-  expectations: "¿Qué te gustaría lograr con este acompañamiento?",
-  consult_now: "¿Qué hizo que buscaras consulta justo ahora?",
-  appetite: "¿Cómo ha estado tu apetito últimamente?",
-  digestive_screen: "¿Has notado alguna molestia digestiva últimamente?",
-  sleep_hours: "¿Cuántas horas sueles dormir en una noche?",
-  exercise_status: "¿Cómo es tu actividad física o movimiento habitual?",
-  usual_pattern: "¿Cómo suele ser tu forma de comer la mayoría de los días?",
-  eating_drivers: "¿Qué situaciones suelen influir en lo que comes?",
-  changes_since_last:
-    "Desde la última consulta, ¿qué cambios pudiste implementar?",
-  progress_perception: "¿Cómo sientes que te ha ido desde la última consulta?",
-  barriers: "¿Qué se te hizo más difícil o qué barreras encontraste?",
-};
-
 type ConsultationWorkspace = {
   active: number;
   values: Answers;
@@ -87,18 +71,6 @@ function readWorkspace(id: string): ConsultationWorkspace | null {
   } catch {
     return null;
   }
-}
-
-function spokenQuestion(question: {
-  question_key: string;
-  label: string;
-  response_area: string;
-}) {
-  if (question.response_area !== "patient_reported") return question.label;
-  if (conversationalPrompts[question.question_key])
-    return conversationalPrompts[question.question_key];
-  if (question.label.trim().startsWith("¿")) return question.label;
-  return `¿Podrías contarme sobre ${question.label.charAt(0).toLowerCase()}${question.label.slice(1)}?`;
 }
 
 export function ConsultationPage() {
@@ -169,7 +141,7 @@ export function ConsultationPage() {
           return;
         }
         if (!existingDraft && !chosenTemplate)
-          throw new Error("Elige una plantilla para iniciar la consulta.");
+          throw new Error("Elige un diseño para iniciar la consulta.");
         const type: Consultation["consultation_type"] =
           existingDraft?.consultation_type ??
           chosenTemplate!.template.consultation_type;
@@ -367,7 +339,7 @@ export function ConsultationPage() {
     if (!consultation || !snapshot || !latest) return;
     if (
       !window.confirm(
-        "¿Usar la entrevista actualizada en este borrador? Se conservará una revisión de todas las preguntas y respuestas anteriores. Solo se copiarán las respuestas compatibles. Tu plantilla personalizada no se modificará.",
+        "¿Usar la entrevista actualizada en este borrador? Se conservará una revisión de todas las preguntas y respuestas anteriores. Solo se copiarán las respuestas compatibles. Tu diseño personalizado no se modificará.",
       )
     )
       return;
@@ -541,7 +513,7 @@ export function ConsultationPage() {
             Nueva consulta
           </p>
           <h1 className="mt-2 text-3xl font-semibold">
-            Elige la plantilla para esta consulta
+            Elige el diseño para esta consulta
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70">
             Puedes volver a realizar una entrevista inicial aunque el paciente
@@ -697,7 +669,7 @@ export function ConsultationPage() {
               }
             >
               <SlidersHorizontal size={15} />
-              Editar plantilla
+              Personalizar consulta
             </Link>
             <button
               type="button"
@@ -820,7 +792,7 @@ export function ConsultationPage() {
             </p>
             <p className="mt-1 text-xs leading-5 text-[#8e744c]">
               Este borrador conserva la versión anterior. Actualizarlo no
-              elimina respuestas ni cambia tu plantilla personal.
+              elimina respuestas ni cambia tu diseño personal.
             </p>
             <button
               type="button"
@@ -1017,7 +989,6 @@ export function ConsultationPage() {
                         onChange={(value) =>
                           setAnswer(question.question_key, value)
                         }
-                        displayLabel={spokenQuestion(question)}
                       />
                     ))}
                   {!current?.questions.length && (

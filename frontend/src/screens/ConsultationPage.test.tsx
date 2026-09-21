@@ -176,6 +176,17 @@ beforeEach(() => {
 });
 
 describe("consultation save and review workflow", () => {
+  it("respects the saved custom label even for a canonical question key", async () => {
+    const question=fixtures.snapshot.structure.sections[0].questions[0];
+    const previous={...question};
+    question.question_key="main_reason";
+    question.label="Mi pregunta personalizada de apertura";
+    try {
+      mount();
+      expect(await screen.findByLabelText("Mi pregunta personalizada de apertura")).toBeInTheDocument();
+      expect(screen.queryByText("¿Qué te trae a consulta el día de hoy?")).not.toBeInTheDocument();
+    } finally { Object.assign(question,previous); }
+  });
   it("offers the longitudinal evolution module alongside interview, measurements and laboratories", async () => {
     mount();
     await screen.findByRole("heading", { name: "Apertura de prueba" });
@@ -212,7 +223,7 @@ describe("consultation save and review workflow", () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     mount("/app/patients/patient/consultations/new");
     await screen.findByRole("heading", {
-      name: "Elige la plantilla para esta consulta",
+      name: "Elige el diseño para esta consulta",
     });
     expect(screen.getByText("Tienes un borrador abierto")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Entrevista/ })).toBeDisabled();
@@ -262,7 +273,7 @@ describe("consultation save and review workflow", () => {
     }));
     mount("/app/patients/patient/consultations/new");
     await screen.findByRole("heading", {
-      name: "Elige la plantilla para esta consulta",
+      name: "Elige el diseño para esta consulta",
     });
     fireEvent.click(screen.getByRole("button", { name: "Cancelar borrador" }));
     await waitFor(() => expect(mocks.cancel).toHaveBeenCalled());
