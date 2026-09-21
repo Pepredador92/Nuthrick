@@ -25,7 +25,9 @@ const fixtures = vi.hoisted(() => {
         id,
         professional_id: personal ? "owner" : null,
         template_key: id,
-        name: personal ? "Consulta inicial deportiva" : "Entrevista inicial Nuthrick",
+        name: personal
+          ? "Consulta inicial deportiva"
+          : "Entrevista inicial Nuthrick",
         description: personal
           ? "Evaluación de actividad y rendimiento."
           : "Entrevista clínico-nutricional base.",
@@ -138,9 +140,88 @@ beforeEach(() => {
 });
 
 describe("catálogo profesional de plantillas", () => {
+  it("starts with the real section flow and opens the same question component in preview", async () => {
+    mount();
+    expect(
+      await screen.findByRole("heading", { name: "Diseño de consulta" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Tu consulta" }),
+    ).toHaveTextContent("2 secciones · 1 preguntas");
+    expect(screen.queryByLabelText("Nombre")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Vista previa" }));
+    fireEvent.change(
+      screen.getByLabelText("¿Cuántos días entrenas por semana?"),
+      { target: { value: "3" } },
+    );
+    expect(api.save).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Volver al diseño completo" }),
+    );
+    expect(
+      screen.getByRole("region", { name: "Tu consulta" }),
+    ).toBeInTheDocument();
+  });
+  it("protects objective structure and its containing section", async () => {
+    const data = structuredClone(fixtures.personal);
+    data.questions[0] = {
+      ...data.questions[0],
+      question_key: "objectives",
+      label: "Objetivos acordados",
+      response_area: "professional_assessment",
+      question_type: "repeatable_group",
+      configuration: {
+        fields: [{ key: "objetivo", label: "Objetivo", type: "text" }],
+      },
+    };
+    api.list.mockResolvedValue([data]);
+    mount();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Personalizar consulta" }),
+    );
+    fireEvent.click(screen.getByText("1. Objetivos acordados"));
+    expect(screen.getByLabelText("Sección activa")).toBeDisabled();
+    expect(screen.getByLabelText("Activa")).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Quitar pregunta 1" }),
+    ).toBeDisabled();
+    expect(screen.getByLabelText("Tipo de respuesta")).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Pregunta"), {
+      target: { value: "¿Qué acordamos hoy?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    await waitFor(() => expect(api.save).toHaveBeenCalled());
+    expect(api.save.mock.calls[0][0].questions[0]).toMatchObject({
+      question_key: "objectives",
+      label: "¿Qué acordamos hoy?",
+      question_type: "repeatable_group",
+    });
+  });
+  it("restores recommended design only after confirmation", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    mount();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Personalizar consulta" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Restaurar diseño recomendado" }),
+    );
+    expect(api.restoreSystem).not.toHaveBeenCalled();
+    confirm.mockReturnValue(true);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Restaurar diseño recomendado" }),
+    );
+    await waitFor(() =>
+      expect(api.restoreSystem).toHaveBeenCalledWith("initial"),
+    );
+  });
   it("edits metadata and ordered content, then saves the personal template", async () => {
     mount();
-    await screen.findByRole("heading", { name: "Plantillas disponibles" });
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Personalizar consulta" }),
+    );
+    fireEvent.click(screen.getByText(/Otros diseños y variantes/));
+    await screen.findByRole("heading", { name: "Diseños disponibles" });
     expect(screen.getAllByText("Consulta inicial deportiva")).toHaveLength(2);
     expect(screen.getByText("Entrevista inicial Nuthrick")).toBeInTheDocument();
     expect(screen.getByText("60 min")).toBeInTheDocument();
@@ -175,14 +256,23 @@ describe("catálogo profesional de plantillas", () => {
   it("supports default, duplicate, archive and permanent delete actions", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     mount();
-    await screen.findByRole("button", { name: "Hacer predeterminada" });
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Personalizar consulta" }),
+    );
+    fireEvent.click(screen.getByText(/Otros diseños y variantes/));
+    await screen.findByRole("button", { name: "Hacer predeterminado" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Hacer predeterminada" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Hacer predeterminado" }),
+    );
     await waitFor(() =>
       expect(api.makeDefault).toHaveBeenCalledWith("personal-sports"),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Duplicar" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Personalizar consulta" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Duplicar diseño" }));
     await waitFor(() => expect(api.copy).toHaveBeenCalled());
 
     fireEvent.click(screen.getByRole("button", { name: "Archivar" }));
@@ -190,6 +280,9 @@ describe("catálogo profesional de plantillas", () => {
       expect(api.archive).toHaveBeenCalledWith("personal-sports"),
     );
 
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Personalizar consulta" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
     await waitFor(() =>
       expect(api.remove).toHaveBeenCalledWith("personal-sports"),
@@ -199,6 +292,10 @@ describe("catálogo profesional de plantillas", () => {
   it("removes a question from a personal template before saving", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     mount();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Personalizar consulta" }),
+    );
+    fireEvent.click(screen.getByText(/Otros diseños y variantes/));
     await screen.findByRole("button", { name: "Quitar pregunta 1" });
 
     fireEvent.click(screen.getByRole("button", { name: "Quitar pregunta 1" }));

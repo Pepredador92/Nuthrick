@@ -11,7 +11,7 @@ const nav = [
   { label: 'Agenda', href: '/app/agenda', icon: CalendarDays },
   { label: 'Mensajes', href: '/app/messages', icon: MessageCircle },
   { label: 'Taller de dietas', href: '/app/diet-workshop', icon: Salad },
-  { label: 'Plantillas', href: '/app/consultation-templates/initial', icon: ClipboardList },
+  { label: 'Diseño de consulta', href: '/app/consultation-templates/initial', icon: ClipboardList },
 ];
 
 export function PrivateLayout() {

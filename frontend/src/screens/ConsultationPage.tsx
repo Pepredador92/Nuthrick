@@ -559,7 +559,7 @@ export function ConsultationPage() {
             </p>
             <p className="mt-1 text-sm leading-6 text-[#8e744c]">
               Reanúdalo para continuar donde lo dejaste o cancélalo para poder
-              iniciar una entrevista con cualquiera de las plantillas.
+              iniciar una entrevista con cualquiera de los diseños.
             </p>
             <div className="mt-4 space-y-3">
               {openDrafts.map((draft) => (
@@ -619,7 +619,7 @@ export function ConsultationPage() {
             to="/app/consultation-templates/initial"
             className="text-sm font-semibold text-[#3d705d] underline"
           >
-            Administrar plantillas
+            Diseño de consulta
           </Link>
         </div>
         <div className="mt-6 grid gap-6 md:grid-cols-2">
@@ -628,7 +628,7 @@ export function ConsultationPage() {
             <div className="mt-3 space-y-3">
               {initial.length ? renderChoices(initial) : (
                 <p className="rounded-xl border border-dashed p-4 text-sm text-[#74817d]">
-                  No hay plantillas iniciales activas.
+                  No hay diseños iniciales activos.
                 </p>
               )}
             </div>
@@ -638,7 +638,7 @@ export function ConsultationPage() {
             <div className="mt-3 space-y-3">
               {followUp.length ? renderChoices(followUp) : (
                 <p className="rounded-xl border border-dashed p-4 text-sm text-[#74817d]">
-                  No hay plantillas de seguimiento activas.
+                  No hay diseños de seguimiento activos.
                 </p>
               )}
             </div>

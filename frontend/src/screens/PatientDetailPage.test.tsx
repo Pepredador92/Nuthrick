@@ -30,7 +30,7 @@ describe('consultation removal feedback',()=>{
   render(<MemoryRouter initialEntries={['/patients/patient']}><Routes><Route path="/patients/:patientId" element={<PatientDetailPage/>}/></Routes></MemoryRouter>);
   fireEvent.click(await screen.findByRole('button',{name:'Editar datos'}));
   fireEvent.click(screen.getByRole('checkbox',{name:/Permitir acceso al portal/}));
-  fireEvent.submit(screen.getByRole('button',{name:'Guardar',exact:true}).closest('form')!);
+  fireEvent.submit(screen.getByRole('button',{name:'Guardar'}).closest('form')!);
   await waitFor(()=>expect(updatePatient).toHaveBeenCalledWith('patient',expect.objectContaining({email:null,portal_access_enabled:true})));
  });
  it('removes the consultation from both history and recent list after success',async()=>{
