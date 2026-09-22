@@ -479,7 +479,7 @@ export function ConsultationTemplateEditorPage() {
   ): string | null {
     if (question.question_key === "life_stage")
       return "Esta respuesta se utiliza como contexto para interpretar resultados antropométricos. Conserva sus opciones y tipo de respuesta.";
-    if (["objectives", "next_objectives"].includes(question.question_key))
+    if (["objectives", "treatment_objective", "next_objectives"].includes(question.question_key))
       return "Esta pregunta alimenta el objetivo que puedes compartir en el Superlink. Conserva su estructura; puedes cambiar el texto.";
     const references = (value: unknown): boolean => {
       if (!value || typeof value !== "object") return false;

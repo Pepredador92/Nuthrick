@@ -345,6 +345,41 @@ describe("consultation save and review workflow", () => {
     expect(mocks.finish).not.toHaveBeenCalled();
     expect(screen.getByText("Falta responder.")).toBeInTheDocument();
   });
+  it.each(["Mejorar adherencia al plan.", ""])("saves the initial treatment objective and closes safely (%s)", async (objective) => {
+    const section = {
+      section_key: "treatment_objective",
+      title: "Objetivo del tratamiento nutricional",
+      questions: [{
+        question_key: "treatment_objective",
+        label: "Objetivo acordado con el paciente",
+        help_text: "Define en una frase clara el objetivo acordado con el paciente.",
+        question_type: "long_text",
+        configuration: { max_length: 2000 },
+        is_required: false,
+        response_area: "professional_assessment",
+      }],
+    };
+    fixtures.snapshot.structure.sections.push(section);
+    try {
+      mount();
+      await screen.findByRole("heading", { name: "Apertura de prueba" });
+      fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+      await screen.findByRole("heading", { name: "Cierre de prueba" });
+      fireEvent.change(screen.getByRole("combobox", { name: /Confirmación de prueba/ }), { target: { value: "Revisado" } });
+      fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+      await screen.findByRole("heading", { name: section.title });
+      expect(screen.getByText(section.questions[0].help_text)).toBeInTheDocument();
+      if (objective) fireEvent.change(screen.getByLabelText(section.questions[0].label), { target: { value: objective } });
+      fireEvent.click(screen.getByRole("button", { name: "Revisar resumen" }));
+      await screen.findByRole("heading", { name: "Revisa lo conversado" });
+      fireEvent.click(screen.getByRole("checkbox", { name: /Revisé la información/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Cerrar entrevista" }));
+      await waitFor(() => expect(mocks.finish).toHaveBeenCalledOnce());
+      if (objective) expect(mocks.save).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ treatment_objective: objective }));
+    } finally {
+      fixtures.snapshot.structure.sections.pop();
+    }
+  });
   it("closes after saving and reviewing, without requiring optional blank notes", async () => {
     mount();
     await screen.findByRole("heading", { name: "Apertura de prueba" });

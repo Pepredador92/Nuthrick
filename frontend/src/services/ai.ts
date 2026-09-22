@@ -24,7 +24,7 @@ export async function getAIGenerationStatus(idempotencyKey: string) {
   return data as { generationId: string; status: string; chargedCredits: number; errorCode: string | null } | null;
 }
 // Reuse the same key when checking/retrying a logical request. Never supply owner/model/prompt/prices.
-export async function runAIRequest(request: { feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean }> {
+export async function runAIRequest(request: { feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; rejectedFoodIds?: string[]; rejectedSignatures?: string[] }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean }> {
   try {
     const { data, error } = await supabase.functions.invoke('ai',{ body: request });
     if (error) {

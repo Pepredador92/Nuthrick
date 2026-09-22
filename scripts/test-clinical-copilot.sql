@@ -44,6 +44,11 @@ select pg_temp.reject($q$select clinical_workspace('20000000-0000-0000-0000-0000
 select pg_temp.reject($q$select clinical_workspace('20000000-0000-0000-0000-000000000001',1,'pes','{"stamp":"stale"}')$q$,'context_changed');
 select clinical_workspace('20000000-0000-0000-0000-000000000001',1,'pes',jsonb_build_object('stamp',clinical_workspace('20000000-0000-0000-0000-000000000001',1)->>'stamp','problem','Revisado','etiology','Profesional','signsSymptoms',jsonb_build_array('Entrevista'),'pesStatement','PES editado por profesional'));
 reset role;
+insert into consultation_answers(professional_id,consultation_id,patient_id,revision,question_key,value)
+select professional_id,id,patient_id,1,'treatment_objective','"Mejorar adherencia"' from consultations;
+set local role authenticated;
+select pg_temp.assert_true((clinical_workspace('20000000-0000-0000-0000-000000000001',1)->'readiness'->>'objective')='true','initial treatment objective available to clinical context');
+reset role;
 select pg_temp.assert_true((select value='"PES editado por profesional"' from consultation_answers where question_key='pes_statement'),'PES uses existing answers');
 select pg_temp.assert_true((select clinical_records->'pes'->>'generated_with_ai'='false' from consultation_snapshots),'manual does not forge AI provenance');
 create function pg_temp.recall(food text,unit text) returns jsonb language sql as $$ select clinical_workspace('20000000-0000-0000-0000-000000000001',1,'recall',jsonb_build_object('stamp',clinical_workspace('20000000-0000-0000-0000-000000000001',1)->>'stamp','narrative','2 huevos','items',jsonb_build_array(jsonb_build_object('foodId',food,'quantity',100,'unit',unit,'mealLabel','Desayuno','rawText','2 huevos','energy_kcal',99999)))) $$;

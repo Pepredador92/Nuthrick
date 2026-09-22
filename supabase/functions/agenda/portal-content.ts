@@ -51,6 +51,6 @@ export function sanitizePortalContent(value: unknown): PortalContent {
 }
 function goalSource(value:unknown) {
  const source=obj(value);
- if(!Number.isInteger(source.revision)||Number(source.revision)<1||!['objectives','next_objectives'].includes(String(source.questionKey)))throw new Error('invalid_input');
+ if(!Number.isInteger(source.revision)||Number(source.revision)<1||!['objectives','treatment_objective','next_objectives'].includes(String(source.questionKey)))throw new Error('invalid_input');
  return {consultationId:uuid(source.consultationId),revision:Number(source.revision),questionKey:String(source.questionKey)};
 }

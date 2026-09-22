@@ -26,6 +26,14 @@ create table public.consultation_answers(consultation_id uuid,patient_id uuid,pr
 create table public.professional_businesses(professional_id uuid,establishment_name text,address text,logo_path text);
 create table public.professional_contacts(id uuid,professional_id uuid,display_order integer,label text,country_code text,contact_value text);
 create table public.professional_locations(id uuid,professional_id uuid,is_active boolean,address text,display_order integer);
+alter table public.consultations add column consultation_type text default 'initial';
+create table public.consultation_templates(id uuid primary key default gen_random_uuid(),template_key text,is_system boolean,version integer);
+create table public.consultation_template_sections(id uuid primary key default gen_random_uuid(),template_id uuid,section_key text,title text,description text,display_order integer,unique(template_id,section_key),unique(template_id,display_order));
+create table public.consultation_template_questions(id uuid primary key default gen_random_uuid(),section_id uuid,question_key text,label text,help_text text,question_type text,response_area text,is_required boolean,display_order integer,configuration jsonb);
+insert into public.consultation_templates(template_key,is_system,version) values('system_initial_v2',true,3),('system_follow_up_v1',true,2);
+insert into public.consultation_template_sections(template_id,section_key,title,display_order)
+select id,'nutrition_diagnosis','Diagnóstico nutricional (PES)',14 from public.consultation_templates;
+insert into public.consultation_template_questions(section_id,question_key) select s.id,'next_objectives' from public.consultation_template_sections s join public.consultation_templates t on t.id=s.template_id where t.template_key='system_follow_up_v1';
 -- MIGRATION INSERTION POINT --
 create trigger patients_validate_fields before insert or update on public.patients for each row execute function private.validate_patient_fields();
 create function pg_temp.assert(value boolean,message text) returns void language plpgsql as $$ begin if value is distinct from true then raise exception '%',message; end if; end $$;

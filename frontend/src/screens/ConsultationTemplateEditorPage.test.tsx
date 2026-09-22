@@ -162,11 +162,11 @@ describe("catálogo profesional de plantillas", () => {
       screen.getByRole("region", { name: "Tu consulta" }),
     ).toBeInTheDocument();
   });
-  it("protects objective structure and its containing section", async () => {
+  it.each(["objectives", "treatment_objective", "next_objectives"])("protects %s and its containing section", async (objectiveKey) => {
     const data = structuredClone(fixtures.personal);
     data.questions[0] = {
       ...data.questions[0],
-      question_key: "objectives",
+      question_key: objectiveKey,
       label: "Objetivos acordados",
       response_area: "professional_assessment",
       question_type: "repeatable_group",
@@ -192,7 +192,7 @@ describe("catálogo profesional de plantillas", () => {
     fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
     await waitFor(() => expect(api.save).toHaveBeenCalled());
     expect(api.save.mock.calls[0][0].questions[0]).toMatchObject({
-      question_key: "objectives",
+      question_key: objectiveKey,
       label: "¿Qué acordamos hoy?",
       question_type: "repeatable_group",
     });

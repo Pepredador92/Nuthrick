@@ -1,5 +1,6 @@
 import { Ajv } from 'ajv';
 import { clinicalAdapter, clinicalEvidenceValid, conservativeRecallQuantities } from './clinical.ts';
+import { workshopAdapter } from './workshop.ts';
 
 export type FeatureConfig = {
   feature: string; enabled: boolean; provider: string; model: string; prompt_version: string;
@@ -20,6 +21,7 @@ const checkSchema = {
   type: 'object', properties: { ok: { type: 'boolean', enum: [true] } }, required: ['ok'], additionalProperties: false,
 };
 export function featureAdapter(feature: string, promptVersion: string) {
+  if (feature === 'diet_workshop' && promptVersion === 'diet_workshop@1') return { ...workshopAdapter };
   const clinical = clinicalAdapter(feature,promptVersion);
   if (clinical) return { ...clinical, context: {} as unknown };
   if (feature !== 'core_check' || promptVersion !== 'core_check@1') throw new AIError('feature_not_implemented');
@@ -100,20 +102,26 @@ export interface AIStore {
   uncertain(id: string): Promise<void>;
   context?(request: AIRequest): Promise<{ context: unknown; stamp: string }>;
   bindContext?(id: string, request: AIRequest, stamp: string): Promise<void>;
+  validateOutput?(output: unknown): boolean;
 }
-export type AIRequest = { feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string };
+export type AIRequest = { feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function parseRequest(value: unknown): AIRequest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new AIError('invalid_request');
   const v = value as Record<string, unknown>;
-  if (Object.keys(v).some(k => !['feature','idempotencyKey','patientId','consultationId','revision','narrative'].includes(k))
+  if (Object.keys(v).some(k => !['feature','idempotencyKey','patientId','consultationId','revision','narrative','planId','rejectedFoodIds','rejectedSignatures'].includes(k))
     || typeof v.feature !== 'string' || !/^[a-z][a-z0-9_]{1,63}$/.test(v.feature)
     || typeof v.idempotencyKey !== 'string' || !uuid.test(v.idempotencyKey)
     || [v.patientId,v.consultationId].some(id => id !== undefined && (typeof id !== 'string' || !uuid.test(id)))
     || (v.consultationId && !v.patientId)) throw new AIError('invalid_request');
+  const workshop = v.feature === 'diet_workshop';
+  if (workshop && (typeof v.planId !== 'string' || !uuid.test(v.planId) || !Number.isSafeInteger(v.revision) || Number(v.revision)<1)) throw new AIError('invalid_request');
+  if (!workshop && ['planId','rejectedFoodIds','rejectedSignatures'].some(k => v[k] !== undefined)) throw new AIError('invalid_request');
+  if (v.rejectedFoodIds !== undefined && (!Array.isArray(v.rejectedFoodIds) || v.rejectedFoodIds.length>30 || v.rejectedFoodIds.some(id => typeof id!=='string'||!uuid.test(id)))) throw new AIError('invalid_request');
+  if (v.rejectedSignatures !== undefined && (!Array.isArray(v.rejectedSignatures) || v.rejectedSignatures.length>3 || v.rejectedSignatures.some(s => typeof s!=='string'||s.length>16000))) throw new AIError('invalid_request');
   const clinical = ['pes_diagnosis','recall_24h'].includes(v.feature as string);
   if (clinical && (!v.consultationId || !Number.isSafeInteger(v.revision) || Number(v.revision) < 1)) throw new AIError('invalid_request');
-  if (!clinical && (v.revision !== undefined || v.narrative !== undefined)) throw new AIError('invalid_request');
+  if (!clinical && !workshop && (v.revision !== undefined || v.narrative !== undefined)) throw new AIError('invalid_request');
   if (v.feature === 'recall_24h' ? typeof v.narrative !== 'string' || !v.narrative.trim() || v.narrative.length > 8000 : v.narrative !== undefined) throw new AIError('invalid_request');
   return v as AIRequest;
 }
@@ -121,15 +129,16 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   const config = await store.config(request.feature);
   if (!config.enabled || config.provider !== 'openai') throw new AIError('feature_disabled');
   const adapter = featureAdapter(request.feature, config.prompt_version);
-  const clinical = request.feature === 'pes_diagnosis' || request.feature === 'recall_24h';
+  const clinical = ['pes_diagnosis','recall_24h','diet_workshop'].includes(request.feature);
   if (clinical && (!store.context || !store.bindContext)) throw new AIError('context_unavailable');
   const hydrated = clinical ? await store.context!(request) : null;
   if (hydrated) adapter.context = hydrated.context;
-  const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative] : [])]);
+  const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.rejectedFoodIds,request.rejectedSignatures] : [])]);
   const fingerprint = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical))), b => b.toString(16).padStart(2,'0')).join('');
   const { generation, created } = await store.reserve(config,request,fingerprint);
   if (!created) return { generationId: generation.id, status: generation.status, replay: true };
-  if (hydrated) await store.bindContext!(generation.id,request,hydrated.stamp);
+  try { if (hydrated) await store.bindContext!(generation.id,request,hydrated.stamp); }
+  catch { await store.settle(generation.id,'failed',{input_tokens:0,output_tokens:0,cached_tokens:0}); throw new AIError('context_unavailable'); }
   if (!await store.claim(generation.id)) return { generationId: generation.id, status: generation.status, replay: true };
   let result: ProviderResult;
   try { result = await provider.run({ config, ...adapter, generationId: generation.id }); }
@@ -141,7 +150,7 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
     await store.settle(generation.id,'failed',{ input_tokens: 0, output_tokens: 0, cached_tokens: 0 });
     throw error;
   }
-  const valid = result.status === 'completed' && validOutput(adapter.schema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context);
+  const valid = result.status === 'completed' && validOutput(adapter.schema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (!store.validateOutput || store.validateOutput(result.output));
   await store.settle(generation.id, valid ? 'succeeded' : 'invalid_output',result.usage,result.responseId);
   if (!valid) throw new AIError('invalid_output');
   return { generationId: generation.id, status: 'succeeded', output: request.feature==='recall_24h'?conservativeRecallQuantities(result.output):result.output, replay: false };
