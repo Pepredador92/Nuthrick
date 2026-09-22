@@ -3,7 +3,7 @@ import fixtures from './fixtures/diet-phase3.json' with {type:'json'};
 
 Deno.test('preflight HTTP is authenticated, read-only, scoped and never calls a provider',async()=>{
   const nativeFetch=fetch,nativeServe=Deno.serve;
-  const env={SUPABASE_URL:'http://mock.invalid',SUPABASE_SERVICE_ROLE_KEY:'fake-service',OPENAI_API_KEY:'fake-key',NUTHRICK_AI_ENABLED:'true'};
+  const env={SUPABASE_URL:'http://mock.invalid',SUPABASE_SERVICE_ROLE_KEY:'fake-service',OPENAI_API_KEY:'fake-key',NUTHRICK_AI_ENABLED:'true',NUTHRICK_DIET_REAL_PROVIDER_ENABLED:'true'};
   const previous=Object.fromEntries(Object.keys(env).map(k=>[k,Deno.env.get(k)]));
   for(const [k,v]of Object.entries(env))Deno.env.set(k,v);
   let server:Deno.HttpServer|undefined,port=0,mode='ok';

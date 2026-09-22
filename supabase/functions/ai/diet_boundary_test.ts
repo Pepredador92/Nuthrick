@@ -20,5 +20,5 @@ for (const [label, patch] of [
 });
 Deno.test('fake provider runs in Deno without network/env permission', async () => {
   const fake = new FakeDietGenerator(valid);
-  assert.deepEqual(await fake.generate({ feature: 'diet_workshop', idempotencyKey: 'test', generationId: 'test', payload: {} }), valid);
+  assert.deepEqual(await fake.generate({ feature: 'diet_draft', idempotencyKey: 'test', generationId: 'test', payload: {} }), valid);
 });

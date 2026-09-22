@@ -28,3 +28,14 @@ it('apply sends only decision flags and generation reference; discard never publ
 it('maps stale server error without exposing raw messages',async()=>{
   mocks.invoke.mockResolvedValue({data:{error:'context_changed'},error:null});await expect(workshopTransport.decide({generationId:'g',hasManualMenu:false,validation:{status:'valid',issues:[]}},true,false,true)).rejects.toMatchObject({code:'context_changed'});
 });
+it('discard then generate requests a server-owned alternative; a new revision drops it',async()=>{
+  const plan={...uxFixture().input.source.plan,id:'alternative-test'};
+  mocks.run.mockResolvedValue({generationId:'previous',status:'succeeded',output:{validation:{status:'valid',issues:[]}}});
+  const proposal=await workshopTransport.generate(plan,'','first');
+  mocks.invoke.mockResolvedValue({data:{ok:true},error:null});
+  await workshopTransport.decide(proposal,false,false,false);
+  await workshopTransport.generate(plan,'','second');
+  expect(mocks.run.mock.lastCall?.[0]).toMatchObject({previousProposalId:'previous',idempotencyKey:'second'});
+  await workshopTransport.generate({...plan,draft_revision:2},'','third');
+  expect(mocks.run.mock.lastCall?.[0]).not.toHaveProperty('previousProposalId');
+});

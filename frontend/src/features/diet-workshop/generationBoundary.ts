@@ -181,9 +181,9 @@ export function applyDietGenerationDraft(raw: unknown, prepared: PreparedDietGen
   return { plan: { ...structuredClone(current.source.plan), status: 'draft', diet_menu: validation.draft! }, issues: [] };
 }
 
-/** Future adapter wraps existing AIProvider/AIStore and feature=diet_workshop.
+/** Future adapter wraps existing AIProvider/AIStore and feature=diet_draft.
  * Reservation/settlement remain the responsibility of the existing orchestrator. */
-export type DietGenerationRequest = { feature: 'diet_workshop'; idempotencyKey: string; generationId: string; payload: DietGenerationPayload };
+export type DietGenerationRequest = { feature: 'diet_draft'; idempotencyKey: string; generationId: string; payload: DietGenerationPayload };
 export interface DietGenerator { generate(request: DietGenerationRequest): Promise<unknown> }
 export class FakeDietGenerator implements DietGenerator {
   constructor(response: (request: DietGenerationRequest) => unknown);

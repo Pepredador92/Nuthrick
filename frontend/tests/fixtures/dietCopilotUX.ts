@@ -26,7 +26,7 @@ export function uxFixture(mode='valid') {
     generate:async(plan,instructions,key)=>{
       generationInput=load(plan,instructions);prepared=prepareDietGeneration(generationInput,{enabled:true,budgetAvailable:true,pending:false}).prepared!;
       raw=await new FakeDietGenerator(payload=>{const out=validFakeOutput(payload.payload);if(mode==='needs_adjustment')out.meal_options[0].entries[0].multiplier=1;
-        if(mode==='invalid')out.meal_options[0].entries[0].candidate_ref='not-authorized';return out;}).generate({feature:'diet_workshop',idempotencyKey:key,generationId:'hidden-generation',payload:prepared.payload});
+        if(mode==='invalid')out.meal_options[0].entries[0].candidate_ref='not-authorized';return out;}).generate({feature:'diet_draft',idempotencyKey:key,generationId:'hidden-generation',payload:prepared.payload});
       return {generationId:'hidden-generation',validation:validateDietGenerationDraft(raw,prepared,generationInput),hasManualMenu:hasDietMenuContent(plan.diet_menu)};
     },
     decide:async(_proposal,apply,replaceExisting,acceptDifferences)=>{

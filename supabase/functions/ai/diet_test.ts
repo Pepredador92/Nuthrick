@@ -29,7 +29,7 @@ async function harness(mode='ok') {
     const serialized=JSON.stringify(input);
     for(const secret of loaded.identifiers) assert.ok(!serialized.includes(secret),'PII in final provider input');
     assert.ok(!serialized.includes(loaded.source.plan.patient_id));
-    return {status:'completed',usage,responseId:'fake',model:'recorded-model',output:await fake.generate({feature:'diet_workshop',generationId:'generation',idempotencyKey:r.idempotencyKey,payload:input.context})};}});
+    return {status:'completed',usage,responseId:'fake',model:'recorded-model',output:await fake.generate({feature:'diet_draft',generationId:'generation',idempotencyKey:r.idempotencyKey,payload:input.context})};}});
   return {snapshot,out,run:()=>runAIRequest(r,store,provider),state:()=>({calls,reserves,recorded,settled,uncertain})};
 }
 for(const kind of ['A','B','C'] as const) Deno.test(`snapshot fixture ${kind}: valid, deterministic, private, immutable`,async()=>{

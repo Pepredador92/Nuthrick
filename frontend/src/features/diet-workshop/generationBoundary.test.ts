@@ -47,7 +47,7 @@ describe('Taller deterministic generation boundary (offline)', () => {
   it.each(['food_id','recipe_id','unit','hard_restriction','schema','meal'] as const)('E/F/G/I/L security fake %s is rejected without a draft', async fault => {
     const i = generationFixture(), p = prepare(i), before = JSON.stringify(i.source.plan);
     const fake = new FakeDietGenerator(req => { const out = validFakeOutput(req.payload); fakeFaults[fault](out); return out; });
-    const raw = await fake.generate({ feature: 'diet_workshop', generationId: 'fake', idempotencyKey: 'fake-key', payload: p.payload });
+    const raw = await fake.generate({ feature: 'diet_draft', generationId: 'fake', idempotencyKey: 'fake-key', payload: p.payload });
     expect(validateDietGenerationDraft(raw,p,i).status).toBe('invalid');
     expect(applyDietGenerationDraft(raw,p,i,{replaceExisting:true,acceptDifferences:true}).plan).toBeUndefined();
     expect(JSON.stringify(i.source.plan)).toBe(before);
@@ -97,7 +97,7 @@ describe('Taller deterministic generation boundary (offline)', () => {
   });
   it('T/W valid mock yields one editable draft option per time, never publication', async () => {
     const i = generationFixture(), p = prepare(i), fake = new FakeDietGenerator(req => validFakeOutput(req.payload));
-    const raw = await fake.generate({feature:'diet_workshop',idempotencyKey:'key',generationId:'id',payload:p.payload});
+    const raw = await fake.generate({feature:'diet_draft',idempotencyKey:'key',generationId:'id',payload:p.payload});
     const next = applyDietGenerationDraft(raw,p,i,{replaceExisting:false,acceptDifferences:true}).plan!;
     expect(next.status).toBe('draft'); expect(next.diet_menu!.status).toBe('editing');
     expect(next.diet_menu!.meal_options).toHaveLength(1);
@@ -187,7 +187,7 @@ describe('Taller deterministic generation boundary (offline)', () => {
       expect(validateDietGenerationDraft(validFakeOutput(typical.payload),typical,i).draft!.meal_options).toHaveLength(3);
       console.info('Offline diet payload sizes', {minimum,complete,typical:typical.size});
       expect(typical.size.bytes).toBeLessThanOrEqual(DIET_GENERATION_LIMITS.maxPayloadBytes);
-      await new FakeDietGenerator({}).generate({feature:'diet_workshop',idempotencyKey:'x',generationId:'y',payload:typical.payload});
+      await new FakeDietGenerator({}).generate({feature:'diet_draft',idempotencyKey:'x',generationId:'y',payload:typical.payload});
       expect(network).not.toHaveBeenCalled();
     } finally { network.mockRestore(); }
   });

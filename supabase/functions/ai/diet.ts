@@ -10,6 +10,7 @@ type Prepared = NonNullable<ReturnType<typeof prepareDietGeneration>['prepared']
 export type DietSource = { source: Input['source']; identifiers: Array<string | null> };
 export type DietSnapshot = {
   version: 1; hash: string; sourceStamp: string; hasManualMenu: boolean;
+  excludedCandidateIds?: string[];
   prepared: Prepared;
   plan: Parameters<typeof validateDietSnapshotDraft>[2];
 };
@@ -40,6 +41,23 @@ export async function prepareDietSnapshot(loaded: DietSource): Promise<DietSnaps
       diet_menu:plan.diet_menu ? {food_preferences:plan.diet_menu.food_preferences} : null}}));
   return freeze({...snapshot,hash:await dietHash(snapshot)});
 }
+/** Temporary rejection only; never writes allergies/preferences. Previous rows
+ * have already been owner/plan/stamp checked by the authenticated handler. */
+export async function prepareDietAlternative(loaded: DietSource, previous: DietSnapshot, draft: {menus:Array<{meal_menus:Array<{entries:Array<{source_id:string}>}>}>}, rejected: string[] = []) {
+  await verifyDietSnapshot(previous);
+  const candidates=previous.prepared.manifest.meals.flatMap(m=>m.candidates);
+  const used=new Set(draft.menus.flatMap(m=>m.meal_menus.flatMap(m=>m.entries.map(e=>e.source_id))));
+  if(rejected.some(ref=>!candidates.some(c=>c.ref===ref)))throw new AIError('invalid_request');
+  const options=rejected.length?[candidates.filter(c=>rejected.includes(c.ref))]:candidates.filter(c=>used.has(c.candidate.sourceId)).map(c=>[c]);
+  // Bounded deterministic search, no additional provider call or prompt repair.
+  for(const excluded of options.slice(0,30)) {
+    const ids=new Set([...(previous.excludedCandidateIds??[]),...excluded.map(c=>c.candidate.sourceId)]), copy=structuredClone(loaded);
+    copy.source.catalog!.foods=copy.source.catalog!.foods.filter((f:{id:string})=>!ids.has(f.id));
+    copy.source.catalog!.recipes=copy.source.catalog!.recipes.filter((r:{id:string;items:Array<{food_item_id:string}>})=>!ids.has(r.id)&&!r.items.some(i=>ids.has(i.food_item_id)));
+    try{const {hash:_hash,...base}=await prepareDietSnapshot(copy);const content={...base,excludedCandidateIds:[...ids]};return freeze({...content,hash:await dietHash(content)});}catch(e){if(!(e instanceof AIError)||e.code!=='candidate_coverage_missing')throw e;}
+  }
+  throw new AIError('proposal_unavailable');
+}
 export async function verifyDietSnapshot(snapshot: DietSnapshot) {
   const {hash,...content} = snapshot;
   if (snapshot.version!==1 || await dietHash(content)!==hash) throw new AIError('snapshot_invalid');
@@ -54,7 +72,7 @@ export function validateSnapshot(output: unknown, snapshot: DietSnapshot) {
 export class OpenAIDietGenerator {
   result?: ProviderResult;
   constructor(private provider: AIProvider, private config: FeatureConfig) {}
-  async generate(request: {feature:'diet_workshop';idempotencyKey:string;generationId:string;payload:Prepared['payload']}) {
+  async generate(request: {feature:'diet_draft';idempotencyKey:string;generationId:string;payload:Prepared['payload']}) {
     this.result = await this.provider.run({config:this.config,...dietDraftAdapter,context:request.payload,generationId:request.generationId});
     return this.result.output;
   }
@@ -66,7 +84,7 @@ export class DietRoutingProvider implements AIProvider {
   async run(input: ProviderInput) {
     if (input.config.feature!=='diet_draft') return this.provider.run(input);
     const generator = new OpenAIDietGenerator(this.provider,input.config);
-    await generator.generate({feature:'diet_workshop',idempotencyKey:input.generationId,generationId:input.generationId,payload:input.context as Prepared['payload']});
+    await generator.generate({feature:'diet_draft',idempotencyKey:input.generationId,generationId:input.generationId,payload:input.context as Prepared['payload']});
     return generator.result!;
   }
 }
