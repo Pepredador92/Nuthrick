@@ -5,12 +5,7 @@ export const aiMessages = {
   provider_outcome_unknown: "Comprueba la solicitud pendiente.",
 };
 export type AIState =
-  | "idle"
-  | "generating"
-  | "ready"
-  | "error"
-  | "insufficient"
-  | "uncertain";
+  "idle" | "generating" | "ready" | "error" | "insufficient" | "uncertain";
 export class AIRequestError extends Error {
   constructor(public code: string) {
     super(code);
@@ -21,6 +16,52 @@ export const getAIBalance = async () => ({
   reserved_credits: 0,
 });
 export const getAIGenerationStatus = async () => null;
+export async function clinicalObjective(
+  _id: string,
+  revision: number,
+  action = "read",
+  _stamp?: string,
+  questionKey?: string,
+) {
+  const records = JSON.parse(
+    localStorage.getItem("qa-clinical-records") || "{}",
+  );
+  const pes = records.pes ?? null;
+  let objective = JSON.parse(
+    localStorage.getItem("qa-clinical-objective") || "null",
+  );
+  if (action === "approve") {
+    if (!pes) throw new Error("Revisa y aprueba primero el PES.");
+    const value = localStorage.getItem("qa-goal-text") || "";
+    objective = {
+      question_key: questionKey,
+      value,
+      content: value,
+      revision,
+      approved_at: new Date().toISOString(),
+    };
+    localStorage.setItem("qa-clinical-objective", JSON.stringify(objective));
+  } else if (action === "revoke") {
+    objective = null;
+    localStorage.removeItem("qa-clinical-objective");
+  }
+  return {
+    stamp: "synthetic-stamp",
+    pes,
+    objective,
+    facts: [
+      {
+        source: "Entrevista · Motivo",
+        finding: "Mejorar la regularidad de comidas",
+      },
+      {
+        source: "Antropometría · Estatura",
+        finding: "170 cm · medición 2026-09-21",
+      },
+    ],
+    target: null,
+  };
+}
 const food = (
   id: string,
   name: string,

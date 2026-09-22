@@ -9,6 +9,17 @@ import {
   redactClinicalText,
 } from "./clinical.ts";
 import { parseRequest, validOutput } from "./core.ts";
+import { clinicalCalibrationCases } from "./clinical_calibration_fixtures.ts";
+for (const [name, scenario] of Object.entries(clinicalCalibrationCases)) {
+  Deno.test(`calibration ${name}: schema/evidence contract checked without provider`, () => {
+    const context = buildPesClinicalContext(scenario.source);
+    const abstention = { problem: "", etiology: "", signsSymptoms: [], pesStatement: "", evidence: [], missingContext: ["Revisión profesional necesaria"], uncertainties: [] };
+    assert.equal(validOutput(pesSchema, abstention), true);
+    assert.equal(clinicalEvidenceValid("pes_diagnosis", abstention, context), true);
+    assert.equal(clinicalEvidenceValid("pes_diagnosis", { ...abstention, problem: "Inventado", evidence: [{ source: "No registrado", finding: "Enfermedad no registrada" }] }, context), false);
+    assert.deepEqual(context.facts, scenario.source.facts);
+  });
+}
 const fact = { source: "Antropometría · peso", finding: "92 kg" };
 const pes = {
   problem: "Problema por revisar",
@@ -107,6 +118,8 @@ Deno.test("PES can explicitly decline unsupported diagnosis", () => {
       {
         ...pes,
         problem: "",
+        etiology: "",
+        signsSymptoms: [],
         pesStatement: "",
         evidence: [],
         missingContext: ["Entrevista"],
@@ -219,3 +232,18 @@ Deno.test(
     );
   },
 );
+Deno.test("PES refuses unsupported etiology even when problem and statement are blank", () => {
+  assert.equal(clinicalEvidenceValid("pes_diagnosis", { ...pes, problem: "", pesStatement: "", evidence: [] }, { facts: [] }), false);
+});
+Deno.test("PES field limits agree with persistence", () => {
+  assert.equal(validOutput(pesSchema, { ...pes, problem: "x".repeat(501) }), false);
+  assert.equal(validOutput(pesSchema, { ...pes, etiology: "x".repeat(1501) }), false);
+});
+Deno.test("PES context omits absent facts without altering units, decimals or dates", () => {
+  const units = [
+    { source: "Antropometría · talla", finding: "170 cm · 2026-09-21" },
+    { source: "Laboratorio · glucosa", finding: "5.6 mmol/L · 2026-09-20" },
+    { source: "Cálculo registrado", finding: "22.4 kg/m²" },
+  ];
+  assert.deepEqual(buildPesClinicalContext({ stamp: "a", facts: [...units, { source: "Ausente", finding: "null" }, { source: "Ausente", finding: "" }] }).facts, units);
+});

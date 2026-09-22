@@ -80,7 +80,7 @@ export class OpenAIResponsesProvider implements AIProvider {
           const raw = await response.text();
           const parsed = JSON.parse(raw) as { error?: { code?: unknown; type?: unknown } };
           const candidate = parsed.error?.code ?? parsed.error?.type;
-          if (typeof candidate === 'string') providerCode = candidate.slice(0, 80);
+          if (typeof candidate === 'string' && ['credit_balance_exhausted','insufficient_quota','rate_limit_exceeded','invalid_api_key','invalid_request_error','server_error'].includes(candidate)) providerCode = candidate;
         } catch { /* A non-JSON body is intentionally ignored. */ }
         console.warn(JSON.stringify({ event: 'provider_rejected', status: response.status, model: config.model, code: providerCode }));
         if (providerCode === 'credit_balance_exhausted') throw new AIError('provider_credit_exhausted');

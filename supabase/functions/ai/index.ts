@@ -33,6 +33,7 @@ Deno.serve(async request => {
     for (const chunk of chunks) { bytes.set(chunk,offset); offset += chunk.length; }
     let body: unknown;
     try { body = JSON.parse(new TextDecoder().decode(bytes)); } catch { throw new AIError('invalid_request'); }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new AIError('invalid_request');
     const decision = body as {action?:string;payload?:string;signature?:string};
     if (decision.action === 'apply_workshop' || decision.action === 'discard_workshop') {
       let signed;
@@ -73,7 +74,9 @@ Deno.serve(async request => {
         const { data: source, error } = await db.rpc('ai_clinical_source',{p_owner:owner,p_patient:r.patientId,p_consultation:r.consultationId,p_revision:r.revision});
         if (error || !source) throw new AIError('context_unavailable');
         const clinical = source as ClinicalSource;
-        return {stamp:clinical.stamp,context:r.feature==='pes_diagnosis' ? buildPesClinicalContext(clinical) : {narrative:redactClinicalText(r.narrative!,clinical.identifiers?.filter((v): v is string => typeof v === 'string'))}};
+        const context=r.feature==='pes_diagnosis' ? buildPesClinicalContext(clinical) : {narrative:redactClinicalText(r.narrative!,clinical.identifiers?.filter((v): v is string => typeof v === 'string'))};
+        if ('facts' in context && context.facts.length===0) throw new AIError('context_unavailable');
+        return {stamp:clinical.stamp,context};
       },
       bindContext: async (id,r,stamp) => {
         if(r.feature==='diet_workshop') {

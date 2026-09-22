@@ -28,6 +28,87 @@ const tortilla = {
   group_code: "CEREALS_NO_FAT",
 } as FoodItem;
 describe("clinical recall deterministic model", () => {
+  it("does not match agua inside aguacate or automatically choose a partial food", () => {
+    const avocado = {
+      ...egg,
+      id: "avocado",
+      name: "Aguacate",
+      normalized_name: "aguacate",
+      aliases: [],
+    };
+    expect(matchRecallFoods("agua", [avocado])).toEqual([]);
+    const cookie = {
+      ...egg,
+      id: "cookie",
+      name: "Galleta de maíz",
+      normalized_name: "galleta de maiz",
+      aliases: [],
+    };
+    const row = recallRows(
+      {
+        meals: [
+          {
+            mealLabel: "Colación",
+            approximateTime: null,
+            items: [
+              {
+                rawText: "una galleta",
+                normalizedName: "galleta",
+                quantity: 1,
+                unit: null,
+                confidence: 1,
+                needsConfirmation: false,
+              },
+            ],
+          },
+        ],
+        unresolvedItems: [],
+        ambiguities: [],
+      },
+      [cookie],
+    )[0];
+    expect(matchRecallFoods("galleta", [cookie])).toEqual([cookie]);
+    expect(row.foodId).toBe("");
+  });
+  it("never substitutes a catalog cup for an unspecified or incompatible fruit unit", () => {
+    const orange = {
+      ...egg,
+      id: "orange",
+      name: "Naranja en gajos",
+      normalized_name: "naranja en gajos",
+      aliases: ["naranja"],
+      portion_unit: "cup",
+    } as FoodItem;
+    for (const unit of [null, "piece"]) {
+      const row = recallRows(
+        {
+          meals: [
+            {
+              mealLabel: "Comida",
+              approximateTime: null,
+              items: [
+                {
+                  rawText: "una naranja",
+                  normalizedName: "naranja",
+                  quantity: 1,
+                  unit,
+                  confidence: 1,
+                  needsConfirmation: true,
+                },
+              ],
+            },
+          ],
+          unresolvedItems: [],
+          ambiguities: [],
+        },
+        [orange],
+      )[0];
+      expect(row.unit).toBe(unit ?? "");
+      expect(
+        canonicalRecallItem({ ...row, confirmed: true }, [orange]),
+      ).toBeNull();
+    }
+  });
   it("matches canonical and aliases before partial names", () => {
     expect(matchRecallFoods("huevo entero", [egg, tortilla])).toEqual([egg]);
     expect(matchRecallFoods("huevo", [egg, tortilla])).toEqual([egg]);

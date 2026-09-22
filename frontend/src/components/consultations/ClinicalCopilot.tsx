@@ -20,6 +20,8 @@ import {
   canonicalRecallItem,
   matchRecallFoods,
   recallRows,
+  pesFromAnswers,
+  canApprovePes,
   type PesDraft,
   type RecallExtraction,
   type RecallRow,
@@ -33,6 +35,7 @@ type Props = {
   revision: number;
   before: () => Promise<boolean>;
   onPes?: (draft: PesDraft) => void;
+  answers?: Record<string, unknown>;
 };
 const input =
   "mt-1 w-full rounded-lg border border-[#dfe5e1] bg-white px-3 py-2 text-sm text-[#173d36]";
@@ -216,7 +219,7 @@ export function PesCopilot(props: Props) {
         <h3 className="font-semibold text-[#173d36]">Diagnóstico PES</h3>
         <span className="text-xs text-[#687870]">
           {clinical.workspace?.records.pes
-            ? "Aprobado en esta revisión"
+            ? "Existe una aprobación guardada; los cambios requieren revisión"
             : "Borrador bajo revisión profesional"}
         </span>
       </div>
@@ -259,6 +262,21 @@ export function PesCopilot(props: Props) {
           Generar borrador
         </AIButton>
       )}
+      {!draft && props.answers && (
+        <button
+          type="button"
+          className={secondary + " ml-2 mt-4"}
+          disabled={clinical.saving || clinical.state === "generating"}
+          onClick={() => {
+            setDraft(pesFromAnswers(props.answers!));
+            setReplacement(null);
+            clinical.setGeneration(undefined);
+            setEditing(true);
+          }}
+        >
+          Revisar PES escrito
+        </button>
+      )}
       {clinical.state === "generating" && (
         <p role="status" className="mt-3 text-sm">
           Analizando la información de la consulta…
@@ -267,6 +285,11 @@ export function PesCopilot(props: Props) {
       {draft && (
         <div className="mt-4 space-y-3">
           <h4 className="text-sm font-semibold">Borrador de diagnóstico PES</h4>
+          {!draft.problem.trim() && !draft.pesStatement.trim() && draft.missingContext.length > 0 && (
+            <p role="status" className="rounded-lg bg-[#fff7e7] p-3 text-sm text-[#715326]">
+              Información insuficiente para proponer un PES. Revisa los datos faltantes antes de completar o aprobar el diagnóstico.
+            </p>
+          )}
           {(
             [
               ["problem", "Problema"],
@@ -344,7 +367,7 @@ export function PesCopilot(props: Props) {
                 clinical.saving ||
                 !!replacement ||
                 clinical.state === "generating" ||
-                !draft.pesStatement.trim()
+                !canApprovePes(draft)
               }
               onClick={() =>
                 void clinical.approve("pes", draft).then((ok) => {
@@ -554,6 +577,8 @@ export function RecallCopilot(props: Props) {
     .filter((i): i is RecallSavedItem => !!i);
   function start() {
     const saved = clinical.workspace?.records.recall;
+    setAmbiguities([]);
+    setReplacement(null);
     setNarrative(saved?.narrative ?? "");
     setRows(
       saved?.items.map((i) => ({
@@ -774,6 +799,16 @@ export function RecallCopilot(props: Props) {
                       }
                     >
                       <option value="">Elegir</option>
+                      {row.unit &&
+                        row.unit !== food?.portion_unit &&
+                        !(row.unit === "g" && food?.edible_grams) && (
+                          <option value={row.unit}>
+                            {foodUnitLabels[
+                              row.unit as keyof typeof foodUnitLabels
+                            ] ?? row.unit}{" "}
+                            · por verificar
+                          </option>
+                        )}
                       {food && (
                         <option value={food.portion_unit}>
                           {foodUnitLabels[food.portion_unit]}

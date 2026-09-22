@@ -5,8 +5,12 @@ import {
   RecallCopilot,
 } from "../../src/components/consultations/ClinicalCopilot";
 import "./style.css";
+import { ClinicalObjective } from "../../src/components/consultations/ClinicalObjective";
 function Fixture() {
   const [tab, setTab] = React.useState("pes");
+  const [goal, setGoal] = React.useState(
+    localStorage.getItem("qa-goal-text") || "",
+  );
   const [pes, setPes] = React.useState(
     localStorage.getItem("qa-pes-text") || "",
   );
@@ -27,6 +31,7 @@ function Fixture() {
         <button onClick={() => setTab("recall")}>
           Recordatorio de 24 horas
         </button>
+        <button onClick={() => setTab("objective")}>Objetivo</button>
       </div>
       {tab === "pes" ? (
         <>
@@ -43,6 +48,26 @@ function Fixture() {
               className="mt-2 w-full rounded-xl border bg-white p-3"
               value={pes}
               onChange={(e) => setPes(e.target.value)}
+            />
+          </label>
+        </>
+      ) : tab === "objective" ? (
+        <>
+          <ClinicalObjective
+            {...props}
+            questionKey="treatment_objective"
+            value={goal}
+            before={async () => {
+              localStorage.setItem("qa-goal-text", goal);
+              return true;
+            }}
+          />
+          <label className="mt-5 block text-sm">
+            Objetivo acordado con el paciente
+            <textarea
+              className="mt-2 w-full rounded-xl border bg-white p-3"
+              value={goal}
+              onChange={(e) => setGoal(e.target.value)}
             />
           </label>
         </>

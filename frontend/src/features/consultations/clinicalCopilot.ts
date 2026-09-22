@@ -12,6 +12,33 @@ export type PesDraft = {
   missingContext: string[];
   uncertainties: string[];
 };
+export function pesFromAnswers(answers: Record<string, unknown>): PesDraft {
+  const field = (key: string) =>
+    typeof answers[key] === "string" ? (answers[key] as string) : "";
+  return {
+    problem: field("pes_problem"),
+    etiology: field("pes_etiology"),
+    signsSymptoms: field("pes_evidence")
+      .split("\n")
+      .filter((s) => s.trim()),
+    pesStatement: field("pes_statement"),
+    evidence: [],
+    missingContext: [],
+    uncertainties: [],
+  };
+}
+export function canApprovePes(draft: PesDraft) {
+  return (
+    draft.problem.trim().length > 0 &&
+    draft.problem.length <= 500 &&
+    draft.etiology.length <= 1500 &&
+    draft.pesStatement.trim().length > 0 &&
+    draft.pesStatement.length <= 2000 &&
+    draft.signsSymptoms.length > 0 &&
+    draft.signsSymptoms.length <= 30 &&
+    draft.signsSymptoms.every((s) => s.trim() && s.length <= 2000)
+  );
+}
 export type RecallExtraction = {
   meals: {
     mealLabel: string;
@@ -54,7 +81,7 @@ export function matchRecallFoods(name: string, foods: FoodItem[]) {
       : (f.aliases ?? []).some((a) => normalizeFoodName(a) === normalized)
         ? 1
         : [f.name, ...(f.aliases ?? [])].some((a) =>
-              normalizeFoodName(a).includes(normalized),
+              ` ${normalizeFoodName(a)} `.includes(` ${normalized} `),
             )
           ? 2
           : 3;
@@ -74,7 +101,17 @@ export function recallRows(
   return extraction.meals.flatMap((meal) =>
     meal.items.map((item) => {
       const matches = matchRecallFoods(item.normalizedName, foods);
-      const food = matches.length === 1 ? matches[0] : undefined;
+      const candidate = matches.length === 1 ? matches[0] : undefined;
+      // A partial match is a suggestion, never an automatic food selection.
+      const normalized = normalizeFoodName(item.normalizedName);
+      const food =
+        candidate &&
+        !item.needsConfirmation &&
+        [candidate.name, ...(candidate.aliases ?? [])].some(
+          (name) => normalizeFoodName(name) === normalized,
+        )
+          ? candidate
+          : undefined;
       return {
         id: crypto.randomUUID(),
         mealLabel: meal.mealLabel,
@@ -82,7 +119,7 @@ export function recallRows(
         search: item.normalizedName,
         foodId: food?.id ?? "",
         quantity: item.quantity === null ? "" : String(item.quantity),
-        unit: item.unit ?? food?.portion_unit ?? "",
+        unit: item.unit ?? "",
         // Every extraction is provisional, regardless of confidence or a claimed explicit quantity.
         confirmed: false,
       };

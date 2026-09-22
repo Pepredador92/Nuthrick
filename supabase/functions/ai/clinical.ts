@@ -8,8 +8,8 @@ const object = (properties: Record<string, unknown>) => ({
   additionalProperties: false,
 });
 export const pesSchema = object({
-  problem: text,
-  etiology: text,
+  problem: { type: "string", maxLength: 500 },
+  etiology: { type: "string", maxLength: 1500 },
   signsSymptoms: strings,
   pesStatement: text,
   evidence: {
@@ -95,10 +95,13 @@ export function redactClinicalText(value: string, identifiers: string[] = []) {
 }
 export function buildPesClinicalContext(source: ClinicalSource) {
   return {
-    facts: source.facts.map((f) => ({
-      source: redactClinicalText(f.source, source.identifiers),
-      finding: redactClinicalText(f.finding, source.identifiers),
-    })),
+    facts: source.facts
+      .filter((f) => typeof f?.source === "string" && typeof f.finding === "string" &&
+        f.source.trim() && f.finding.trim() && !["null", "undefined", '""', "[]", "{}"].includes(f.finding.trim()))
+      .map((f) => ({
+        source: redactClinicalText(f.source.trim(), source.identifiers),
+        finding: redactClinicalText(f.finding.trim(), source.identifiers),
+      })),
   };
 }
 export function clinicalEvidenceValid(
@@ -110,11 +113,13 @@ export function clinicalEvidenceValid(
     const o = output as {
       evidence: ClinicalFact[];
       problem: string;
+      etiology: string;
+      signsSymptoms: string[];
       pesStatement: string;
     };
     const facts = (context as { facts: ClinicalFact[] }).facts;
     return (
-      (!(o.problem.trim() || o.pesStatement.trim()) || o.evidence.length > 0) &&
+      (!(o.problem.trim() || o.etiology.trim() || o.pesStatement.trim() || o.signsSymptoms.some(s => s.trim())) || o.evidence.length > 0) &&
       o.evidence.every((e) =>
         facts.some((f) => f.source === e.source && f.finding === e.finding),
       )

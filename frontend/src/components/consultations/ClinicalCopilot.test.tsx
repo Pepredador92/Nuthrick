@@ -8,6 +8,7 @@ import {
 import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
 import { PesCopilot, RecallCopilot } from "./ClinicalCopilot";
 import { AIRequestError } from "@/src/services/ai";
+import realCalibration from "../../../../supabase/functions/ai/fixtures/pes-real-calibration-20260922.json";
 const api = vi.hoisted(() => ({
   workspace: vi.fn(),
   generate: vi.fn(),
@@ -79,6 +80,42 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe("PES copilot", () => {
+  it.each(["B", "C"] as const)("explains real %s abstention without allowing approval", async (key) => {
+    api.generate.mockResolvedValue({ generationId: "real-fixture", status: "succeeded", output: realCalibration[key].output, replay: false });
+    render(<PesCopilot {...props} />);
+    await screen.findByText("Antropometría disponible");
+    fireEvent.click(screen.getByText("Generar borrador"));
+    await screen.findByText(/Información insuficiente para proponer un PES/);
+    expect((screen.getByText("Aprobar") as HTMLButtonElement).disabled).toBe(true);
+    expect(api.workspace.mock.calls.every((c) => !c[2])).toBe(true);
+    expect(props.onPes).not.toHaveBeenCalled();
+  });
+  it("manual PES can be reviewed and approved without spending on AI", async () => {
+    render(
+      <PesCopilot
+        {...props}
+        answers={{
+          pes_problem: "P",
+          pes_etiology: "E",
+          pes_evidence: "Evidencia",
+          pes_statement: "PES manual",
+        }}
+      />,
+    );
+    await screen.findByText("Antropometría disponible");
+    fireEvent.click(screen.getByText("Revisar PES escrito"));
+    fireEvent.click(screen.getByText("Aprobar"));
+    await waitFor(() =>
+      expect(api.workspace).toHaveBeenCalledWith(
+        "test-consult",
+        1,
+        "pes",
+        expect.objectContaining({ pesStatement: "PES manual" }),
+        undefined,
+      ),
+    );
+    expect(api.generate).not.toHaveBeenCalled();
+  });
   it("readiness does not require labs; generating does not save and approval uses edits", async () => {
     render(<PesCopilot {...props} />);
     await screen.findByText("Antropometría disponible");

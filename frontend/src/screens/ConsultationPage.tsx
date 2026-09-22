@@ -15,6 +15,7 @@ import { ErrorState, LoadingState } from "@/src/components/ui/Status";
 import { QuestionField } from "@/src/components/consultations/QuestionField";
 import { InterviewReview } from "@/src/components/consultations/InterviewReview";
 import { PesCopilot, RecallCopilot } from "@/src/components/consultations/ClinicalCopilot";
+import { ClinicalObjective } from "@/src/components/consultations/ClinicalObjective";
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
 import { ConsultationMeasurements } from "@/src/components/consultations/ConsultationMeasurements";
 import { LaboratoryReports } from "@/src/components/consultations/LaboratoryReports";
@@ -966,12 +967,13 @@ export function ConsultationPage() {
                     </p>
                   </div>
                 )}
-                {current?.section_key === 'nutrition_diagnosis' && <PesCopilot key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} before={save} onPes={draft => {
+                {current?.section_key === 'nutrition_diagnosis' && <PesCopilot key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} before={save} answers={values} onPes={draft => {
                   setAnswer('pes_problem', draft.problem);
                   setAnswer('pes_etiology', draft.etiology);
                   setAnswer('pes_evidence', draft.signsSymptoms.join('\n'));
                   setAnswer('pes_statement', draft.pesStatement);
                 }} />}
+                {current?.questions.filter(q => ['objectives', 'treatment_objective', 'next_objectives'].includes(q.question_key)).map(q => <ClinicalObjective key={`${consultation.id}:${snapshot.revision}:${q.question_key}`} consultationId={consultation.id} revision={snapshot.revision} questionKey={q.question_key} value={values[q.question_key]} before={save} />)}
                 {current?.questions.some(q => q.question_key === 'recall_24h_v2') && <RecallCopilot key={`${consultation.id}:${snapshot.revision}:recall`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} before={save} />}
                 <fieldset
                   disabled={busy}
