@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { AIError, type AIStore, type FeatureConfig, type Generation, OpenAIResponsesProvider, parseRequest, runAIRequest } from './core.ts';
+import { buildPesClinicalContext, redactClinicalText, type ClinicalSource } from './clinical.ts';
 
 const site = Deno.env.get('AI_SITE_URL') || 'https://nuthrick.vercel.app';
 const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
@@ -26,7 +27,7 @@ Deno.serve(async request => {
     if (!reader) throw new AIError('invalid_request');
     const chunks: Uint8Array[] = []; let size = 0;
     while (true) { const { value, done } = await reader.read(); if (done) break;
-      size += value.length; if (size > 2048) { await reader.cancel(); throw new AIError('invalid_request'); } chunks.push(value); }
+      size += value.length; if (size > 34000) { await reader.cancel(); throw new AIError('invalid_request'); } chunks.push(value); }
     const bytes = new Uint8Array(size); let offset = 0;
     for (const chunk of chunks) { bytes.set(chunk,offset); offset += chunk.length; }
     let body: unknown;
@@ -46,6 +47,16 @@ Deno.serve(async request => {
       throw new AIError('service_unavailable',true);
     }
     const store: AIStore = {
+      context: async r => {
+        const { data: source, error } = await db.rpc('ai_clinical_source',{p_owner:owner,p_patient:r.patientId,p_consultation:r.consultationId,p_revision:r.revision});
+        if (error || !source) throw new AIError('context_unavailable');
+        const clinical = source as ClinicalSource;
+        return {stamp:clinical.stamp,context:r.feature==='pes_diagnosis' ? buildPesClinicalContext(clinical) : {narrative:redactClinicalText(r.narrative!,clinical.identifiers?.filter((v): v is string => typeof v === 'string'))}};
+      },
+      bindContext: async (id,r,stamp) => {
+        const {error} = await db.rpc('ai_bind_clinical_context',{p_owner:owner,p_generation:id,p_revision:r.revision,p_stamp:stamp});
+        if (error) throw new AIError('context_unavailable');
+      },
       config: feature => rpc<FeatureConfig>('config',{ feature }),
       reserve: (config,r,hash) => rpc('reserve',{ config, feature: r.feature, idempotency_key: r.idempotencyKey, request_hash: hash, patient_id: r.patientId ?? null, consultation_id: r.consultationId ?? null }),
       claim: async id => (await rpc<{ claimed: boolean }>('claim',{ generation_id: id })).claimed,

@@ -14,6 +14,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
 import { QuestionField } from "@/src/components/consultations/QuestionField";
 import { InterviewReview } from "@/src/components/consultations/InterviewReview";
+import { PesCopilot, RecallCopilot } from "@/src/components/consultations/ClinicalCopilot";
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
 import { ConsultationMeasurements } from "@/src/components/consultations/ConsultationMeasurements";
 import { LaboratoryReports } from "@/src/components/consultations/LaboratoryReports";
@@ -955,7 +956,7 @@ export function ConsultationPage() {
               </>
             ) : (
               <>
-                {current?.description && (
+                {current?.description && current.section_key !== 'nutrition_diagnosis' && (
                   <div className="mt-4 rounded-2xl bg-[#eff6f0] p-4">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-[#527a61]">
                       Guión para acompañar la conversación
@@ -965,6 +966,13 @@ export function ConsultationPage() {
                     </p>
                   </div>
                 )}
+                {current?.section_key === 'nutrition_diagnosis' && <PesCopilot key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} before={save} onPes={draft => {
+                  setAnswer('pes_problem', draft.problem);
+                  setAnswer('pes_etiology', draft.etiology);
+                  setAnswer('pes_evidence', draft.signsSymptoms.join('\n'));
+                  setAnswer('pes_statement', draft.pesStatement);
+                }} />}
+                {current?.questions.some(q => q.question_key === 'recall_24h_v2') && <RecallCopilot key={`${consultation.id}:${snapshot.revision}:recall`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} before={save} />}
                 <fieldset
                   disabled={busy}
                   className="mt-6 min-w-0 space-y-7 border-0 p-0"

@@ -254,6 +254,7 @@ export interface ConsultationTemplateQuestion {
   updated_at: string;
 }
 export interface ConsultationSnapshot {
+  clinical_records?: { recall?: { narrative: string; items: import('@/src/features/consultations/clinicalCopilot').RecallSavedItem[] } };
   id: string;
   professional_id: string;
   consultation_id: string;

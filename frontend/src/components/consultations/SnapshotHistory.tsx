@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { InterviewReview } from "@/src/components/consultations/InterviewReview";
+import { ConfirmedRecall } from "@/src/components/consultations/ClinicalCopilot";
 import { listAnswers, listSnapshots } from "@/src/services/consultations";
 import type { Consultation, ConsultationSnapshot } from "@/src/types/domain";
 
@@ -96,7 +97,7 @@ export function SnapshotHistory({
         {loading ? (
           <p className="text-sm text-[#74817d]">Cargando respuestas…</p>
         ) : (
-          <InterviewReview structure={snapshot.structure} values={answers} />
+          <><InterviewReview structure={snapshot.structure} values={answers} />{snapshot.clinical_records?.recall&&<ConfirmedRecall record={snapshot.clinical_records.recall}/>}</>
         )}
       </div>
     </section>

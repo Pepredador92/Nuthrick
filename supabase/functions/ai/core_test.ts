@@ -15,6 +15,20 @@ const ok = { status:'completed',output:{ok:true},usage:{input_tokens:20,output_t
 const response = (overrides:Record<string,unknown>={}) => new Response(JSON.stringify({ id:'resp_test',status:'completed',usage:{input_tokens:20,output_tokens:10,total_tokens:30,input_tokens_details:{cached_tokens:3}},output:[{type:'message',content:[{type:'output_text',text:'{"ok":true}'}]}],...overrides }),{status:200});
 const providerInput = {config,instructions:'Return ok',context:{check:'test'},schema:{type:'object'},generationId:'gen'};
 
+Deno.test('PES uses server context and the same reserve/settle pipeline',async()=>{
+  const store:AIStore & Store=new Store();store.config=()=>Promise.resolve({...config,feature:'pes_diagnosis',prompt_version:'pes_diagnosis@1'});
+  const facts=[{source:'Entrevista',finding:'Dato real'}];let bound=false;
+  store.context=()=>Promise.resolve({context:{facts},stamp:'v1'});store.bindContext=()=>{bound=true;return Promise.resolve();};
+  const output={problem:'Borrador',etiology:'Por revisar',signsSymptoms:['Dato real'],pesStatement:'Borrador',evidence:facts,missingContext:[],uncertainties:[]};
+  const result=await runAIRequest({...request,feature:'pes_diagnosis',revision:1},store,{run:i=>{assert.equal(bound,true);assert.deepEqual(i.context,{facts});return Promise.resolve({...ok,output});}});
+  assert.deepEqual(result.output,output);assert.equal(store.settlements.length,1);
+});
+Deno.test('foreign clinical context rejects before reservation and provider',async()=>{
+  const store:AIStore & Store=new Store();store.config=()=>Promise.resolve({...config,feature:'pes_diagnosis',prompt_version:'pes_diagnosis@1'});
+  store.context=()=>Promise.reject(new AIError('context_unavailable'));store.bindContext=()=>Promise.resolve();
+  await assert.rejects(()=>runAIRequest({...request,feature:'pes_diagnosis'},store,{run:()=>{throw new Error('must never dispatch');}}),/context_unavailable/);assert.equal(store.generation,null);
+});
+
 Deno.test('insufficient credits means zero provider calls',async () => {
   const store=new Store();store.enough=false;let calls=0;
   await assert.rejects(()=>runAIRequest(request,store,{run:()=>{calls++;return Promise.resolve(ok);}}),/insufficient_credits/);assert.equal(calls,0);
@@ -44,9 +58,9 @@ Deno.test('network uncertainty retains reservation; replay never calls provider'
   await assert.rejects(()=>runAIRequest(request,store,provider),/provider_outcome_unknown/);
   await runAIRequest(request,store,provider);assert.equal(calls,1);assert.equal(store.generation?.status,'uncertain');assert.equal(store.settlements.length,0);
 });
-Deno.test('clinical adapters are not implemented even if configuration is enabled',async () => {
+Deno.test('clinical adapters cannot run without server-owned context',async () => {
   const store=new Store();store.config=()=>Promise.resolve({...config,feature:'pes_diagnosis',prompt_version:'pes_diagnosis@1'});
-  await assert.rejects(()=>runAIRequest({...request,feature:'pes_diagnosis'},store,{run:()=>Promise.resolve(ok)}),/feature_not_implemented/);assert.equal(store.generation,null);
+  await assert.rejects(()=>runAIRequest({...request,feature:'pes_diagnosis'},store,{run:()=>Promise.resolve(ok)}),/context_unavailable/);assert.equal(store.generation,null);
 });
 Deno.test('request cannot override professional, key, prompt, model or clinical payload',() => {
   for (const k of ['professionalId','prompt','model','apiKey','context','name','email']) assert.throws(()=>parseRequest({...request,[k]:'injected'}),/invalid_request/);
