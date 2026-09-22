@@ -72,9 +72,19 @@ export class OpenAIResponsesProvider implements AIProvider {
           body: JSON.stringify(body),
         });
       } catch { throw new AIError('provider_outcome_unknown', true); }
-      if (response.status === 429 && attempt === 0) { await response.body?.cancel(); await this.pause(250); continue; }
       if (!response.ok) {
-        await response.body?.cancel();
+        // Keep provider diagnostics safe: never log the response body, prompt, or
+        // credentials. The code/type fields are stable technical identifiers.
+        let providerCode = '';
+        try {
+          const raw = await response.text();
+          const parsed = JSON.parse(raw) as { error?: { code?: unknown; type?: unknown } };
+          const candidate = parsed.error?.code ?? parsed.error?.type;
+          if (typeof candidate === 'string') providerCode = candidate.slice(0, 80);
+        } catch { /* A non-JSON body is intentionally ignored. */ }
+        console.warn(JSON.stringify({ event: 'provider_rejected', status: response.status, model: config.model, code: providerCode }));
+        if (providerCode === 'credit_balance_exhausted') throw new AIError('provider_credit_exhausted');
+        if (response.status === 429 && attempt === 0) { await this.pause(250); continue; }
         if ([400,401,403,404,422,429].includes(response.status)) throw new AIError('provider_rejected');
         throw new AIError('provider_outcome_unknown', true);
       }

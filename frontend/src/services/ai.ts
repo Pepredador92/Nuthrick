@@ -12,6 +12,7 @@ export const aiMessages: Record<string,string> = {
   provider_outcome_unknown: 'La solicitud está pendiente de revisión. No la vuelvas a generar para evitar un consumo duplicado.',
   service_unavailable: 'No pudimos verificar el resultado. Consulta su estado antes de volver a generar.',
   invalid_output: 'La respuesta no pasó la validación. No se modificó el expediente.',
+  provider_credit_exhausted: 'La cuenta de OpenAI no tiene saldo disponible para esta prueba. Agrega crédito en OpenAI y vuelve a intentarlo.',
 };
 export async function getAIBalance(): Promise<AIBalance> {
   const { data, error } = await supabase.rpc('ai_balance');
