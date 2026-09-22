@@ -8,7 +8,7 @@ const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store
   'Access-Control-Allow-Origin': site, 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const respond = (body: unknown, status = 200) => new Response(JSON.stringify(body),{ status, headers });
 const technicalCodes = new Set(['insufficient_credits','feature_disabled','account_disabled','too_many_requests','rate_limited',
-  'config_changed','context_unavailable','idempotency_conflict','generation_unavailable','invalid_request']);
+  'pilot_limit_reached','pilot_daily_limit','pilot_daily_budget','config_changed','context_unavailable','idempotency_conflict','generation_unavailable','invalid_request']);
 
 Deno.serve(async request => {
   if (request.method === 'OPTIONS') return new Response(null,{ status: 204, headers });

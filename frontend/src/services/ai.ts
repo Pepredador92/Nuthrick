@@ -5,6 +5,9 @@ export type AIState = 'idle' | 'generating' | 'ready' | 'error' | 'insufficient'
 export const aiMessages: Record<string,string> = {
   insufficient_credits: 'Ya utilizaste los créditos de IA incluidos en tu plan.',
   feature_disabled: 'Esta función de IA aún no está habilitada.',
+  pilot_limit_reached: 'El límite del piloto para esta función ya se alcanzó.',
+  pilot_daily_limit: 'El piloto alcanzó su límite diario de generaciones.',
+  pilot_daily_budget: 'El piloto alcanzó su presupuesto diario de créditos.',
   feature_not_implemented: 'Esta función estará disponible en una próxima iteración.',
   provider_outcome_unknown: 'La solicitud está pendiente de revisión. No la vuelvas a generar para evitar un consumo duplicado.',
   service_unavailable: 'No pudimos verificar el resultado. Consulta su estado antes de volver a generar.',
