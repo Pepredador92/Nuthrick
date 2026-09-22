@@ -24,7 +24,7 @@ Deno.test('HTTP production handler: contracts, auth, upstream failures and secre
       if(url.endsWith('ai_clinical_source')) return mode==='foreign' ? json({message:'context_unavailable'},403) : json({facts:mode==='empty'?[]:recorded.A.exactInput.context.facts,identifiers:[],stamp:'stamp'});
       if(url.endsWith('ai_bind_clinical_context')) return json(null);
       if(body.p_action==='config') return json(config);
-      if(body.p_action==='reserve') return json({created:true,generation:{id:owner,status:'reserved'}});
+      if(body.p_action==='reserve') return mode==='budget' ? json({message:'pilot_daily_budget'},400) : json({created:true,generation:{id:owner,status:'reserved'}});
       if(body.p_action==='claim') return json({claimed:true});
       return json({id:owner,status:body.p_data?.status??'uncertain'});
     }
@@ -55,6 +55,7 @@ Deno.test('HTTP production handler: contracts, auth, upstream failures and secre
     assert.equal(calls,0);
     mode='foreign'; await check('unowned context',request,409,'context_unavailable'); assert.equal(calls,0);
     mode='empty'; await check('empty context blocked before provider',request,409,'context_unavailable'); assert.equal(calls,0);
+    mode='budget'; await check('daily budget rejection never reaches provider',request,409,'pilot_daily_budget'); assert.equal(calls,0);
     mode='schema'; await check('invalid provider schema',request,409,'invalid_output');
     mode='upstream'; await check('upstream error',request,409,'provider_outcome_unknown');
     mode='timeout'; await check('controlled timeout',request,409,'provider_outcome_unknown');

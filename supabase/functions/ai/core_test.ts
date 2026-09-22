@@ -33,6 +33,31 @@ Deno.test('insufficient credits means zero provider calls',async () => {
   const store=new Store();store.enough=false;let calls=0;
   await assert.rejects(()=>runAIRequest(request,store,{run:()=>{calls++;return Promise.resolve(ok);}}),/insufficient_credits/);assert.equal(calls,0);
 });
+
+Deno.test('daily budget rejection never dispatches or settles a provider call',async()=>{
+  const store=new Store();store.reserve=()=>Promise.reject(new AIError('pilot_daily_budget'));
+  let calls=0;
+  await assert.rejects(()=>runAIRequest(request,store,{run:()=>{calls++;return Promise.resolve(ok);}}),/pilot_daily_budget/);
+  assert.equal(calls,0);assert.equal(store.settlements.length,0);assert.equal(store.generation,null);
+});
+Deno.test('context binding failure after reservation releases all without dispatch',async()=>{
+  const store:Store & AIStore=new Store();
+  store.config=()=>Promise.resolve({...config,feature:'pes_diagnosis',prompt_version:'pes_diagnosis@1'});
+  store.context=()=>Promise.resolve({context:{facts:[]},stamp:'v1'});
+  store.bindContext=()=>Promise.reject(new AIError('context_unavailable'));
+  let calls=0;
+  await assert.rejects(()=>runAIRequest({...request,feature:'pes_diagnosis'},store,{run:()=>{calls++;return Promise.resolve(ok);}}),/context_unavailable/);
+  assert.equal(calls,0);assert.equal(store.generation?.status,'failed');
+  assert.deepEqual(store.settlements,[{input_tokens:0,output_tokens:0,cached_tokens:0}]);
+});
+Deno.test('persistence failure after usage never releases possible cost or redispatches',async()=>{
+  const store=new Store();store.settle=()=>Promise.reject(new AIError('service_unavailable',true));
+  let calls=0;const provider={run:()=>{calls++;return Promise.resolve(ok);}};
+  await assert.rejects(()=>runAIRequest(request,store,provider),/service_unavailable/);
+  assert.equal(store.generation?.status,'running');
+  const replay=await runAIRequest(request,store,provider);
+  assert.equal(replay.replay,true);assert.equal(calls,1);assert.equal(store.settlements.length,0);
+});
 Deno.test('concurrent same-key requests only dispatch once',async () => {
   const store=new Store();let calls=0;
   await Promise.all(Array.from({length:8},()=>runAIRequest(request,store,{run:()=>{calls++;return Promise.resolve(ok);}})));
