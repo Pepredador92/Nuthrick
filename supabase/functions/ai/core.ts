@@ -1,6 +1,7 @@
 import { Ajv } from 'ajv';
 import { clinicalAdapter, clinicalEvidenceValid, conservativeRecallQuantities } from './clinical.ts';
 import { workshopAdapter } from './workshop.ts';
+import { dietDraftAdapter } from './diet-contract.ts';
 
 export type FeatureConfig = {
   feature: string; enabled: boolean; provider: string; model: string; prompt_version: string;
@@ -8,7 +9,7 @@ export type FeatureConfig = {
   reasoning_level: string | null; temperature: number | null;
 };
 export type Usage = { input_tokens: number; output_tokens: number; cached_tokens: number };
-export type ProviderResult = { status: string; output: unknown; usage: Usage; responseId: string };
+export type ProviderResult = { status: string; output: unknown; usage: Usage; responseId: string; model?: string; latencyMs?: number };
 export type ProviderInput = { config: FeatureConfig; instructions: string; context: unknown; schema: Record<string, unknown>; generationId: string };
 export interface AIProvider { run(input: ProviderInput): Promise<ProviderResult> }
 export class AIError extends Error {
@@ -21,6 +22,7 @@ const checkSchema = {
   type: 'object', properties: { ok: { type: 'boolean', enum: [true] } }, required: ['ok'], additionalProperties: false,
 };
 export function featureAdapter(feature: string, promptVersion: string) {
+  if (feature === 'diet_draft' && promptVersion === 'diet_draft@1') return { ...dietDraftAdapter };
   if (feature === 'diet_workshop' && promptVersion === 'diet_workshop@1') return { ...workshopAdapter };
   const clinical = clinicalAdapter(feature,promptVersion);
   if (clinical) return { ...clinical, context: {} as unknown };
@@ -49,6 +51,7 @@ export function readUsage(value: unknown): Usage {
 export class OpenAIResponsesProvider implements AIProvider {
   constructor(private key: string, private transport: typeof fetch = fetch, private pause = (ms: number) => new Promise(r => setTimeout(r, ms))) {}
   async run({ config, instructions, context, schema, generationId }: ProviderInput): Promise<ProviderResult> {
+    const started = performance.now();
     if (!this.key) throw new AIError('configuration_required');
     const input = JSON.stringify(context);
     // Byte upper bound for text tokens + framing reserve. No images/tools or hidden history.
@@ -63,7 +66,8 @@ export class OpenAIResponsesProvider implements AIProvider {
     };
     const signal = AbortSignal.timeout(config.timeout_ms);
     // Only an explicit rate-limit rejection is retried once. Never replay timeout/5xx/network uncertainty.
-    for (let attempt = 0; attempt < 2; attempt++) {
+    const attempts = config.feature === 'diet_draft' ? 1 : 2;
+    for (let attempt = 0; attempt < attempts; attempt++) {
       let response: Response;
       try {
         response = await this.transport('https://api.openai.com/v1/responses', {
@@ -84,7 +88,7 @@ export class OpenAIResponsesProvider implements AIProvider {
         } catch { /* A non-JSON body is intentionally ignored. */ }
         console.warn(JSON.stringify({ event: 'provider_rejected', status: response.status, model: config.model, code: providerCode }));
         if (providerCode === 'credit_balance_exhausted') throw new AIError('provider_credit_exhausted');
-        if (response.status === 429 && attempt === 0) { await this.pause(250); continue; }
+        if (response.status === 429 && attempt + 1 < attempts) { await this.pause(250); continue; }
         if ([400,401,403,404,422,429].includes(response.status)) throw new AIError('provider_rejected');
         throw new AIError('provider_outcome_unknown', true);
       }
@@ -97,7 +101,8 @@ export class OpenAIResponsesProvider implements AIProvider {
         const texts = items.filter(item => item.type === 'message').flatMap(item => item.content ?? []).filter(c => c.type === 'output_text');
         if (texts.length === 1) output = JSON.parse(texts[0].text!);
       } catch { /* Invalid/refused/incomplete output still has real billable usage. */ }
-      return { usage, output, status: String(data.status), responseId: typeof data.id === 'string' ? data.id : '' };
+      return { usage, output, status: String(data.status), responseId: typeof data.id === 'string' ? data.id : '',
+        model: typeof data.model === 'string' ? data.model : undefined, latencyMs: Math.round(performance.now() - started) };
     }
     throw new AIError('provider_rejected');
   }
@@ -113,6 +118,7 @@ export interface AIStore {
   context?(request: AIRequest): Promise<{ context: unknown; stamp: string }>;
   bindContext?(id: string, request: AIRequest, stamp: string): Promise<void>;
   validateOutput?(output: unknown): boolean;
+  recordResult?(id: string, result: ProviderResult, valid: boolean): Promise<void>;
 }
 export type AIRequest = { feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -124,7 +130,8 @@ export function parseRequest(value: unknown): AIRequest {
     || typeof v.idempotencyKey !== 'string' || !uuid.test(v.idempotencyKey)
     || [v.patientId,v.consultationId].some(id => id !== undefined && (typeof id !== 'string' || !uuid.test(id)))
     || (v.consultationId && !v.patientId)) throw new AIError('invalid_request');
-  const workshop = v.feature === 'diet_workshop';
+  const workshop = v.feature === 'diet_workshop' || v.feature === 'diet_draft';
+  if (v.feature === 'diet_draft' && ['rejectedFoodIds','rejectedSignatures'].some(k => v[k] !== undefined)) throw new AIError('invalid_request');
   if (workshop && (typeof v.planId !== 'string' || !uuid.test(v.planId) || !Number.isSafeInteger(v.revision) || Number(v.revision)<1)) throw new AIError('invalid_request');
   if (!workshop && ['planId','rejectedFoodIds','rejectedSignatures'].some(k => v[k] !== undefined)) throw new AIError('invalid_request');
   if (v.rejectedFoodIds !== undefined && (!Array.isArray(v.rejectedFoodIds) || v.rejectedFoodIds.length>30 || v.rejectedFoodIds.some(id => typeof id!=='string'||!uuid.test(id)))) throw new AIError('invalid_request');
@@ -139,7 +146,7 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   const config = await store.config(request.feature);
   if (!config.enabled || config.provider !== 'openai') throw new AIError('feature_disabled');
   const adapter = featureAdapter(request.feature, config.prompt_version);
-  const clinical = ['pes_diagnosis','recall_24h','diet_workshop'].includes(request.feature);
+  const clinical = ['pes_diagnosis','recall_24h','diet_workshop','diet_draft'].includes(request.feature);
   if (clinical && (!store.context || !store.bindContext)) throw new AIError('context_unavailable');
   const hydrated = clinical ? await store.context!(request) : null;
   if (hydrated) adapter.context = hydrated.context;
@@ -160,7 +167,16 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
     await store.settle(generation.id,'failed',{ input_tokens: 0, output_tokens: 0, cached_tokens: 0 });
     throw error;
   }
-  const valid = result.status === 'completed' && validOutput(adapter.schema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (!store.validateOutput || store.validateOutput(result.output));
+  let valid = false;
+  try {
+    valid = result.status === 'completed' && validOutput(adapter.schema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (!store.validateOutput || store.validateOutput(result.output));
+    await store.recordResult?.(generation.id,result,valid);
+  } catch {
+    // Confirmed provider usage remains billable even if domain validation or
+    // snapshot persistence fails afterwards. Never settle these as zero usage.
+    await store.settle(generation.id,'failed',result.usage,result.responseId);
+    throw new AIError('result_unavailable');
+  }
   await store.settle(generation.id, valid ? 'succeeded' : 'invalid_output',result.usage,result.responseId);
   if (!valid) throw new AIError('invalid_output');
   return { generationId: generation.id, status: 'succeeded', output: request.feature==='recall_24h'?conservativeRecallQuantities(result.output):result.output, replay: false };

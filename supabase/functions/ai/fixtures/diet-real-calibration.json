@@ -1,0 +1,4876 @@
+{
+  "case": "B-corrective",
+  "generationId": "5c32571c-51f5-4318-92bc-3c3e252f838f",
+  "requestedModel": "gpt-5.6-terra",
+  "returnedModel": "gpt-5.6-terra",
+  "usage": {
+    "input_tokens": 4336,
+    "input_tokens_details": {
+      "cache_write_tokens": 4333,
+      "cached_tokens": 0
+    },
+    "output_tokens": 414,
+    "output_tokens_details": {
+      "reasoning_tokens": 121
+    },
+    "total_tokens": 4750
+  },
+  "latencyMs": 6046,
+  "cost": 0.01364,
+  "snapshot": {
+    "hash": "ffd7b5d59416603ed66f0c68c788635a04994e58ac8cc6a79adf925a8a5c3bef",
+    "plan": {
+      "diet_menu": {
+        "food_preferences": {
+          "3b3db0ea-cb51-c000-f063-672921544b0a": "exclude",
+          "63de0d01-3345-a496-0512-7002958c08a6": "exclude",
+          "88888888-5555-4555-8555-000000000001": "exclude",
+          "88888888-5555-4555-8555-000000000003": "exclude",
+          "a6676b51-55ad-6268-149a-e437bba69ade": "exclude"
+        }
+      },
+      "meal_distribution": {
+        "status": "ready",
+        "meal_times": [
+          {
+            "id": "meal-1",
+            "time": null,
+            "meal_type": "BREAKFAST",
+            "display_name": "Desayuno",
+            "display_order": 0
+          },
+          {
+            "id": "meal-2",
+            "time": null,
+            "meal_type": "MAIN_MEAL",
+            "display_name": "Comida",
+            "display_order": 1
+          },
+          {
+            "id": "meal-3",
+            "time": null,
+            "meal_type": "DINNER",
+            "display_name": "Cena",
+            "display_order": 2
+          }
+        ],
+        "updated_at": "2026-09-22T05:52:00.850Z",
+        "confirmed_at": "2026-09-22T05:52:00.850Z",
+        "distribution": [
+          {
+            "portions": 2,
+            "group_code": "CEREALS_NO_FAT",
+            "meal_time_id": "meal-1"
+          },
+          {
+            "portions": 1,
+            "group_code": "AOA_LOW_FAT",
+            "meal_time_id": "meal-1"
+          },
+          {
+            "portions": 1,
+            "group_code": "FRUITS",
+            "meal_time_id": "meal-1"
+          },
+          {
+            "portions": 1,
+            "group_code": "MILK_SKIM",
+            "meal_time_id": "meal-1"
+          },
+          {
+            "portions": 1,
+            "group_code": "FATS_NO_PROTEIN",
+            "meal_time_id": "meal-1"
+          },
+          {
+            "portions": 3,
+            "group_code": "CEREALS_NO_FAT",
+            "meal_time_id": "meal-2"
+          },
+          {
+            "portions": 3,
+            "group_code": "AOA_LOW_FAT",
+            "meal_time_id": "meal-2"
+          },
+          {
+            "portions": 2,
+            "group_code": "VEGETABLES",
+            "meal_time_id": "meal-2"
+          },
+          {
+            "portions": 1,
+            "group_code": "LEGUMES",
+            "meal_time_id": "meal-2"
+          },
+          {
+            "portions": 2,
+            "group_code": "FATS_NO_PROTEIN",
+            "meal_time_id": "meal-2"
+          },
+          {
+            "portions": 3,
+            "group_code": "CEREALS_NO_FAT",
+            "meal_time_id": "meal-3"
+          },
+          {
+            "portions": 2,
+            "group_code": "AOA_LOW_FAT",
+            "meal_time_id": "meal-3"
+          },
+          {
+            "portions": 2,
+            "group_code": "VEGETABLES",
+            "meal_time_id": "meal-3"
+          },
+          {
+            "portions": 1,
+            "group_code": "LEGUMES",
+            "meal_time_id": "meal-3"
+          },
+          {
+            "portions": 2,
+            "group_code": "FATS_NO_PROTEIN",
+            "meal_time_id": "meal-3"
+          },
+          {
+            "portions": 2,
+            "group_code": "FRUITS",
+            "meal_time_id": "meal-3"
+          }
+        ],
+        "schema_version": 1,
+        "derived_meal_totals": [
+          {
+            "fat_g": 10,
+            "protein_g": 20,
+            "energy_kcal": 395,
+            "meal_time_id": "meal-1",
+            "carbohydrate_g": 57
+          },
+          {
+            "fat_g": 20,
+            "protein_g": 39,
+            "energy_kcal": 635,
+            "meal_time_id": "meal-2",
+            "carbohydrate_g": 73
+          },
+          {
+            "fat_g": 17,
+            "protein_g": 32,
+            "energy_kcal": 700,
+            "meal_time_id": "meal-3",
+            "carbohydrate_g": 103
+          }
+        ],
+        "source_exchange_snapshot": {
+          "groups": [
+            {
+              "portions": 4,
+              "group_code": "VEGETABLES"
+            },
+            {
+              "portions": 3,
+              "group_code": "FRUITS"
+            },
+            {
+              "portions": 8,
+              "group_code": "CEREALS_NO_FAT"
+            },
+            {
+              "portions": 0,
+              "group_code": "CEREALS_WITH_FAT"
+            },
+            {
+              "portions": 2,
+              "group_code": "LEGUMES"
+            },
+            {
+              "portions": 0,
+              "group_code": "AOA_VERY_LOW_FAT"
+            },
+            {
+              "portions": 6,
+              "group_code": "AOA_LOW_FAT"
+            },
+            {
+              "portions": 0,
+              "group_code": "AOA_MODERATE_FAT"
+            },
+            {
+              "portions": 0,
+              "group_code": "AOA_HIGH_FAT"
+            },
+            {
+              "portions": 1,
+              "group_code": "MILK_SKIM"
+            },
+            {
+              "portions": 0,
+              "group_code": "MILK_SEMI_SKIM"
+            },
+            {
+              "portions": 0,
+              "group_code": "MILK_WHOLE"
+            },
+            {
+              "portions": 0,
+              "group_code": "MILK_WITH_SUGAR"
+            },
+            {
+              "portions": 5,
+              "group_code": "FATS_NO_PROTEIN"
+            },
+            {
+              "portions": 0,
+              "group_code": "FATS_WITH_PROTEIN"
+            },
+            {
+              "portions": 0,
+              "group_code": "SUGARS_NO_FAT"
+            },
+            {
+              "portions": 0,
+              "group_code": "SUGARS_WITH_FAT"
+            }
+          ],
+          "catalog_version": "1.0.0",
+          "exchange_system_code": "SMAE_NOM037_2012"
+        }
+      },
+      "exchange_prescription": {
+        "groups": [
+          {
+            "portions": 4,
+            "group_code": "VEGETABLES"
+          },
+          {
+            "portions": 3,
+            "group_code": "FRUITS"
+          },
+          {
+            "portions": 8,
+            "group_code": "CEREALS_NO_FAT"
+          },
+          {
+            "portions": 0,
+            "group_code": "CEREALS_WITH_FAT"
+          },
+          {
+            "portions": 2,
+            "group_code": "LEGUMES"
+          },
+          {
+            "portions": 0,
+            "group_code": "AOA_VERY_LOW_FAT"
+          },
+          {
+            "portions": 6,
+            "group_code": "AOA_LOW_FAT"
+          },
+          {
+            "portions": 0,
+            "group_code": "AOA_MODERATE_FAT"
+          },
+          {
+            "portions": 0,
+            "group_code": "AOA_HIGH_FAT"
+          },
+          {
+            "portions": 1,
+            "group_code": "MILK_SKIM"
+          },
+          {
+            "portions": 0,
+            "group_code": "MILK_SEMI_SKIM"
+          },
+          {
+            "portions": 0,
+            "group_code": "MILK_WHOLE"
+          },
+          {
+            "portions": 0,
+            "group_code": "MILK_WITH_SUGAR"
+          },
+          {
+            "portions": 5,
+            "group_code": "FATS_NO_PROTEIN"
+          },
+          {
+            "portions": 0,
+            "group_code": "FATS_WITH_PROTEIN"
+          },
+          {
+            "portions": 0,
+            "group_code": "SUGARS_NO_FAT"
+          },
+          {
+            "portions": 0,
+            "group_code": "SUGARS_WITH_FAT"
+          }
+        ],
+        "status": "ready",
+        "updated_at": "2026-09-22T05:52:00.850Z",
+        "differences": {
+          "fat_g": -11.333333333333336,
+          "protein_g": 3.5,
+          "energy_kcal": -20,
+          "carbohydrate_g": 14.25
+        },
+        "confirmed_at": "2026-09-22T05:52:00.850Z",
+        "derived_totals": {
+          "fat_g": 47,
+          "protein_g": 91,
+          "energy_kcal": 1730,
+          "carbohydrate_g": 233
+        },
+        "schema_version": 1,
+        "catalog_version": "1.0.0",
+        "target_snapshot": {
+          "fat_g": 58.333333333333336,
+          "protein_g": 87.5,
+          "energy_kcal": 1750,
+          "carbohydrate_g": 218.75
+        },
+        "exchange_system_code": "SMAE_NOM037_2012",
+        "confirmed_target_snapshot": {
+          "fat_g": 58.333333333333336,
+          "protein_g": 87.5,
+          "energy_kcal": 1750,
+          "carbohydrate_g": 218.75
+        }
+      }
+    },
+    "version": 1,
+    "prepared": {
+      "size": {
+        "bytes": 13438,
+        "characters": 13428,
+        "approximateTokens": 3357,
+        "conservativeTokensWithSchema": 16231
+      },
+      "payload": {
+        "meals": [
+          {
+            "name": "Desayuno",
+            "meal_ref": "m1",
+            "candidates": [
+              {
+                "name": "Toronja",
+                "type": "food",
+                "unit": "piece",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "FRUITS"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 0,
+                  "energy_kcal": 60,
+                  "carbohydrate_g": 15
+                },
+                "portion_ref": "base",
+                "base_quantity": 1,
+                "candidate_ref": "c1"
+              },
+              {
+                "name": "Arrachera de res cocida",
+                "type": "food",
+                "unit": "g",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "AOA_LOW_FAT"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 3,
+                  "protein_g": 7,
+                  "energy_kcal": 55,
+                  "carbohydrate_g": 0
+                },
+                "portion_ref": "base",
+                "base_quantity": 30,
+                "candidate_ref": "c2"
+              },
+              {
+                "name": "Leche descremada",
+                "type": "food",
+                "unit": "cup",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "MILK_SKIM"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 2,
+                  "protein_g": 9,
+                  "energy_kcal": 95,
+                  "carbohydrate_g": 12
+                },
+                "portion_ref": "base",
+                "base_quantity": 1,
+                "candidate_ref": "c3"
+              },
+              {
+                "name": "Avena cocida",
+                "type": "food",
+                "unit": "cup",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "CEREALS_NO_FAT"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 2,
+                  "energy_kcal": 70,
+                  "carbohydrate_g": 15
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.75,
+                "candidate_ref": "c4"
+              },
+              {
+                "name": "Mantequilla",
+                "type": "food",
+                "unit": "teaspoon",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "FATS_NO_PROTEIN"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 5,
+                  "protein_g": 0,
+                  "energy_kcal": 45,
+                  "carbohydrate_g": 0
+                },
+                "portion_ref": "base",
+                "base_quantity": 1.5,
+                "candidate_ref": "c5"
+              },
+              {
+                "name": "Plátano",
+                "type": "food",
+                "unit": "piece",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "FRUITS"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 0,
+                  "energy_kcal": 60,
+                  "carbohydrate_g": 15
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.5,
+                "candidate_ref": "c6"
+              },
+              {
+                "name": "Jamón de pavo",
+                "type": "food",
+                "unit": "slice",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "AOA_LOW_FAT"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 3,
+                  "protein_g": 7,
+                  "energy_kcal": 55,
+                  "carbohydrate_g": 0
+                },
+                "portion_ref": "base",
+                "base_quantity": 2,
+                "candidate_ref": "c7"
+              },
+              {
+                "name": "Yogur bajo en grasa",
+                "type": "food",
+                "unit": "cup",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "MILK_SKIM"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 2,
+                  "protein_g": 9,
+                  "energy_kcal": 95,
+                  "carbohydrate_g": 12
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.3333333333333333,
+                "candidate_ref": "c8"
+              },
+              {
+                "name": "Camote cocido",
+                "type": "food",
+                "unit": "cup",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "CEREALS_NO_FAT"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 2,
+                  "energy_kcal": 70,
+                  "carbohydrate_g": 15
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.3333333333333333,
+                "candidate_ref": "c9"
+              },
+              {
+                "name": "Guacamole",
+                "type": "food",
+                "unit": "tablespoon",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "FATS_NO_PROTEIN"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 5,
+                  "protein_g": 0,
+                  "energy_kcal": 45,
+                  "carbohydrate_g": 0
+                },
+                "portion_ref": "base",
+                "base_quantity": 2,
+                "candidate_ref": "c10"
+              },
+              {
+                "name": "Fresa entera",
+                "type": "food",
+                "unit": "piece",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "FRUITS"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 0,
+                  "energy_kcal": 60,
+                  "carbohydrate_g": 15
+                },
+                "portion_ref": "base",
+                "base_quantity": 17,
+                "candidate_ref": "c11"
+              },
+              {
+                "name": "Muslo de pollo crudo sin piel",
+                "type": "food",
+                "unit": "piece",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "AOA_LOW_FAT"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 3,
+                  "protein_g": 7,
+                  "energy_kcal": 55,
+                  "carbohydrate_g": 0
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.5,
+                "candidate_ref": "c12"
+              },
+              {
+                "name": "Licuado de plátano con leche",
+                "type": "recipe",
+                "unit": "recipe_serving",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "MILK_SKIM"
+                  },
+                  {
+                    "portions": 1,
+                    "group_code": "FRUITS"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 2,
+                  "protein_g": 9,
+                  "energy_kcal": 155,
+                  "carbohydrate_g": 27
+                },
+                "portion_ref": "base",
+                "base_quantity": 1,
+                "candidate_ref": "c13"
+              },
+              {
+                "name": "Avena con plátano",
+                "type": "recipe",
+                "unit": "recipe_serving",
+                "exchanges": [
+                  {
+                    "portions": 0.999,
+                    "group_code": "CEREALS_NO_FAT"
+                  },
+                  {
+                    "portions": 1,
+                    "group_code": "FRUITS"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 1.998,
+                  "energy_kcal": 129.93,
+                  "carbohydrate_g": 29.985
+                },
+                "portion_ref": "base",
+                "base_quantity": 1,
+                "candidate_ref": "c14"
+              }
+            ],
+            "distribution": [
+              {
+                "portions": 2,
+                "group_code": "CEREALS_NO_FAT"
+              },
+              {
+                "portions": 1,
+                "group_code": "AOA_LOW_FAT"
+              },
+              {
+                "portions": 1,
+                "group_code": "FRUITS"
+              },
+              {
+                "portions": 1,
+                "group_code": "MILK_SKIM"
+              },
+              {
+                "portions": 1,
+                "group_code": "FATS_NO_PROTEIN"
+              }
+            ]
+          },
+          {
+            "name": "Comida",
+            "meal_ref": "m2",
+            "candidates": [
+              {
+                "name": "Jitomate",
+                "type": "food",
+                "unit": "piece",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "VEGETABLES"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 2,
+                  "energy_kcal": 25,
+                  "carbohydrate_g": 4
+                },
+                "portion_ref": "base",
+                "base_quantity": 1,
+                "candidate_ref": "c15"
+              },
+              {
+                "name": "Arrachera de res cocida",
+                "type": "food",
+                "unit": "g",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "AOA_LOW_FAT"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 3,
+                  "protein_g": 7,
+                  "energy_kcal": 55,
+                  "carbohydrate_g": 0
+                },
+                "portion_ref": "base",
+                "base_quantity": 30,
+                "candidate_ref": "c16"
+              },
+              {
+                "name": "Avena cocida",
+                "type": "food",
+                "unit": "cup",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "CEREALS_NO_FAT"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 2,
+                  "energy_kcal": 70,
+                  "carbohydrate_g": 15
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.75,
+                "candidate_ref": "c17"
+              },
+              {
+                "name": "Mantequilla",
+                "type": "food",
+                "unit": "teaspoon",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "FATS_NO_PROTEIN"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 5,
+                  "protein_g": 0,
+                  "energy_kcal": 45,
+                  "carbohydrate_g": 0
+                },
+                "portion_ref": "base",
+                "base_quantity": 1.5,
+                "candidate_ref": "c18"
+              },
+              {
+                "name": "Alubia cocida",
+                "type": "food",
+                "unit": "cup",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "LEGUMES"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 1,
+                  "protein_g": 8,
+                  "energy_kcal": 120,
+                  "carbohydrate_g": 20
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.5,
+                "candidate_ref": "c19"
+              },
+              {
+                "name": "Ejotes cocidos picados",
+                "type": "food",
+                "unit": "cup",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "VEGETABLES"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 2,
+                  "energy_kcal": 25,
+                  "carbohydrate_g": 4
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.5,
+                "candidate_ref": "c20"
+              },
+              {
+                "name": "Jamón de pavo",
+                "type": "food",
+                "unit": "slice",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "AOA_LOW_FAT"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 3,
+                  "protein_g": 7,
+                  "energy_kcal": 55,
+                  "carbohydrate_g": 0
+                },
+                "portion_ref": "base",
+                "base_quantity": 2,
+                "candidate_ref": "c21"
+              },
+              {
+                "name": "Camote cocido",
+                "type": "food",
+                "unit": "cup",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "CEREALS_NO_FAT"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 2,
+                  "energy_kcal": 70,
+                  "carbohydrate_g": 15
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.3333333333333333,
+                "candidate_ref": "c22"
+              },
+              {
+                "name": "Guacamole",
+                "type": "food",
+                "unit": "tablespoon",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "FATS_NO_PROTEIN"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 5,
+                  "protein_g": 0,
+                  "energy_kcal": 45,
+                  "carbohydrate_g": 0
+                },
+                "portion_ref": "base",
+                "base_quantity": 2,
+                "candidate_ref": "c23"
+              },
+              {
+                "name": "Garbanzo cocido",
+                "type": "food",
+                "unit": "cup",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "LEGUMES"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 1,
+                  "protein_g": 8,
+                  "energy_kcal": 120,
+                  "carbohydrate_g": 20
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.5,
+                "candidate_ref": "c24"
+              },
+              {
+                "name": "Jícama picada",
+                "type": "food",
+                "unit": "cup",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "VEGETABLES"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 2,
+                  "energy_kcal": 25,
+                  "carbohydrate_g": 4
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.5,
+                "candidate_ref": "c25"
+              },
+              {
+                "name": "Muslo de pollo crudo sin piel",
+                "type": "food",
+                "unit": "piece",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "AOA_LOW_FAT"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 3,
+                  "protein_g": 7,
+                  "energy_kcal": 55,
+                  "carbohydrate_g": 0
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.5,
+                "candidate_ref": "c26"
+              }
+            ],
+            "distribution": [
+              {
+                "portions": 3,
+                "group_code": "CEREALS_NO_FAT"
+              },
+              {
+                "portions": 3,
+                "group_code": "AOA_LOW_FAT"
+              },
+              {
+                "portions": 2,
+                "group_code": "VEGETABLES"
+              },
+              {
+                "portions": 1,
+                "group_code": "LEGUMES"
+              },
+              {
+                "portions": 2,
+                "group_code": "FATS_NO_PROTEIN"
+              }
+            ]
+          },
+          {
+            "name": "Cena",
+            "meal_ref": "m3",
+            "candidates": [
+              {
+                "name": "Jitomate",
+                "type": "food",
+                "unit": "piece",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "VEGETABLES"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 2,
+                  "energy_kcal": 25,
+                  "carbohydrate_g": 4
+                },
+                "portion_ref": "base",
+                "base_quantity": 1,
+                "candidate_ref": "c27"
+              },
+              {
+                "name": "Toronja",
+                "type": "food",
+                "unit": "piece",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "FRUITS"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 0,
+                  "energy_kcal": 60,
+                  "carbohydrate_g": 15
+                },
+                "portion_ref": "base",
+                "base_quantity": 1,
+                "candidate_ref": "c28"
+              },
+              {
+                "name": "Arrachera de res cocida",
+                "type": "food",
+                "unit": "g",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "AOA_LOW_FAT"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 3,
+                  "protein_g": 7,
+                  "energy_kcal": 55,
+                  "carbohydrate_g": 0
+                },
+                "portion_ref": "base",
+                "base_quantity": 30,
+                "candidate_ref": "c29"
+              },
+              {
+                "name": "Avena cocida",
+                "type": "food",
+                "unit": "cup",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "CEREALS_NO_FAT"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 2,
+                  "energy_kcal": 70,
+                  "carbohydrate_g": 15
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.75,
+                "candidate_ref": "c30"
+              },
+              {
+                "name": "Mantequilla",
+                "type": "food",
+                "unit": "teaspoon",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "FATS_NO_PROTEIN"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 5,
+                  "protein_g": 0,
+                  "energy_kcal": 45,
+                  "carbohydrate_g": 0
+                },
+                "portion_ref": "base",
+                "base_quantity": 1.5,
+                "candidate_ref": "c31"
+              },
+              {
+                "name": "Alubia cocida",
+                "type": "food",
+                "unit": "cup",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "LEGUMES"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 1,
+                  "protein_g": 8,
+                  "energy_kcal": 120,
+                  "carbohydrate_g": 20
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.5,
+                "candidate_ref": "c32"
+              },
+              {
+                "name": "Ejotes cocidos picados",
+                "type": "food",
+                "unit": "cup",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "VEGETABLES"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 2,
+                  "energy_kcal": 25,
+                  "carbohydrate_g": 4
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.5,
+                "candidate_ref": "c33"
+              },
+              {
+                "name": "Plátano",
+                "type": "food",
+                "unit": "piece",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "FRUITS"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 0,
+                  "energy_kcal": 60,
+                  "carbohydrate_g": 15
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.5,
+                "candidate_ref": "c34"
+              },
+              {
+                "name": "Jamón de pavo",
+                "type": "food",
+                "unit": "slice",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "AOA_LOW_FAT"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 3,
+                  "protein_g": 7,
+                  "energy_kcal": 55,
+                  "carbohydrate_g": 0
+                },
+                "portion_ref": "base",
+                "base_quantity": 2,
+                "candidate_ref": "c35"
+              },
+              {
+                "name": "Camote cocido",
+                "type": "food",
+                "unit": "cup",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "CEREALS_NO_FAT"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 0,
+                  "protein_g": 2,
+                  "energy_kcal": 70,
+                  "carbohydrate_g": 15
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.3333333333333333,
+                "candidate_ref": "c36"
+              },
+              {
+                "name": "Guacamole",
+                "type": "food",
+                "unit": "tablespoon",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "FATS_NO_PROTEIN"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 5,
+                  "protein_g": 0,
+                  "energy_kcal": 45,
+                  "carbohydrate_g": 0
+                },
+                "portion_ref": "base",
+                "base_quantity": 2,
+                "candidate_ref": "c37"
+              },
+              {
+                "name": "Garbanzo cocido",
+                "type": "food",
+                "unit": "cup",
+                "exchanges": [
+                  {
+                    "portions": 1,
+                    "group_code": "LEGUMES"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 1,
+                  "protein_g": 8,
+                  "energy_kcal": 120,
+                  "carbohydrate_g": 20
+                },
+                "portion_ref": "base",
+                "base_quantity": 0.5,
+                "candidate_ref": "c38"
+              },
+              {
+                "name": "Molletes con frijoles y queso panela",
+                "type": "recipe",
+                "unit": "recipe_serving",
+                "exchanges": [
+                  {
+                    "portions": 0.999,
+                    "group_code": "CEREALS_NO_FAT"
+                  },
+                  {
+                    "portions": 1,
+                    "group_code": "LEGUMES"
+                  },
+                  {
+                    "portions": 0.75,
+                    "group_code": "AOA_LOW_FAT"
+                  }
+                ],
+                "nutrition": {
+                  "fat_g": 3.25,
+                  "protein_g": 15.248,
+                  "energy_kcal": 231.18,
+                  "carbohydrate_g": 34.985
+                },
+                "portion_ref": "base",
+                "base_quantity": 1,
+                "candidate_ref": "c39"
+              }
+            ],
+            "distribution": [
+              {
+                "portions": 3,
+                "group_code": "CEREALS_NO_FAT"
+              },
+              {
+                "portions": 2,
+                "group_code": "AOA_LOW_FAT"
+              },
+              {
+                "portions": 2,
+                "group_code": "VEGETABLES"
+              },
+              {
+                "portions": 1,
+                "group_code": "LEGUMES"
+              },
+              {
+                "portions": 2,
+                "group_code": "FATS_NO_PROTEIN"
+              },
+              {
+                "portions": 2,
+                "group_code": "FRUITS"
+              }
+            ]
+          }
+        ],
+        "rules": {
+          "hard_filtered": true,
+          "excluded_groups": [],
+          "excluded_attributes": []
+        },
+        "routine": {
+          "cooking_time": {
+            "fact": {
+              "state": "unavailable",
+              "reason": "missing"
+            },
+            "origin": {
+              "kind": "patient_declared",
+              "path": "cooking_time",
+              "source": "consultation_answers"
+            }
+          },
+          "usual_pattern": {
+            "fact": {
+              "state": "unavailable",
+              "reason": "missing"
+            },
+            "origin": {
+              "kind": "patient_declared",
+              "path": "usual_pattern",
+              "source": "consultation_answers"
+            }
+          },
+          "daily_schedule": {
+            "fact": {
+              "state": "unavailable",
+              "reason": "missing"
+            },
+            "origin": {
+              "kind": "patient_declared",
+              "path": "daily_schedule",
+              "source": "consultation_answers"
+            }
+          },
+          "food_equipment": {
+            "fact": {
+              "state": "unavailable",
+              "reason": "missing"
+            },
+            "origin": {
+              "kind": "patient_declared",
+              "path": "food_equipment",
+              "source": "consultation_answers"
+            }
+          }
+        },
+        "clinical": {
+          "pes": {
+            "fact": {
+              "state": "known",
+              "value": "PES aprobado sintético"
+            },
+            "origin": {
+              "kind": "approved_pes",
+              "path": "clinical_records.pes + pes_statement",
+              "source": "consultation_snapshots"
+            }
+          },
+          "objective": {
+            "fact": {
+              "state": "known",
+              "value": "Objetivo sintético"
+            },
+            "origin": {
+              "kind": "approved_objective",
+              "path": "clinical_records.objective",
+              "source": "consultation_snapshots"
+            }
+          }
+        },
+        "preferences": {
+          "foods": {
+            "fact": {
+              "state": "unavailable",
+              "reason": "missing"
+            },
+            "origin": {
+              "kind": "patient_declared",
+              "path": "food_preferences",
+              "source": "consultation_answers"
+            }
+          },
+          "eating_pattern": {
+            "fact": {
+              "state": "unavailable",
+              "reason": "missing"
+            },
+            "origin": {
+              "kind": "patient_declared",
+              "path": "eating_preferences",
+              "source": "consultation_answers"
+            }
+          }
+        },
+        "prescription": {
+          "macros": {
+            "fact": {
+              "state": "known",
+              "value": {
+                "FAT": {
+                  "kcal": 525,
+                  "grams": 58.333333333333336,
+                  "percentage": 30
+                },
+                "PROTEIN": {
+                  "kcal": 350,
+                  "grams": 87.5,
+                  "percentage": 20
+                },
+                "CARBOHYDRATE": {
+                  "kcal": 875,
+                  "grams": 218.75,
+                  "percentage": 50
+                }
+              }
+            },
+            "origin": {
+              "kind": "system_calculated",
+              "path": "macro_distribution.macros.input_value + input_mode",
+              "source": "nutrition_plans"
+            }
+          },
+          "energy_kcal": {
+            "fact": {
+              "state": "known",
+              "value": 1750
+            },
+            "origin": {
+              "kind": "professional_captured",
+              "path": "target_calories",
+              "source": "nutrition_plans"
+            }
+          }
+        },
+        "restrictions": {
+          "reactions": {
+            "fact": {
+              "state": "unavailable",
+              "reason": "missing"
+            },
+            "origin": {
+              "kind": "patient_declared",
+              "path": "food_reactions_v2",
+              "source": "consultation_answers"
+            }
+          },
+          "reaction_status": {
+            "fact": {
+              "state": "known",
+              "value": "No"
+            },
+            "origin": {
+              "kind": "patient_declared",
+              "path": "food_reactions_status",
+              "source": "consultation_answers"
+            }
+          }
+        },
+        "portion_policy": {
+          "portion_ref": "base",
+          "allowed_multipliers": [
+            0.5,
+            1,
+            1.5,
+            2,
+            2.5,
+            3,
+            3.5,
+            4,
+            4.5,
+            5,
+            5.5,
+            6,
+            6.5,
+            7,
+            7.5,
+            8
+          ]
+        },
+        "schema_version": 2,
+        "professional_instructions": {
+          "fact": {
+            "state": "unavailable",
+            "reason": "missing"
+          },
+          "origin": {
+            "kind": "professional_captured",
+            "path": "additionalInstructions",
+            "source": "request"
+          }
+        }
+      },
+      "manifest": {
+        "meals": [
+          {
+            "id": "meal-1",
+            "ref": "m1",
+            "candidates": [
+              {
+                "ref": "c1",
+                "candidate": {
+                  "key": "food:00bb9863-cb51-e118-fffe-88da4477bfc5",
+                  "food": {
+                    "id": "00bb9863-cb51-e118-fffe-88da4477bfc5",
+                    "name": "Toronja",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "frutas",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "FRUITS",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_FRUIT_TORONJA",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "piece",
+                    "carbohydrate_g": null,
+                    "portion_amount": 1,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "toronja",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 28",
+                    "alternate_portions": [],
+                    "portion_description": "1 pieza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Toronja",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "piece",
+                  "sourceId": "00bb9863-cb51-e118-fffe-88da4477bfc5",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "FRUITS"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 0,
+                    "energy_kcal": 60,
+                    "carbohydrate_g": 15
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 1,
+                  "diversityKey": "food:toronja:FRUITS"
+                }
+              },
+              {
+                "ref": "c2",
+                "candidate": {
+                  "key": "food:166d1c88-e037-23dd-8111-3d42d5e5b6cf",
+                  "food": {
+                    "id": "166d1c88-e037-23dd-8111-3d42d5e5b6cf",
+                    "name": "Arrachera de res cocida",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "aoa",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "AOA_LOW_FAT",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_AOA_LOW_FAT_ARRACHERA_DE_RES_COCIDA",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "g",
+                    "carbohydrate_g": null,
+                    "portion_amount": 30,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "arrachera de res cocida",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 68",
+                    "alternate_portions": [],
+                    "portion_description": "30 g",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Arrachera de res cocida",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "g",
+                  "sourceId": "166d1c88-e037-23dd-8111-3d42d5e5b6cf",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "AOA_LOW_FAT"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 3,
+                    "protein_g": 7,
+                    "energy_kcal": 55,
+                    "carbohydrate_g": 0
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 30,
+                  "diversityKey": "food:arrachera de res cocida:AOA_LOW_FAT"
+                }
+              },
+              {
+                "ref": "c3",
+                "candidate": {
+                  "key": "food:1805300b-303b-8e4a-7a14-3f9b67655892",
+                  "food": {
+                    "id": "1805300b-303b-8e4a-7a14-3f9b67655892",
+                    "name": "Leche descremada",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "NOM-037-SSA2-2012",
+                    "aliases": [
+                      "leche",
+                      "leche desnatada",
+                      "leche sin grasa"
+                    ],
+                    "fiber_g": null,
+                    "category": "leches",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {
+                      "milk": "contains",
+                      "lactose": "contains"
+                    },
+                    "created_at": "2026-09-15T17:10:59.370494+00:00",
+                    "group_code": "MILK_SKIM",
+                    "updated_at": "2026-09-15T17:10:59.370494+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SKIM_MILK",
+                    "catalog_code": "NUTHRICK_MX_STARTER",
+                    "edible_grams": null,
+                    "portion_unit": "cup",
+                    "carbohydrate_g": null,
+                    "portion_amount": 1,
+                    "source_version": "2012",
+                    "normalized_name": "leche descremada",
+                    "portion_fraction": null,
+                    "source_reference": "Apéndice informativo F.3 · Lácteos bajos en grasa",
+                    "alternate_portions": [
+                      {
+                        "unit": "ml",
+                        "amount": 240,
+                        "display": "240 ml"
+                      }
+                    ],
+                    "portion_description": "1 taza (240 ml)",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Leche descremada",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "cup",
+                  "sourceId": "1805300b-303b-8e4a-7a14-3f9b67655892",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "MILK_SKIM"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 2,
+                    "protein_g": 9,
+                    "energy_kcal": 95,
+                    "carbohydrate_g": 12
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 1,
+                  "diversityKey": "food:leche descremada:MILK_SKIM"
+                }
+              },
+              {
+                "ref": "c4",
+                "candidate": {
+                  "key": "food:18df69f2-14f0-b1bd-e5c2-29f7bee48270",
+                  "food": {
+                    "id": "18df69f2-14f0-b1bd-e5c2-29f7bee48270",
+                    "name": "Avena cocida",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "cereales",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "CEREALS_NO_FAT",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_CEREAL_NO_FAT_AVENA_COCIDA",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "cup",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.75,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "avena cocida",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 30",
+                    "alternate_portions": [],
+                    "portion_description": "3/4 taza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Avena cocida",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "cup",
+                  "sourceId": "18df69f2-14f0-b1bd-e5c2-29f7bee48270",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "CEREALS_NO_FAT"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 2,
+                    "energy_kcal": 70,
+                    "carbohydrate_g": 15
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.75,
+                  "diversityKey": "food:avena cocida:CEREALS_NO_FAT"
+                }
+              },
+              {
+                "ref": "c5",
+                "candidate": {
+                  "key": "food:1c4d53b5-d3e2-d1eb-b819-7e73c9761002",
+                  "food": {
+                    "id": "1c4d53b5-d3e2-d1eb-b819-7e73c9761002",
+                    "name": "Mantequilla",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "grasas",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "FATS_NO_PROTEIN",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_FAT_NO_PROTEIN_MANTEQUILLA",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "teaspoon",
+                    "carbohydrate_g": null,
+                    "portion_amount": 1.5,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "mantequilla",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 99",
+                    "alternate_portions": [],
+                    "portion_description": "1 1/2 cucharaditas",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Mantequilla",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "teaspoon",
+                  "sourceId": "1c4d53b5-d3e2-d1eb-b819-7e73c9761002",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "FATS_NO_PROTEIN"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 5,
+                    "protein_g": 0,
+                    "energy_kcal": 45,
+                    "carbohydrate_g": 0
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 1.5,
+                  "diversityKey": "food:mantequilla:FATS_NO_PROTEIN"
+                }
+              },
+              {
+                "ref": "c6",
+                "candidate": {
+                  "key": "food:0475b27c-c7ab-8389-3d0d-7739e50d038f",
+                  "food": {
+                    "id": "0475b27c-c7ab-8389-3d0d-7739e50d038f",
+                    "name": "Plátano",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "NOM-037-SSA2-2012",
+                    "aliases": [
+                      "banana",
+                      "platano",
+                      "plátano",
+                      "platano tabasco"
+                    ],
+                    "fiber_g": null,
+                    "category": "frutas",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.370494+00:00",
+                    "group_code": "FRUITS",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_BANANA",
+                    "catalog_code": "NUTHRICK_MX_STARTER",
+                    "edible_grams": null,
+                    "portion_unit": "piece",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.5,
+                    "source_version": "2012",
+                    "normalized_name": "platano",
+                    "portion_fraction": null,
+                    "source_reference": "Apéndice informativo F.3 · Frutas",
+                    "alternate_portions": [],
+                    "portion_description": "½ pieza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Plátano",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "piece",
+                  "sourceId": "0475b27c-c7ab-8389-3d0d-7739e50d038f",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "FRUITS"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 0,
+                    "energy_kcal": 60,
+                    "carbohydrate_g": 15
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.5,
+                  "diversityKey": "food:platano:FRUITS"
+                }
+              },
+              {
+                "ref": "c7",
+                "candidate": {
+                  "key": "food:27ae17b9-325f-7efc-39fd-f8efb2503a51",
+                  "food": {
+                    "id": "27ae17b9-325f-7efc-39fd-f8efb2503a51",
+                    "name": "Jamón de pavo",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "aoa",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "AOA_LOW_FAT",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_AOA_LOW_FAT_JAMON_DE_PAVO",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "slice",
+                    "carbohydrate_g": null,
+                    "portion_amount": 2,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "jamon de pavo",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 70",
+                    "alternate_portions": [],
+                    "portion_description": "2 rebanadas",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Jamón de pavo",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "slice",
+                  "sourceId": "27ae17b9-325f-7efc-39fd-f8efb2503a51",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "AOA_LOW_FAT"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 3,
+                    "protein_g": 7,
+                    "energy_kcal": 55,
+                    "carbohydrate_g": 0
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 2,
+                  "diversityKey": "food:jamon de pavo:AOA_LOW_FAT"
+                }
+              },
+              {
+                "ref": "c8",
+                "candidate": {
+                  "key": "food:3b3828bf-4094-e78a-9560-8f89da567ac2",
+                  "food": {
+                    "id": "3b3828bf-4094-e78a-9560-8f89da567ac2",
+                    "name": "Yogur bajo en grasa",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "leches",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {
+                      "milk": "contains",
+                      "lactose": "contains"
+                    },
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "MILK_SKIM",
+                    "updated_at": "2026-09-22T04:38:40.419159+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_MILK_SKIM_YOGUR_BAJO_EN_GRASA",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "cup",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.3333333333333333,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "yogur bajo en grasa",
+                    "portion_fraction": {
+                      "original": "1/3 taza",
+                      "numerator": 1,
+                      "denominator": 3
+                    },
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 86",
+                    "alternate_portions": [],
+                    "portion_description": "1/3 taza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Yogur bajo en grasa",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "cup",
+                  "sourceId": "3b3828bf-4094-e78a-9560-8f89da567ac2",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "MILK_SKIM"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 2,
+                    "protein_g": 9,
+                    "energy_kcal": 95,
+                    "carbohydrate_g": 12
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.3333333333333333,
+                  "diversityKey": "food:yogur bajo en grasa:MILK_SKIM"
+                }
+              },
+              {
+                "ref": "c9",
+                "candidate": {
+                  "key": "food:34f1c32c-6d52-eca4-50ea-89b3038b3fd9",
+                  "food": {
+                    "id": "34f1c32c-6d52-eca4-50ea-89b3038b3fd9",
+                    "name": "Camote cocido",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "cereales",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "CEREALS_NO_FAT",
+                    "updated_at": "2026-09-22T04:38:40.419159+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_CEREAL_NO_FAT_CAMOTE_COCIDO",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "cup",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.3333333333333333,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "camote cocido",
+                    "portion_fraction": {
+                      "original": "1/3 taza",
+                      "numerator": 1,
+                      "denominator": 3
+                    },
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 32",
+                    "alternate_portions": [],
+                    "portion_description": "1/3 taza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Camote cocido",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "cup",
+                  "sourceId": "34f1c32c-6d52-eca4-50ea-89b3038b3fd9",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "CEREALS_NO_FAT"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 2,
+                    "energy_kcal": 70,
+                    "carbohydrate_g": 15
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.3333333333333333,
+                  "diversityKey": "food:camote cocido:CEREALS_NO_FAT"
+                }
+              },
+              {
+                "ref": "c10",
+                "candidate": {
+                  "key": "food:3bb1b22f-3a0a-430f-11af-aa78412bf025",
+                  "food": {
+                    "id": "3bb1b22f-3a0a-430f-11af-aa78412bf025",
+                    "name": "Guacamole",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "grasas",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "FATS_NO_PROTEIN",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_FAT_NO_PROTEIN_GUACAMOLE",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "tablespoon",
+                    "carbohydrate_g": null,
+                    "portion_amount": 2,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "guacamole",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 99",
+                    "alternate_portions": [],
+                    "portion_description": "2 cucharadas",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Guacamole",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "tablespoon",
+                  "sourceId": "3bb1b22f-3a0a-430f-11af-aa78412bf025",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "FATS_NO_PROTEIN"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 5,
+                    "protein_g": 0,
+                    "energy_kcal": 45,
+                    "carbohydrate_g": 0
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 2,
+                  "diversityKey": "food:guacamole:FATS_NO_PROTEIN"
+                }
+              },
+              {
+                "ref": "c11",
+                "candidate": {
+                  "key": "food:1b9c15be-9af6-2c9c-c528-802dff12386d",
+                  "food": {
+                    "id": "1b9c15be-9af6-2c9c-c528-802dff12386d",
+                    "name": "Fresa entera",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "frutas",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "FRUITS",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_FRUIT_FRESA_ENTERA",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "piece",
+                    "carbohydrate_g": null,
+                    "portion_amount": 17,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "fresa entera",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 21",
+                    "alternate_portions": [],
+                    "portion_description": "17 piezas medianas",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Fresa entera",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "piece",
+                  "sourceId": "1b9c15be-9af6-2c9c-c528-802dff12386d",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "FRUITS"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 0,
+                    "energy_kcal": 60,
+                    "carbohydrate_g": 15
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 17,
+                  "diversityKey": "food:fresa entera:FRUITS"
+                }
+              },
+              {
+                "ref": "c12",
+                "candidate": {
+                  "key": "food:44bac3b9-d281-6984-4290-2e921b610764",
+                  "food": {
+                    "id": "44bac3b9-d281-6984-4290-2e921b610764",
+                    "name": "Muslo de pollo crudo sin piel",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "aoa",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "AOA_LOW_FAT",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_AOA_LOW_FAT_MUSLO_DE_POLLO_CRUDO_SIN_PIEL",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "piece",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.5,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "muslo de pollo crudo sin piel",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 71",
+                    "alternate_portions": [],
+                    "portion_description": "1/2 pieza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Muslo de pollo crudo sin piel",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "piece",
+                  "sourceId": "44bac3b9-d281-6984-4290-2e921b610764",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "AOA_LOW_FAT"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 3,
+                    "protein_g": 7,
+                    "energy_kcal": 55,
+                    "carbohydrate_g": 0
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.5,
+                  "diversityKey": "food:muslo de pollo crudo sin piel:AOA_LOW_FAT"
+                }
+              },
+              {
+                "ref": "c13",
+                "candidate": {
+                  "key": "recipe:0882d6fa-1729-f231-a8f4-abad9a0833fc",
+                  "name": "Licuado de plátano con leche",
+                  "rank": 0,
+                  "type": "recipe",
+                  "unit": "recipe_serving",
+                  "recipe": {
+                    "id": "0882d6fa-1729-f231-a8f4-abad9a0833fc",
+                    "name": "Licuado de plátano con leche",
+                    "tags": [
+                      "nuthrick:drink",
+                      "plátano",
+                      "leche"
+                    ],
+                    "items": [
+                      {
+                        "id": "1f91150c-0c23-51f3-c3a0-8f714bd0768a",
+                        "unit": "cup",
+                        "amount": 1,
+                        "owner_id": null,
+                        "recipe_id": "0882d6fa-1729-f231-a8f4-abad9a0833fc",
+                        "created_at": "2026-09-15T18:12:45.550585+00:00",
+                        "food_item_id": "1805300b-303b-8e4a-7a14-3f9b67655892",
+                        "display_order": 0,
+                        "food_snapshot": {
+                          "id": "1805300b-303b-8e4a-7a14-3f9b67655892",
+                          "name": "Leche descremada",
+                          "source": "NOM-037-SSA2-2012",
+                          "is_custom": false,
+                          "attributes": {
+                            "milk": "contains",
+                            "lactose": "contains"
+                          },
+                          "group_code": "MILK_SKIM",
+                          "portion_unit": "cup",
+                          "portion_amount": 1,
+                          "source_version": "2012",
+                          "portion_description": "1 taza (240 ml)",
+                          "exchange_system_code": "SMAE_NOM037_2012",
+                          "exchange_catalog_version": "1.0.0"
+                        },
+                        "exchange_contribution": [
+                          {
+                            "portions": 1,
+                            "group_code": "MILK_SKIM"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "60109416-994d-bf40-77ff-b6603c6b1248",
+                        "unit": "piece",
+                        "amount": 0.5,
+                        "owner_id": null,
+                        "recipe_id": "0882d6fa-1729-f231-a8f4-abad9a0833fc",
+                        "created_at": "2026-09-15T18:12:45.550585+00:00",
+                        "food_item_id": "0475b27c-c7ab-8389-3d0d-7739e50d038f",
+                        "display_order": 1,
+                        "food_snapshot": {
+                          "id": "0475b27c-c7ab-8389-3d0d-7739e50d038f",
+                          "name": "Plátano",
+                          "source": "NOM-037-SSA2-2012",
+                          "is_custom": false,
+                          "attributes": {},
+                          "group_code": "FRUITS",
+                          "portion_unit": "piece",
+                          "portion_amount": 0.5,
+                          "source_version": "2012",
+                          "portion_description": "½ pieza",
+                          "exchange_system_code": "SMAE_NOM037_2012",
+                          "exchange_catalog_version": "1.0.0"
+                        },
+                        "exchange_contribution": [
+                          {
+                            "portions": 1,
+                            "group_code": "FRUITS"
+                          }
+                        ]
+                      }
+                    ],
+                    "active": true,
+                    "source": "NUTHRICK_EDITORIAL_PREPARATIONS",
+                    "owner_id": null,
+                    "servings": 1,
+                    "is_custom": false,
+                    "created_at": "2026-09-15T18:12:45.549742+00:00",
+                    "image_path": null,
+                    "meal_types": [
+                      "BREAKFAST",
+                      "SNACK"
+                    ],
+                    "updated_at": "2026-09-22T04:38:40.481222+00:00",
+                    "description": "Plantilla culinaria editorial editable, rendimiento de una ración. Cantidades elegidas para esta biblioteca; no transcritas de planes clínicos.",
+                    "stable_code": "MX_EDITORIAL_BANANA_MILK_DRINK",
+                    "instructions": "Licuar la leche medida con el plátano. Servir sin azúcar ni otros ingredientes. Sus aportes ya incluyen la leche y la fruta.",
+                    "source_version": "1.1.0",
+                    "normalized_name": "licuado de platano con leche",
+                    "source_reference": "Corpus culinario autorizado revisado el 15/09/2026. Se extrajo únicamente el patrón de preparación y acompañamientos; no se conservaron datos personales ni indicaciones clínicas.",
+                    "substitution_notes": null
+                  },
+                  "sourceId": "0882d6fa-1729-f231-a8f4-abad9a0833fc",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "MILK_SKIM"
+                    },
+                    {
+                      "portions": 1,
+                      "group_code": "FRUITS"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 2,
+                    "protein_g": 9,
+                    "energy_kcal": 155,
+                    "carbohydrate_g": 27
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 1,
+                  "diversityKey": "recipe:[[\"0475b27c-c7ab-8389-3d0d-7739e50d038f:piece\",500],[\"1805300b-303b-8e4a-7a14-3f9b67655892:cup\",500]]"
+                }
+              },
+              {
+                "ref": "c14",
+                "candidate": {
+                  "key": "recipe:4f53a400-9cc8-00ce-27ea-56b6085139cf",
+                  "name": "Avena con plátano",
+                  "rank": 0,
+                  "type": "recipe",
+                  "unit": "recipe_serving",
+                  "recipe": {
+                    "id": "4f53a400-9cc8-00ce-27ea-56b6085139cf",
+                    "name": "Avena con plátano",
+                    "tags": [
+                      "mexicana",
+                      "rápida",
+                      "avena",
+                      "fruta"
+                    ],
+                    "items": [
+                      {
+                        "id": "950aec91-f642-0121-d95d-5c926753a4ee",
+                        "unit": "cup",
+                        "amount": 0.333,
+                        "owner_id": null,
+                        "recipe_id": "4f53a400-9cc8-00ce-27ea-56b6085139cf",
+                        "created_at": "2026-09-15T17:10:59.370494+00:00",
+                        "food_item_id": "acb98a95-ae59-ba34-70fd-d8ef5ef1b922",
+                        "display_order": 0,
+                        "food_snapshot": {
+                          "id": "acb98a95-ae59-ba34-70fd-d8ef5ef1b922",
+                          "name": "Avena en hojuelas",
+                          "source": "NOM-037-SSA2-2012",
+                          "is_custom": false,
+                          "attributes": {
+                            "gluten": "unknown"
+                          },
+                          "group_code": "CEREALS_NO_FAT",
+                          "portion_unit": "cup",
+                          "portion_amount": 0.3333333333333333,
+                          "source_version": "2012",
+                          "portion_description": "⅓ de taza",
+                          "exchange_system_code": "SMAE_NOM037_2012",
+                          "exchange_catalog_version": "1.0.0"
+                        },
+                        "exchange_contribution": [
+                          {
+                            "portions": 0.999,
+                            "group_code": "CEREALS_NO_FAT"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "851f2bfb-5e1f-b186-8d02-c8a40383d136",
+                        "unit": "piece",
+                        "amount": 0.5,
+                        "owner_id": null,
+                        "recipe_id": "4f53a400-9cc8-00ce-27ea-56b6085139cf",
+                        "created_at": "2026-09-15T17:10:59.370494+00:00",
+                        "food_item_id": "0475b27c-c7ab-8389-3d0d-7739e50d038f",
+                        "display_order": 1,
+                        "food_snapshot": {
+                          "id": "0475b27c-c7ab-8389-3d0d-7739e50d038f",
+                          "name": "Plátano",
+                          "source": "NOM-037-SSA2-2012",
+                          "is_custom": false,
+                          "attributes": {},
+                          "group_code": "FRUITS",
+                          "portion_unit": "piece",
+                          "portion_amount": 0.5,
+                          "source_version": "2012",
+                          "portion_description": "½ pieza",
+                          "exchange_system_code": "SMAE_NOM037_2012",
+                          "exchange_catalog_version": "1.0.0"
+                        },
+                        "exchange_contribution": [
+                          {
+                            "portions": 1,
+                            "group_code": "FRUITS"
+                          }
+                        ]
+                      }
+                    ],
+                    "active": true,
+                    "source": "NUTHRICK_STARTER_RECIPES",
+                    "owner_id": null,
+                    "servings": 1,
+                    "is_custom": false,
+                    "created_at": "2026-09-15T17:10:59.370494+00:00",
+                    "image_path": null,
+                    "meal_types": [
+                      "BREAKFAST",
+                      "SNACK"
+                    ],
+                    "updated_at": "2026-09-22T04:38:40.419159+00:00",
+                    "description": "Desayuno sencillo de avena y fruta.",
+                    "stable_code": "MX_OATS_BANANA",
+                    "instructions": "Cocer la avena en agua potable hasta obtener la textura deseada. Servir con el plátano indicado; no añadir azúcar ni otros ingredientes con aporte.",
+                    "source_version": "1.1.0",
+                    "normalized_name": "avena con platano",
+                    "source_reference": "Biblioteca curada a partir de patrones alimentarios reutilizables; sin datos clínicos ni personales.",
+                    "substitution_notes": null
+                  },
+                  "sourceId": "4f53a400-9cc8-00ce-27ea-56b6085139cf",
+                  "exchanges": [
+                    {
+                      "portions": 0.999,
+                      "group_code": "CEREALS_NO_FAT"
+                    },
+                    {
+                      "portions": 1,
+                      "group_code": "FRUITS"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 1.998,
+                    "energy_kcal": 129.93,
+                    "carbohydrate_g": 29.985
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 1,
+                  "diversityKey": "recipe:[[\"0475b27c-c7ab-8389-3d0d-7739e50d038f:piece\",500],[\"acb98a95-ae59-ba34-70fd-d8ef5ef1b922:cup\",500]]"
+                }
+              }
+            ]
+          },
+          {
+            "id": "meal-2",
+            "ref": "m2",
+            "candidates": [
+              {
+                "ref": "c15",
+                "candidate": {
+                  "key": "food:000847e1-717f-97fb-88cf-d0ce1d1ab701",
+                  "food": {
+                    "id": "000847e1-717f-97fb-88cf-d0ce1d1ab701",
+                    "name": "Jitomate",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "NOM-037-SSA2-2012",
+                    "aliases": [
+                      "jitomate bola",
+                      "tomate",
+                      "tomate rojo"
+                    ],
+                    "fiber_g": null,
+                    "category": "verduras",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.370494+00:00",
+                    "group_code": "VEGETABLES",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_TOMATO",
+                    "catalog_code": "NUTHRICK_MX_STARTER",
+                    "edible_grams": null,
+                    "portion_unit": "piece",
+                    "carbohydrate_g": null,
+                    "portion_amount": 1,
+                    "source_version": "2012",
+                    "normalized_name": "jitomate",
+                    "portion_fraction": null,
+                    "source_reference": "Apéndice informativo F.3 · Verduras",
+                    "alternate_portions": [],
+                    "portion_description": "1 pieza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Jitomate",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "piece",
+                  "sourceId": "000847e1-717f-97fb-88cf-d0ce1d1ab701",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "VEGETABLES"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 2,
+                    "energy_kcal": 25,
+                    "carbohydrate_g": 4
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 1,
+                  "diversityKey": "food:jitomate:VEGETABLES"
+                }
+              },
+              {
+                "ref": "c16",
+                "candidate": {
+                  "key": "food:166d1c88-e037-23dd-8111-3d42d5e5b6cf",
+                  "food": {
+                    "id": "166d1c88-e037-23dd-8111-3d42d5e5b6cf",
+                    "name": "Arrachera de res cocida",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "aoa",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "AOA_LOW_FAT",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_AOA_LOW_FAT_ARRACHERA_DE_RES_COCIDA",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "g",
+                    "carbohydrate_g": null,
+                    "portion_amount": 30,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "arrachera de res cocida",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 68",
+                    "alternate_portions": [],
+                    "portion_description": "30 g",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Arrachera de res cocida",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "g",
+                  "sourceId": "166d1c88-e037-23dd-8111-3d42d5e5b6cf",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "AOA_LOW_FAT"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 3,
+                    "protein_g": 7,
+                    "energy_kcal": 55,
+                    "carbohydrate_g": 0
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 30,
+                  "diversityKey": "food:arrachera de res cocida:AOA_LOW_FAT"
+                }
+              },
+              {
+                "ref": "c17",
+                "candidate": {
+                  "key": "food:18df69f2-14f0-b1bd-e5c2-29f7bee48270",
+                  "food": {
+                    "id": "18df69f2-14f0-b1bd-e5c2-29f7bee48270",
+                    "name": "Avena cocida",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "cereales",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "CEREALS_NO_FAT",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_CEREAL_NO_FAT_AVENA_COCIDA",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "cup",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.75,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "avena cocida",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 30",
+                    "alternate_portions": [],
+                    "portion_description": "3/4 taza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Avena cocida",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "cup",
+                  "sourceId": "18df69f2-14f0-b1bd-e5c2-29f7bee48270",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "CEREALS_NO_FAT"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 2,
+                    "energy_kcal": 70,
+                    "carbohydrate_g": 15
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.75,
+                  "diversityKey": "food:avena cocida:CEREALS_NO_FAT"
+                }
+              },
+              {
+                "ref": "c18",
+                "candidate": {
+                  "key": "food:1c4d53b5-d3e2-d1eb-b819-7e73c9761002",
+                  "food": {
+                    "id": "1c4d53b5-d3e2-d1eb-b819-7e73c9761002",
+                    "name": "Mantequilla",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "grasas",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "FATS_NO_PROTEIN",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_FAT_NO_PROTEIN_MANTEQUILLA",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "teaspoon",
+                    "carbohydrate_g": null,
+                    "portion_amount": 1.5,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "mantequilla",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 99",
+                    "alternate_portions": [],
+                    "portion_description": "1 1/2 cucharaditas",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Mantequilla",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "teaspoon",
+                  "sourceId": "1c4d53b5-d3e2-d1eb-b819-7e73c9761002",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "FATS_NO_PROTEIN"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 5,
+                    "protein_g": 0,
+                    "energy_kcal": 45,
+                    "carbohydrate_g": 0
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 1.5,
+                  "diversityKey": "food:mantequilla:FATS_NO_PROTEIN"
+                }
+              },
+              {
+                "ref": "c19",
+                "candidate": {
+                  "key": "food:29a2c7e7-a1f2-7fdf-b8a7-a28734ab7278",
+                  "food": {
+                    "id": "29a2c7e7-a1f2-7fdf-b8a7-a28734ab7278",
+                    "name": "Alubia cocida",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "leguminosas",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "LEGUMES",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_LEGUME_ALUBIA_COCIDA",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "cup",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.5,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "alubia cocida",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 55",
+                    "alternate_portions": [],
+                    "portion_description": "1/2 taza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Alubia cocida",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "cup",
+                  "sourceId": "29a2c7e7-a1f2-7fdf-b8a7-a28734ab7278",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "LEGUMES"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 1,
+                    "protein_g": 8,
+                    "energy_kcal": 120,
+                    "carbohydrate_g": 20
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.5,
+                  "diversityKey": "food:alubia cocida:LEGUMES"
+                }
+              },
+              {
+                "ref": "c20",
+                "candidate": {
+                  "key": "food:05c199c3-4e98-50a3-b3fb-cde8cd57a37f",
+                  "food": {
+                    "id": "05c199c3-4e98-50a3-b3fb-cde8cd57a37f",
+                    "name": "Ejotes cocidos picados",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "verduras",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "VEGETABLES",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_VEG_EJOTES_COCIDOS_PICADOS",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "cup",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.5,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "ejotes cocidos picados",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 16",
+                    "alternate_portions": [],
+                    "portion_description": "1/2 taza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Ejotes cocidos picados",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "cup",
+                  "sourceId": "05c199c3-4e98-50a3-b3fb-cde8cd57a37f",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "VEGETABLES"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 2,
+                    "energy_kcal": 25,
+                    "carbohydrate_g": 4
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.5,
+                  "diversityKey": "food:ejotes cocidos picados:VEGETABLES"
+                }
+              },
+              {
+                "ref": "c21",
+                "candidate": {
+                  "key": "food:27ae17b9-325f-7efc-39fd-f8efb2503a51",
+                  "food": {
+                    "id": "27ae17b9-325f-7efc-39fd-f8efb2503a51",
+                    "name": "Jamón de pavo",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "aoa",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "AOA_LOW_FAT",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_AOA_LOW_FAT_JAMON_DE_PAVO",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "slice",
+                    "carbohydrate_g": null,
+                    "portion_amount": 2,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "jamon de pavo",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 70",
+                    "alternate_portions": [],
+                    "portion_description": "2 rebanadas",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Jamón de pavo",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "slice",
+                  "sourceId": "27ae17b9-325f-7efc-39fd-f8efb2503a51",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "AOA_LOW_FAT"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 3,
+                    "protein_g": 7,
+                    "energy_kcal": 55,
+                    "carbohydrate_g": 0
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 2,
+                  "diversityKey": "food:jamon de pavo:AOA_LOW_FAT"
+                }
+              },
+              {
+                "ref": "c22",
+                "candidate": {
+                  "key": "food:34f1c32c-6d52-eca4-50ea-89b3038b3fd9",
+                  "food": {
+                    "id": "34f1c32c-6d52-eca4-50ea-89b3038b3fd9",
+                    "name": "Camote cocido",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "cereales",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "CEREALS_NO_FAT",
+                    "updated_at": "2026-09-22T04:38:40.419159+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_CEREAL_NO_FAT_CAMOTE_COCIDO",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "cup",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.3333333333333333,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "camote cocido",
+                    "portion_fraction": {
+                      "original": "1/3 taza",
+                      "numerator": 1,
+                      "denominator": 3
+                    },
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 32",
+                    "alternate_portions": [],
+                    "portion_description": "1/3 taza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Camote cocido",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "cup",
+                  "sourceId": "34f1c32c-6d52-eca4-50ea-89b3038b3fd9",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "CEREALS_NO_FAT"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 2,
+                    "energy_kcal": 70,
+                    "carbohydrate_g": 15
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.3333333333333333,
+                  "diversityKey": "food:camote cocido:CEREALS_NO_FAT"
+                }
+              },
+              {
+                "ref": "c23",
+                "candidate": {
+                  "key": "food:3bb1b22f-3a0a-430f-11af-aa78412bf025",
+                  "food": {
+                    "id": "3bb1b22f-3a0a-430f-11af-aa78412bf025",
+                    "name": "Guacamole",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "grasas",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "FATS_NO_PROTEIN",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_FAT_NO_PROTEIN_GUACAMOLE",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "tablespoon",
+                    "carbohydrate_g": null,
+                    "portion_amount": 2,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "guacamole",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 99",
+                    "alternate_portions": [],
+                    "portion_description": "2 cucharadas",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Guacamole",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "tablespoon",
+                  "sourceId": "3bb1b22f-3a0a-430f-11af-aa78412bf025",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "FATS_NO_PROTEIN"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 5,
+                    "protein_g": 0,
+                    "energy_kcal": 45,
+                    "carbohydrate_g": 0
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 2,
+                  "diversityKey": "food:guacamole:FATS_NO_PROTEIN"
+                }
+              },
+              {
+                "ref": "c24",
+                "candidate": {
+                  "key": "food:3bbd9ac4-7d0b-0d5a-ea9e-4ddf2fd3827b",
+                  "food": {
+                    "id": "3bbd9ac4-7d0b-0d5a-ea9e-4ddf2fd3827b",
+                    "name": "Garbanzo cocido",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "leguminosas",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "LEGUMES",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_LEGUME_GARBANZO_COCIDO",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "cup",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.5,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "garbanzo cocido",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 55",
+                    "alternate_portions": [],
+                    "portion_description": "1/2 taza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Garbanzo cocido",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "cup",
+                  "sourceId": "3bbd9ac4-7d0b-0d5a-ea9e-4ddf2fd3827b",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "LEGUMES"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 1,
+                    "protein_g": 8,
+                    "energy_kcal": 120,
+                    "carbohydrate_g": 20
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.5,
+                  "diversityKey": "food:garbanzo cocido:LEGUMES"
+                }
+              },
+              {
+                "ref": "c25",
+                "candidate": {
+                  "key": "food:0cec6fc1-413b-96b2-20cd-8b367a8af86a",
+                  "food": {
+                    "id": "0cec6fc1-413b-96b2-20cd-8b367a8af86a",
+                    "name": "Jícama picada",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "verduras",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "VEGETABLES",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_VEG_JICAMA_PICADA",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "cup",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.5,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "jicama picada",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 17",
+                    "alternate_portions": [],
+                    "portion_description": "1/2 taza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Jícama picada",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "cup",
+                  "sourceId": "0cec6fc1-413b-96b2-20cd-8b367a8af86a",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "VEGETABLES"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 2,
+                    "energy_kcal": 25,
+                    "carbohydrate_g": 4
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.5,
+                  "diversityKey": "food:jicama picada:VEGETABLES"
+                }
+              },
+              {
+                "ref": "c26",
+                "candidate": {
+                  "key": "food:44bac3b9-d281-6984-4290-2e921b610764",
+                  "food": {
+                    "id": "44bac3b9-d281-6984-4290-2e921b610764",
+                    "name": "Muslo de pollo crudo sin piel",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "aoa",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "AOA_LOW_FAT",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_AOA_LOW_FAT_MUSLO_DE_POLLO_CRUDO_SIN_PIEL",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "piece",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.5,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "muslo de pollo crudo sin piel",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 71",
+                    "alternate_portions": [],
+                    "portion_description": "1/2 pieza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Muslo de pollo crudo sin piel",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "piece",
+                  "sourceId": "44bac3b9-d281-6984-4290-2e921b610764",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "AOA_LOW_FAT"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 3,
+                    "protein_g": 7,
+                    "energy_kcal": 55,
+                    "carbohydrate_g": 0
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.5,
+                  "diversityKey": "food:muslo de pollo crudo sin piel:AOA_LOW_FAT"
+                }
+              }
+            ]
+          },
+          {
+            "id": "meal-3",
+            "ref": "m3",
+            "candidates": [
+              {
+                "ref": "c27",
+                "candidate": {
+                  "key": "food:000847e1-717f-97fb-88cf-d0ce1d1ab701",
+                  "food": {
+                    "id": "000847e1-717f-97fb-88cf-d0ce1d1ab701",
+                    "name": "Jitomate",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "NOM-037-SSA2-2012",
+                    "aliases": [
+                      "jitomate bola",
+                      "tomate",
+                      "tomate rojo"
+                    ],
+                    "fiber_g": null,
+                    "category": "verduras",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.370494+00:00",
+                    "group_code": "VEGETABLES",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_TOMATO",
+                    "catalog_code": "NUTHRICK_MX_STARTER",
+                    "edible_grams": null,
+                    "portion_unit": "piece",
+                    "carbohydrate_g": null,
+                    "portion_amount": 1,
+                    "source_version": "2012",
+                    "normalized_name": "jitomate",
+                    "portion_fraction": null,
+                    "source_reference": "Apéndice informativo F.3 · Verduras",
+                    "alternate_portions": [],
+                    "portion_description": "1 pieza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Jitomate",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "piece",
+                  "sourceId": "000847e1-717f-97fb-88cf-d0ce1d1ab701",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "VEGETABLES"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 2,
+                    "energy_kcal": 25,
+                    "carbohydrate_g": 4
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 1,
+                  "diversityKey": "food:jitomate:VEGETABLES"
+                }
+              },
+              {
+                "ref": "c28",
+                "candidate": {
+                  "key": "food:00bb9863-cb51-e118-fffe-88da4477bfc5",
+                  "food": {
+                    "id": "00bb9863-cb51-e118-fffe-88da4477bfc5",
+                    "name": "Toronja",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "frutas",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "FRUITS",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_FRUIT_TORONJA",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "piece",
+                    "carbohydrate_g": null,
+                    "portion_amount": 1,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "toronja",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 28",
+                    "alternate_portions": [],
+                    "portion_description": "1 pieza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Toronja",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "piece",
+                  "sourceId": "00bb9863-cb51-e118-fffe-88da4477bfc5",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "FRUITS"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 0,
+                    "energy_kcal": 60,
+                    "carbohydrate_g": 15
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 1,
+                  "diversityKey": "food:toronja:FRUITS"
+                }
+              },
+              {
+                "ref": "c29",
+                "candidate": {
+                  "key": "food:166d1c88-e037-23dd-8111-3d42d5e5b6cf",
+                  "food": {
+                    "id": "166d1c88-e037-23dd-8111-3d42d5e5b6cf",
+                    "name": "Arrachera de res cocida",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "aoa",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "AOA_LOW_FAT",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_AOA_LOW_FAT_ARRACHERA_DE_RES_COCIDA",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "g",
+                    "carbohydrate_g": null,
+                    "portion_amount": 30,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "arrachera de res cocida",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 68",
+                    "alternate_portions": [],
+                    "portion_description": "30 g",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Arrachera de res cocida",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "g",
+                  "sourceId": "166d1c88-e037-23dd-8111-3d42d5e5b6cf",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "AOA_LOW_FAT"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 3,
+                    "protein_g": 7,
+                    "energy_kcal": 55,
+                    "carbohydrate_g": 0
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 30,
+                  "diversityKey": "food:arrachera de res cocida:AOA_LOW_FAT"
+                }
+              },
+              {
+                "ref": "c30",
+                "candidate": {
+                  "key": "food:18df69f2-14f0-b1bd-e5c2-29f7bee48270",
+                  "food": {
+                    "id": "18df69f2-14f0-b1bd-e5c2-29f7bee48270",
+                    "name": "Avena cocida",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "cereales",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "CEREALS_NO_FAT",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_CEREAL_NO_FAT_AVENA_COCIDA",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "cup",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.75,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "avena cocida",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 30",
+                    "alternate_portions": [],
+                    "portion_description": "3/4 taza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Avena cocida",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "cup",
+                  "sourceId": "18df69f2-14f0-b1bd-e5c2-29f7bee48270",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "CEREALS_NO_FAT"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 2,
+                    "energy_kcal": 70,
+                    "carbohydrate_g": 15
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.75,
+                  "diversityKey": "food:avena cocida:CEREALS_NO_FAT"
+                }
+              },
+              {
+                "ref": "c31",
+                "candidate": {
+                  "key": "food:1c4d53b5-d3e2-d1eb-b819-7e73c9761002",
+                  "food": {
+                    "id": "1c4d53b5-d3e2-d1eb-b819-7e73c9761002",
+                    "name": "Mantequilla",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "grasas",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "FATS_NO_PROTEIN",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_FAT_NO_PROTEIN_MANTEQUILLA",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "teaspoon",
+                    "carbohydrate_g": null,
+                    "portion_amount": 1.5,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "mantequilla",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 99",
+                    "alternate_portions": [],
+                    "portion_description": "1 1/2 cucharaditas",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Mantequilla",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "teaspoon",
+                  "sourceId": "1c4d53b5-d3e2-d1eb-b819-7e73c9761002",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "FATS_NO_PROTEIN"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 5,
+                    "protein_g": 0,
+                    "energy_kcal": 45,
+                    "carbohydrate_g": 0
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 1.5,
+                  "diversityKey": "food:mantequilla:FATS_NO_PROTEIN"
+                }
+              },
+              {
+                "ref": "c32",
+                "candidate": {
+                  "key": "food:29a2c7e7-a1f2-7fdf-b8a7-a28734ab7278",
+                  "food": {
+                    "id": "29a2c7e7-a1f2-7fdf-b8a7-a28734ab7278",
+                    "name": "Alubia cocida",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "leguminosas",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "LEGUMES",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_LEGUME_ALUBIA_COCIDA",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "cup",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.5,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "alubia cocida",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 55",
+                    "alternate_portions": [],
+                    "portion_description": "1/2 taza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Alubia cocida",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "cup",
+                  "sourceId": "29a2c7e7-a1f2-7fdf-b8a7-a28734ab7278",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "LEGUMES"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 1,
+                    "protein_g": 8,
+                    "energy_kcal": 120,
+                    "carbohydrate_g": 20
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.5,
+                  "diversityKey": "food:alubia cocida:LEGUMES"
+                }
+              },
+              {
+                "ref": "c33",
+                "candidate": {
+                  "key": "food:05c199c3-4e98-50a3-b3fb-cde8cd57a37f",
+                  "food": {
+                    "id": "05c199c3-4e98-50a3-b3fb-cde8cd57a37f",
+                    "name": "Ejotes cocidos picados",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "verduras",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "VEGETABLES",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_VEG_EJOTES_COCIDOS_PICADOS",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "cup",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.5,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "ejotes cocidos picados",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 16",
+                    "alternate_portions": [],
+                    "portion_description": "1/2 taza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Ejotes cocidos picados",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "cup",
+                  "sourceId": "05c199c3-4e98-50a3-b3fb-cde8cd57a37f",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "VEGETABLES"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 2,
+                    "energy_kcal": 25,
+                    "carbohydrate_g": 4
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.5,
+                  "diversityKey": "food:ejotes cocidos picados:VEGETABLES"
+                }
+              },
+              {
+                "ref": "c34",
+                "candidate": {
+                  "key": "food:0475b27c-c7ab-8389-3d0d-7739e50d038f",
+                  "food": {
+                    "id": "0475b27c-c7ab-8389-3d0d-7739e50d038f",
+                    "name": "Plátano",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "NOM-037-SSA2-2012",
+                    "aliases": [
+                      "banana",
+                      "platano",
+                      "plátano",
+                      "platano tabasco"
+                    ],
+                    "fiber_g": null,
+                    "category": "frutas",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.370494+00:00",
+                    "group_code": "FRUITS",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_BANANA",
+                    "catalog_code": "NUTHRICK_MX_STARTER",
+                    "edible_grams": null,
+                    "portion_unit": "piece",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.5,
+                    "source_version": "2012",
+                    "normalized_name": "platano",
+                    "portion_fraction": null,
+                    "source_reference": "Apéndice informativo F.3 · Frutas",
+                    "alternate_portions": [],
+                    "portion_description": "½ pieza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Plátano",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "piece",
+                  "sourceId": "0475b27c-c7ab-8389-3d0d-7739e50d038f",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "FRUITS"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 0,
+                    "energy_kcal": 60,
+                    "carbohydrate_g": 15
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.5,
+                  "diversityKey": "food:platano:FRUITS"
+                }
+              },
+              {
+                "ref": "c35",
+                "candidate": {
+                  "key": "food:27ae17b9-325f-7efc-39fd-f8efb2503a51",
+                  "food": {
+                    "id": "27ae17b9-325f-7efc-39fd-f8efb2503a51",
+                    "name": "Jamón de pavo",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "aoa",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "AOA_LOW_FAT",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_AOA_LOW_FAT_JAMON_DE_PAVO",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "slice",
+                    "carbohydrate_g": null,
+                    "portion_amount": 2,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "jamon de pavo",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 70",
+                    "alternate_portions": [],
+                    "portion_description": "2 rebanadas",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Jamón de pavo",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "slice",
+                  "sourceId": "27ae17b9-325f-7efc-39fd-f8efb2503a51",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "AOA_LOW_FAT"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 3,
+                    "protein_g": 7,
+                    "energy_kcal": 55,
+                    "carbohydrate_g": 0
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 2,
+                  "diversityKey": "food:jamon de pavo:AOA_LOW_FAT"
+                }
+              },
+              {
+                "ref": "c36",
+                "candidate": {
+                  "key": "food:34f1c32c-6d52-eca4-50ea-89b3038b3fd9",
+                  "food": {
+                    "id": "34f1c32c-6d52-eca4-50ea-89b3038b3fd9",
+                    "name": "Camote cocido",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "cereales",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "CEREALS_NO_FAT",
+                    "updated_at": "2026-09-22T04:38:40.419159+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_CEREAL_NO_FAT_CAMOTE_COCIDO",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "cup",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.3333333333333333,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "camote cocido",
+                    "portion_fraction": {
+                      "original": "1/3 taza",
+                      "numerator": 1,
+                      "denominator": 3
+                    },
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 32",
+                    "alternate_portions": [],
+                    "portion_description": "1/3 taza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Camote cocido",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "cup",
+                  "sourceId": "34f1c32c-6d52-eca4-50ea-89b3038b3fd9",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "CEREALS_NO_FAT"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 0,
+                    "protein_g": 2,
+                    "energy_kcal": 70,
+                    "carbohydrate_g": 15
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.3333333333333333,
+                  "diversityKey": "food:camote cocido:CEREALS_NO_FAT"
+                }
+              },
+              {
+                "ref": "c37",
+                "candidate": {
+                  "key": "food:3bb1b22f-3a0a-430f-11af-aa78412bf025",
+                  "food": {
+                    "id": "3bb1b22f-3a0a-430f-11af-aa78412bf025",
+                    "name": "Guacamole",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "grasas",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "FATS_NO_PROTEIN",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_FAT_NO_PROTEIN_GUACAMOLE",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "tablespoon",
+                    "carbohydrate_g": null,
+                    "portion_amount": 2,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "guacamole",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 99",
+                    "alternate_portions": [],
+                    "portion_description": "2 cucharadas",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Guacamole",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "tablespoon",
+                  "sourceId": "3bb1b22f-3a0a-430f-11af-aa78412bf025",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "FATS_NO_PROTEIN"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 5,
+                    "protein_g": 0,
+                    "energy_kcal": 45,
+                    "carbohydrate_g": 0
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 2,
+                  "diversityKey": "food:guacamole:FATS_NO_PROTEIN"
+                }
+              },
+              {
+                "ref": "c38",
+                "candidate": {
+                  "key": "food:3bbd9ac4-7d0b-0d5a-ea9e-4ddf2fd3827b",
+                  "food": {
+                    "id": "3bbd9ac4-7d0b-0d5a-ea9e-4ddf2fd3827b",
+                    "name": "Garbanzo cocido",
+                    "brand": null,
+                    "fat_g": null,
+                    "active": true,
+                    "source": "SMAE_4E_2014",
+                    "aliases": [],
+                    "fiber_g": null,
+                    "category": "leguminosas",
+                    "owner_id": null,
+                    "is_custom": false,
+                    "protein_g": null,
+                    "sodium_mg": null,
+                    "use_count": 0,
+                    "attributes": {},
+                    "created_at": "2026-09-15T17:10:59.397096+00:00",
+                    "group_code": "LEGUMES",
+                    "updated_at": "2026-09-15T17:10:59.397096+00:00",
+                    "energy_kcal": null,
+                    "stable_code": "MX_SMAE_LEGUME_GARBANZO_COCIDO",
+                    "catalog_code": "NUTHRICK_MX_SMAE_4E_2014",
+                    "edible_grams": null,
+                    "portion_unit": "cup",
+                    "carbohydrate_g": null,
+                    "portion_amount": 0.5,
+                    "source_version": "4a ed. 2014",
+                    "normalized_name": "garbanzo cocido",
+                    "portion_fraction": null,
+                    "source_reference": "Sistema Mexicano de Alimentos Equivalentes, 4a edición (2014) · PDF p. 55",
+                    "alternate_portions": [],
+                    "portion_description": "1/2 taza",
+                    "exchange_system_code": "SMAE_NOM037_2012",
+                    "exchange_catalog_version": "1.0.0"
+                  },
+                  "name": "Garbanzo cocido",
+                  "rank": 0,
+                  "type": "food",
+                  "unit": "cup",
+                  "sourceId": "3bbd9ac4-7d0b-0d5a-ea9e-4ddf2fd3827b",
+                  "exchanges": [
+                    {
+                      "portions": 1,
+                      "group_code": "LEGUMES"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 1,
+                    "protein_g": 8,
+                    "energy_kcal": 120,
+                    "carbohydrate_g": 20
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 0.5,
+                  "diversityKey": "food:garbanzo cocido:LEGUMES"
+                }
+              },
+              {
+                "ref": "c39",
+                "candidate": {
+                  "key": "recipe:394a3ecd-cb21-30ff-d6ef-65331804e4bf",
+                  "name": "Molletes con frijoles y queso panela",
+                  "rank": 0,
+                  "type": "recipe",
+                  "unit": "recipe_serving",
+                  "recipe": {
+                    "id": "394a3ecd-cb21-30ff-d6ef-65331804e4bf",
+                    "name": "Molletes con frijoles y queso panela",
+                    "tags": [
+                      "mexicana",
+                      "rápida",
+                      "frijoles",
+                      "queso"
+                    ],
+                    "items": [
+                      {
+                        "id": "4a7b2d2d-f58a-b688-7efe-69b889cf6ce7",
+                        "unit": "piece",
+                        "amount": 0.333,
+                        "owner_id": null,
+                        "recipe_id": "394a3ecd-cb21-30ff-d6ef-65331804e4bf",
+                        "created_at": "2026-09-15T17:10:59.370494+00:00",
+                        "food_item_id": "55bd6781-7537-0842-54ef-42b582b0123b",
+                        "display_order": 0,
+                        "food_snapshot": {
+                          "id": "55bd6781-7537-0842-54ef-42b582b0123b",
+                          "name": "Bolillo sin migajón",
+                          "source": "NOM-037-SSA2-2012",
+                          "is_custom": false,
+                          "attributes": {
+                            "gluten": "contains"
+                          },
+                          "group_code": "CEREALS_NO_FAT",
+                          "portion_unit": "piece",
+                          "portion_amount": 0.3333333333333333,
+                          "source_version": "2012",
+                          "portion_description": "⅓ de bolillo",
+                          "exchange_system_code": "SMAE_NOM037_2012",
+                          "exchange_catalog_version": "1.0.0"
+                        },
+                        "exchange_contribution": [
+                          {
+                            "portions": 0.999,
+                            "group_code": "CEREALS_NO_FAT"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "54a69a3a-6c59-744d-1a6e-3871f38adc89",
+                        "unit": "cup",
+                        "amount": 0.5,
+                        "owner_id": null,
+                        "recipe_id": "394a3ecd-cb21-30ff-d6ef-65331804e4bf",
+                        "created_at": "2026-09-15T17:10:59.370494+00:00",
+                        "food_item_id": "968648d8-ef4c-93de-170c-d29cce0233b7",
+                        "display_order": 1,
+                        "food_snapshot": {
+                          "id": "968648d8-ef4c-93de-170c-d29cce0233b7",
+                          "name": "Frijoles cocidos",
+                          "source": "NOM-037-SSA2-2012",
+                          "is_custom": false,
+                          "attributes": {},
+                          "group_code": "LEGUMES",
+                          "portion_unit": "cup",
+                          "portion_amount": 0.5,
+                          "source_version": "2012",
+                          "portion_description": "½ taza",
+                          "exchange_system_code": "SMAE_NOM037_2012",
+                          "exchange_catalog_version": "1.0.0"
+                        },
+                        "exchange_contribution": [
+                          {
+                            "portions": 1,
+                            "group_code": "LEGUMES"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "32c6e44e-443e-cec8-c150-8aee5e5dd0da",
+                        "unit": "g",
+                        "amount": 30,
+                        "owner_id": null,
+                        "recipe_id": "394a3ecd-cb21-30ff-d6ef-65331804e4bf",
+                        "created_at": "2026-09-15T17:10:59.370494+00:00",
+                        "food_item_id": "e8ab9f70-d535-d4b6-fa58-340ce289bc7a",
+                        "display_order": 2,
+                        "food_snapshot": {
+                          "id": "e8ab9f70-d535-d4b6-fa58-340ce289bc7a",
+                          "name": "Queso panela",
+                          "source": "DOF_SMAE_PORTIONS",
+                          "is_custom": false,
+                          "attributes": {
+                            "milk": "contains",
+                            "lactose": "unknown"
+                          },
+                          "group_code": "AOA_LOW_FAT",
+                          "portion_unit": "g",
+                          "portion_amount": 40,
+                          "source_version": "2018",
+                          "portion_description": "40 g",
+                          "exchange_system_code": "SMAE_NOM037_2012",
+                          "exchange_catalog_version": "1.0.0"
+                        },
+                        "exchange_contribution": [
+                          {
+                            "portions": 0.75,
+                            "group_code": "AOA_LOW_FAT"
+                          }
+                        ]
+                      }
+                    ],
+                    "active": true,
+                    "source": "NUTHRICK_STARTER_RECIPES",
+                    "owner_id": null,
+                    "servings": 1,
+                    "is_custom": false,
+                    "created_at": "2026-09-15T17:10:59.370494+00:00",
+                    "image_path": null,
+                    "meal_types": [
+                      "BREAKFAST",
+                      "DINNER"
+                    ],
+                    "updated_at": "2026-09-15T17:10:59.370494+00:00",
+                    "description": "Bolillo con frijoles y queso panela.",
+                    "stable_code": "MX_MOLLETES_BEANS_PANELA",
+                    "instructions": "Unta los frijoles sobre el bolillo, agrega el queso y calienta hasta dorar ligeramente.",
+                    "source_version": "1.0.0",
+                    "normalized_name": "molletes con frijoles y queso panela",
+                    "source_reference": "Biblioteca curada a partir de patrones alimentarios reutilizables; sin datos clínicos ni personales.",
+                    "substitution_notes": null
+                  },
+                  "sourceId": "394a3ecd-cb21-30ff-d6ef-65331804e4bf",
+                  "exchanges": [
+                    {
+                      "portions": 0.999,
+                      "group_code": "CEREALS_NO_FAT"
+                    },
+                    {
+                      "portions": 1,
+                      "group_code": "LEGUMES"
+                    },
+                    {
+                      "portions": 0.75,
+                      "group_code": "AOA_LOW_FAT"
+                    }
+                  ],
+                  "nutrition": {
+                    "fat_g": 3.25,
+                    "protein_g": 15.248,
+                    "energy_kcal": 231.18,
+                    "carbohydrate_g": 34.985
+                  },
+                  "multipliers": [
+                    0.5,
+                    1,
+                    1.5,
+                    2,
+                    2.5,
+                    3,
+                    3.5,
+                    4,
+                    4.5,
+                    5,
+                    5.5,
+                    6,
+                    6.5,
+                    7,
+                    7.5,
+                    8
+                  ],
+                  "baseQuantity": 1,
+                  "diversityKey": "recipe:[[\"55bd6781-7537-0842-54ef-42b582b0123b:piece\",363],[\"968648d8-ef4c-93de-170c-d29cce0233b7:cup\",364],[\"e8ab9f70-d535-d4b6-fa58-340ce289bc7a:g\",273]]"
+                }
+              }
+            ]
+          }
+        ],
+        "limits": {
+          "foodsPerMeal": 12,
+          "recipesPerMeal": 6
+        },
+        "fingerprint": "cebd52877f406e07ffa226dc074b586da423d343eab32a8089dd22dc4ab73e3a"
+      }
+    },
+    "sourceStamp": "5f7847d4459fea264dddab3ae8a85e1f",
+    "hasManualMenu": false
+  },
+  "output": {
+    "schema_version": 1,
+    "meal_options": [
+      {
+        "meal_ref": "m1",
+        "entries": [
+          {
+            "candidate_ref": "c13",
+            "portion_ref": "base",
+            "multiplier": 1
+          },
+          {
+            "candidate_ref": "c4",
+            "portion_ref": "base",
+            "multiplier": 2
+          },
+          {
+            "candidate_ref": "c2",
+            "portion_ref": "base",
+            "multiplier": 1
+          },
+          {
+            "candidate_ref": "c5",
+            "portion_ref": "base",
+            "multiplier": 1
+          }
+        ]
+      },
+      {
+        "meal_ref": "m2",
+        "entries": [
+          {
+            "candidate_ref": "c22",
+            "portion_ref": "base",
+            "multiplier": 3
+          },
+          {
+            "candidate_ref": "c16",
+            "portion_ref": "base",
+            "multiplier": 3
+          },
+          {
+            "candidate_ref": "c15",
+            "portion_ref": "base",
+            "multiplier": 2
+          },
+          {
+            "candidate_ref": "c19",
+            "portion_ref": "base",
+            "multiplier": 1
+          },
+          {
+            "candidate_ref": "c23",
+            "portion_ref": "base",
+            "multiplier": 2
+          }
+        ]
+      },
+      {
+        "meal_ref": "m3",
+        "entries": [
+          {
+            "candidate_ref": "c36",
+            "portion_ref": "base",
+            "multiplier": 3
+          },
+          {
+            "candidate_ref": "c29",
+            "portion_ref": "base",
+            "multiplier": 2
+          },
+          {
+            "candidate_ref": "c27",
+            "portion_ref": "base",
+            "multiplier": 2
+          },
+          {
+            "candidate_ref": "c32",
+            "portion_ref": "base",
+            "multiplier": 1
+          },
+          {
+            "candidate_ref": "c37",
+            "portion_ref": "base",
+            "multiplier": 2
+          },
+          {
+            "candidate_ref": "c28",
+            "portion_ref": "base",
+            "multiplier": 2
+          }
+        ]
+      }
+    ]
+  }
+}

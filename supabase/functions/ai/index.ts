@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { AIError, type AIStore, type FeatureConfig, type Generation, OpenAIResponsesProvider, parseRequest, runAIRequest } from './core.ts';
 import { buildPesClinicalContext, redactClinicalText, type ClinicalSource } from './clinical.ts';
 import { prepareWorkshop, sanitizeWorkshopValue, signWorkshop, verifyWorkshop, type WorkshopSource } from './workshop.ts';
+import { prepareDietSnapshot, verifyDietSnapshot, validateSnapshot, parseDietDecision, DietRoutingProvider, type DietSnapshot } from './diet.ts';
 
 const site = Deno.env.get('AI_SITE_URL') || 'https://nuthrick.vercel.app';
 const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
@@ -35,6 +36,17 @@ Deno.serve(async request => {
     try { body = JSON.parse(new TextDecoder().decode(bytes)); } catch { throw new AIError('invalid_request'); }
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new AIError('invalid_request');
     const decision = body as {action?:string;payload?:string;signature?:string};
+    async function dietRpc(action: string, payload: Record<string,unknown>) {
+      const {data,error}=await db.rpc('ai_diet_draft',{p_owner:owner,p_action:action,p_data:payload});
+      if(error) throw new AIError(['context_changed','replacement_confirmation_required','difference_confirmation_required','invalid_request','invalid_output'].includes(error.message)?error.message:'context_unavailable');
+      return data;
+    }
+    if (decision.action==='apply_diet_draft' || decision.action==='discard_diet_draft') {
+      const command=parseDietDecision(body as Record<string,unknown>);
+      const saved=await dietRpc('get',{generationId:command.generationId});
+      await verifyDietSnapshot(saved.snapshot);
+      return respond(await dietRpc(decision.action==='apply_diet_draft'?'apply':'discard',command));
+    }
     if (decision.action === 'apply_workshop' || decision.action === 'discard_workshop') {
       let signed;
       try { signed=await verifyWorkshop(decision.payload!,decision.signature!,serviceKey,decision.action==='discard_workshop'); } catch { throw new AIError('invalid_request'); }
@@ -60,8 +72,16 @@ Deno.serve(async request => {
     }
     let workshop: ReturnType<typeof prepareWorkshop> | null=null;
     let workshopSource: WorkshopSource | null=null;
+    let dietSnapshot: DietSnapshot | null=null;
+    let dietValidation: ReturnType<typeof validateSnapshot> | null=null;
     const store: AIStore = {
       context: async r => {
+        if(r.feature==='diet_draft') {
+          const {data:loaded,error}=await db.rpc('ai_diet_source',{p_owner:owner,p_plan:r.planId,p_revision:r.revision});
+          if(error||!loaded||loaded.source.plan.patient_id!==(r.patientId??null)||loaded.source.plan.consultation_id!==(r.consultationId??null)) throw new AIError('context_unavailable');
+          dietSnapshot=await prepareDietSnapshot(loaded);
+          return {stamp:dietSnapshot.sourceStamp,context:dietSnapshot.prepared.payload};
+        }
         if(r.feature==='diet_workshop') {
           const {data:source,error}=await db.rpc('ai_workshop_source',{p_owner:owner,p_plan:r.planId,p_revision:r.revision});
           if(error||!source||source.plan.patient_id!==(r.patientId??null)||source.plan.consultation_id!==(r.consultationId??null)) throw new AIError('context_unavailable');
@@ -79,6 +99,10 @@ Deno.serve(async request => {
         return {stamp:clinical.stamp,context};
       },
       bindContext: async (id,r,stamp) => {
+        if(r.feature==='diet_draft') {
+          await dietRpc('bind',{generationId:id,planId:r.planId,revision:r.revision,stamp,snapshot:dietSnapshot});
+          return;
+        }
         if(r.feature==='diet_workshop') {
           const {error}=await db.rpc('ai_workshop_bind',{p_owner:owner,p_generation:id,p_plan:r.planId,p_revision:r.revision});
           if(error) throw new AIError('context_unavailable');
@@ -92,9 +116,24 @@ Deno.serve(async request => {
       claim: async id => (await rpc<{ claimed: boolean }>('claim',{ generation_id: id })).claimed,
       settle: (id,status,usage,responseId) => rpc<Generation>('settle',{ generation_id: id,status,...usage,provider_response_id: responseId }),
       uncertain: async id => { await rpc('uncertain',{ generation_id: id }); },
-      validateOutput: output => !workshop || Number.isInteger((output as {option:number}).option) && (output as {option:number}).option>=0 && (output as {option:number}).option<workshop.options.length,
+      validateOutput: output => {
+        if(dietSnapshot) { dietValidation=validateSnapshot(output,dietSnapshot); return dietValidation.status!=='invalid'; }
+        return !workshop || Number.isInteger((output as {option:number}).option) && (output as {option:number}).option>=0 && (output as {option:number}).option<workshop.options.length;
+      },
+      recordResult: async (id,result,valid) => {
+        if(!dietSnapshot) return;
+        // No raw malformed output is retained. All values below are scoped,
+        // redacted snapshot-derived data or safe provider accounting metadata.
+        await dietRpc('result',{generationId:id,result:{validation:valid?dietValidation:{status:'invalid',issues:[{code:'invalid_output',path:'output'}]},
+          model:result.model??null,latencyMs:result.latencyMs??null,usage:result.usage}});
+      },
     };
-    const result=await runAIRequest(input,store,new OpenAIResponsesProvider(apiKey));
+    const result=await runAIRequest(input,store,new DietRoutingProvider(new OpenAIResponsesProvider(apiKey)));
+    if(input.feature==='diet_draft' && result.status==='succeeded') {
+      const saved=await dietRpc('get',{generationId:result.generationId});
+      await verifyDietSnapshot(saved.snapshot);
+      return respond({...result,output:{validation:saved.result.validation,hasManualMenu:saved.snapshot.hasManualMenu,snapshotHash:saved.snapshot.hash},decision:saved.decision});
+    }
     if (input.feature==='diet_workshop' && result.output && workshop && workshopSource) {
       const generated=result.output as {option:number;summary:string;warnings:string[];assumptions:string[]};
       const prepared=workshop as ReturnType<typeof prepareWorkshop>;

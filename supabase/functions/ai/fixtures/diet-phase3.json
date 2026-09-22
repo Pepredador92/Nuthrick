@@ -1,0 +1,3025 @@
+{
+  "A": {
+    "source": {
+      "plan": {
+        "id": "88888888-4444-4444-8444-000000000001",
+        "professional_id": "88888888-1111-4111-8111-111111111111",
+        "patient_id": "88888888-2222-4222-8222-000000000001",
+        "consultation_id": "88888888-3333-4333-8333-000000000001",
+        "title": "PRUEBA LOCAL FASE 3 A NO PUBLICAR",
+        "assigned_at": "",
+        "review_date": null,
+        "plan_type": null,
+        "category": null,
+        "target_calories": 1750,
+        "energy_calculation": null,
+        "macro_distribution": {
+          "version": 1,
+          "target_energy_kcal": 1750,
+          "reference_weight_kg": null,
+          "reference_weight_source": "unavailable",
+          "reference_weight_override_kg": null,
+          "macros": {
+            "CARBOHYDRATE": {
+              "code": "CARBOHYDRATE",
+              "input_mode": "percentage",
+              "input_value": 50,
+              "percentage": 50,
+              "kcal": 875,
+              "grams": 218.75,
+              "grams_per_kg": null
+            },
+            "PROTEIN": {
+              "code": "PROTEIN",
+              "input_mode": "percentage",
+              "input_value": 20,
+              "percentage": 20,
+              "kcal": 350,
+              "grams": 87.5,
+              "grams_per_kg": null
+            },
+            "FAT": {
+              "code": "FAT",
+              "input_mode": "percentage",
+              "input_value": 30,
+              "percentage": 30,
+              "kcal": 525,
+              "grams": 58.333333333333336,
+              "grams_per_kg": null
+            }
+          },
+          "totals": {
+            "percentage": 100,
+            "kcal": 1750,
+            "difference_kcal": 0
+          },
+          "complete": true,
+          "updated_at": "2026-09-22T05:52:00.849Z"
+        },
+        "exchange_prescription": {
+          "schema_version": 1,
+          "exchange_system_code": "SMAE_NOM037_2012",
+          "catalog_version": "1.0.0",
+          "target_snapshot": {
+            "energy_kcal": 1750,
+            "carbohydrate_g": 218.75,
+            "protein_g": 87.5,
+            "fat_g": 58.333333333333336
+          },
+          "confirmed_target_snapshot": {
+            "energy_kcal": 1750,
+            "carbohydrate_g": 218.75,
+            "protein_g": 87.5,
+            "fat_g": 58.333333333333336
+          },
+          "groups": [
+            {
+              "group_code": "VEGETABLES",
+              "portions": 4
+            },
+            {
+              "group_code": "FRUITS",
+              "portions": 3
+            },
+            {
+              "group_code": "CEREALS_NO_FAT",
+              "portions": 8
+            },
+            {
+              "group_code": "CEREALS_WITH_FAT",
+              "portions": 0
+            },
+            {
+              "group_code": "LEGUMES",
+              "portions": 2
+            },
+            {
+              "group_code": "AOA_VERY_LOW_FAT",
+              "portions": 0
+            },
+            {
+              "group_code": "AOA_LOW_FAT",
+              "portions": 6
+            },
+            {
+              "group_code": "AOA_MODERATE_FAT",
+              "portions": 0
+            },
+            {
+              "group_code": "AOA_HIGH_FAT",
+              "portions": 0
+            },
+            {
+              "group_code": "MILK_SKIM",
+              "portions": 1
+            },
+            {
+              "group_code": "MILK_SEMI_SKIM",
+              "portions": 0
+            },
+            {
+              "group_code": "MILK_WHOLE",
+              "portions": 0
+            },
+            {
+              "group_code": "MILK_WITH_SUGAR",
+              "portions": 0
+            },
+            {
+              "group_code": "FATS_NO_PROTEIN",
+              "portions": 5
+            },
+            {
+              "group_code": "FATS_WITH_PROTEIN",
+              "portions": 0
+            },
+            {
+              "group_code": "SUGARS_NO_FAT",
+              "portions": 0
+            },
+            {
+              "group_code": "SUGARS_WITH_FAT",
+              "portions": 0
+            }
+          ],
+          "derived_totals": {
+            "energy_kcal": 1730,
+            "carbohydrate_g": 233,
+            "protein_g": 91,
+            "fat_g": 47
+          },
+          "differences": {
+            "energy_kcal": -20,
+            "carbohydrate_g": 14.25,
+            "protein_g": 3.5,
+            "fat_g": -11.333333333333336
+          },
+          "status": "ready",
+          "confirmed_at": "2026-09-22T05:52:00.850Z",
+          "updated_at": "2026-09-22T05:52:00.850Z"
+        },
+        "meal_distribution": {
+          "schema_version": 1,
+          "source_exchange_snapshot": {
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "catalog_version": "1.0.0",
+            "groups": [
+              {
+                "group_code": "VEGETABLES",
+                "portions": 4
+              },
+              {
+                "group_code": "FRUITS",
+                "portions": 3
+              },
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 8
+              },
+              {
+                "group_code": "CEREALS_WITH_FAT",
+                "portions": 0
+              },
+              {
+                "group_code": "LEGUMES",
+                "portions": 2
+              },
+              {
+                "group_code": "AOA_VERY_LOW_FAT",
+                "portions": 0
+              },
+              {
+                "group_code": "AOA_LOW_FAT",
+                "portions": 6
+              },
+              {
+                "group_code": "AOA_MODERATE_FAT",
+                "portions": 0
+              },
+              {
+                "group_code": "AOA_HIGH_FAT",
+                "portions": 0
+              },
+              {
+                "group_code": "MILK_SKIM",
+                "portions": 1
+              },
+              {
+                "group_code": "MILK_SEMI_SKIM",
+                "portions": 0
+              },
+              {
+                "group_code": "MILK_WHOLE",
+                "portions": 0
+              },
+              {
+                "group_code": "MILK_WITH_SUGAR",
+                "portions": 0
+              },
+              {
+                "group_code": "FATS_NO_PROTEIN",
+                "portions": 5
+              },
+              {
+                "group_code": "FATS_WITH_PROTEIN",
+                "portions": 0
+              },
+              {
+                "group_code": "SUGARS_NO_FAT",
+                "portions": 0
+              },
+              {
+                "group_code": "SUGARS_WITH_FAT",
+                "portions": 0
+              }
+            ]
+          },
+          "meal_times": [
+            {
+              "id": "meal-1",
+              "meal_type": "BREAKFAST",
+              "display_name": "Desayuno",
+              "time": null,
+              "display_order": 0
+            },
+            {
+              "id": "meal-2",
+              "meal_type": "MAIN_MEAL",
+              "display_name": "Comida",
+              "time": null,
+              "display_order": 1
+            },
+            {
+              "id": "meal-3",
+              "meal_type": "DINNER",
+              "display_name": "Cena",
+              "time": null,
+              "display_order": 2
+            }
+          ],
+          "distribution": [
+            {
+              "group_code": "CEREALS_NO_FAT",
+              "meal_time_id": "meal-1",
+              "portions": 2
+            },
+            {
+              "group_code": "AOA_LOW_FAT",
+              "meal_time_id": "meal-1",
+              "portions": 1
+            },
+            {
+              "group_code": "FRUITS",
+              "meal_time_id": "meal-1",
+              "portions": 1
+            },
+            {
+              "group_code": "MILK_SKIM",
+              "meal_time_id": "meal-1",
+              "portions": 1
+            },
+            {
+              "group_code": "FATS_NO_PROTEIN",
+              "meal_time_id": "meal-1",
+              "portions": 1
+            },
+            {
+              "group_code": "CEREALS_NO_FAT",
+              "meal_time_id": "meal-2",
+              "portions": 3
+            },
+            {
+              "group_code": "AOA_LOW_FAT",
+              "meal_time_id": "meal-2",
+              "portions": 3
+            },
+            {
+              "group_code": "VEGETABLES",
+              "meal_time_id": "meal-2",
+              "portions": 2
+            },
+            {
+              "group_code": "LEGUMES",
+              "meal_time_id": "meal-2",
+              "portions": 1
+            },
+            {
+              "group_code": "FATS_NO_PROTEIN",
+              "meal_time_id": "meal-2",
+              "portions": 2
+            },
+            {
+              "group_code": "CEREALS_NO_FAT",
+              "meal_time_id": "meal-3",
+              "portions": 3
+            },
+            {
+              "group_code": "AOA_LOW_FAT",
+              "meal_time_id": "meal-3",
+              "portions": 2
+            },
+            {
+              "group_code": "VEGETABLES",
+              "meal_time_id": "meal-3",
+              "portions": 2
+            },
+            {
+              "group_code": "LEGUMES",
+              "meal_time_id": "meal-3",
+              "portions": 1
+            },
+            {
+              "group_code": "FATS_NO_PROTEIN",
+              "meal_time_id": "meal-3",
+              "portions": 2
+            },
+            {
+              "group_code": "FRUITS",
+              "meal_time_id": "meal-3",
+              "portions": 2
+            }
+          ],
+          "derived_meal_totals": [
+            {
+              "meal_time_id": "meal-1",
+              "energy_kcal": 395,
+              "carbohydrate_g": 57,
+              "protein_g": 20,
+              "fat_g": 10
+            },
+            {
+              "meal_time_id": "meal-2",
+              "energy_kcal": 635,
+              "carbohydrate_g": 73,
+              "protein_g": 39,
+              "fat_g": 20
+            },
+            {
+              "meal_time_id": "meal-3",
+              "energy_kcal": 700,
+              "carbohydrate_g": 103,
+              "protein_g": 32,
+              "fat_g": 17
+            }
+          ],
+          "status": "ready",
+          "confirmed_at": "2026-09-22T05:52:00.850Z",
+          "updated_at": "2026-09-22T05:52:00.850Z"
+        },
+        "diet_menu": {
+          "schema_version": 1,
+          "source_meal_distribution_snapshot": null,
+          "menus": [
+            {
+              "id": "bb8dfbc0-d5e9-4120-a1de-f2b434684fdd",
+              "name": "Menú principal",
+              "display_order": 0,
+              "meal_menus": [
+                {
+                  "meal_time_id": "meal-1",
+                  "entries": []
+                },
+                {
+                  "meal_time_id": "meal-2",
+                  "entries": []
+                },
+                {
+                  "meal_time_id": "meal-3",
+                  "entries": []
+                }
+              ]
+            }
+          ],
+          "active_menu_id": "bb8dfbc0-d5e9-4120-a1de-f2b434684fdd",
+          "derived_exchange_usage": [],
+          "status": "not_started",
+          "confirmed_at": null,
+          "updated_at": "2026-09-22T05:52:00.850Z"
+        },
+        "status": "draft",
+        "draft_revision": 1,
+        "current_version_id": null,
+        "created_at": "",
+        "updated_at": ""
+      },
+      "stamp": "private-stamp",
+      "consultation": {
+        "id": "88888888-3333-4333-8333-000000000001",
+        "professional_id": "88888888-1111-4111-8111-111111111111",
+        "patient_id": "88888888-2222-4222-8222-000000000001",
+        "revision": 1,
+        "pes": {
+          "statement": "PES aprobado sintético",
+          "approved_at": "2026-09-21T10:00:00Z"
+        },
+        "objective": {
+          "content": "Objetivo sintético",
+          "approved_at": "2026-09-21T10:01:00Z",
+          "revision": 1,
+          "pes_approved_at": "2026-09-21T10:00:00Z",
+          "pes_statement": "PES aprobado sintético"
+        }
+      },
+      "answers": {
+        "food_reactions_status": {
+          "value": "No",
+          "response_area": "patient_reported"
+        },
+        "cooking_time": {
+          "value": "30 minutos",
+          "response_area": "patient_reported"
+        }
+      },
+      "catalog": {
+        "foods": [
+          {
+            "id": "88888888-5555-4555-8555-000000000001",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000001",
+            "catalog_code": "TEST",
+            "name": "Tortilla de maíz",
+            "normalized_name": "Tortilla de maíz",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "CEREALS_NO_FAT",
+            "portion_amount": 1,
+            "portion_unit": "tortilla",
+            "portion_description": "1 tortilla",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000002",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000002",
+            "catalog_code": "TEST",
+            "name": "Tortilla de maíz alternativa",
+            "normalized_name": "Tortilla de maíz alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "CEREALS_NO_FAT",
+            "portion_amount": 1,
+            "portion_unit": "tortilla",
+            "portion_description": "1 tortilla",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000003",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000003",
+            "catalog_code": "TEST",
+            "name": "Pollo cocido",
+            "normalized_name": "Pollo cocido",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "AOA_LOW_FAT",
+            "portion_amount": 30,
+            "portion_unit": "g",
+            "portion_description": "30 g",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000004",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000004",
+            "catalog_code": "TEST",
+            "name": "Pollo cocido alternativa",
+            "normalized_name": "Pollo cocido alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "AOA_LOW_FAT",
+            "portion_amount": 30,
+            "portion_unit": "g",
+            "portion_description": "30 g",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000005",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000005",
+            "catalog_code": "TEST",
+            "name": "Manzana",
+            "normalized_name": "Manzana",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "FRUITS",
+            "portion_amount": 1,
+            "portion_unit": "piece",
+            "portion_description": "1 piece",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000006",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000006",
+            "catalog_code": "TEST",
+            "name": "Manzana alternativa",
+            "normalized_name": "Manzana alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "FRUITS",
+            "portion_amount": 1,
+            "portion_unit": "piece",
+            "portion_description": "1 piece",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000007",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000007",
+            "catalog_code": "TEST",
+            "name": "Calabacita",
+            "normalized_name": "Calabacita",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "VEGETABLES",
+            "portion_amount": 1,
+            "portion_unit": "cup",
+            "portion_description": "1 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000008",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000008",
+            "catalog_code": "TEST",
+            "name": "Calabacita alternativa",
+            "normalized_name": "Calabacita alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "VEGETABLES",
+            "portion_amount": 1,
+            "portion_unit": "cup",
+            "portion_description": "1 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000009",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000009",
+            "catalog_code": "TEST",
+            "name": "Frijoles cocidos",
+            "normalized_name": "Frijoles cocidos",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "LEGUMES",
+            "portion_amount": 0.5,
+            "portion_unit": "cup",
+            "portion_description": "0.5 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000010",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000010",
+            "catalog_code": "TEST",
+            "name": "Frijoles cocidos alternativa",
+            "normalized_name": "Frijoles cocidos alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "LEGUMES",
+            "portion_amount": 0.5,
+            "portion_unit": "cup",
+            "portion_description": "0.5 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000011",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000011",
+            "catalog_code": "TEST",
+            "name": "Leche descremada",
+            "normalized_name": "Leche descremada",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "MILK_SKIM",
+            "portion_amount": 1,
+            "portion_unit": "cup",
+            "portion_description": "1 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000012",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000012",
+            "catalog_code": "TEST",
+            "name": "Leche descremada alternativa",
+            "normalized_name": "Leche descremada alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "MILK_SKIM",
+            "portion_amount": 1,
+            "portion_unit": "cup",
+            "portion_description": "1 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000013",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000013",
+            "catalog_code": "TEST",
+            "name": "Aceite de oliva",
+            "normalized_name": "Aceite de oliva",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "FATS_NO_PROTEIN",
+            "portion_amount": 1,
+            "portion_unit": "teaspoon",
+            "portion_description": "1 teaspoon",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000014",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000014",
+            "catalog_code": "TEST",
+            "name": "Aceite de oliva alternativa",
+            "normalized_name": "Aceite de oliva alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "FATS_NO_PROTEIN",
+            "portion_amount": 1,
+            "portion_unit": "teaspoon",
+            "portion_description": "1 teaspoon",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          }
+        ],
+        "recipes": [
+          {
+            "id": "88888888-6666-4666-8666-000000000001",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-6666-4666-8666-000000000001",
+            "name": "Tortillas calientes",
+            "normalized_name": "tortillas calientes",
+            "description": null,
+            "meal_types": [
+              "BREAKFAST",
+              "MAIN_MEAL",
+              "DINNER"
+            ],
+            "servings": 1,
+            "instructions": "Preparación sintética.",
+            "image_path": null,
+            "tags": [],
+            "substitution_notes": null,
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "active": true,
+            "created_at": "",
+            "updated_at": "",
+            "items": [
+              {
+                "id": "88888888-7777-4777-8777-000000000001",
+                "owner_id": "88888888-1111-4111-8111-111111111111",
+                "recipe_id": "88888888-6666-4666-8666-000000000001",
+                "food_item_id": "88888888-5555-4555-8555-000000000001",
+                "amount": 1,
+                "unit": "tortilla",
+                "display_order": 0,
+                "food_snapshot": {
+                  "id": "88888888-5555-4555-8555-000000000001",
+                  "name": "Tortilla de maíz",
+                  "group_code": "CEREALS_NO_FAT",
+                  "portion_amount": 1,
+                  "portion_unit": "tortilla",
+                  "portion_description": "1 tortilla",
+                  "exchange_system_code": "SMAE_NOM037_2012",
+                  "exchange_catalog_version": "1.0.0",
+                  "source": "TEST",
+                  "source_version": "1",
+                  "is_custom": false,
+                  "attributes": {
+                    "peanut": "free"
+                  }
+                },
+                "exchange_contribution": [
+                  {
+                    "group_code": "CEREALS_NO_FAT",
+                    "portions": 999
+                  }
+                ],
+                "created_at": ""
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "identifiers": [
+      "SENTINELA IDENTIDAD",
+      "private@example.test",
+      "5512345678"
+    ]
+  },
+  "B": {
+    "source": {
+      "plan": {
+        "id": "88888888-4444-4444-8444-000000000002",
+        "professional_id": "88888888-1111-4111-8111-111111111111",
+        "patient_id": "88888888-2222-4222-8222-000000000002",
+        "consultation_id": "88888888-3333-4333-8333-000000000002",
+        "title": "PRUEBA LOCAL FASE 3 B NO PUBLICAR",
+        "assigned_at": "",
+        "review_date": null,
+        "plan_type": null,
+        "category": null,
+        "target_calories": 1750,
+        "energy_calculation": null,
+        "macro_distribution": {
+          "version": 1,
+          "target_energy_kcal": 1750,
+          "reference_weight_kg": null,
+          "reference_weight_source": "unavailable",
+          "reference_weight_override_kg": null,
+          "macros": {
+            "CARBOHYDRATE": {
+              "code": "CARBOHYDRATE",
+              "input_mode": "percentage",
+              "input_value": 50,
+              "percentage": 50,
+              "kcal": 875,
+              "grams": 218.75,
+              "grams_per_kg": null
+            },
+            "PROTEIN": {
+              "code": "PROTEIN",
+              "input_mode": "percentage",
+              "input_value": 20,
+              "percentage": 20,
+              "kcal": 350,
+              "grams": 87.5,
+              "grams_per_kg": null
+            },
+            "FAT": {
+              "code": "FAT",
+              "input_mode": "percentage",
+              "input_value": 30,
+              "percentage": 30,
+              "kcal": 525,
+              "grams": 58.333333333333336,
+              "grams_per_kg": null
+            }
+          },
+          "totals": {
+            "percentage": 100,
+            "kcal": 1750,
+            "difference_kcal": 0
+          },
+          "complete": true,
+          "updated_at": "2026-09-22T05:52:00.850Z"
+        },
+        "exchange_prescription": {
+          "schema_version": 1,
+          "exchange_system_code": "SMAE_NOM037_2012",
+          "catalog_version": "1.0.0",
+          "target_snapshot": {
+            "energy_kcal": 1750,
+            "carbohydrate_g": 218.75,
+            "protein_g": 87.5,
+            "fat_g": 58.333333333333336
+          },
+          "confirmed_target_snapshot": {
+            "energy_kcal": 1750,
+            "carbohydrate_g": 218.75,
+            "protein_g": 87.5,
+            "fat_g": 58.333333333333336
+          },
+          "groups": [
+            {
+              "group_code": "VEGETABLES",
+              "portions": 4
+            },
+            {
+              "group_code": "FRUITS",
+              "portions": 3
+            },
+            {
+              "group_code": "CEREALS_NO_FAT",
+              "portions": 8
+            },
+            {
+              "group_code": "CEREALS_WITH_FAT",
+              "portions": 0
+            },
+            {
+              "group_code": "LEGUMES",
+              "portions": 2
+            },
+            {
+              "group_code": "AOA_VERY_LOW_FAT",
+              "portions": 0
+            },
+            {
+              "group_code": "AOA_LOW_FAT",
+              "portions": 6
+            },
+            {
+              "group_code": "AOA_MODERATE_FAT",
+              "portions": 0
+            },
+            {
+              "group_code": "AOA_HIGH_FAT",
+              "portions": 0
+            },
+            {
+              "group_code": "MILK_SKIM",
+              "portions": 1
+            },
+            {
+              "group_code": "MILK_SEMI_SKIM",
+              "portions": 0
+            },
+            {
+              "group_code": "MILK_WHOLE",
+              "portions": 0
+            },
+            {
+              "group_code": "MILK_WITH_SUGAR",
+              "portions": 0
+            },
+            {
+              "group_code": "FATS_NO_PROTEIN",
+              "portions": 5
+            },
+            {
+              "group_code": "FATS_WITH_PROTEIN",
+              "portions": 0
+            },
+            {
+              "group_code": "SUGARS_NO_FAT",
+              "portions": 0
+            },
+            {
+              "group_code": "SUGARS_WITH_FAT",
+              "portions": 0
+            }
+          ],
+          "derived_totals": {
+            "energy_kcal": 1730,
+            "carbohydrate_g": 233,
+            "protein_g": 91,
+            "fat_g": 47
+          },
+          "differences": {
+            "energy_kcal": -20,
+            "carbohydrate_g": 14.25,
+            "protein_g": 3.5,
+            "fat_g": -11.333333333333336
+          },
+          "status": "ready",
+          "confirmed_at": "2026-09-22T05:52:00.850Z",
+          "updated_at": "2026-09-22T05:52:00.850Z"
+        },
+        "meal_distribution": {
+          "schema_version": 1,
+          "source_exchange_snapshot": {
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "catalog_version": "1.0.0",
+            "groups": [
+              {
+                "group_code": "VEGETABLES",
+                "portions": 4
+              },
+              {
+                "group_code": "FRUITS",
+                "portions": 3
+              },
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 8
+              },
+              {
+                "group_code": "CEREALS_WITH_FAT",
+                "portions": 0
+              },
+              {
+                "group_code": "LEGUMES",
+                "portions": 2
+              },
+              {
+                "group_code": "AOA_VERY_LOW_FAT",
+                "portions": 0
+              },
+              {
+                "group_code": "AOA_LOW_FAT",
+                "portions": 6
+              },
+              {
+                "group_code": "AOA_MODERATE_FAT",
+                "portions": 0
+              },
+              {
+                "group_code": "AOA_HIGH_FAT",
+                "portions": 0
+              },
+              {
+                "group_code": "MILK_SKIM",
+                "portions": 1
+              },
+              {
+                "group_code": "MILK_SEMI_SKIM",
+                "portions": 0
+              },
+              {
+                "group_code": "MILK_WHOLE",
+                "portions": 0
+              },
+              {
+                "group_code": "MILK_WITH_SUGAR",
+                "portions": 0
+              },
+              {
+                "group_code": "FATS_NO_PROTEIN",
+                "portions": 5
+              },
+              {
+                "group_code": "FATS_WITH_PROTEIN",
+                "portions": 0
+              },
+              {
+                "group_code": "SUGARS_NO_FAT",
+                "portions": 0
+              },
+              {
+                "group_code": "SUGARS_WITH_FAT",
+                "portions": 0
+              }
+            ]
+          },
+          "meal_times": [
+            {
+              "id": "meal-1",
+              "meal_type": "BREAKFAST",
+              "display_name": "Desayuno",
+              "time": null,
+              "display_order": 0
+            },
+            {
+              "id": "meal-2",
+              "meal_type": "MAIN_MEAL",
+              "display_name": "Comida",
+              "time": null,
+              "display_order": 1
+            },
+            {
+              "id": "meal-3",
+              "meal_type": "DINNER",
+              "display_name": "Cena",
+              "time": null,
+              "display_order": 2
+            }
+          ],
+          "distribution": [
+            {
+              "group_code": "CEREALS_NO_FAT",
+              "meal_time_id": "meal-1",
+              "portions": 2
+            },
+            {
+              "group_code": "AOA_LOW_FAT",
+              "meal_time_id": "meal-1",
+              "portions": 1
+            },
+            {
+              "group_code": "FRUITS",
+              "meal_time_id": "meal-1",
+              "portions": 1
+            },
+            {
+              "group_code": "MILK_SKIM",
+              "meal_time_id": "meal-1",
+              "portions": 1
+            },
+            {
+              "group_code": "FATS_NO_PROTEIN",
+              "meal_time_id": "meal-1",
+              "portions": 1
+            },
+            {
+              "group_code": "CEREALS_NO_FAT",
+              "meal_time_id": "meal-2",
+              "portions": 3
+            },
+            {
+              "group_code": "AOA_LOW_FAT",
+              "meal_time_id": "meal-2",
+              "portions": 3
+            },
+            {
+              "group_code": "VEGETABLES",
+              "meal_time_id": "meal-2",
+              "portions": 2
+            },
+            {
+              "group_code": "LEGUMES",
+              "meal_time_id": "meal-2",
+              "portions": 1
+            },
+            {
+              "group_code": "FATS_NO_PROTEIN",
+              "meal_time_id": "meal-2",
+              "portions": 2
+            },
+            {
+              "group_code": "CEREALS_NO_FAT",
+              "meal_time_id": "meal-3",
+              "portions": 3
+            },
+            {
+              "group_code": "AOA_LOW_FAT",
+              "meal_time_id": "meal-3",
+              "portions": 2
+            },
+            {
+              "group_code": "VEGETABLES",
+              "meal_time_id": "meal-3",
+              "portions": 2
+            },
+            {
+              "group_code": "LEGUMES",
+              "meal_time_id": "meal-3",
+              "portions": 1
+            },
+            {
+              "group_code": "FATS_NO_PROTEIN",
+              "meal_time_id": "meal-3",
+              "portions": 2
+            },
+            {
+              "group_code": "FRUITS",
+              "meal_time_id": "meal-3",
+              "portions": 2
+            }
+          ],
+          "derived_meal_totals": [
+            {
+              "meal_time_id": "meal-1",
+              "energy_kcal": 395,
+              "carbohydrate_g": 57,
+              "protein_g": 20,
+              "fat_g": 10
+            },
+            {
+              "meal_time_id": "meal-2",
+              "energy_kcal": 635,
+              "carbohydrate_g": 73,
+              "protein_g": 39,
+              "fat_g": 20
+            },
+            {
+              "meal_time_id": "meal-3",
+              "energy_kcal": 700,
+              "carbohydrate_g": 103,
+              "protein_g": 32,
+              "fat_g": 17
+            }
+          ],
+          "status": "ready",
+          "confirmed_at": "2026-09-22T05:52:00.850Z",
+          "updated_at": "2026-09-22T05:52:00.850Z"
+        },
+        "diet_menu": {
+          "schema_version": 1,
+          "source_meal_distribution_snapshot": null,
+          "menus": [
+            {
+              "id": "19caec83-03e2-4533-a78d-38875d613daf",
+              "name": "Menú principal",
+              "display_order": 0,
+              "meal_menus": [
+                {
+                  "meal_time_id": "meal-1",
+                  "entries": []
+                },
+                {
+                  "meal_time_id": "meal-2",
+                  "entries": []
+                },
+                {
+                  "meal_time_id": "meal-3",
+                  "entries": []
+                }
+              ]
+            }
+          ],
+          "active_menu_id": "19caec83-03e2-4533-a78d-38875d613daf",
+          "derived_exchange_usage": [],
+          "status": "not_started",
+          "confirmed_at": null,
+          "updated_at": "2026-09-22T05:52:00.850Z",
+          "food_preferences": {
+            "88888888-5555-4555-8555-000000000001": "exclude",
+            "88888888-5555-4555-8555-000000000003": "exclude"
+          }
+        },
+        "status": "draft",
+        "draft_revision": 1,
+        "current_version_id": null,
+        "created_at": "",
+        "updated_at": ""
+      },
+      "stamp": "private-stamp",
+      "consultation": {
+        "id": "88888888-3333-4333-8333-000000000002",
+        "professional_id": "88888888-1111-4111-8111-111111111111",
+        "patient_id": "88888888-2222-4222-8222-000000000002",
+        "revision": 1,
+        "pes": {
+          "statement": "PES aprobado sintético",
+          "approved_at": "2026-09-21T10:00:00Z"
+        },
+        "objective": {
+          "content": "Objetivo sintético",
+          "approved_at": "2026-09-21T10:01:00Z",
+          "revision": 1,
+          "pes_approved_at": "2026-09-21T10:00:00Z",
+          "pes_statement": "PES aprobado sintético"
+        }
+      },
+      "answers": {
+        "food_reactions_status": {
+          "value": "No",
+          "response_area": "patient_reported"
+        }
+      },
+      "catalog": {
+        "foods": [
+          {
+            "id": "88888888-5555-4555-8555-000000000001",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000001",
+            "catalog_code": "TEST",
+            "name": "Tortilla de maíz",
+            "normalized_name": "Tortilla de maíz",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "CEREALS_NO_FAT",
+            "portion_amount": 1,
+            "portion_unit": "tortilla",
+            "portion_description": "1 tortilla",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000002",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000002",
+            "catalog_code": "TEST",
+            "name": "Tortilla de maíz alternativa",
+            "normalized_name": "Tortilla de maíz alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "CEREALS_NO_FAT",
+            "portion_amount": 1,
+            "portion_unit": "tortilla",
+            "portion_description": "1 tortilla",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000003",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000003",
+            "catalog_code": "TEST",
+            "name": "Pollo cocido",
+            "normalized_name": "Pollo cocido",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "AOA_LOW_FAT",
+            "portion_amount": 30,
+            "portion_unit": "g",
+            "portion_description": "30 g",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000004",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000004",
+            "catalog_code": "TEST",
+            "name": "Pollo cocido alternativa",
+            "normalized_name": "Pollo cocido alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "AOA_LOW_FAT",
+            "portion_amount": 30,
+            "portion_unit": "g",
+            "portion_description": "30 g",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000005",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000005",
+            "catalog_code": "TEST",
+            "name": "Manzana",
+            "normalized_name": "Manzana",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "FRUITS",
+            "portion_amount": 1,
+            "portion_unit": "piece",
+            "portion_description": "1 piece",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000006",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000006",
+            "catalog_code": "TEST",
+            "name": "Manzana alternativa",
+            "normalized_name": "Manzana alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "FRUITS",
+            "portion_amount": 1,
+            "portion_unit": "piece",
+            "portion_description": "1 piece",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000007",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000007",
+            "catalog_code": "TEST",
+            "name": "Calabacita",
+            "normalized_name": "Calabacita",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "VEGETABLES",
+            "portion_amount": 1,
+            "portion_unit": "cup",
+            "portion_description": "1 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000008",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000008",
+            "catalog_code": "TEST",
+            "name": "Calabacita alternativa",
+            "normalized_name": "Calabacita alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "VEGETABLES",
+            "portion_amount": 1,
+            "portion_unit": "cup",
+            "portion_description": "1 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000009",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000009",
+            "catalog_code": "TEST",
+            "name": "Frijoles cocidos",
+            "normalized_name": "Frijoles cocidos",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "LEGUMES",
+            "portion_amount": 0.5,
+            "portion_unit": "cup",
+            "portion_description": "0.5 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000010",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000010",
+            "catalog_code": "TEST",
+            "name": "Frijoles cocidos alternativa",
+            "normalized_name": "Frijoles cocidos alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "LEGUMES",
+            "portion_amount": 0.5,
+            "portion_unit": "cup",
+            "portion_description": "0.5 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000011",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000011",
+            "catalog_code": "TEST",
+            "name": "Leche descremada",
+            "normalized_name": "Leche descremada",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "MILK_SKIM",
+            "portion_amount": 1,
+            "portion_unit": "cup",
+            "portion_description": "1 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000012",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000012",
+            "catalog_code": "TEST",
+            "name": "Leche descremada alternativa",
+            "normalized_name": "Leche descremada alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "MILK_SKIM",
+            "portion_amount": 1,
+            "portion_unit": "cup",
+            "portion_description": "1 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000013",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000013",
+            "catalog_code": "TEST",
+            "name": "Aceite de oliva",
+            "normalized_name": "Aceite de oliva",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "FATS_NO_PROTEIN",
+            "portion_amount": 1,
+            "portion_unit": "teaspoon",
+            "portion_description": "1 teaspoon",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000014",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000014",
+            "catalog_code": "TEST",
+            "name": "Aceite de oliva alternativa",
+            "normalized_name": "Aceite de oliva alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "FATS_NO_PROTEIN",
+            "portion_amount": 1,
+            "portion_unit": "teaspoon",
+            "portion_description": "1 teaspoon",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          }
+        ],
+        "recipes": [
+          {
+            "id": "88888888-6666-4666-8666-000000000001",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-6666-4666-8666-000000000001",
+            "name": "Tortillas calientes",
+            "normalized_name": "tortillas calientes",
+            "description": null,
+            "meal_types": [
+              "BREAKFAST",
+              "MAIN_MEAL",
+              "DINNER"
+            ],
+            "servings": 1,
+            "instructions": "Preparación sintética.",
+            "image_path": null,
+            "tags": [],
+            "substitution_notes": null,
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "active": true,
+            "created_at": "",
+            "updated_at": "",
+            "items": [
+              {
+                "id": "88888888-7777-4777-8777-000000000001",
+                "owner_id": "88888888-1111-4111-8111-111111111111",
+                "recipe_id": "88888888-6666-4666-8666-000000000001",
+                "food_item_id": "88888888-5555-4555-8555-000000000001",
+                "amount": 1,
+                "unit": "tortilla",
+                "display_order": 0,
+                "food_snapshot": {
+                  "id": "88888888-5555-4555-8555-000000000001",
+                  "name": "Tortilla de maíz",
+                  "group_code": "CEREALS_NO_FAT",
+                  "portion_amount": 1,
+                  "portion_unit": "tortilla",
+                  "portion_description": "1 tortilla",
+                  "exchange_system_code": "SMAE_NOM037_2012",
+                  "exchange_catalog_version": "1.0.0",
+                  "source": "TEST",
+                  "source_version": "1",
+                  "is_custom": false,
+                  "attributes": {
+                    "peanut": "free"
+                  }
+                },
+                "exchange_contribution": [
+                  {
+                    "group_code": "CEREALS_NO_FAT",
+                    "portions": 999
+                  }
+                ],
+                "created_at": ""
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "identifiers": [
+      "SENTINELA IDENTIDAD",
+      "private@example.test",
+      "5512345678"
+    ]
+  },
+  "C": {
+    "source": {
+      "plan": {
+        "id": "88888888-4444-4444-8444-000000000003",
+        "professional_id": "88888888-1111-4111-8111-111111111111",
+        "patient_id": "88888888-2222-4222-8222-000000000003",
+        "consultation_id": "88888888-3333-4333-8333-000000000003",
+        "title": "PRUEBA LOCAL FASE 3 C NO PUBLICAR",
+        "assigned_at": "",
+        "review_date": null,
+        "plan_type": null,
+        "category": null,
+        "target_calories": 1750,
+        "energy_calculation": null,
+        "macro_distribution": {
+          "version": 1,
+          "target_energy_kcal": 1750,
+          "reference_weight_kg": null,
+          "reference_weight_source": "unavailable",
+          "reference_weight_override_kg": null,
+          "macros": {
+            "CARBOHYDRATE": {
+              "code": "CARBOHYDRATE",
+              "input_mode": "percentage",
+              "input_value": 50,
+              "percentage": 50,
+              "kcal": 875,
+              "grams": 218.75,
+              "grams_per_kg": null
+            },
+            "PROTEIN": {
+              "code": "PROTEIN",
+              "input_mode": "percentage",
+              "input_value": 20,
+              "percentage": 20,
+              "kcal": 350,
+              "grams": 87.5,
+              "grams_per_kg": null
+            },
+            "FAT": {
+              "code": "FAT",
+              "input_mode": "percentage",
+              "input_value": 30,
+              "percentage": 30,
+              "kcal": 525,
+              "grams": 58.333333333333336,
+              "grams_per_kg": null
+            }
+          },
+          "totals": {
+            "percentage": 100,
+            "kcal": 1750,
+            "difference_kcal": 0
+          },
+          "complete": true,
+          "updated_at": "2026-09-22T05:52:00.851Z"
+        },
+        "exchange_prescription": {
+          "schema_version": 1,
+          "exchange_system_code": "SMAE_NOM037_2012",
+          "catalog_version": "1.0.0",
+          "target_snapshot": {
+            "energy_kcal": 1750,
+            "carbohydrate_g": 218.75,
+            "protein_g": 87.5,
+            "fat_g": 58.333333333333336
+          },
+          "confirmed_target_snapshot": {
+            "energy_kcal": 1750,
+            "carbohydrate_g": 218.75,
+            "protein_g": 87.5,
+            "fat_g": 58.333333333333336
+          },
+          "groups": [
+            {
+              "group_code": "VEGETABLES",
+              "portions": 4
+            },
+            {
+              "group_code": "FRUITS",
+              "portions": 3
+            },
+            {
+              "group_code": "CEREALS_NO_FAT",
+              "portions": 8
+            },
+            {
+              "group_code": "CEREALS_WITH_FAT",
+              "portions": 0
+            },
+            {
+              "group_code": "LEGUMES",
+              "portions": 2
+            },
+            {
+              "group_code": "AOA_VERY_LOW_FAT",
+              "portions": 0
+            },
+            {
+              "group_code": "AOA_LOW_FAT",
+              "portions": 6
+            },
+            {
+              "group_code": "AOA_MODERATE_FAT",
+              "portions": 0
+            },
+            {
+              "group_code": "AOA_HIGH_FAT",
+              "portions": 0
+            },
+            {
+              "group_code": "MILK_SKIM",
+              "portions": 1
+            },
+            {
+              "group_code": "MILK_SEMI_SKIM",
+              "portions": 0
+            },
+            {
+              "group_code": "MILK_WHOLE",
+              "portions": 0
+            },
+            {
+              "group_code": "MILK_WITH_SUGAR",
+              "portions": 0
+            },
+            {
+              "group_code": "FATS_NO_PROTEIN",
+              "portions": 5
+            },
+            {
+              "group_code": "FATS_WITH_PROTEIN",
+              "portions": 0
+            },
+            {
+              "group_code": "SUGARS_NO_FAT",
+              "portions": 0
+            },
+            {
+              "group_code": "SUGARS_WITH_FAT",
+              "portions": 0
+            }
+          ],
+          "derived_totals": {
+            "energy_kcal": 1730,
+            "carbohydrate_g": 233,
+            "protein_g": 91,
+            "fat_g": 47
+          },
+          "differences": {
+            "energy_kcal": -20,
+            "carbohydrate_g": 14.25,
+            "protein_g": 3.5,
+            "fat_g": -11.333333333333336
+          },
+          "status": "ready",
+          "confirmed_at": "2026-09-22T05:52:00.851Z",
+          "updated_at": "2026-09-22T05:52:00.851Z"
+        },
+        "meal_distribution": {
+          "schema_version": 1,
+          "source_exchange_snapshot": {
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "catalog_version": "1.0.0",
+            "groups": [
+              {
+                "group_code": "VEGETABLES",
+                "portions": 4
+              },
+              {
+                "group_code": "FRUITS",
+                "portions": 3
+              },
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 8
+              },
+              {
+                "group_code": "CEREALS_WITH_FAT",
+                "portions": 0
+              },
+              {
+                "group_code": "LEGUMES",
+                "portions": 2
+              },
+              {
+                "group_code": "AOA_VERY_LOW_FAT",
+                "portions": 0
+              },
+              {
+                "group_code": "AOA_LOW_FAT",
+                "portions": 6
+              },
+              {
+                "group_code": "AOA_MODERATE_FAT",
+                "portions": 0
+              },
+              {
+                "group_code": "AOA_HIGH_FAT",
+                "portions": 0
+              },
+              {
+                "group_code": "MILK_SKIM",
+                "portions": 1
+              },
+              {
+                "group_code": "MILK_SEMI_SKIM",
+                "portions": 0
+              },
+              {
+                "group_code": "MILK_WHOLE",
+                "portions": 0
+              },
+              {
+                "group_code": "MILK_WITH_SUGAR",
+                "portions": 0
+              },
+              {
+                "group_code": "FATS_NO_PROTEIN",
+                "portions": 5
+              },
+              {
+                "group_code": "FATS_WITH_PROTEIN",
+                "portions": 0
+              },
+              {
+                "group_code": "SUGARS_NO_FAT",
+                "portions": 0
+              },
+              {
+                "group_code": "SUGARS_WITH_FAT",
+                "portions": 0
+              }
+            ]
+          },
+          "meal_times": [
+            {
+              "id": "meal-1",
+              "meal_type": "BREAKFAST",
+              "display_name": "Desayuno",
+              "time": null,
+              "display_order": 0
+            },
+            {
+              "id": "meal-2",
+              "meal_type": "MAIN_MEAL",
+              "display_name": "Comida",
+              "time": null,
+              "display_order": 1
+            },
+            {
+              "id": "meal-3",
+              "meal_type": "DINNER",
+              "display_name": "Cena",
+              "time": null,
+              "display_order": 2
+            }
+          ],
+          "distribution": [
+            {
+              "group_code": "CEREALS_NO_FAT",
+              "meal_time_id": "meal-1",
+              "portions": 2
+            },
+            {
+              "group_code": "AOA_LOW_FAT",
+              "meal_time_id": "meal-1",
+              "portions": 1
+            },
+            {
+              "group_code": "FRUITS",
+              "meal_time_id": "meal-1",
+              "portions": 1
+            },
+            {
+              "group_code": "MILK_SKIM",
+              "meal_time_id": "meal-1",
+              "portions": 1
+            },
+            {
+              "group_code": "FATS_NO_PROTEIN",
+              "meal_time_id": "meal-1",
+              "portions": 1
+            },
+            {
+              "group_code": "CEREALS_NO_FAT",
+              "meal_time_id": "meal-2",
+              "portions": 3
+            },
+            {
+              "group_code": "AOA_LOW_FAT",
+              "meal_time_id": "meal-2",
+              "portions": 3
+            },
+            {
+              "group_code": "VEGETABLES",
+              "meal_time_id": "meal-2",
+              "portions": 2
+            },
+            {
+              "group_code": "LEGUMES",
+              "meal_time_id": "meal-2",
+              "portions": 1
+            },
+            {
+              "group_code": "FATS_NO_PROTEIN",
+              "meal_time_id": "meal-2",
+              "portions": 2
+            },
+            {
+              "group_code": "CEREALS_NO_FAT",
+              "meal_time_id": "meal-3",
+              "portions": 3
+            },
+            {
+              "group_code": "AOA_LOW_FAT",
+              "meal_time_id": "meal-3",
+              "portions": 2
+            },
+            {
+              "group_code": "VEGETABLES",
+              "meal_time_id": "meal-3",
+              "portions": 2
+            },
+            {
+              "group_code": "LEGUMES",
+              "meal_time_id": "meal-3",
+              "portions": 1
+            },
+            {
+              "group_code": "FATS_NO_PROTEIN",
+              "meal_time_id": "meal-3",
+              "portions": 2
+            },
+            {
+              "group_code": "FRUITS",
+              "meal_time_id": "meal-3",
+              "portions": 2
+            }
+          ],
+          "derived_meal_totals": [
+            {
+              "meal_time_id": "meal-1",
+              "energy_kcal": 395,
+              "carbohydrate_g": 57,
+              "protein_g": 20,
+              "fat_g": 10
+            },
+            {
+              "meal_time_id": "meal-2",
+              "energy_kcal": 635,
+              "carbohydrate_g": 73,
+              "protein_g": 39,
+              "fat_g": 20
+            },
+            {
+              "meal_time_id": "meal-3",
+              "energy_kcal": 700,
+              "carbohydrate_g": 103,
+              "protein_g": 32,
+              "fat_g": 17
+            }
+          ],
+          "status": "ready",
+          "confirmed_at": "2026-09-22T05:52:00.851Z",
+          "updated_at": "2026-09-22T05:52:00.851Z"
+        },
+        "diet_menu": {
+          "schema_version": 1,
+          "source_meal_distribution_snapshot": null,
+          "menus": [
+            {
+              "id": "ed7046a6-77dd-4e0c-986f-b922bd39fc3a",
+              "name": "Menú principal",
+              "display_order": 0,
+              "meal_menus": [
+                {
+                  "meal_time_id": "meal-1",
+                  "entries": []
+                },
+                {
+                  "meal_time_id": "meal-2",
+                  "entries": []
+                },
+                {
+                  "meal_time_id": "meal-3",
+                  "entries": []
+                }
+              ]
+            }
+          ],
+          "active_menu_id": "ed7046a6-77dd-4e0c-986f-b922bd39fc3a",
+          "derived_exchange_usage": [],
+          "status": "not_started",
+          "confirmed_at": null,
+          "updated_at": "2026-09-22T05:52:00.851Z"
+        },
+        "status": "draft",
+        "draft_revision": 1,
+        "current_version_id": null,
+        "created_at": "",
+        "updated_at": ""
+      },
+      "stamp": "private-stamp",
+      "consultation": {
+        "id": "88888888-3333-4333-8333-000000000003",
+        "professional_id": "88888888-1111-4111-8111-111111111111",
+        "patient_id": "88888888-2222-4222-8222-000000000003",
+        "revision": 1,
+        "pes": {
+          "statement": "PES aprobado sintético",
+          "approved_at": "2026-09-21T10:00:00Z"
+        },
+        "objective": {
+          "content": "Objetivo sintético",
+          "approved_at": "2026-09-21T10:01:00Z",
+          "revision": 1,
+          "pes_approved_at": "2026-09-21T10:00:00Z",
+          "pes_statement": "PES aprobado sintético"
+        }
+      },
+      "answers": {
+        "food_reactions_status": {
+          "value": "No",
+          "response_area": "patient_reported"
+        },
+        "eating_preferences": {
+          "value": [
+            "No sabe / no recuerda"
+          ],
+          "response_area": "patient_reported"
+        }
+      },
+      "catalog": {
+        "foods": [
+          {
+            "id": "88888888-5555-4555-8555-000000000001",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000001",
+            "catalog_code": "TEST",
+            "name": "Tortilla de maíz",
+            "normalized_name": "Tortilla de maíz",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "CEREALS_NO_FAT",
+            "portion_amount": 1,
+            "portion_unit": "tortilla",
+            "portion_description": "1 tortilla",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000002",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000002",
+            "catalog_code": "TEST",
+            "name": "Tortilla de maíz alternativa",
+            "normalized_name": "Tortilla de maíz alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "CEREALS_NO_FAT",
+            "portion_amount": 1,
+            "portion_unit": "tortilla",
+            "portion_description": "1 tortilla",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000003",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000003",
+            "catalog_code": "TEST",
+            "name": "Pollo cocido",
+            "normalized_name": "Pollo cocido",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "AOA_LOW_FAT",
+            "portion_amount": 30,
+            "portion_unit": "g",
+            "portion_description": "30 g",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000004",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000004",
+            "catalog_code": "TEST",
+            "name": "Pollo cocido alternativa",
+            "normalized_name": "Pollo cocido alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "AOA_LOW_FAT",
+            "portion_amount": 30,
+            "portion_unit": "g",
+            "portion_description": "30 g",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000005",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000005",
+            "catalog_code": "TEST",
+            "name": "Manzana",
+            "normalized_name": "Manzana",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "FRUITS",
+            "portion_amount": 1,
+            "portion_unit": "piece",
+            "portion_description": "1 piece",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000006",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000006",
+            "catalog_code": "TEST",
+            "name": "Manzana alternativa",
+            "normalized_name": "Manzana alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "FRUITS",
+            "portion_amount": 1,
+            "portion_unit": "piece",
+            "portion_description": "1 piece",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000007",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000007",
+            "catalog_code": "TEST",
+            "name": "Calabacita",
+            "normalized_name": "Calabacita",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "VEGETABLES",
+            "portion_amount": 1,
+            "portion_unit": "cup",
+            "portion_description": "1 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000008",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000008",
+            "catalog_code": "TEST",
+            "name": "Calabacita alternativa",
+            "normalized_name": "Calabacita alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "VEGETABLES",
+            "portion_amount": 1,
+            "portion_unit": "cup",
+            "portion_description": "1 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000009",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000009",
+            "catalog_code": "TEST",
+            "name": "Frijoles cocidos",
+            "normalized_name": "Frijoles cocidos",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "LEGUMES",
+            "portion_amount": 0.5,
+            "portion_unit": "cup",
+            "portion_description": "0.5 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000010",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000010",
+            "catalog_code": "TEST",
+            "name": "Frijoles cocidos alternativa",
+            "normalized_name": "Frijoles cocidos alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "LEGUMES",
+            "portion_amount": 0.5,
+            "portion_unit": "cup",
+            "portion_description": "0.5 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000011",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000011",
+            "catalog_code": "TEST",
+            "name": "Leche descremada",
+            "normalized_name": "Leche descremada",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "MILK_SKIM",
+            "portion_amount": 1,
+            "portion_unit": "cup",
+            "portion_description": "1 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000012",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000012",
+            "catalog_code": "TEST",
+            "name": "Leche descremada alternativa",
+            "normalized_name": "Leche descremada alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "MILK_SKIM",
+            "portion_amount": 1,
+            "portion_unit": "cup",
+            "portion_description": "1 cup",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000013",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000013",
+            "catalog_code": "TEST",
+            "name": "Aceite de oliva",
+            "normalized_name": "Aceite de oliva",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "FATS_NO_PROTEIN",
+            "portion_amount": 1,
+            "portion_unit": "teaspoon",
+            "portion_description": "1 teaspoon",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          },
+          {
+            "id": "88888888-5555-4555-8555-000000000014",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-5555-4555-8555-000000000014",
+            "catalog_code": "TEST",
+            "name": "Aceite de oliva alternativa",
+            "normalized_name": "Aceite de oliva alternativa",
+            "aliases": [],
+            "brand": null,
+            "category": null,
+            "exchange_system_code": "SMAE_NOM037_2012",
+            "exchange_catalog_version": "1.0.0",
+            "group_code": "FATS_NO_PROTEIN",
+            "portion_amount": 1,
+            "portion_unit": "teaspoon",
+            "portion_description": "1 teaspoon",
+            "alternate_portions": [],
+            "edible_grams": null,
+            "energy_kcal": null,
+            "carbohydrate_g": null,
+            "protein_g": null,
+            "fat_g": null,
+            "fiber_g": null,
+            "sodium_mg": null,
+            "attributes": {
+              "peanut": "free"
+            },
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "use_count": 0,
+            "active": true,
+            "created_at": "",
+            "updated_at": ""
+          }
+        ],
+        "recipes": [
+          {
+            "id": "88888888-6666-4666-8666-000000000001",
+            "owner_id": "88888888-1111-4111-8111-111111111111",
+            "stable_code": "88888888-6666-4666-8666-000000000001",
+            "name": "Tortillas calientes",
+            "normalized_name": "tortillas calientes",
+            "description": null,
+            "meal_types": [
+              "BREAKFAST",
+              "MAIN_MEAL",
+              "DINNER"
+            ],
+            "servings": 1,
+            "instructions": "Preparación sintética.",
+            "image_path": null,
+            "tags": [],
+            "substitution_notes": null,
+            "source": "TEST",
+            "source_version": "1",
+            "source_reference": null,
+            "is_custom": false,
+            "active": true,
+            "created_at": "",
+            "updated_at": "",
+            "items": [
+              {
+                "id": "88888888-7777-4777-8777-000000000001",
+                "owner_id": "88888888-1111-4111-8111-111111111111",
+                "recipe_id": "88888888-6666-4666-8666-000000000001",
+                "food_item_id": "88888888-5555-4555-8555-000000000001",
+                "amount": 1,
+                "unit": "tortilla",
+                "display_order": 0,
+                "food_snapshot": {
+                  "id": "88888888-5555-4555-8555-000000000001",
+                  "name": "Tortilla de maíz",
+                  "group_code": "CEREALS_NO_FAT",
+                  "portion_amount": 1,
+                  "portion_unit": "tortilla",
+                  "portion_description": "1 tortilla",
+                  "exchange_system_code": "SMAE_NOM037_2012",
+                  "exchange_catalog_version": "1.0.0",
+                  "source": "TEST",
+                  "source_version": "1",
+                  "is_custom": false,
+                  "attributes": {
+                    "peanut": "free"
+                  }
+                },
+                "exchange_contribution": [
+                  {
+                    "group_code": "CEREALS_NO_FAT",
+                    "portions": 999
+                  }
+                ],
+                "created_at": ""
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "identifiers": [
+      "SENTINELA IDENTIDAD",
+      "private@example.test",
+      "5512345678"
+    ]
+  }
+}

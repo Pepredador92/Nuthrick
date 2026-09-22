@@ -121,8 +121,16 @@ export function validateDietGenerationDraft(raw: unknown, prepared: PreparedDiet
   // or cached manifest's nutrients, candidates, units or flags.
   const fresh = prepareDietGeneration(current, { enabled: true, budgetAvailable: true, pending: false }, prepared.manifest.limits);
   if (!fresh.prepared) return { status: 'invalid', issues: fresh.issues };
-  const manifest = fresh.prepared.manifest, issues: GenerationIssue[] = [];
-  const distribution = current.source.plan.meal_distribution!;
+  return validateDietSnapshotDraft(raw, fresh.prepared, current.source.plan);
+}
+/** Server-only trusted snapshot boundary. The caller verifies snapshot integrity;
+ * no catalog re-read is allowed here. Freshness is checked separately on apply. */
+export function validateDietSnapshotDraft(raw: unknown, prepared: PreparedDietGeneration,
+  plan: Pick<NutritionPlan, 'meal_distribution' | 'exchange_prescription' | 'diet_menu'>): DietDraftValidation {
+  const parsed = parseDietModelOutput(raw);
+  if (!parsed.data) return { status: 'invalid', issues: parsed.issues };
+  const manifest = prepared.manifest, issues: GenerationIssue[] = [];
+  const distribution = plan.meal_distribution!;
   let draft = createDietMenu(distribution, p => `ai-${p}`);
   const seenMeals = new Set<string>();
   for (const [i, meal] of parsed.data.meal_options.entries()) {
@@ -146,12 +154,12 @@ export function validateDietGenerationDraft(raw: unknown, prepared: PreparedDiet
   draft.meal_options = activeMenu(draft).meal_menus.map((m,i) => ({ id: `ai-option-${i}`, meal_time_id: m.meal_time_id,
     name: distribution.meal_times.find(t => t.id === m.meal_time_id)!.display_name, entries: structuredClone(m.entries),
     status: 'draft', confirmed_at: null, prescription_key: null, revision: 1 }));
-  draft.food_preferences = structuredClone(current.source.plan.diet_menu?.food_preferences ?? {});
+  draft.food_preferences = structuredClone(plan.diet_menu?.food_preferences ?? {});
   draft.status = 'editing'; draft.confirmed_at = null; draft.week_plan = null;
   const menuStatus = calculateMenuStatus(draft, distribution);
   const totals = calculateExchangeTotals(draft.derived_exchange_usage);
   if (Object.values(totals).some(v => !Number.isFinite(v) || v < 0)) return { status: 'invalid', issues: [{ code: 'invalid_nutrition', path: 'totals' }] };
-  const differences = calculateExchangeDifferences(totals, current.source.plan.exchange_prescription!.target_snapshot);
+  const differences = calculateExchangeDifferences(totals, plan.exchange_prescription!.target_snapshot);
   return { status: menuStatus.canConfirm ? 'valid' : 'needs_adjustment',
     issues: menuStatus.rows.filter(r => r.state !== 'complete').map(r => ({ code: 'portion_difference', path: `${r.meal_time_id}.${r.group_code}` })),
     draft, totals, differences,

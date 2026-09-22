@@ -9,11 +9,11 @@ const ref = { type: 'string', minLength: 1, maxLength: 80 };
 /** Provider-neutral JSON schema; paired with the strict runtime parser below. */
 export const dietGenerationOutputSchema = {
   type: 'object', additionalProperties: false, required: ['schema_version', 'meal_options'], properties: {
-    schema_version: { const: 1 }, meal_options: { type: 'array', minItems: 1, maxItems: limits.maxMeals, items: {
+    schema_version: { type: 'number', enum: [1] }, meal_options: { type: 'array', minItems: 1, maxItems: limits.maxMeals, items: {
       type: 'object', additionalProperties: false, required: ['meal_ref', 'entries'], properties: {
         meal_ref: ref, entries: { type: 'array', minItems: 1, maxItems: limits.maxEntriesPerMeal, items: {
           type: 'object', additionalProperties: false, required: ['candidate_ref', 'portion_ref', 'multiplier'], properties: {
-            candidate_ref: ref, portion_ref: { const: 'base' }, multiplier: { type: 'number', exclusiveMinimum: 0, maximum: limits.maxMultiplier, multipleOf: limits.multiplierIncrement },
+            candidate_ref: ref, portion_ref: { type: 'string', enum: ['base'] }, multiplier: { type: 'number', exclusiveMinimum: 0, maximum: limits.maxMultiplier, multipleOf: limits.multiplierIncrement },
           },
         } },
       },
@@ -23,7 +23,7 @@ export const dietGenerationOutputSchema = {
 
 /** Small validator for exactly the schema vocabulary used above. No coercion,
  * ignored fields, implicit defaults or dependency on an LLM SDK. */
-type Schema = { type?: string; const?: unknown; required?: readonly string[]; additionalProperties?: boolean;
+type Schema = { type?: string; const?: unknown; enum?: readonly unknown[]; required?: readonly string[]; additionalProperties?: boolean;
   properties?: Record<string, Schema>; items?: Schema; minItems?: number; maxItems?: number;
   minLength?: number; maxLength?: number; exclusiveMinimum?: number; maximum?: number; multipleOf?: number };
 export function parseDietModelOutput(value: unknown): { data?: DietModelOutput; issues: GenerationIssue[] } {
@@ -31,6 +31,7 @@ export function parseDietModelOutput(value: unknown): { data?: DietModelOutput; 
   const fail = (path: string) => { issues.push({ code: 'invalid_output', path }); };
   const visit = (v: unknown, s: Schema, path: string) => {
     if ('const' in s && v !== s.const) { fail(path); return; }
+    if (s.enum && !s.enum.includes(v)) { fail(path); return; }
     if (s.type === 'object') {
       if (!v || typeof v !== 'object' || Array.isArray(v)) { fail(path); return; }
       const r = v as Record<string, unknown>;

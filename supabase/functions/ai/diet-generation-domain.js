@@ -1028,7 +1028,7 @@ var dietGenerationOutputSchema = {
   additionalProperties: false,
   required: ["schema_version", "meal_options"],
   properties: {
-    schema_version: { const: 1 },
+    schema_version: { type: "number", enum: [1] },
     meal_options: { type: "array", minItems: 1, maxItems: DIET_GENERATION_LIMITS.maxMeals, items: {
       type: "object",
       additionalProperties: false,
@@ -1041,7 +1041,7 @@ var dietGenerationOutputSchema = {
           required: ["candidate_ref", "portion_ref", "multiplier"],
           properties: {
             candidate_ref: ref,
-            portion_ref: { const: "base" },
+            portion_ref: { type: "string", enum: ["base"] },
             multiplier: { type: "number", exclusiveMinimum: 0, maximum: DIET_GENERATION_LIMITS.maxMultiplier, multipleOf: DIET_GENERATION_LIMITS.multiplierIncrement }
           }
         } }
@@ -1056,6 +1056,10 @@ function parseDietModelOutput(value) {
   };
   const visit = (v, s, path) => {
     if ("const" in s && v !== s.const) {
+      fail(path);
+      return;
+    }
+    if (s.enum && !s.enum.includes(v)) {
       fail(path);
       return;
     }
@@ -1181,8 +1185,13 @@ function validateDietGenerationDraft(raw, prepared, current) {
   if (fingerprint(current) !== prepared.manifest.fingerprint) return { status: "invalid", issues: [{ code: "context_changed", path: "manifest" }] };
   const fresh = prepareDietGeneration(current, { enabled: true, budgetAvailable: true, pending: false }, prepared.manifest.limits);
   if (!fresh.prepared) return { status: "invalid", issues: fresh.issues };
-  const manifest = fresh.prepared.manifest, issues = [];
-  const distribution = current.source.plan.meal_distribution;
+  return validateDietSnapshotDraft(raw, fresh.prepared, current.source.plan);
+}
+function validateDietSnapshotDraft(raw, prepared, plan) {
+  const parsed = parseDietModelOutput(raw);
+  if (!parsed.data) return { status: "invalid", issues: parsed.issues };
+  const manifest = prepared.manifest, issues = [];
+  const distribution = plan.meal_distribution;
   let draft = createDietMenu(distribution, (p) => `ai-${p}`);
   const seenMeals = /* @__PURE__ */ new Set();
   for (const [i, meal] of parsed.data.meal_options.entries()) {
@@ -1225,14 +1234,14 @@ function validateDietGenerationDraft(raw, prepared, current) {
     prescription_key: null,
     revision: 1
   }));
-  draft.food_preferences = structuredClone(current.source.plan.diet_menu?.food_preferences ?? {});
+  draft.food_preferences = structuredClone(plan.diet_menu?.food_preferences ?? {});
   draft.status = "editing";
   draft.confirmed_at = null;
   draft.week_plan = null;
   const menuStatus = calculateMenuStatus(draft, distribution);
   const totals = calculateExchangeTotals(draft.derived_exchange_usage);
   if (Object.values(totals).some((v) => !Number.isFinite(v) || v < 0)) return { status: "invalid", issues: [{ code: "invalid_nutrition", path: "totals" }] };
-  const differences = calculateExchangeDifferences(totals, current.source.plan.exchange_prescription.target_snapshot);
+  const differences = calculateExchangeDifferences(totals, plan.exchange_prescription.target_snapshot);
   return {
     status: menuStatus.canConfirm ? "valid" : "needs_adjustment",
     issues: menuStatus.rows.filter((r) => r.state !== "complete").map((r) => ({ code: "portion_difference", path: `${r.meal_time_id}.${r.group_code}` })),
@@ -1272,5 +1281,6 @@ export {
   manualGenerationPolicy,
   parseDietModelOutput,
   prepareDietGeneration,
-  validateDietGenerationDraft
+  validateDietGenerationDraft,
+  validateDietSnapshotDraft
 };
