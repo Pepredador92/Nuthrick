@@ -3,6 +3,7 @@ import { AIError, type AIStore, type FeatureConfig, type Generation, OpenAIRespo
 import { buildPesClinicalContext, redactClinicalText, type ClinicalSource } from './clinical.ts';
 import { prepareWorkshop, sanitizeWorkshopValue, signWorkshop, verifyWorkshop, type WorkshopSource } from './workshop.ts';
 import { prepareDietSnapshot, verifyDietSnapshot, validateSnapshot, parseDietDecision, DietRoutingProvider, type DietSnapshot } from './diet.ts';
+import { dietPreflight } from './diet-ux.ts';
 
 const site = Deno.env.get('AI_SITE_URL') || 'https://nuthrick.vercel.app';
 const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
@@ -36,6 +37,20 @@ Deno.serve(async request => {
     try { body = JSON.parse(new TextDecoder().decode(bytes)); } catch { throw new AIError('invalid_request'); }
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new AIError('invalid_request');
     const decision = body as {action?:string;payload?:string;signature?:string};
+    if (decision.action === 'diet_preflight') {
+      const {action: _action, ...fields} = body as Record<string, unknown>;
+      const r = parseRequest(fields);
+      if (r.feature !== 'diet_draft') throw new AIError('invalid_request');
+      const {data: loaded, error} = await db.rpc('ai_diet_source',{p_owner:owner,p_plan:r.planId,p_revision:r.revision});
+      if (error || !loaded || loaded.source.plan.patient_id !== (r.patientId ?? null) || loaded.source.plan.consultation_id !== (r.consultationId ?? null)) throw new AIError('context_unavailable');
+      loaded.source.additionalInstructions = r.narrative ?? '';
+      const config = await db.rpc('ai_server',{p_action:'config',p_owner:owner,p_data:{feature:'diet_draft'}});
+      // Read balance with the caller's JWT; never impersonate an owner in a browser.
+      const caller = createClient(url, serviceKey, {global:{headers:{Authorization:`Bearer ${token}`}},auth:{persistSession:false,autoRefreshToken:false}});
+      const balance = await caller.rpc('ai_balance');
+      return respond(await dietPreflight(loaded, !config.error && config.data?.enabled === true && Deno.env.get('NUTHRICK_AI_ENABLED') === 'true' && !!Deno.env.get('OPENAI_API_KEY'),
+        !balance.error && Number(balance.data?.available_credits) > 0));
+    }
     async function dietRpc(action: string, payload: Record<string,unknown>) {
       const {data,error}=await db.rpc('ai_diet_draft',{p_owner:owner,p_action:action,p_data:payload});
       if(error) throw new AIError(['context_changed','replacement_confirmation_required','difference_confirmation_required','invalid_request','invalid_output'].includes(error.message)?error.message:'context_unavailable');
@@ -79,6 +94,7 @@ Deno.serve(async request => {
         if(r.feature==='diet_draft') {
           const {data:loaded,error}=await db.rpc('ai_diet_source',{p_owner:owner,p_plan:r.planId,p_revision:r.revision});
           if(error||!loaded||loaded.source.plan.patient_id!==(r.patientId??null)||loaded.source.plan.consultation_id!==(r.consultationId??null)) throw new AIError('context_unavailable');
+          loaded.source.additionalInstructions = r.narrative ?? '';
           dietSnapshot=await prepareDietSnapshot(loaded);
           return {stamp:dietSnapshot.sourceStamp,context:dietSnapshot.prepared.payload};
         }
@@ -129,7 +145,7 @@ Deno.serve(async request => {
       },
     };
     const result=await runAIRequest(input,store,new DietRoutingProvider(new OpenAIResponsesProvider(apiKey)));
-    if(input.feature==='diet_draft' && result.status==='succeeded') {
+    if(input.feature==='diet_draft' && ['succeeded','invalid_output'].includes(result.status)) {
       const saved=await dietRpc('get',{generationId:result.generationId});
       await verifyDietSnapshot(saved.snapshot);
       return respond({...result,output:{validation:saved.result.validation,hasManualMenu:saved.snapshot.hasManualMenu,snapshotHash:saved.snapshot.hash},decision:saved.decision});

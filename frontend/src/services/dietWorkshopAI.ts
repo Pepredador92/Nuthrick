@@ -1,18 +1,55 @@
 import { supabase } from '@/src/lib/supabase';
+import { AIRequestError, getAIGenerationStatus, runAIRequest } from './ai';
+import type { DietGenerationContext } from '@/src/features/diet-workshop/generationContext';
+import type { DietDraftValidation } from '@/src/features/diet-workshop/generationBoundary';
 import type { NutritionPlan } from '@/src/types/domain';
-export type WorkshopPreview = {
-  payload: string; signature: string; menuSignature: string; summary: string; warnings: string[]; assumptions: string[]; goal: string | null;
-  patch: Required<Pick<NutritionPlan,'exchange_prescription'|'meal_distribution'|'diet_menu'>>;
+
+export type WorkshopContext = Pick<DietGenerationContext, 'clinical'|'prescription'|'routine'|'professional_instructions'> & {
+  meals: string[];
+  restrictions: Pick<DietGenerationContext['restrictions'], 'reaction_status'|'reactions'>;
+  preferences: Pick<DietGenerationContext['preferences'], 'eating_pattern'|'foods'>;
 };
-export async function workshopAIStatus(planId: string) {
-  try {
-  const {data,error}=await supabase.rpc('ai_workshop_status',{p_plan:planId});
-  if(error) return {enabled:false};
-  return {enabled:data?.enabled===true};
-  } catch { return {enabled:false}; }
+export type WorkshopPreflight = {eligible:boolean; reasons:Array<{code:string}>; contextToken:string; context:WorkshopContext};
+export type WorkshopProposal = {generationId:string; validation:DietDraftValidation; hasManualMenu:boolean};
+export type WorkshopTransport = {
+  preflight(plan:NutritionPlan, instructions:string):Promise<WorkshopPreflight>;
+  generate(plan:NutritionPlan, instructions:string, key:string):Promise<WorkshopProposal>;
+  decide(proposal:WorkshopProposal, apply:boolean, replaceExisting:boolean, acceptDifferences:boolean):Promise<NutritionPlan|undefined>;
+  status:typeof getAIGenerationStatus;
+};
+const fields = (plan:NutritionPlan, instructions:string, key:string) => ({feature:'diet_draft',idempotencyKey:key,planId:plan.id,revision:plan.draft_revision ?? 1,
+  ...(plan.patient_id ? {patientId:plan.patient_id} : {}), ...(plan.consultation_id ? {consultationId:plan.consultation_id} : {}), narrative:instructions});
+
+async function invoke(body:Record<string,unknown>) {
+  const {data,error}=await supabase.functions.invoke('ai',{body});
+  if(error) {
+    let code='service_unavailable';
+    try {const parsed=await error.context?.json();if(typeof parsed?.error==='string')code=parsed.error;} catch { /* Do not expose raw errors. */ }
+    throw new AIRequestError(code);
+  }
+  if(data?.error)throw new AIRequestError(data.error);
+  if(!data)throw new AIRequestError('service_unavailable');
+  return data;
 }
-export async function decideWorkshop(preview: WorkshopPreview, apply: boolean): Promise<NutritionPlan> {
-  const {data,error}=await supabase.functions.invoke('ai',{body:{action:apply?'apply_workshop':'discard_workshop',payload:preview.payload,signature:preview.signature}});
-  if(error||!data?.ok) throw new Error('La propuesta venció o el contexto cambió. El borrador sigue intacto; genera una propuesta nueva.');
-  return data.plan;
-}
+export const workshopTransport:WorkshopTransport = {
+  preflight: async(plan,instructions) => invoke({action:'diet_preflight',...fields(plan,instructions,crypto.randomUUID())}),
+  generate: async(plan,instructions,key) => {
+    let result:Awaited<ReturnType<typeof runAIRequest>>;
+    try {result=await runAIRequest(fields(plan,instructions,key));} catch(e) {
+      if(e instanceof AIRequestError && e.code==='invalid_output')return {generationId:'',hasManualMenu:false,validation:{status:'invalid',issues:[{code:'invalid_output',path:'output'}]}};
+      throw e;
+    }
+    if(result.status==='invalid_output') return {generationId:result.generationId,hasManualMenu:false,
+      validation:{status:'invalid',issues:[{code:'invalid_output',path:'output'}]}};
+    const output=result.output as {validation?:DietDraftValidation;hasManualMenu?:boolean}|undefined;
+    if(!output?.validation)throw new AIRequestError('provider_outcome_unknown');
+    return {generationId:result.generationId,validation:output.validation,hasManualMenu:output.hasManualMenu===true};
+  },
+  decide: async(proposal,apply,replaceExisting,acceptDifferences) => {
+    if(!apply && proposal.validation.status==='invalid')return;
+    const data=await invoke({action:apply?'apply_diet_draft':'discard_diet_draft',generationId:proposal.generationId,replaceExisting,acceptDifferences});
+    if(!data.ok || (apply && (!data.plan || data.plan.status!=='draft')))throw new AIRequestError('service_unavailable');
+    return data.plan;
+  },
+  status:getAIGenerationStatus,
+};

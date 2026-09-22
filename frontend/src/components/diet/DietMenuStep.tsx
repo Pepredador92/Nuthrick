@@ -18,7 +18,7 @@ import { useChangeAutosave } from "./useChangeAutosave";
 import { ProposalNavigation, useProposalExplorer, useProposalSetting } from "./useProposalExplorer";
 import { BrowserPanel, CustomFoodForm, FoodExchangeSelector, MealNeeds, RecipeAdjustPanel, RecipeForm } from "./MenuEditors";
 
-type Props = { plan: NutritionPlan; onSave: (menu: DietMenu) => Promise<void>; onDraftChange?: (menu: DietMenu) => void; onGoToMeals: () => void; catalog?: { foods: FoodItem[]; recipes: Recipe[] }; recipeWriter?: (input: CustomRecipeInput) => Promise<Recipe> };
+type Props = { plan: NutritionPlan; headerActions?: React.ReactNode; onSave: (menu: DietMenu) => Promise<void>; onDraftChange?: (menu: DietMenu) => void; onGoToMeals: () => void; catalog?: { foods: FoodItem[]; recipes: Recipe[] }; recipeWriter?: (input: CustomRecipeInput) => Promise<Recipe> };
 const format = formatFoodQuantity;
 const units = foodUnitLabels;
 type Panel = "food" | "recipe" | "drink" | "adjust" | "new_food" | "new_recipe" | "selection" | "preferences" | null;
@@ -40,7 +40,7 @@ export function DietMenuStep(props: Props) {
   return <MenuWorkspace key={props.plan.id} {...props}/>;
 }
 
-function MenuWorkspace({ plan, onSave, onDraftChange, onGoToMeals, catalog, recipeWriter = createCustomRecipe }: Props) {
+function MenuWorkspace({ plan, headerActions, onSave, onDraftChange, onGoToMeals, catalog, recipeWriter = createCustomRecipe }: Props) {
   const distribution = plan.meal_distribution;
   const initial = useMemo(() => distribution ? ensureOptionBank(plan.diet_menu ?? createDietMenu(distribution), distribution) : null, [distribution, plan.diet_menu]);
   const [draft, setDraft] = useState(initial);
@@ -228,7 +228,7 @@ function MenuWorkspace({ plan, onSave, onDraftChange, onGoToMeals, catalog, reci
   return <section className="min-w-0 rounded-[28px] border border-[#dce6de] bg-[#fbfcf8] p-4 text-[#173d36] sm:p-6">
     <header className="flex flex-wrap items-start justify-between gap-4 border-b border-[#e1e8df] pb-5">
       <div className="flex items-center gap-3"><span className="rounded-2xl bg-[#173d36] p-3 text-[#efbd6b]"><Utensils size={24}/></span><div><p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#5b7c6b]">Paso 5 · Menú</p><h1 className="mt-1 text-xl font-semibold sm:text-2xl">{MESA_COPY.name}</h1><p className="mt-1 text-xs text-[#748377]">{MESA_COPY.subtitle}</p></div></div>
-      <button className="nuth-button-secondary !px-3 !py-2 !text-xs" aria-pressed={classic} onClick={()=>setClassic(!classic)}><LayoutList size={16}/>{classic?"Volver a la mesa":"Vista clásica"}</button>
+      <div className="flex flex-wrap items-center gap-2">{headerActions}<button className="nuth-button-secondary !px-3 !py-2 !text-xs" aria-pressed={classic} onClick={()=>setClassic(!classic)}><LayoutList size={16}/>{classic?"Volver a la mesa":"Vista clásica"}</button></div>
     </header>
     <div className="my-4 flex flex-wrap items-center justify-between gap-3"><nav className="flex flex-wrap gap-2" aria-label="Secciones de la mesa"><button className={view==="options"?"nuth-button":"nuth-button-secondary"} aria-pressed={view==="options"} onClick={()=>setView("options")}>Opciones por tiempo</button><button className={view==="week"?"nuth-button":"nuth-button-secondary"} aria-pressed={view==="week"} disabled={Boolean(proposal)||busy} onClick={()=>setView("week")}>Plan por días</button></nav><button className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={()=>setPanel("preferences")}><Heart size={14}/>Preferencias del paciente</button></div>
     {error&&!panel&&<p role="alert" className="my-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}

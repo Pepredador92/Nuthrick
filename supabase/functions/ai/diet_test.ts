@@ -76,7 +76,10 @@ Deno.test('M detects existing manual menu without persisting its entries or iden
 });
 Deno.test('client cannot supply model, candidates, prescriptions or rules',()=>{
   const r={feature:'diet_draft',idempotencyKey:crypto.randomUUID(),planId:fixtures.A.source.plan.id,revision:1};
-  for(const key of ['model','owner','payload','policy','rejectedFoodIds','narrative','target_calories'])assert.throws(()=>parseRequest({...r,[key]:'injected'}));
+  for(const key of ['model','owner','payload','policy','rejectedFoodIds','target_calories'])assert.throws(()=>parseRequest({...r,[key]:'injected'}));
+  // Phase 4B allows only the existing fingerprinted narrative as bounded instructions.
+  assert.throws(()=>parseRequest({...r,narrative:{prompt:'injected'}}));
+  assert.throws(()=>parseRequest({...r,narrative:'x'.repeat(1201)}));
 });
 Deno.test('provider schema regression: every node has explicit supported type, literals use typed enums',()=>{
   function check(s:Record<string,unknown>){

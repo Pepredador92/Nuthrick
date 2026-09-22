@@ -139,7 +139,11 @@ export function parseRequest(value: unknown): AIRequest {
   const clinical = ['pes_diagnosis','recall_24h'].includes(v.feature as string);
   if (clinical && (!v.consultationId || !Number.isSafeInteger(v.revision) || Number(v.revision) < 1)) throw new AIError('invalid_request');
   if (!clinical && !workshop && (v.revision !== undefined || v.narrative !== undefined)) throw new AIError('invalid_request');
-  if (v.feature === 'recall_24h' ? typeof v.narrative !== 'string' || !v.narrative.trim() || v.narrative.length > 8000 : v.narrative !== undefined) throw new AIError('invalid_request');
+  // Reuse the already fingerprinted narrative field for bounded diet instructions.
+  // No new prompt/model parameters and no changes to reservation/idempotency.
+  if (v.feature === 'diet_draft') {
+    if (v.narrative !== undefined && (typeof v.narrative !== 'string' || v.narrative.length > 1200)) throw new AIError('invalid_request');
+  } else if (v.feature === 'recall_24h' ? typeof v.narrative !== 'string' || !v.narrative.trim() || v.narrative.length > 8000 : v.narrative !== undefined) throw new AIError('invalid_request');
   return v as AIRequest;
 }
 export async function runAIRequest(request: AIRequest, store: AIStore, provider: AIProvider) {

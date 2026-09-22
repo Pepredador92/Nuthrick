@@ -664,7 +664,6 @@ export function DietWorkshopPage() {
       {notice && <p role="status" className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]">{notice}</p>}
       {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{error}</p>}
       <div className="mt-5 space-y-5" key={libraryEpoch}>
-          <DietWorkshopAI plan={plan} before={flushPendingDraft} onApplied={acceptLibraryUpdate}/>
           <section className="rounded-2xl border border-[#dfe6e1] bg-white px-4 py-3 sm:px-5">
             <label className="block text-sm font-semibold text-[#315e4f]" htmlFor="diet-plan-title">{plan.diet_menu?.week_plan?.days.length ? `Nombre de ${libraryKind(plan.diet_menu.week_plan.days.length).toLocaleLowerCase()}` : "Nombre del borrador"}
               <input id="diet-plan-title" className="nuth-input mt-1 !py-2" maxLength={120} required value={title} onChange={(event) => { setTitle(event.target.value); setNotice(""); }} onBlur={() => void saveTitle().catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el título."))} />
@@ -746,6 +745,13 @@ export function DietWorkshopPage() {
           />}
           {activeStep === "menu" && <DietMenuStep
             plan={plan}
+            headerActions={<DietWorkshopAI key={plan.id} plan={plan} before={flushPendingDraft} onApplied={updated => {
+              planRef.current = updated;
+              setPlan(updated);
+              setLibraryEpoch(value => value + 1);
+              setNotice("Propuesta aplicada al borrador. Continúa editando en el Taller.");
+              requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('[data-diet-ai-entry]')?.focus());
+            }}/>}
             onSave={async (menu) => {
               await savePlanPatch({ diet_menu: menu });
               clearPendingIfSaved(pendingDietMenu, menu);
