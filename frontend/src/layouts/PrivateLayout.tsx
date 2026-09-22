@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Logo } from '@/src/components/ui/Logo';
 import { useAuth } from '@/src/features/auth/AuthProvider';
+import { AIUsageIndicator } from '@/src/components/ai/AIControls';
 
 const nav = [
   { label: 'Dashboard', href: '/app', icon: LayoutDashboard, end: true },
@@ -22,7 +23,7 @@ export function PrivateLayout() {
   const logout = async () => { await signOut(); navigate('/'); };
   const initials = (profile?.full_name || user?.email || 'N').split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 
-  const sidebar = <><div className="flex h-20 items-center justify-between px-5"><Logo /><button type="button" className="p-2 text-[#80908a] lg:hidden" onClick={() => setMobileOpen(false)} aria-label="Cerrar menú"><X size={20} /></button></div><nav className="px-3 py-5" aria-label="Aplicación">{nav.map(({ label, href, icon: Icon, end }) => <NavLink key={href} to={href} end={end} onClick={() => setMobileOpen(false)} className={({ isActive }) => `mb-1.5 flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition ${isActive ? 'bg-[#e9f1ec] text-[#285647]' : 'text-[#61706b] hover:bg-[#f2f5f1]'}`}><Icon size={19} />{label}</NavLink>)}</nav><div className="mt-auto border-t border-[#e6ebe7] p-4"><div className="rounded-2xl bg-[#173d36] p-4 text-white"><p className="text-xs text-white/55">Tu página pública</p><p className="mt-2 truncate text-sm font-semibold">/p/{profile?.public_slug || 'tu-slug'}</p>{profile?.public_slug && <Link to={`/p/${profile.public_slug}`} target="_blank" className="mt-3 inline-block text-xs font-semibold text-[#efbd6b]">Ver página →</Link>}</div></div></>;
+  const sidebar = <><div className="flex h-20 items-center justify-between px-5"><Logo /><button type="button" className="p-2 text-[#80908a] lg:hidden" onClick={() => setMobileOpen(false)} aria-label="Cerrar menú"><X size={20} /></button></div><nav className="px-3 py-5" aria-label="Aplicación">{nav.map(({ label, href, icon: Icon, end }) => <NavLink key={href} to={href} end={end} onClick={() => setMobileOpen(false)} className={({ isActive }) => `mb-1.5 flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition ${isActive ? 'bg-[#e9f1ec] text-[#285647]' : 'text-[#61706b] hover:bg-[#f2f5f1]'}`}><Icon size={19} />{label}</NavLink>)}</nav><div className="mx-4 mb-3"><AIUsageIndicator key={user?.id} /></div><div className="mt-auto border-t border-[#e6ebe7] p-4"><div className="rounded-2xl bg-[#173d36] p-4 text-white"><p className="text-xs text-white/55">Tu página pública</p><p className="mt-2 truncate text-sm font-semibold">/p/{profile?.public_slug || 'tu-slug'}</p>{profile?.public_slug && <Link to={`/p/${profile.public_slug}`} target="_blank" className="mt-3 inline-block text-xs font-semibold text-[#efbd6b]">Ver página →</Link>}</div></div></>;
 
   return (
     <div className="min-h-screen bg-[#f6f7f3] text-[#17312c]">
