@@ -532,23 +532,23 @@ function calculateDerivedMealTotals(distribution, mealTimes) {
   return [...mealTimes].sort((a, b) => a.display_order - b.display_order).map((meal) => calculateMealNutrition(distribution, meal.id));
 }
 function calculateDistributionStatus(distribution, prescription) {
-  const groups2 = exchangeCatalog.map((catalog) => {
+  const groups3 = exchangeCatalog.map((catalog) => {
     const values = calculateRemainingExchanges(distribution, prescription, catalog.groupCode);
     const state = values.remaining < -EPSILON ? "excess" : values.remaining > EPSILON ? "pending" : "complete";
     return { group_code: catalog.groupCode, ...values, state };
   }).filter((group2) => group2.available > EPSILON || group2.assigned > EPSILON);
-  const complete = groups2.filter((group2) => group2.state === "complete").length;
-  const pending = groups2.filter((group2) => group2.state === "pending").length;
-  const excess = groups2.filter((group2) => group2.state === "excess").length;
+  const complete = groups3.filter((group2) => group2.state === "complete").length;
+  const pending = groups3.filter((group2) => group2.state === "pending").length;
+  const excess = groups3.filter((group2) => group2.state === "excess").length;
   return {
-    groups: groups2,
+    groups: groups3,
     complete,
     pending,
     excess,
-    canConfirm: groups2.length > 0 && pending === 0 && excess === 0,
-    availablePortions: round(groups2.reduce((sum, group2) => sum + group2.available, 0)),
-    assignedPortions: round(groups2.reduce((sum, group2) => sum + group2.assigned, 0)),
-    remainingPortions: round(groups2.reduce((sum, group2) => sum + group2.remaining, 0))
+    canConfirm: groups3.length > 0 && pending === 0 && excess === 0,
+    availablePortions: round(groups3.reduce((sum, group2) => sum + group2.available, 0)),
+    assignedPortions: round(groups3.reduce((sum, group2) => sum + group2.assigned, 0)),
+    remainingPortions: round(groups3.reduce((sum, group2) => sum + group2.remaining, 0))
   };
 }
 
@@ -573,158 +573,13 @@ function normalizeCatalogPortion(food) {
   return fraction && fraction.numerator > 0 && fraction.denominator > 0 ? { ...food, portion_amount: fraction.numerator / fraction.denominator } : food;
 }
 
-// frontend/src/features/diet-workshop/generationContext.ts
-function contextFact(raw, valid) {
-  if (raw === void 0) return { state: "unavailable", reason: "missing" };
-  if (raw === null) return { state: "unavailable", reason: "null" };
-  if (typeof raw === "string" && !raw.trim()) return { state: "unavailable", reason: "blank" };
-  if (raw === "No sabe / no recuerda") return { state: "unknown", reason: "not_recalled" };
-  if (raw === "Prefiere no responder") return { state: "unknown", reason: "declined" };
-  if (raw === "No aplica") return { state: "not_applicable", reason: "explicit" };
-  if (Array.isArray(raw) && raw.length === 0) return { state: "unavailable", reason: "empty_array" };
-  if (Array.isArray(raw) && raw.length === 1 && ["No sabe / no recuerda", "Prefiere no responder", "No aplica"].includes(raw[0]))
-    return contextFact(raw[0], valid);
-  return valid(raw) ? { state: "known", value: raw } : { state: "unavailable", reason: "invalid" };
-}
-var stringValue = (v) => typeof v === "string" && Boolean(v.trim());
-var stringList = (v) => Array.isArray(v) && v.length > 0 && v.every(stringValue);
-var record = (v) => Boolean(v) && typeof v === "object" && !Array.isArray(v);
-var positive = (v) => typeof v === "number" && Number.isFinite(v) && v > 0;
-var list = (guard) => (v) => Array.isArray(v) && v.length > 0 && v.every(guard);
-var reaction = (v) => record(v) && stringValue(v.food) && stringValue(v.classification);
-var preference = (v) => record(v) && stringValue(v.food) && stringValue(v.category);
-var scheduleKeys = ["day", "start", "end", "meal_window", "minutes"];
-var schedule = (v) => record(v) && scheduleKeys.some((k) => stringValue(v[k])) && scheduleKeys.every((k) => v[k] === void 0 || v[k] === null || typeof v[k] === "string");
-var time = (v) => typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
-var date = (v) => typeof v === "string" && Number.isFinite(Date.parse(v));
-var unavailable = () => ({ state: "unavailable", reason: "missing" });
-function mapFact(fact, fn) {
-  return fact.state === "known" ? { state: "known", value: fn(fact.value) } : fact;
-}
-function buildDietGenerationContext(source, sanitizeText) {
-  const { plan, consultation: c } = source;
-  const blockers = [];
-  const clean = (s) => sanitizeText(s.trim());
-  const fromPlan = (path, fact, calculated = false) => ({
-    fact,
-    origin: { source: "nutrition_plans", path, kind: calculated ? "system_calculated" : "professional_captured" }
-  });
-  const answer = (key, guard, project) => ({
-    fact: mapFact(contextFact(source.answers[key]?.value, guard), project),
-    origin: {
-      source: "consultation_answers",
-      path: key,
-      kind: source.answers[key]?.response_area === "professional_assessment" ? "professional_captured" : "patient_declared"
-    }
-  });
-  const multiple = (key) => answer(key, stringList, (v) => v.map(clean));
-  if (plan.status !== "draft") blockers.push("draft_required");
-  if (!plan.patient_id || !plan.consultation_id || !c) blockers.push("consultation_required");
-  const sameContext = Boolean(c && c.id === plan.consultation_id && c.patient_id === plan.patient_id && c.professional_id === plan.professional_id && Number.isInteger(c.revision) && c.revision > 0);
-  if (c && !sameContext) blockers.push("context_mismatch");
-  const energy = contextFact(plan.target_calories, positive);
-  if (!isPlanEnergyTargetValid(plan.target_calories)) blockers.push("energy_required");
-  let macros = unavailable();
-  const m = plan.macro_distribution;
-  if (!m) blockers.push("macros_required");
-  else {
-    const validInputs = macroCatalog.every(({ code }) => {
-      const item = m.macros?.[code];
-      return item && item.code === code && ["grams", "percentage", "grams_per_kg"].includes(item.input_mode) && typeof item.input_value === "number" && Number.isFinite(item.input_value) && item.input_value >= 0;
-    });
-    const calculated = validInputs ? calculateMacroDistribution(m) : null;
-    if (!calculated?.complete || m.target_energy_kcal !== plan.target_calories) blockers.push("prescription_inconsistent");
-    else macros = { state: "known", value: Object.fromEntries(macroCatalog.map(({ code }) => {
-      const item = calculated.macros[code];
-      return [code, { grams: item.grams, percentage: item.percentage, kcal: item.kcal }];
-    })) };
-  }
-  if (plan.energy_calculation?.prescribed_target_kcal != null && plan.energy_calculation.prescribed_target_kcal !== plan.target_calories)
-    blockers.push("prescription_inconsistent");
-  const pesApproved = sameContext && c?.pes && date(c.pes.approved_at) && stringValue(c.pes.statement);
-  const goalApproved = pesApproved && c?.objective && date(c.objective.approved_at) && stringValue(c.objective.content) && c.objective.revision === c.revision && c.objective.pes_approved_at === c.pes?.approved_at && c.objective.pes_statement === c.pes?.statement;
-  if (!pesApproved) blockers.push("pes_approval_required");
-  if (!goalApproved) blockers.push("objective_approval_required");
-  const distribution = plan.meal_distribution;
-  const meals = distribution?.meal_times;
-  if (!meals?.length) blockers.push("meal_structure_required");
-  const validMeals = Boolean(meals?.length && new Set(meals.map((v) => v.id)).size === meals.length && meals.every((v) => stringValue(v.id) && stringValue(v.display_name) && ["BREAKFAST", "SNACK", "MAIN_MEAL", "DINNER", "CUSTOM"].includes(v.meal_type) && Number.isInteger(v.display_order) && v.display_order >= 0 && (v.time === null || time(v.time))));
-  if (meals?.length && !validMeals) blockers.push("meal_structure_invalid");
-  const groups2 = new Set(exchangeCatalog.map((g) => g.groupCode));
-  const cells = distribution?.distribution ?? [];
-  const validCells = validMeals && cells.every((v) => meals.some((t) => t.id === v.meal_time_id) && groups2.has(v.group_code) && Number.isFinite(v.portions) && v.portions >= 0) && new Set(cells.map((v) => `${v.meal_time_id}:${v.group_code}`)).size === cells.length;
-  if (cells.length && !validCells) blockers.push("distribution_invalid");
-  const reactionStatus = answer("food_reactions_status", (v) => v === "S\xED" || v === "No", (v) => v);
-  const reactions = answer("food_reactions_v2", list(reaction), (rows) => rows.map((r) => ({ food: clean(r.food), classification: clean(r.classification), ...stringValue(r.management) ? { management: clean(r.management) } : {} })));
-  const preferences = answer("food_preferences", list(preference), (rows) => rows.map((r) => ({ category: clean(r.category), food: clean(r.food) })));
-  const patterns = multiple("eating_preferences");
-  const unresolvedReactions = reactions.fact.state === "known" || reactions.fact.state === "unavailable" && reactions.fact.reason === "invalid";
-  const unresolvedPreferences = preferences.fact.state === "known" && preferences.fact.value.some((v) => ["No consume", "Preferencia cultural / religiosa"].includes(v.category)) || preferences.fact.state === "unavailable" && preferences.fact.reason === "invalid";
-  const unresolvedPattern = patterns.fact.state === "known" && patterns.fact.value.some((v) => ["Vegetariano", "Vegano", "Pescetariano", "Restricci\xF3n religiosa"].includes(v));
-  if (reactionStatus.fact.state !== "known" || reactionStatus.fact.value !== "No" || unresolvedReactions || unresolvedPreferences || unresolvedPattern)
-    blockers.push("restrictions_need_review");
-  if ((source.additionalInstructions?.length ?? 0) > 1200) blockers.push("instructions_too_long");
-  const catalogPreferences = Object.entries(plan.diet_menu?.food_preferences ?? {});
-  const excludedIds = new Set(catalogPreferences.filter(([, v]) => v === "exclude").map(([id]) => id));
-  let catalog = unavailable();
-  if (source.catalog && source.catalog.foods.length <= 200 && source.catalog.recipes.length <= 24) {
-    const foods = source.catalog.foods.filter((f) => f.active && (f.owner_id === null || f.owner_id === plan.professional_id) && !excludedIds.has(f.id) && positive(f.portion_amount) && Object.hasOwn(foodUnitLabels, f.portion_unit) && groups2.has(f.group_code));
-    const recipes = source.catalog.recipes.filter((r) => r.active && (r.owner_id === null || r.owner_id === plan.professional_id) && positive(r.servings) && r.items.length > 0 && r.items.every((i) => positive(i.amount) && foods.some((f) => f.id === i.food_item_id && f.portion_unit === i.unit)));
-    const attributeKeys = ["gluten", "lactose", "milk", "egg", "peanut", "tree_nuts", "soy", "fish", "crustaceans", "other"];
-    if (foods.length) catalog = { state: "known", value: {
-      foods: foods.map((f) => ({
-        id: f.id,
-        name: clean(f.name),
-        group_code: f.group_code,
-        portion_amount: f.portion_amount,
-        portion_unit: f.portion_unit,
-        exchange_system_code: f.exchange_system_code,
-        exchange_catalog_version: f.exchange_catalog_version,
-        attributes: Object.fromEntries(Object.entries(f.attributes ?? {}).filter(([k, v]) => attributeKeys.includes(k) && ["contains", "free", "unknown"].includes(v)))
-      })),
-      recipes: recipes.map((r) => ({
-        id: r.id,
-        name: clean(r.name),
-        servings: r.servings,
-        instructions: r.instructions === null ? null : clean(r.instructions),
-        items: r.items.map((i) => ({ food_item_id: i.food_item_id, amount: i.amount, unit: i.unit }))
-      }))
-    } };
-  }
-  if (catalog.state !== "known") blockers.push("catalog_required");
-  const context = {
-    schema_version: 1,
-    clinical: {
-      pes: { fact: pesApproved ? { state: "known", value: clean(c.pes.statement) } : unavailable(), origin: { source: "consultation_snapshots", path: "clinical_records.pes + pes_statement", kind: "approved_pes" } },
-      objective: { fact: goalApproved ? { state: "known", value: clean(c.objective.content) } : unavailable(), origin: { source: "consultation_snapshots", path: "clinical_records.objective", kind: "approved_objective" } }
-    },
-    prescription: { energy_kcal: fromPlan("target_calories", energy), macros: fromPlan("macro_distribution.macros.input_value + input_mode", macros, true) },
-    meals: fromPlan("meal_distribution.meal_times", validMeals ? { state: "known", value: [...meals].sort((a, b) => a.display_order - b.display_order).map((v) => ({ id: v.id, meal_type: v.meal_type, display_name: clean(v.display_name), time: contextFact(v.time, time), display_order: v.display_order })) } : unavailable()),
-    meal_distribution: fromPlan("meal_distribution.distribution", validCells && cells.length ? { state: "known", value: {
-      exchanges: cells.map((v) => ({ meal_time_id: v.meal_time_id, group_code: v.group_code, portions: v.portions })),
-      totals: calculateDerivedMealTotals(cells, meals)
-    } } : unavailable(), true),
-    restrictions: { reaction_status: reactionStatus, reactions, excluded_food_ids: catalogPreferences.filter(([, v]) => v === "exclude").map(([id]) => id) },
-    preferences: { eating_pattern: patterns, foods: preferences, catalog: catalogPreferences.flatMap(([food_id, v]) => v === "like" || v === "avoid" ? [{ food_id, preference: v }] : []) },
-    routine: {
-      usual_pattern: multiple("usual_pattern"),
-      daily_schedule: answer("daily_schedule", list(schedule), (rows) => rows.map((v) => Object.fromEntries(scheduleKeys.flatMap((k) => stringValue(v[k]) ? [[k, clean(v[k])]] : [])))),
-      cooking_time: answer("cooking_time", stringValue, clean),
-      food_equipment: multiple("food_equipment")
-    },
-    professional_instructions: { fact: mapFact(contextFact(source.additionalInstructions, stringValue), clean), origin: { source: "request", path: "additionalInstructions", kind: "professional_captured" } },
-    catalog: { fact: catalog, origin: { source: "catalog", path: "food_items + recipes + recipe_items", kind: "catalog_record" } }
-  };
-  return { context, ready: blockers.length === 0, blockers: [...new Set(blockers)], audit: { plan_id: plan.id, draft_revision: plan.draft_revision, consultation_id: plan.consultation_id, stamp: source.stamp } };
-}
-
 // frontend/src/features/exchanges/model.ts
 var zeroTotals2 = () => ({ energy_kcal: 0, carbohydrate_g: 0, protein_g: 0, fat_g: 0 });
 function sameExchangeTargets(a, b) {
   return a.energy_kcal === b.energy_kcal && a.carbohydrate_g === b.carbohydrate_g && a.protein_g === b.protein_g && a.fat_g === b.fat_g;
 }
-function calculateExchangeTotals(groups2) {
-  return groups2.reduce((totals, item) => {
+function calculateExchangeTotals(groups3) {
+  return groups3.reduce((totals, item) => {
     const catalog = getExchangeGroup(item.group_code);
     return {
       energy_kcal: totals.energy_kcal + item.portions * catalog.energyKcal,
@@ -742,9 +597,6 @@ function calculateExchangeDifferences(actual, target) {
     fat_g: actual.fat_g - target.fat_g
   };
 }
-
-// frontend/src/features/exchanges/suggestion.ts
-var EXCHANGE_SUGGESTION_INCREMENT = 0.5;
 
 // frontend/src/features/menu/model.ts
 var DIET_MENU_SCHEMA_VERSION = 1;
@@ -910,6 +762,193 @@ function calculateMenuStatus(menu, mealDistribution) {
   };
 }
 
+// frontend/src/features/diet-workshop/clinicalSummary.ts
+var object = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+var positive = (v) => typeof v === "number" && Number.isFinite(v) && v > 0;
+var groups = new Set(exchangeCatalog.map((g) => g.groupCode));
+var CLINICAL_SUMMARY_LIMITS = { meals: 8, foodsPerMeal: 8, foodCharacters: 64, recordedItems: 150 };
+function summarizeConfirmedRecall(raw, sanitize) {
+  if (!object(raw) || typeof raw.approved_at !== "string" || !Number.isFinite(Date.parse(raw.approved_at)) || !Array.isArray(raw.items) || !raw.items.length || raw.items.length > CLINICAL_SUMMARY_LIMITS.recordedItems) return void 0;
+  const clean = (s) => sanitize(s).trim().slice(0, CLINICAL_SUMMARY_LIMITS.foodCharacters);
+  const contributions = [];
+  const meals = /* @__PURE__ */ new Map();
+  for (const item of raw.items) {
+    if (!object(item) || !object(item.food) || typeof item.mealLabel !== "string" || !item.mealLabel.trim() || typeof item.food.name !== "string" || !item.food.name.trim() || !positive(item.quantity) || item.quantity > 1e4 || !positive(item.food.portion_amount) || item.unit !== item.food.portion_unit || typeof item.food.group_code !== "string" || !groups.has(item.food.group_code)) return void 0;
+    contributions.push(...exchangeContributionForFood(item.food, item.quantity));
+    const meal = clean(item.mealLabel), food = clean(item.food.name);
+    if (!meals.has(meal)) meals.set(meal, /* @__PURE__ */ new Set());
+    meals.get(meal).add(food);
+  }
+  const totals = calculateExchangeTotals(contributions);
+  if (!Object.values(totals).every((v) => typeof v === "number" && Number.isFinite(v))) return void 0;
+  const truncated = meals.size > CLINICAL_SUMMARY_LIMITS.meals || [...meals.values()].some((f) => f.size > CLINICAL_SUMMARY_LIMITS.foodsPerMeal);
+  return {
+    scope: "one_recorded_day_not_prescription",
+    totalsScope: "confirmed_items_only",
+    nutrition: totals,
+    meals: [...meals].slice(0, CLINICAL_SUMMARY_LIMITS.meals).map(([name, foods]) => ({ name, foods: [...foods].slice(0, CLINICAL_SUMMARY_LIMITS.foodsPerMeal) })),
+    ...truncated ? { foodListTruncated: true } : {}
+  };
+}
+function summarizeAnthropometry(raw) {
+  if (!object(raw)) return void 0;
+  const keys = ["weightKg", "heightCm", "bmi", "waistCm", "bodyFatPct", "leanMassKg"];
+  const result = Object.fromEntries(keys.flatMap((k) => positive(raw[k]) && (k !== "bodyFatPct" || raw[k] <= 100) ? [[k, raw[k]]] : []));
+  return Object.keys(result).length ? result : void 0;
+}
+
+// frontend/src/features/diet-workshop/generationContext.ts
+function contextFact(raw, valid) {
+  if (raw === void 0) return { state: "unavailable", reason: "missing" };
+  if (raw === null) return { state: "unavailable", reason: "null" };
+  if (typeof raw === "string" && !raw.trim()) return { state: "unavailable", reason: "blank" };
+  if (raw === "No sabe / no recuerda") return { state: "unknown", reason: "not_recalled" };
+  if (raw === "Prefiere no responder") return { state: "unknown", reason: "declined" };
+  if (raw === "No aplica") return { state: "not_applicable", reason: "explicit" };
+  if (Array.isArray(raw) && raw.length === 0) return { state: "unavailable", reason: "empty_array" };
+  if (Array.isArray(raw) && raw.length === 1 && ["No sabe / no recuerda", "Prefiere no responder", "No aplica"].includes(raw[0]))
+    return contextFact(raw[0], valid);
+  return valid(raw) ? { state: "known", value: raw } : { state: "unavailable", reason: "invalid" };
+}
+var stringValue = (v) => typeof v === "string" && Boolean(v.trim());
+var stringList = (v) => Array.isArray(v) && v.length > 0 && v.every(stringValue);
+var record = (v) => Boolean(v) && typeof v === "object" && !Array.isArray(v);
+var positive2 = (v) => typeof v === "number" && Number.isFinite(v) && v > 0;
+var list = (guard) => (v) => Array.isArray(v) && v.length > 0 && v.every(guard);
+var reaction = (v) => record(v) && stringValue(v.food) && stringValue(v.classification);
+var preference = (v) => record(v) && stringValue(v.food) && stringValue(v.category);
+var scheduleKeys = ["day", "start", "end", "meal_window", "minutes"];
+var schedule = (v) => record(v) && scheduleKeys.some((k) => stringValue(v[k])) && scheduleKeys.every((k) => v[k] === void 0 || v[k] === null || typeof v[k] === "string");
+var time = (v) => typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+var date = (v) => typeof v === "string" && Number.isFinite(Date.parse(v));
+var unavailable = () => ({ state: "unavailable", reason: "missing" });
+function mapFact(fact, fn) {
+  return fact.state === "known" ? { state: "known", value: fn(fact.value) } : fact;
+}
+function buildDietGenerationContext(source, sanitizeText) {
+  const { plan, consultation: c } = source;
+  const blockers = [];
+  const clean = (s) => sanitizeText(s.trim());
+  const fromPlan = (path, fact, calculated = false) => ({
+    fact,
+    origin: { source: "nutrition_plans", path, kind: calculated ? "system_calculated" : "professional_captured" }
+  });
+  const answer = (key, guard, project) => ({
+    fact: mapFact(contextFact(source.answers[key]?.value, guard), project),
+    origin: {
+      source: "consultation_answers",
+      path: key,
+      kind: source.answers[key]?.response_area === "professional_assessment" ? "professional_captured" : "patient_declared"
+    }
+  });
+  const multiple = (key) => answer(key, stringList, (v) => v.map(clean));
+  if (plan.status !== "draft") blockers.push("draft_required");
+  if (!plan.patient_id || !plan.consultation_id || !c) blockers.push("consultation_required");
+  const sameContext = Boolean(c && c.id === plan.consultation_id && c.patient_id === plan.patient_id && c.professional_id === plan.professional_id && Number.isInteger(c.revision) && c.revision > 0);
+  if (c && !sameContext) blockers.push("context_mismatch");
+  const energy = contextFact(plan.target_calories, positive2);
+  if (!isPlanEnergyTargetValid(plan.target_calories)) blockers.push("energy_required");
+  let macros = unavailable();
+  const m = plan.macro_distribution;
+  if (!m) blockers.push("macros_required");
+  else {
+    const validInputs = macroCatalog.every(({ code }) => {
+      const item = m.macros?.[code];
+      return item && item.code === code && ["grams", "percentage", "grams_per_kg"].includes(item.input_mode) && typeof item.input_value === "number" && Number.isFinite(item.input_value) && item.input_value >= 0;
+    });
+    const calculated = validInputs ? calculateMacroDistribution(m) : null;
+    if (!calculated?.complete || m.target_energy_kcal !== plan.target_calories) blockers.push("prescription_inconsistent");
+    else macros = { state: "known", value: Object.fromEntries(macroCatalog.map(({ code }) => {
+      const item = calculated.macros[code];
+      return [code, { grams: item.grams, percentage: item.percentage, kcal: item.kcal }];
+    })) };
+  }
+  if (plan.energy_calculation?.prescribed_target_kcal != null && plan.energy_calculation.prescribed_target_kcal !== plan.target_calories)
+    blockers.push("prescription_inconsistent");
+  const pesApproved = sameContext && c?.pes && date(c.pes.approved_at) && stringValue(c.pes.statement);
+  const goalApproved = pesApproved && c?.objective && date(c.objective.approved_at) && stringValue(c.objective.content) && c.objective.revision === c.revision && c.objective.pes_approved_at === c.pes?.approved_at && c.objective.pes_statement === c.pes?.statement;
+  if (!pesApproved) blockers.push("pes_approval_required");
+  if (!goalApproved) blockers.push("objective_approval_required");
+  const distribution = plan.meal_distribution;
+  const meals = distribution?.meal_times;
+  if (!meals?.length) blockers.push("meal_structure_required");
+  const validMeals = Boolean(meals?.length && new Set(meals.map((v) => v.id)).size === meals.length && meals.every((v) => stringValue(v.id) && stringValue(v.display_name) && ["BREAKFAST", "SNACK", "MAIN_MEAL", "DINNER", "CUSTOM"].includes(v.meal_type) && Number.isInteger(v.display_order) && v.display_order >= 0 && (v.time === null || time(v.time))));
+  if (meals?.length && !validMeals) blockers.push("meal_structure_invalid");
+  const groups3 = new Set(exchangeCatalog.map((g) => g.groupCode));
+  const cells = distribution?.distribution ?? [];
+  const validCells = validMeals && cells.every((v) => meals.some((t) => t.id === v.meal_time_id) && groups3.has(v.group_code) && Number.isFinite(v.portions) && v.portions >= 0) && new Set(cells.map((v) => `${v.meal_time_id}:${v.group_code}`)).size === cells.length;
+  if (cells.length && !validCells) blockers.push("distribution_invalid");
+  const reactionStatus = answer("food_reactions_status", (v) => v === "S\xED" || v === "No", (v) => v);
+  const reactions = answer("food_reactions_v2", list(reaction), (rows) => rows.map((r) => ({ food: clean(r.food), classification: clean(r.classification), ...stringValue(r.management) ? { management: clean(r.management) } : {} })));
+  const preferences = answer("food_preferences", list(preference), (rows) => rows.map((r) => ({ category: clean(r.category), food: clean(r.food) })));
+  const patterns = multiple("eating_preferences");
+  const unresolvedReactions = reactions.fact.state === "known" || reactions.fact.state === "unavailable" && reactions.fact.reason === "invalid";
+  const unresolvedPreferences = preferences.fact.state === "known" && preferences.fact.value.some((v) => ["No consume", "Preferencia cultural / religiosa"].includes(v.category)) || preferences.fact.state === "unavailable" && preferences.fact.reason === "invalid";
+  const unresolvedPattern = patterns.fact.state === "known" && patterns.fact.value.some((v) => ["Vegetariano", "Vegano", "Pescetariano", "Restricci\xF3n religiosa"].includes(v));
+  if (reactionStatus.fact.state !== "known" || reactionStatus.fact.value !== "No" || unresolvedReactions || unresolvedPreferences || unresolvedPattern)
+    blockers.push("restrictions_need_review");
+  if ((source.additionalInstructions?.length ?? 0) > 1200) blockers.push("instructions_too_long");
+  const catalogPreferences = Object.entries(plan.diet_menu?.food_preferences ?? {});
+  const excludedIds = new Set(catalogPreferences.filter(([, v]) => v === "exclude").map(([id]) => id));
+  let catalog = unavailable();
+  if (source.catalog && source.catalog.foods.length <= 200 && source.catalog.recipes.length <= 24) {
+    const foods = source.catalog.foods.filter((f) => f.active && (f.owner_id === null || f.owner_id === plan.professional_id) && !excludedIds.has(f.id) && positive2(f.portion_amount) && Object.hasOwn(foodUnitLabels, f.portion_unit) && groups3.has(f.group_code));
+    const recipes = source.catalog.recipes.filter((r) => r.active && (r.owner_id === null || r.owner_id === plan.professional_id) && positive2(r.servings) && r.items.length > 0 && r.items.every((i) => positive2(i.amount) && foods.some((f) => f.id === i.food_item_id && f.portion_unit === i.unit)));
+    const attributeKeys = ["gluten", "lactose", "milk", "egg", "peanut", "tree_nuts", "soy", "fish", "crustaceans", "other"];
+    if (foods.length) catalog = { state: "known", value: {
+      foods: foods.map((f) => ({
+        id: f.id,
+        name: clean(f.name),
+        group_code: f.group_code,
+        portion_amount: f.portion_amount,
+        portion_unit: f.portion_unit,
+        exchange_system_code: f.exchange_system_code,
+        exchange_catalog_version: f.exchange_catalog_version,
+        attributes: Object.fromEntries(Object.entries(f.attributes ?? {}).filter(([k, v]) => attributeKeys.includes(k) && ["contains", "free", "unknown"].includes(v)))
+      })),
+      recipes: recipes.map((r) => ({
+        id: r.id,
+        name: clean(r.name),
+        servings: r.servings,
+        instructions: r.instructions === null ? null : clean(r.instructions),
+        items: r.items.map((i) => ({ food_item_id: i.food_item_id, amount: i.amount, unit: i.unit }))
+      }))
+    } };
+  }
+  if (catalog.state !== "known") blockers.push("catalog_required");
+  const recall24h = summarizeConfirmedRecall(source.confirmedRecall, clean);
+  const anthropometry = summarizeAnthropometry(source.anthropometry);
+  const context = {
+    schema_version: 1,
+    clinical: {
+      ...recall24h ? { recall24h } : {},
+      ...anthropometry ? { anthropometry } : {},
+      pes: { fact: pesApproved ? { state: "known", value: clean(c.pes.statement) } : unavailable(), origin: { source: "consultation_snapshots", path: "clinical_records.pes + pes_statement", kind: "approved_pes" } },
+      objective: { fact: goalApproved ? { state: "known", value: clean(c.objective.content) } : unavailable(), origin: { source: "consultation_snapshots", path: "clinical_records.objective", kind: "approved_objective" } }
+    },
+    prescription: { energy_kcal: fromPlan("target_calories", energy), macros: fromPlan("macro_distribution.macros.input_value + input_mode", macros, true) },
+    meals: fromPlan("meal_distribution.meal_times", validMeals ? { state: "known", value: [...meals].sort((a, b) => a.display_order - b.display_order).map((v) => ({ id: v.id, meal_type: v.meal_type, display_name: clean(v.display_name), time: contextFact(v.time, time), display_order: v.display_order })) } : unavailable()),
+    meal_distribution: fromPlan("meal_distribution.distribution", validCells && cells.length ? { state: "known", value: {
+      exchanges: cells.map((v) => ({ meal_time_id: v.meal_time_id, group_code: v.group_code, portions: v.portions })),
+      totals: calculateDerivedMealTotals(cells, meals)
+    } } : unavailable(), true),
+    restrictions: { reaction_status: reactionStatus, reactions, excluded_food_ids: catalogPreferences.filter(([, v]) => v === "exclude").map(([id]) => id) },
+    preferences: { eating_pattern: patterns, foods: preferences, catalog: catalogPreferences.flatMap(([food_id, v]) => v === "like" || v === "avoid" ? [{ food_id, preference: v }] : []) },
+    routine: {
+      usual_pattern: multiple("usual_pattern"),
+      daily_schedule: answer("daily_schedule", list(schedule), (rows) => rows.map((v) => Object.fromEntries(scheduleKeys.flatMap((k) => stringValue(v[k]) ? [[k, clean(v[k])]] : [])))),
+      cooking_time: answer("cooking_time", stringValue, clean),
+      food_equipment: multiple("food_equipment")
+    },
+    professional_instructions: { fact: mapFact(contextFact(source.additionalInstructions, stringValue), clean), origin: { source: "request", path: "additionalInstructions", kind: "professional_captured" } },
+    catalog: { fact: catalog, origin: { source: "catalog", path: "food_items + recipes + recipe_items", kind: "catalog_record" } }
+  };
+  return { context, ready: blockers.length === 0, blockers: [...new Set(blockers)], audit: { plan_id: plan.id, draft_revision: plan.draft_revision, consultation_id: plan.consultation_id, stamp: source.stamp } };
+}
+
+// frontend/src/features/exchanges/suggestion.ts
+var EXCHANGE_SUGGESTION_INCREMENT = 0.5;
+
 // frontend/src/features/menu/composition.ts
 function ingredientsKey(items, factor, ratios = false) {
   const amounts = /* @__PURE__ */ new Map();
@@ -937,12 +976,12 @@ var DIET_GENERATION_LIMITS = Object.freeze({
   textLimit: 1200
 });
 var dietServingMultipliers = () => Array.from({ length: DIET_GENERATION_LIMITS.maxMultiplier / DIET_GENERATION_LIMITS.multiplierIncrement }, (_, i) => (i + 1) * DIET_GENERATION_LIMITS.multiplierIncrement);
-var groups = new Set(exchangeCatalog.map((g) => g.groupCode));
+var groups2 = new Set(exchangeCatalog.map((g) => g.groupCode));
 var nutrients = ["energy_kcal", "carbohydrate_g", "protein_g", "fat_g"];
-var positive2 = (n) => typeof n === "number" && Number.isFinite(n) && n > 0;
+var positive3 = (n) => typeof n === "number" && Number.isFinite(n) && n > 0;
 var canonicalName = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 function hardFoodAllowed(food, owner, rules) {
-  return food.active === true && (food.owner_id === null || food.owner_id === owner) && Boolean(food.id && food.name?.trim()) && positive2(food.portion_amount) && food.portion_unit !== "recipe_serving" && Object.hasOwn(foodUnitLabels, food.portion_unit) && food.exchange_system_code === EXCHANGE_SYSTEM_CODE && food.exchange_catalog_version === EXCHANGE_CATALOG_VERSION && groups.has(food.group_code) && nutrients.every((k) => food[k] == null || typeof food[k] === "number" && Number.isFinite(food[k]) && food[k] >= 0) && !rules.excludedFoodIds?.includes(food.id) && !rules.excludedGroupCodes?.includes(food.group_code) && (rules.excludedAttributes ?? []).every((a) => food.attributes?.[a] === "free");
+  return food.active === true && (food.owner_id === null || food.owner_id === owner) && Boolean(food.id && food.name?.trim()) && positive3(food.portion_amount) && food.portion_unit !== "recipe_serving" && Object.hasOwn(foodUnitLabels, food.portion_unit) && food.exchange_system_code === EXCHANGE_SYSTEM_CODE && food.exchange_catalog_version === EXCHANGE_CATALOG_VERSION && groups2.has(food.group_code) && nutrients.every((k) => food[k] == null || typeof food[k] === "number" && Number.isFinite(food[k]) && food[k] >= 0) && !rules.excludedFoodIds?.includes(food.id) && !rules.excludedGroupCodes?.includes(food.group_code) && (rules.excludedAttributes ?? []).every((a) => food.attributes?.[a] === "free");
 }
 function contextRestrictions(context, rules) {
   return {
@@ -978,7 +1017,7 @@ function selectDietCandidates(context, mealTimeId, catalog, owner, explicitRules
   const duplicatedFoods = duplicateIds(catalog.foods), duplicatedRecipes = duplicateIds(catalog.recipes);
   const foods = catalog.foods.filter((f) => !duplicatedFoods.has(f.id)).map(normalizeCatalogPortion).filter((f) => hardFoodAllowed(f, owner, rules));
   const byId = new Map(foods.map((f) => [f.id, f]));
-  const usable = (exchanges) => exchanges.length > 0 && exchanges.every((e) => positive2(e.portions) && required.some((r) => r.group_code === e.group_code));
+  const usable = (exchanges) => exchanges.length > 0 && exchanges.every((e) => positive3(e.portions) && required.some((r) => r.group_code === e.group_code));
   const multipliers = dietServingMultipliers();
   const foodCandidates = foods.filter((f) => required.some((r) => r.group_code === f.group_code)).map((f) => {
     const exchanges = exchangeContributionForFood(f, f.portion_amount);
@@ -999,7 +1038,7 @@ function selectDietCandidates(context, mealTimeId, catalog, owner, explicitRules
   });
   const recipeCandidates = [];
   for (const row of catalog.recipes) {
-    if (duplicatedRecipes.has(row.id) || !row.active || !(row.owner_id === null || row.owner_id === owner) || !row.id || !row.name?.trim() || !positive2(row.servings) || !row.items.length || row.meal_types.length > 0 && !row.meal_types.includes(meal.meal_type) || row.items.some((i) => !positive2(i.amount) || !byId.has(i.food_item_id ?? "") || byId.get(i.food_item_id).portion_unit !== i.unit)) continue;
+    if (duplicatedRecipes.has(row.id) || !row.active || !(row.owner_id === null || row.owner_id === owner) || !row.id || !row.name?.trim() || !positive3(row.servings) || !row.items.length || row.meal_types.length > 0 && !row.meal_types.includes(meal.meal_type) || row.items.some((i) => !positive3(i.amount) || !byId.has(i.food_item_id ?? "") || byId.get(i.food_item_id).portion_unit !== i.unit)) continue;
     const recipe = { ...row, items: row.items.map((i) => ({ ...i, food_snapshot: createFoodSnapshot(byId.get(i.food_item_id)), exchange_contribution: exchangeContributionForFood(byId.get(i.food_item_id), i.amount) })) };
     const exchanges = recipeExchangeContributions(recipe);
     if (!usable(exchanges) || Object.values(calculateExchangeTotals(exchanges)).some((v) => !Number.isFinite(v) || v < 0)) continue;

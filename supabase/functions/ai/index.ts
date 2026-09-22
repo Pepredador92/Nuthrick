@@ -125,6 +125,8 @@ Deno.serve(async request => {
         return true;
       },
       recordResult: async (id,result,valid) => {
+        const metadata=await db.rpc('ai_provider_metadata',{p_owner:owner,p_generation:id,p_request_id:result.requestId??null,p_model:result.model??null,p_latency:result.latencyMs??null});
+        if(metadata.error)throw new AIError('result_unavailable');
         if(!dietSnapshot) return;
         // No raw malformed output is retained. All values below are scoped,
         // redacted snapshot-derived data or safe provider accounting metadata.

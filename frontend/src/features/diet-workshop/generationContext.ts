@@ -9,6 +9,7 @@ import { calculateDerivedMealTotals } from '../meal-distribution/model';
 import { exchangeCatalog } from '../exchanges/catalog';
 import { foodUnitLabels } from '../menu/units';
 import type { FoodItem, FoodUnitCode, MacroCode, MealDistributionEntry, MealTime, NutritionPlan, Recipe } from '../../types/domain';
+import { summarizeConfirmedRecall, summarizeAnthropometry } from './clinicalSummary';
 
 export type Fact<T> =
   | { state: 'known'; value: T }
@@ -48,6 +49,9 @@ export type DietContextSource = {
   /** Already scoped to that consultation/revision by the future server loader. */
   answers: Record<string, { value: unknown; response_area: 'patient_reported' | 'professional_assessment' }>;
   additionalInstructions?: string | null;
+  /** Service-only RPC: confirmed record and current consultation measurements. */
+  confirmedRecall?: unknown;
+  anthropometry?: unknown;
   /** Bounded, owned active catalog selected by the future server, not the client. */
   catalog?: { foods: FoodItem[]; recipes: Recipe[] };
 };
@@ -68,7 +72,9 @@ type ContextCatalog = {
 
 export type DietGenerationContext = {
   schema_version: 1;
-  clinical: { pes: Sourced<string>; objective: Sourced<string> };
+  clinical: { pes: Sourced<string>; objective: Sourced<string>;
+    recall24h?: NonNullable<ReturnType<typeof summarizeConfirmedRecall>>;
+    anthropometry?: NonNullable<ReturnType<typeof summarizeAnthropometry>> };
   prescription: {
     energy_kcal: Sourced<number>;
     macros: Sourced<Record<MacroCode, { grams: number; percentage: number; kcal: number }>>;
@@ -229,9 +235,13 @@ export function buildDietGenerationContext(source: DietContextSource, sanitizeTe
     } };
   }
   if (catalog.state !== 'known') blockers.push('catalog_required');
+  const recall24h = summarizeConfirmedRecall(source.confirmedRecall, clean);
+  const anthropometry = summarizeAnthropometry(source.anthropometry);
   const context: DietGenerationContext = {
     schema_version: 1,
     clinical: {
+      ...(recall24h ? { recall24h } : {}),
+      ...(anthropometry ? { anthropometry } : {}),
       pes: { fact: pesApproved ? { state: 'known', value: clean(c!.pes!.statement) } : unavailable(), origin: { source: 'consultation_snapshots', path: 'clinical_records.pes + pes_statement', kind: 'approved_pes' } },
       objective: { fact: goalApproved ? { state: 'known', value: clean(c!.objective!.content) } : unavailable(), origin: { source: 'consultation_snapshots', path: 'clinical_records.objective', kind: 'approved_objective' } },
     },

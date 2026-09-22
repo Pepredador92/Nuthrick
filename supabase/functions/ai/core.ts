@@ -1,15 +1,16 @@
 import { Ajv } from 'ajv';
 import { clinicalAdapter, clinicalEvidenceValid, conservativeRecallQuantities } from './clinical.ts';
-import { dietDraftAdapter } from './diet-contract.ts';
+import { dietDraftAdapter, dietDraftAdapterV1 } from './diet-contract.ts';
 
 export type FeatureConfig = {
   feature: string; enabled: boolean; provider: string; model: string; prompt_version: string;
   max_input_tokens: number; max_output_tokens: number; timeout_ms: number;
   reasoning_level: string | null; temperature: number | null;
   execution_mode?: 'real' | 'simulated';
+  max_provider_attempts?: number;
 };
 export type Usage = { input_tokens: number; output_tokens: number; cached_tokens: number };
-export type ProviderResult = { status: string; output: unknown; usage: Usage; responseId: string; model?: string; latencyMs?: number };
+export type ProviderResult = { status: string; output: unknown; usage: Usage; responseId: string; model?: string; latencyMs?: number; requestId?: string };
 export type ProviderInput = { config: FeatureConfig; instructions: string; context: unknown; schema: Record<string, unknown>; generationId: string };
 export interface AIProvider { run(input: ProviderInput): Promise<ProviderResult> }
 export class AIError extends Error {
@@ -22,7 +23,8 @@ const checkSchema = {
   type: 'object', properties: { ok: { type: 'boolean', enum: [true] } }, required: ['ok'], additionalProperties: false,
 };
 export function featureAdapter(feature: string, promptVersion: string) {
-  if (feature === 'diet_draft' && promptVersion === 'diet_draft@1') return { ...dietDraftAdapter };
+  if (feature === 'diet_draft' && promptVersion === 'diet_draft@1') return { ...dietDraftAdapterV1 };
+  if (feature === 'diet_draft' && promptVersion === 'diet_draft@2') return { ...dietDraftAdapter };
   const clinical = clinicalAdapter(feature,promptVersion);
   if (clinical) return { ...clinical, context: {} as unknown };
   if (feature !== 'core_check' || promptVersion !== 'core_check@1') throw new AIError('feature_not_implemented');
@@ -65,7 +67,7 @@ export class OpenAIResponsesProvider implements AIProvider {
     };
     const signal = AbortSignal.timeout(config.timeout_ms);
     // Only an explicit rate-limit rejection is retried once. Never replay timeout/5xx/network uncertainty.
-    const attempts = config.feature === 'diet_draft' ? 1 : 2;
+    const attempts = config.max_provider_attempts === 1 || config.feature === 'diet_draft' ? 1 : 2;
     for (let attempt = 0; attempt < attempts; attempt++) {
       let response: Response;
       try {
@@ -101,7 +103,8 @@ export class OpenAIResponsesProvider implements AIProvider {
         if (texts.length === 1) output = JSON.parse(texts[0].text!);
       } catch { /* Invalid/refused/incomplete output still has real billable usage. */ }
       return { usage, output, status: String(data.status), responseId: typeof data.id === 'string' ? data.id : '',
-        model: typeof data.model === 'string' ? data.model : undefined, latencyMs: Math.round(performance.now() - started) };
+        model: typeof data.model === 'string' ? data.model : undefined, latencyMs: Math.round(performance.now() - started),
+        requestId: /^[a-zA-Z0-9_-]{1,200}$/.test(response.headers.get('x-request-id') ?? '') ? response.headers.get('x-request-id')! : undefined };
     }
     throw new AIError('provider_rejected');
   }

@@ -1,0 +1,308 @@
+{
+  "proposal_A": {
+    "model": "gpt-5.6-terra",
+    "status": "succeeded",
+    "usage": {
+      "input_tokens": 4516,
+      "cached_tokens": 0,
+      "output_tokens": 575,
+      "total_tokens": 5091
+    },
+    "cost_usd": 0.015932,
+    "credits": 1.594,
+    "latency_ms": 9437,
+    "snapshot_hash": "55e76f30c97f1bc1a87f7395c115faeb66c800de7f24b41c51d462f6ffdf2977",
+    "validation": {
+      "status": "valid",
+      "issues": [],
+      "totals": {
+        "fat_g": 47,
+        "protein_g": 91,
+        "energy_kcal": 1730,
+        "carbohydrate_g": 233
+      },
+      "differences": {
+        "fat_g": -11.333333333333336,
+        "protein_g": 3.5,
+        "energy_kcal": -20,
+        "carbohydrate_g": 14.25
+      },
+      "requiresTargetReview": true
+    },
+    "meals": [
+      {
+        "meal": "meal-1",
+        "entries": [
+          {
+            "name": "Tortilla de maíz",
+            "type": "food",
+            "quantity": 2,
+            "unit": "tortilla"
+          },
+          {
+            "name": "Jamón de pavo",
+            "type": "food",
+            "quantity": 2,
+            "unit": "slice"
+          },
+          {
+            "name": "Guacamole",
+            "type": "food",
+            "quantity": 2,
+            "unit": "tablespoon"
+          },
+          {
+            "name": "Licuado de plátano con leche",
+            "type": "recipe",
+            "quantity": 1,
+            "unit": "recipe_serving"
+          }
+        ]
+      },
+      {
+        "meal": "meal-2",
+        "entries": [
+          {
+            "name": "Tortilla de maíz",
+            "type": "food",
+            "quantity": 3,
+            "unit": "tortilla"
+          },
+          {
+            "name": "Frijoles cocidos",
+            "type": "food",
+            "quantity": 0.5,
+            "unit": "cup"
+          },
+          {
+            "name": "Jitomate",
+            "type": "food",
+            "quantity": 2,
+            "unit": "piece"
+          },
+          {
+            "name": "Arrachera de res cocida",
+            "type": "food",
+            "quantity": 90,
+            "unit": "g"
+          },
+          {
+            "name": "Guacamole",
+            "type": "food",
+            "quantity": 4,
+            "unit": "tablespoon"
+          }
+        ]
+      },
+      {
+        "meal": "meal-3",
+        "entries": [
+          {
+            "name": "Tortilla de maíz",
+            "type": "food",
+            "quantity": 3,
+            "unit": "tortilla"
+          },
+          {
+            "name": "Frijoles cocidos",
+            "type": "food",
+            "quantity": 0.5,
+            "unit": "cup"
+          },
+          {
+            "name": "Jitomate",
+            "type": "food",
+            "quantity": 1,
+            "unit": "piece"
+          },
+          {
+            "name": "Toronja",
+            "type": "food",
+            "quantity": 1,
+            "unit": "piece"
+          },
+          {
+            "name": "Arrachera de res cocida",
+            "type": "food",
+            "quantity": 60,
+            "unit": "g"
+          },
+          {
+            "name": "Ejotes cocidos picados",
+            "type": "food",
+            "quantity": 0.5,
+            "unit": "cup"
+          },
+          {
+            "name": "Plátano",
+            "type": "food",
+            "quantity": 0.5,
+            "unit": "piece"
+          },
+          {
+            "name": "Guacamole",
+            "type": "food",
+            "quantity": 4,
+            "unit": "tablespoon"
+          }
+        ]
+      }
+    ]
+  },
+  "proposal_B": {
+    "model": "gpt-5.6-sol",
+    "status": "succeeded",
+    "usage": {
+      "input_tokens": 4516,
+      "cached_tokens": 0,
+      "output_tokens": 541,
+      "total_tokens": 5057
+    },
+    "cost_usd": 0.028884,
+    "credits": 2.889,
+    "latency_ms": 7689,
+    "snapshot_hash": "55e76f30c97f1bc1a87f7395c115faeb66c800de7f24b41c51d462f6ffdf2977",
+    "validation": {
+      "status": "valid",
+      "issues": [],
+      "totals": {
+        "fat_g": 47,
+        "protein_g": 91,
+        "energy_kcal": 1730,
+        "carbohydrate_g": 233
+      },
+      "differences": {
+        "fat_g": -11.333333333333336,
+        "protein_g": 3.5,
+        "energy_kcal": -20,
+        "carbohydrate_g": 14.25
+      },
+      "requiresTargetReview": true
+    },
+    "meals": [
+      {
+        "meal": "meal-1",
+        "entries": [
+          {
+            "name": "Licuado de plátano con leche",
+            "type": "recipe",
+            "quantity": 1,
+            "unit": "recipe_serving"
+          },
+          {
+            "name": "Tortilla de maíz",
+            "type": "food",
+            "quantity": 2,
+            "unit": "tortilla"
+          },
+          {
+            "name": "Jamón de pavo",
+            "type": "food",
+            "quantity": 2,
+            "unit": "slice"
+          },
+          {
+            "name": "Guacamole",
+            "type": "food",
+            "quantity": 2,
+            "unit": "tablespoon"
+          }
+        ]
+      },
+      {
+        "meal": "meal-2",
+        "entries": [
+          {
+            "name": "Tortilla de maíz",
+            "type": "food",
+            "quantity": 3,
+            "unit": "tortilla"
+          },
+          {
+            "name": "Frijoles cocidos",
+            "type": "food",
+            "quantity": 0.5,
+            "unit": "cup"
+          },
+          {
+            "name": "Jitomate",
+            "type": "food",
+            "quantity": 1,
+            "unit": "piece"
+          },
+          {
+            "name": "Ejotes cocidos picados",
+            "type": "food",
+            "quantity": 0.5,
+            "unit": "cup"
+          },
+          {
+            "name": "Arrachera de res cocida",
+            "type": "food",
+            "quantity": 90,
+            "unit": "g"
+          },
+          {
+            "name": "Guacamole",
+            "type": "food",
+            "quantity": 4,
+            "unit": "tablespoon"
+          }
+        ]
+      },
+      {
+        "meal": "meal-3",
+        "entries": [
+          {
+            "name": "Tortilla de maíz",
+            "type": "food",
+            "quantity": 3,
+            "unit": "tortilla"
+          },
+          {
+            "name": "Frijoles cocidos",
+            "type": "food",
+            "quantity": 0.5,
+            "unit": "cup"
+          },
+          {
+            "name": "Jitomate",
+            "type": "food",
+            "quantity": 1,
+            "unit": "piece"
+          },
+          {
+            "name": "Ejotes cocidos picados",
+            "type": "food",
+            "quantity": 0.5,
+            "unit": "cup"
+          },
+          {
+            "name": "Arrachera de res cocida",
+            "type": "food",
+            "quantity": 60,
+            "unit": "g"
+          },
+          {
+            "name": "Guacamole",
+            "type": "food",
+            "quantity": 4,
+            "unit": "tablespoon"
+          },
+          {
+            "name": "Toronja",
+            "type": "food",
+            "quantity": 1,
+            "unit": "piece"
+          },
+          {
+            "name": "Plátano",
+            "type": "food",
+            "quantity": 0.5,
+            "unit": "piece"
+          }
+        ]
+      }
+    ]
+  }
+}

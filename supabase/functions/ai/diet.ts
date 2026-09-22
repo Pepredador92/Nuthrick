@@ -1,6 +1,5 @@
-import { AIError, type AIProvider, type FeatureConfig, type ProviderInput, type ProviderResult } from './core.ts';
+import { AIError, featureAdapter, type AIProvider, type FeatureConfig, type ProviderInput, type ProviderResult } from './core.ts';
 import { redactClinicalText } from './clinical.ts';
-import { dietDraftAdapter } from './diet-contract.ts';
 import { prepareDietGeneration, manualGenerationPolicy, hasDietMenuContent, validateDietSnapshotDraft } from './diet-generation-domain.js';
 
 // JSON crosses a service-only RPC; schema/eligibility is enforced by the shared
@@ -73,7 +72,7 @@ export class OpenAIDietGenerator {
   result?: ProviderResult;
   constructor(private provider: AIProvider, private config: FeatureConfig) {}
   async generate(request: {feature:'diet_draft';idempotencyKey:string;generationId:string;payload:Prepared['payload']}) {
-    this.result = await this.provider.run({config:this.config,...dietDraftAdapter,context:request.payload,generationId:request.generationId});
+    this.result = await this.provider.run({config:this.config,...featureAdapter('diet_draft',this.config.prompt_version),context:request.payload,generationId:request.generationId});
     return this.result.output;
   }
 }

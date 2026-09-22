@@ -1,0 +1,980 @@
+{
+  "model": "gpt-5.6-terra",
+  "promptVersion": "diet_draft@2",
+  "before": {
+    "characters": 10030,
+    "approximateTokens": 2508,
+    "bytes": 10035,
+    "conservativeTokensWithSchema": 12828
+  },
+  "after": {
+    "characters": 10378,
+    "approximateTokens": 2595,
+    "bytes": 10385,
+    "conservativeTokensWithSchema": 13178
+  },
+  "conservativeInputUpperBound": 14829,
+  "maxInput": 14900,
+  "maxOutput": 1024,
+  "maximumUsd": 0.042088,
+  "snapshotHash": "4e71b04563d17536f88b9c946fe88ab6a2b6797293cc698ee60d792580c82698",
+  "providerCalls": 1,
+  "status": "completed",
+  "usage": {
+    "input_tokens": 3447,
+    "output_tokens": 363,
+    "cached_tokens": 0
+  },
+  "latencyMs": 5560,
+  "costUsd": 0.01125,
+  "accumulatedUsd": 0.138625,
+  "validation": {
+    "status": "valid",
+    "issues": [],
+    "totals": {
+      "energy_kcal": 1730,
+      "carbohydrate_g": 233,
+      "protein_g": 91,
+      "fat_g": 47
+    },
+    "requiresTargetReview": true
+  },
+  "output": {
+    "schema_version": 1,
+    "meal_options": [
+      {
+        "meal_ref": "m1",
+        "entries": [
+          {
+            "candidate_ref": "c1",
+            "portion_ref": "base",
+            "multiplier": 2
+          },
+          {
+            "candidate_ref": "c2",
+            "portion_ref": "base",
+            "multiplier": 1
+          },
+          {
+            "candidate_ref": "c3",
+            "portion_ref": "base",
+            "multiplier": 1
+          },
+          {
+            "candidate_ref": "c4",
+            "portion_ref": "base",
+            "multiplier": 1
+          },
+          {
+            "candidate_ref": "c5",
+            "portion_ref": "base",
+            "multiplier": 1
+          }
+        ]
+      },
+      {
+        "meal_ref": "m2",
+        "entries": [
+          {
+            "candidate_ref": "c9",
+            "portion_ref": "base",
+            "multiplier": 3
+          },
+          {
+            "candidate_ref": "c10",
+            "portion_ref": "base",
+            "multiplier": 3
+          },
+          {
+            "candidate_ref": "c11",
+            "portion_ref": "base",
+            "multiplier": 2
+          },
+          {
+            "candidate_ref": "c12",
+            "portion_ref": "base",
+            "multiplier": 1
+          },
+          {
+            "candidate_ref": "c13",
+            "portion_ref": "base",
+            "multiplier": 2
+          }
+        ]
+      },
+      {
+        "meal_ref": "m3",
+        "entries": [
+          {
+            "candidate_ref": "c17",
+            "portion_ref": "base",
+            "multiplier": 3
+          },
+          {
+            "candidate_ref": "c18",
+            "portion_ref": "base",
+            "multiplier": 2
+          },
+          {
+            "candidate_ref": "c19",
+            "portion_ref": "base",
+            "multiplier": 2
+          },
+          {
+            "candidate_ref": "c20",
+            "portion_ref": "base",
+            "multiplier": 2
+          },
+          {
+            "candidate_ref": "c21",
+            "portion_ref": "base",
+            "multiplier": 1
+          },
+          {
+            "candidate_ref": "c22",
+            "portion_ref": "base",
+            "multiplier": 2
+          }
+        ]
+      }
+    ]
+  },
+  "context": {
+    "schema_version": 2,
+    "portion_policy": {
+      "portion_ref": "base",
+      "allowed_multipliers": [
+        0.5,
+        1,
+        1.5,
+        2,
+        2.5,
+        3,
+        3.5,
+        4,
+        4.5,
+        5,
+        5.5,
+        6,
+        6.5,
+        7,
+        7.5,
+        8
+      ]
+    },
+    "clinical": {
+      "recall24h": {
+        "scope": "one_recorded_day_not_prescription",
+        "totalsScope": "confirmed_items_only",
+        "nutrition": {
+          "energy_kcal": 195,
+          "carbohydrate_g": 30,
+          "protein_g": 11,
+          "fat_g": 3
+        },
+        "meals": [
+          {
+            "name": "Desayuno",
+            "foods": [
+              "Tortilla de maíz",
+              "Tortilla de maíz alternativa",
+              "Pollo cocido"
+            ]
+          }
+        ]
+      },
+      "anthropometry": {
+        "weightKg": 70,
+        "heightCm": 170,
+        "bmi": 24.2,
+        "waistCm": 80
+      },
+      "pes": {
+        "fact": {
+          "state": "known",
+          "value": "PES aprobado sintético"
+        },
+        "origin": {
+          "source": "consultation_snapshots",
+          "path": "clinical_records.pes + pes_statement",
+          "kind": "approved_pes"
+        }
+      },
+      "objective": {
+        "fact": {
+          "state": "known",
+          "value": "Objetivo sintético"
+        },
+        "origin": {
+          "source": "consultation_snapshots",
+          "path": "clinical_records.objective",
+          "kind": "approved_objective"
+        }
+      }
+    },
+    "prescription": {
+      "energy_kcal": {
+        "fact": {
+          "state": "known",
+          "value": 1750
+        },
+        "origin": {
+          "source": "nutrition_plans",
+          "path": "target_calories",
+          "kind": "professional_captured"
+        }
+      },
+      "macros": {
+        "fact": {
+          "state": "known",
+          "value": {
+            "CARBOHYDRATE": {
+              "grams": 218.75,
+              "percentage": 50,
+              "kcal": 875
+            },
+            "PROTEIN": {
+              "grams": 87.5,
+              "percentage": 20,
+              "kcal": 350
+            },
+            "FAT": {
+              "grams": 58.333333333333336,
+              "percentage": 30,
+              "kcal": 525
+            }
+          }
+        },
+        "origin": {
+          "source": "nutrition_plans",
+          "path": "macro_distribution.macros.input_value + input_mode",
+          "kind": "system_calculated"
+        }
+      }
+    },
+    "restrictions": {
+      "reaction_status": {
+        "fact": {
+          "state": "known",
+          "value": "No"
+        },
+        "origin": {
+          "source": "consultation_answers",
+          "path": "food_reactions_status",
+          "kind": "patient_declared"
+        }
+      },
+      "reactions": {
+        "fact": {
+          "state": "unavailable",
+          "reason": "missing"
+        },
+        "origin": {
+          "source": "consultation_answers",
+          "path": "food_reactions_v2",
+          "kind": "patient_declared"
+        }
+      }
+    },
+    "preferences": {
+      "eating_pattern": {
+        "fact": {
+          "state": "unavailable",
+          "reason": "missing"
+        },
+        "origin": {
+          "source": "consultation_answers",
+          "path": "eating_preferences",
+          "kind": "patient_declared"
+        }
+      },
+      "foods": {
+        "fact": {
+          "state": "unavailable",
+          "reason": "missing"
+        },
+        "origin": {
+          "source": "consultation_answers",
+          "path": "food_preferences",
+          "kind": "patient_declared"
+        }
+      }
+    },
+    "routine": {
+      "usual_pattern": {
+        "fact": {
+          "state": "unavailable",
+          "reason": "missing"
+        },
+        "origin": {
+          "source": "consultation_answers",
+          "path": "usual_pattern",
+          "kind": "patient_declared"
+        }
+      },
+      "daily_schedule": {
+        "fact": {
+          "state": "unavailable",
+          "reason": "missing"
+        },
+        "origin": {
+          "source": "consultation_answers",
+          "path": "daily_schedule",
+          "kind": "patient_declared"
+        }
+      },
+      "cooking_time": {
+        "fact": {
+          "state": "unavailable",
+          "reason": "missing"
+        },
+        "origin": {
+          "source": "consultation_answers",
+          "path": "cooking_time",
+          "kind": "patient_declared"
+        }
+      },
+      "food_equipment": {
+        "fact": {
+          "state": "unavailable",
+          "reason": "missing"
+        },
+        "origin": {
+          "source": "consultation_answers",
+          "path": "food_equipment",
+          "kind": "patient_declared"
+        }
+      }
+    },
+    "professional_instructions": {
+      "fact": {
+        "state": "unavailable",
+        "reason": "missing"
+      },
+      "origin": {
+        "source": "request",
+        "path": "additionalInstructions",
+        "kind": "professional_captured"
+      }
+    },
+    "rules": {
+      "hard_filtered": true,
+      "excluded_groups": [],
+      "excluded_attributes": []
+    },
+    "meals": [
+      {
+        "meal_ref": "m1",
+        "name": "Desayuno",
+        "distribution": [
+          {
+            "group_code": "CEREALS_NO_FAT",
+            "portions": 2
+          },
+          {
+            "group_code": "AOA_LOW_FAT",
+            "portions": 1
+          },
+          {
+            "group_code": "FRUITS",
+            "portions": 1
+          },
+          {
+            "group_code": "MILK_SKIM",
+            "portions": 1
+          },
+          {
+            "group_code": "FATS_NO_PROTEIN",
+            "portions": 1
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_ref": "c1",
+            "type": "food",
+            "name": "Tortilla de maíz alternativa",
+            "portion_ref": "base",
+            "unit": "tortilla",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 70,
+              "carbohydrate_g": 15,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c2",
+            "type": "food",
+            "name": "Pollo cocido alternativa",
+            "portion_ref": "base",
+            "unit": "g",
+            "base_quantity": 30,
+            "exchanges": [
+              {
+                "group_code": "AOA_LOW_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 55,
+              "carbohydrate_g": 0,
+              "protein_g": 7,
+              "fat_g": 3
+            }
+          },
+          {
+            "candidate_ref": "c3",
+            "type": "food",
+            "name": "Manzana",
+            "portion_ref": "base",
+            "unit": "piece",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "FRUITS",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 60,
+              "carbohydrate_g": 15,
+              "protein_g": 0,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c4",
+            "type": "food",
+            "name": "Leche descremada",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "MILK_SKIM",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 95,
+              "carbohydrate_g": 12,
+              "protein_g": 9,
+              "fat_g": 2
+            }
+          },
+          {
+            "candidate_ref": "c5",
+            "type": "food",
+            "name": "Aceite de oliva",
+            "portion_ref": "base",
+            "unit": "teaspoon",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "FATS_NO_PROTEIN",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 45,
+              "carbohydrate_g": 0,
+              "protein_g": 0,
+              "fat_g": 5
+            }
+          },
+          {
+            "candidate_ref": "c6",
+            "type": "food",
+            "name": "Manzana alternativa",
+            "portion_ref": "base",
+            "unit": "piece",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "FRUITS",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 60,
+              "carbohydrate_g": 15,
+              "protein_g": 0,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c7",
+            "type": "food",
+            "name": "Leche descremada alternativa",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "MILK_SKIM",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 95,
+              "carbohydrate_g": 12,
+              "protein_g": 9,
+              "fat_g": 2
+            }
+          },
+          {
+            "candidate_ref": "c8",
+            "type": "food",
+            "name": "Aceite de oliva alternativa",
+            "portion_ref": "base",
+            "unit": "teaspoon",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "FATS_NO_PROTEIN",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 45,
+              "carbohydrate_g": 0,
+              "protein_g": 0,
+              "fat_g": 5
+            }
+          }
+        ]
+      },
+      {
+        "meal_ref": "m2",
+        "name": "Comida",
+        "distribution": [
+          {
+            "group_code": "CEREALS_NO_FAT",
+            "portions": 3
+          },
+          {
+            "group_code": "AOA_LOW_FAT",
+            "portions": 3
+          },
+          {
+            "group_code": "VEGETABLES",
+            "portions": 2
+          },
+          {
+            "group_code": "LEGUMES",
+            "portions": 1
+          },
+          {
+            "group_code": "FATS_NO_PROTEIN",
+            "portions": 2
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_ref": "c9",
+            "type": "food",
+            "name": "Tortilla de maíz alternativa",
+            "portion_ref": "base",
+            "unit": "tortilla",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 70,
+              "carbohydrate_g": 15,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c10",
+            "type": "food",
+            "name": "Pollo cocido alternativa",
+            "portion_ref": "base",
+            "unit": "g",
+            "base_quantity": 30,
+            "exchanges": [
+              {
+                "group_code": "AOA_LOW_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 55,
+              "carbohydrate_g": 0,
+              "protein_g": 7,
+              "fat_g": 3
+            }
+          },
+          {
+            "candidate_ref": "c11",
+            "type": "food",
+            "name": "Calabacita",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "VEGETABLES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 25,
+              "carbohydrate_g": 4,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c12",
+            "type": "food",
+            "name": "Frijoles cocidos",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.5,
+            "exchanges": [
+              {
+                "group_code": "LEGUMES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 120,
+              "carbohydrate_g": 20,
+              "protein_g": 8,
+              "fat_g": 1
+            }
+          },
+          {
+            "candidate_ref": "c13",
+            "type": "food",
+            "name": "Aceite de oliva",
+            "portion_ref": "base",
+            "unit": "teaspoon",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "FATS_NO_PROTEIN",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 45,
+              "carbohydrate_g": 0,
+              "protein_g": 0,
+              "fat_g": 5
+            }
+          },
+          {
+            "candidate_ref": "c14",
+            "type": "food",
+            "name": "Calabacita alternativa",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "VEGETABLES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 25,
+              "carbohydrate_g": 4,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c15",
+            "type": "food",
+            "name": "Frijoles cocidos alternativa",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.5,
+            "exchanges": [
+              {
+                "group_code": "LEGUMES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 120,
+              "carbohydrate_g": 20,
+              "protein_g": 8,
+              "fat_g": 1
+            }
+          },
+          {
+            "candidate_ref": "c16",
+            "type": "food",
+            "name": "Aceite de oliva alternativa",
+            "portion_ref": "base",
+            "unit": "teaspoon",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "FATS_NO_PROTEIN",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 45,
+              "carbohydrate_g": 0,
+              "protein_g": 0,
+              "fat_g": 5
+            }
+          }
+        ]
+      },
+      {
+        "meal_ref": "m3",
+        "name": "Cena",
+        "distribution": [
+          {
+            "group_code": "CEREALS_NO_FAT",
+            "portions": 3
+          },
+          {
+            "group_code": "AOA_LOW_FAT",
+            "portions": 2
+          },
+          {
+            "group_code": "VEGETABLES",
+            "portions": 2
+          },
+          {
+            "group_code": "LEGUMES",
+            "portions": 1
+          },
+          {
+            "group_code": "FATS_NO_PROTEIN",
+            "portions": 2
+          },
+          {
+            "group_code": "FRUITS",
+            "portions": 2
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_ref": "c17",
+            "type": "food",
+            "name": "Tortilla de maíz alternativa",
+            "portion_ref": "base",
+            "unit": "tortilla",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 70,
+              "carbohydrate_g": 15,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c18",
+            "type": "food",
+            "name": "Pollo cocido alternativa",
+            "portion_ref": "base",
+            "unit": "g",
+            "base_quantity": 30,
+            "exchanges": [
+              {
+                "group_code": "AOA_LOW_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 55,
+              "carbohydrate_g": 0,
+              "protein_g": 7,
+              "fat_g": 3
+            }
+          },
+          {
+            "candidate_ref": "c19",
+            "type": "food",
+            "name": "Manzana",
+            "portion_ref": "base",
+            "unit": "piece",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "FRUITS",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 60,
+              "carbohydrate_g": 15,
+              "protein_g": 0,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c20",
+            "type": "food",
+            "name": "Calabacita",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "VEGETABLES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 25,
+              "carbohydrate_g": 4,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c21",
+            "type": "food",
+            "name": "Frijoles cocidos",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.5,
+            "exchanges": [
+              {
+                "group_code": "LEGUMES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 120,
+              "carbohydrate_g": 20,
+              "protein_g": 8,
+              "fat_g": 1
+            }
+          },
+          {
+            "candidate_ref": "c22",
+            "type": "food",
+            "name": "Aceite de oliva",
+            "portion_ref": "base",
+            "unit": "teaspoon",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "FATS_NO_PROTEIN",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 45,
+              "carbohydrate_g": 0,
+              "protein_g": 0,
+              "fat_g": 5
+            }
+          },
+          {
+            "candidate_ref": "c23",
+            "type": "food",
+            "name": "Manzana alternativa",
+            "portion_ref": "base",
+            "unit": "piece",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "FRUITS",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 60,
+              "carbohydrate_g": 15,
+              "protein_g": 0,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c24",
+            "type": "food",
+            "name": "Calabacita alternativa",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "VEGETABLES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 25,
+              "carbohydrate_g": 4,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c25",
+            "type": "food",
+            "name": "Frijoles cocidos alternativa",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.5,
+            "exchanges": [
+              {
+                "group_code": "LEGUMES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 120,
+              "carbohydrate_g": 20,
+              "protein_g": 8,
+              "fat_g": 1
+            }
+          },
+          {
+            "candidate_ref": "c26",
+            "type": "food",
+            "name": "Aceite de oliva alternativa",
+            "portion_ref": "base",
+            "unit": "teaspoon",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "FATS_NO_PROTEIN",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 45,
+              "carbohydrate_g": 0,
+              "protein_g": 0,
+              "fat_g": 5
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "productionEnabled": false,
+  "applied": false,
+  "persistedPatient": false,
+  "accounting": "isolated calibration; not charged to a professional credit account"
+}

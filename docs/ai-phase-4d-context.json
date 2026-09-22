@@ -1,0 +1,1120 @@
+{
+  "snapshot_hash": "55e76f30c97f1bc1a87f7395c115faeb66c800de7f24b41c51d462f6ffdf2977",
+  "payload": {
+    "schema_version": 2,
+    "portion_policy": {
+      "portion_ref": "base",
+      "allowed_multipliers": [
+        0.5,
+        1,
+        1.5,
+        2,
+        2.5,
+        3,
+        3.5,
+        4,
+        4.5,
+        5,
+        5.5,
+        6,
+        6.5,
+        7,
+        7.5,
+        8
+      ]
+    },
+    "clinical": {
+      "pes": {
+        "fact": {
+          "state": "known",
+          "value": "Patrón de ingesta inconsistente relacionado con inicio temprano del trabajo, evidenciado por omisión del desayuno cuatro días por semana y hambre intensa al llegar a la comida."
+        },
+        "origin": {
+          "source": "consultation_snapshots",
+          "path": "clinical_records.pes + pes_statement",
+          "kind": "approved_pes"
+        }
+      },
+      "objective": {
+        "fact": {
+          "state": "known",
+          "value": "Preparar y consumir desayuno al menos cinco días por semana durante las próximas dos semanas."
+        },
+        "origin": {
+          "source": "consultation_snapshots",
+          "path": "clinical_records.objective",
+          "kind": "approved_objective"
+        }
+      }
+    },
+    "prescription": {
+      "energy_kcal": {
+        "fact": {
+          "state": "known",
+          "value": 1750
+        },
+        "origin": {
+          "source": "nutrition_plans",
+          "path": "target_calories",
+          "kind": "professional_captured"
+        }
+      },
+      "macros": {
+        "fact": {
+          "state": "known",
+          "value": {
+            "CARBOHYDRATE": {
+              "grams": 218.75,
+              "percentage": 50,
+              "kcal": 875
+            },
+            "PROTEIN": {
+              "grams": 87.5,
+              "percentage": 20,
+              "kcal": 350
+            },
+            "FAT": {
+              "grams": 58.333333333333336,
+              "percentage": 30,
+              "kcal": 525
+            }
+          }
+        },
+        "origin": {
+          "source": "nutrition_plans",
+          "path": "macro_distribution.macros.input_value + input_mode",
+          "kind": "system_calculated"
+        }
+      }
+    },
+    "restrictions": {
+      "reaction_status": {
+        "fact": {
+          "state": "known",
+          "value": "No"
+        },
+        "origin": {
+          "source": "consultation_answers",
+          "path": "food_reactions_status",
+          "kind": "patient_declared"
+        }
+      },
+      "reactions": {
+        "fact": {
+          "state": "unavailable",
+          "reason": "missing"
+        },
+        "origin": {
+          "source": "consultation_answers",
+          "path": "food_reactions_v2",
+          "kind": "patient_declared"
+        }
+      }
+    },
+    "preferences": {
+      "eating_pattern": {
+        "fact": {
+          "state": "unavailable",
+          "reason": "missing"
+        },
+        "origin": {
+          "source": "consultation_answers",
+          "path": "eating_preferences",
+          "kind": "patient_declared"
+        }
+      },
+      "foods": {
+        "fact": {
+          "state": "known",
+          "value": [
+            {
+              "category": "Le gusta",
+              "food": "Pollo, tortillas, arroz, frijoles, verduras y fruta; preparaciones sencillas"
+            }
+          ]
+        },
+        "origin": {
+          "source": "consultation_answers",
+          "path": "food_preferences",
+          "kind": "patient_declared"
+        }
+      }
+    },
+    "routine": {
+      "usual_pattern": {
+        "fact": {
+          "state": "unavailable",
+          "reason": "invalid"
+        },
+        "origin": {
+          "source": "consultation_answers",
+          "path": "usual_pattern",
+          "kind": "patient_declared"
+        }
+      },
+      "daily_schedule": {
+        "fact": {
+          "state": "unavailable",
+          "reason": "missing"
+        },
+        "origin": {
+          "source": "consultation_answers",
+          "path": "daily_schedule",
+          "kind": "patient_declared"
+        }
+      },
+      "cooking_time": {
+        "fact": {
+          "state": "known",
+          "value": "30 minutos"
+        },
+        "origin": {
+          "source": "consultation_answers",
+          "path": "cooking_time",
+          "kind": "patient_declared"
+        }
+      },
+      "food_equipment": {
+        "fact": {
+          "state": "unavailable",
+          "reason": "missing"
+        },
+        "origin": {
+          "source": "consultation_answers",
+          "path": "food_equipment",
+          "kind": "patient_declared"
+        }
+      }
+    },
+    "professional_instructions": {
+      "fact": {
+        "state": "unavailable",
+        "reason": "blank"
+      },
+      "origin": {
+        "source": "request",
+        "path": "additionalInstructions",
+        "kind": "professional_captured"
+      }
+    },
+    "rules": {
+      "hard_filtered": true,
+      "excluded_groups": [],
+      "excluded_attributes": []
+    },
+    "meals": [
+      {
+        "meal_ref": "m1",
+        "name": "Desayuno",
+        "distribution": [
+          {
+            "group_code": "CEREALS_NO_FAT",
+            "portions": 2
+          },
+          {
+            "group_code": "AOA_LOW_FAT",
+            "portions": 1
+          },
+          {
+            "group_code": "FRUITS",
+            "portions": 1
+          },
+          {
+            "group_code": "MILK_SKIM",
+            "portions": 1
+          },
+          {
+            "group_code": "FATS_NO_PROTEIN",
+            "portions": 1
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_ref": "c1",
+            "type": "food",
+            "name": "Tortilla de maíz",
+            "portion_ref": "base",
+            "unit": "tortilla",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 70,
+              "carbohydrate_g": 15,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c2",
+            "type": "food",
+            "name": "Toronja",
+            "portion_ref": "base",
+            "unit": "piece",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "FRUITS",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 60,
+              "carbohydrate_g": 15,
+              "protein_g": 0,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c3",
+            "type": "food",
+            "name": "Arrachera de res cocida",
+            "portion_ref": "base",
+            "unit": "g",
+            "base_quantity": 30,
+            "exchanges": [
+              {
+                "group_code": "AOA_LOW_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 55,
+              "carbohydrate_g": 0,
+              "protein_g": 7,
+              "fat_g": 3
+            }
+          },
+          {
+            "candidate_ref": "c4",
+            "type": "food",
+            "name": "Leche descremada",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "MILK_SKIM",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 95,
+              "carbohydrate_g": 12,
+              "protein_g": 9,
+              "fat_g": 2
+            }
+          },
+          {
+            "candidate_ref": "c5",
+            "type": "food",
+            "name": "Mantequilla",
+            "portion_ref": "base",
+            "unit": "teaspoon",
+            "base_quantity": 1.5,
+            "exchanges": [
+              {
+                "group_code": "FATS_NO_PROTEIN",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 45,
+              "carbohydrate_g": 0,
+              "protein_g": 0,
+              "fat_g": 5
+            }
+          },
+          {
+            "candidate_ref": "c6",
+            "type": "food",
+            "name": "Avena cocida",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.75,
+            "exchanges": [
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 70,
+              "carbohydrate_g": 15,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c7",
+            "type": "food",
+            "name": "Plátano",
+            "portion_ref": "base",
+            "unit": "piece",
+            "base_quantity": 0.5,
+            "exchanges": [
+              {
+                "group_code": "FRUITS",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 60,
+              "carbohydrate_g": 15,
+              "protein_g": 0,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c8",
+            "type": "food",
+            "name": "Jamón de pavo",
+            "portion_ref": "base",
+            "unit": "slice",
+            "base_quantity": 2,
+            "exchanges": [
+              {
+                "group_code": "AOA_LOW_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 55,
+              "carbohydrate_g": 0,
+              "protein_g": 7,
+              "fat_g": 3
+            }
+          },
+          {
+            "candidate_ref": "c9",
+            "type": "food",
+            "name": "Yogur bajo en grasa",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.3333333333333333,
+            "exchanges": [
+              {
+                "group_code": "MILK_SKIM",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 95,
+              "carbohydrate_g": 12,
+              "protein_g": 9,
+              "fat_g": 2
+            }
+          },
+          {
+            "candidate_ref": "c10",
+            "type": "food",
+            "name": "Guacamole",
+            "portion_ref": "base",
+            "unit": "tablespoon",
+            "base_quantity": 2,
+            "exchanges": [
+              {
+                "group_code": "FATS_NO_PROTEIN",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 45,
+              "carbohydrate_g": 0,
+              "protein_g": 0,
+              "fat_g": 5
+            }
+          },
+          {
+            "candidate_ref": "c11",
+            "type": "food",
+            "name": "Camote cocido",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.3333333333333333,
+            "exchanges": [
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 70,
+              "carbohydrate_g": 15,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c12",
+            "type": "food",
+            "name": "Fresa entera",
+            "portion_ref": "base",
+            "unit": "piece",
+            "base_quantity": 17,
+            "exchanges": [
+              {
+                "group_code": "FRUITS",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 60,
+              "carbohydrate_g": 15,
+              "protein_g": 0,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c13",
+            "type": "recipe",
+            "name": "Licuado de plátano con leche",
+            "portion_ref": "base",
+            "unit": "recipe_serving",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "MILK_SKIM",
+                "portions": 1
+              },
+              {
+                "group_code": "FRUITS",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 155,
+              "carbohydrate_g": 27,
+              "protein_g": 9,
+              "fat_g": 2
+            }
+          },
+          {
+            "candidate_ref": "c14",
+            "type": "recipe",
+            "name": "Avena con plátano",
+            "portion_ref": "base",
+            "unit": "recipe_serving",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 0.999
+              },
+              {
+                "group_code": "FRUITS",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 129.93,
+              "carbohydrate_g": 29.985,
+              "protein_g": 1.998,
+              "fat_g": 0
+            }
+          }
+        ]
+      },
+      {
+        "meal_ref": "m2",
+        "name": "Comida",
+        "distribution": [
+          {
+            "group_code": "CEREALS_NO_FAT",
+            "portions": 3
+          },
+          {
+            "group_code": "AOA_LOW_FAT",
+            "portions": 3
+          },
+          {
+            "group_code": "VEGETABLES",
+            "portions": 2
+          },
+          {
+            "group_code": "LEGUMES",
+            "portions": 1
+          },
+          {
+            "group_code": "FATS_NO_PROTEIN",
+            "portions": 2
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_ref": "c15",
+            "type": "food",
+            "name": "Tortilla de maíz",
+            "portion_ref": "base",
+            "unit": "tortilla",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 70,
+              "carbohydrate_g": 15,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c16",
+            "type": "food",
+            "name": "Frijoles cocidos",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.5,
+            "exchanges": [
+              {
+                "group_code": "LEGUMES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 120,
+              "carbohydrate_g": 20,
+              "protein_g": 8,
+              "fat_g": 1
+            }
+          },
+          {
+            "candidate_ref": "c17",
+            "type": "food",
+            "name": "Jitomate",
+            "portion_ref": "base",
+            "unit": "piece",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "VEGETABLES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 25,
+              "carbohydrate_g": 4,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c18",
+            "type": "food",
+            "name": "Arrachera de res cocida",
+            "portion_ref": "base",
+            "unit": "g",
+            "base_quantity": 30,
+            "exchanges": [
+              {
+                "group_code": "AOA_LOW_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 55,
+              "carbohydrate_g": 0,
+              "protein_g": 7,
+              "fat_g": 3
+            }
+          },
+          {
+            "candidate_ref": "c19",
+            "type": "food",
+            "name": "Mantequilla",
+            "portion_ref": "base",
+            "unit": "teaspoon",
+            "base_quantity": 1.5,
+            "exchanges": [
+              {
+                "group_code": "FATS_NO_PROTEIN",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 45,
+              "carbohydrate_g": 0,
+              "protein_g": 0,
+              "fat_g": 5
+            }
+          },
+          {
+            "candidate_ref": "c20",
+            "type": "food",
+            "name": "Avena cocida",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.75,
+            "exchanges": [
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 70,
+              "carbohydrate_g": 15,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c21",
+            "type": "food",
+            "name": "Alubia cocida",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.5,
+            "exchanges": [
+              {
+                "group_code": "LEGUMES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 120,
+              "carbohydrate_g": 20,
+              "protein_g": 8,
+              "fat_g": 1
+            }
+          },
+          {
+            "candidate_ref": "c22",
+            "type": "food",
+            "name": "Ejotes cocidos picados",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.5,
+            "exchanges": [
+              {
+                "group_code": "VEGETABLES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 25,
+              "carbohydrate_g": 4,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c23",
+            "type": "food",
+            "name": "Jamón de pavo",
+            "portion_ref": "base",
+            "unit": "slice",
+            "base_quantity": 2,
+            "exchanges": [
+              {
+                "group_code": "AOA_LOW_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 55,
+              "carbohydrate_g": 0,
+              "protein_g": 7,
+              "fat_g": 3
+            }
+          },
+          {
+            "candidate_ref": "c24",
+            "type": "food",
+            "name": "Guacamole",
+            "portion_ref": "base",
+            "unit": "tablespoon",
+            "base_quantity": 2,
+            "exchanges": [
+              {
+                "group_code": "FATS_NO_PROTEIN",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 45,
+              "carbohydrate_g": 0,
+              "protein_g": 0,
+              "fat_g": 5
+            }
+          },
+          {
+            "candidate_ref": "c25",
+            "type": "food",
+            "name": "Camote cocido",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.3333333333333333,
+            "exchanges": [
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 70,
+              "carbohydrate_g": 15,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c26",
+            "type": "food",
+            "name": "Garbanzo cocido",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.5,
+            "exchanges": [
+              {
+                "group_code": "LEGUMES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 120,
+              "carbohydrate_g": 20,
+              "protein_g": 8,
+              "fat_g": 1
+            }
+          }
+        ]
+      },
+      {
+        "meal_ref": "m3",
+        "name": "Cena",
+        "distribution": [
+          {
+            "group_code": "CEREALS_NO_FAT",
+            "portions": 3
+          },
+          {
+            "group_code": "AOA_LOW_FAT",
+            "portions": 2
+          },
+          {
+            "group_code": "VEGETABLES",
+            "portions": 2
+          },
+          {
+            "group_code": "LEGUMES",
+            "portions": 1
+          },
+          {
+            "group_code": "FATS_NO_PROTEIN",
+            "portions": 2
+          },
+          {
+            "group_code": "FRUITS",
+            "portions": 2
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_ref": "c27",
+            "type": "food",
+            "name": "Tortilla de maíz",
+            "portion_ref": "base",
+            "unit": "tortilla",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 70,
+              "carbohydrate_g": 15,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c28",
+            "type": "food",
+            "name": "Frijoles cocidos",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.5,
+            "exchanges": [
+              {
+                "group_code": "LEGUMES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 120,
+              "carbohydrate_g": 20,
+              "protein_g": 8,
+              "fat_g": 1
+            }
+          },
+          {
+            "candidate_ref": "c29",
+            "type": "food",
+            "name": "Jitomate",
+            "portion_ref": "base",
+            "unit": "piece",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "VEGETABLES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 25,
+              "carbohydrate_g": 4,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c30",
+            "type": "food",
+            "name": "Toronja",
+            "portion_ref": "base",
+            "unit": "piece",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "FRUITS",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 60,
+              "carbohydrate_g": 15,
+              "protein_g": 0,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c31",
+            "type": "food",
+            "name": "Arrachera de res cocida",
+            "portion_ref": "base",
+            "unit": "g",
+            "base_quantity": 30,
+            "exchanges": [
+              {
+                "group_code": "AOA_LOW_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 55,
+              "carbohydrate_g": 0,
+              "protein_g": 7,
+              "fat_g": 3
+            }
+          },
+          {
+            "candidate_ref": "c32",
+            "type": "food",
+            "name": "Mantequilla",
+            "portion_ref": "base",
+            "unit": "teaspoon",
+            "base_quantity": 1.5,
+            "exchanges": [
+              {
+                "group_code": "FATS_NO_PROTEIN",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 45,
+              "carbohydrate_g": 0,
+              "protein_g": 0,
+              "fat_g": 5
+            }
+          },
+          {
+            "candidate_ref": "c33",
+            "type": "food",
+            "name": "Avena cocida",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.75,
+            "exchanges": [
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 70,
+              "carbohydrate_g": 15,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c34",
+            "type": "food",
+            "name": "Alubia cocida",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.5,
+            "exchanges": [
+              {
+                "group_code": "LEGUMES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 120,
+              "carbohydrate_g": 20,
+              "protein_g": 8,
+              "fat_g": 1
+            }
+          },
+          {
+            "candidate_ref": "c35",
+            "type": "food",
+            "name": "Ejotes cocidos picados",
+            "portion_ref": "base",
+            "unit": "cup",
+            "base_quantity": 0.5,
+            "exchanges": [
+              {
+                "group_code": "VEGETABLES",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 25,
+              "carbohydrate_g": 4,
+              "protein_g": 2,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c36",
+            "type": "food",
+            "name": "Plátano",
+            "portion_ref": "base",
+            "unit": "piece",
+            "base_quantity": 0.5,
+            "exchanges": [
+              {
+                "group_code": "FRUITS",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 60,
+              "carbohydrate_g": 15,
+              "protein_g": 0,
+              "fat_g": 0
+            }
+          },
+          {
+            "candidate_ref": "c37",
+            "type": "food",
+            "name": "Jamón de pavo",
+            "portion_ref": "base",
+            "unit": "slice",
+            "base_quantity": 2,
+            "exchanges": [
+              {
+                "group_code": "AOA_LOW_FAT",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 55,
+              "carbohydrate_g": 0,
+              "protein_g": 7,
+              "fat_g": 3
+            }
+          },
+          {
+            "candidate_ref": "c38",
+            "type": "food",
+            "name": "Guacamole",
+            "portion_ref": "base",
+            "unit": "tablespoon",
+            "base_quantity": 2,
+            "exchanges": [
+              {
+                "group_code": "FATS_NO_PROTEIN",
+                "portions": 1
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 45,
+              "carbohydrate_g": 0,
+              "protein_g": 0,
+              "fat_g": 5
+            }
+          },
+          {
+            "candidate_ref": "c39",
+            "type": "recipe",
+            "name": "Molletes con frijoles y queso panela",
+            "portion_ref": "base",
+            "unit": "recipe_serving",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 0.999
+              },
+              {
+                "group_code": "LEGUMES",
+                "portions": 1
+              },
+              {
+                "group_code": "AOA_LOW_FAT",
+                "portions": 0.75
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 231.18,
+              "carbohydrate_g": 34.985,
+              "protein_g": 15.248,
+              "fat_g": 3.25
+            }
+          },
+          {
+            "candidate_ref": "c40",
+            "type": "recipe",
+            "name": "Quesadillas con frijoles y queso",
+            "portion_ref": "base",
+            "unit": "recipe_serving",
+            "base_quantity": 1,
+            "exchanges": [
+              {
+                "group_code": "CEREALS_NO_FAT",
+                "portions": 2
+              },
+              {
+                "group_code": "LEGUMES",
+                "portions": 1
+              },
+              {
+                "group_code": "AOA_LOW_FAT",
+                "portions": 0.75
+              }
+            ],
+            "nutrition": {
+              "energy_kcal": 301.25,
+              "carbohydrate_g": 50,
+              "protein_g": 17.25,
+              "fat_g": 3.25
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
