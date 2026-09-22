@@ -25,14 +25,18 @@ export async function getAIGenerationStatus(idempotencyKey: string) {
 }
 // Reuse the same key when checking/retrying a logical request. Never supply owner/model/prompt/prices.
 export async function runAIRequest(request: { feature: string; idempotencyKey: string; patientId?: string; consultationId?: string }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean }> {
-  const { data, error } = await supabase.functions.invoke('ai',{ body: request });
-  if (error) {
-    let code = 'service_unavailable';
-    try { const body = await error.context?.json(); if (typeof body?.error === 'string') code = body.error; } catch { /* No raw server messages. */ }
-    throw new AIRequestError(code);
+  try {
+    const { data, error } = await supabase.functions.invoke('ai',{ body: request });
+    if (error) {
+      let code = 'service_unavailable';
+      try { const body = await error.context?.json(); if (typeof body?.error === 'string') code = body.error; } catch { /* No raw server messages. */ }
+      throw new AIRequestError(code);
+    }
+    if (data?.error) throw new AIRequestError(data.error);
+    if (!data?.generationId || !data?.status) throw new AIRequestError('service_unavailable');
+    return data;
+  } finally {
+    // Invalid output can consume tokens; uncertain requests can retain credits too.
+    window.dispatchEvent(new Event('nuthrick:ai-balance'));
   }
-  if (data?.error) throw new AIRequestError(data.error);
-  if (!data?.generationId || !data?.status) throw new AIRequestError('service_unavailable');
-  window.dispatchEvent(new Event('nuthrick:ai-balance'));
-  return data;
 }
