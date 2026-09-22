@@ -50,7 +50,7 @@ Uso real: `input_tokens`, `output_tokens`, `cached_tokens`, `total_tokens=input+
 
 `Créditos = ceil(USD × credits_per_usd × credit_multiplier × 1000) / 1000`.
 
-Moneda interna con precisión 0.001; USD con 9 decimales. La conversión inicial configurable es 100 créditos/USD y multiplicador 1, **no una tarifa de OpenAI**. Las tarifas por millón y `pricing_version` deben configurarse explícitamente por modelo; no se inventa un precio actual. La reserva usa límites completos de input/output sin descuento de caché. Input se limita conservadoramente por bytes UTF-8 + 2048 de framing; IA-1 no acepta imágenes, herramientas, historial ni texto libre. Revisar este límite al implementar cada futuro adaptador/modelo.
+Moneda interna con precisión 0.001; USD con 12 decimales. La conversión inicial configurable es 100 créditos/USD y multiplicador 1, **no una tarifa de OpenAI**. Las tarifas por millón y `pricing_version` deben configurarse explícitamente por modelo; no se inventa un precio actual. La reserva usa límites completos de input/output sin descuento de caché. Input se limita conservadoramente por bytes UTF-8 + 2048 de framing; IA-1 no acepta imágenes, herramientas, historial ni texto libre. Revisar este límite al implementar cada futuro adaptador/modelo.
 
 ## 11–14. Versionado, esquemas, privacidad y RLS
 
@@ -84,6 +84,8 @@ RLS habilitado en las cuatro tablas, sin permisos para anon/authenticated. Las f
 `AIButton`, `AIGenerationState`, `AIUsageIndicator`. Indicador discreto del saldo en navegación profesional, recarga al recuperar foco y al finalizar solicitud. Fallo de consulta muestra «Saldo no disponible», no un cero inventado. Sin créditos: «Ya utilizaste los créditos de IA incluidos en tu plan». No se muestra compra ficticia. Estado incierto bloquea regenerar. No se añade un botón de IA a PES/R24h/Taller.
 
 ## 15–20. Verificación y entrega
+
+La migración complementaria `20260922010129_ai_cost_precision.sql` conserva 12 decimales en costos, para representar exactamente las tarifas de hasta 6 decimales por millón. Pruebas adicionales verifican costos menores a un nanodólar y que la suma de cada columna del ledger reconcilie saldos y reservas.
 
 Pruebas locales sin OpenAI ni datos reales:
 

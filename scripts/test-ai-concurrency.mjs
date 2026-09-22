@@ -13,7 +13,8 @@ try {
   run('postgres',`create database ${database};`);created=true;
   const fixture=readFileSync(new URL('./test-ai-core.sql',import.meta.url),'utf8').split('-- MIGRATION --')[0];
   const migration=readFileSync(new URL('../supabase/migrations/20260922005406_ai_core_credit_ledger.sql',import.meta.url),'utf8');
-  run(database,remap(`${fixture}\n${migration}\ncommit;`));
+  const precision=readFileSync(new URL('../supabase/migrations/20260922010129_ai_cost_precision.sql',import.meta.url),'utf8');
+  run(database,remap(`${fixture}\n${migration}\n${precision}\ncommit;`));
   const owner='00000000-0000-0000-0000-000000000001';
   run(database,`insert into public.professional_profiles values('${owner}');
     update private.ai_feature_config set enabled=true,model='test',pricing_version='test',max_input_tokens=8000,max_output_tokens=2000,input_usd_per_million=1,cached_usd_per_million=0.5,output_usd_per_million=2 where feature='core_check';

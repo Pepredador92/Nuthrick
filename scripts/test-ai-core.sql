@@ -46,6 +46,16 @@ select pg_temp.reserve('00000000-0000-0000-0000-000000000001','40000000-0000-000
 select public.ai_server('claim','00000000-0000-0000-0000-000000000001',jsonb_build_object('generation_id',id)) from private.ai_generations where status='reserved';
 select public.ai_server('uncertain','00000000-0000-0000-0000-000000000001',jsonb_build_object('generation_id',id)) from private.ai_generations where status='running';
 select pg_temp.assert_true((select reserved_included+reserved_purchased=1.2 from private.ai_accounts where professional_id='00000000-0000-0000-0000-000000000001'),'uncertain retains reserve');
+update private.ai_feature_config set input_usd_per_million=0.000001,cached_usd_per_million=0.000001,output_usd_per_million=0.000001 where feature='core_check';
+select pg_temp.reserve('00000000-0000-0000-0000-000000000001','40000000-0000-0000-0000-000000000004');
+select public.ai_server('claim','00000000-0000-0000-0000-000000000001',jsonb_build_object('generation_id',id)) from private.ai_generations where status='reserved';
+select public.ai_server('settle','00000000-0000-0000-0000-000000000001',jsonb_build_object('generation_id',id,'status','succeeded','input_tokens',1,'output_tokens',1,'cached_tokens',0)) from private.ai_generations where status='running';
+select pg_temp.assert_true((select actual_cost=0.000000000002 from private.ai_generations where idempotency_key='40000000-0000-0000-0000-000000000004'),'preserve sub-nanodollar costs');
+select pg_temp.assert_true((select a.included_credits=(select sum(included_delta) from private.ai_credit_ledger l where l.professional_id=a.professional_id)
+ and a.purchased_credits=(select sum(purchased_delta) from private.ai_credit_ledger l where l.professional_id=a.professional_id)
+ and a.reserved_included=(select sum(reserved_included_delta) from private.ai_credit_ledger l where l.professional_id=a.professional_id)
+ and a.reserved_purchased=(select sum(reserved_purchased_delta) from private.ai_credit_ledger l where l.professional_id=a.professional_id)
+ from private.ai_accounts a where professional_id='00000000-0000-0000-0000-000000000001'),'ledger reconciles every balance');
 select pg_temp.reject($q$delete from private.ai_credit_ledger$q$,'42501');
 select pg_temp.reject($q$update private.ai_credit_ledger set included_delta=100$q$,'42501');
 reset role;
