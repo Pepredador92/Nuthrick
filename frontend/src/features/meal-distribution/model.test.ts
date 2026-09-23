@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { createExchangePrescription, setExchangePortions } from "@/src/features/exchanges/model";
-import type { ExchangeGroupCode, ExchangePrescription } from "@/src/types/domain";
+import type { ExchangeGroupCode, ExchangePrescription, MealDistribution } from "@/src/types/domain";
 import {
   addMealTime,
   applyMealDistributionSuggestion,
   calculateDistributionStatus,
+  calculateDerivedMealTotals,
   calculateGroupDistribution,
   calculateMealNutrition,
   calculateRemainingExchanges,
@@ -12,6 +13,7 @@ import {
   createMealDistribution,
   exchangeInventoryChangedSinceConfirmation,
   moveMealTime,
+  moveDistributionCell,
   portionsAssignedToMeal,
   reconcileMealDistribution,
   removeMealTime,
@@ -31,8 +33,69 @@ const inventory = (values: Partial<Record<ExchangeGroupCode, number>> = {}): Exc
   for (const [code, portions] of Object.entries(values)) result = setExchangePortions(result, targets, code as ExchangeGroupCode, portions ?? 0);
   return result;
 };
+const cellValueForTest = (distribution: MealDistribution["distribution"], groupCode: ExchangeGroupCode, mealTimeId: string) =>
+  distribution.find((entry) => entry.group_code === groupCode && entry.meal_time_id === mealTimeId)?.portions ?? 0;
 
 describe("meal distribution model", () => {
+  it("moves a whole group cell without changing its daily total or derived meals", () => {
+    const base = createMealDistribution(ids());
+    const [breakfast, lunch, dinner] = base.meal_times;
+    const before = setDistributedPortions(
+      setDistributedPortions(base, "VEGETABLES", lunch.id, 5.5),
+      "VEGETABLES",
+      dinner.id,
+      3,
+    );
+    const next = moveDistributionCell(
+      before,
+      { groupCode: "VEGETABLES", mealTimeId: dinner.id },
+      { groupCode: "VEGETABLES", mealTimeId: breakfast.id },
+    );
+    expect(calculateGroupDistribution(next.distribution, "VEGETABLES")).toBe(
+      calculateGroupDistribution(before.distribution, "VEGETABLES"),
+    );
+    expect(next.distribution).toEqual([
+      { group_code: "VEGETABLES", meal_time_id: lunch.id, portions: 5.5 },
+      { group_code: "VEGETABLES", meal_time_id: breakfast.id, portions: 3 },
+    ]);
+    expect(next.derived_meal_totals).toEqual(
+      calculateDerivedMealTotals(next.distribution, next.meal_times),
+    );
+  });
+
+  it("adds moved decimals to the destination and rejects another group", () => {
+    const base = createMealDistribution(ids());
+    const [breakfast, lunch, dinner] = base.meal_times;
+    const before = setDistributedPortions(
+      setDistributedPortions(base, "CEREALS_NO_FAT", breakfast.id, 1.5),
+      "CEREALS_NO_FAT",
+      lunch.id,
+      2.5,
+    );
+    const moved = moveDistributionCell(
+      before,
+      { groupCode: "CEREALS_NO_FAT", mealTimeId: lunch.id },
+      { groupCode: "CEREALS_NO_FAT", mealTimeId: breakfast.id },
+    );
+    expect(cellValueForTest(moved.distribution, "CEREALS_NO_FAT", breakfast.id)).toBe(4);
+    expect(cellValueForTest(moved.distribution, "CEREALS_NO_FAT", lunch.id)).toBe(0);
+    expect(calculateGroupDistribution(moved.distribution, "CEREALS_NO_FAT")).toBe(4);
+
+    const decimal = moveDistributionCell(
+      setDistributedPortions(base, "AOA_LOW_FAT", lunch.id, 2.5),
+      { groupCode: "AOA_LOW_FAT", mealTimeId: lunch.id },
+      { groupCode: "AOA_LOW_FAT", mealTimeId: dinner.id },
+    );
+    expect(cellValueForTest(decimal.distribution, "AOA_LOW_FAT", dinner.id)).toBe(2.5);
+    expect(cellValueForTest(decimal.distribution, "AOA_LOW_FAT", lunch.id)).toBe(0);
+
+    expect(moveDistributionCell(
+      before,
+      { groupCode: "CEREALS_NO_FAT", mealTimeId: lunch.id },
+      { groupCode: "FRUITS", mealTimeId: breakfast.id },
+    )).toBe(before);
+  });
+
   it("creates three editable main meal times with stable ids", () => {
     const value = createMealDistribution(ids());
     expect(value.meal_times.map((meal) => meal.display_name)).toEqual(["Desayuno", "Comida", "Cena"]);

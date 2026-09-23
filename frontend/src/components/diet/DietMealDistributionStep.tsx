@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Calculator, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Clock3, LoaderCircle, Plus, Trash2 } from "lucide-react";
+import { Calculator, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Clock3, GripVertical, LoaderCircle, Plus, Trash2 } from "lucide-react";
 import { exchangeCatalog } from "@/src/features/exchanges/catalog";
 import {
   addMealTime,
@@ -11,6 +11,7 @@ import {
   createMealDistribution,
   exchangeInventoryChangedSinceConfirmation,
   moveMealTime,
+  moveDistributionCell,
   portionsAssignedToMeal,
   reconcileMealDistribution,
   removeMealTime,
@@ -43,6 +44,93 @@ const parsePortions = (value: string) => {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 };
 const cellValue = (entries: MealDistributionEntry[], groupCode: ExchangeGroupCode, mealTimeId: string) => entries.find((entry) => entry.group_code === groupCode && entry.meal_time_id === mealTimeId)?.portions ?? 0;
+
+type DragSource = { groupCode: ExchangeGroupCode; mealTimeId: string };
+
+function DistributionCell({
+  groupCode,
+  groupName,
+  meal,
+  mealTimes,
+  value,
+  preview,
+  dragSource,
+  onDragSourceChange,
+  onMove,
+  onChange,
+}: {
+  groupCode: ExchangeGroupCode;
+  groupName: string;
+  meal: MealTime;
+  mealTimes: MealTime[];
+  value: number;
+  preview: boolean;
+  dragSource: DragSource | null;
+  onDragSourceChange: (source: DragSource | null) => void;
+  onMove: (source: DragSource, destination: DragSource) => void;
+  onChange: (value: number) => void;
+}) {
+  const canMove = value > EPSILON && !preview;
+  const validDrop = !preview && dragSource?.groupCode === groupCode && dragSource.mealTimeId !== meal.id;
+  const source = dragSource?.groupCode === groupCode && dragSource.mealTimeId === meal.id;
+  const moveLabel = `Mover ${groupName} desde ${meal.display_name} a otro tiempo`;
+  return <div
+    className={`flex min-w-0 flex-col items-center gap-1 rounded-xl p-1 transition ${validDrop ? "bg-[#f1f7f2] ring-2 ring-inset ring-[#b7d0bf]" : ""} ${source ? "opacity-60" : ""}`}
+    onDragOver={(event) => {
+      if (validDrop) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+      }
+    }}
+    onDrop={(event) => {
+      if (!validDrop || !dragSource) return;
+      event.preventDefault();
+      onMove(dragSource, { groupCode, mealTimeId: meal.id });
+      onDragSourceChange(null);
+    }}
+  >
+    <CompactPortionInput
+      label={`${groupName} en ${meal.display_name}`}
+      value={value}
+      preview={preview}
+      onChange={onChange}
+    />
+    {canMove && <>
+      <button
+        type="button"
+        draggable
+        aria-label={`Arrastrar ${format(value)} de ${groupName} en ${meal.display_name}`}
+        title={`Arrastra ${format(value)} a otro tiempo de ${groupName}`}
+        className="inline-flex cursor-grab items-center gap-0.5 rounded-md px-1 py-0.5 text-[10px] font-medium text-[#6b8174] hover:bg-[#edf5ef] active:cursor-grabbing"
+        onDragStart={(event) => {
+          const next = { groupCode, mealTimeId: meal.id };
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", JSON.stringify(next));
+          onDragSourceChange(next);
+        }}
+        onDragEnd={() => onDragSourceChange(null)}
+      >
+        <GripVertical size={13} /> Arrastrar
+      </button>
+      <select
+        aria-label={moveLabel}
+        className="max-w-full rounded-md border-0 bg-transparent px-1 py-0.5 text-[10px] text-[#52675e] focus:ring-1 focus:ring-[#8eaa99]"
+        value=""
+        onChange={(event) => {
+          if (event.target.value) onMove(
+            { groupCode, mealTimeId: meal.id },
+            { groupCode, mealTimeId: event.target.value },
+          );
+        }}
+      >
+        <option value="">Mover a…</option>
+        {mealTimes.filter((item) => item.id !== meal.id).map((item) => (
+          <option key={item.id} value={item.id}>{item.display_name}</option>
+        ))}
+      </select>
+    </>}
+  </div>;
+}
 
 function DistributionState({ assigned, available, remaining }: { assigned: number; available: number; remaining: number }) {
   return <div className="min-w-[7rem] text-right">
@@ -125,6 +213,7 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
   const proposal = explorer.proposal;
   const setProposal = (value: null) => { if (value === null) explorer.discard(); };
   const [showZeros, setShowZeros] = useState(false);
+  const [dragSource, setDragSource] = useState<DragSource | null>(null);
   const [selectedMealId, setSelectedMealId] = useState(initial.meal_times[0]?.id ?? "");
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
@@ -152,6 +241,10 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
   const currentHasValues = draft.distribution.some((entry) => entry.portions > EPSILON);
 
   const changeCell = (groupCode: ExchangeGroupCode, mealTimeId: string, portions: number) => update(setDistributedPortions(draft, groupCode, mealTimeId, portions));
+  const moveCell = (source: DragSource, destination: DragSource) => {
+    const next = moveDistributionCell(draft, source, destination);
+    if (next !== draft) update(next);
+  };
   const removeTime = (meal: MealTime) => {
     const assigned = portionsAssignedToMeal(draft, meal.id);
     if (assigned > EPSILON && !window.confirm("Este tiempo tiene equivalentes distribuidos. Si lo eliminas, esas porciones volverán a quedar pendientes.")) return;
@@ -207,7 +300,7 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
             <thead className="bg-[#f5f8f5] text-left text-[11px] font-bold uppercase tracking-wide text-[#597068]"><tr><th className="sticky left-0 z-[1] min-w-[180px] bg-[#f5f8f5] px-4 py-3">Grupo</th>{mealTimes.map((meal, index) => <th key={meal.id} className="min-w-[96px] px-2 py-3 text-center"><span className="block max-w-[110px] truncate">{meal.display_name.replace("Colación", "Col.") || `Tiempo ${index + 1}`}</span>{meal.time && <span className="mt-0.5 block font-normal normal-case tracking-normal text-[#819089]">{meal.time}</span>}</th>)}<th className="min-w-[130px] px-4 py-3 text-right">Distribuido</th></tr></thead>
             <tbody>{visibleGroups.map((group) => {
               const values = calculateRemainingExchanges(displayedEntries, prescription, group.groupCode);
-              return <tr key={group.groupCode} className="border-t border-[#e8ede9]"><th className="sticky left-0 z-[1] bg-white px-4 py-3 text-left font-semibold text-[#315e4f]">{group.shortName}</th>{mealTimes.map((meal) => <td key={meal.id} className="px-2 py-2.5 text-center"><CompactPortionInput label={`${group.groupName} en ${meal.display_name}`} value={cellValue(displayedEntries, group.groupCode, meal.id)} preview={Boolean(proposal)} onChange={(value) => changeCell(group.groupCode, meal.id, value)} /></td>)}<td className="px-4 py-3"><DistributionState {...values} /></td></tr>;
+              return <tr key={group.groupCode} className="border-t border-[#e8ede9]"><th className="sticky left-0 z-[1] bg-white px-4 py-3 text-left font-semibold text-[#315e4f]">{group.shortName}</th>{mealTimes.map((meal) => <td key={meal.id} className="px-2 py-2.5 text-center"><DistributionCell groupCode={group.groupCode} groupName={group.groupName} meal={meal} mealTimes={mealTimes} value={cellValue(displayedEntries, group.groupCode, meal.id)} preview={Boolean(proposal)} dragSource={dragSource} onDragSourceChange={setDragSource} onMove={moveCell} onChange={(value) => changeCell(group.groupCode, meal.id, value)} /></td>)}<td className="px-4 py-3"><DistributionState {...values} /></td></tr>;
             })}</tbody>
           </table>
         </div>
@@ -218,7 +311,7 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
             {visibleGroups.map((group) => {
               const values = calculateRemainingExchanges(displayedEntries, prescription, group.groupCode);
               const meal = mealTimes.find((item) => item.id === selectedMealId) ?? mealTimes[0];
-              return <article key={group.groupCode} className="py-3"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-semibold text-[#315e4f]">{group.groupName}</p><div className="mt-1"><DistributionState {...values} /></div></div>{meal && <CompactPortionInput label={`${group.groupName} en ${meal.display_name}`} value={cellValue(displayedEntries, group.groupCode, meal.id)} preview={Boolean(proposal)} onChange={(value) => changeCell(group.groupCode, meal.id, value)} />}</div></article>;
+              return <article key={group.groupCode} className="py-3"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-semibold text-[#315e4f]">{group.groupName}</p><div className="mt-1"><DistributionState {...values} /></div></div>{meal && <DistributionCell groupCode={group.groupCode} groupName={group.groupName} meal={meal} mealTimes={mealTimes} value={cellValue(displayedEntries, group.groupCode, meal.id)} preview={Boolean(proposal)} dragSource={dragSource} onDragSourceChange={setDragSource} onMove={moveCell} onChange={(value) => changeCell(group.groupCode, meal.id, value)} />}</div></article>;
             })}
           </div>
         </div>

@@ -4,7 +4,7 @@ import { clearProposalSession } from "./useProposalExplorer";
 vi.mock("./usePreparationCatalog", () => ({ usePreparationCatalog: () => ({ loading: false }) }));
 beforeEach(clearProposalSession);
 import { createExchangePrescription, setExchangePortions } from "@/src/features/exchanges/model";
-import { applyMealDistributionSuggestion, createMealDistribution, suggestMealDistribution } from "@/src/features/meal-distribution/model";
+import { applyMealDistributionSuggestion, createMealDistribution, setDistributedPortions, suggestMealDistribution } from "@/src/features/meal-distribution/model";
 import type { ExchangePrescription, NutritionPlan } from "@/src/types/domain";
 import { DietMealDistributionStep } from "./DietMealDistributionStep";
 
@@ -39,6 +39,30 @@ describe("DietMealDistributionStep", () => {
     fireEvent.change(screen.getAllByLabelText("Verduras en Desayuno")[0], { target: { value: "1.5" } });
     expect(onDraftChange).toHaveBeenLastCalledWith(expect.objectContaining({ distribution: expect.arrayContaining([expect.objectContaining({ group_code: "VEGETABLES", portions: 1.5 })]), status: "editing" }));
     await waitFor(() => expect(onSave).toHaveBeenCalled(), { timeout: 1200 });
+  });
+
+  it("moves a complete cell with the accessible same-row destination control and autosaves", async () => {
+    let index = 0;
+    const base = createMealDistribution(() => `meal-${++index}`);
+    const [breakfast, lunch, dinner] = base.meal_times;
+    const distribution = setDistributedPortions(
+      setDistributedPortions(base, "VEGETABLES", breakfast.id, 1),
+      "VEGETABLES",
+      lunch.id,
+      2.5,
+    );
+    const onDraftChange = vi.fn();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<DietMealDistributionStep plan={{ ...plan, meal_distribution: distribution }} onSave={onSave} onDraftChange={onDraftChange} onGoToEquivalents={vi.fn()} />);
+
+    const moveMenu = screen.getAllByLabelText("Mover Verduras desde Comida a otro tiempo").at(-1)!;
+    fireEvent.change(moveMenu, { target: { value: dinner.id } });
+
+    const updated = onDraftChange.mock.lastCall?.[0];
+    expect(updated.distribution).toContainEqual({ group_code: "VEGETABLES", meal_time_id: breakfast.id, portions: 1 });
+    expect(updated.distribution).toContainEqual({ group_code: "VEGETABLES", meal_time_id: dinner.id, portions: 2.5 });
+    expect(updated.distribution.some((item: { group_code: string; meal_time_id: string }) => item.group_code === "VEGETABLES" && item.meal_time_id === lunch.id)).toBe(false);
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ distribution: updated.distribution }), true), { timeout: 1200 });
   });
 
   it("adds, renames, schedules and removes an empty meal time inline", () => {

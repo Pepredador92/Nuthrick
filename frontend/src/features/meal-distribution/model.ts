@@ -172,6 +172,41 @@ export function setDistributedPortions(current: MealDistribution, groupCode: Exc
   return rebuild(current, distribution, current.meal_times, distribution.length ? "editing" : "not_started", null);
 }
 
+export function moveDistributionCell(
+  current: MealDistribution,
+  source: { groupCode: ExchangeGroupCode; mealTimeId: string },
+  destination: { groupCode: ExchangeGroupCode; mealTimeId: string },
+) {
+  if (
+    source.groupCode !== destination.groupCode ||
+    source.mealTimeId === destination.mealTimeId ||
+    !current.meal_times.some((meal) => meal.id === source.mealTimeId) ||
+    !current.meal_times.some((meal) => meal.id === destination.mealTimeId)
+  ) return current;
+
+  const amount = current.distribution.find((entry) =>
+    entry.group_code === source.groupCode && entry.meal_time_id === source.mealTimeId,
+  )?.portions ?? 0;
+  if (amount <= EPSILON) return current;
+
+  const destinationAmount = current.distribution.find((entry) =>
+    entry.group_code === destination.groupCode && entry.meal_time_id === destination.mealTimeId,
+  )?.portions ?? 0;
+  const distribution = current.distribution.filter((entry) => !(
+    entry.group_code === source.groupCode &&
+    (entry.meal_time_id === source.mealTimeId || entry.meal_time_id === destination.mealTimeId)
+  ));
+  const movedTotal = round(amount + destinationAmount);
+  if (movedTotal > EPSILON) {
+    distribution.push({
+      group_code: destination.groupCode,
+      meal_time_id: destination.mealTimeId,
+      portions: movedTotal,
+    });
+  }
+  return rebuild(current, distribution, current.meal_times, distribution.length ? "editing" : "not_started", null);
+}
+
 export function addMealTime(current: MealDistribution, displayName: string, time: string | null = null, id = makeId()) {
   if (!displayName.trim()) return current;
   return rebuild(current, current.distribution, [...current.meal_times, createMealTime(displayName.trim(), current.meal_times.length, time || null, id)], "editing", null);
