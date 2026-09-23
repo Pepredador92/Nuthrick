@@ -521,6 +521,7 @@ export function scoreRecipeCompatibility({ pendingExchanges: required, recipe, m
   let excess = 0;
   let groupsCovered = 0;
   const coveredGroups: ExchangeGroupCode[] = [];
+  const coverageGroups: Array<{ group_code: ExchangeGroupCode; portions: number; complete: boolean }> = [];
   const missingGroups: Array<{ group_code: ExchangeGroupCode; portions: number }> = [];
   const excessGroups: Array<{ group_code: ExchangeGroupCode; portions: number }> = [];
   for (const code of codes) {
@@ -534,6 +535,7 @@ export function scoreRecipeCompatibility({ pendingExchanges: required, recipe, m
     if (needed > MENU_COMPARISON_TOLERANCE && supplied > MENU_COMPARISON_TOLERANCE) {
       groupsCovered += 1;
       coveredGroups.push(code);
+      coverageGroups.push({ group_code: code, portions: round(Math.min(needed, supplied)), complete: groupMissing <= MENU_COMPARISON_TOLERANCE });
     }
     if (groupMissing > MENU_COMPARISON_TOLERANCE) missingGroups.push({ group_code: code, portions: round(groupMissing) });
     if (groupExcess > MENU_COMPARISON_TOLERANCE) excessGroups.push({ group_code: code, portions: round(groupExcess) });
@@ -572,6 +574,7 @@ export function scoreRecipeCompatibility({ pendingExchanges: required, recipe, m
     coverageRatio: round(coverageRatio),
     groupsCovered,
     coveredGroups,
+    coverageGroups,
     missingGroups,
     excessGroups,
     mealAffinity,

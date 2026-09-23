@@ -141,6 +141,56 @@ describe("diet menu model", () => {
     expect(snapshot?.items).toHaveLength(2);
   });
 
+  it("compares every recipe group, distinguishing full coverage, partial coverage, gaps, and excess", () => {
+    const fat = food("fat", "Aceite", "FATS_NO_PROTEIN");
+    const original = recipe();
+    const mixed = {
+      ...original,
+      items: [...original.items, {
+        ...original.items[0], id: "fat-item", food_item_id: fat.id, food_snapshot: createFoodSnapshot(fat),
+        amount: 2, exchange_contribution: exchangeContributionForFood(fat, 2),
+      }],
+    };
+    const libraryRecipe = structuredClone(mixed);
+    const required = [
+      { group_code: "FRUITS" as const, portions: 1 },
+      { group_code: "CEREALS_NO_FAT" as const, portions: 3 },
+      { group_code: "VEGETABLES" as const, portions: 1 },
+      { group_code: "FATS_NO_PROTEIN" as const, portions: 1 },
+    ];
+    const comparison = scoreRecipeCompatibility({ pendingExchanges: required, recipe: mixed });
+    expect(comparison.coverageGroups).toEqual([
+      { group_code: "FRUITS", portions: 1, complete: true },
+      { group_code: "CEREALS_NO_FAT", portions: 2, complete: false },
+      { group_code: "FATS_NO_PROTEIN", portions: 1, complete: true },
+    ]);
+    expect(comparison.missingGroups).toEqual([
+      { group_code: "CEREALS_NO_FAT", portions: 1 },
+      { group_code: "VEGETABLES", portions: 1 },
+    ]);
+    expect(comparison.excessGroups).toEqual([{ group_code: "FATS_NO_PROTEIN", portions: 1 }]);
+    const target = { ...distribution, distribution: required.map(item => ({ ...item, meal_time_id: breakfast })) };
+    const menu = addRecipeToMenu(createDietMenu(target), target, breakfast, mixed, 1, "mixed-entry");
+    expect(calculateMenuStatus(menu, target).rows.map(row => [row.group_code, row.remaining])).toEqual([
+      ["FRUITS", 0], ["CEREALS_NO_FAT", 1], ["VEGETABLES", 1], ["FATS_NO_PROTEIN", -1],
+    ]);
+    expect(activeMenu(menu).meal_menus[0].entries[0].recipe_snapshot?.items).toEqual(mixed.items.map(item => ({
+      amount: item.amount, unit: item.unit, food_snapshot: item.food_snapshot,
+      exchange_contribution: item.exchange_contribution,
+    })));
+    expect(mixed).toEqual(libraryRecipe);
+  });
+
+  it("does not claim coverage when a recipe only contributes outside the pending group", () => {
+    const comparison = scoreRecipeCompatibility({
+      pendingExchanges: [{ group_code: "CEREALS_NO_FAT", portions: 1 }],
+      recipe: { ...recipe(), items: [recipe().items[0]] },
+    });
+    expect(comparison.coverageGroups).toEqual([]);
+    expect(comparison.missingGroups).toEqual([{ group_code: "CEREALS_NO_FAT", portions: 1 }]);
+    expect(comparison.excessGroups).toEqual([{ group_code: "FRUITS", portions: 1 }]);
+  });
+
   it("relinks an edited menu entry to the saved personal recipe copy", () => {
     const menu = addRecipeToMenu(createDietMenu(distribution), distribution, breakfast, recipe(), 1, "recipe-entry");
     const copy = { ...recipe(), id: "personal-copy", name: "Mi desayuno ajustado", source: "PROFESSIONAL_CUSTOM" as const };

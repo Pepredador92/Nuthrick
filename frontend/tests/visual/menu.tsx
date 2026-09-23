@@ -59,6 +59,16 @@ function Harness(){
   const [librarySaves,setLibrarySaves]=useState(0);
   const [weekly] = useState(() => weeklyFixture());
   const weeklyMode = new URLSearchParams(window.location.search).has("weekly");
+  if (new URLSearchParams(window.location.search).has("recipe-adjustment")) {
+    const distribution:MealDistribution={...mealDistribution,meal_times:[meals[0]],distribution:[
+      {meal_time_id:"breakfast",group_code:"FRUITS",portions:2},
+      {meal_time_id:"breakfast",group_code:"CEREALS_NO_FAT",portions:2},
+      {meal_time_id:"breakfast",group_code:"VEGETABLES",portions:1},
+    ]};
+    const tortilla=sampleFoods.find(food=>food.id==="tortilla")!;
+    const previewRecipe:Recipe={id:"visual-recipe-adjustment",owner_id:null,stable_code:null,name:"Papaya con tortilla",normalized_name:"papaya con tortilla",description:null,meal_types:["BREAKFAST"],servings:1,instructions:null,image_path:null,tags:[],substitution_notes:null,source:"VISUAL_FIXTURE",source_version:"1",source_reference:null,is_custom:false,active:true,created_at:"",updated_at:"",items:[{id:"fruit",owner_id:null,recipe_id:"visual-recipe-adjustment",food_item_id:papaya.id,amount:1,unit:papaya.portion_unit,display_order:0,food_snapshot:createFoodSnapshot(papaya),exchange_contribution:exchangeContributionForFood(papaya,1),created_at:""},{id:"cereal",owner_id:null,recipe_id:"visual-recipe-adjustment",food_item_id:tortilla.id,amount:1,unit:tortilla.portion_unit,display_order:1,food_snapshot:createFoodSnapshot(tortilla),exchange_contribution:exchangeContributionForFood(tortilla,1),created_at:""}]};
+    return <main className="mx-auto min-h-screen max-w-[1440px] bg-[#f7f8f4] p-3 sm:p-8"><p role="status" className="mb-4 text-xs">Caso ficticio · Fase 5B · Guardados de menú: {saves}.</p><DietMenuStep plan={{...plan,id:"recipe-adjustment-visual",diet_menu:null,meal_distribution:distribution}} catalog={{foods:sampleFoods,recipes:[previewRecipe]}} onSave={async()=>setSaves(n=>n+1)} onGoToMeals={()=>undefined}/></main>;
+  }
   if (new URLSearchParams(window.location.search).has("exploration")) {
     const distribution:MealDistribution={...mealDistribution,distribution:mealDistribution.distribution.filter(r=>r.meal_time_id==="lunch"||["FRUITS","CEREALS_NO_FAT","AOA_MODERATE_FAT"].includes(r.group_code)).map(r=>r.group_code==="AOA_MODERATE_FAT"?{...r,portions:1}:r)};
     const foods:FoodItem[]=[{...papaya,id:"guava",name:"Guayaba",portion_unit:"piece",use_count:100},{...papaya,id:"apple",name:"Manzana",portion_unit:"piece",use_count:50},{...papaya,id:"pear",name:"Pera",portion_unit:"piece",use_count:0},...sampleFoods.filter(f=>f.id==="egg"||f.id==="tortilla"||f.id==="veg")];

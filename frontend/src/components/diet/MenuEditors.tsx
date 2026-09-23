@@ -2,9 +2,10 @@ import { useMemo, useState } from "react";
 import { ChevronRight, Plus, Search, Trash2, X, Check, AlertTriangle, Circle } from "lucide-react";
 import { exchangeCatalog, getExchangeGroup } from "@/src/features/exchanges/catalog";
 import { adjustRecipeIngredients, calculateMenuStatus, createFoodSnapshot, exchangeContributionForFood, initialFoodAmount, practicalFoodQuantity, recipeIngredientsChanged, replaceRecipeIngredient, scoreRecipeCompatibility, type RecipeCompatibilityRestriction } from "@/src/features/menu/model";
+import { suggestRecipeAdjustment, type RecipeAdjustment } from "@/src/features/menu/recipeAdjustment";
 import { generateRecipeName } from "@/src/features/menu/recipeName";
 import { foodMatchesSearch, recipeMatchesSearch, type CustomFoodInput, type RecipeDraftItem } from "@/src/services/foodCatalog";
-import type { ExchangeGroupCode, FoodItem, FoodUnitCode, MealType, Recipe } from "@/src/types/domain";
+import type { DietMenu, ExchangeGroupCode, FoodItem, FoodUnitCode, MealDistribution, MealType, Recipe } from "@/src/types/domain";
 import { isDrink, isVerifiedWater, recipeHasKnownContributions } from "@/src/features/menu/mesa";
 import { isFoodRestricted } from "@/src/features/menu/planner";
 import { foodUnitLabels, formatFoodQuantity } from "@/src/features/menu/units";
@@ -13,6 +14,10 @@ const emptyFood: CustomFoodInput = {
   name: "", group_code: "VEGETABLES", portion_amount: 1, portion_unit: "g", portion_description: "",
 };
 const format = formatFoodQuantity;
+const quantityUnit = (amount: number, unit: FoodUnitCode) => {
+  const plural: Partial<Record<FoodUnitCode, string>> = { piece: "piezas", cup: "tazas", tablespoon: "cucharadas", teaspoon: "cucharaditas", slice: "rebanadas", tortilla: "tortillas", glass: "vasos", serving: "porciones", unit: "unidades" };
+  return Math.abs(amount) > 1 ? plural[unit] ?? unitLabels[unit] : unitLabels[unit];
+};
 
 type FoodCatalogFilter = "all" | "vegetables" | "fruits" | "cereals" | "legumes" | "aoa" | "milk" | "fats";
 type RecipeCatalogFilter = "all" | "best" | Extract<MealType, "BREAKFAST" | "MAIN_MEAL" | "DINNER">;
@@ -39,11 +44,12 @@ function initialFoodFilter(groupCode: ExchangeGroupCode | "all"): FoodCatalogFil
   return foodCatalogFilters.find((filter) => filter.groups.includes(groupCode as ExchangeGroupCode))?.id ?? "all";
 }
 
-export function MealNeeds({ rows, onSelect }: {
+export function MealNeeds({ rows, onSelect, emptyLabel = "Este tiempo no tiene equivalentes asignados." }: {
   rows: ReturnType<typeof calculateMenuStatus>["rows"];
   onSelect: (code: ExchangeGroupCode) => void;
+  emptyLabel?: string;
 }) {
-  if (!rows.length) return <p className="rounded-xl bg-[#f4f7f4] p-4 text-sm text-[#6b7b73]">Este tiempo no tiene equivalentes asignados.</p>;
+  if (!rows.length) return <p className="rounded-xl bg-[#f4f7f4] p-4 text-sm text-[#6b7b73]">{emptyLabel}</p>;
   return <div className="space-y-2">{rows.map((row) => {
     const group = getExchangeGroup(row.group_code);
     return <button key={row.group_code} type="button" onClick={() => onSelect(row.group_code)} className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left ${row.state === "complete" ? "border-[#d8e7dc] bg-[#f1f7f2]" : row.state === "excess" ? "border-[#efc9c1] bg-[#fff4f1]" : "border-[#eadbb7] bg-[#fffbef]"}`}>
@@ -75,7 +81,7 @@ export function CustomFoodForm({ initialGroup, busy, onCancel, onCreate }: {
   </div>;
 }
 
-export function BrowserPanel({ mode, foods, recipes, groupCode, required, mealType, busy, restrictions = {}, usedFoodIds = [], onClose, onFood, onRecipe, onNewFood, onNewRecipe }: {
+export function BrowserPanel({ mode, foods, recipes, groupCode, required, mealType, busy, restrictions = {}, usedFoodIds = [], onClose, onFood, onRecipe, onRecipePreview, onNewFood, onNewRecipe }: {
   mode: "food" | "recipe" | "drink";
   restrictions?: RecipeCompatibilityRestriction;
   usedFoodIds?: string[];
@@ -88,6 +94,7 @@ export function BrowserPanel({ mode, foods, recipes, groupCode, required, mealTy
   onClose: () => void;
   onFood: (food: FoodItem, amount: number) => void;
   onRecipe: (recipe: Recipe) => void;
+  onRecipePreview: (recipe: Recipe) => void;
   onNewFood: () => void;
   onNewRecipe: () => void;
 }) {
@@ -118,7 +125,7 @@ export function BrowserPanel({ mode, foods, recipes, groupCode, required, mealTy
     .sort((a, b) => b.match.score - a.match.score || a.recipe.name.localeCompare(b.recipe.name, "es-MX"));
   const recommendedRecipes = visibleRecipes.filter(({ match }) => !match.blocked && match.covered > 0 && match.excess <= 0.5 && match.label !== "Poco compatible");
   const otherRecipes = visibleRecipes.filter(({ recipe }) => !recommendedRecipes.some((candidate) => candidate.recipe.id === recipe.id));
-  const recipeCard = ({ recipe, match }: (typeof visibleRecipes)[number]) => isVerifiedWater(recipe) ? <div key={recipe.id} className="rounded-xl border border-[#dce7ec] bg-sky-50/30 p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-semibold">{recipe.name}</p><p className="mt-2 text-xs text-[#526b78]">Bebida opcional · sin aporte en equivalentes. No completa ni modifica los grupos pendientes.</p></div><button type="button" className="nuth-button !px-3 !py-2" onClick={()=>onRecipe(recipe)}>Revisar</button></div></div> : <div key={recipe.id} className="rounded-xl border border-[#e0e7e2] p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-semibold text-[#315449]">{recipe.name}</p><p className="mt-1 text-xs font-semibold text-[#477363]">{match.label}</p><p className="mt-1 text-xs text-[#718078]">Cubre {format(match.covered)} de {format(match.covered + match.missing)} equivalentes · {recipe.items.length} ingredientes</p><div className="mt-2 flex flex-wrap gap-1">{match.coveredGroups.slice(0, 3).map((code) => <span key={code} className="rounded-full bg-[#edf5ef] px-2 py-0.5 text-[10px] font-semibold text-[#35624e]">✓ {getExchangeGroup(code).shortName}</span>)}{match.missingGroups.slice(0, 2).map((item) => <span key={item.group_code} className="rounded-full bg-[#fff7e7] px-2 py-0.5 text-[10px] font-semibold text-[#8a692d]">Falta {format(item.portions)} {getExchangeGroup(item.group_code).shortName}</span>)}</div><span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${recipe.is_custom ? "bg-[#f2eee3] text-[#75623d]" : "bg-[#e8f3eb] text-[#35624e]"}`}>{recipe.is_custom ? "Personal" : "Receta Nuthrick"}</span>{match.excess > 0 && <p className="mt-1 text-xs text-[#a64a3d]">Excede {format(match.excess)} equivalentes.</p>}</div><button type="button" className="nuth-button !px-3 !py-2" onClick={() => onRecipe(recipe)}>Revisar</button></div></div>;
+  const recipeCard = ({ recipe, match }: (typeof visibleRecipes)[number]) => isVerifiedWater(recipe) ? <div key={recipe.id} className="rounded-xl border border-[#dce7ec] bg-sky-50/30 p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-semibold">{recipe.name}</p><p className="mt-2 text-xs text-[#526b78]">Bebida opcional · sin aporte en equivalentes. No completa ni modifica los grupos pendientes.</p></div><button type="button" className="nuth-button !px-3 !py-2" onClick={()=>onRecipe(recipe)}>Revisar</button></div></div> : <div key={recipe.id} className="rounded-xl border border-[#e0e7e2] p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-semibold text-[#315449]">{recipe.name}</p><p className="mt-1 text-xs font-semibold text-[#477363]">{match.label}</p><p className="mt-1 text-xs text-[#718078]">Cubre {format(match.covered)} de {format(match.covered + match.missing)} equivalentes · {recipe.items.length} ingredientes</p><div className="mt-2 flex flex-wrap gap-1">{match.coverageGroups.slice(0, 3).map((item) => <span key={item.group_code} className="rounded-full bg-[#edf5ef] px-2 py-0.5 text-[10px] font-semibold text-[#35624e]">{item.complete ? "✓ " : `${format(item.portions)} `}{getExchangeGroup(item.group_code).shortName}</span>)}{match.missingGroups.slice(0, 2).map((item) => <span key={item.group_code} className="rounded-full bg-[#fff7e7] px-2 py-0.5 text-[10px] font-semibold text-[#8a692d]">Falta {format(item.portions)} {getExchangeGroup(item.group_code).shortName}</span>)}</div><span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${recipe.is_custom ? "bg-[#f2eee3] text-[#75623d]" : "bg-[#e8f3eb] text-[#35624e]"}`}>{recipe.is_custom ? "Personal" : "Receta Nuthrick"}</span>{match.excess > 0 && <p className="mt-1 text-xs text-[#a64a3d]">Excede {format(match.excess)} equivalentes.</p>}</div><div className="flex shrink-0 flex-col gap-2"><button type="button" className="nuth-button !px-3 !py-2" onClick={() => onRecipePreview(recipe)}>Ver aporte</button><button type="button" className="nuth-button-secondary !px-3 !py-2" onClick={() => onRecipe(recipe)}>Revisar</button></div></div></div>;
   return <div className="rounded-2xl border border-[#bfd1c6] bg-white p-4 shadow-[0_18px_45px_rgba(23,61,54,.12)]">
     <div className="flex items-center justify-between"><div><h3 className="font-semibold text-[#24463b]">{mode === "food" ? exactGroup ? `Alimentos · ${getExchangeGroup(exactGroup).shortName}` : "Agregar alimento" : mode === "drink" ? "Bebidas" : "Agregar receta"}</h3><p className="mt-1 text-xs text-[#718078]">Catálogo base de Nuthrick y contenido creado por ti</p></div><button type="button" aria-label="Cerrar buscador" onClick={onClose}><X size={19} /></button></div>
     <label className="relative mt-4 block"><Search className="absolute left-3 top-3 text-[#829087]" size={16} /><input className="nuth-input !pl-9" placeholder={mode === "food" ? "Buscar alimento" : "Buscar receta"} value={search} onChange={(e) => setSearch(e.target.value)} /></label>
@@ -130,6 +137,40 @@ export function BrowserPanel({ mode, foods, recipes, groupCode, required, mealTy
       {((mode === "food" && !visibleFoods.length) || (mode !== "food" && !visibleRecipes.length)) && <p className="rounded-xl bg-[#f7f9f7] p-4 text-center text-sm text-[#718078]">No hay resultados todavía.</p>}
     </div>
     <button type="button" className="nuth-button-secondary mt-3 w-full justify-center" disabled={busy} onClick={mode === "food" ? onNewFood : onNewRecipe}><Plus size={15} /> {mode === "food" ? "Agregar alimento personalizado" : mode === "drink" ? "Crear bebida" : "Crear receta"}</button>
+  </div>;
+}
+
+export function RecipeUsePreview({ recipe, menu, distribution, mealId, pending, outcomeRows, mealType, busy, onCancel, onUse }: {
+  recipe: Recipe;
+  menu: DietMenu;
+  distribution: MealDistribution;
+  mealId: string;
+  pending: Array<{ group_code: ExchangeGroupCode; portions: number }>;
+  outcomeRows: ReturnType<typeof calculateMenuStatus>["rows"];
+  mealType: MealType;
+  busy: boolean;
+  onCancel: () => void;
+  onUse: (recipe: Recipe) => void;
+}) {
+  const [adjustment, setAdjustment] = useState<RecipeAdjustment | null>(null);
+  const [noAdjustment, setNoAdjustment] = useState(false);
+  const comparison = scoreRecipeCompatibility({ pendingExchanges: pending, recipe, mealType });
+  const groupName = (code: ExchangeGroupCode) => getExchangeGroup(code).shortName;
+  const shownRows = adjustment?.outcomeRows ?? outcomeRows;
+  const missing = shownRows.filter(row => row.state === "pending");
+  const excess = shownRows.filter(row => row.state === "excess");
+  const covered = shownRows.filter(row => row.state === "complete" && row.portions > 0);
+  return <div className="rounded-2xl border border-[#bfd1c6] bg-[#f9fbf8] p-4">
+    <h3 className="font-semibold text-[#24463b]">{recipe.name}</h3>
+    <p className="mt-1 text-xs text-[#718078]">{adjustment ? "Vista previa. La receta de tu biblioteca y el menú aún no cambian." : "Aporte de una porción de la receta tal como está guardada."}</p>
+    {adjustment && <section aria-label="Ajuste propuesto" className="mt-4 rounded-xl border border-[#c9ded0] bg-white p-3"><h4 className="text-xs font-bold uppercase tracking-wide text-[#35624e]">Ajuste propuesto</h4><ul className="mt-2 space-y-1 text-sm">{adjustment.changes.map(change => <li key={change.itemId}>{change.name}: {format(change.from)} {quantityUnit(change.from, change.unit)} → {format(change.to)} {quantityUnit(change.to, change.unit)}</li>)}</ul></section>}
+    {noAdjustment && !adjustment && <p role="status" className="mt-4 rounded-xl bg-[#fff7e7] p-3 text-sm text-[#765e32]">No hay un ajuste práctico recomendable. Puedes usarla y completar por separado.</p>}
+    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      <section className="rounded-xl bg-[#edf5ef] p-3"><h4 className="text-xs font-bold text-[#35624e]">{adjustment ? "Después del ajuste" : "Cubre"}</h4><ul className="mt-2 space-y-1 text-xs text-[#315449]">{adjustment ? covered.length ? covered.map(row => <li key={row.group_code}>✓ {groupName(row.group_code)}</li>) : <li>Ningún grupo completo</li> : comparison.coverageGroups.length ? comparison.coverageGroups.map((item) => <li key={item.group_code}>{item.complete ? "✓ " : `${format(item.portions)} eq · `}{groupName(item.group_code)}</li>) : <li>Ningún faltante relevante</li>}</ul></section>
+      <section className="rounded-xl bg-[#fff7e7] p-3"><h4 className="text-xs font-bold text-[#8a692d]">Falta</h4><ul className="mt-2 space-y-1 text-xs text-[#765e32]">{missing.length ? missing.map((row) => <li key={row.group_code}>+{format(row.remaining)} {groupName(row.group_code)}</li>) : <li>Ninguno</li>}</ul></section>
+      <section className="rounded-xl bg-[#fff4f1] p-3"><h4 className="text-xs font-bold text-[#a64a3d]">Excede</h4><ul className="mt-2 space-y-1 text-xs text-[#934d43]">{excess.length ? excess.map((row) => <li key={row.group_code}>+{format(-row.remaining)} {groupName(row.group_code)}</li>) : <li>Ninguno</li>}</ul></section>
+    </div>
+    <div className="mt-4 flex flex-wrap justify-end gap-2">{adjustment ? <><button type="button" className="nuth-button-secondary" onClick={() => setAdjustment(null)}>Cancelar</button><button type="button" className="nuth-button" disabled={busy} onClick={() => onUse(adjustment.recipe)}>Aplicar ajuste</button></> : <><button type="button" className="nuth-button-secondary" onClick={onCancel}>Volver a recetas</button><button type="button" className="nuth-button-secondary" disabled={busy} onClick={() => { const suggestion = suggestRecipeAdjustment(menu, distribution, mealId, recipe); setAdjustment(suggestion); setNoAdjustment(!suggestion); }}>Ajustar receta</button><button type="button" className="nuth-button" disabled={busy} onClick={() => onUse(recipe)}>Usar y completar</button></>}</div>
   </div>;
 }
 

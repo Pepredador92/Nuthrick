@@ -3,7 +3,7 @@ import { weeklyFixture } from "../../../tests/fixtures/weeklyMenu";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DietMenuStep } from "@/src/components/diet/DietMenuStep";
-import { activeMenu, calculateMenuStatus, calculateMenuUsage, createFoodSnapshot, exchangeContributionForFood } from "@/src/features/menu/model";
+import { activeMenu, addFoodToMenu, calculateMenuStatus, calculateMenuUsage, createDietMenu, createFoodSnapshot, exchangeContributionForFood } from "@/src/features/menu/model";
 import type { CustomRecipeInput } from "@/src/services/foodCatalog";
 import { formatFoodQuantity } from "@/src/features/menu/units";
 import type { FoodItem, MealDistribution, NutritionPlan, Recipe } from "@/src/types/domain";
@@ -227,6 +227,146 @@ describe("DietMenuStep", () => {
     fireEvent.click(screen.getByRole("button", { name: "Agregar al menú" }));
     expect(screen.getAllByText("Papaya fresca").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Confirmar opción" })).toBeEnabled();
+  });
+
+  it("previews a multi-group recipe, uses it unchanged, and opens the contextual pantry for remaining gaps", async () => {
+    const fat = { ...food, id: "fat", name: "Aceite", group_code: "FATS_NO_PROTEIN" as const };
+    const mixed = {
+      ...recipe,
+      id: "mixed",
+      name: "Papaya, tortilla y aceite",
+      items: [...recipe.items, {
+        ...recipe.items[0], id: "cereal-item", food_item_id: cerealFood.id,
+        amount: 1, unit: cerealFood.portion_unit, food_snapshot: createFoodSnapshot(cerealFood),
+        exchange_contribution: exchangeContributionForFood(cerealFood, 1),
+      }, {
+        ...recipe.items[0], id: "fat-item", food_item_id: fat.id,
+        amount: 2, unit: fat.portion_unit, food_snapshot: createFoodSnapshot(fat),
+        exchange_contribution: exchangeContributionForFood(fat, 2),
+      }],
+    };
+    const libraryRecipe = structuredClone(mixed);
+    const distribution = { ...mealDistribution, distribution: [
+      { meal_time_id: "breakfast", group_code: "FRUITS" as const, portions: 1 },
+      { meal_time_id: "breakfast", group_code: "CEREALS_NO_FAT" as const, portions: 2 },
+      { meal_time_id: "breakfast", group_code: "VEGETABLES" as const, portions: 1 },
+      { meal_time_id: "breakfast", group_code: "FATS_NO_PROTEIN" as const, portions: 1 },
+    ] };
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<DietMenuStep plan={{ ...plan, meal_distribution: distribution }} catalog={{ foods: [food, cerealFood, fat], recipes: [mixed] }} onSave={onSave} onGoToMeals={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar receta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ver aporte" }));
+    const preview = screen.getByRole("dialog", { name: "Preparación" });
+    expect(within(preview).getByText("✓ Frutas")).toBeInTheDocument();
+    expect(within(preview).getByText("1 eq · Cereales sin grasa")).toBeInTheDocument();
+    expect(within(preview).getByText("+1 Cereales sin grasa")).toBeInTheDocument();
+    expect(within(preview).getByText("+1 Verduras")).toBeInTheDocument();
+    expect(within(preview).getByText("+1 Sin proteína")).toBeInTheDocument();
+    fireEvent.click(within(preview).getByRole("button", { name: "Usar y completar" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    const saved = onSave.mock.calls.at(-1)![0];
+    const entry = activeMenu(saved).meal_menus[0].entries[0];
+    expect(entry).toMatchObject({ type: "recipe", source_id: mixed.id, quantity: 1 });
+    expect(entry.recipe_snapshot?.items.map((item: { amount: number }) => item.amount)).toEqual([1, 1, 2]);
+    expect(mixed).toEqual(libraryRecipe);
+    expect(calculateMenuStatus(saved, distribution).rows.map(row => [row.group_code, row.remaining])).toEqual([
+      ["FRUITS", 0], ["CEREALS_NO_FAT", 1], ["VEGETABLES", 1], ["FATS_NO_PROTEIN", -1],
+    ]);
+    const needs = screen.getByText("Por completar").closest("details")!;
+    expect(within(needs).queryByRole("button", { name: /Frutas/ })).not.toBeInTheDocument();
+    fireEvent.click(within(needs).getByRole("button", { name: /Cereales sin grasa/ }));
+    expect(screen.getByRole("heading", { name: "Alimentos · Cereales sin grasa" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Cantidad de Tortilla")).toHaveValue(1);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
+    expect(within(needs).queryByRole("button", { name: /Cereales sin grasa/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(calculateMenuStatus(onSave.mock.calls.at(-1)![0], distribution).rows.find(row => row.group_code === "CEREALS_NO_FAT")?.remaining).toBe(0));
+  });
+
+  it("previews an adjustment without saving, cancels it, then applies only a menu snapshot", async () => {
+    const vegetables = { ...food, id: "vegetables", name: "Verduras", group_code: "VEGETABLES" as const };
+    const mixed = {
+      ...recipe, id: "adjustable", name: "Papaya con tortilla",
+      items: [...recipe.items, {
+        ...recipe.items[0], id: "cereal-item", food_item_id: cerealFood.id,
+        amount: 1, unit: cerealFood.portion_unit, food_snapshot: createFoodSnapshot(cerealFood),
+        exchange_contribution: exchangeContributionForFood(cerealFood, 1),
+      }],
+    };
+    const library = structuredClone(mixed);
+    const distribution = { ...mealDistribution, distribution: [
+      { meal_time_id: "breakfast", group_code: "FRUITS" as const, portions: 2 },
+      { meal_time_id: "breakfast", group_code: "CEREALS_NO_FAT" as const, portions: 2 },
+      { meal_time_id: "breakfast", group_code: "VEGETABLES" as const, portions: 1 },
+    ] };
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<DietMenuStep plan={{ ...plan, meal_distribution: distribution }} catalog={{ foods: [food, cerealFood, vegetables], recipes: [mixed] }} onSave={onSave} onGoToMeals={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar receta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ver aporte" }));
+    const preview = screen.getByRole("dialog", { name: "Preparación" });
+    fireEvent.click(within(preview).getByRole("button", { name: "Ajustar receta" }));
+    expect(within(preview).getByRole("region", { name: "Ajuste propuesto" })).toHaveTextContent("Papaya: 1 taza → 2 tazas");
+    expect(within(preview).getByRole("region", { name: "Ajuste propuesto" })).toHaveTextContent("Tortilla: 1 tortilla → 2 tortillas");
+    expect(within(preview).getByText("+1 Verduras")).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.click(within(preview).getByRole("button", { name: "Cancelar" }));
+    expect(within(preview).queryByRole("region", { name: "Ajuste propuesto" })).not.toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.click(within(preview).getByRole("button", { name: "Ajustar receta" }));
+    fireEvent.click(within(preview).getByRole("button", { name: "Aplicar ajuste" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    const saved = onSave.mock.calls.at(-1)![0];
+    expect(activeMenu(saved).meal_menus[0].entries[0].recipe_snapshot?.items.map((item: { amount: number }) => item.amount)).toEqual([2, 2]);
+    expect(mixed).toEqual(library);
+    const needs = screen.getByText("Por completar").closest("details")!;
+    fireEvent.click(within(needs).getByRole("button", { name: /Verduras/ }));
+    expect(screen.getByRole("heading", { name: "Alimentos · Verduras" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Cantidad de Verduras")).toHaveValue(1);
+  });
+
+  it("keeps Usar y completar when no practical adjustment can cover the missing group", () => {
+    const distribution = { ...mealDistribution, distribution: [
+      ...mealDistribution.distribution,
+      { meal_time_id: "breakfast", group_code: "VEGETABLES" as const, portions: 1 },
+    ] };
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<DietMenuStep plan={{ ...plan, meal_distribution: distribution }} catalog={{ foods: [food], recipes: [recipe] }} onSave={onSave} onGoToMeals={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar receta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ver aporte" }));
+    const preview = screen.getByRole("dialog", { name: "Preparación" });
+    fireEvent.click(within(preview).getByRole("button", { name: "Ajustar receta" }));
+    expect(within(preview).getByText("No hay un ajuste práctico recomendable. Puedes usarla y completar por separado.")).toBeInTheDocument();
+    expect(within(preview).getByRole("button", { name: "Usar y completar" })).toBeEnabled();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("shows no remaining groups when an unchanged recipe covers the whole meal", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const libraryRecipe = structuredClone(recipe);
+    render(<DietMenuStep plan={plan} catalog={{ foods: [food], recipes: [recipe] }} onSave={onSave} onGoToMeals={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar receta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ver aporte" }));
+    const preview = screen.getByRole("dialog", { name: "Preparación" });
+    expect(within(preview).getByText("✓ Frutas")).toBeInTheDocument();
+    expect(within(preview).getAllByText("Ninguno")).toHaveLength(2);
+    fireEvent.click(within(preview).getByRole("button", { name: "Usar y completar" }));
+    expect(screen.getByText("No quedan equivalentes por completar.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirmar opción" })).toBeEnabled();
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(recipe).toEqual(libraryRecipe);
+  });
+
+  it("shows an existing excess in the projected recipe preview", () => {
+    const fat = { ...food, id: "fat", name: "Aceite", group_code: "FATS_NO_PROTEIN" as const };
+    const distribution = { ...mealDistribution, distribution: [
+      ...mealDistribution.distribution,
+      { meal_time_id: "breakfast", group_code: fat.group_code, portions: 1 },
+    ] };
+    const existing = addFoodToMenu(createDietMenu(distribution), distribution, "breakfast", fat, 2);
+    render(<DietMenuStep plan={{ ...plan, meal_distribution: distribution, diet_menu: existing }} catalog={{ foods: [food, fat], recipes: [recipe] }} onSave={vi.fn()} onGoToMeals={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar receta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ver aporte" }));
+    const preview = screen.getByRole("dialog", { name: "Preparación" });
+    expect(within(preview).getByText("+1 Sin proteína")).toBeInTheDocument();
   });
 
   it("filters starter recipes by meal type without crowding the browser", async () => {
