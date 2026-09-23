@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
+import { Field, Input } from "@/src/components/ui/FormField";
 import { QuestionField } from "@/src/components/consultations/QuestionField";
 import { InterviewReview } from "@/src/components/consultations/InterviewReview";
 import { PesCopilot, RecallCopilot } from "@/src/components/consultations/ClinicalCopilot";
@@ -46,6 +47,7 @@ import {
   loadTemplateById,
   loadSystemTemplate,
   reopenConsultationForEdit,
+  updateConsultationDate,
 } from "@/src/services/consultations";
 import { saveAnswers } from "@/src/services/consultations";
 import type { LoadedTemplate } from "@/src/services/consultations";
@@ -64,6 +66,17 @@ type ConsultationWorkspace = {
 
 const workspaceKey = (id: string) => `nuthrick:consultation-workspace:${id}`;
 
+function dateInZone(value: Date, timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone) {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(value);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
 function readWorkspace(id: string): ConsultationWorkspace | null {
   try {
     const value = JSON.parse(
@@ -80,6 +93,12 @@ export function ConsultationPage() {
   const navigate = useNavigate();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [consultation, setConsultation] = useState<Consultation | null>(null);
+  const [clinicalDate, setClinicalDate] = useState(() => dateInZone(new Date()));
+  const clinicalDateRef = useRef(clinicalDate);
+  const changeClinicalDate = (date: string) => {
+    clinicalDateRef.current = date;
+    setClinicalDate(date);
+  };
   const [snapshot, setSnapshot] = useState<ConsultationSnapshot | null>(null);
   const [latest, setLatest] = useState<LoadedTemplate | null>(null);
   const [availableTemplates, setAvailableTemplates] = useState<
@@ -138,6 +157,7 @@ export function ConsultationPage() {
             ])
           ).flat();
           setPatient(loadedPatient);
+          changeClinicalDate(dateInZone(new Date(), loadedPatient.timezone));
           setAvailableTemplates(templates);
           setOpenDrafts(drafts);
           return;
@@ -151,7 +171,10 @@ export function ConsultationPage() {
           consultationId && existingDraft?.status === "completed"
             ? await reopenConsultationForEdit(existingDraft.id)
             : (existingDraft ?? (await beginConsultation(patientId, type)));
-        const existingSnapshot = await getSnapshot(started.id);
+        const consultationForLoad = existingDraft
+          ? started
+          : await updateConsultationDate(started.id, clinicalDateRef.current, loadedPatient.timezone);
+        const existingSnapshot = await getSnapshot(consultationForLoad.id);
         const loadedTemplate =
           chosenTemplate ??
           (existingSnapshot?.template_id
@@ -159,8 +182,8 @@ export function ConsultationPage() {
             : await loadActiveTemplate(type));
         const systemTemplate = await loadSystemTemplate(type);
         const startedSnapshot =
-          existingSnapshot ?? (await ensureSnapshot(started, loadedTemplate));
-        const answers = await listAnswers(started.id, startedSnapshot.revision);
+          existingSnapshot ?? (await ensureSnapshot(consultationForLoad, loadedTemplate));
+        const answers = await listAnswers(consultationForLoad.id, startedSnapshot.revision);
         const serverValues = Object.fromEntries(
           answers.map((answer) => [answer.question_key, answer.value]),
         );
@@ -181,7 +204,8 @@ export function ConsultationPage() {
               : null,
         );
         setPatient(loadedPatient);
-        setConsultation(started);
+        setConsultation(consultationForLoad);
+        changeClinicalDate(dateInZone(new Date(consultationForLoad.consultation_date), loadedPatient.timezone));
         setSnapshot(startedSnapshot);
         setValues(nextValues);
         valuesRef.current = nextValues;
@@ -456,6 +480,22 @@ export function ConsultationPage() {
     }
   };
 
+  const saveClinicalDate = async () => {
+    if (!consultation) return;
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await updateConsultationDate(consultation.id, clinicalDate, patient?.timezone);
+      setConsultation(updated);
+      changeClinicalDate(dateInZone(new Date(updated.consultation_date), patient?.timezone));
+      setNotice("Fecha de consulta actualizada.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo actualizar la fecha.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) return <LoadingState label="Preparando entrevista…" />;
   if (!consultation && patient) {
     const initial = availableTemplates.filter(
@@ -523,6 +563,17 @@ export function ConsultationPage() {
             clínica y del tiempo transcurrido.
           </p>
         </header>
+        <div className="mt-5 max-w-sm rounded-2xl border border-[#dfe5e1] bg-white p-4">
+          <Field label="Fecha de consulta" name="new-consultation-date">
+            <Input
+              id="new-consultation-date"
+              type="date"
+              value={clinicalDate}
+              max={dateInZone(new Date(), patient.timezone)}
+              onChange={(event) => changeClinicalDate(event.target.value)}
+            />
+          </Field>
+        </div>
         {openDrafts.length > 0 && (
           <section className="mt-5 rounded-2xl border border-[#e7d3ae] bg-[#fff9eb] p-5">
             <p className="text-sm font-semibold text-[#775527]">
@@ -639,7 +690,7 @@ export function ConsultationPage() {
   const total = progress.reduce((sum, item) => sum + item.total, 0);
   const dirty = JSON.stringify(values) !== savedEncoded;
   return (
-    <div className="mx-auto min-w-0 max-w-7xl pb-28 [overflow-wrap:anywhere]">
+    <div className="mx-auto min-w-0 max-w-6xl pb-28 [overflow-wrap:anywhere]">
       <header className="rounded-[24px] bg-[#173d36] p-5 text-white sm:p-7">
         <Link
           to={"/app/patients/" + patient.id}
@@ -659,9 +710,26 @@ export function ConsultationPage() {
             <p className="mt-2 text-xs leading-5 text-white/65">
               {snapshot.template_name} · v{snapshot.template_version} · revisión{" "}
               {snapshot.revision}
-              <br />
-              {formatPatientDate(consultation.consultation_date)}
             </p>
+            <div className="mt-3 flex flex-wrap items-end gap-2">
+              <Field label="Fecha de consulta" name="consultation-date">
+                <Input
+                  id="consultation-date"
+                  type="date"
+                  value={clinicalDate}
+                  max={dateInZone(new Date(), patient.timezone)}
+                  onChange={(event) => changeClinicalDate(event.target.value)}
+                />
+              </Field>
+              <button
+                type="button"
+                className="rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold disabled:opacity-50"
+                disabled={busy || saving || clinicalDate === dateInZone(new Date(consultation.consultation_date), patient.timezone)}
+                onClick={() => void saveClinicalDate()}
+              >
+                Guardar fecha
+              </button>
+            </div>
           </div>
           <div className="flex flex-wrap items-start gap-2">
             <Link
@@ -915,7 +983,7 @@ export function ConsultationPage() {
               </button>
             </nav>
           </aside>
-          <main className="min-w-0 rounded-[24px] border border-[#dfe5e1] bg-white p-4 sm:p-7">
+          <main className="min-w-0 rounded-[24px] border border-[#dfe5e1] bg-white p-4 sm:p-6">
             <p className="nuth-eyebrow">
               {reviewing
                 ? "Antes de cerrar"

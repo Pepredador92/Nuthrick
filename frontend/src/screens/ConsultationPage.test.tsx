@@ -139,6 +139,10 @@ vi.mock("@/src/services/consultations", () => ({
   loadTemplateById: async () => fixtures.template,
   reopenConsultationForEdit: async () => fixtures.c,
   beginConsultation: async () => fixtures.c,
+  updateConsultationDate: async (_id: string, date: string) => ({
+    ...fixtures.c,
+    consultation_date: `${date}T12:00:00.000Z`,
+  }),
   listAnswers: async () => [],
   saveAnswers: mocks.save,
   finishConsultation: mocks.finish,

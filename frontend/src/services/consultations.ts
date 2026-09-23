@@ -182,6 +182,32 @@ export async function beginConsultation(
   return data as Consultation;
 }
 
+export async function updateConsultationDate(
+  consultationId: string,
+  date: string,
+  timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
+): Promise<Consultation> {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date());
+  const parsedDate = new Date(`${date}T00:00:00.000Z`);
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+    Number.isNaN(parsedDate.getTime()) ||
+    parsedDate.toISOString().slice(0, 10) !== date ||
+    date > today
+  ) {
+    throw new Error("Selecciona una fecha válida que no sea futura.");
+  }
+  const { data, error } = await supabase
+    .from("consultations")
+    .update({ consultation_date: `${date}T12:00:00.000Z` })
+    .eq("id", consultationId)
+    .eq("status", "draft")
+    .select("*")
+    .single();
+  fail(error, "No pudimos actualizar la fecha de consulta.");
+  return data as Consultation;
+}
+
 export async function getSnapshot(
   consultationId: string,
 ): Promise<ConsultationSnapshot | null> {
