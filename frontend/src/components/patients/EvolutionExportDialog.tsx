@@ -1,3 +1,4 @@
+import { requireEntitlement } from '@/src/features/admin/api';
 import { useEffect, useMemo, useState } from "react";
 import { Check, FileDown, FileText, LoaderCircle, X } from "lucide-react";
 import { EvolutionChartCard, graphableSeries } from "@/src/components/patients/EvolutionCharts";
@@ -96,8 +97,10 @@ export function EvolutionExportDialog({
       const selection = { seriesIds: selected };
       const name = `nuthrick-evolucion-${filenamePart(patient.full_name)}`;
       if (kind === "txt") {
+        await requireEntitlement('exports');
         downloadEvolutionText(`${name}.txt`, evolutionTextExport(patient, history, selection, professional));
       } else {
+        await requireEntitlement('exports');
         await downloadEvolutionPdf(`${name}.pdf`, patient, history, selection, professional);
       }
     } catch (cause) {

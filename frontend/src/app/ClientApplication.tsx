@@ -33,6 +33,12 @@ import { PatientPortalPage } from "@/src/screens/PatientPortalPage";
 import { PatientPortalOwnerPage } from "@/src/screens/PatientPortalOwnerPage";
 import { PatientMessagesPage } from "@/src/screens/PatientMessagesPage";
 
+import { AccessProvider, AdminGuard, ProfessionalAccessGate } from '@/src/features/admin/AccessProvider';
+import { AdminLayout } from '@/src/features/admin/AdminLayout';
+import { AdminHome, ProfessionalsPage, PlansPage, PlanEditorPage, CreditsPage } from '@/src/features/admin/AdminPages';
+import { ProfessionalPage } from '@/src/features/admin/ProfessionalPage';
+import { CodesPage } from '@/src/features/admin/CodesPage';
+
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -53,6 +59,7 @@ export function ClientApplication() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <AccessProvider>
         <ScrollToTop />
         <Routes>
           <Route path="/" element={<LandingPage />} />
@@ -64,8 +71,21 @@ export function ClientApplication() {
           <Route element={<OnboardingGuard />}>
             <Route path="/onboarding" element={<OnboardingPage />} />
           </Route>
+          <Route element={<AdminGuard />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminHome />} />
+              <Route path="professionals" element={<ProfessionalsPage />} />
+              <Route path="professionals/:professionalId" element={<ProfessionalPage />} />
+              <Route path="plans" element={<PlansPage />} />
+              <Route path="plans/:planId" element={<PlanEditorPage />} />
+              <Route path="access" element={<ProfessionalsPage accessMode />} />
+              <Route path="access/codes" element={<CodesPage />} />
+              <Route path="credits" element={<CreditsPage />} />
+            </Route>
+          </Route>
           <Route element={<RequireAuthentication />}>
             <Route path="/app" element={<PrivateLayout />}>
+              <Route element={<ProfessionalAccessGate />}>
               <Route index element={<DashboardPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="agenda" element={<AgendaPage />} />
@@ -90,6 +110,7 @@ export function ClientApplication() {
               />
               <Route path="diet-workshop" element={<DietWorkshopPage />} />
               <Route path="diet-workshop/:dietPlanId" element={<DietWorkshopPage />} />
+              </Route>
             </Route>
           </Route>
           <Route path="/p/:slug" element={<PublicProfilePage />} />
@@ -101,6 +122,7 @@ export function ClientApplication() {
           <Route path="/terms" element={<LegalPage type="terms" />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        </AccessProvider>
       </AuthProvider>
     </BrowserRouter>
   );
