@@ -58,6 +58,14 @@ export function exchangeContributionForFood(food: FoodItem | FoodSnapshot, amoun
   return portions > MENU_NUMERIC_EPSILON ? [{ group_code: food.group_code, portions }] : [];
 }
 
+/** Catalog portion_amount represents one exchange; only a matching pending group changes the initial amount. */
+export function initialFoodAmount(food: FoodItem, pending?: { group_code: ExchangeGroupCode; portions: number }) {
+  const portionAmount = Number(food.portion_amount);
+  return pending?.group_code === food.group_code && Number.isFinite(pending.portions) && pending.portions > 0
+    ? roundMenuNumber(pending.portions * portionAmount)
+    : portionAmount;
+}
+
 export function practicalFoodQuantity(value: number, unit: FoodItem["portion_unit"], minimum = practicalSteps[unit]) {
   if (["piece","cup","slice","tortilla"].includes(unit) && value > 0 && Math.abs(value * 3 - Math.round(value * 3)) < 0.005 && Math.round(value * 3) > 0) return round(Math.round(value * 3) / 3);
   const step = practicalSteps[unit];

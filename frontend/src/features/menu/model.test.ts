@@ -12,6 +12,7 @@ import {
   createDietMenu,
   createFoodSnapshot,
   exchangeContributionForFood,
+  initialFoodAmount,
   expandMenuEntriesToRecipeItems,
   recipeCompatibilityScore,
   reconcileDietMenu,
@@ -63,6 +64,31 @@ const recipe = (): Recipe => ({
 });
 
 describe("diet menu model", () => {
+  it.each([
+    [140, "g", 1, 140],
+    [30, "g", 2.5, 75],
+    [30, "g", 0.5, 15],
+    [1, "piece", 2, 2],
+    [0.1, "cup", 1.5, 0.15],
+  ] as const)("initializes %s %s for %s missing exchanges", (portion_amount, portion_unit, portions, expected) => {
+    const item = { ...fruit, portion_amount, portion_unit };
+    const quantity = initialFoodAmount(item, { group_code: item.group_code, portions });
+    expect(quantity).toBe(expected);
+    const menu = addFoodToMenu(createDietMenu(distribution), distribution, breakfast, item, quantity);
+    expect(activeMenu(menu).meal_menus[0].entries[0]).toMatchObject({
+      quantity: expected, unit: portion_unit, exchange_contributions: [{ group_code: item.group_code, portions }],
+    });
+  });
+
+  it("keeps the reference amount without a compatible positive pending group", () => {
+    const item = { ...fruit, portion_amount: 30 };
+    expect(initialFoodAmount(item)).toBe(30);
+    expect(initialFoodAmount(item, { group_code: "CEREALS_NO_FAT", portions: 2.5 })).toBe(30);
+    for (const portions of [0, -1, NaN, Infinity]) {
+      expect(initialFoodAmount(item, { group_code: "FRUITS", portions })).toBe(30);
+    }
+  });
+
   it("retains all menu entries and requests review when upstream distribution is reopened", () => {
     const draft = addRecipeToMenu(createDietMenu(distribution), distribution, breakfast, recipe());
     const ready = confirmDietMenu(draft, distribution);

@@ -3,8 +3,9 @@ import { weeklyFixture } from "../../../tests/fixtures/weeklyMenu";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DietMenuStep } from "@/src/components/diet/DietMenuStep";
-import { activeMenu, calculateMenuUsage, createFoodSnapshot, exchangeContributionForFood } from "@/src/features/menu/model";
+import { activeMenu, calculateMenuStatus, calculateMenuUsage, createFoodSnapshot, exchangeContributionForFood } from "@/src/features/menu/model";
 import type { CustomRecipeInput } from "@/src/services/foodCatalog";
+import { formatFoodQuantity } from "@/src/features/menu/units";
 import type { FoodItem, MealDistribution, NutritionPlan, Recipe } from "@/src/types/domain";
 
 const services = vi.hoisted(() => ({
@@ -132,6 +133,50 @@ describe("DietMenuStep", () => {
     fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
     expect(screen.getByText("Cubierto")).toBeInTheDocument();
     await waitFor(() => expect(onDraftChange).toHaveBeenCalled());
+  });
+
+  it.each([
+    ["FRUITS", "Papaya", 140, "g", 1, 140],
+    ["CEREALS_NO_FAT", "Tortilla", 1, "piece", 2, 2],
+    ["AOA_VERY_LOW_FAT", "Pollo", 30, "g", 2.5, 75],
+    ["AOA_VERY_LOW_FAT", "Pollo", 30, "g", 0.5, 15],
+  ] as const)("fills contextual %s with %s and preserves its unit", async (group_code, name, portion_amount, portion_unit, portions, expected) => {
+    const item = { ...food, group_code, name, portion_amount, portion_unit };
+    const distribution = { ...mealDistribution, distribution: [{ meal_time_id: "breakfast", group_code, portions }] };
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<DietMenuStep plan={{ ...plan, meal_distribution: distribution }} catalog={{ foods: [item], recipes: [] }} onSave={onSave} onGoToMeals={vi.fn()} />);
+    fireEvent.click(screen.getByText(`Falta ${formatFoodQuantity(portions)}`));
+    expect(screen.getByLabelText(`Cantidad de ${name}`)).toHaveValue(expected);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
+    expect(screen.getByText("Cubierto")).toBeInTheDocument();
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    const saved = onSave.mock.calls.at(-1)![0];
+    expect(activeMenu(saved).meal_menus[0].entries[0]).toMatchObject({ quantity: expected, unit: portion_unit });
+    expect(calculateMenuStatus(saved, distribution).rows[0]).toMatchObject({ portions, used: portions, remaining: 0, state: "complete" });
+    expect(distribution.distribution[0].portions).toBe(portions);
+    fireEvent.change(screen.getByLabelText(`Cantidad de ${name}`), { target: { value: String(expected / 2) } });
+    expect(screen.getByText(`Falta ${formatFoodQuantity(portions / 2)}`)).toBeInTheDocument();
+  });
+
+  it("keeps general amounts, uses the remaining gap on reopening, and recalculates manual edits", async () => {
+    const chicken = { ...food, name: "Pollo", group_code: "AOA_VERY_LOW_FAT" as const, portion_amount: 30, portion_unit: "g" as const };
+    const distribution = { ...mealDistribution, distribution: [{ meal_time_id: "breakfast", group_code: chicken.group_code, portions: 2.5 }] };
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<DietMenuStep plan={{ ...plan, meal_distribution: distribution }} catalog={{ foods: [chicken], recipes: [] }} onSave={onSave} onGoToMeals={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar alimento" }));
+    expect(screen.getByLabelText("Cantidad de Pollo")).toHaveValue(30);
+    fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
+    fireEvent.click(screen.getByText("Falta 1 ½"));
+    const amounts = screen.getAllByLabelText("Cantidad de Pollo");
+    expect(amounts.some(input => (input as HTMLInputElement).value === "45")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar buscador" }));
+    fireEvent.change(screen.getByLabelText("Cantidad de Pollo"), { target: { value: "75" } });
+    expect(screen.getByText("Cubierto")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Cantidad de Pollo"), { target: { value: "60" } });
+    expect(screen.getByText("Falta ½")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Cantidad de Pollo"), { target: { value: "90" } });
+    expect(screen.getByText("Excede ½")).toBeInTheDocument();
+    await waitFor(() => expect(calculateMenuStatus(onSave.mock.calls.at(-1)![0], distribution).rows[0]).toMatchObject({ portions: 2.5, used: 3, remaining: -0.5, state: "excess" }));
   });
 
   it("finds a canonical catalog food through an alias", async () => {
