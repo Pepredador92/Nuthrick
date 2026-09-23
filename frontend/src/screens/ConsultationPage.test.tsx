@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConsultationPage } from "./ConsultationPage";
@@ -314,6 +314,23 @@ describe("consultation save and review workflow", () => {
     expect(
       await screen.findByLabelText(/detalle breve de prueba/i),
     ).toHaveValue("Respuesta recién escrita");
+  });
+  it("uses the section cards to navigate through the existing save flow", async () => {
+    mount();
+    await screen.findByRole("heading", { name: "Apertura de prueba" });
+    fireEvent.change(screen.getByLabelText(/detalle breve de prueba/i), {
+      target: { value: "Respuesta desde tarjeta" },
+    });
+    const sections = screen.getByRole("navigation", {
+      name: "Secciones de la entrevista",
+    });
+    fireEvent.click(within(sections).getByRole("button", { name: /Cierre de prueba/ }));
+    expect(await screen.findByRole("heading", { name: "Cierre de prueba" })).toBeInTheDocument();
+    expect(mocks.save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "draft" }),
+      expect.objectContaining({ revision: 1 }),
+      { note: "Respuesta desde tarjeta" },
+    );
   });
   it("keeps answers on screen and stops navigation after a failed save", async () => {
     mocks.save.mockRejectedValue(new Error("Sin conexión. Vuelve a intentar."));

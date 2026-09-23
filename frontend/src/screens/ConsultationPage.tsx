@@ -356,10 +356,13 @@ export function ConsultationPage() {
     if (!(await save())) return;
     setActive(Math.max(0, Math.min(index, sections.length)));
     setNotice("");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    requestAnimationFrame(() =>
-      heading.current?.focus({ preventScroll: true }),
-    );
+    requestAnimationFrame(() => {
+      heading.current?.focus({ preventScroll: true });
+      heading.current?.parentElement?.scrollIntoView?.({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
   };
   const upgrade = async () => {
     if (!consultation || !snapshot || !latest) return;
@@ -699,7 +702,7 @@ export function ConsultationPage() {
           <ArrowLeft size={16} />
           Volver a la ficha
         </Link>
-        <div className="mt-5 flex flex-col gap-4 xl:flex-row xl:justify-between">
+        <div className="mt-5 flex flex-col gap-4 lg:flex-row lg:justify-between">
           <div className="min-w-0">
             <p className="text-xs text-white/65">
               {consultationLabel(consultation)} · Borrador privado
@@ -711,8 +714,11 @@ export function ConsultationPage() {
               {snapshot.template_name} · v{snapshot.template_version} · revisión{" "}
               {snapshot.revision}
             </p>
-            <div className="mt-3 flex flex-wrap items-end gap-2">
-              <Field label="Fecha de consulta" name="consultation-date">
+            <div className="mt-4 flex flex-wrap items-end gap-2">
+              <div className="space-y-2">
+                <label htmlFor="consultation-date" className="block text-xs font-semibold text-white/80">
+                  Fecha de consulta
+                </label>
                 <Input
                   id="consultation-date"
                   type="date"
@@ -720,7 +726,7 @@ export function ConsultationPage() {
                   max={dateInZone(new Date(), patient.timezone)}
                   onChange={(event) => changeClinicalDate(event.target.value)}
                 />
-              </Field>
+              </div>
               <button
                 type="button"
                 className="rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold disabled:opacity-50"
@@ -770,7 +776,7 @@ export function ConsultationPage() {
           aria-current={module === "interview" ? "page" : undefined}
           onClick={() => setModule("interview")}
           className={
-            "rounded-t-xl px-4 py-3 text-sm font-semibold " +
+            "shrink-0 whitespace-nowrap rounded-t-xl px-4 py-3 text-sm font-semibold " +
             (module === "interview"
               ? "bg-[#eaf3ec] text-[#285647]"
               : "text-[#66766f] hover:bg-white")
@@ -783,7 +789,7 @@ export function ConsultationPage() {
           aria-current={module === "measurements" ? "page" : undefined}
           onClick={() => setModule("measurements")}
           className={
-            "rounded-t-xl px-4 py-3 text-sm font-semibold " +
+            "shrink-0 whitespace-nowrap rounded-t-xl px-4 py-3 text-sm font-semibold " +
             (module === "measurements"
               ? "bg-[#eaf3ec] text-[#285647]"
               : "text-[#66766f] hover:bg-white")
@@ -796,7 +802,7 @@ export function ConsultationPage() {
           aria-current={module === "laboratories" ? "page" : undefined}
           onClick={() => setModule("laboratories")}
           className={
-            "rounded-t-xl px-4 py-3 text-sm font-semibold " +
+            "shrink-0 whitespace-nowrap rounded-t-xl px-4 py-3 text-sm font-semibold " +
             (module === "laboratories"
               ? "bg-[#eaf3ec] text-[#285647]"
               : "text-[#66766f] hover:bg-white")
@@ -809,7 +815,7 @@ export function ConsultationPage() {
           aria-current={module === "evolution" ? "page" : undefined}
           onClick={() => setModule("evolution")}
           className={
-            "rounded-t-xl px-4 py-3 text-sm font-semibold " +
+            "shrink-0 whitespace-nowrap rounded-t-xl px-4 py-3 text-sm font-semibold " +
             (module === "evolution"
               ? "bg-[#eaf3ec] text-[#285647]"
               : "text-[#66766f] hover:bg-white")
@@ -819,7 +825,7 @@ export function ConsultationPage() {
         </button>
         <Link
           to={`/app/diet-workshop?patientId=${patient.id}&consultationId=${consultation.id}`}
-          className="flex shrink-0 items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold text-[#66766f] hover:bg-white"
+          className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-t-xl px-4 py-3 text-sm font-semibold text-[#66766f] hover:bg-white"
         >
           <Salad size={15} />
           Taller de dietas
@@ -906,84 +912,97 @@ export function ConsultationPage() {
             {error}
           </div>
         )}
-        <div className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[225px_minmax(0,1fr)]">
-          <aside className="min-w-0 xl:sticky xl:top-24 xl:h-fit">
-            <div className="mb-4">
-              <p className="text-xs font-semibold text-[#496758]">
-                {answered} de {total} preguntas visibles con respuesta
-              </p>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#dfe8e1]">
-                <div
-                  className="h-full rounded-full bg-[#709883]"
-                  style={{
-                    width: (total ? (answered / total) * 100 : 0) + "%",
-                  }}
-                />
-              </div>
-              <p className="mt-2 text-[10px] text-[#839188]">
-                Orientativo; los campos opcionales no bloquean el cierre.
-              </p>
+        <section className="mt-5 min-w-0 rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-7" aria-label="Tu entrevista">
+          <p className="nuth-eyebrow">Tu entrevista</p>
+          <h2 className="mt-2 text-2xl font-semibold text-[#173d36]">
+            {snapshot.template_name}
+          </h2>
+          <p className="mt-2 text-sm text-[#607269]">
+            {sections.length} secciones · {total} preguntas visibles
+          </p>
+          <div className="mt-5 max-w-md">
+            <p className="text-xs font-semibold text-[#496758]">
+              {answered} de {total} preguntas visibles con respuesta
+            </p>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#dfe8e1]">
+              <div
+                className="h-full rounded-full bg-[#709883]"
+                style={{ width: (total ? (answered / total) * 100 : 0) + "%" }}
+              />
             </div>
-            <label
-              className="text-xs font-semibold xl:hidden"
-              htmlFor="interview-section"
-            >
-              Ir a una sección
-            </label>
-            <select
-              id="interview-section"
-              className="nuth-input mt-2 !min-w-0 xl:hidden"
-              disabled={busy}
-              value={active}
-              onChange={(event) => void goTo(Number(event.target.value))}
-            >
-              {sections.map((section, index) => (
-                <option key={section.section_key} value={index}>
-                  {index + 1}. {section.title}
-                </option>
-              ))}
-              <option value={sections.length}>Revisar y cerrar</option>
-            </select>
-            <nav
-              aria-label="Secciones de la entrevista"
-              className="hidden space-y-1 xl:block"
-            >
-              {sections.map((section, index) => (
-                <button
-                  type="button"
-                  key={section.section_key}
-                  disabled={busy}
-                  aria-current={active === index ? "step" : undefined}
-                  onClick={() => void goTo(index)}
-                  className={
-                    "flex w-full items-start gap-2 rounded-xl px-3 py-2.5 text-left text-xs leading-5 " +
-                    (active === index
-                      ? "bg-[#dfebe2] font-semibold text-[#285647]"
-                      : "text-[#687870] hover:bg-white")
-                  }
-                >
-                  <span className="w-4 shrink-0 opacity-60">{index + 1}</span>
-                  <span className="flex-1">{section.title}</span>
-                  <span className="shrink-0 text-[10px] opacity-70">
-                    {progress[index].answered}/{progress[index].total}
-                  </span>
-                </button>
-              ))}
+            <p className="mt-2 text-xs text-[#74817d]">
+              Orientativo; los campos opcionales no bloquean el cierre.
+            </p>
+          </div>
+          <label htmlFor="interview-section" className="mt-5 block text-xs font-semibold text-[#496758] sm:hidden">
+            Ir a una sección
+          </label>
+          <select
+            id="interview-section"
+            className="nuth-input mt-2 !min-w-0 sm:hidden"
+            disabled={busy}
+            value={active}
+            onChange={(event) => void goTo(Number(event.target.value))}
+          >
+            {sections.map((section, index) => (
+              <option key={section.section_key} value={index}>
+                {index + 1}. {section.title}
+              </option>
+            ))}
+            <option value={sections.length}>Revisar y cerrar</option>
+          </select>
+          <nav aria-label="Secciones de la entrevista" className="mt-5 hidden max-h-80 gap-2 overflow-y-auto pr-1 sm:grid sm:grid-cols-2">
+            {sections.map((section, index) => (
               <button
                 type="button"
+                key={section.section_key}
                 disabled={busy}
-                onClick={() => void goTo(sections.length)}
+                aria-current={active === index ? "step" : undefined}
+                onClick={() => void goTo(index)}
                 className={
-                  "mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-3 text-xs font-semibold " +
-                  (reviewing ? "bg-[#dfebe2] text-[#285647]" : "text-[#3d705d]")
+                  "flex min-w-0 items-start gap-3 rounded-xl border p-4 text-left transition-colors disabled:opacity-50 " +
+                  (active === index
+                    ? "border-[#709883] bg-[#edf4ee]"
+                    : "border-[#e3e9e4] hover:bg-[#f4f7f3]")
                 }
               >
-                <ClipboardCheck size={16} />
-                Revisar y cerrar
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#edf4ee] text-sm font-semibold text-[#173d36]">
+                  {index + 1}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-[#29423b]">{section.title}</span>
+                  <span className="mt-1 block text-xs text-[#607269]">
+                    {progress[index].answered} de {progress[index].total} con respuesta
+                  </span>
+                  {section.description && (
+                    <span className="mt-1 line-clamp-2 block text-xs text-[#74817d]">
+                      {section.description}
+                    </span>
+                  )}
+                </span>
               </button>
-            </nav>
-          </aside>
-          <main className="min-w-0 rounded-[24px] border border-[#dfe5e1] bg-white p-4 sm:p-6">
+            ))}
+            <button
+              type="button"
+              disabled={busy}
+              aria-current={reviewing ? "step" : undefined}
+              onClick={() => void goTo(sections.length)}
+              className={
+                "flex min-w-0 items-start gap-3 rounded-xl border p-4 text-left transition-colors disabled:opacity-50 " +
+                (reviewing
+                  ? "border-[#709883] bg-[#edf4ee]"
+                  : "border-[#e3e9e4] hover:bg-[#f4f7f3]")
+              }
+            >
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#edf4ee] text-[#173d36]">
+                <ClipboardCheck size={16} />
+              </span>
+              <span className="text-sm font-semibold text-[#29423b]">Revisar y cerrar</span>
+            </button>
+          </nav>
+        </section>
+        <div className="mt-5 min-w-0">
+          <main className="min-w-0 rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-7">
             <p className="nuth-eyebrow">
               {reviewing
                 ? "Antes de cerrar"
