@@ -110,6 +110,55 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 describe("private agenda", () => {
+  it("separates calendar event sync from later availability verification", async () => {
+    vi.mocked(loadAgenda).mockResolvedValue({
+      entries: [{ ...entry, calendar_status: "synced" }],
+      requests: [],
+    });
+    mount();
+    await screen.findByText("Google Calendar: sincronizado");
+    expect(
+      screen.queryByText(/No pudimos verificar si hubo cambios recientes/),
+    ).not.toBeInTheDocument();
+
+    cleanup();
+    vi.mocked(loadAgenda).mockResolvedValue({
+      entries: [
+        {
+          ...entry,
+          calendar_status: "synced",
+          calendar_check_error: "google_unavailable",
+        },
+      ],
+      requests: [],
+    });
+    mount();
+    await screen.findByText(
+      /La cita está sincronizada, pero la disponibilidad mostrada podría no estar actualizada/,
+    );
+    expect(screen.getByText("Google Calendar: sincronizado")).toBeInTheDocument();
+
+    cleanup();
+    vi.mocked(loadAgenda).mockResolvedValue({
+      entries: [
+        {
+          ...entry,
+          calendar_status: "failed",
+          calendar_check_error: "google_unavailable",
+        },
+      ],
+      requests: [],
+    });
+    mount();
+    await screen.findByText("Google Calendar: no sincronizado");
+    expect(
+      screen.getByRole("button", { name: "Reintentar sincronización" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/No pudimos verificar si hubo cambios recientes/),
+    ).not.toBeInTheDocument();
+  });
+
   it('confirms a pending reservation only after the explicit confirmation dialog', async () => {
     vi.mocked(loadAgenda).mockResolvedValue({entries:[{...entry,requires_confirmation:true,registration_status:'review',contact_phone:'+524920000001'}],requests:[]});
     mount();

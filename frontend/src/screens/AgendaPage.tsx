@@ -332,12 +332,12 @@ export function AgendaPage() {
                     }[e.notification_status] || e.notification_status}
                   </span>
                   <span>
-                    Google:{" "}
+                    Google Calendar:{" "}
                     {e.requires_confirmation ? 'se sincroniza al confirmar' : {
                       not_connected: "sin conexión",
                       pending: "pendiente",
                       synced: "sincronizado",
-                      failed: "requiere revisión",
+                      failed: "no sincronizado",
                       conflict: "conflicto externo",
                     }[e.calendar_status] || e.calendar_status}
                   </span>
@@ -348,10 +348,12 @@ export function AgendaPage() {
                       atender. No modificamos eventos externos.
                     </p>
                   )}
-                  {e.calendar_check_error && (
+                  {e.calendar_check_error &&
+                    ["synced", "conflict"].includes(e.calendar_status) && (
                     <p className="w-full text-[#963f34]" role="status">
-                      No pudimos revisar los cambios recientes en Google. El
-                      último estado no confirma la disponibilidad actual.
+                      No pudimos verificar si hubo cambios recientes en tu
+                      calendario. La cita está sincronizada, pero la
+                      disponibilidad mostrada podría no estar actualizada.
                     </p>
                   )}
                   {e.calendar_status === "failed" && (
