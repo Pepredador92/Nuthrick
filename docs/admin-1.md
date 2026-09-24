@@ -1,5 +1,6 @@
 # ADMIN-1 — Control de Nuthrick
 
+> Actualización posterior: [Configuración comercial inicial](commercial-configuration.md) amplía ADMIN-1 y sustituye su política original de suspensión por lectura permitida con escrituras bloqueadas.
 ## Arquitectura y seguridad
 
 La interfaz privada vive en `/admin`. El frontend usa `my_access()` para UX y `admin_api(action, data)` para operaciones administrativas. La autorización real ocurre en PostgreSQL: una fachada `SECURITY INVOKER` llama a una implementación `SECURITY DEFINER` en `private`, con `search_path=''`, que exige `auth.uid()` en `platform_admins` y `enabled=true` **en cada llamada**. Ni email, metadatos editables ni parámetros de URL conceden acceso. El rol no concede acceso a expedientes clínicos.

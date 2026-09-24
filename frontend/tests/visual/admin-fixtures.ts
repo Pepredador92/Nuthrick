@@ -13,6 +13,9 @@ const entries = [
   ["public_profile", "Perfil público", "Paciente"],
   ["patient_superlink", "Superlink y mensajes", "Paciente"],
   ["exports", "Exportaciones", "Paciente"],
+  ["exports.tex", "LaTeX para el profesional", "Paciente"],
+  ["exports.advanced", "Exportaciones avanzadas", "Paciente"],
+  ["diet_library.full", "Biblioteca completa", "Taller"],
   ["agenda", "Agenda", "Agenda"],
   ["ai.recall_24h", "Recordatorio de 24 horas", "IA"],
   ["ai.pes", "Diagnóstico PES", "IA"],
@@ -57,7 +60,7 @@ const catalog: Catalog = {
       id: "full",
       code: "full_access",
       name: "Nuthrick Full Access",
-      description: "Acceso administrativo temporal.",
+      description: "Acceso administrativo sin vencimiento.",
       active: true,
       display_order: 0,
       monthly_price: null,
@@ -67,6 +70,38 @@ const catalog: Catalog = {
     },
   ],
 };
+catalog.plans.forEach((plan) => {
+  plan.internal_only = true;
+});
+catalog.plans.unshift(
+  ...(["Esencial", "Profesional"] as const).map((name, i) => ({
+    ...catalog.plans[0],
+    id: name.toLowerCase(),
+    code: name.toLowerCase(),
+    name,
+    internal_only: false,
+    credits_provisional: true,
+    description: i
+      ? "Para una consulta activa, con pacientes ilimitados y Taller IA."
+      : "Para comenzar con herramientas clínicas y 30 pacientes activos.",
+    monthly_price: i ? 499 : 349,
+    annual_price: i ? 4990 : 3490,
+    values: {
+      ...Object.fromEntries(
+        entries.map(([key, , group]) => [
+          key,
+          group === "Límites" ? "unlimited" : true,
+        ]),
+      ),
+      "patients.limit": i ? ("unlimited" as const) : 30,
+      "ai.monthly_credits": i ? 50 : 10,
+      "ai.diet_draft": !!i,
+      "exports.tex": !!i,
+      "exports.advanced": !!i,
+      "diet_library.full": !!i,
+    },
+  })),
+);
 const p: ProfessionalDetail = {
   id: "pilot",
   name: "José Pérez · Demo",
@@ -116,43 +151,45 @@ export const supabase = {
   rpc: async (name: string, args?: { p_action: string }) => ({
     error: null,
     data:
-      name === "my_access"
-        ? { is_admin: true, access: p.access }
-        : ((
-            {
-              overview: { registered: 5, active: 2, trial: 3, suspended: 0 },
-              catalog,
-              professional: p,
-              professionals: {
-                items: [
-                  p,
+      name === "plan_catalog"
+        ? catalog.plans.filter((plan) => !plan.internal_only)
+        : name === "my_access"
+          ? { is_admin: true, access: p.access }
+          : ((
+              {
+                overview: { registered: 5, active: 2, trial: 3, suspended: 0 },
+                catalog,
+                professional: p,
+                professionals: {
+                  items: [
+                    p,
+                    {
+                      ...p,
+                      id: "maria",
+                      name: "María Rodríguez · Demo",
+                      email: "maria.piloto@example.test",
+                      credits: 0,
+                    },
+                  ],
+                  total: 2,
+                },
+                audit: p.audit,
+                ai_summary: { accounts: [p], usage: [] },
+                codes: [
                   {
-                    ...p,
-                    id: "maria",
-                    name: "María Rodríguez · Demo",
-                    email: "maria.piloto@example.test",
-                    credits: 0,
+                    id: "beta-code",
+                    name: "Piloto de cinco profesionales",
+                    plan_id: "beta",
+                    duration_days: 90,
+                    initial_ai_credits: 0,
+                    max_redemptions: 5,
+                    redeemed_count: 2,
+                    starts_at: "2026-09-23T12:00:00Z",
+                    expires_at: "2026-12-31T06:00:00Z",
+                    active: true,
                   },
                 ],
-                total: 2,
-              },
-              audit: p.audit,
-              ai_summary: { accounts: [p], usage: [] },
-              codes: [
-                {
-                  id: "beta-code",
-                  name: "Piloto de cinco profesionales",
-                  plan_id: "beta",
-                  duration_days: 90,
-                  initial_ai_credits: 0,
-                  max_redemptions: 5,
-                  redeemed_count: 2,
-                  starts_at: "2026-09-23T12:00:00Z",
-                  expires_at: "2026-12-31T06:00:00Z",
-                  active: true,
-                },
-              ],
-            } as Record<string, unknown>
-          )[args?.p_action ?? ""] ?? { saved: true }),
+              } as Record<string, unknown>
+            )[args?.p_action ?? ""] ?? { saved: true }),
   }),
 };

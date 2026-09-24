@@ -99,6 +99,10 @@ try {
   console.log(
     "PASS SQL authorization, plans, resolver, courtesy, credits, codes, suspension and isolation",
   );
+  for (const name of readdirSync(new URL("supabase/migrations/", root)).filter(n => n.endsWith("_commercial_configuration.sql")))
+    psql(database, "begin;\n" + readFileSync(new URL("supabase/migrations/" + name, root), "utf8") + "\ncommit;");
+  psql(database, readFileSync(new URL("scripts/test-commercial.sql", root), "utf8"));
+  console.log("PASS commercial plans, active-patient quotas, read-only suspension, founder and monthly allocation");
   const admin = "d0000000-0000-4000-8000-000000000001",
     a = "d0000000-0000-4000-8000-000000000002",
     b = "d0000000-0000-4000-8000-000000000003";
@@ -216,6 +220,14 @@ try {
     1,
   );
   console.log("PASS monthly consultation quota cannot be backdated or raced");
+  const recurring = "d0000000-0000-4000-8000-000000000009";
+  psql(database, `insert into auth.users(id,email,email_confirmed_at) values('${recurring}','monthly-race@example.test',now());`);
+  await concurrent(admin, `select public.admin_api('set_access',jsonb_build_object('professional_id','${recurring}','plan_id',(select p->>'id' from jsonb_array_elements(public.admin_api('catalog')->'plans') p where p->>'code'='profesional'),'status','active','starts_at',now()-interval '1 day','ends_at',now()+interval '1 year','billing_interval','annual','reason','period race'))`);
+  await Promise.all(Array.from({length:8},()=>concurrent(admin, `select public.admin_api('allocate_credits','{"professional_id":"${recurring}","reason":"Concurrent monthly jobs"}')`)));
+  assert.equal(psql(database, `select included_credits from private.ai_accounts where professional_id='${recurring}'`).trim(),"50.000");
+  assert.equal(psql(database, `select count(*) from private.ai_credit_ledger where professional_id='${recurring}' and type='PLAN_ALLOCATION'`).trim(),"1");
+  assert.equal(psql(database, `select count(*) from private.admin_audit where target_professional='${recurring}' and action='allocate_credits'`).trim(),"1");
+  console.log("PASS eight concurrent monthly allocations produce one grant and one audit");
   // Real PostgREST role switching and HTTP status, with a dedicated local-only JWT.
   const dbInfo = JSON.parse(
     execFileSync("docker", ["inspect", container], { encoding: "utf8" }),

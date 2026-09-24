@@ -1,3 +1,4 @@
+import { accessMessages } from "@/src/features/admin/api";
 import { supabase } from "@/src/lib/supabase";
 import type {
   Consultation,
@@ -31,6 +32,7 @@ const unwrap = <T>(
   error: { message: string; code?: string } | null,
 ): T => {
   if (error) {
+    if (accessMessages[error.message]) throw new Error(accessMessages[error.message]);
     if (error.code === "23505")
       throw new Error("Ya existe un registro con esos datos.");
     if (error.code === "42501" || error.code === "PGRST116")
@@ -45,9 +47,10 @@ const unwrap = <T>(
 };
 
 function friendlyError(
-  error: { code?: string } | null,
+  error: { code?: string; message?: string } | null,
   fallback = "No pudimos completar la operación. Intenta nuevamente.",
 ): Error {
+  if (error?.message && accessMessages[error.message]) return new Error(accessMessages[error.message]);
   if (error?.code === "23505")
     return new Error("Ya existe un registro con esos datos.");
   if (error?.code === "42501" || error?.code === "PGRST116")
@@ -163,6 +166,7 @@ export async function getPatientCounters(): Promise<PatientCounters> {
       .from("patients")
       .select("id", { count: "exact", head: true })
       .is("deleted_at", null)
+      .is("archived_at", null)
       .eq("status", "active"),
   ]);
   if (totalResult.error) throw friendlyError(totalResult.error);

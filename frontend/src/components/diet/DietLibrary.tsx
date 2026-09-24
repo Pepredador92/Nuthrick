@@ -1,3 +1,5 @@
+import {useAccess} from "@/src/features/admin/AccessProvider";
+import {canReadFeature} from "@/src/features/admin/api";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BookOpen, Copy, Archive, X, Library, Save, Undo2 } from "lucide-react";
 import type { NutritionPlan, ExchangeTargetSnapshot } from "@/src/types/domain";
@@ -161,6 +163,8 @@ export function DietLibrary({
   editingSource?: { id: string; revision: number };
   onSaved?: (item: DietLibraryItem) => void;
 }) {
+  const {data:accessData}=useAccess();
+  const basicLibrary=Boolean(accessData && !canReadFeature(accessData.access,"diet_library.full"));
   const [items, setItems] = useState<DietLibraryItem[]>([]);
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState("mine");
@@ -379,6 +383,7 @@ export function DietLibrary({
       className="min-w-0 rounded-2xl border border-[#dfe6e1] bg-white p-4 sm:p-5"
       aria-label="Biblioteca de dietas y planes"
     >
+      {basicLibrary && <p className="mb-3 text-sm text-[#6b7f73]">Biblioteca básica: tus bases y una selección inicial compartida. La biblioteca completa está disponible en Profesional.</p>}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-semibold">

@@ -9,12 +9,14 @@ import {
   CreditsPage,
 } from "../../src/features/admin/AdminPages";
 import { ProfessionalPage } from "../../src/features/admin/ProfessionalPage";
+import { CommercialPlansPage } from "../../src/features/admin/CommercialPlansPage";
 import { CodesPage } from "../../src/features/admin/CodesPage";
 import "../../app/globals.css";
 const view = new URLSearchParams(location.search).get("view") ?? "";
 createRoot(document.getElementById("root")!).render(
   <MemoryRouter initialEntries={["/admin" + view]}>
     <Routes>
+      <Route path="/admin/commercial-plans" element={<CommercialPlansPage />} />
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminHome />} />
         <Route path="professionals" element={<ProfessionalsPage />} />

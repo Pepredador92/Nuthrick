@@ -9,7 +9,7 @@ import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/src/features/auth/AuthProvider";
 import { LoadingState } from "@/src/components/ui/Status";
 import {
-  canUseFeature,
+  canReadFeature,
   fetchMyAccess,
   type MyAccess,
   statusLabels,
@@ -147,7 +147,7 @@ export function ProfessionalAccessGate() {
         </button>
       </div>
     );
-  if (!data?.access.allowed || (key && !canUseFeature(data.access, key)))
+  if (!data?.access.allowed || (key && !canReadFeature(data.access, key)))
     return (
       <section className="rounded-3xl border border-[#dce5de] bg-white p-8">
         <p className="text-sm text-[#687b70]">
@@ -162,6 +162,9 @@ export function ProfessionalAccessGate() {
           Contacta a la administración de Nuthrick para revisar tu plan o
           vigencia.
         </p>
+        <Link to="/planes" className="nuth-button-secondary mt-5 mr-3">
+          Ver planes
+        </Link>
         {data?.is_admin && (
           <Link to="/admin" className="nuth-button mt-5">
             Ir a administración
@@ -169,5 +172,19 @@ export function ProfessionalAccessGate() {
         )}
       </section>
     );
-  return <Outlet />;
+  return (
+    <>
+      {data.access.read_only && (
+        <div
+          role="status"
+          className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
+        >
+          Tu cuenta está en modo de consulta. Puedes revisar expedientes e
+          históricos. Las altas, cambios, publicaciones, mensajes y generaciones
+          de IA están suspendidos.
+        </div>
+      )}
+      <Outlet />
+    </>
+  );
 }

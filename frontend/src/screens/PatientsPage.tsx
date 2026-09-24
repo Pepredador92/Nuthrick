@@ -1,3 +1,5 @@
+import { useAccess } from "@/src/features/admin/AccessProvider";
+import { getLimit } from "@/src/features/admin/api";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -506,6 +508,8 @@ function FiltersPanel({
 }
 
 export function PatientsPage() {
+  const {data:accessData}=useAccess();
+  const patientLimit=accessData ? getLimit(accessData.access,"patients.limit") : "unlimited";
   const [rows, setRows] = useState<Patient[]>([]);
   const [total, setTotal] = useState(0);
   const [addedTotal, setAddedTotal] = useState(0);
@@ -643,6 +647,7 @@ export function PatientsPage() {
         </div>
         <button
           type="button"
+          disabled={accessData?.access.read_only || (patientLimit !== "unlimited" && activeTotal >= patientLimit)}
           onClick={() => setModal(true)}
           className="nuth-button"
         >
@@ -650,6 +655,7 @@ export function PatientsPage() {
           Agregar paciente
         </button>
       </div>
+      {patientLimit !== "unlimited" && <p role="status" className="mt-4 rounded-xl bg-[#eef3e9] p-4 text-sm">{activeTotal} / {patientLimit} pacientes activos. {activeTotal >= patientLimit ? "Has alcanzado el límite de pacientes activos de tu plan. Puedes seguir trabajando con tus expedientes y archivar pacientes para liberar cupo." : "Los pacientes archivados no consumen cupo."} <Link to="/planes" className="font-semibold underline">Ver planes</Link></p>}
       {notice && (
         <div className="mt-5">
           <SuccessNote>{notice}</SuccessNote>
@@ -745,7 +751,8 @@ export function PatientsPage() {
                 <button
                   type="button"
                   className="nuth-button"
-                  onClick={() => setModal(true)}
+                  disabled={accessData?.access.read_only || (patientLimit !== "unlimited" && activeTotal >= patientLimit)}
+          onClick={() => setModal(true)}
                 >
                   <Plus size={17} />
                   Agregar paciente

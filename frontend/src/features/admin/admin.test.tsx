@@ -351,3 +351,116 @@ describe("admin workflows", () => {
     );
   });
 });
+
+describe("initial commercial configuration", () => {
+  it("keeps suspended clinical history accessible while denying operational capabilities", async () => {
+    mocks.rpc.mockResolvedValue({
+      error: null,
+      data: {
+        is_admin: false,
+        access: { ...access, status: "suspended", read_only: true },
+      },
+    });
+    render(
+      <MemoryRouter initialEntries={["/app/patients"]}>
+        <AccessProvider>
+          <Routes>
+            <Route element={<ProfessionalAccessGate />}>
+              <Route
+                path="/app/patients"
+                element={<p>Histórico del paciente</p>}
+              />
+            </Route>
+          </Routes>
+        </AccessProvider>
+      </MemoryRouter>,
+    );
+    expect(
+      await screen.findByText("Histórico del paciente"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("modo de consulta");
+    expect(canUseFeature({ ...access, read_only: true }, "patients")).toBe(
+      false,
+    );
+  });
+  it("allows prices and internal visibility to be edited without changing code", async () => {
+    route(<PlanEditorPage />, "/admin/plans/:planId", "/admin/plans/beta");
+    await screen.findByDisplayValue("Nuthrick Beta");
+    fireEvent.change(screen.getByLabelText("Precio mensual"), {
+      target: { value: "349" },
+    });
+    fireEvent.change(screen.getByLabelText("Precio anual"), {
+      target: { value: "3490" },
+    });
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Solo administración/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    await waitFor(() =>
+      expect(mocks.rpc).toHaveBeenCalledWith("admin_api", {
+        p_action: "save_plan",
+        p_data: expect.objectContaining({
+          monthly_price: 349,
+          annual_price: 3490,
+          internal_only: false,
+        }),
+      }),
+    );
+  });
+  it("creates a permanent founder grant with optional agreed price and an audit reason", async () => {
+    route(
+      <ProfessionalPage />,
+      "/admin/professionals/:professionalId",
+      "/admin/professionals/professional",
+    );
+    await screen.findByText("Profesional de prueba");
+    fireEvent.click(screen.getByRole("button", { name: "Acceso Founder" }));
+    fireEvent.change(screen.getByLabelText("Motivo administrativo"), {
+      target: { value: "Early adopter" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Otorgar acceso permanente" }),
+    );
+    await waitFor(() =>
+      expect(mocks.rpc).toHaveBeenCalledWith("admin_api", {
+        p_action: "grant_founder",
+        p_data: expect.objectContaining({
+          ends_at: null,
+          one_time_price: null,
+          reason: "Early adopter",
+        }),
+      }),
+    );
+  });
+  it("keeps founder code redemption limits while removing a finite access duration", async () => {
+    route(<CodesPage />, "/admin/access/codes", "/admin/access/codes");
+    await screen.findByText(
+      "Crea el primer código para tus profesionales piloto.",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Crear código" }));
+    fireEvent.change(screen.getByLabelText("Nombre administrativo"), {
+      target: { value: "Founder privado" },
+    });
+    fireEvent.change(screen.getByLabelText("Código para compartir"), {
+      target: { value: "FOUNDERS" },
+    });
+    fireEvent.change(screen.getByLabelText("Tipo de acceso"), {
+      target: { value: "founder" },
+    });
+    expect(
+      screen.queryByLabelText("Días de acceso gratuito"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar código" }));
+    await waitFor(() =>
+      expect(mocks.rpc).toHaveBeenCalledWith("admin_api", {
+        p_action: "save_code",
+        p_data: expect.objectContaining({
+          access_kind: "founder",
+          duration_days: null,
+          max_redemptions: 5,
+          initial_ai_credits: 0,
+        }),
+      }),
+    );
+  });
+});

@@ -8,6 +8,13 @@ export type Access = {
   starts_at: string | null;
   ends_at: string | null;
   allowed: boolean;
+  read_only?: boolean;
+  arrangement?: string;
+  patient_usage?: {
+    active: number;
+    limit: number | "unlimited";
+    over_limit: boolean;
+  };
   values: Record<string, EntitlementValue>;
   sources: Record<string, string>;
 };
@@ -25,6 +32,8 @@ export type Plan = {
   name: string;
   description: string;
   active: boolean;
+  internal_only?: boolean;
+  credits_provisional?: boolean;
   display_order: number;
   monthly_price: number | null;
   annual_price: number | null;
@@ -39,6 +48,7 @@ export type Professional = {
   email: string;
   created_at: string;
   last_activity: string | null;
+  onboarding_completed?: boolean;
   access: Access;
   credits: number;
 };
@@ -61,10 +71,12 @@ export type Grant = {
   id: string;
   plan_id: string;
   starts_at: string;
-  ends_at: string;
+  ends_at: string | null;
+  grant_kind?: "courtesy" | "founder";
 };
 export type ProfessionalDetail = Professional & {
   base_access: {
+    billing_interval?: "manual" | "monthly" | "annual";
     plan_id: string;
     status: string;
     starts_at: string;
@@ -91,7 +103,8 @@ export type AccessCode = {
   id?: string;
   name: string;
   plan_id: string;
-  duration_days: number;
+  access_kind?: "trial" | "founder";
+  duration_days: number | null;
   initial_ai_credits: number;
   max_redemptions: number;
   redeemed_count: number;
@@ -100,6 +113,11 @@ export type AccessCode = {
   active: boolean;
 };
 const messages: Record<string, string> = {
+  finite_monthly_credits_required:
+    "Define una cantidad finita de créditos mensuales.",
+  commercial_end_required: "Indica el vencimiento del período mensual o anual.",
+  unsettled_period:
+    "Hay créditos incluidos reservados. Completa su conciliación antes de renovar.",
   admin_required: "Acceso denegado. Esta cuenta no administra Nuthrick.",
   reason_required: "Escribe un motivo administrativo.",
   stale_revision: "El plan cambió en otra sesión. Recarga antes de guardar.",
@@ -139,8 +157,35 @@ export function canUseFeature(
   access: Access | null | undefined,
   key: string,
 ): boolean {
+  return (
+    access?.allowed === true && !access.read_only && access.values[key] === true
+  );
+}
+export function canReadFeature(
+  access: Access | null | undefined,
+  key: string,
+): boolean {
   return access?.allowed === true && access.values[key] === true;
 }
+export const accessMessages: Record<string, string> = {
+  patients_limit_reached:
+    "Has alcanzado el límite de pacientes activos de tu plan. Archiva un paciente para liberar cupo o consulta los planes disponibles.",
+  consultations_limit_reached:
+    "Has alcanzado el límite de consultas de este período.",
+  account_read_only:
+    "Tu cuenta está en modo de consulta. Puedes revisar tu información, pero no guardar cambios ni generar con IA.",
+  entitlement_required:
+    "Esta función no está incluida en tu acceso. Consulta los planes disponibles.",
+  library_tier_required:
+    "La biblioteca completa está disponible en Profesional.",
+};
+export const arrangementLabels: Record<string, string> = {
+  manual: "Administrativo",
+  monthly: "Mensual",
+  annual: "Anual",
+  courtesy: "Cortesía temporal",
+  founder: "Founder · permanente",
+};
 export function getLimit(
   access: Access | null | undefined,
   key: string,
@@ -172,6 +217,9 @@ export const actionLabels: Record<string, string> = {
   save_plan: "Plan actualizado",
   set_access: "Acceso asignado",
   grant_access: "Cortesía otorgada",
+  grant_founder: "Acceso Founder otorgado",
+  allocate_credits: "Créditos mensuales asignados",
+  commercial_catalog_configured: "Catálogo comercial configurado",
   suspend: "Cuenta suspendida",
   reactivate: "Cuenta reactivada",
   set_override: "Excepción creada",
@@ -204,5 +252,8 @@ export function valueLabel(value: EntitlementValue | undefined) {
 export async function requireEntitlement(key: string): Promise<void> {
   const { error } = await supabase.rpc("require_entitlement", { p_key: key });
   if (error)
-    throw new Error("Esta función no está incluida en el acceso de tu cuenta.");
+    throw new Error(
+      accessMessages[error.message] ??
+        "Esta función no está incluida en el acceso de tu cuenta.",
+    );
 }

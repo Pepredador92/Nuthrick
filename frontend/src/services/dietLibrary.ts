@@ -1,3 +1,4 @@
+import { accessMessages } from "@/src/features/admin/api";
 import { supabase } from "@/src/lib/supabase";
 import {
   copyLibraryWorkspace,
@@ -11,9 +12,9 @@ import type { NutritionPlan } from "@/src/types/domain";
 
 const fail = (error: { message?: string; code?: string }) =>
   new Error(
-    error.code === "40001"
+    accessMessages[error.message ?? ""] ?? (error.code === "40001"
       ? error.message
-      : "No pudimos completar la operación en la biblioteca. Intenta de nuevo.",
+      : "No pudimos completar la operación en la biblioteca. Intenta de nuevo."),
   );
 const stable = (value: unknown) =>
   JSON.stringify(value, (_key, v: unknown) =>

@@ -1,3 +1,4 @@
+import { accessMessages } from "@/src/features/admin/api";
 import { supabase } from "@/src/lib/supabase";
 import type {
   Consultation,
@@ -14,6 +15,7 @@ function fail(
   fallback = "No pudimos guardar. Tus cambios siguen en pantalla; vuelve a intentarlo.",
 ): never | void {
   if (!error) return;
+  if (error.message && accessMessages[error.message]) throw new Error(accessMessages[error.message]);
   if (error.code === "23505")
     throw new Error(
       "Ya existe un registro con ese orden o identificador. Recarga para ver la versión actual.",

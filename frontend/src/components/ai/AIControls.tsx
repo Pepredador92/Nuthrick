@@ -1,9 +1,13 @@
 import { useEffect, useState, type ButtonHTMLAttributes } from 'react';
+import {useAccess} from '@/src/features/admin/AccessProvider';
+import {canUseFeature} from '@/src/features/admin/api';
 import { LoaderCircle } from 'lucide-react';
 import { aiMessages, getAIBalance, type AIBalance, type AIState } from '@/src/services/ai';
 
-export function AIButton({ state = 'idle', children = 'Generar con IA', disabled, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { state?: AIState }) {
-  return <button {...props} type="button" disabled={disabled || state === 'generating' || state === 'uncertain' || state === 'insufficient'} aria-busy={state === 'generating'} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-[#173d36] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-55 ${props.className ?? ''}`}>
+export function AIButton({ state = 'idle', children = 'Generar con IA', disabled, capability, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { state?: AIState; capability?: string }) {
+  const {data}=useAccess();
+  const restricted=Boolean(data && capability && !canUseFeature(data.access,capability));
+  return <button {...props} type="button" title={restricted?'Esta función no está incluida en tu acceso':props.title} disabled={restricted || disabled || state === 'generating' || state === 'uncertain' || state === 'insufficient'} aria-busy={state === 'generating'} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-[#173d36] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-55 ${props.className ?? ''}`}>
     {state === 'generating' && <LoaderCircle size={16} aria-hidden="true" className="animate-spin motion-reduce:animate-none" />}
     {state === 'generating' ? 'Generando…' : children}
   </button>;

@@ -19,7 +19,14 @@ if (process.env.VERCEL === "1" || process.env.NITRO_PRESET === "vercel") {
     const { default: handler } = await import(
       pathToFileURL(join(isolatedDir, "index.mjs")).href
     );
-    for (const path of ["/", "/login", "/app/consultation-templates/initial", "/admin", "/admin/plans"]) {
+    for (const path of [
+      "/",
+      "/login",
+      "/app/consultation-templates/initial",
+      "/admin",
+      "/admin/plans",
+      "/planes",
+    ]) {
       const response = await handler.fetch(
         new Request(`https://nuthrick.vercel.app${path}`),
         {},

@@ -253,7 +253,7 @@ export function PesCopilot(props: Props) {
         Puedes redactar el PES manualmente.
       </p>
       {!draft && (
-        <AIButton
+        <AIButton capability="ai.pes"
           className="mt-4"
           state={clinical.state}
           disabled={clinical.saving || !clinical.workspace}
@@ -392,7 +392,7 @@ export function PesCopilot(props: Props) {
             >
               Descartar
             </button>
-            <AIButton
+            <AIButton capability="ai.pes"
               state={clinical.state}
               disabled={clinical.saving || !!replacement}
               onClick={() => void generate()}
@@ -629,7 +629,7 @@ export function RecallCopilot(props: Props) {
             />
           </label>
           <div className="flex flex-wrap gap-2">
-            <AIButton
+            <AIButton capability="ai.recall_24h"
               state={clinical.state}
               disabled={
                 !narrative.trim() ||

@@ -97,10 +97,10 @@ export function EvolutionExportDialog({
       const selection = { seriesIds: selected };
       const name = `nuthrick-evolucion-${filenamePart(patient.full_name)}`;
       if (kind === "txt") {
-        await requireEntitlement('exports');
+        await requireEntitlement('exports.advanced');
         downloadEvolutionText(`${name}.txt`, evolutionTextExport(patient, history, selection, professional));
       } else {
-        await requireEntitlement('exports');
+        await requireEntitlement('exports.advanced');
         await downloadEvolutionPdf(`${name}.pdf`, patient, history, selection, professional);
       }
     } catch (cause) {

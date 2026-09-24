@@ -37,6 +37,7 @@ import { AccessProvider, AdminGuard, ProfessionalAccessGate } from '@/src/featur
 import { AdminLayout } from '@/src/features/admin/AdminLayout';
 import { AdminHome, ProfessionalsPage, PlansPage, PlanEditorPage, CreditsPage } from '@/src/features/admin/AdminPages';
 import { ProfessionalPage } from '@/src/features/admin/ProfessionalPage';
+import { CommercialPlansPage } from '@/src/features/admin/CommercialPlansPage';
 import { CodesPage } from '@/src/features/admin/CodesPage';
 
 function ScrollToTop() {
@@ -63,6 +64,7 @@ export function ClientApplication() {
         <ScrollToTop />
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/planes" element={<CommercialPlansPage />} />
           <Route path="/login" element={<AuthPage mode="login" />} />
           <Route path="/register" element={<AuthPage mode="register" />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />

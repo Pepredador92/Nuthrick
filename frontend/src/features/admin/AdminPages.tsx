@@ -271,6 +271,11 @@ function ProfessionalsTable({ items }: { items: Professional[] }) {
                   {p.name || "Cuenta sin nombre"}
                 </Link>
                 <small>{p.email}</small>
+                {p.onboarding_completed === false && (
+                  <small className="text-amber-800">
+                    Registro profesional incompleto
+                  </small>
+                )}
               </td>
               <td>{p.access.plan_name ?? "Sin plan"}</td>
               <td>
@@ -392,7 +397,11 @@ export function PlansPage() {
           {data?.plans.map((p) => (
             <section className="admin-card" key={p.id}>
               <div className="flex justify-between mb-4">
-                <span className="admin-eyebrow">ACCESO NUTHRICK</span>
+                <span className="admin-eyebrow">
+                  {p.internal_only !== false
+                    ? "PLAN INTERNO"
+                    : "PLAN COMERCIAL"}
+                </span>
                 <span className="admin-badge">
                   {p.active ? "Disponible" : "Inactivo"}
                 </span>
@@ -405,8 +414,16 @@ export function PlansPage() {
                   : `${p.monthly_price.toLocaleString("es-MX")} ${p.currency} / mes`}
               </p>
               <p className="admin-note mt-2">
-                {valueLabel(p.values["ai.monthly_credits"])} créditos IA
-                configurados por mes
+                {p.annual_price === null
+                  ? "Anual por definir"
+                  : `${p.annual_price.toLocaleString("es-MX")} ${p.currency} / año`}
+              </p>
+              <p className="admin-note mt-2">
+                {valueLabel(p.values["patients.limit"])} pacientes activos
+              </p>
+              <p className="admin-note mt-2">
+                {valueLabel(p.values["ai.monthly_credits"])} créditos IA por mes{" "}
+                {p.credits_provisional !== false && "· provisionales"}
               </p>
               <div className="mt-6">
                 <Link
@@ -456,9 +473,12 @@ function EntitlementInputs({
                     <input
                       type="number"
                       min="0"
-                      max="100000000"
+                      max={e.key === "ai.monthly_credits" ? 1000000 : 100000000}
                       step="1"
-                      disabled={values[e.key] === "unlimited"}
+                      disabled={
+                        values[e.key] === "unlimited" &&
+                        e.key !== "ai.monthly_credits"
+                      }
                       required
                       value={
                         typeof values[e.key] === "number"
@@ -471,6 +491,7 @@ function EntitlementInputs({
                   <label className="admin-toggle">
                     <input
                       type="checkbox"
+                      disabled={e.key === "ai.monthly_credits"}
                       checked={values[e.key] === "unlimited"}
                       onChange={(v) =>
                         onChange(e.key, v.target.checked ? "unlimited" : 0)
@@ -579,6 +600,22 @@ function PlanEditor({
         />
         Disponible para nuevas asignaciones
       </label>
+      <label className="admin-toggle">
+        <input
+          type="checkbox"
+          checked={plan.internal_only !== false}
+          onChange={(e) => set("internal_only", e.target.checked)}
+        />
+        Solo administración (ocultar del catálogo público)
+      </label>
+      <label className="admin-toggle">
+        <input
+          type="checkbox"
+          checked={plan.credits_provisional !== false}
+          onChange={(e) => set("credits_provisional", e.target.checked)}
+        />
+        Créditos mensuales provisionales
+      </label>
       <p className="admin-note">
         Los precios son informativos. Desactivar un plan conserva los accesos ya
         asignados.
@@ -591,9 +628,10 @@ function PlanEditor({
         }
       />
       <p className="admin-note mt-5">
-        Los créditos mensuales son configuración para la siguiente fase. El
-        saldo cambia únicamente al registrar una asignación explícita en el
-        ledger.
+        La asignación mensual reemplaza los créditos incluidos del período
+        anterior y conserva las recargas y cortesías. En anual se asigna cada
+        mes. La renovación automática se conectará con pagos; hoy se ejecuta
+        desde la ficha administrativa.
       </p>
     </ActionForm>
   );
@@ -609,6 +647,8 @@ export function PlanEditorPage() {
           name: "",
           description: "",
           active: true,
+          internal_only: true,
+          credits_provisional: true,
           display_order: 30,
           monthly_price: null,
           annual_price: null,

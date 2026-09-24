@@ -12,6 +12,8 @@ import {
 } from "./AdminPages";
 import {
   dateLabel,
+  arrangementLabels,
+  adminRequest,
   valueLabel,
   type Catalog,
   type EntitlementValue,
@@ -55,11 +57,13 @@ function AccessForm({
   catalog,
   onSaved,
   courtesy,
+  founder = false,
 }: {
   professional: ProfessionalDetail;
   catalog: Catalog;
   onSaved: () => void;
   courtesy: boolean;
+  founder?: boolean;
 }) {
   const [plan, setPlan] = useState(professional.access.plan_id ?? ""),
     [start, setStart] = useState(nowInput),
@@ -71,25 +75,84 @@ function AccessForm({
           : "",
     ),
     [reason, setReason] = useState(""),
-    [status, setStatus] = useState("active");
+    [status, setStatus] = useState("active"),
+    [interval, setInterval] = useState(
+      professional.base_access?.billing_interval ?? "manual",
+    ),
+    [oneTimePrice, setOneTimePrice] = useState("");
   return (
     <ActionForm
-      action={courtesy ? "grant_access" : "set_access"}
+      action={
+        founder ? "grant_founder" : courtesy ? "grant_access" : "set_access"
+      }
       values={{
         professional_id: professional.id,
         plan_id: plan,
         starts_at: instant(start),
-        ends_at: instant(end),
+        ends_at: founder ? null : instant(end),
+        billing_interval: interval,
+        one_time_price: oneTimePrice === "" ? null : Number(oneTimePrice),
         status,
         reason,
       }}
       onSaved={onSaved}
-      button={courtesy ? "Otorgar cortesía" : "Aplicar plan"}
+      button={
+        founder
+          ? "Otorgar acceso permanente"
+          : courtesy
+            ? "Otorgar cortesía"
+            : "Aplicar plan"
+      }
     >
-      <h2>{courtesy ? "Dar cortesía" : "Cambiar plan o vigencia"}</h2>
+      <h2>
+        {founder
+          ? "Acceso Founder"
+          : courtesy
+            ? "Dar cortesía"
+            : "Cambiar plan o vigencia"}
+      </h2>
       <div className="admin-fields">
         <PlanSelect catalog={catalog} value={plan} onChange={setPlan} />
-        {!courtesy && (
+        {!courtesy && !founder && (
+          <Field label="Modalidad">
+            <select
+              value={interval}
+              onChange={(e) => {
+                const value = e.target.value as typeof interval;
+                setInterval(value);
+                if (value !== "manual") {
+                  const d = new Date(start);
+                  const day = d.getDate();
+                  d.setDate(1);
+                  d.setMonth(d.getMonth() + (value === "annual" ? 12 : 1));
+                  d.setDate(
+                    Math.min(
+                      day,
+                      new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(),
+                    ),
+                  );
+                  setEnd(localDate(d));
+                }
+              }}
+            >
+              <option value="manual">Administrativo / sin ciclo</option>
+              <option value="monthly">Mensual</option>
+              <option value="annual">Anual</option>
+            </select>
+          </Field>
+        )}
+        {founder && (
+          <Field label="Precio único acordado (opcional)">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={oneTimePrice}
+              onChange={(e) => setOneTimePrice(e.target.value)}
+            />
+          </Field>
+        )}
+        {!courtesy && !founder && (
           <Field label="Estado">
             <select value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="active">Activo</option>
@@ -107,15 +170,23 @@ function AccessForm({
             onChange={(e) => setStart(e.target.value)}
           />
         </Field>
-        <Field label={courtesy ? "Hasta" : "Hasta (vacío = indefinido)"}>
-          <input
-            type="datetime-local"
-            required={courtesy}
-            min={start}
-            value={end}
-            onChange={(e) => setEnd(e.target.value)}
-          />
-        </Field>
+        {!founder && (
+          <Field
+            label={
+              courtesy || interval !== "manual"
+                ? "Hasta"
+                : "Hasta (vacío = indefinido)"
+            }
+          >
+            <input
+              type="datetime-local"
+              required={courtesy || interval !== "manual"}
+              min={start}
+              value={end}
+              onChange={(e) => setEnd(e.target.value)}
+            />
+          </Field>
+        )}
         <Field
           label={
             courtesy
@@ -133,9 +204,11 @@ function AccessForm({
         </Field>
       </div>
       <p className="admin-note mt-4">
-        {courtesy
-          ? "La cortesía usa los permisos del plan durante estas fechas. Al vencer, se vuelve al acceso base si sigue vigente."
-          : "El cambio se aplica inmediatamente y retira las cortesías de plan anteriores. Las excepciones de permisos se conservan."}{" "}
+        {founder
+          ? "Founder otorga acceso SaaS permanente al plan seleccionado. Incluye cero créditos IA mensuales; las cortesías se agregan por separado. El precio es informativo y no realiza cobros."
+          : courtesy
+            ? "La cortesía usa los permisos del plan durante estas fechas. Al vencer, se vuelve al acceso base si sigue vigente."
+            : "El cambio se aplica inmediatamente y retira las cortesías de plan anteriores. Las excepciones de permisos se conservan."}{" "}
         Asignar un plan no modifica el saldo de IA. Horas en tu zona local.
       </p>
     </ActionForm>
@@ -204,6 +277,77 @@ function CreditForm({ id, onSaved }: { id: string; onSaved: () => void }) {
         recarga y cortesía y respeta las reservas en curso.
       </p>
     </ActionForm>
+  );
+}
+function AllocationForm({
+  professional,
+  onSaved,
+}: {
+  professional: ProfessionalDetail;
+  onSaved: () => void;
+}) {
+  const [busy, setBusy] = useState(false),
+    [message, setMessage] = useState("");
+  const eligible =
+    ["monthly", "annual"].includes(professional.access.arrangement ?? "") &&
+    !professional.access.read_only;
+  async function allocate() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const result = await adminRequest<{
+        allocated?: boolean;
+        saved?: boolean;
+        reason?: string;
+      }>("allocate_credits", {
+        professional_id: professional.id,
+        reason: "Asignación manual del período mensual vigente",
+      });
+      setMessage(
+        result.saved
+          ? "Asignación registrada en el ledger."
+          : ((
+              {
+                already_allocated: "Este mes ya fue asignado.",
+                current_period_preserved:
+                  "Se conserva la asignación vigente hasta su vencimiento.",
+                no_included_credits:
+                  "Este acceso no incluye créditos mensuales.",
+                grant_active:
+                  "La cortesía vigente no tiene renovación mensual automática.",
+              } as Record<string, string>
+            )[result.reason ?? ""] ??
+              "Esta modalidad no tiene asignación mensual."),
+      );
+      onSaved();
+      window.dispatchEvent(new Event("nuthrick:ai-balance"));
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "No se pudo asignar.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="admin-card">
+      <h2>Asignación mensual del plan</h2>
+      <p className="admin-note my-4">
+        Reemplaza los incluidos vencidos; conserva las recargas y cortesías. Los
+        reintentos no duplican créditos. No hay un job automático ni llamadas de
+        IA.
+      </p>
+      <button
+        className="admin-button secondary"
+        disabled={busy || !eligible}
+        onClick={() => void allocate()}
+      >
+        {busy ? "Verificando período…" : "Asignar período vigente"}
+      </button>
+      {message && (
+        <p role="status" className="mt-4">
+          {message}
+        </p>
+      )}
+    </section>
   );
 }
 function OverrideForm({
@@ -292,6 +436,7 @@ function OverrideForm({
               <label className="admin-toggle">
                 <input
                   type="checkbox"
+                  disabled={key === "ai.monthly_credits"}
                   checked={value === "unlimited"}
                   onChange={(e) => setValue(e.target.checked ? "unlimited" : 0)}
                 />
@@ -354,7 +499,7 @@ function StateForm({
       <p className="admin-note mb-4">
         {suspended
           ? "Se conserva el plan y su vencimiento. Si ya venció, asigna una nueva vigencia."
-          : "Se bloqueará el acceso a los módulos. Los registros del profesional se conservarán."}
+          : "La cuenta podrá consultar expedientes e históricos. No podrá crear, modificar, publicar, enviar mensajes ni generar con IA. Los registros se conservarán."}
       </p>
       <Field label="Motivo administrativo">
         <input
@@ -428,6 +573,7 @@ export function ProfessionalPage() {
                 ["summary", "Resumen"],
                 ["plan", "Cambiar plan"],
                 ["courtesy", "Dar cortesía"],
+                ["founder", "Acceso Founder"],
                 ["credits", "Ajustar créditos"],
                 ["override", "Excepciones"],
                 ["state", "Estado de cuenta"],
@@ -459,8 +605,21 @@ export function ProfessionalPage() {
                 courtesy
               />
             )}
+            {tab === "founder" && (
+              <AccessForm
+                key={`founder-${p.id}`}
+                professional={p}
+                catalog={c}
+                onSaved={detail.reload}
+                courtesy={false}
+                founder
+              />
+            )}
             {tab === "credits" && (
-              <CreditForm id={p.id} onSaved={detail.reload} />
+              <>
+                <CreditForm id={p.id} onSaved={detail.reload} />
+                <AllocationForm professional={p} onSaved={detail.reload} />
+              </>
             )}
             {tab === "override" && (
               <OverrideForm id={p.id} catalog={c} onSaved={detail.reload} />
@@ -483,6 +642,26 @@ export function ProfessionalPage() {
                       : "Sin asignar"}
                   </div>
                   <div>Vencimiento: {dateLabel(p.access.ends_at)}</div>
+                  <div>
+                    Modalidad:{" "}
+                    {arrangementLabels[p.access.arrangement ?? "manual"]}
+                  </div>
+                  {p.access.patient_usage && (
+                    <div>
+                      Pacientes activos: {p.access.patient_usage.active} /{" "}
+                      {valueLabel(p.access.patient_usage.limit)}{" "}
+                      {p.access.patient_usage.over_limit && (
+                        <strong>
+                          {" "}
+                          · Sobre el límite; se conserva el historial
+                        </strong>
+                      )}
+                    </div>
+                  )}
+                  {p.access.read_only && <div>Acceso en modo de consulta</div>}
+                  {p.onboarding_completed === false && (
+                    <div>Registro profesional incompleto</div>
+                  )}
                   <div>Registro: {dateLabel(p.created_at)}</div>
                   <div>
                     Último inicio de sesión:{" "}
@@ -583,13 +762,18 @@ export function ProfessionalPage() {
                       {c.plans.find((p) => p.id === g.plan_id)?.name}
                     </strong>
                     <p className="admin-note">
+                      {g.grant_kind === "founder" && "Founder · "}
                       {dateLabel(g.starts_at)} — {dateLabel(g.ends_at)}
                     </p>
                     <RevokeForm
                       owner={p.id}
                       id={g.id}
                       action="revoke_grant"
-                      label="Retirar cortesía"
+                      label={
+                        g.grant_kind === "founder"
+                          ? "Retirar acceso Founder"
+                          : "Retirar cortesía"
+                      }
                       onSaved={detail.reload}
                     />
                   </div>

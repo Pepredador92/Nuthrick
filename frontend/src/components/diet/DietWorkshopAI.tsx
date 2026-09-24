@@ -1,3 +1,5 @@
+import {useAccess} from '@/src/features/admin/AccessProvider';
+import {canUseFeature} from '@/src/features/admin/api';
 import { useEffect, useId, useRef, useState } from 'react';
 import { LoaderCircle, Sparkles, X } from 'lucide-react';
 import { AIRequestError } from '@/src/services/ai';
@@ -26,6 +28,8 @@ function ContextSummary({context:c}:{context:WorkshopContext}) {
 }
 
 export function DietWorkshopAI({plan,before,onApplied,transport=workshopTransport}:{plan:NutritionPlan;before:()=>Promise<NutritionPlan>;onApplied:(plan:NutritionPlan)=>void;transport?:WorkshopTransport}) {
+  const {data:accessData}=useAccess();
+  const available=!accessData || canUseFeature(accessData.access,'ai.diet_draft');
   const [open,setOpen]=useState(false),[busy,setBusy]=useState<'context'|'generate'|'apply'|'discard'|'status'|null>(null);
   const [preflight,setPreflight]=useState<WorkshopPreflight|null>(null),[proposal,setProposal]=useState<WorkshopProposal|null>(null);
   const [contextOpen,setContextOpen]=useState(false),[instructions,setInstructions]=useState(''),[error,setError]=useState('');
@@ -43,7 +47,7 @@ export function DietWorkshopAI({plan,before,onApplied,transport=workshopTranspor
   useEffect(()=>{if(replace){replacement.current?.focus();replacement.current?.scrollIntoView?.({block:'center'});}},[replace]);
   const fail=(e:unknown)=>setError(copilotMessage(e instanceof AIRequestError?e.code:'service_unavailable'));
   async function show() {
-    if(lock.current)return;
+    if(lock.current || !available)return;
     lock.current=true;setOpen(true);setBusy('context');setError('');setNotice('');setPreflight(null);setStale(false);setContextOpen(false);
     try {const saved=await before();setPreflight(await transport.preflight(saved,instructions));}catch(e){fail(e);}finally{lock.current=false;setBusy(null);}
   }
@@ -91,7 +95,8 @@ export function DietWorkshopAI({plan,before,onApplied,transport=workshopTranspor
   const v=proposal?.validation,targets=preflight?targetNutrition(preflight.context):null;
   const needsAcceptance=Boolean(v&&(v.status==='needs_adjustment'||v.requiresTargetReview));
   return <>
-    <button ref={opener} data-diet-ai-entry type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={()=>void show()}><Sparkles size={15}/>Crear propuesta con IA</button>
+    {!available&&<span className="text-xs text-[#687870]">{accessData?.access.read_only?"IA no disponible en modo de consulta":"Taller IA disponible en Profesional"}</span>}
+    <button disabled={!available} ref={opener} data-diet-ai-entry type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={()=>void show()}><Sparkles size={15}/>Crear propuesta con IA</button>
     {notice&&<span role="status" className="text-xs text-[#477363]">{notice}</span>}
     {open&&<dialog ref={dialog} open={typeof HTMLDialogElement==='undefined'||!HTMLDialogElement.prototype.showModal} aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`}
       className="m-auto max-h-[90dvh] w-[min(820px,calc(100vw-24px))] overflow-auto rounded-2xl border border-[#d4e2d8] bg-white p-4 text-[#173d36] shadow-xl backdrop:bg-[#173d36]/35 sm:p-6"

@@ -29,7 +29,9 @@ function CodeEditor({
       onSaved={onSaved}
       button="Guardar código"
     >
-      <h2>{initial.id ? "Editar código beta" : "Crear código beta"}</h2>
+      <h2>
+        {initial.id ? "Editar código de acceso" : "Crear código de acceso"}
+      </h2>
       <div className="admin-fields">
         <Field label="Nombre administrativo">
           <input
@@ -58,16 +60,30 @@ function CodeEditor({
           value={data.plan_id}
           onChange={(v) => change("plan_id", v)}
         />
-        <Field label="Días de acceso gratuito">
-          <input
-            required
-            type="number"
-            min="1"
-            max="3660"
-            value={data.duration_days}
-            onChange={(e) => change("duration_days", Number(e.target.value))}
-          />
+        <Field label="Tipo de acceso">
+          <select
+            value={data.access_kind ?? "trial"}
+            onChange={(e) => {
+              change("access_kind", e.target.value);
+              change("duration_days", e.target.value === "founder" ? null : 90);
+            }}
+          >
+            <option value="trial">Beta / prueba temporal</option>
+            <option value="founder">Founder / permanente</option>
+          </select>
         </Field>
+        {data.access_kind !== "founder" && (
+          <Field label="Días de acceso gratuito">
+            <input
+              required
+              type="number"
+              min="1"
+              max="3660"
+              value={data.duration_days ?? 90}
+              onChange={(e) => change("duration_days", Number(e.target.value))}
+            />
+          </Field>
+        )}
         <Field label="Máximo de profesionales">
           <input
             required
@@ -121,7 +137,8 @@ function CodeEditor({
         Guarda el código antes de cerrar: se almacena como hash y no se puede
         recuperar. Una cuenta solo puede canjearlo una vez y necesita no tener
         acceso vigente. La función de canje está preparada para el futuro
-        onboarding.
+        onboarding. Founder concede acceso permanente con cero créditos
+        mensuales; sus créditos iniciales son una cortesía separada.
       </p>
       {code && <p className="admin-code mt-4">{code}</p>}
     </ActionForm>
@@ -150,7 +167,7 @@ export function CodesPage() {
     <>
       <Heading
         eyebrow="Accesos"
-        title="Códigos beta"
+        title="Códigos de acceso"
         text="Invita a un grupo de profesionales con una vigencia y un límite de usos definidos."
       >
         <button
@@ -206,7 +223,11 @@ export function CodesPage() {
                           ?.name
                       }
                     </td>
-                    <td>{c.duration_days} días</td>
+                    <td>
+                      {c.access_kind === "founder"
+                        ? "Permanente · Founder"
+                        : `${c.duration_days} días`}
+                    </td>
                     <td>
                       {c.redeemed_count} / {c.max_redemptions}
                     </td>
