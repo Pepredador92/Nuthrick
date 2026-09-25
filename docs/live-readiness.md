@@ -51,6 +51,8 @@ No hay bloqueos técnicos reportados por la lectura remota. El pendiente legal e
 - `20260925142500_public_legal_projection.sql`
 - `20260925143000_public_legal_projection_table.sql`
 - `20260925143500_live_ready_fk_indexes.sql`
+- `20260925144000_fix_billing_job_result.sql`
+- `20260925144500_fix_operations_job_snapshot.sql`
 
 Las migraciones crean el outbox, funciones de jobs, evidencia y proyecciones administrativas sin abrir tablas privadas al navegador.
 

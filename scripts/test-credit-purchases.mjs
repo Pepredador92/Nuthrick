@@ -68,6 +68,9 @@ try {
   sql(readFileSync(new URL("supabase/migrations/20260925142500_public_legal_projection.sql", root), "utf8"));
   sql(readFileSync(new URL("supabase/migrations/20260925143000_public_legal_projection_table.sql", root), "utf8"));
   sql(readFileSync(new URL("supabase/migrations/20260925143500_live_ready_fk_indexes.sql", root), "utf8"));
+  sql(readFileSync(new URL("supabase/migrations/20260925144000_fix_billing_job_result.sql", root), "utf8"));
+  assert.equal(sql("select (private.billing_job_entrypoint()->>'beta_emails_enqueued') is not null").trim(), "t");
+  sql(readFileSync(new URL("supabase/migrations/20260925144500_fix_operations_job_snapshot.sql", root), "utf8"));
   assert.equal(sql("select count(*) from private.transactional_email_templates where active").trim(), "15");
   assert.ok(Number(sql("select count(*) from private.promotion_campaigns where active and visibility='private'").trim()) >= 5);
   assert.equal(sql("select (private.operations_overview()->'emails'->>'last_test_at') is not null").trim(), "t");
