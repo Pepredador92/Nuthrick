@@ -5,9 +5,8 @@
 Continúa LIVE-1 (`8b75c76`). Stripe exclusivamente TEST; no configurar secretos,
 productos, precios ni webhooks Live. OpenAI apagado. Sin cambios de pacientes.
 Los tres documentos v1 contienen ahora el texto completo para revisión y permanecen
-`pending_review`, sin fecha efectiva, publicación ni aprobación. Queda un único
-marcador jurídico en Términos: confirmar ley aplicable y jurisdicción competente.
-No ejecutar aprobación hasta la confirmación humana explícita. El dominio web
+`pending_review`, sin fecha efectiva, publicación ni aprobación. La cláusula de
+ley aplicable y jurisdicción ya quedó incorporada para revisión humana. No ejecutar aprobación hasta la confirmación humana explícita. El dominio web
 oficial `nuthrick.com` ya está activo. No se contratarán buzones de correo propios
 en esta fase. Ver [dominio web](web-domain.md).
 
@@ -49,8 +48,9 @@ como cargos reales.
 - Retención, ARCO, seguridad, cancelación, créditos, reembolsos, fiscalidad,
   suspensión y disponibilidad se describen con criterios sin inventar plazos ni
   promesas de CFDI o de reembolso automático.
-- Solo permanece el marcador de ley aplicable y jurisdicción en Términos. La fecha
-  efectiva se elegirá después de la aprobación humana.
+- Términos establece leyes aplicables de México y tribunales competentes del Estado
+  de Zacatecas, respetando derechos irrenunciables. La fecha efectiva se elegirá
+  después de la aprobación humana.
 
 La [LFPDPPP vigente](https://www.diputados.gob.mx/LeyesBiblio/pdf/LFPDPPP.pdf)
 se consultó para identificar datos sensibles, elementos del aviso y derechos;
