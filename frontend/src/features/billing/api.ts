@@ -8,6 +8,7 @@ export type Benefit = {
     | "free_period"
     | "custom_price"
     | "initial_ai_credits"
+    | "bonus_ai_credits"
     | "temporary_entitlement"
     | "plan_upgrade";
   amount?: number;
@@ -31,6 +32,8 @@ export type Campaign = {
   active: boolean;
   starts_at: string;
   ends_at: string | null;
+  target?: "subscription" | "ai_credit_package";
+  eligible_package_ids?: string[];
   eligible_plan_ids: string[];
   intervals: Interval[];
   benefits: Benefit[];
@@ -102,7 +105,7 @@ export type MyBilling = {
   access: Access;
   subscription: Subscription | null;
   payments: Payment[];
-  credits: { included: number; additional: number; period_end?: string | null };
+  credits: { included: number; additional: number; available?: number; period_end?: string | null };
 };
 export type Preview = {
   price: { amount: number; currency: string };
@@ -139,6 +142,13 @@ export const stateLabel = (
   cancelled: "Cancelada",
 }[value] ?? "Pendiente");
 const messages: Record<string, string> = {
+  credit_package_unavailable: "Este paquete ya no está disponible.",
+  credit_purchase_not_allowed: "Tu acceso no permite comprar créditos.",
+  credit_checkout_pending: "Tienes una recarga pendiente. Continúa el pago o cancela la sesión antes de elegir otra.",
+  credit_checkout_rate_limited: "Alcanzaste el límite de intentos de recarga. Vuelve a intentar más tarde.",
+  promotion_package_ineligible: "Este código no aplica al paquete elegido.",
+  invalid_package_price: "El precio mínimo es $10.00 MXN y admite hasta dos decimales.",
+  credit_payment_minimum: "El importe final debe ser de al menos $10.00 MXN. Revisa el paquete o el código.",
   unauthorized: "Inicia sesión para continuar.",
   admin_required: "Esta cuenta no tiene permisos de administración.",
   invalid_input: "Revisa los datos ingresados.",
@@ -156,7 +166,7 @@ const messages: Record<string, string> = {
   checkout_expired:
     "Tu checkout venció. Libera la sesión pendiente y vuelve a elegir.",
   checkout_payment_pending:
-    "El pago ya se envió. Espera su confirmación en Mi plan.",
+    "El pago ya se envió. Espera su confirmación en Nuthrick.",
   subscription_exists: "Ya tienes una suscripción. Cámbiala desde Mi plan.",
   internal_access_protected:
     "Tu acceso especial se administra directamente en Nuthrick. Contacta a administración para cambiarlo.",
@@ -266,12 +276,13 @@ export function benefitLabel(b: Benefit) {
     custom_price: `${money((b.amount ?? 0) * 100)} por período contratado`,
     free_period: "Período sin costo",
     initial_ai_credits: `${b.amount} créditos IA iniciales`,
+    bonus_ai_credits: `${b.amount} créditos bonus`,
     temporary_entitlement: `Permiso temporal: ${b.entitlement}`,
     plan_upgrade: "Mejora temporal de plan",
   }[b.type]);
 }
 export function durationLabel(b: Benefit) {
-  if (b.type === "initial_ai_credits") return "Una sola asignación";
+  if (b.type === "initial_ai_credits" || b.type === "bonus_ai_credits") return "Una sola asignación";
   return b.duration.kind === "months"
     ? `${b.duration.months} meses`
     : b.duration.kind === "until"

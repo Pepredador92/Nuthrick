@@ -39,6 +39,8 @@ import { AdminHome, ProfessionalsPage, PlansPage, PlanEditorPage, CreditsPage } 
 import { ProfessionalPage } from '@/src/features/admin/ProfessionalPage';
 import { CommercialPlansPage } from '@/src/features/admin/CommercialPlansPage';
 import { PromotionsPage, PromotionEditorPage, SubscriptionsPage, PaymentsPage, BillingSettingsPage } from '@/src/features/billing/AdminBillingPages';
+import { MyCreditsPage } from '@/src/features/billing/MyCreditsPage';
+import { CreditPackagesPage, CreditPackageEditorPage, CreditPurchasesPage } from '@/src/features/billing/AdminCreditsPages';
 import { MyPlanPage } from '@/src/features/billing/MyPlanPage';
 import { CodesPage } from '@/src/features/admin/CodesPage';
 
@@ -85,6 +87,10 @@ export function ClientApplication() {
               <Route path="access" element={<ProfessionalsPage accessMode />} />
               <Route path="access/codes" element={<CodesPage />} />
               <Route path="credits" element={<CreditsPage />} />
+              <Route path="credits/packages" element={<CreditPackagesPage />} />
+              <Route path="credits/packages/new" element={<CreditPackageEditorPage />} />
+              <Route path="credits/packages/:packageId" element={<CreditPackageEditorPage />} />
+              <Route path="credits/purchases" element={<CreditPurchasesPage />} />
               <Route path="promotions" element={<PromotionsPage />} />
               <Route path="promotions/new" element={<PromotionEditorPage />} />
               <Route path="promotions/:campaignId" element={<PromotionEditorPage />} />
@@ -96,6 +102,7 @@ export function ClientApplication() {
           <Route element={<RequireAuthentication />}>
             <Route path="/app" element={<PrivateLayout />}>
               <Route path="my-plan" element={<MyPlanPage />} />
+              <Route path="credits" element={<MyCreditsPage />} />
               <Route element={<ProfessionalAccessGate />}>
               <Route index element={<DashboardPage />} />
               <Route path="profile" element={<ProfilePage />} />

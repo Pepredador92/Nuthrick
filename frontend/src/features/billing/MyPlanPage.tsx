@@ -162,8 +162,8 @@ export function MyPlanPage() {
               <div>
                 <dt>Créditos disponibles</dt>
                 <dd>
-                  {Number(data.credits.included) +
-                    Number(data.credits.additional)}
+                  {data.credits.available ?? (Number(data.credits.additional) < 0 ? 0 : Number(data.credits.included) +
+                    Number(data.credits.additional))}
                 </dd>
                 <small>
                   {Number(data.credits.included)} incluidos ·{" "}
@@ -221,6 +221,7 @@ export function MyPlanPage() {
               </div>
             )}
             <div className="billing-controls">
+              <Link className="admin-button secondary" to="/app/credits">Ver créditos y recargar</Link>
               {s && (
                 <button
                   className="admin-button"

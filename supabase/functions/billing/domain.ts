@@ -17,6 +17,7 @@ export type Benefit = {
     | "free_period"
     | "custom_price"
     | "initial_ai_credits"
+    | "bonus_ai_credits"
     | "temporary_entitlement"
     | "plan_upgrade";
   amount?: number;
@@ -26,6 +27,8 @@ export type Benefit = {
   duration: Duration;
 };
 export type Campaign = {
+  target?: "subscription" | "ai_credit_package";
+  eligible_package_ids?: string[];
   id: string;
   code: string;
   name: string;
@@ -52,6 +55,41 @@ export type Price = {
   rank: number;
   provider_price_id: string | null;
   fingerprint: string;
+};
+export type CreditPrice = {
+  id: string;
+  package_id: string;
+  package_name: string;
+  package_version: number;
+  credits: number;
+  bonus_credits: number;
+  amount: number;
+  currency: string;
+  fingerprint: string;
+  provider_price_id: string | null;
+};
+export type CreditPayment = {
+  mode: string;
+  checkout_id: string;
+  checkout_status: string;
+  purchase_id: string | null;
+  owner: string | null;
+  customer_id: string | null;
+  payment_id: string | null;
+  charge_id: string | null;
+  price_id: string | null;
+  quantity: number;
+  currency: string;
+  amount_total: number;
+  amount_paid: number;
+  paid: boolean;
+  paid_at: string | null;
+  payment_failed: boolean;
+  amount_refunded: number;
+  refund_pending: boolean;
+  dispute_id: string | null;
+  dispute_status: string | null;
+  livemode: false;
 };
 export type CollectionState =
   | "active"
@@ -93,6 +131,8 @@ export type InvoiceSnapshot = {
   price_id: string | null;
 };
 export type VerifiedEvent = {
+  payment_id?: string | null;
+  credit_reference?: string | null;
   id: string;
   supported: boolean;
   type: string;
@@ -117,9 +157,14 @@ export interface BillingProvider {
   readonly mode: "test";
   createCustomer(owner: string): Promise<string>;
   ensurePrice(price: Price): Promise<string>;
+  ensureCreditPrice(price: CreditPrice): Promise<string>;
+  createCreditCheckout(
+    input: CheckoutInput,
+  ): Promise<{ id: string; url: string; expires_at: number }>;
+  getCreditPayment(checkoutId: string): Promise<CreditPayment>;
   ensurePromotion(
     campaign: Campaign,
-    price: Price,
+    price: Price | CreditPrice,
   ): Promise<{ couponId: string | null; endAt: string | null }>;
   createCheckout(
     input: CheckoutInput,
@@ -197,7 +242,10 @@ export function financialBenefit(benefits: Benefit[]) {
       .includes(b.type)
   );
 }
-export function couponFor(campaign: Campaign, price: Price) {
+export function couponFor(
+  campaign: Campaign,
+  price: Pick<Price, "amount" | "currency">,
+) {
   const b = financialBenefit(campaign.benefits);
   if (!b) return null;
   const percent = b.type === "free_period"

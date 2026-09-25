@@ -7,6 +7,8 @@ import {
   type CheckoutInput,
   type CollectionState,
   couponFor,
+  type CreditPayment,
+  type CreditPrice,
   financialBenefit,
   type InvoiceSnapshot,
   iso,
@@ -39,6 +41,18 @@ const missing = (e: unknown) =>
   e instanceof Stripe.errors.StripeInvalidRequestError &&
   e.code === "resource_missing";
 export const supportedEvents = new Set([
+  "payment_intent.succeeded",
+  "payment_intent.payment_failed",
+  "payment_intent.canceled",
+  "refund.created",
+  "refund.updated",
+  "refund.failed",
+  "charge.refunded",
+  "charge.dispute.created",
+  "charge.dispute.updated",
+  "charge.dispute.closed",
+  "charge.dispute.funds_withdrawn",
+  "charge.dispute.funds_reinstated",
   "checkout.session.completed",
   "checkout.session.async_payment_succeeded",
   "checkout.session.async_payment_failed",
@@ -119,7 +133,7 @@ export class StripeBillingProvider implements BillingProvider {
     assertTestObject(price);
     return price.id;
   }
-  async ensurePromotion(c: Campaign, p: Price) {
+  async ensurePromotion(c: Campaign, p: Price | CreditPrice) {
     const params = couponFor(c, p);
     if (!params) return { couponId: null, endAt: null };
     const couponId = `nh_${
@@ -169,6 +183,156 @@ export class StripeBillingProvider implements BillingProvider {
     const s = await this.stripe.checkout.sessions.retrieve(sessionId);
     assertTestObject(s);
     return { status: s.status ?? "open", subscriptionId: id(s.subscription) };
+  }
+  async ensureCreditPrice(p: CreditPrice) {
+    const existing = await this.stripe.prices.list({
+      lookup_keys: [p.fingerprint],
+      limit: 1,
+    });
+    if (existing.data[0]) {
+      const price = existing.data[0];
+      assertTestObject(price);
+      if (
+        price.type !== "one_time" || price.unit_amount !== p.amount ||
+        price.currency.toUpperCase() !== p.currency
+      ) throw new Error("price_mapping_mismatch");
+      return price.id;
+    }
+    const productId = `nuthrick_credit_${p.fingerprint}`;
+    try {
+      assertTestObject(await this.stripe.products.retrieve(productId));
+    } catch (e) {
+      if (!missing(e)) throw e;
+      assertTestObject(
+        await this.stripe.products.create({
+          id: productId,
+          name: `TEST · ${p.package_name}`,
+          metadata: { nuthrick_package: p.package_id },
+        }, { idempotencyKey: `nuthrick:test:credit-product:${p.fingerprint}` }),
+      );
+    }
+    const price = await this.stripe.prices.create({
+      product: productId,
+      currency: p.currency.toLowerCase(),
+      unit_amount: p.amount,
+      lookup_key: p.fingerprint,
+      metadata: {
+        nuthrick_package: p.package_id,
+        version: String(p.package_version),
+        credits: String(p.credits),
+        bonus: String(p.bonus_credits),
+      },
+    }, { idempotencyKey: `nuthrick:test:credit-price:${p.fingerprint}` });
+    assertTestObject(price);
+    return price.id;
+  }
+  async createCreditCheckout(i: CheckoutInput) {
+    const session = await this.stripe.checkout.sessions.create({
+      mode: "payment",
+      customer: i.customerId,
+      client_reference_id: i.owner,
+      line_items: [{ price: i.priceId, quantity: 1 }],
+      payment_method_types: ["card"],
+      success_url: `${i.site}/app/credits?purchase=${i.intentId}`,
+      cancel_url: `${i.site}/app/credits?checkout=cancelled`,
+      expires_at: i.expiresAt,
+      metadata: { nuthrick_intent: i.intentId, nuthrick_purchase: i.intentId },
+      payment_intent_data: {
+        metadata: { nuthrick_purchase: i.intentId, nuthrick_owner: i.owner },
+      },
+      ...(i.couponId ? { discounts: [{ coupon: i.couponId }] } : {}),
+    }, { idempotencyKey: `nuthrick:test:credit-checkout:${i.intentId}` });
+    assertTestObject(session);
+    const url = safeHostedUrl(session.url, "checkout");
+    if (!url) throw new Error("invalid_provider_url");
+    return { id: session.id, url, expires_at: session.expires_at };
+  }
+  async getCreditPayment(checkoutId: string): Promise<CreditPayment> {
+    const s = await this.stripe.checkout.sessions.retrieve(checkoutId, {
+      expand: ["payment_intent.latest_charge"],
+    });
+    assertTestObject(s);
+    if (s.mode !== "payment") throw new Error("invalid_payment_identity");
+    const lines = await this.stripe.checkout.sessions.listLineItems(s.id, {
+      limit: 2,
+    });
+    if (
+      lines.has_more || lines.data.length !== 1 || lines.data[0].quantity !== 1
+    ) throw new Error("invalid_payment_identity");
+    const pi = s.payment_intent && typeof s.payment_intent === "object"
+      ? s.payment_intent
+      : null;
+    const charge = pi?.latest_charge && typeof pi.latest_charge === "object"
+      ? pi.latest_charge
+      : null;
+    if (pi) {
+      assertTestObject(pi);
+      if (
+        id(pi.customer) !== id(s.customer) || pi.amount !== s.amount_total ||
+        pi.currency !== s.currency
+      ) throw new Error("invalid_payment_identity");
+    }
+    if (charge) {
+      assertTestObject(charge);
+      if (
+        id(charge.customer) !== id(s.customer) ||
+        id(charge.payment_intent) !== pi?.id
+      ) throw new Error("invalid_payment_identity");
+    }
+    let refunded = 0, refundPending = false;
+    if (pi) {
+      for await (
+        const refund of this.stripe.refunds.list({
+          payment_intent: pi.id,
+          limit: 100,
+        })
+      ) {
+        if (
+          refund.currency !== s.currency || id(refund.payment_intent) !== pi.id
+        ) throw new Error("invalid_payment_identity");
+        if (refund.status === "succeeded") refunded += refund.amount;
+        if (
+          refund.status === "pending" || refund.status === "requires_action"
+        ) refundPending = true;
+      }
+    }
+    const disputes = pi
+      ? await this.stripe.disputes.list({ payment_intent: pi.id, limit: 100 })
+      : null;
+    const dispute =
+      disputes?.data.find((d) =>
+        !["won", "warning_closed"].includes(d.status)
+      ) ?? disputes?.data[0];
+    if (dispute) assertTestObject(dispute);
+    const paid = s.status === "complete" &&
+      (s.amount_total === 0 && s.payment_status === "no_payment_required" &&
+          !pi ||
+        s.payment_status === "paid" && pi?.status === "succeeded" &&
+          pi.amount_received === s.amount_total && charge?.paid === true &&
+          charge.captured === true);
+    return {
+      mode: s.mode,
+      checkout_id: s.id,
+      checkout_status: s.status ?? "open",
+      purchase_id: s.metadata?.nuthrick_purchase ?? null,
+      owner: s.client_reference_id,
+      customer_id: id(s.customer),
+      payment_id: pi?.id ?? null,
+      charge_id: charge?.id ?? null,
+      price_id: lines.data[0].price?.id ?? null,
+      quantity: lines.data[0].quantity ?? 0,
+      currency: s.currency?.toUpperCase() ?? "",
+      amount_total: s.amount_total ?? -1,
+      amount_paid: paid ? (pi?.amount_received ?? 0) : 0,
+      paid,
+      paid_at: paid ? iso(charge?.created ?? s.created) : null,
+      payment_failed: !!pi?.last_payment_error,
+      amount_refunded: refunded,
+      refund_pending: refundPending,
+      dispute_id: dispute?.id ?? null,
+      dispute_status: dispute?.status ?? null,
+      livemode: false,
+    };
   }
   async findCheckout(customerId: string, intentId: string) {
     for await (
@@ -519,18 +683,60 @@ export class StripeBillingProvider implements BillingProvider {
     const parent = v.parent as {
       subscription_details?: { subscription?: unknown };
     } | undefined;
+    let customerId = id(v.customer);
+    let paymentId = e.type.startsWith("payment_intent.")
+      ? String(v.id)
+      : id(v.payment_intent);
+    let checkoutId = e.type.startsWith("checkout.session.")
+      ? String(v.id)
+      : null;
+    let creditReference =
+      (v.metadata as Record<string, string> | undefined)?.nuthrick_purchase ??
+        null;
+    if (
+      e.type.startsWith("refund.") || e.type.startsWith("charge.dispute.") ||
+      e.type === "charge.refunded"
+    ) {
+      const chargeId = e.type === "charge.refunded"
+        ? String(v.id)
+        : id(v.charge);
+      if (chargeId) {
+        const charge = await this.stripe.charges.retrieve(chargeId);
+        assertTestObject(charge);
+        customerId = id(charge.customer);
+        paymentId = id(charge.payment_intent);
+      }
+    }
+    if (
+      paymentId && !checkoutId && supportedEvents.has(e.type) &&
+      !e.type.startsWith("invoice.")
+    ) {
+      const sessions = await this.stripe.checkout.sessions.list({
+        payment_intent: paymentId,
+        limit: 1,
+      });
+      const session = sessions.data[0];
+      if (session) {
+        assertTestObject(session);
+        checkoutId = session.id;
+        creditReference = session.metadata?.nuthrick_purchase ??
+          creditReference;
+      }
+    }
     return {
       id: e.id,
       type: e.type,
       supported: supportedEvents.has(e.type),
       created: e.created,
       livemode: false,
-      customer_id: id(v.customer),
+      customer_id: customerId,
+      payment_id: paymentId,
+      credit_reference: creditReference,
       subscription_id: e.type.startsWith("customer.subscription.")
         ? String(v.id)
         : id(v.subscription) ?? id(parent?.subscription_details?.subscription),
       invoice_id: e.type.startsWith("invoice.") ? String(v.id) : null,
-      checkout_id: e.type.startsWith("checkout.session.") ? String(v.id) : null,
+      checkout_id: checkoutId,
     };
   }
 }

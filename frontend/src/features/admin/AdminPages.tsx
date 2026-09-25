@@ -728,6 +728,7 @@ export function CreditsPage() {
         title="IA y créditos"
         text="Consulta los saldos y abre una cuenta para agregar o retirar créditos con un motivo administrativo."
       />
+      <nav className="billing-controls mb-6" aria-label="Administrar créditos"><Link className="admin-button" to="/admin/credits/packages">Paquetes de créditos</Link><Link className="admin-button secondary" to="/admin/credits/purchases">Compras de créditos</Link></nav>
       <Ready data={data} error={error}>
         <section className="admin-card">
           <h2>Consumo de los últimos 30 días</h2>

@@ -145,3 +145,4 @@
 .billing-section li {
   overflow-wrap: anywhere;
 }
+.credits-total{font-size:3rem;font-weight:650;line-height:1.2;margin:8px 0 24px;color:#203c31}.credits-total span{font-size:1rem;font-weight:400;color:#65746b}.credits-packages{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:20px 0}.credits-package{display:flex;flex-direction:column;gap:10px;align-items:flex-start;text-align:left;padding:20px;border:1px solid #dbe3dd;border-radius:16px;background:#fff;color:#263e32;cursor:pointer}.credits-package.selected{border-color:#32664d;box-shadow:0 0 0 2px #32664d;background:#f5faf5}.credits-package strong{font-size:1.3rem}.credits-package small{color:#6c7b71}.credits-history{list-style:none;padding:0}.credits-history li{display:flex;justify-content:space-between;gap:20px;padding:14px 0;border-bottom:1px solid #e6ebe7}.credits-history small{display:block;color:#6c7b71;margin-top:4px}

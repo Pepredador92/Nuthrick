@@ -9,6 +9,7 @@ import { AIUsageIndicator } from '@/src/components/ai/AIControls';
 
 const nav = [
   { label: 'Dashboard', href: '/app', icon: LayoutDashboard, end: true },
+  { label: 'Créditos IA', href: '/app/credits', icon: CreditCard },
   { label: 'Mi plan', href: '/app/my-plan', icon: CreditCard },
   { label: 'Perfil', href: '/app/profile', icon: UserRound },
   { label: 'Pacientes', href: '/app/patients', icon: UsersRound },

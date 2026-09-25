@@ -109,6 +109,10 @@ class MockBillingProvider implements BillingProvider {
     this.calls.push("price");
     return Promise.resolve("price_es");
   };
+  ensureCreditPrice = this.ensurePrice;
+  createCreditCheckout = (input: CheckoutInput) => this.createCheckout(input);
+  getCreditPayment = () =>
+    Promise.reject(new Error("unexpected_credit_payment"));
   ensurePromotion = () => {
     this.calls.push("promotion");
     return Promise.resolve({ couponId: "coupon_fixture", endAt: null });

@@ -6,6 +6,7 @@ import {
   type Price,
   requireUUID,
 } from "./domain.ts";
+import { creditAction, type CreditPurchase } from "./credit-handler.ts";
 type Data = Record<string, unknown>;
 type Intent = {
   id: string;
@@ -28,6 +29,12 @@ export type BillingDependencies = {
 };
 // Only these public codes may cross the boundary; provider payloads and credentials never do.
 const publicErrors = new Set([
+  "credit_package_unavailable",
+  "credit_payment_minimum",
+  "credit_purchase_not_allowed",
+  "credit_checkout_pending",
+  "credit_checkout_rate_limited",
+  "promotion_package_ineligible",
   "invalid_input",
   "unauthorized",
   "admin_required",
@@ -148,6 +155,7 @@ export function createBillingHandler(deps: BillingDependencies) {
             ignored?: boolean;
             intent: Intent | null;
             managed_subscription: boolean;
+            credit_purchase?: CreditPurchase | null;
           }
         >("claim_event", {
           event_id: event.id,
@@ -157,11 +165,28 @@ export function createBillingHandler(deps: BillingDependencies) {
           subscription_id: event.subscription_id,
           checkout_id: event.checkout_id,
           livemode: event.livemode,
+          payment_id: event.payment_id,
+          credit_reference: event.credit_reference,
         });
         if (ctx.replay || ctx.ignored) return reply(ctx);
         owner = ctx.owner!;
         locked = true;
         claimedEventId = event.id;
+        if (ctx.credit_purchase) {
+          const purchase = ctx.credit_purchase;
+          const checkoutId = purchase.provider_checkout_id ??
+            event.checkout_id ??
+            (await provider.findCheckout(event.customer_id, purchase.id))?.id;
+          if (!checkoutId) throw new Error("checkout_payment_pending");
+          const payment = await provider.getCreditPayment(checkoutId);
+          return reply(
+            await rpc("credit_apply", {
+              event_id: event.id,
+              purchase_id: purchase.id,
+              payment,
+            }),
+          );
+        }
         let subscriptionId = event.subscription_id;
         const invoice = event.invoice_id
           ? await provider.getInvoice(event.invoice_id)
@@ -221,6 +246,9 @@ export function createBillingHandler(deps: BillingDependencies) {
         typeof action !== "string" ||
         ![
           "checkout",
+          "credit_checkout",
+          "credit_preview",
+          "credit_expire",
           "preview",
           "expire_checkout",
           "portal",
@@ -253,6 +281,19 @@ export function createBillingHandler(deps: BillingDependencies) {
       }
       await rpc("lock");
       locked = true;
+      if (typeof action === "string" && action.startsWith("credit_")) {
+        return reply(
+          await creditAction(
+            action,
+            input,
+            owner,
+            operationKey!,
+            rpc,
+            deps.provider,
+            deps.site,
+          ),
+        );
+      }
       if (action === "sync_prices") {
         const prices = await rpc<Price[]>("price_catalog", { actor });
         const provider = await deps.provider();
@@ -442,8 +483,10 @@ export function createBillingHandler(deps: BillingDependencies) {
         ? 401
         : code === "invalid_signature"
         ? 400
-        : code === "admin_required"
+        : code === "admin_required" || code === "credit_purchase_not_allowed"
         ? 403
+        : code === "credit_checkout_rate_limited"
+        ? 429
         : code === "billing_busy" || code === "billing_lease_expired" ||
             code === "billing_unavailable" || code === "billing_not_configured"
         ? 503

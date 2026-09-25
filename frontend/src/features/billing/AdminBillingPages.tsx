@@ -26,6 +26,7 @@ import {
   stateLabel,
   type Subscription,
 } from "./api";
+import type { CreditPackage } from "./credits-api";
 import "./billing.css";
 const audiences: Record<string, string> = {
   student: "Estudiantes",
@@ -42,6 +43,7 @@ const benefitNames: Record<Benefit["type"], string> = {
   custom_price: "Precio promocional",
   free_period: "Período gratis",
   initial_ai_credits: "Créditos IA iniciales",
+  bonus_ai_credits: "Créditos bonus por recarga",
   temporary_entitlement: "Permiso temporal",
   plan_upgrade: "Mejora temporal de plan",
 };
@@ -104,7 +106,7 @@ export function PromotionsPage() {
                       <tr>
                         <th>Código / Nombre</th>
                         <th>Audiencia</th>
-                        <th>Plan</th>
+                        <th>Plan / Paquete</th>
                         <th>Beneficio</th>
                         <th>Vigencia</th>
                         <th>Usos</th>
@@ -172,6 +174,8 @@ const initial = (): Campaign => ({
   active: true,
   starts_at: new Date().toISOString(),
   ends_at: null,
+  target: "subscription",
+  eligible_package_ids: [],
   eligible_plan_ids: [],
   intervals: ["monthly"],
   benefits: [{
@@ -200,6 +204,7 @@ export function PromotionEditorPage() {
   const isNew = !campaignId;
   const navigate = useNavigate();
   const [campaign, setCampaign] = useState<Campaign>(initial);
+  const [packages, setPackages] = useState<CreditPackage[]>([]);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -226,6 +231,12 @@ export function PromotionEditorPage() {
       mounted = false;
     };
   }, [campaignId, isNew]);
+  useEffect(() => {
+    void billingAdmin<{ credit_packages?: CreditPackage[] }>("overview").then(
+      (d) => setPackages(d?.credit_packages ?? []),
+    ).catch(() => {});
+  }, []);
+  const isCredit = campaign.target === "ai_credit_package";
   const update = (v: Partial<Campaign>) => setCampaign((c) => ({ ...c, ...v }));
   const benefit = (index: number, v: Partial<Benefit>) =>
     setCampaign((c) => ({
@@ -277,6 +288,28 @@ export function PromotionEditorPage() {
       {loading ? <p>Cargando…</p> : (
         <>
           <form className="admin-card" onSubmit={save}>
+            <label className="admin-field mb-5">
+              Aplica a<select
+                disabled={!isNew}
+                value={campaign.target ?? "subscription"}
+                onChange={(e) =>
+                  update({
+                    target: e.target.value as Campaign["target"],
+                    eligible_plan_ids: [],
+                    eligible_package_ids: [],
+                    benefits: [{
+                      type: "percentage_discount",
+                      amount: 20,
+                      duration: { kind: "invoice" },
+                    }],
+                  })}
+              >
+                <option value="subscription">Suscripciones</option>
+                <option value="ai_credit_package">
+                  Paquetes de créditos IA
+                </option>
+              </select>
+            </label>
             <div className="billing-form-grid">
               <label className="admin-field">
                 Nombre<input
@@ -311,19 +344,34 @@ export function PromotionEditorPage() {
                 </select>
               </label>
               <fieldset>
-                <legend className="admin-note">Planes elegibles</legend>
-                {plans.map((p) => (
+                <legend className="admin-note">
+                  {isCredit ? "Paquetes elegibles" : "Planes elegibles"}
+                </legend>
+                {(isCredit ? packages : plans).map((p) => (
                   <label className="billing-check" key={p.id}>
                     <input
                       type="checkbox"
-                      checked={campaign.eligible_plan_ids.includes(p.id!)}
+                      checked={(isCredit
+                        ? campaign.eligible_package_ids ?? []
+                        : campaign.eligible_plan_ids).includes(p.id!)}
                       onChange={(e) =>
                         update({
-                          eligible_plan_ids: e.target.checked
-                            ? [...campaign.eligible_plan_ids, p.id!]
-                            : campaign.eligible_plan_ids.filter((id) =>
-                              id !== p.id
-                            ),
+                          [
+                            isCredit
+                              ? "eligible_package_ids"
+                              : "eligible_plan_ids"
+                          ]: e.target.checked
+                            ? [
+                              ...(isCredit
+                                ? campaign.eligible_package_ids ?? []
+                                : campaign.eligible_plan_ids),
+                              p.id!,
+                            ]
+                            : (isCredit
+                              ? campaign.eligible_package_ids ?? []
+                              : campaign.eligible_plan_ids).filter((id) =>
+                                id !== p.id
+                              ),
                         })}
                     />
                     {p.name}
@@ -349,13 +397,21 @@ export function PromotionEditorPage() {
                               : type === "percentage_discount"
                               ? 20
                               : 249,
-                            duration: type === "initial_ai_credits"
+                            duration: isCredit || type === "initial_ai_credits"
                               ? { kind: "invoice" }
                               : { kind: "months", months: 3 },
                           });
                         }}
                       >
-                        {Object.entries(benefitNames).map(([key, label]) => (
+                        {Object.entries(benefitNames).filter(([key]) =>
+                          isCredit
+                            ? [
+                              "percentage_discount",
+                              "fixed_discount",
+                              "bonus_ai_credits",
+                            ].includes(key)
+                            : key !== "bonus_ai_credits"
+                        ).map(([key, label]) => (
                           <option value={key} key={key}>{label}</option>
                         ))}
                       </select>
@@ -365,10 +421,13 @@ export function PromotionEditorPage() {
                       "fixed_discount",
                       "custom_price",
                       "initial_ai_credits",
+                      "bonus_ai_credits",
                     ].includes(b.type) && (
                       <label className="admin-field">
                         {b.type === "percentage_discount"
                           ? "Porcentaje"
+                          : b.type === "bonus_ai_credits"
+                          ? "Créditos bonus"
                           : b.type === "initial_ai_credits"
                           ? "Créditos iniciales"
                           : "Importe en MXN"}
@@ -381,7 +440,11 @@ export function PromotionEditorPage() {
                             ? 1
                             : 0.01}
                           max={b.type === "percentage_discount" ? 100 : 1000000}
-                          step={b.type === "initial_ai_credits" ? 1 : 0.01}
+                          step={b.type === "bonus_ai_credits"
+                            ? 0.001
+                            : b.type === "initial_ai_credits"
+                            ? 1
+                            : 0.01}
                           value={b.amount ?? ""}
                           onChange={(e) =>
                             benefit(index, { amount: Number(e.target.value) })}
@@ -461,7 +524,7 @@ export function PromotionEditorPage() {
                           )}
                       </>
                     )}
-                    {b.type !== "initial_ai_credits" && (
+                    {!isCredit && b.type !== "initial_ai_credits" && (
                       <>
                         <label className="admin-field">
                           Duración<select
@@ -545,11 +608,13 @@ export function PromotionEditorPage() {
               <button
                 type="button"
                 className="admin-button secondary"
-                disabled={campaign.benefits.length >= 8}
+                disabled={campaign.benefits.length >= (isCredit ? 2 : 8)}
                 onClick={() =>
                   update({
                     benefits: [...campaign.benefits, {
-                      type: "initial_ai_credits",
+                      type: isCredit
+                        ? "bonus_ai_credits"
+                        : "initial_ai_credits",
                       amount: 20,
                       duration: { kind: "invoice" },
                     }],
@@ -557,13 +622,23 @@ export function PromotionEditorPage() {
               >
                 Añadir beneficio
               </button>
-              <p className="admin-note mt-4">
-                Después del beneficio de precio se cobra el precio normal
-                contratado. Los descuentos por meses en modalidad anual se
-                aplican a las facturas emitidas dentro de esa ventana.
-                {" "}Los períodos gratis por meses o hasta una fecha requieren
-                modalidad mensual. En anual puedes regalar una factura completa.
-              </p>
+              {isCredit
+                ? (
+                  <p className="admin-note mt-4">
+                    El descuento y los créditos bonus se aplican una vez por
+                    compra confirmada, sujetos a los límites del código.
+                  </p>
+                )
+                : (
+                  <p className="admin-note mt-4">
+                    Después del beneficio de precio se cobra el precio normal
+                    contratado. Los descuentos por meses en modalidad anual se
+                    aplican a las facturas emitidas dentro de esa ventana.{" "}
+                    Los períodos gratis por meses o hasta una fecha requieren
+                    modalidad mensual. En anual puedes regalar una factura
+                    completa.
+                  </p>
+                )}
             </section>
             <div className="billing-form-grid">
               <label className="admin-field">
@@ -600,26 +675,30 @@ export function PromotionEditorPage() {
             <details className="billing-details">
               <summary>Condiciones adicionales</summary>
               <div className="billing-form-grid">
-                <fieldset>
-                  <legend className="admin-note">Modalidades elegibles</legend>
-                  {(["monthly", "annual"] as Interval[]).map((i) => (
-                    <label className="billing-check" key={i}>
-                      <input
-                        type="checkbox"
-                        checked={campaign.intervals.includes(i)}
-                        onChange={(e) =>
-                          update({
-                            intervals: e.target.checked
-                              ? [...campaign.intervals, i]
-                              : campaign.intervals.filter((x) =>
-                                x !== i
-                              ),
-                          })}
-                      />
-                      {i === "monthly" ? "Mensual" : "Anual"}
-                    </label>
-                  ))}
-                </fieldset>
+                {!isCredit && (
+                  <fieldset>
+                    <legend className="admin-note">
+                      Modalidades elegibles
+                    </legend>
+                    {(["monthly", "annual"] as Interval[]).map((i) => (
+                      <label className="billing-check" key={i}>
+                        <input
+                          type="checkbox"
+                          checked={campaign.intervals.includes(i)}
+                          onChange={(e) =>
+                            update({
+                              intervals: e.target.checked
+                                ? [...campaign.intervals, i]
+                                : campaign.intervals.filter((x) =>
+                                  x !== i
+                                ),
+                            })}
+                        />
+                        {i === "monthly" ? "Mensual" : "Anual"}
+                      </label>
+                    ))}
+                  </fieldset>
+                )}
                 <label className="admin-field">
                   Usos por profesional<input
                     required
@@ -637,15 +716,17 @@ export function PromotionEditorPage() {
                     checked={campaign.new_customers_only}
                     onChange={(e) =>
                       update({ new_customers_only: e.target.checked })}
-                  />Solo nuevas suscripciones
+                  />
+                  {isCredit
+                    ? "Solo clientes sin compras ni suscripciones pagadas previas"
+                    : "Solo nuevas suscripciones"}
                 </label>
                 <label className="admin-field">
                   Visibilidad<select
                     value={campaign.visibility}
-                    onChange={(e) =>
-                      update({
-                        visibility: e.target.value as "private" | "public",
-                      })}
+                    onChange={(e) => update({
+                      visibility: e.target.value as "private" | "public",
+                    })}
                   >
                     <option value="private">Privada · requiere código</option>
                     <option value="public">Pública · para campañas</option>
