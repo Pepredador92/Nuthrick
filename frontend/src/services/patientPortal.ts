@@ -110,3 +110,29 @@ export function portalAction<T>(
 export function portalLink(token: string) {
   return `${window.location.origin}/mi-espacio#${token}`;
 }
+
+function base64Url(bytes: Uint8Array) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+export async function portalNotificationTopic(link: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(link));
+  return `portal:${base64Url(new Uint8Array(digest))}`;
+}
+
+export async function subscribePortalNotifications(
+  link: string,
+  onNotification: (payload: { kind?: string; sender?: string }) => void,
+) {
+  const channel = supabase
+    .channel(await portalNotificationTopic(link))
+    .on("broadcast", { event: "portal_notification" }, (event) => {
+      onNotification((event.payload || {}) as { kind?: string; sender?: string });
+    })
+    .subscribe();
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+}

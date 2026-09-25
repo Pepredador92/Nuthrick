@@ -14,8 +14,10 @@ import {
   portalApi,
   portalAction,
   PortalError,
+  subscribePortalNotifications,
   type PortalView,
 } from "@/src/services/patientPortal";
+import { playNotificationSound } from "@/src/features/notifications/sound";
 import { PortalContentView } from "@/src/components/patients/PortalContentView";
 import { PortalChat } from "@/src/components/patients/PortalChat";
 import { PortalNotes } from "@/src/components/patients/PortalNotes";
@@ -86,6 +88,25 @@ function PatientPortalContent() {
       document.removeEventListener("visibilitychange", refresh);
     };
   }, [session, expiresAt]);
+  useEffect(() => {
+    if (!session || !link) return;
+    let active = true;
+    let stop: (() => void) | undefined;
+    void subscribePortalNotifications(link, (event) => {
+      if (!active) return;
+      if (event.sender === "professional") playNotificationSound();
+      void portalAction<PortalView>({ session }, "view")
+        .then((next) => { if (active) setView(next); })
+        .catch(() => { /* The regular refresh remains the fallback. */ });
+    }).then((cleanup) => {
+      if (active) stop = cleanup;
+      else cleanup();
+    }).catch(() => { /* Realtime is optional; polling remains authoritative. */ });
+    return () => {
+      active = false;
+      stop?.();
+    };
+  }, [link, session]);
   async function sendCode() {
     setBusy(true);
     setError("");
