@@ -66,6 +66,21 @@
   background: linear-gradient(120deg, #f0f5e7, #fffdf7);
   border-color: #dce5cb;
 }
+.portal-home-grid {
+  display: grid;
+  gap: 16px;
+}
+.portal-home-meals {
+  display: grid;
+  gap: 10px;
+}
+.portal-home-meal {
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid #dfe9df;
+  border-radius: 16px;
+  background: #f8fbf6;
+}
 .portal-count {
   border-radius: 100px;
   font-size: 12px;
@@ -156,5 +171,13 @@
     right: 2px;
     padding: 1px 5px;
     font-size: 10px;
+  }
+}
+@media (min-width: 640px) {
+  .portal-home-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .portal-home-meals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

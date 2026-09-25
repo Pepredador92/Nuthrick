@@ -13,9 +13,11 @@ export function portalDate(value: string) {
 export function PortalContentView({
   content,
   section = "all",
+  showMethod = true,
 }: {
   content: PortalContent;
   section?: "all" | "today" | "results" | "history";
+  showMethod?: boolean;
 }) {
   return (
     <div className="space-y-5">
@@ -76,7 +78,7 @@ export function PortalContentView({
                       {portalDate(latest.date)}
                     </p>
                   )}
-                  {result.method && (
+                  {showMethod && result.method && (
                     <p className="mt-2 break-words text-xs text-[#74817d]">
                       Método: {result.method}
                     </p>

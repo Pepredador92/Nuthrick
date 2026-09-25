@@ -22,6 +22,7 @@ import { PortalContentView } from "@/src/components/patients/PortalContentView";
 import { PortalChat } from "@/src/components/patients/PortalChat";
 import { PortalNotes } from "@/src/components/patients/PortalNotes";
 import { PortalPatientPlan } from "@/src/components/patients/PortalPlan";
+import { PortalHomeSummary } from "@/src/components/patients/PortalHomeSummary";
 import "./PatientPortal.css";
 
 export function PatientPortalPage() {
@@ -40,7 +41,7 @@ function PatientPortalContent() {
   const [view, setView] = useState<PortalView | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState("plan");
+  const [tab, setTab] = useState("today");
   const access = useMemo(() => ({ session }), [session]);
   function expire() {
     setSession("");
@@ -379,6 +380,8 @@ function PatientPortalContent() {
                 >
                   {tab === "plan" ? (
                     <PortalPatientPlan access={access} />
+                  ) : tab === "today" ? (
+                    <PortalHomeSummary access={access} view={view} onOpenTab={setTab} />
                   ) : tab === "chat" ? (
                     <PortalChat
                       key={session}
@@ -392,6 +395,7 @@ function PatientPortalContent() {
                     <PortalContentView
                       content={view.shared}
                       section={tab as "today" | "results" | "history"}
+                      showMethod={false}
                     />
                   )}
                 </div>
