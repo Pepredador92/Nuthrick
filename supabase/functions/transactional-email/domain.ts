@@ -1,4 +1,5 @@
-export const SITE = "https://nuthrick.vercel.app";
+import { PUBLIC_SITE_ORIGIN } from "../_shared/site.ts";
+export const SITE = PUBLIC_SITE_ORIGIN;
 export const TEMPLATE_KEYS = [
   "welcome",
   "subscription_activated",

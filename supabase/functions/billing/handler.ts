@@ -1,3 +1,4 @@
+import { productOriginAllowed } from "../_shared/site.ts";
 import {
   assertEnvironmentObject,
   type BillingEnvironment,
@@ -130,9 +131,9 @@ export function createBillingHandler(deps: BillingDependencies) {
       "content-type": "application/json",
       "cache-control": "no-store",
       "vary": "Origin",
-      ...(origin === deps.site
+      ...(productOriginAllowed(origin, deps.site)
         ? {
-          "access-control-allow-origin": origin,
+          "access-control-allow-origin": origin!,
           "access-control-allow-headers":
             "authorization, x-client-info, apikey, content-type",
           "access-control-allow-methods": "POST, OPTIONS",
@@ -143,7 +144,7 @@ export function createBillingHandler(deps: BillingDependencies) {
       new Response(JSON.stringify(value), { status, headers });
     if (req.method === "OPTIONS") {
       return new Response(null, {
-        status: origin === deps.site ? 204 : 403,
+        status: productOriginAllowed(origin, deps.site) ? 204 : 403,
         headers,
       });
     }
@@ -265,7 +266,7 @@ export function createBillingHandler(deps: BillingDependencies) {
           await rpc("apply", { event_id: event.id, subscription, invoice }),
         );
       }
-      if (origin && origin !== deps.site) {
+      if (origin && !productOriginAllowed(origin, deps.site)) {
         return reply({ error: "origin_not_allowed" }, 403);
       }
       const bearer = req.headers.get("authorization")?.match(/^Bearer (.+)$/i)

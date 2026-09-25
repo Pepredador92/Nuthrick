@@ -16,7 +16,7 @@ const input: CheckoutInput = {
   customerId: "cus_fixture",
   priceId: "price_fixture",
   intentId: "bc000000-0000-4000-8000-000000000001",
-  site: "https://nuthrick.vercel.app",
+  site: "https://nuthrick.com",
   expiresAt: 1900000000,
 };
 const price: Price = {

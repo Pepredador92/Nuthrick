@@ -1,3 +1,4 @@
+import { productOriginAllowed } from "../_shared/site.ts";
 import { Webhook } from "svix";
 import {
   EmailError,
@@ -57,9 +58,10 @@ export function createEmailHandler(deps: Dependencies) {
     const headers = {
       "content-type": "application/json",
       "cache-control": "no-store",
-      ...(origin === SITE
+      "vary": "Origin",
+      ...(productOriginAllowed(origin, SITE)
         ? {
-          "access-control-allow-origin": SITE,
+          "access-control-allow-origin": origin!,
           "access-control-allow-headers":
             "authorization, apikey, content-type, x-client-info",
           "access-control-allow-methods": "POST, OPTIONS",
@@ -70,7 +72,7 @@ export function createEmailHandler(deps: Dependencies) {
       new Response(JSON.stringify(data), { status, headers });
     if (req.method === "OPTIONS") {
       return new Response(null, {
-        status: origin === SITE ? 204 : 403,
+        status: productOriginAllowed(origin, SITE) ? 204 : 403,
         headers,
       });
     }
@@ -123,7 +125,7 @@ export function createEmailHandler(deps: Dependencies) {
           }),
         );
       }
-      if (origin && origin !== SITE) {
+      if (origin && !productOriginAllowed(origin, SITE)) {
         return reply({ error: "origin_not_allowed" }, 403);
       }
       const token = req.headers.get("authorization")?.match(/^Bearer (.+)$/i)

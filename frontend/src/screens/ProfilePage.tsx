@@ -1,3 +1,4 @@
+import { publicUrl as productUrl } from '@/src/lib/site';
 import { Camera, CheckCircle2, Clipboard, ExternalLink, LoaderCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -60,7 +61,7 @@ export function ProfilePage() {
   if (loading && !workspace) return <LoadingState label="Cargando tu perfil…" />;
   if (error || !workspace) return <ErrorState message={error || 'No encontramos tu perfil.'} onRetry={() => void reload()} />;
   const p = workspace.profile;
-  const publicUrl = p.public_slug ? `${window.location.origin}/p/${p.public_slug}` : '';
+  const publicUrl = p.public_slug ? productUrl(`/p/${p.public_slug}`) : '';
   const section = {
     'Sobre mí': <div className="space-y-10"><AboutSection workspace={workspace} onSaved={saved} /><ContactsSection workspace={workspace} onSaved={saved} /></div>,
     Extras: <ExtrasSection workspace={workspace} onSaved={saved} />,

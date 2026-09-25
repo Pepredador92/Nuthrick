@@ -1,3 +1,4 @@
+import { authRedirectUrl } from '@/src/lib/site';
 import { billingReturn } from '@/src/features/billing/returnToPlan';
 import { ArrowLeft, Eye, EyeOff, LoaderCircle, MailCheck } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
@@ -37,7 +38,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const handleGoogle = async () => {
     setError('');
     if (!configurationReady) return setError('Conecta el nuevo proyecto de Supabase para habilitar el acceso.');
-    const { error: authError } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback` } });
+    const { error: authError } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: authRedirectUrl('/auth/callback') } });
     if (authError) setError(authError.message);
   };
 
@@ -55,7 +56,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         const destination = billingReturn() ?? (from?.startsWith('/app') && !from.includes('\\') ? from : '/app');
         navigate(destination, { replace: true });
       } else {
-        const { data, error: authError } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
+        const { data, error: authError } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: authRedirectUrl('/auth/callback') } });
         if (authError) throw authError;
         if (data.session) navigate('/onboarding', { replace: true });
         else setConfirmationSent(true);
@@ -93,7 +94,7 @@ export function ForgotPasswordPage() {
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setError('');
     if (!configurationReady) return setError('Conecta el nuevo proyecto de Supabase para habilitar la recuperación.');
-    const { error: authError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
+    const { error: authError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: authRedirectUrl('/reset-password') });
     if (authError) setError(authError.message); else setSent(true);
   };
   return <AuthShell title="Recupera tu acceso" subtitle="Te enviaremos un enlace seguro para elegir una nueva contraseña.">{sent ? <div className="mt-8 rounded-2xl bg-[#edf5f0] p-5 text-sm text-[#3f6759]">Si existe una cuenta para {email}, recibirás las instrucciones en unos minutos.</div> : <form className="mt-8 space-y-5" onSubmit={submit}><Field label="Email" name="email"><Input id="email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></Field>{error && <p role="alert" className="text-sm text-[#934938]">{error}</p>}<button className="nuth-button w-full justify-center py-3.5">Enviar enlace</button></form>}</AuthShell>;

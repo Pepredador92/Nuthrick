@@ -209,7 +209,7 @@ function setup(
     return (result[action] ?? {}) as T;
   };
   const handler = createBillingHandler({
-    site: "https://nuthrick.vercel.app",
+    site: "https://nuthrick.com",
     authenticate: (token) =>
       Promise.resolve(token === "valid-user" ? owner : null),
     provider: () => Promise.resolve(provider),
@@ -535,4 +535,14 @@ Deno.test("provider failure messages never leak credentials or payment payloads"
     }),
   );
   assert.deepEqual(await response.json(), { error: "billing_unavailable" });
+});
+
+Deno.test("canonical billing accepts technical fallback without trusting other origins", async () => {
+  const {handler}=setup();
+  for (const origin of ['https://nuthrick.com','https://nuthrick.vercel.app','https://nuthrick.com.attacker.example']) {
+    const response=await handler(new Request('https://project.supabase.co/functions/v1/billing',{method:'OPTIONS',headers:{origin}}));
+    const trusted=origin!=='https://nuthrick.com.attacker.example';
+    assert.equal(response.status,trusted?204:403);
+    assert.equal(response.headers.get('access-control-allow-origin'),trusted?origin:null);
+  }
 });

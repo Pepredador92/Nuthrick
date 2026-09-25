@@ -1,3 +1,4 @@
+import { publicUrl } from '@/src/lib/site';
 import type { Metadata } from 'next';
 import { ClientApplication } from '@/src/app/ClientApplication';
 
@@ -18,14 +19,16 @@ async function getProfileContent(slug: string): Promise<PublicContent | null> {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
+  const url = publicUrl(`/p/${encodeURIComponent(slug)}`);
   const profile = await getProfileContent(slug);
-  if (!profile) return { title: 'Perfil profesional | Nuthrick', openGraph: { images: [] }, twitter: { images: [] } };
+  if (!profile) return { alternates: { canonical: url }, robots: { index: false, follow: false }, title: 'Perfil profesional | Nuthrick', openGraph: { images: [] }, twitter: { images: [] } };
   const title = `${profile.name ?? 'Perfil profesional'} | Nuthrick`;
   const description = profile.biography?.slice(0, 155) || profile.professionalTitle || 'Perfil profesional en Nuthrick';
   return {
     title,
     description,
-    openGraph: { title, description, type: 'profile', images: [] },
+    alternates: { canonical: url },
+    openGraph: { url, title, description, type: 'profile', images: [] },
     twitter: { card: 'summary', title, description, images: [] },
   };
 }

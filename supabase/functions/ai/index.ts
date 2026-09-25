@@ -1,3 +1,4 @@
+import { productOriginAllowed, siteOrigin } from '../_shared/site.ts';
 import { createClient } from '@supabase/supabase-js';
 import { AIError, type AIStore, type FeatureConfig, type Generation, OpenAIResponsesProvider, parseRequest, runAIRequest } from './core.ts';
 import { buildPesClinicalContext, redactClinicalText, type ClinicalSource } from './clinical.ts';
@@ -5,18 +6,22 @@ import { prepareDietSnapshot, prepareDietAlternative, verifyDietSnapshot, valida
 import { dietPreflight } from './diet-ux.ts';
 import { localDietTestMode, SimulatedDietProvider } from './diet-provider-test.ts';
 
-const site = Deno.env.get('AI_SITE_URL') || 'https://nuthrick.vercel.app';
-const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+const site = siteOrigin(Deno.env.get('AI_SITE_URL'));
+const baseHeaders = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
   'Access-Control-Allow-Origin': site, 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
-const respond = (body: unknown, status = 200) => new Response(JSON.stringify(body),{ status, headers });
+
 const technicalCodes = new Set(['insufficient_credits','feature_disabled','account_disabled','too_many_requests','rate_limited','provider_credit_exhausted',
   'pilot_limit_reached','pilot_daily_limit','pilot_daily_budget','config_changed','context_unavailable','idempotency_conflict','generation_unavailable','invalid_request']);
 
 Deno.serve(async request => {
-  if (request.method === 'OPTIONS') return new Response(null,{ status: 204, headers });
+  const origin = request.headers.get('origin');
+  const allowed = productOriginAllowed(origin, site);
+  const headers = {...baseHeaders, 'Access-Control-Allow-Origin': allowed ? origin! : site, Vary: 'Origin'};
+  const respond = (body: unknown, status = 200) => new Response(JSON.stringify(body),{ status, headers });
+  if (request.method === 'OPTIONS') return new Response(null,{ status: allowed ? 204 : 403, headers });
   if (request.method !== 'POST') return respond({ error: 'method_not_allowed' },405);
   try {
-    if (request.headers.get('origin') && request.headers.get('origin') !== site) throw new AIError('unauthorized');
+    if (origin && !allowed) throw new AIError('unauthorized');
     const url = Deno.env.get('SUPABASE_URL'), serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!url || !serviceKey) throw new AIError('configuration_required');
     const db = createClient(url,serviceKey,{ auth: { persistSession: false, autoRefreshToken: false } });

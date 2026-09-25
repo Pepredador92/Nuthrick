@@ -6,7 +6,7 @@ Continúa LIVE-1 (`8b75c76`). Stripe exclusivamente TEST; no configurar secretos
 productos, precios ni webhooks Live. OpenAI apagado. Sin cambios de pacientes.
 Los tres documentos existentes v1 permanecen `pending_review`, sin fecha efectiva.
 No ejecutar aprobación hasta la confirmación humana explícita y la resolución de
-los campos pendientes. No hay dominio propio confirmado a 25 de septiembre de 2026.
+los campos pendientes. El dominio web oficial `nuthrick.com` ya está activo. No se contratarán buzones de correo propios en esta fase. Ver [dominio web](web-domain.md).
 
 Contacto autorizado por José: `susy.asistencia.online@gmail.com`, tanto soporte como
 privacidad y bandeja de pruebas. Los antiguos correos `@nuthrick.com` no existen:
@@ -17,9 +17,9 @@ se retiran de configuración activa y del footer público.
 Las páginas anteriores solo presentaban estructura y principios genéricos. Ahora
 el texto está en los mismos documentos privados, con vista previa administrativa:
 
-- https://nuthrick.vercel.app/admin/legal/terms
-- https://nuthrick.vercel.app/admin/legal/privacy
-- https://nuthrick.vercel.app/admin/legal/refunds
+- https://nuthrick.com/admin/legal/terms
+- https://nuthrick.com/admin/legal/privacy
+- https://nuthrick.com/admin/legal/refunds
 
 Se contrastó el borrador con planes y accesos, billing y créditos, Agenda,
 Superlink, mensajería, almacenamiento y las integraciones que existen en el repo.
@@ -96,8 +96,9 @@ para el cron y firma Svix sobre bytes originales para webhooks. Por eso su
 
 ### Dominio/DNS
 
-Aún no hay dominio propio ni registros DNS reales que puedan entregarse. Cuando
-exista, añadirlo a Resend y copiar **sus registros exactos** (no inventar DKIM,
+La ruta Resend descrita aquí es una alternativa futura, no un requisito de LIVE-1B.
+El dominio web ya existe y Gmail sigue como identidad temporal. Solo cuando se
+autorice la migración de correo, añadir un dominio de envío a Resend y copiar **sus registros exactos** (no inventar DKIM,
 SPF o MX); no modificar DNS sin confirmar control y compatibilidad con registros
 existentes. Guardar ID del dominio, nombre y correo remitente en Operaciones.
 Reply-To toma el soporte central verificado. “Verificar proveedor y DNS” consulta
@@ -139,8 +140,9 @@ simulado, aceptado, entregado, recibido/revisado, fallido y rebotado.
 
 Legal exige tres documentos aprobados y efectivos. Correo exige proveedor real,
 DNS verificado recientemente, runtime, webhook firmado, worker y cinco recepciones
-revisadas de la configuración vigente. Sin aprobación ni dominio, correo y legal
-siguen pendientes. El soporte pasa solo con contacto real confirmado.
+revisadas de la configuración vigente. Las pruebas reales y la revisión legal siguen pendientes; no se condiciona el
+uso del dominio web a contratar buzones. Los requisitos DNS anteriores aplican
+solo al adaptador Resend, no a la alternativa Gmail temporal. El soporte pasa solo con contacto real confirmado.
 
 Incluso al llegar a 15/15, Stripe sigue TEST. Live requerirá otra fase explícita:
 cuenta habilitada, credenciales separadas, productos/precios Live aprobados,

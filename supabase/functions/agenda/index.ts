@@ -1,3 +1,4 @@
+import { productOriginAllowed, siteOrigin } from '../_shared/site.ts';
 import { createClient } from '@supabase/supabase-js';
 import { codeHash, decrypt, encrypt, gmailMessage, normalizeEmail, overlaps, parseInstant, readFreeBusy, secretToken, sha256 } from './security.ts';
 import { checkCalendarConflict } from './calendar-reconciliation.ts';
@@ -5,7 +6,7 @@ import { portalRequest } from './portal.ts';
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
 const env = (name: string) => { const value=Deno.env.get(name); if (!value) throw new Error('configuration_required'); return value; };
-const site = Deno.env.get('AGENDA_SITE_URL') || 'https://nuthrick.vercel.app';
+const site = siteOrigin(Deno.env.get('AGENDA_SITE_URL'));
 const senderEmail = Deno.env.get('AGENDA_SENDER_EMAIL') || 'susy.asistencia.online@gmail.com';
 const adminEmail = Deno.env.get('AGENDA_MAIL_ADMIN_EMAIL') || senderEmail;
 const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false, autoRefreshToken: false } });
@@ -245,14 +246,14 @@ async function reconcileCalendar() {
   await server('complete_calendar_check',result);
 }
 
-Deno.serve(async req => {
+async function handleAgenda(req: Request) {
   if(req.method==='OPTIONS') return new Response(null,{headers});
   try {
     const url=new URL(req.url);
     if(req.method==='GET'&&url.pathname.endsWith('/oauth/callback')) return await oauthCallback(url);
     if(req.method!=='POST') return respond({error:'method_not_allowed'},405);
     const origin=req.headers.get('origin');
-    if(origin&&origin!==site) throw new Error('unauthorized');
+    if(origin&&!productOriginAllowed(origin,site)) throw new Error('unauthorized');
     if(Number(req.headers.get('content-length')||0)>120000) throw new Error('invalid_input');
     const text=await req.text(); if(text.length>120000) throw new Error('invalid_input');
     const body=JSON.parse(text) as Json;
@@ -410,4 +411,14 @@ Deno.serve(async req => {
     const code=[...known,'registration_required','invalid_birth_date','invalid_phone'].includes(message)?message:'temporarily_unavailable';
     return respond({error:code},code==='unauthorized'?401:code==='rate_limited'?429:code==='slot_taken'?409:400);
   }
+}
+Deno.serve(async req => {
+  const origin = req.headers.get('origin');
+  const allowed = productOriginAllowed(origin, site);
+  const response = req.method === 'OPTIONS'
+    ? new Response(null, {status: allowed ? 204 : 403, headers})
+    : await handleAgenda(req);
+  if (allowed) response.headers.set('Access-Control-Allow-Origin', origin!);
+  response.headers.set('Vary', 'Origin');
+  return response;
 });

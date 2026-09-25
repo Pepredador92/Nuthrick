@@ -1,3 +1,4 @@
+import { publicUrl } from '@/src/lib/site';
 import { supabase } from "@/src/lib/supabase";
 import type {
   PortalContent,
@@ -108,7 +109,7 @@ export function portalAction<T>(
   );
 }
 export function portalLink(token: string) {
-  return `${window.location.origin}/mi-espacio#${token}`;
+  return `${publicUrl('/mi-espacio')}#${token}`;
 }
 
 function base64Url(bytes: Uint8Array) {

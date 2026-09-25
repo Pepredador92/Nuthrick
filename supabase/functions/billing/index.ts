@@ -1,3 +1,4 @@
+import { siteOrigin } from "../_shared/site.ts";
 import { createClient } from "@supabase/supabase-js";
 import { createBillingHandler } from "./handler.ts";
 import type { BillingEnvironment } from "./domain.ts";
@@ -70,7 +71,7 @@ const provider = (environment: BillingEnvironment = "test") => {
   });
 };
 Deno.serve(createBillingHandler({
-  site: Deno.env.get("BILLING_SITE_URL") ?? "https://nuthrick.vercel.app",
+  site: siteOrigin(Deno.env.get("BILLING_SITE_URL")),
   provider,
   liveWebhookUrl: `${url}/functions/v1/billing/webhook/live`,
   resolveEnvironment: async (owner, action, requested) => {
