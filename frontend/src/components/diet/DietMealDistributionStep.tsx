@@ -101,7 +101,7 @@ function DistributionCell({
         draggable
         aria-label={`Arrastrar ${format(value)} de ${groupName} en ${meal.display_name}`}
         title={`Arrastra ${format(value)} a otro tiempo de ${groupName}`}
-        className="inline-flex cursor-grab items-center gap-0.5 rounded-md px-1 py-0.5 text-[10px] font-medium text-[#6b8174] hover:bg-[#edf5ef] active:cursor-grabbing"
+        className="inline-flex size-7 cursor-grab items-center justify-center rounded-md text-[#6b8174] hover:bg-[#edf5ef] active:cursor-grabbing"
         onDragStart={(event) => {
           const next = { groupCode, mealTimeId: meal.id };
           event.dataTransfer.effectAllowed = "move";
@@ -110,11 +110,11 @@ function DistributionCell({
         }}
         onDragEnd={() => onDragSourceChange(null)}
       >
-        <GripVertical size={13} /> Arrastrar
+        <GripVertical size={15} />
       </button>
       <select
         aria-label={moveLabel}
-        className="max-w-full rounded-md border-0 bg-transparent px-1 py-0.5 text-[10px] text-[#52675e] focus:ring-1 focus:ring-[#8eaa99]"
+        className="max-w-full rounded-md border-0 bg-transparent px-1 py-0.5 text-[10px] text-[#52675e] focus:ring-1 focus:ring-[#8eaa99] lg:sr-only lg:focus:not-sr-only"
         value=""
         onChange={(event) => {
           if (event.target.value) onMove(
