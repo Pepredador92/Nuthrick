@@ -111,6 +111,7 @@ export function PreLiveReadinessPage() {
                 <div><h2>Estado operativo</h2><p className="admin-note">Últimas ejecuciones, webhooks y emails. El detalle accionable está en Operaciones.</p></div>
                 <Link className="admin-button secondary" to="/admin/operations">Abrir Operaciones</Link>
               </div>
+              <div className="operations-legal-list">{data.operations.legal.documents.map(doc => <span key={doc.key}><strong>{doc.title} · v{doc.version}</strong><span>{doc.review_status === "approved" ? "Aprobado" : "Pendiente de revisión"}</span><Link to={`/admin/legal/${doc.key}`}>Ver documento</Link></span>)}</div>
               <div className="prelive-operations-grid">
                 <div><strong>Jobs</strong>{data.operations.jobs.map((job) => <span key={job.jobname}>{job.jobname.replace("nuthrick-", "")} · {job.last_status === "succeeded" ? "correcto" : job.last_status ?? "sin run"}</span>)}</div>
                 <div><strong>Webhooks</strong><span>{data.operations.webhooks.pending} pendientes · {data.operations.webhooks.errors} errores</span><span>Último: {data.operations.webhooks.last_processed ? new Date(data.operations.webhooks.last_processed).toLocaleString("es-MX") : "sin eventos"}</span></div>

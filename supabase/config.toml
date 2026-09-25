@@ -417,3 +417,7 @@ enabled = true
 
 [functions.billing]
 verify_jwt = false
+
+[functions.transactional-email]
+# Handler verifies admin JWTs, worker secret or signed Svix webhook before any action.
+verify_jwt = false

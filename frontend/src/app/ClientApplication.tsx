@@ -1,4 +1,5 @@
 "use client";
+import { LegalAdminPage } from "../features/legal/LegalAdminPage";
 
 import { useEffect, useSyncExternalStore } from "react";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -100,6 +101,7 @@ export function ClientApplication() {
               <Route path="payments" element={<PaymentsPage />} />
               <Route path="billing" element={<BillingSettingsPage />} />
               <Route path="readiness" element={<PreLiveReadinessPage />} />
+              <Route path="legal/:key" element={<LegalAdminPage />} />
               <Route path="operations" element={<OperationsPage />} />
             </Route>
           </Route>
