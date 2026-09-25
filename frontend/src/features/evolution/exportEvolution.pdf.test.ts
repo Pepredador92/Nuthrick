@@ -16,6 +16,7 @@ vi.mock("jspdf", () => ({
     setFontSize() {}
     text = mocks.text;
     roundedRect() {}
+    triangle() {}
     setDrawColor() {}
     setLineWidth() {}
     line = mocks.line;
@@ -56,7 +57,10 @@ describe("evolution PDF export", () => {
       { fullName: "Lic. Andrea Nutri", professionalTitle: "Nutrióloga", licenseNumber: "12345", businessAddress: "Av. Salud 12", contactLines: ["WhatsApp: +52 555"] },
     );
     const text = mocks.text.mock.calls.flatMap(([value]) => Array.isArray(value) ? value : [value]).join("\n");
+    expect(text).toContain("NUTHRICK");
+    expect(text).toContain("Reporte de progreso del paciente");
     expect(text).toContain("Evolución nutricional");
+    expect(text).toContain("Indicadores clave");
     expect(text).toContain("Lic. Andrea Nutri");
     expect(text).toContain("Av. Salud 12");
     expect(text).toContain("WhatsApp: +52 555");

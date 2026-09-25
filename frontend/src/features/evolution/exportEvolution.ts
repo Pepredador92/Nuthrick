@@ -138,6 +138,55 @@ function chartRange(values: number[]) {
   return { low: low - padding, high: high + padding };
 }
 
+const reportPriority = ["peso", "imc", "grasa", "cintura", "muscular", "somatocarta"];
+
+function reportPriorityFor(series: LongitudinalSeries) {
+  const label = series.label.toLocaleLowerCase("es-MX");
+  if (series.visualization === "somatochart") return reportPriority.indexOf("somatocarta");
+  const match = reportPriority.findIndex((term) => label.includes(term));
+  return match === -1 ? reportPriority.length : match;
+}
+
+export function reportSeries(series: LongitudinalSeries[], limit = 5) {
+  return series
+    .slice()
+    .sort((left, right) => reportPriorityFor(left) - reportPriorityFor(right) || left.label.localeCompare(right.label, "es"))
+    .slice(0, limit);
+}
+
+function reportPeriod(history: LongitudinalHistory) {
+  const dates = history.consultations
+    .map((consultation) => new Date(consultation.consultation_date))
+    .filter((date) => !Number.isNaN(date.getTime()))
+    .sort((left, right) => left.getTime() - right.getTime());
+  if (!dates.length) return "Sin fechas clínicas disponibles";
+  const first = formatPatientDate(dates[0].toISOString());
+  const last = formatPatientDate(dates.at(-1)!.toISOString());
+  return first === last ? first : `${first} – ${last}`;
+}
+
+function signedValue(value: number) {
+  const formatted = new Intl.NumberFormat("es-MX", { maximumFractionDigits: 2 }).format(Math.abs(value));
+  return `${value > 0 ? "+" : value < 0 ? "−" : ""}${formatted}`;
+}
+
+export function progressMetrics(series: LongitudinalSeries[]) {
+  return series
+    .filter((item) => item.visualization !== "somatochart")
+    .map((item) => {
+      const points = numericPoints(item);
+      const initial = points[0];
+      const current = points.at(-1);
+      if (!initial || !current) return null;
+      return {
+        label: item.label,
+        current: `${current.display_value}${current.unit ? ` ${current.unit}` : ""}`,
+        change: signedValue(current.value - initial.value),
+      };
+    })
+    .filter((item): item is { label: string; current: string; change: string } => Boolean(item));
+}
+
 export async function downloadEvolutionPdf(
   filename: string,
   patient: Patient,
@@ -152,11 +201,12 @@ export async function downloadEvolutionPdf(
   const pageHeight = pdf.internal.pageSize.getHeight();
   const width = pageWidth - margin * 2;
   const series = exportableSeries(history, selection);
+  const reportableSeries = reportSeries(series);
+  const metrics = progressMetrics(reportableSeries);
   const logo = professional.logoUrl ? await imageData(professional.logoUrl) : null;
   let cursor = 18;
 
   const header = (compact = false) => {
-    const brand = professional.businessName?.trim() || professional.fullName.trim() || "Nuthrick";
     pdf.setFillColor(23, 61, 54);
     pdf.rect(0, 0, pageWidth, 2, "F");
     pdf.setFillColor(205, 161, 96);
@@ -165,20 +215,20 @@ export async function downloadEvolutionPdf(
     if (compact) {
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(10);
-      pdf.text(brand, margin, 12);
+      pdf.text("NUTHRICK · Reporte de progreso", margin, 12);
       cursor = 20;
       return;
     }
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(7.5);
     pdf.setTextColor(140, 103, 53);
-    pdf.text("NUTRICIÓN Y BIENESTAR", margin, 13);
+    pdf.text("NUTHRICK", margin, 13);
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(18);
+    pdf.setFontSize(17);
     pdf.setTextColor(23, 61, 54);
-    pdf.text(pdf.splitTextToSize(brand, logo ? width - 38 : width), margin, 23);
+    pdf.text("Reporte de progreso del paciente", margin, 23);
     pdf.setFontSize(9.5);
-    pdf.text(professional.fullName, margin, 35);
+    pdf.text(professional.fullName.trim() || "Profesional Nuthrick", margin, 34);
     const credentials = [professional.professionalTitle, professional.licenseNumber ? `Cédula profesional ${professional.licenseNumber}` : null]
       .filter(Boolean)
       .join(" · ");
@@ -186,21 +236,21 @@ export async function downloadEvolutionPdf(
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8);
       pdf.setTextColor(93, 112, 103);
-      pdf.text(credentials, margin, 40);
+      pdf.text(credentials, margin, 39);
     }
     if (logo) {
       try {
         const properties = pdf.getImageProperties(logo);
         const scale = Math.min(25 / properties.width, 25 / properties.height);
-        pdf.addImage(logo, properties.fileType, pageWidth - margin - 25 + (25 - properties.width * scale) / 2, 12 + (25 - properties.height * scale) / 2, properties.width * scale, properties.height * scale, undefined, "FAST");
+        pdf.addImage(logo, properties.fileType, pageWidth - margin - 25 + (25 - properties.width * scale) / 2, 8 + (25 - properties.height * scale) / 2, properties.width * scale, properties.height * scale, undefined, "FAST");
       } catch {
         // The textual professional identity remains available when the logo cannot be read.
       }
     }
-    const contacts = [professional.businessAddress, ...(professional.contactLines ?? [])]
+    const contacts = [professional.businessName ? `Consultorio: ${professional.businessName}` : null, professional.businessAddress, ...(professional.contactLines ?? [])]
       .filter((line): line is string => Boolean(line?.trim()))
       .flatMap((line) => pdf.splitTextToSize(line, width - 10) as string[]);
-    cursor = 51;
+    cursor = 46;
     if (contacts.length) {
       const contactHeight = contacts.length * 3.8 + 8;
       pdf.setFillColor(243, 247, 244);
@@ -228,16 +278,81 @@ export async function downloadEvolutionPdf(
   };
 
   const nextPage = () => {
+    if (pdf.getNumberOfPages() >= 2) return false;
     pdf.addPage();
     header(true);
+    return true;
+  };
+
+  const ensureSpace = (required: number) => {
+    if (cursor + required <= pageHeight - 18) return true;
+    return nextPage();
+  };
+
+  const drawPatientSummary = () => {
+    const required = 35;
+    if (!ensureSpace(required)) return false;
+    pdf.setFillColor(243, 247, 244);
+    pdf.roundedRect(margin, cursor, width, required, 2, 2, "F");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.setTextColor(31, 78, 67);
+    pdf.text(patient.full_name, margin + 5, cursor + 8);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(81, 105, 94);
+    const details = [
+      patient.birth_date ? `Nacimiento: ${formatPatientDate(patient.birth_date)}` : null,
+      `Periodo: ${reportPeriod(history)}`,
+      `Consultas: ${history.consultations.length}`,
+    ].filter((value): value is string => Boolean(value));
+    pdf.text(pdf.splitTextToSize(details.join(" · "), width - 10), margin + 5, cursor + 16, { lineHeightFactor: 1.35 });
+    pdf.setFontSize(7);
+    pdf.setTextColor(111, 128, 120);
+    pdf.text(`Generado: ${formatPatientDate(new Date().toISOString())}`, margin + 5, cursor + 29);
+    cursor += required + 7;
+    return true;
+  };
+
+  const drawMetricCards = () => {
+    const entries = metrics.slice(0, 4);
+    if (!entries.length || !ensureSpace(47)) return false;
+    const gap = 4;
+    const cardWidth = (width - gap * (entries.length - 1)) / entries.length;
+    const cardHeight = 29;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(31, 78, 67);
+    pdf.text("Indicadores clave", margin, cursor + 5);
+    entries.forEach((entry, index) => {
+      const left = margin + index * (cardWidth + gap);
+      pdf.setFillColor(255, 255, 255);
+      pdf.setDrawColor(223, 231, 225);
+      pdf.setLineWidth(0.25);
+      pdf.roundedRect(left, cursor + 10, cardWidth, cardHeight, 2, 2, "FD");
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(6.5);
+      pdf.setTextColor(111, 128, 120);
+      pdf.text(pdf.splitTextToSize(entry.label, cardWidth - 7), left + 3.5, cursor + 16);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      pdf.setTextColor(31, 78, 67);
+      pdf.text(entry.current, left + 3.5, cursor + 26);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(6.5);
+      pdf.setTextColor(111, 128, 120);
+      pdf.text(`Cambio ${entry.change}`, left + 3.5, cursor + 34);
+    });
+    cursor += cardHeight + 17;
+    return true;
   };
 
   const drawChart = (item: LongitudinalSeries) => {
     const points = numericPoints(item);
-    const graphHeight = 57;
-    const labelHeight = 16;
-    const required = graphHeight + labelHeight + 22;
-    if (cursor + required > pageHeight - 18) nextPage();
+    const graphHeight = 48;
+    const labelHeight = 14;
+    const required = graphHeight + labelHeight + 20;
+    if (!ensureSpace(required)) return false;
     pdf.setFillColor(248, 250, 248);
     pdf.roundedRect(margin, cursor, width, required, 2, 2, "F");
     pdf.setFont("helvetica", "bold");
@@ -281,13 +396,14 @@ export async function downloadEvolutionPdf(
       pdf.text(shortDate(point.consultation_date), x(index), top + graphHeight + 5, { align: "center" });
     });
     cursor += required + 6;
+    return true;
   };
 
   const drawSomatochart = (item: LongitudinalSeries) => {
     const points = somatochartPoints(item);
-    const graphSize = 72;
-    const required = graphSize + 28;
-    if (cursor + required > pageHeight - 18) nextPage();
+    const graphSize = 76;
+    const required = graphSize + 31;
+    if (!ensureSpace(required)) return false;
     const color = hexToRgb(evolutionCategoryStyles[item.category].line);
     pdf.setFillColor(248, 250, 248);
     pdf.roundedRect(margin, cursor, width, required, 2, 2, "F");
@@ -305,18 +421,30 @@ export async function downloadEvolutionPdf(
     const top = cursor + 17;
     const limit = Math.max(4, ...points.flatMap((point) => [Math.abs(point.x), Math.abs(point.y)]).map((value) => Math.ceil(value + 1)));
     const x = (value: number) => left + ((value + limit) / (limit * 2)) * size;
-    const y = (value: number) => top + ((limit - value) / (limit * 2)) * size;
-    pdf.setDrawColor(222, 230, 225);
-    pdf.setLineWidth(0.25);
-    for (let step = 0; step < 5; step += 1) {
-      const offset = (size * step) / 4;
-      pdf.line(left + offset, top, left + offset, top + size);
-      pdf.line(left, top + offset, left + size, top + offset);
-    }
-    pdf.setDrawColor(144, 161, 152);
+    const y = (value: number) => top + size - ((value + limit) / (limit * 2)) * size;
+    const triangleTop = { x: left + size / 2, y: top };
+    const triangleLeft = { x: left, y: top + size };
+    const triangleRight = { x: left + size, y: top + size };
+    const triangleCenter = { x: left + size / 2, y: top + size * 0.66 };
+    pdf.setFillColor(231, 241, 234);
+    pdf.triangle(triangleTop.x, triangleTop.y, triangleRight.x, triangleRight.y, triangleCenter.x, triangleCenter.y, "F");
+    pdf.setFillColor(244, 233, 220);
+    pdf.triangle(triangleLeft.x, triangleLeft.y, triangleTop.x, triangleTop.y, triangleCenter.x, triangleCenter.y, "F");
+    pdf.setFillColor(230, 237, 243);
+    pdf.triangle(triangleRight.x, triangleRight.y, triangleTop.x, triangleTop.y, triangleCenter.x, triangleCenter.y, "F");
+    pdf.setDrawColor(184, 203, 192);
     pdf.setLineWidth(0.35);
-    pdf.line(x(0), top, x(0), top + size);
-    pdf.line(left, y(0), left + size, y(0));
+    pdf.line(triangleTop.x, triangleTop.y, triangleLeft.x, triangleLeft.y);
+    pdf.line(triangleLeft.x, triangleLeft.y, triangleRight.x, triangleRight.y);
+    pdf.line(triangleRight.x, triangleRight.y, triangleTop.x, triangleTop.y);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(6.5);
+    pdf.setTextColor(49, 94, 80);
+    pdf.text("MESOMORFIA", triangleTop.x, top - 2, { align: "center" });
+    pdf.setTextColor(128, 90, 60);
+    pdf.text("ENDOMORFIA", left - 1, top + size + 5);
+    pdf.setTextColor(69, 106, 134);
+    pdf.text("ECTOMORFIA", left + size + 1, top + size + 5, { align: "right" });
     pdf.setDrawColor(...color);
     pdf.setLineWidth(0.75);
     for (let index = 1; index < points.length; index += 1) {
@@ -333,30 +461,40 @@ export async function downloadEvolutionPdf(
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(6.5);
     pdf.setTextColor(111, 128, 120);
-    pdf.text("X · ectomorfia − endomorfia", left + size / 2, top + size + 5, { align: "center" });
+    pdf.text("X · ectomorfia − endomorfia", left + size / 2, top + size + 12, { align: "center" });
     cursor += required + 6;
+    return true;
   };
 
   header();
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(17);
+  pdf.setFontSize(12);
   pdf.setTextColor(23, 61, 54);
   pdf.text("Evolución nutricional", margin, cursor);
-  cursor += 6;
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(8.5);
-  pdf.setTextColor(93, 112, 103);
-  pdf.text(`Paciente: ${patient.full_name} · Generado: ${formatPatientDate(new Date().toISOString())}`, margin, cursor);
-  cursor += 10;
-  if (series.length) series.forEach((item) => {
-    if (item.visualization === "somatochart") drawSomatochart(item);
-    else drawChart(item);
+  cursor += 7;
+  drawPatientSummary();
+  drawMetricCards();
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(10);
+  pdf.setTextColor(31, 78, 67);
+  pdf.text("Indicadores seleccionados", margin, cursor + 5);
+  cursor += 11;
+  let omitted = Math.max(0, series.length - reportableSeries.length);
+  if (reportableSeries.length) reportableSeries.forEach((item) => {
+    const drawn = item.visualization === "somatochart" ? drawSomatochart(item) : drawChart(item);
+    if (!drawn) omitted += 1;
   });
   else {
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
     pdf.setTextColor(93, 112, 103);
     pdf.text("No se seleccionaron indicadores numéricos para graficar.", margin, cursor);
+  }
+  if (omitted > 0 && cursor + 15 <= pageHeight - 18) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(111, 128, 120);
+    pdf.text(`Reporte compacto: ${omitted} indicador${omitted === 1 ? "" : "es"} no incluido${omitted === 1 ? "" : "s"} en el PDF.`, margin, cursor + 5);
   }
   footer();
   downloadBlob(filename, pdf.output("blob"));

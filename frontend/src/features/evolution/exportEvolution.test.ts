@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evolutionTextExport, exportableSeries } from "./exportEvolution";
+import { evolutionTextExport, exportableSeries, progressMetrics, reportSeries } from "./exportEvolution";
 import type { LongitudinalHistory } from "./longitudinal";
 
 const history: LongitudinalHistory = {
@@ -67,5 +67,20 @@ describe("evolution export", () => {
     };
     const text = evolutionTextExport(patient, somatoHistory, { seriesIds: ["somatochart"] }, professional);
     expect(text).toContain("X -1.2 · Y 3.4");
+  });
+
+  it("prioritizes compact report indicators and omits metrics without numeric history", () => {
+    const entries = [
+      history.series[1],
+      { ...history.series[0], label: "Cintura" },
+      { ...history.series[0], id: "bmi", label: "IMC" },
+      { ...history.series[0], id: "body-fat", label: "% grasa" },
+    ];
+    expect(reportSeries(entries, 3).map((item) => item.label)).toEqual(["IMC", "% grasa", "Cintura"]);
+    expect(progressMetrics(entries)).toEqual([
+      { label: "Cintura", current: "64.5 kg", change: "0" },
+      { label: "IMC", current: "64.5 kg", change: "0" },
+      { label: "% grasa", current: "64.5 kg", change: "0" },
+    ]);
   });
 });
