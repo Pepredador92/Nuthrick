@@ -15,6 +15,7 @@ import {
   type Preview,
 } from "./api";
 import { clearPlanReturn, rememberPlan } from "./returnToPlan";
+import { LegalAcceptanceGate } from "../legal/LegalAcceptanceGate";
 export function CheckoutChoice(
   { plan, interval, close }: {
     plan: Plan;
@@ -156,27 +157,33 @@ export function CheckoutChoice(
           Esta cuenta aún no está autorizada para contratar en este entorno.
         </p>
       )}
-      {billing?.subscription && billing.subscription.state !== "cancelled"
-        ? (
-          <Link className="admin-button" to="/app/my-plan">
-            Ver y cambiar mi suscripción
-          </Link>
-        )
-        : (
-          <button
-            className="admin-button"
-            disabled={busy ||
-              Boolean(user && (!billing?.enabled || !(billing?.checkout_eligible ?? billing?.test_eligible))) ||
-              Boolean(code && !preview?.campaign)}
-            onClick={checkout}
-          >
-            {busy
-              ? "Preparando…"
-              : user
-              ? (billing?.mode === "live" ? "Continuar a Stripe Live" : "Continuar a Stripe Test")
-              : "Iniciar sesión y continuar"}
-          </button>
-        )}
+      {user ? (
+        <LegalAcceptanceGate source="checkout">
+          {billing?.subscription && billing.subscription.state !== "cancelled"
+            ? (
+              <Link className="admin-button" to="/app/my-plan">
+                Ver y cambiar mi suscripción
+              </Link>
+            )
+            : (
+              <button
+                className="admin-button"
+                disabled={busy ||
+                  Boolean(!billing?.enabled || !(billing?.checkout_eligible ?? billing?.test_eligible)) ||
+                  Boolean(code && !preview?.campaign)}
+                onClick={checkout}
+              >
+                {busy
+                  ? "Preparando…"
+                  : (billing?.mode === "live" ? "Continuar a Stripe Live" : "Continuar a Stripe Test")}
+              </button>
+            )}
+        </LegalAcceptanceGate>
+      ) : (
+        <button className="admin-button" onClick={checkout} disabled={busy}>
+          Iniciar sesión y continuar
+        </button>
+      )}
       {user && (
         <button
           className="admin-button secondary ml-2"

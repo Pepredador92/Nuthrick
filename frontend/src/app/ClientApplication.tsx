@@ -46,6 +46,7 @@ import { MyPlanPage } from '@/src/features/billing/MyPlanPage';
 import { PreLiveReadinessPage } from '@/src/features/billing/PreLiveReadinessPage';
 import { OperationsPage } from '@/src/features/billing/OperationsPage';
 import { CodesPage } from '@/src/features/admin/CodesPage';
+import { LegalAcceptanceGate } from '@/src/features/legal/LegalAcceptanceGate';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -106,7 +107,7 @@ export function ClientApplication() {
             </Route>
           </Route>
           <Route element={<RequireAuthentication />}>
-            <Route path="/app" element={<PrivateLayout />}>
+            <Route path="/app" element={<LegalAcceptanceGate source="onboarding"><PrivateLayout /></LegalAcceptanceGate>}>
               <Route path="my-plan" element={<MyPlanPage />} />
               <Route path="credits" element={<MyCreditsPage />} />
               <Route element={<ProfessionalAccessGate />}>

@@ -4,9 +4,12 @@
 
 Continúa LIVE-1 (`8b75c76`). Stripe exclusivamente TEST; no configurar secretos,
 productos, precios ni webhooks Live. OpenAI apagado. Sin cambios de pacientes.
-Los tres documentos existentes v1 permanecen `pending_review`, sin fecha efectiva.
-No ejecutar aprobación hasta la confirmación humana explícita y la resolución de
-los campos pendientes. El dominio web oficial `nuthrick.com` ya está activo. No se contratarán buzones de correo propios en esta fase. Ver [dominio web](web-domain.md).
+Los tres documentos v1 contienen ahora el texto completo para revisión y permanecen
+`pending_review`, sin fecha efectiva, publicación ni aprobación. Queda un único
+marcador jurídico en Términos: confirmar ley aplicable y jurisdicción competente.
+No ejecutar aprobación hasta la confirmación humana explícita. El dominio web
+oficial `nuthrick.com` ya está activo. No se contratarán buzones de correo propios
+en esta fase. Ver [dominio web](web-domain.md).
 
 Contacto autorizado por José: `susy.asistencia.online@gmail.com`, tanto soporte como
 privacidad y bandeja de pruebas. Los antiguos correos `@nuthrick.com` no existen:
@@ -21,33 +24,37 @@ el texto está en los mismos documentos privados, con vista previa administrativ
 - https://nuthrick.com/admin/legal/privacy
 - https://nuthrick.com/admin/legal/refunds
 
-Se contrastó el borrador con planes y accesos, billing y créditos, Agenda,
-Superlink, mensajería, almacenamiento y las integraciones que existen en el repo.
-Esencial/Profesional, Beta, Founder y Full Access no se confunden con roles de
-administración. Las cláusulas de IA señalan que OpenAI está apagado y que sus
-resultados futuros necesitarán revisión profesional. Stripe TEST se identifica
-sin presentar pruebas como cargos reales.
+Se contrastó el texto con planes y accesos, billing y créditos, Agenda, Superlink,
+mensajería, almacenamiento y las integraciones que existen en el repo.
+Esencial/Profesional, Beta y Full Access no se confunden con roles de
+administración. El operador y el domicilio son los de José Antonio Olmedo
+Cisneros, persona física con actividades empresariales y profesionales. Las
+cláusulas de IA señalan que OpenAI está apagado y que sus resultados futuros
+necesitarán revisión profesional. Stripe TEST se identifica sin presentar pruebas
+como cargos reales.
 
-### LEGAL_DECISIONS_REQUIRED
+### Decisiones resueltas para v1
 
-1. Identidad/nombre o razón social y domicilio de quien presta el servicio y del
-   responsable de datos; ley aplicable, jurisdicción y resolución de controversias.
-2. Edad mínima y representación de menores, tanto profesionales como pacientes.
-3. Roles y acuerdos para los datos de pacientes; finalidades/consentimiento,
-   transferencias, ubicaciones y acuerdos con proveedores. Resend está preparado,
-   pero aún no contratado/configurado como proveedor activo.
-4. Retención, cierre, respaldos, logs y outbox; procedimiento ARCO, plazos y
-   verificación de identidad. No existe una política definitiva de retención.
-5. Criterios y plazo de reembolso, prorrateos/excepciones, créditos consumidos,
-   procedimiento y responsable de atención. No se fija una política económica.
-6. Política fiscal/comprobantes, límites de responsabilidad, disponibilidad,
-   condiciones de suspensión y cierre.
-7. Fecha efectiva seleccionada después de resolver lo anterior y aprobar.
+- Contacto único temporal: `susy.asistencia.online@gmail.com` para soporte,
+  privacidad, Reply-To y solicitudes de reembolso. La migración futura a
+  buzones `@nuthrick.com` no cambia los contratos internos.
+- Edad: cuentas profesionales para mayores de 18 años; un profesional puede
+  registrar información de pacientes menores y es responsable de autorización,
+  consentimiento y relación clínica.
+- Datos: el texto separa cuenta profesional y expediente de paciente, conserva el
+  criterio del profesional y enumera datos de salud, antropometría, consultas,
+  laboratorios, planes, diagnósticos, mensajes y seguimiento.
+- Proveedores realmente usados: Supabase, Vercel, Google/Gmail/Calendar y Stripe
+  TEST. OpenAI queda deshabilitado; el correo comercial sigue simulado.
+- Retención, ARCO, seguridad, cancelación, créditos, reembolsos, fiscalidad,
+  suspensión y disponibilidad se describen con criterios sin inventar plazos ni
+  promesas de CFDI o de reembolso automático.
+- Solo permanece el marcador de ley aplicable y jurisdicción en Términos. La fecha
+  efectiva se elegirá después de la aprobación humana.
 
-El contacto real ya fue confirmado. Los campos pendientes están marcados en cada
-borrador. La [LFPDPPP vigente](https://www.diputados.gob.mx/LeyesBiblio/pdf/LFPDPPP.pdf)
+La [LFPDPPP vigente](https://www.diputados.gob.mx/LeyesBiblio/pdf/LFPDPPP.pdf)
 se consultó para identificar datos sensibles, elementos del aviso y derechos;
-las decisiones jurídicas específicas requieren revisión humana.
+las decisiones jurídicas específicas siguen requiriendo revisión humana.
 
 ### Aprobación y versiones
 
@@ -58,11 +65,14 @@ no la ejecuta hasta que José confirme “Apruebo Términos v1, Privacidad v1 y 
 v1.”. No se asigna fecha antes de ese paso.
 
 Un documento aprobado es inmutable; el siguiente cambio crea v2. Las aceptaciones
-conservan usuario, documento, versión y fecha. La proyección pública contiene solo
-versiones aprobadas; RLS y RPC excluyen documentos cuya fecha efectiva aún no llega.
-Una nueva versión en borrador no retira la versión vigente anterior.
-`my_legal_acceptances` informa versiones que requieren aceptación nueva; esta fase
-no impone un nuevo recorrido de aceptación al profesional.
+conservan usuario, documento, versión, fuente y fecha. La proyección pública contiene
+solo versiones aprobadas; RLS y RPC excluyen documentos cuya fecha efectiva aún no
+llega. Una nueva versión en borrador no retira la versión vigente anterior.
+`my_legal_acceptances` informa versiones que requieren aceptación nueva. El cliente
+mostrará el texto completo y solicitará aceptación explícita en la primera entrada
+posterior a la fecha efectiva y antes de un checkout; las páginas públicas no se
+bloquean. Términos y Privacidad requieren aceptación; Reembolsos queda disponible
+para consulta sin un consentimiento separado en v1.
 
 ## Correo: integración preparada, envío real pendiente
 
