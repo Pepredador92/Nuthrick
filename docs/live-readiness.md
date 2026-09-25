@@ -60,7 +60,7 @@ Se revisaron advisors de seguridad y rendimiento después de aplicar las migraci
 
 ## 12. Commit y despliegue
 
-El cambio debe publicarse desde la rama `codex/admin-three` mediante el flujo normal del repositorio. Vercel despliega automáticamente al recibir el push; no se ejecuta un deploy manual ni se altera el proyecto original.
+La implementación operativa quedó en el commit `89929a9` de la rama `codex/admin-three` y se publicó mediante el flujo normal del repositorio. Vercel respondió `HTTP 200` en [`/admin/readiness`](https://nuthrick.vercel.app/admin/readiness) después del push; el panel requiere autenticación de administrador. No se ejecutó un deploy manual ni se alteró el proyecto original.
 
 ## 13. Estado de proveedor
 
