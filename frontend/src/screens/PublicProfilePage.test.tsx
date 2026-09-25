@@ -22,5 +22,8 @@ it('embeds a single booking flow even without public contact details or a publis
   expect(screen.getByRole('button',{name:'Solicitar otro horario'})).toBeInTheDocument();
   expect(screen.getAllByText('$500.00')).toHaveLength(1);
   expect(screen.getByText('Biografía de prueba')).toBeInTheDocument();
+  expect(screen.getByRole('navigation',{name:'Secciones del perfil'})).toBeInTheDocument();
+  expect(screen.getByRole('link',{name:'Sobre mí'})).toHaveAttribute('href','#sobre-mi');
+  expect(screen.getByRole('link',{name:'Reservar una cita'})).toHaveAttribute('href','#agendar');
   expect(screen.queryByText('Suscripción')).not.toBeInTheDocument();
 });
