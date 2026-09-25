@@ -63,6 +63,7 @@ Todos los datos utilizados para comprar son sintéticos. Solo se usa **Entorno d
 | Billing, firma, proveedor y recargas | 40 pruebas correctas |
 | SQL ADMIN-2 sobre esquema con ADMIN-3 | Correcto |
 | SQL ADMIN-3 | CRUD, historial inmutable, precios, promociones, saldos, reservas, refunds, deuda, permisos, planes internos y límites correctos |
+| Catálogo e historial administrativos | Listado vacío/con compras, detalle, contador de compras y mapping verificados en SQL; catálogo y saldo verificados en la web publicada |
 | Concurrencia PostgreSQL | 8 workers / 2 eventos: un solo PURCHASE; último uso de promoción: solo un comprador |
 | TypeScript y Deno | Sin errores |
 | ESLint | 0 errores; 1 warning previo en LandingPage (`SecondShiftVisual` sin uso) |
@@ -122,7 +123,7 @@ El harness SQL crea una base descartable en `supabase_db_Nuthrick` y la elimina 
 | 23 | RLS | Denegación directa; RPC por propietario o administrador |
 | 24 | Importes/cantidades | Calculados en servidor, cotejados con Stripe |
 | 25 | Rate limit | 5/h y 20/día por profesional |
-| 26 | Migración | `20260925035115_ai_credit_purchases.sql` |
+| 26 | Migraciones | `20260925035115_ai_credit_purchases.sql` y corrección `20260925061000_credit_admin_catalog_queries.sql` |
 | 27 | Tests | Matriz anterior; pruebas de regresión y concurrencia |
 | 28 | E2E Stripe Test | Tres tamaños, descuento/bonus, webhook, duplicados y refunds |
 | 29 | Advisors | Cero hallazgos nuevos |
@@ -130,11 +131,15 @@ El harness SQL crea una base descartable en `supabase_db_Nuthrick` y la elimina 
 | 31 | ESLint | Cero errores, un warning ajeno previo |
 | 32 | Build | Correcto |
 | 33 | Commit | Commit de esta entrega en `main`; cambios ajenos conservados |
-| 34 | Vercel | Un push final; despliegue automático del repositorio |
+| 34 | Vercel | Publicación principal automática desde `5b9d0a9`; segundo push correctivo explicado abajo |
 | 35 | Stripe TEST | Cuenta Sandbox de Nuthrick, `livemode=false` |
 | 36 | Cobros reales | 0 |
 | 37 | OpenAI calls | 0; proveedor real continúa deshabilitado |
 | 38 | Pendiente para Live | Decisiones y activación explícita descritas abajo |
+
+## Corrección durante la revisión de publicación
+
+La revisión de la página publicada detectó una referencia SQL ambigua en el listado administrativo de paquetes: una variable de fila y un alias compartían el nombre `p`. Se corrigieron los alias del catálogo e historial mediante una migración adicional, conservando permisos, datos y lógica de compra. Se añadieron cinco comprobaciones de consultas administrativas y se repitieron las pruebas SQL y de concurrencia con resultado correcto. La consulta remota como administrador autenticado devuelve los tres paquetes y la compra TEST reembolsada. Fue necesario un segundo push correctivo para conservar esta migración y sus pruebas en el repositorio; no se cumplió la meta original de un único push.
 
 ## Antes de Live
 

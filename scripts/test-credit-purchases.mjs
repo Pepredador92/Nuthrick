@@ -45,6 +45,7 @@ try {
       ) + "commit;",
   );
   console.log("PASS ADMIN-3 migration compiles");
+  sql(readFileSync(new URL("supabase/migrations/20260925061000_credit_admin_catalog_queries.sql", root), "utf8"));
   sql(readFileSync(new URL("scripts/test-billing.sql", root), "utf8"));
   console.log("PASS ADMIN-2 SQL regression");
   sql(readFileSync(new URL("scripts/test-credit-purchases.sql", root), "utf8"));

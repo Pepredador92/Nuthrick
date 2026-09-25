@@ -13,6 +13,9 @@ select set_config('request.jwt.claim.sub','ca300000-0000-4000-8000-000000000001'
 select public.ai_credit_admin_api('save_package','{"id":"cb300000-0000-4000-8000-000000000001","code":"TEST_SMALL","name":"100 créditos TEST","credits":100,"price_amount":10,"currency":"MXN","active":true}');
 select public.ai_credit_admin_api('save_package','{"id":"cb300000-0000-4000-8000-000000000002","code":"TEST_MEDIUM","name":"500 créditos TEST","credits":500,"price_amount":25,"currency":"MXN","active":true}');
 select public.ai_credit_admin_api('save_package','{"id":"cb300000-0000-4000-8000-000000000003","code":"TEST_LARGE","name":"1000 créditos TEST","credits":1000,"price_amount":50,"currency":"MXN","active":true}');
+select admin3_test.ok(jsonb_array_length(public.ai_credit_admin_api('packages'))=3,'admin catalog returns all packages');
+select admin3_test.ok(jsonb_array_length(public.ai_credit_admin_api('purchases'))=0,'admin purchase list starts empty');
+select admin3_test.ok(public.ai_credit_admin_api('package','{"id":"cb300000-0000-4000-8000-000000000002"}')->>'credits'='500','admin package detail is readable');
 select public.billing_admin_api('save_campaign',jsonb_build_object('id','cc300000-0000-4000-8000-000000000001','target','ai_credit_package','code','TEST_CREDITS','name','Recarga TEST','audience','campaign','starts_at',now()-interval '1 hour','eligible_package_ids',jsonb_build_array('cb300000-0000-4000-8000-000000000002'),'eligible_plan_ids','[]'::jsonb,'intervals','["monthly"]'::jsonb,'benefits','[{"type":"percentage_discount","amount":20,"duration":{"kind":"invoice"}},{"type":"bonus_ai_credits","amount":50,"duration":{"kind":"invoice"}}]'::jsonb,'max_redemptions',100,'max_per_professional',2));
 select admin3_test.ok(not has_function_privilege('anon','public.my_ai_credits()','EXECUTE'),'anonymous denied');
 select admin3_test.ok(not has_function_privilege('authenticated','private.credit_billing_server(text,jsonb)','EXECUTE'),'server helper denied');
@@ -80,6 +83,8 @@ select set_config('request.jwt.claim.sub','ca300000-0000-4000-8000-000000000001'
 select public.ai_credit_admin_api('disable_package','{"id":"cb300000-0000-4000-8000-000000000001"}');
 select admin3_test.reject($q$select admin3_test.prepare('ca300000-0000-4000-8000-000000000003','cb300000-0000-4000-8000-000000000001')$q$,'credit_package_unavailable');
 select admin3_test.ok((select count(*)=2 from private.ai_credit_purchases),'package disabling preserves history');
+select admin3_test.ok(jsonb_array_length(public.ai_credit_admin_api('purchases'))=2,'admin history returns both purchases');
+select admin3_test.ok((select (item->>'purchases')::integer=1 and jsonb_array_length(item->'mappings')=1 from jsonb_array_elements(public.ai_credit_admin_api('packages')) item where item->>'code'='TEST_MEDIUM'),'admin catalog includes credited purchases and provider mapping');
 -- Concurrent worker target and last available promotion, exercised by JS harness.
 select admin3_test.prepare('ca300000-0000-4000-8000-000000000004','cb300000-0000-4000-8000-000000000003','','cd300000-0000-4000-8000-000000000003');
 select public.billing_admin_api('save_campaign',jsonb_build_object('id','cc300000-0000-4000-8000-000000000002','target','ai_credit_package','code','TEST_LAST','name','Último uso TEST','audience','campaign','starts_at',now()-interval '1 hour','eligible_package_ids',jsonb_build_array('cb300000-0000-4000-8000-000000000003'),'eligible_plan_ids','[]'::jsonb,'intervals','["monthly"]'::jsonb,'benefits','[{"type":"fixed_discount","amount":1,"duration":{"kind":"invoice"}}]'::jsonb,'max_redemptions',1,'max_per_professional',1));
