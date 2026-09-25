@@ -38,6 +38,8 @@ import { AdminLayout } from '@/src/features/admin/AdminLayout';
 import { AdminHome, ProfessionalsPage, PlansPage, PlanEditorPage, CreditsPage } from '@/src/features/admin/AdminPages';
 import { ProfessionalPage } from '@/src/features/admin/ProfessionalPage';
 import { CommercialPlansPage } from '@/src/features/admin/CommercialPlansPage';
+import { PromotionsPage, PromotionEditorPage, SubscriptionsPage, PaymentsPage, BillingSettingsPage } from '@/src/features/billing/AdminBillingPages';
+import { MyPlanPage } from '@/src/features/billing/MyPlanPage';
 import { CodesPage } from '@/src/features/admin/CodesPage';
 
 function ScrollToTop() {
@@ -83,10 +85,17 @@ export function ClientApplication() {
               <Route path="access" element={<ProfessionalsPage accessMode />} />
               <Route path="access/codes" element={<CodesPage />} />
               <Route path="credits" element={<CreditsPage />} />
+              <Route path="promotions" element={<PromotionsPage />} />
+              <Route path="promotions/new" element={<PromotionEditorPage />} />
+              <Route path="promotions/:campaignId" element={<PromotionEditorPage />} />
+              <Route path="subscriptions" element={<SubscriptionsPage />} />
+              <Route path="payments" element={<PaymentsPage />} />
+              <Route path="billing" element={<BillingSettingsPage />} />
             </Route>
           </Route>
           <Route element={<RequireAuthentication />}>
             <Route path="/app" element={<PrivateLayout />}>
+              <Route path="my-plan" element={<MyPlanPage />} />
               <Route element={<ProfessionalAccessGate />}>
               <Route index element={<DashboardPage />} />
               <Route path="profile" element={<ProfilePage />} />

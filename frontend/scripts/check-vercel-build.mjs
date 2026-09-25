@@ -25,6 +25,11 @@ if (process.env.VERCEL === "1" || process.env.NITRO_PRESET === "vercel") {
       "/app/consultation-templates/initial",
       "/admin",
       "/admin/plans",
+      "/admin/promotions",
+      "/admin/subscriptions",
+      "/admin/payments",
+      "/admin/billing",
+      "/app/my-plan",
       "/planes",
     ]) {
       const response = await handler.fetch(

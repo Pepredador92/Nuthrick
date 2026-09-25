@@ -1,3 +1,4 @@
+import { billingReturn } from '@/src/features/billing/returnToPlan';
 import { ArrowRight, Check, LoaderCircle } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -23,7 +24,7 @@ export function OnboardingPage() {
       if (!user) throw new Error('No encontramos tu sesión. Vuelve a iniciar sesión.');
       await updateProfile(user.id, { full_name: name.trim(), professional_title: title.trim(), country: country.trim(), timezone, onboarding_completed: true });
       clearDraft();
-      await refreshProfile(); navigate('/app', { replace: true });
+      await refreshProfile(); navigate(billingReturn() ?? '/app', { replace: true });
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'No fue posible guardar tu perfil.'); } finally { setBusy(false); }
   };
 

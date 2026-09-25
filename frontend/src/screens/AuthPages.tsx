@@ -1,3 +1,4 @@
+import { billingReturn } from '@/src/features/billing/returnToPlan';
 import { ArrowLeft, Eye, EyeOff, LoaderCircle, MailCheck } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
@@ -31,7 +32,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [error, setError] = useState('');
   const [confirmationSent, setConfirmationSent] = useState(false);
 
-  if (user) return <Navigate to={profile?.onboarding_completed ? '/app' : '/onboarding'} replace />;
+  if (user) return <Navigate to={profile?.onboarding_completed ? (billingReturn() ?? '/app') : '/onboarding'} replace />;
 
   const handleGoogle = async () => {
     setError('');
@@ -50,7 +51,8 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
       if (isLogin) {
         const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
         if (authError) throw authError;
-        const destination = (location.state as { from?: string } | null)?.from ?? '/app';
+        const from = (location.state as { from?: string } | null)?.from;
+        const destination = billingReturn() ?? (from?.startsWith('/app') && !from.includes('\\') ? from : '/app');
         navigate(destination, { replace: true });
       } else {
         const { data, error: authError } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
@@ -107,6 +109,6 @@ export function ResetPasswordPage() {
 export function AuthCallbackPage() {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
-  useEffect(() => { if (!loading && user) navigate(profile?.onboarding_completed ? '/app' : '/onboarding', { replace: true }); }, [loading, navigate, profile, user]);
+  useEffect(() => { if (!loading && user) navigate(profile?.onboarding_completed ? (billingReturn() ?? '/app') : '/onboarding', { replace: true }); }, [loading, navigate, profile, user]);
   return <main className="grid min-h-screen place-items-center bg-[#f7f8f4]"><div className="text-center"><LoaderCircle className="mx-auto animate-spin text-[#4d7567]" /><p className="mt-4 text-sm text-[#687672]">Preparando tu cuenta…</p></div></main>;
 }

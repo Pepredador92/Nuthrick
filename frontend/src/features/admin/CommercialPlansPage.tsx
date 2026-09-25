@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/src/lib/supabase";
 import { valueLabel, type Plan } from "./api";
 import "./admin.css";
+import "../billing/billing.css";
+import { CheckoutChoice } from '../billing/CheckoutChoice';
 
 function formatPrice(amount: number | null, currency: string) {
   if (amount === null) return "Por definir";
@@ -15,8 +17,10 @@ function formatPrice(amount: number | null, currency: string) {
 
 // This endpoint only returns active public plans; no account or internal plan data.
 export function CommercialPlansPage() {
+  const [params] = useSearchParams();
+  const [selection, setSelection] = useState<string | null>(params.get("plan"));
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [interval, setInterval] = useState<"monthly" | "annual">("monthly");
+  const [interval, setInterval] = useState<"monthly" | "annual">(params.get("interval") === "annual" ? "annual" : "monthly");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -67,6 +71,7 @@ export function CommercialPlansPage() {
       {!loading && !error && !plans.length && (
         <p>No hay planes disponibles por el momento.</p>
       )}
+      {selection && plans.find(p=>p.id===selection) && <CheckoutChoice key={`${selection}:${interval}`} plan={plans.find(p=>p.id===selection)!} interval={interval} close={()=>setSelection(null)} />}
       <div className="admin-grid">
         {plans.map((p) => (
           <section key={p.name} className="admin-card">
@@ -132,11 +137,12 @@ export function CommercialPlansPage() {
                   <li key={key}>{label}</li>
                 ))}
             </ul>
+            <button className="admin-button mt-6" disabled={!p.id || (interval === 'monthly' ? p.monthly_price : p.annual_price) === null} onClick={()=>{setSelection(p.id!);window.scrollTo({top:0,behavior:'smooth'});}}>Elegir {p.name}</button>
           </section>
         ))}
       </div>
       <p className="admin-note mt-6">
-        La contratación se gestiona con la administración de Nuthrick. Los
+        La contratación está en etapa de prueba. Los
         créditos incluidos se renuevan mensualmente también en anual y no se
         acumulan; las recargas y cortesías se conservan. La IA aún no está
         habilitada para uso general.

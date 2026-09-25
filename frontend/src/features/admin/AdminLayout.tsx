@@ -1,5 +1,9 @@
 import {
   ArrowLeft,
+  TicketPercent,
+  CreditCard,
+  ReceiptText,
+  Settings,
   Coins,
   KeyRound,
   LayoutDashboard,
@@ -17,6 +21,10 @@ const nav = [
   ["plans", "Planes", Layers],
   ["access", "Accesos", KeyRound],
   ["credits", "IA y créditos", Coins],
+  ["promotions", "Promociones", TicketPercent],
+  ["subscriptions", "Suscripciones", CreditCard],
+  ["payments", "Pagos", ReceiptText],
+  ["billing", "Cobros · Test", Settings],
 ] as const;
 export function AdminLayout() {
   const { signOut } = useAuth();
@@ -33,7 +41,7 @@ export function AdminLayout() {
           {nav.map(([path, label, Icon]) => (
             <NavLink
               key={path}
-              end
+              end={path === ""}
               to={`/admin${path ? `/${path}` : ""}`}
               className={({ isActive }) => (isActive ? "active" : "")}
             >
