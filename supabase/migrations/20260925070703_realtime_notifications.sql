@@ -21,8 +21,8 @@ create index professional_notifications_unread_idx
   where read_at is null;
 
 alter table public.professional_notifications enable row level security;
-revoke all on public.professional_notifications from public, anon;
-grant select, update on public.professional_notifications to authenticated;
+revoke all on public.professional_notifications from public, anon, authenticated;
+grant select, update (read_at) on public.professional_notifications to authenticated;
 grant all on public.professional_notifications to service_role;
 
 create policy professional_notifications_read_own

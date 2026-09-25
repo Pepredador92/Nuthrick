@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/src/features/auth/AuthProvider";
 import {
   listProfessionalNotifications,
@@ -12,25 +12,27 @@ import {
 } from "./model";
 import { playNotificationSound } from "./sound";
 
-export function useNotifications() {
-  const { user } = useAuth();
+function useNotificationState(userId: string) {
   const [items, setItems] = useState<ProfessionalNotification[]>([]);
-  const [loading, setLoading] = useState(Boolean(user));
+  const [loading, setLoading] = useState(Boolean(userId));
   const [error, setError] = useState("");
   const seen = useRef(new Set<string>());
-  const userId = user?.id ?? "";
+  const generation = useRef(0);
 
   const refresh = useCallback(async () => {
     if (!userId) return;
+    const requestGeneration = generation.current;
     try {
       const next = await listProfessionalNotifications();
+      if (generation.current !== requestGeneration) return;
       seen.current = new Set(next.map((item) => item.id));
       setItems(next);
       setError("");
     } catch (cause) {
+      if (generation.current !== requestGeneration) return;
       setError(cause instanceof Error ? cause.message : "No pudimos cargar tus notificaciones.");
     } finally {
-      setLoading(false);
+      if (generation.current === requestGeneration) setLoading(false);
     }
   }, [userId]);
 
@@ -53,15 +55,24 @@ export function useNotifications() {
     queueMicrotask(() => {
       if (active) void refresh();
     });
-    const stop = subscribeProfessionalNotifications(userId, (notification) => {
-      if (!active || seen.current.has(notification.id)) return;
-      seen.current.add(notification.id);
-      setItems((current) => mergeNotifications(current, [notification]));
-      playNotificationSound();
-    });
+    let stop = () => {};
+    try {
+      stop = subscribeProfessionalNotifications(userId, (notification) => {
+        if (!active || seen.current.has(notification.id)) return;
+        seen.current.add(notification.id);
+        setItems((current) => mergeNotifications(current, [notification]));
+        playNotificationSound();
+      });
+    } catch {
+      // Keep the periodic refresh available if realtime cannot start.
+      queueMicrotask(() => {
+        if (active) setError("La conexión en tiempo real no está disponible. Seguimos actualizando tus notificaciones periódicamente.");
+      });
+    }
     const fallback = window.setInterval(() => void refresh(), 60000);
     return () => {
       active = false;
+      generation.current += 1;
       stop();
       window.clearInterval(fallback);
     };
@@ -78,4 +89,24 @@ export function useNotifications() {
   }, [refresh]);
 
   return { items, unreadCount: unreadNotificationCount(items), loading, error, refresh, markRead };
+}
+
+const NotificationsContext = createContext<ReturnType<typeof useNotificationState> | null>(null);
+
+function NotificationsSession({ userId, children }: { userId: string; children: ReactNode }) {
+  const notifications = useNotificationState(userId);
+  return <NotificationsContext.Provider value={notifications}>{children}</NotificationsContext.Provider>;
+}
+
+export function NotificationsProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const userId = user?.id ?? "";
+  // Changing accounts discards the previous inbox and its pending requests.
+  return <NotificationsSession key={userId} userId={userId}>{children}</NotificationsSession>;
+}
+
+export function useNotifications() {
+  const notifications = useContext(NotificationsContext);
+  if (!notifications) throw new Error("useNotifications requires NotificationsProvider");
+  return notifications;
 }

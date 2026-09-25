@@ -26,7 +26,9 @@ export function subscribeProfessionalNotifications(
   onInsert: (notification: ProfessionalNotification) => void,
 ) {
   const channel = supabase
-    .channel(`professional-notifications:${professionalId}`)
+    // Supabase reuses topics until asynchronous removal completes. A new
+    // lifecycle must not attach listeners to the previous subscribed channel.
+    .channel(`professional-notifications:${professionalId}:${crypto.randomUUID()}`)
     .on(
       "postgres_changes",
       {
