@@ -60,6 +60,7 @@ export type Campaign = {
   }[];
 };
 export type Payment = {
+  mode?: "test" | "live";
   provider_invoice_id: string;
   professional_name?: string;
   professional_id?: string;
@@ -74,6 +75,7 @@ export type Payment = {
   provider?: string;
 };
 export type Subscription = {
+  mode?: "test" | "live";
   id: string;
   professional_id: string;
   professional_name?: string;
@@ -99,9 +101,10 @@ export type Subscription = {
   provider_subscription_id: string;
 };
 export type MyBilling = {
-  mode: "test";
+  mode: "test" | "live";
   enabled: boolean;
   test_eligible: boolean;
+  checkout_eligible?: boolean;
   access: Access;
   subscription: Subscription | null;
   payments: Payment[];
@@ -115,8 +118,16 @@ export type PreLiveCheck = {
 };
 export type PreLiveReadiness = {
   generated_at: string;
-  mode: "test";
-  live_enabled: false;
+  mode: "test" | "live";
+  live_enabled: boolean;
+  live_payments?: number;
+  live?: {
+    preparation_enabled: boolean;
+    checkout_enabled: boolean;
+    credentials_present: boolean;
+    checks: PreLiveCheck[];
+    counts: BillingEnvironmentOverview;
+  };
   openai_enabled: boolean;
   checks: PreLiveCheck[];
   summary: { ready: number; pending: number; blocked: number };
@@ -134,6 +145,7 @@ export type OperationsJob = {
 };
 export type OperationsOverview = {
   generated_at: string;
+  environments?: BillingEnvironmentOverview[];
   jobs: OperationsJob[];
   webhooks: {
     last_received: string | null;
@@ -168,6 +180,22 @@ export type OperationsOverview = {
     documents: { key: string; title: string; version: number; effective_at: string | null; review_status: "draft" | "pending_review" | "approved"; content_ref: string }[];
   };
   evidence: Record<string, { verified_at: string; evidence: Record<string, unknown> }>;
+};
+export type BillingEnvironmentOverview = {
+  mode: "test" | "live";
+  customers: number;
+  subscriptions: number;
+  payments: number;
+  paid_payments: number;
+  payment_attention: number;
+  operations_unresolved?: number;
+  subscription_mismatches?: number | null;
+  reconciliation_checked_at?: string | null;
+  issues?: { payments: { id: string; professional_id: string; status: string }[]; webhooks: { provider_event_id: string; last_error: string }[]; emails: { id: string; template_key: string; last_error: string }[]; subscriptions: string[] };
+  webhooks_pending: number;
+  webhooks_failed: number;
+  emails_pending: number;
+  emails_failed: number;
 };
 export type Preview = {
   price: { amount: number; currency: string };

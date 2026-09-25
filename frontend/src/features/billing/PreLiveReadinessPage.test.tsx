@@ -30,3 +30,15 @@ it("shows test mode, readiness counts and actionable pending checks", async () =
   expect(screen.getByText("Términos, privacidad y reembolsos")).toBeInTheDocument();
   expect(screen.getByText("Pendiente")).toBeInTheDocument();
 });
+
+it("uses actual Live payment counts and shows Live blockers separately from general readiness", async () => {
+  rpc.mockResolvedValueOnce({ data: {
+    mode: "test", live_enabled: false, openai_enabled: false, live_payments: 3,
+    summary: { ready: 14, pending: 1, blocked: 0 }, checks: [],
+    live: { checks: [{ key: "live_legal", label: "Aprobación legal humana", status: "blocked", detail: "Requiere revisión humana" }] },
+  }, error: null });
+  render(<MemoryRouter><PreLiveReadinessPage /></MemoryRouter>);
+  expect(await screen.findByText(/Pagos Live confirmados: 3/)).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Controles específicos Live" })).toHaveTextContent("Bloqueado");
+  expect(screen.getByLabelText("Resumen de readiness")).toHaveTextContent("14 listos");
+});

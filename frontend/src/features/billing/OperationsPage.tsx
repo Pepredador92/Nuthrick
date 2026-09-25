@@ -48,7 +48,7 @@ export function OperationsPage() {
     setBusy(action); setNotice("");
     try {
       await operationsAdmin(action);
-      setNotice(action === "run_billing_job" ? "Job de billing ejecutado en TEST." : "Outbox de emails procesado en TEST.");
+      setNotice(action === "run_billing_job" ? "Job de billing ejecutado." : "Outbox de emails procesado en TEST.");
       await load();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No pudimos ejecutar la operación.");
@@ -77,13 +77,30 @@ export function OperationsPage() {
 
   return (
     <>
-      <Heading eyebrow="Operación · TEST" title="Operaciones" text="Jobs, webhooks, emails y soporte con datos comerciales. No abre expedientes clínicos ni activa Live.">
+      <Heading eyebrow="Operación comercial" title="Operaciones" text="Jobs, webhooks, emails y soporte con datos comerciales. No abre expedientes clínicos ni activa Live.">
         <button className="admin-button secondary" onClick={() => void load()} disabled={Boolean(busy)}><RefreshCw size={16} />Actualizar</button>
       </Heading>
       {error && <p role="alert" className="admin-error">{error}</p>}
       {notice && <p role="status" className="admin-success">{notice}</p>}
       {!data && !error && <p className="admin-loading">Cargando Operaciones…</p>}
       {data && <>
+        {data.environments && <section className="operations-grid" aria-label="Entornos de facturación">
+          {data.environments.map((environment) => <article className="admin-card" key={environment.mode}>
+            <h2>{environment.mode.toUpperCase()}</h2>
+            <p className="admin-note">{environment.subscriptions} suscripciones · {environment.paid_payments} pagos confirmados</p>
+            <p>Operaciones sin resolver: {environment.operations_unresolved ?? 0}</p>
+            <p>Conciliación: {environment.subscription_mismatches == null ? "Sin verificación remota" : `${environment.subscription_mismatches} discrepancias`}</p>
+            <p>Pagos por atender: {environment.payment_attention}</p>
+            <p>Webhooks: {environment.webhooks_pending} pendientes · {environment.webhooks_failed} fallidos</p>
+            <p>Emails: {environment.emails_pending} pendientes · {environment.emails_failed} fallidos</p>
+          {environment.issues && <details><summary>Incidencias {environment.mode.toUpperCase()}</summary>
+              <ul>{environment.issues.payments.map(item => <li key={item.id}>Pago {item.id}: {item.status} · profesional {item.professional_id}</li>)}
+              {environment.issues.webhooks.map(item => <li key={item.provider_event_id}>Webhook {item.provider_event_id}: {item.last_error}</li>)}
+              {environment.issues.emails.map(item => <li key={item.id}>Email {item.id}: {item.template_key} · {item.last_error}</li>)}
+              {environment.issues.subscriptions.map(id => <li key={id}>Suscripción {id}: discrepancia con Stripe</li>)}</ul>
+            </details>}
+          </article>)}
+        </section>}
         <section className="operations-grid">
           <article className="admin-card">
             <div className="operations-card-title"><Clock3 size={18} /><h2>Jobs</h2></div>
@@ -94,10 +111,10 @@ export function OperationsPage() {
                 <small>{timestamp(job.last_run_at)}{job.last_error ? ` · ${job.last_error}` : ""}</small>
               </div>)}
             </div>
-            <button className="admin-button secondary mt-4" onClick={() => void run("run_billing_job")} disabled={Boolean(busy)}><Play size={15} />{busy === "run_billing_job" ? "Ejecutando…" : "Ejecutar billing TEST"}</button>
+            <button className="admin-button secondary mt-4" onClick={() => void run("run_billing_job")} disabled={Boolean(busy)}><Play size={15} />{busy === "run_billing_job" ? "Ejecutando…" : "Ejecutar billing"}</button>
           </article>
           <article className="admin-card">
-            <div className="operations-card-title"><Webhook size={18} /><h2>Webhooks Stripe</h2></div>
+            <div className="operations-card-title"><Webhook size={18} /><h2>Webhooks Stripe · total</h2></div>
             <div className="operations-metrics"><strong>{data.webhooks.pending}</strong><span>pendientes</span><strong>{data.webhooks.errors}</strong><span>con error</span></div>
             <p className="admin-note">Último recibido: {timestamp(data.webhooks.last_received)}<br />Último procesado: {timestamp(data.webhooks.last_processed)}</p>
             {!data.webhooks.errors && <p className="operations-ok">Sin errores recientes.</p>}

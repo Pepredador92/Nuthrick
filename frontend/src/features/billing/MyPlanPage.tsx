@@ -104,11 +104,11 @@ export function MyPlanPage() {
         </button>
       </header>
       <p className="billing-test">
-        Stripe Test · Los pagos de esta sección son pruebas.
+        {data?.mode === "live" ? "Stripe Live · Suscripción con cobro real." : "Stripe Test · Los pagos de esta sección son pruebas."}
       </p>
       {params.get("checkout") === "success" && (
         <p role="status" className="billing-benefits">
-          Estamos confirmando tu pago de prueba. El estado de tu plan se
+          Estamos confirmando tu pago. El estado de tu plan se
           actualizará en unos momentos.
         </p>
       )}

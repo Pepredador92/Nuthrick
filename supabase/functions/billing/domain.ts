@@ -1,3 +1,4 @@
+export type BillingEnvironment = "test" | "live";
 export type Interval = "monthly" | "annual";
 export type BillingState =
   | "trial"
@@ -27,6 +28,7 @@ export type Benefit = {
   duration: Duration;
 };
 export type Campaign = {
+  mode?: BillingEnvironment;
   target?: "subscription" | "ai_credit_package";
   eligible_package_ids?: string[];
   id: string;
@@ -46,6 +48,8 @@ export type Campaign = {
   visibility: "private" | "public";
 };
 export type Price = {
+  mode?: BillingEnvironment;
+  provider_product_id?: string | null;
   id: string;
   plan_id: string;
   plan_name: string;
@@ -89,7 +93,7 @@ export type CreditPayment = {
   refund_pending: boolean;
   dispute_id: string | null;
   dispute_status: string | null;
-  livemode: false;
+  livemode: boolean;
 };
 export type CollectionState =
   | "active"
@@ -113,7 +117,7 @@ export type SubscriptionSnapshot = {
   schedule_id: string | null;
   latest_invoice: InvoiceSnapshot | null;
   pending_update: boolean;
-  livemode: false;
+  livemode: boolean;
 };
 export type InvoiceSnapshot = {
   id: string;
@@ -141,7 +145,7 @@ export type VerifiedEvent = {
   subscription_id: string | null;
   invoice_id: string | null;
   checkout_id: string | null;
-  livemode: false;
+  livemode: boolean;
 };
 export type CheckoutInput = {
   owner: string;
@@ -154,7 +158,26 @@ export type CheckoutInput = {
 };
 export interface BillingProvider {
   readonly name: string;
-  readonly mode: "test";
+  readonly mode: BillingEnvironment;
+  inspectConfiguration?(input: {
+    prices: Price[];
+    webhookUrl: string;
+    subscriptions: {
+      id: string;
+      customer_id: string;
+      price_id: string;
+      status: string;
+      cancel_at_period_end: boolean;
+    }[];
+  }): Promise<
+    {
+      prices_verified: boolean;
+      webhook_reachable: boolean;
+      portal_verified: boolean;
+      reconciliation_ok: boolean;
+      mismatches: string[];
+    }
+  >;
   createCustomer(owner: string): Promise<string>;
   ensurePrice(price: Price): Promise<string>;
   ensureCreditPrice(price: CreditPrice): Promise<string>;
@@ -226,6 +249,28 @@ export function safeHostedUrl(
       : null;
   } catch {
     return null;
+  }
+}
+export function assertEnvironmentSecret(
+  secret: string,
+  mode: BillingEnvironment,
+) {
+  if (!(new RegExp(`^sk_${mode}_[A-Za-z0-9]+$`)).test(secret)) {
+    throw new Error(
+      mode === "test"
+        ? "stripe_test_configuration_required"
+        : "stripe_environment_mismatch",
+    );
+  }
+}
+export function assertEnvironmentObject(
+  value: { livemode?: boolean },
+  mode: BillingEnvironment,
+) {
+  if (value.livemode !== (mode === "live")) {
+    throw new Error(
+      mode === "test" ? "live_mode_forbidden" : "stripe_environment_mismatch",
+    );
   }
 }
 export function assertTestSecret(secret: string) {

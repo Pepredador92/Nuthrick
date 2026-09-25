@@ -57,7 +57,7 @@ function Heading(
   return (
     <header className="admin-heading">
       <div>
-        <p className="admin-eyebrow">BILLING · TEST</p>
+        <p className="admin-eyebrow">BILLING</p>
         <h1>{title}</h1>
         <p className="admin-description">{description}</p>
       </div>
@@ -946,7 +946,7 @@ export function SubscriptionsPage() {
                       </td>
                       <td>{dateLabel(s.period_end)}</td>
                       <td>{dateLabel(s.last_payment)}</td>
-                      <td>{s.provider} · Test</td>
+                      <td>{s.provider} · {(s.mode ?? "test").toUpperCase()}</td>
                       <td>
                         {s.state !== "cancelled" && (
                           <button
@@ -1076,7 +1076,7 @@ export function PaymentsPage() {
                           : p.status}
                       </td>
                       <td>{p.plan_name}</td>
-                      <td>{p.provider} · Test</td>
+                      <td>{p.provider} · {(p.mode ?? "test").toUpperCase()}</td>
                       <td>
                         {hostedUrl(p.hosted_url, "invoice")
                           ? (

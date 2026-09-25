@@ -56,10 +56,24 @@ export function PreLiveReadinessPage() {
           <section className="admin-card prelive-banner" role="status">
             <ShieldCheck size={22} aria-hidden="true" />
             <div>
-              <strong>Stripe TEST · Live deshabilitado · OpenAI {data.openai_enabled ? "habilitado" : "deshabilitado"}</strong>
-              <p>Los cobros reales permanecen en cero. La activación de Live requiere una decisión separada y explícita.</p>
+              <strong>Stripe {data.mode.toUpperCase()} · Live {data.live_enabled ? "limitado a cuentas autorizadas" : "deshabilitado"} · OpenAI {data.openai_enabled ? "habilitado" : "deshabilitado"}</strong>
+              <p>Pagos Live confirmados: {data.live_payments ?? "pendiente de verificar"}. El primer cobro requiere autorización explícita.</p>
             </div>
           </section>
+          {data.live && (
+            <section className="admin-card billing-section" aria-label="Controles específicos Live">
+              <h2>LIVE-1 · Activación controlada</h2>
+              <p className="admin-note">Estos controles complementan los 15 generales. Legal pendiente impide configurar credenciales Live. La lista de cuentas autorizadas y el checkout permanecen cerrados durante la preparación.</p>
+              <div className="prelive-checks">
+                {data.live.checks.map((check) => (
+                  <article className={`prelive-check ${statusClass[check.status]}`} key={check.key}>
+                    <div className="prelive-check-title"><StatusIcon status={check.status} /><h3>{check.label}</h3><span>{statusLabel[check.status]}</span></div>
+                    <p>{detailText(check.detail)}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
           <section className="admin-card billing-section">
             <div className="prelive-summary" aria-label="Resumen de readiness">
               <span><strong>{data.summary.ready}</strong> listos</span>
@@ -91,7 +105,7 @@ export function PreLiveReadinessPage() {
           {data.operations && (
             <section className="admin-card billing-section">
               <div className="prelive-operations-heading">
-                <div><h2>Estado operativo</h2><p className="admin-note">Últimos runs, webhooks y emails en TEST. El detalle accionable está en Operaciones.</p></div>
+                <div><h2>Estado operativo</h2><p className="admin-note">Últimas ejecuciones, webhooks y emails. El detalle accionable está en Operaciones.</p></div>
                 <Link className="admin-button secondary" to="/admin/operations">Abrir Operaciones</Link>
               </div>
               <div className="prelive-operations-grid">

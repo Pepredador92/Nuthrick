@@ -1,4 +1,6 @@
 import {
+  assertEnvironmentObject,
+  type BillingEnvironment,
   type BillingProvider,
   type Campaign,
   changeTiming,
@@ -24,8 +26,14 @@ type LocalSubscription = {
 export type BillingDependencies = {
   authenticate: (token: string) => Promise<string | null>;
   rpc: <T = Data>(action: string, data: Data) => Promise<T>;
-  provider: () => Promise<BillingProvider>;
+  provider: (environment?: BillingEnvironment) => Promise<BillingProvider>;
+  resolveEnvironment?: (
+    owner: string,
+    action: string,
+    requested?: unknown,
+  ) => Promise<BillingEnvironment>;
   site: string;
+  liveWebhookUrl?: string;
 };
 // Only these public codes may cross the boundary; provider payloads and credentials never do.
 const publicErrors = new Set([
@@ -73,6 +81,17 @@ const publicErrors = new Set([
   "stripe_account_configuration_required",
   "stripe_account_mismatch",
   "billing_not_configured",
+  "billing_environment_mismatch",
+  "stripe_environment_mismatch",
+  "live_legal_pending",
+  "live_readiness_incomplete",
+  "live_preparation_disabled",
+  "live_checkout_disabled",
+  "live_account_not_allowed",
+  "live_credit_purchases_disabled",
+  "live_portal_not_configured",
+  "live_portal_policy_mismatch",
+  "live_account_not_ready",
 ]);
 function errorCode(e: unknown) {
   const message = e instanceof Error ? e.message : "";
@@ -131,20 +150,36 @@ export function createBillingHandler(deps: BillingDependencies) {
     if (req.method !== "POST") {
       return reply({ error: "method_not_allowed" }, 405);
     }
-    const webhook = new URL(req.url).pathname.endsWith("/billing/webhook");
+    const path = new URL(req.url).pathname;
+    const webhook = path.endsWith("/billing/webhook") ||
+      path.endsWith("/billing/webhook/live");
+    let environment: BillingEnvironment = path.endsWith("/billing/webhook/live")
+      ? "live"
+      : "test";
+    const getProvider = async () => {
+      const result = await deps.provider(environment);
+      if (result.mode !== environment) {
+        throw new Error("billing_environment_mismatch");
+      }
+      return result;
+    };
     let owner: string | null = null;
     let locked = false;
     let claimedEventId: string | null = null;
     const lockKey = crypto.randomUUID();
     const rpc = <T = Data>(action: string, data: Data = {}) =>
-      deps.rpc<T>(action, { owner, lock_key: lockKey, ...data });
+      deps.rpc<T>(action, { owner, lock_key: lockKey, ...data, environment });
     try {
       if (webhook) {
         const raw = await body(req, 262144);
         const signature = req.headers.get("stripe-signature");
         if (!signature) throw new Error("invalid_signature");
-        const provider = await deps.provider();
+        const provider = await getProvider();
         const event = await provider.handleWebhook(raw, signature);
+        assertEnvironmentObject(event, environment);
+        if (environment === "live") {
+          await rpc("live_signature_verified", { event_id: event.id });
+        }
         if (!event.supported || !event.customer_id) {
           return reply({ ignored: true });
         }
@@ -208,6 +243,7 @@ export function createBillingHandler(deps: BillingDependencies) {
           );
         }
         let subscription = await provider.getSubscription(subscriptionId);
+        assertEnvironmentObject(subscription, environment);
         if (
           !ctx.managed_subscription && subscription.intent_id !== ctx.intent?.id
         ) return reply(await rpc("event_done", { event_id: event.id }));
@@ -257,6 +293,7 @@ export function createBillingHandler(deps: BillingDependencies) {
           "resume",
           "cancel_now",
           "sync_prices",
+          "inspect_live",
         ].includes(action)
       ) throw new Error("invalid_input");
       owner = action === "cancel_now"
@@ -276,9 +313,17 @@ export function createBillingHandler(deps: BillingDependencies) {
           ? input.code.trim().slice(0, 40)
           : "",
       });
-      if (action === "cancel_now" || action === "sync_prices") {
+      if (
+        action === "cancel_now" || action === "sync_prices" ||
+        action === "inspect_live"
+      ) {
         await rpc("authorize_admin", { actor });
       }
+      environment = await deps.resolveEnvironment?.(
+        owner,
+        action,
+        action === "inspect_live" ? "live" : input.environment,
+      ) ?? "test";
       await rpc("lock");
       locked = true;
       if (typeof action === "string" && action.startsWith("credit_")) {
@@ -289,19 +334,35 @@ export function createBillingHandler(deps: BillingDependencies) {
             owner,
             operationKey!,
             rpc,
-            deps.provider,
+            getProvider,
             deps.site,
           ),
         );
       }
+      if (action === "inspect_live") {
+        const provider = await getProvider();
+        if (
+          environment !== "live" || !provider.inspectConfiguration ||
+          !deps.liveWebhookUrl
+        ) throw new Error("billing_not_configured");
+        const context = await rpc<
+          Parameters<NonNullable<BillingProvider["inspectConfiguration"]>>[0]
+        >("live_inspection_context", { actor });
+        const result = await provider.inspectConfiguration({
+          ...context,
+          webhookUrl: deps.liveWebhookUrl,
+        });
+        return reply(await rpc("live_inspection_saved", { actor, result }));
+      }
       if (action === "sync_prices") {
         const prices = await rpc<Price[]>("price_catalog", { actor });
-        const provider = await deps.provider();
+        const provider = await getProvider();
         for (const price of prices) {
           const priceId = await provider.ensurePrice(price);
           await rpc("price_saved", {
             price_mapping_id: price.id,
             price_id: priceId,
+            product_id: price.provider_product_id,
           });
         }
         return reply(
@@ -324,7 +385,7 @@ export function createBillingHandler(deps: BillingDependencies) {
         if (ctx.intent.url) {
           return reply({ url: ctx.intent.url, id: ctx.intent.id });
         }
-        const provider = await deps.provider();
+        const provider = await getProvider();
         const customerId = ctx.customer_id ??
           await provider.createCustomer(owner);
         if (!ctx.customer_id) {
@@ -334,6 +395,7 @@ export function createBillingHandler(deps: BillingDependencies) {
         await rpc("price_saved", {
           price_mapping_id: ctx.price.id,
           price_id: priceId,
+          product_id: ctx.price.provider_product_id,
         });
         const promo = ctx.intent.campaign_snapshot
           ? await provider.ensurePromotion(
@@ -374,7 +436,7 @@ export function createBillingHandler(deps: BillingDependencies) {
           }
         >("context");
         if (!ctx.intent) return reply({ expired: true });
-        const provider = await deps.provider();
+        const provider = await getProvider();
         const session = ctx.intent.provider_session_id
           ? {
             id: ctx.intent.provider_session_id,
@@ -423,7 +485,7 @@ export function createBillingHandler(deps: BillingDependencies) {
         request,
       });
       if (ctx.replay) return reply(ctx.result);
-      const provider = await deps.provider();
+      const provider = await getProvider();
       let result: Data = { requested: true };
       if (action === "portal") {
         result = {
@@ -439,6 +501,7 @@ export function createBillingHandler(deps: BillingDependencies) {
         await rpc("price_saved", {
           price_mapping_id: price.id,
           price_id: price.provider_price_id,
+          product_id: price.provider_product_id,
         });
         const timing = changeTiming(
           ctx.current_price.rank,

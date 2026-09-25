@@ -66,6 +66,7 @@ function fixture(hasSchedule = true) {
     },
   };
   const sdk = {
+    prices: { retrieve: async () => ({ id: "price_target", livemode: false }) },
     subscriptions: {
       retrieve: async () => subscription,
       update: async (

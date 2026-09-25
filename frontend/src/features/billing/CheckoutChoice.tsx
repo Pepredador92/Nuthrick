@@ -151,10 +151,9 @@ export function CheckoutChoice(
         </>
       )}
       {error && <p role="alert" className="admin-error">{error}</p>}
-      {user && billing && (!billing.enabled || !billing.test_eligible) && (
+      {user && billing && (!billing.enabled || !(billing.checkout_eligible ?? billing.test_eligible)) && (
         <p className="admin-note">
-          Esta cuenta aún no está autorizada para contratar en el entorno de
-          prueba.
+          Esta cuenta aún no está autorizada para contratar en este entorno.
         </p>
       )}
       {billing?.subscription && billing.subscription.state !== "cancelled"
@@ -167,14 +166,14 @@ export function CheckoutChoice(
           <button
             className="admin-button"
             disabled={busy ||
-              Boolean(user && (!billing?.enabled || !billing?.test_eligible)) ||
+              Boolean(user && (!billing?.enabled || !(billing?.checkout_eligible ?? billing?.test_eligible))) ||
               Boolean(code && !preview?.campaign)}
             onClick={checkout}
           >
             {busy
               ? "Preparando…"
               : user
-              ? "Continuar a Stripe Test"
+              ? (billing?.mode === "live" ? "Continuar a Stripe Live" : "Continuar a Stripe Test")
               : "Iniciar sesión y continuar"}
           </button>
         )}
@@ -199,7 +198,7 @@ export function CheckoutChoice(
         Los créditos incluidos se asignan por mes, también en modalidad anual.
       </p>
       <p className="admin-note mt-2">
-        Consulta <Link to="/terms">Términos</Link>, <Link to="/privacy">Privacidad</Link> y <Link to="/refunds">Reembolsos</Link>. En TEST no se activa ningún cobro real.
+        Consulta <Link to="/terms">Términos</Link>, <Link to="/privacy">Privacidad</Link> y <Link to="/refunds">Reembolsos</Link>. {billing?.mode === "live" ? "Esta suscripción tiene cobro real." : "En TEST no se activa ningún cobro real."}
       </p>
     </section>
   );
