@@ -13,6 +13,9 @@ select set_config('request.jwt.claim.sub','ca300000-0000-4000-8000-000000000001'
 select public.ai_credit_admin_api('save_package','{"id":"cb300000-0000-4000-8000-000000000001","code":"TEST_SMALL","name":"100 créditos TEST","credits":100,"price_amount":10,"currency":"MXN","active":true}');
 select public.ai_credit_admin_api('save_package','{"id":"cb300000-0000-4000-8000-000000000002","code":"TEST_MEDIUM","name":"500 créditos TEST","credits":500,"price_amount":25,"currency":"MXN","active":true}');
 select public.ai_credit_admin_api('save_package','{"id":"cb300000-0000-4000-8000-000000000003","code":"TEST_LARGE","name":"1000 créditos TEST","credits":1000,"price_amount":50,"currency":"MXN","active":true}');
+select admin3_test.ok(jsonb_array_length(public.pre_live_readiness()->'checks') >= 10,'pre-live readiness is available to admin');
+select admin3_test.ok(public.pre_live_readiness()->>'mode'='test','pre-live readiness stays in test mode');
+select admin3_test.ok((public.pre_live_readiness()->>'live_enabled')::boolean=false,'pre-live cannot enable live mode');
 select admin3_test.ok(jsonb_array_length(public.ai_credit_admin_api('packages'))=3,'admin catalog returns all packages');
 select admin3_test.ok(jsonb_array_length(public.ai_credit_admin_api('purchases'))=0,'admin purchase list starts empty');
 select admin3_test.ok(public.ai_credit_admin_api('package','{"id":"cb300000-0000-4000-8000-000000000002"}')->>'credits'='500','admin package detail is readable');

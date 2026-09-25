@@ -185,6 +185,25 @@ export function MyPlanPage() {
                 para volver a crear y editar información.
               </p>
             )}
+            {data.access.status === "trial" && data.access.ends_at && (
+              <p role="status" className="billing-benefits">
+                Tu acceso de prueba termina el {dateLabel(data.access.ends_at)}.
+                Elige un plan antes de esa fecha para continuar sin interrupciones. <Link className="admin-link" to="/planes">Ver planes</Link>
+              </p>
+            )}
+            {data.access.status === "cancelled" && (
+              <p role="status" className="billing-test">
+                Tu suscripción terminó. Tus datos se conservaron. Elige un plan
+                para volver a trabajar en Nuthrick.
+              </p>
+            )}
+            {data.access.patient_usage?.over_limit && (
+              <p role="status" className="billing-test">
+                Tienes más pacientes activos que el límite del plan actual.
+                Conservamos todos tus datos; archiva pacientes o revisa los
+                planes para continuar creando nuevos registros. <Link className="admin-link" to="/planes">Ver planes</Link>
+              </p>
+            )}
             {s?.manual_hold && (
               <p className="billing-test">
                 Tu acceso tiene un ajuste administrativo. Contacta a

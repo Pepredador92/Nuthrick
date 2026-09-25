@@ -107,6 +107,20 @@ export type MyBilling = {
   payments: Payment[];
   credits: { included: number; additional: number; available?: number; period_end?: string | null };
 };
+export type PreLiveCheck = {
+  key: string;
+  label: string;
+  status: "ready" | "pending" | "blocked";
+  detail: string | Record<string, unknown>;
+};
+export type PreLiveReadiness = {
+  generated_at: string;
+  mode: "test";
+  live_enabled: false;
+  openai_enabled: boolean;
+  checks: PreLiveCheck[];
+  summary: { ready: number; pending: number; blocked: number };
+};
 export type Preview = {
   price: { amount: number; currency: string };
   campaign: {
@@ -242,6 +256,11 @@ export async function getMyBilling(): Promise<MyBilling> {
   const { data, error } = await supabase.rpc("my_billing");
   if (error) throw new Error("No pudimos cargar tu suscripción.");
   return data as MyBilling;
+}
+export async function getPreLiveReadiness(): Promise<PreLiveReadiness> {
+  const { data, error } = await supabase.rpc("pre_live_readiness");
+  if (error) throw new Error("No pudimos cargar la revisión PRE-LIVE.");
+  return data as PreLiveReadiness;
 }
 export function hostedUrl(
   value: unknown,

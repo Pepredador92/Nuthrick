@@ -42,6 +42,7 @@ import { PromotionsPage, PromotionEditorPage, SubscriptionsPage, PaymentsPage, B
 import { MyCreditsPage } from '@/src/features/billing/MyCreditsPage';
 import { CreditPackagesPage, CreditPackageEditorPage, CreditPurchasesPage } from '@/src/features/billing/AdminCreditsPages';
 import { MyPlanPage } from '@/src/features/billing/MyPlanPage';
+import { PreLiveReadinessPage } from '@/src/features/billing/PreLiveReadinessPage';
 import { CodesPage } from '@/src/features/admin/CodesPage';
 
 function ScrollToTop() {
@@ -97,6 +98,7 @@ export function ClientApplication() {
               <Route path="subscriptions" element={<SubscriptionsPage />} />
               <Route path="payments" element={<PaymentsPage />} />
               <Route path="billing" element={<BillingSettingsPage />} />
+              <Route path="readiness" element={<PreLiveReadinessPage />} />
             </Route>
           </Route>
           <Route element={<RequireAuthentication />}>
@@ -138,6 +140,7 @@ export function ClientApplication() {
           <Route path="/mi-espacio" element={<PatientPortalPage />} />
           <Route path="/privacy" element={<LegalPage type="privacy" />} />
           <Route path="/terms" element={<LegalPage type="terms" />} />
+          <Route path="/refunds" element={<LegalPage type="refunds" />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
         </AccessProvider>

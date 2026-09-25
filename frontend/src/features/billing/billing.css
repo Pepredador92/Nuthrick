@@ -139,6 +139,8 @@
   }
 }
 
+.prelive-banner{display:flex;gap:14px;align-items:flex-start;border-color:#c6d9ca;background:#f5faf5;color:#234a37}.prelive-banner p{margin:6px 0 0;color:#587064;font-size:14px}.prelive-summary{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px}.prelive-summary span{border:1px solid #dbe4dd;border-radius:999px;padding:8px 12px;font-size:13px;color:#5e7066}.prelive-summary strong{color:#1f4938;margin-right:4px}.prelive-checks{display:grid;gap:12px}.prelive-check{border:1px solid #dbe4dd;border-left-width:4px;border-radius:12px;padding:15px 17px;background:#fff}.prelive-check-title{display:flex;align-items:center;gap:9px}.prelive-check-title h2{font-size:16px;font-weight:600;flex:1;margin:0}.prelive-check-title span{font-size:12px;font-weight:600}.prelive-check p{margin:7px 0 0 27px;color:#65746b;font-size:14px;line-height:1.5}.prelive-ready{border-left-color:#4d8a66}.prelive-ready .prelive-check-title{color:#2d704b}.prelive-pending{border-left-color:#c59a41}.prelive-pending .prelive-check-title{color:#80621e}.prelive-blocked{border-left-color:#b65a4b}.prelive-blocked .prelive-check-title{color:#984b3d}
+
 .admin-heading h1 {
   overflow-wrap: anywhere;
 }

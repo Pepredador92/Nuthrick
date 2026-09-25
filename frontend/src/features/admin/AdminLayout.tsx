@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Users,
   Layers,
+  ClipboardCheck,
 } from "lucide-react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/src/features/auth/AuthProvider";
@@ -25,6 +26,7 @@ const nav = [
   ["subscriptions", "Suscripciones", CreditCard],
   ["payments", "Pagos", ReceiptText],
   ["billing", "Cobros · Test", Settings],
+  ["readiness", "PRE-LIVE", ClipboardCheck],
 ] as const;
 export function AdminLayout() {
   const { signOut } = useAuth();
