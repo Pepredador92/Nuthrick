@@ -1,8 +1,8 @@
 # Nuthrick · Informe de preparación LIVE
 
-Fecha de revisión: 24 de septiembre de 2026  
+Fecha de revisión: 25 de septiembre de 2026
 Proyecto Supabase: `qlsqhvyrslclmlstlemn`  
-Estado actual: **14 listos · 1 pendiente legal · 0 bloqueados**.
+Estado actual: **14 listos · 1 pendiente operativo · 0 bloqueados**.
 
 Este informe describe la infraestructura previa a Live. Stripe continúa en TEST, no hay llamadas reales a OpenAI y no se autorizó ningún cargo real.
 
@@ -24,11 +24,11 @@ Hay 15 plantillas editables en la tabla privada: alta, suscripción activada, pa
 
 ## 5. Legal y aceptación
 
-Términos, privacidad y reembolsos están versionados en `private.legal_documents`, con estado, versión, fecha efectiva y referencia de contenido. `record_legal_acceptance` solo acepta una versión aprobada y registra profesional, versión, fuente y fecha. El estado actual es `pending_review` para los tres documentos. Por eso este único control permanece pendiente y no se aprueba automáticamente.
+Términos, privacidad y reembolsos están aprobados como v1 en `private.legal_documents`, con fecha efectiva 25 de septiembre de 2026 y referencia de contenido. `record_legal_acceptance` solo acepta una versión aprobada y registra profesional, versión, fuente y fecha. Términos y Privacidad requieren aceptación explícita; Reembolsos queda disponible para consulta.
 
 ## 6. Soporte operativo
 
-Existe configuración de canal, objetivo de respuesta, casos por categoría y resoluciones auditadas. El canal inicial es `soporte@nuthrick.com`, 48 horas y `test_mode=true`; debe verificarse con el buzón operativo definitivo antes de Live. El runbook está en [`docs/operations-runbook.md`](operations-runbook.md).
+Existe configuración de canal, objetivo de respuesta, casos por categoría y resoluciones auditadas. El canal temporal es `susy.asistencia.online@gmail.com`, 48 horas y `test_mode=true`; los buzones `@nuthrick.com` quedan para una migración futura. El runbook está en [`docs/operations-runbook.md`](operations-runbook.md).
 
 ## 7. Reconciliación
 
@@ -40,7 +40,7 @@ La suite local cubre checkout, webhook, renovación, gracia, suspensión, cancel
 
 ## 9. Bugs y controles abiertos
 
-No hay bloqueos técnicos reportados por la lectura remota. El pendiente legal es deliberado. La verificación del buzón de soporte, aprobación comercial, proveedor de email productivo y configuración de Stripe Live siguen siendo decisiones previas a Live.
+No hay bloqueos técnicos reportados por la lectura remota. El único pendiente general es la entrega real de correo comercial. La verificación del buzón de soporte, proveedor de email productivo y configuración de Stripe Live siguen siendo decisiones previas a Live.
 
 ## 10. Migraciones aplicadas
 
@@ -74,8 +74,7 @@ La implementación operativa quedó en el commit `89929a9` de la rama `codex/adm
 
 ## 14. Lo que falta para una fase LIVE separada
 
-1. Aprobar humanamente términos, privacidad y reembolsos; publicar versiones y registrar la decisión.
-2. Confirmar precios, impuestos, moneda, promociones y fallback comercial.
+1. Confirmar precios, impuestos, moneda, promociones y fallback comercial.
 3. Verificar buzón y SLA de soporte.
 4. Elegir proveedor transaccional, dominio, plantillas y reputación de envío.
 5. Crear productos/precios/webhook/Customer Portal Live separados de TEST y guardar secretos en Vault.

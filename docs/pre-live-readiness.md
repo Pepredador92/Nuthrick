@@ -1,6 +1,6 @@
 # Nuthrick · PRE-LIVE / Beta comercial
 
-Fecha de revisión: 24 de septiembre de 2026  
+Fecha de revisión: 25 de septiembre de 2026
 Entorno revisado: Nuthrick en Vercel + Supabase `qlsqhvyrslclmlstlemn` + Stripe Sandbox de Nuthrick.  
 Estado: **Stripe TEST solamente, OpenAI deshabilitado, cobros reales = 0**.
 
@@ -72,11 +72,11 @@ La página de pagos enlaza únicamente URLs HTTPS de `invoice.stripe.com` verifi
 
 PRE-LIVE ya incluye un outbox transaccional en proveedor `test`, quince plantillas, claves de evento idempotentes, reintentos y estados de fallo visibles en `/admin/operations`. La prueba sintética se entregó dentro de TEST; no se añadieron campañas de marketing ni correos reales. El proveedor productivo, dominio y buzón de envío siguen pendientes para Live.
 
-`/terms`, `/privacy` y `/refunds` ahora tienen un lugar visible para el contenido final, pero siguen marcados como **Documento preliminar**. No se inventaron términos legales. Antes de Live deben aprobarse términos, privacidad, reembolsos, impuestos, soporte, canal de contacto y tiempos de respuesta.
+`/terms`, `/privacy` y `/refunds` publican las versiones v1 aprobadas con fecha efectiva 25 de septiembre de 2026. Términos y Privacidad requieren aceptación explícita; Reembolsos queda disponible para consulta. Los impuestos, soporte, canal de contacto y tiempos de respuesta siguen sujetos a la configuración operativa de PRE-LIVE.
 
 ## Evidencia de readiness actual
 
-La lectura remota autenticada de PRE-LIVE devuelve **15 controles: 14 listos, 1 pendiente y 0 bloqueados**. Entre los listos están Stripe Test, credenciales Test en Vault, webhook firmado, mappings Test, planes comerciales, paquetes Test, campañas privadas TEST, Beta, OpenAI apagado, recibos, jobs, emails sintéticos, soporte y evidencia de pagos Test. El único pendiente es la aprobación humana/legal de términos, privacidad y reembolsos.
+La lectura remota autenticada de PRE-LIVE devuelve **15 controles: 14 listos, 1 pendiente y 0 bloqueados**. Entre los listos están Stripe Test, credenciales Test en Vault, webhook firmado, mappings Test, planes comerciales, paquetes Test, campañas privadas TEST, Beta, OpenAI apagado, recibos, jobs, soporte, legal aprobado y evidencia de pagos Test. El único pendiente es la entrega comercial real de correo; el proveedor sigue en TEST y las entregas simuladas no cuentan como reales.
 
 La vista no considera “listo” un control manual solo por existencia de una tabla. Los pendientes requieren una decisión o una verificación humana antes de habilitar Live.
 

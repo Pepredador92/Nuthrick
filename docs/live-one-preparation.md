@@ -8,17 +8,17 @@ Readiness general consultado en la base de producción: **14 listos, 1 pendiente
 
 | Documento | Versión | Fecha efectiva | Estado | Aprobación |
 |---|---:|---|---|---|
-| Términos | 1 | Sin establecer | `pending_review` | Pendiente de revisión humana |
-| Privacidad | 1 | Sin establecer | `pending_review` | Pendiente de revisión humana |
-| Reembolsos | 1 | Sin establecer | `pending_review` | Pendiente de revisión humana |
+| Términos | 1 | 25 de septiembre de 2026 | `approved` | Aprobado por administración |
+| Privacidad | 1 | 25 de septiembre de 2026 | `approved` | Aprobado por administración |
+| Reembolsos | 1 | 25 de septiembre de 2026 | `approved` | Aprobado por administración |
 
-No se cambió ningún estado legal. Un administrador autorizado debe registrar la aprobación y fecha efectiva después de revisión humana. Mientras tanto, el servidor rechaza operaciones Live antes de recuperar credenciales.
+La aprobación y la fecha efectiva fueron registradas por un administrador autorizado después de la revisión humana. El servidor continúa rechazando operaciones Live antes de recuperar credenciales.
 
 ## Reporte previo al cobro — todavía no autorizado
 
 | # | Control | Resultado de esta preparación |
 |---:|---|---|
-| 1 | Legal | Los tres documentos v1 siguen pendientes; sin fecha efectiva. |
+| 1 | Legal | Los tres documentos v1 están aprobados y vigentes desde el 25 de septiembre de 2026. |
 | 2 | Readiness | General 14/1/0. Los controles Live adicionales se muestran aparte y exigen evidencia propia. |
 | 3 | Cuenta Stripe | Sandbox Nuthrick TEST verificado: `acct_1UJP0ZDdgZFOxyxH`. Cuenta Live pendiente de identificación y verificación; no se asume que tenga el mismo ID. No se usó Avena.io. |
 | 4 | Entorno Live | Preparación y checkout deshabilitados en configuración; lista de pilotos vacía. Sin credenciales Live introducidas. |
@@ -60,7 +60,7 @@ La regresión local cubre Checkout/customer, mensual/anual, promociones, firmas,
 
 ## Configuración segura futura — no ejecutar todavía
 
-Primero: aprobación humana de los tres documentos, fechas efectivas y readiness general **15/0/0**. Después se podrá identificar exclusivamente la cuenta Live de Nuthrick, mantener checkout cerrado y preparar credenciales. El procedimiento se detiene hasta que el administrador confirme que las configuró en el sistema seguro.
+Legal ya está aprobado. El siguiente control es correo comercial real; después se podrá identificar exclusivamente la cuenta Live de Nuthrick, mantener checkout cerrado y preparar credenciales. El procedimiento se detiene hasta que el administrador confirme que las configuró en el sistema seguro.
 
 Esta integración usa **Supabase Vault**, no variables públicas de Vercel:
 
@@ -88,7 +88,7 @@ Después de confirmada la configuración segura:
 ## Comprobaciones posteriores al despliegue
 
 - Edge Function `billing` v3 activa. Petición sin sesión: 401; webhook TEST con firma inválida: 400; ruta Live: 409 `live_legal_pending`.
-- Readiness remoto conserva 14/1/0 y los tres documentos v1 pendientes. Live: 0 clientes, suscripciones, pagos y emails; credenciales ausentes; preparación/checkout deshabilitados.
+- Readiness remoto conserva 14/1/0 y los tres documentos v1 aprobados. Live: 0 clientes, suscripciones, pagos y emails; credenciales ausentes; preparación/checkout deshabilitados.
 - Security Advisors: ningún hallazgo nuevo. [Avisos heredados de RPC](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) y [protección de contraseñas filtradas](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) siguen fuera de este cambio. Performance no añadió claves foráneas sin índice; informa un [índice nuevo aún sin uso](https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index) para la lista de pilotos vacía.
 
 ## Verificación reproducible

@@ -4,9 +4,9 @@
 
 Continúa LIVE-1 (`8b75c76`). Stripe exclusivamente TEST; no configurar secretos,
 productos, precios ni webhooks Live. OpenAI apagado. Sin cambios de pacientes.
-Los tres documentos v1 contienen ahora el texto completo para revisión y permanecen
-`pending_review`, sin fecha efectiva, publicación ni aprobación. La cláusula de
-ley aplicable y jurisdicción ya quedó incorporada para revisión humana. No ejecutar aprobación hasta la confirmación humana explícita. El dominio web
+Los tres documentos v1 contienen el texto completo y fueron aprobados con fecha
+efectiva 25 de septiembre de 2026. La cláusula de ley aplicable y jurisdicción
+quedó incorporada. El dominio web
 oficial `nuthrick.com` ya está activo. No se contratarán buzones de correo propios
 en esta fase. Ver [dominio web](web-domain.md).
 
@@ -49,8 +49,8 @@ como cargos reales.
   suspensión y disponibilidad se describen con criterios sin inventar plazos ni
   promesas de CFDI o de reembolso automático.
 - Términos establece leyes aplicables de México y tribunales competentes del Estado
-  de Zacatecas, respetando derechos irrenunciables. La fecha efectiva se elegirá
-  después de la aprobación humana.
+  de Zacatecas, respetando derechos irrenunciables. La fecha efectiva registrada es
+  el 25 de septiembre de 2026.
 
 La [LFPDPPP vigente](https://www.diputados.gob.mx/LeyesBiblio/pdf/LFPDPPP.pdf)
 se consultó para identificar datos sensibles, elementos del aviso y derechos;
@@ -62,7 +62,7 @@ Solo `platform_admins` habilitados pueden editar/aprobar. Se comprueba versión,
 revisión y hash del texto mostrado (incluidos contactos resueltos). La UI exige
 fecha y la frase “Confirmo que este documento fue revisado y aprobado.”. El agente
 no la ejecuta hasta que José confirme “Apruebo Términos v1, Privacidad v1 y Reembolsos
-v1.”. No se asigna fecha antes de ese paso.
+v1.”. La aprobación ya fue registrada por la cuenta administradora autorizada.
 
 Un documento aprobado es inmutable; el siguiente cambio crea v2. Las aceptaciones
 conservan usuario, documento, versión, fuente y fecha. La proyección pública contiene
