@@ -70,13 +70,13 @@ La página de pagos enlaza únicamente URLs HTTPS de `invoice.stripe.com` verifi
 
 ## Emails, soporte y políticas
 
-La auditoría no encontró un proveedor de email transaccional completo para alta, pago confirmado, pago fallido, cancelación, renovación, trial próximo a vencer, compra de créditos y refund. PRE-LIVE lo muestra como pendiente; no se añadieron campañas de marketing ni correos inventados.
+PRE-LIVE ya incluye un outbox transaccional en proveedor `test`, quince plantillas, claves de evento idempotentes, reintentos y estados de fallo visibles en `/admin/operations`. La prueba sintética se entregó dentro de TEST; no se añadieron campañas de marketing ni correos reales. El proveedor productivo, dominio y buzón de envío siguen pendientes para Live.
 
 `/terms`, `/privacy` y `/refunds` ahora tienen un lugar visible para el contenido final, pero siguen marcados como **Documento preliminar**. No se inventaron términos legales. Antes de Live deben aprobarse términos, privacidad, reembolsos, impuestos, soporte, canal de contacto y tiempos de respuesta.
 
 ## Evidencia de readiness actual
 
-La lectura remota autenticada de PRE-LIVE devolvió **15 controles: 10 listos, 5 pendientes, 0 bloqueados**. Entre los listos están Stripe Test, credenciales Test en Vault, webhook firmado, mappings Test, planes comerciales, paquetes Test, Beta, OpenAI apagado, recibos y evidencia de pagos Test. Quedan pendientes: verificar formalmente el job pg_cron/monitoring, proveedor y plantillas de emails, aprobación legal, soporte/monitoring y completar/configurar promociones comerciales.
+La lectura remota autenticada de PRE-LIVE devuelve **15 controles: 14 listos, 1 pendiente y 0 bloqueados**. Entre los listos están Stripe Test, credenciales Test en Vault, webhook firmado, mappings Test, planes comerciales, paquetes Test, campañas privadas TEST, Beta, OpenAI apagado, recibos, jobs, emails sintéticos, soporte y evidencia de pagos Test. El único pendiente es la aprobación humana/legal de términos, privacidad y reembolsos.
 
 La vista no considera “listo” un control manual solo por existencia de una tabla. Los pendientes requieren una decisión o una verificación humana antes de habilitar Live.
 

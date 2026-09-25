@@ -120,6 +120,54 @@ export type PreLiveReadiness = {
   openai_enabled: boolean;
   checks: PreLiveCheck[];
   summary: { ready: number; pending: number; blocked: number };
+  operations?: OperationsOverview;
+};
+export type OperationsJob = {
+  jobid?: number;
+  jobname: string;
+  schedule?: string;
+  active: boolean;
+  last_run_at: string | null;
+  last_status: "succeeded" | "failed" | "running" | null;
+  last_error: string | null;
+  duration_ms: number | null;
+};
+export type OperationsOverview = {
+  generated_at: string;
+  jobs: OperationsJob[];
+  webhooks: {
+    last_received: string | null;
+    last_processed: string | null;
+    pending: number;
+    errors: number;
+    recent_errors: { event_type: string; last_error: string; attempts: number; created_at: string }[];
+  };
+  emails: {
+    provider: string;
+    mode: string;
+    enabled: boolean;
+    template_count: number;
+    pending: number;
+    failed: number;
+    sent: number;
+    last_sent: string | null;
+    last_test_at: string | null;
+    recent_failed: { id: string; template_key: string; status: string; attempts: number; last_error: string | null; created_at: string }[];
+  };
+  support: {
+    enabled: boolean;
+    channel: string;
+    support_email: string;
+    response_hours: number;
+    test_mode: boolean;
+    cases: { payment_attention: number; webhook_failed: number; credit_review: number; email_failed: number };
+  };
+  legal: {
+    infrastructure_ready: boolean;
+    pending_review: number;
+    documents: { key: string; title: string; version: number; effective_at: string | null; review_status: "draft" | "pending_review" | "approved"; content_ref: string }[];
+  };
+  evidence: Record<string, { verified_at: string; evidence: Record<string, unknown> }>;
 };
 export type Preview = {
   price: { amount: number; currency: string };
@@ -261,6 +309,17 @@ export async function getPreLiveReadiness(): Promise<PreLiveReadiness> {
   const { data, error } = await supabase.rpc("pre_live_readiness");
   if (error) throw new Error("No pudimos cargar la revisión PRE-LIVE.");
   return data as PreLiveReadiness;
+}
+export async function operationsAdmin<T = OperationsOverview>(
+  action: string,
+  input: Record<string, unknown> = {},
+): Promise<T> {
+  const { data, error } = await supabase.rpc("operations_admin_api", {
+    p_action: action,
+    p_data: input,
+  });
+  if (error) throw new Error(error.message === "admin_required" ? "Esta cuenta no tiene permisos de administración." : "No pudimos cargar Operaciones.");
+  return data as T;
 }
 export function hostedUrl(
   value: unknown,

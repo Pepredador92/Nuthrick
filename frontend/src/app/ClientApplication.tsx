@@ -43,6 +43,7 @@ import { MyCreditsPage } from '@/src/features/billing/MyCreditsPage';
 import { CreditPackagesPage, CreditPackageEditorPage, CreditPurchasesPage } from '@/src/features/billing/AdminCreditsPages';
 import { MyPlanPage } from '@/src/features/billing/MyPlanPage';
 import { PreLiveReadinessPage } from '@/src/features/billing/PreLiveReadinessPage';
+import { OperationsPage } from '@/src/features/billing/OperationsPage';
 import { CodesPage } from '@/src/features/admin/CodesPage';
 
 function ScrollToTop() {
@@ -99,6 +100,7 @@ export function ClientApplication() {
               <Route path="payments" element={<PaymentsPage />} />
               <Route path="billing" element={<BillingSettingsPage />} />
               <Route path="readiness" element={<PreLiveReadinessPage />} />
+              <Route path="operations" element={<OperationsPage />} />
             </Route>
           </Route>
           <Route element={<RequireAuthentication />}>

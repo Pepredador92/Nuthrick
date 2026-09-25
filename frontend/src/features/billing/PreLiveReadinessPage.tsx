@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { CheckCircle2, CircleAlert, Clock3, ShieldCheck } from "lucide-react";
 import { getPreLiveReadiness, type PreLiveCheck, type PreLiveReadiness } from "./api";
 import "./billing.css";
@@ -87,6 +88,19 @@ export function PreLiveReadinessPage() {
               deliberadamente manual y no expone credenciales.
             </p>
           </section>
+          {data.operations && (
+            <section className="admin-card billing-section">
+              <div className="prelive-operations-heading">
+                <div><h2>Estado operativo</h2><p className="admin-note">Últimos runs, webhooks y emails en TEST. El detalle accionable está en Operaciones.</p></div>
+                <Link className="admin-button secondary" to="/admin/operations">Abrir Operaciones</Link>
+              </div>
+              <div className="prelive-operations-grid">
+                <div><strong>Jobs</strong>{data.operations.jobs.map((job) => <span key={job.jobname}>{job.jobname.replace("nuthrick-", "")} · {job.last_status === "succeeded" ? "correcto" : job.last_status ?? "sin run"}</span>)}</div>
+                <div><strong>Webhooks</strong><span>{data.operations.webhooks.pending} pendientes · {data.operations.webhooks.errors} errores</span><span>Último: {data.operations.webhooks.last_processed ? new Date(data.operations.webhooks.last_processed).toLocaleString("es-MX") : "sin eventos"}</span></div>
+                <div><strong>Emails</strong><span>{data.operations.emails.template_count} plantillas · {data.operations.emails.failed} fallidos</span><span>Proveedor {data.operations.emails.provider} · modo {data.operations.emails.mode}</span></div>
+              </div>
+            </section>
+          )}
         </>
       )}
     </>

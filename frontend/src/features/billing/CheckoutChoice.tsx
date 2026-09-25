@@ -198,6 +198,9 @@ export function CheckoutChoice(
         La suscripción se confirma al recibir el resultado verificado del pago.
         Los créditos incluidos se asignan por mes, también en modalidad anual.
       </p>
+      <p className="admin-note mt-2">
+        Consulta <Link to="/terms">Términos</Link>, <Link to="/privacy">Privacidad</Link> y <Link to="/refunds">Reembolsos</Link>. En TEST no se activa ningún cobro real.
+      </p>
     </section>
   );
 }

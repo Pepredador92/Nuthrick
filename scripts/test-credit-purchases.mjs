@@ -61,6 +61,17 @@ try {
   console.log("PASS ADMIN-2 SQL regression");
   sql(readFileSync(new URL("scripts/test-credit-purchases.sql", root), "utf8"));
   console.log("PASS ADMIN-3 SQL fixture");
+  sql(readFileSync(new URL("supabase/migrations/20260925140000_live_ready_operational.sql", root), "utf8"));
+  sql(readFileSync(new URL("supabase/migrations/20260925141000_live_readiness_operational_checks.sql", root), "utf8"));
+  sql(readFileSync(new URL("supabase/migrations/20260925141500_operations_job_snapshot.sql", root), "utf8"));
+  sql(readFileSync(new URL("supabase/migrations/20260925142000_live_ready_rpc_fixes.sql", root), "utf8"));
+  sql(readFileSync(new URL("supabase/migrations/20260925142500_public_legal_projection.sql", root), "utf8"));
+  sql(readFileSync(new URL("supabase/migrations/20260925143000_public_legal_projection_table.sql", root), "utf8"));
+  sql(readFileSync(new URL("supabase/migrations/20260925143500_live_ready_fk_indexes.sql", root), "utf8"));
+  assert.equal(sql("select count(*) from private.transactional_email_templates where active").trim(), "15");
+  assert.ok(Number(sql("select count(*) from private.promotion_campaigns where active and visibility='private'").trim()) >= 5);
+  assert.equal(sql("select (private.operations_overview()->'emails'->>'last_test_at') is not null").trim(), "t");
+  console.log("PASS LIVE-READY operational templates, campaigns and email outbox");
   await Promise.all(Array.from({ length: 8 }, (_, i) =>
     (async () => {
       for (let n = 0; n < 20; n++) {
