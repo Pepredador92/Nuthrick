@@ -17,6 +17,9 @@ const statusClass: Record<PreLiveCheck["status"], string> = {
 
 function detailText(detail: PreLiveCheck["detail"]) {
   if (typeof detail === "string") return detail;
+  if ("mode" in detail && "webhooks_failed" in detail) {
+    return `Pagos confirmados: ${detail.paid_payments} · operaciones sin resolver: ${detail.operations_unresolved} · webhooks fallidos: ${detail.webhooks_failed} · emails fallidos: ${detail.emails_failed} · discrepancias de suscripción: ${detail.subscription_mismatches ?? "sin verificar"}. Ver identificadores en Operaciones.`;
+  }
   return Object.entries(detail).map(([key, value]) => `${key}: ${String(value)}`).join(" · ");
 }
 

@@ -30,9 +30,9 @@ No se cambió ningún estado legal. Un administrador autorizado debe registrar l
 | 10 | Emails | TEST simula entregas. Live tiene cola separada y **no** se marca enviado por el worker TEST. Falta implementar/configurar proveedor real y comprobar entrega; es requisito previo al cobro. |
 | 11 | Aislamiento | Claves/Vault, webhooks, IDs, mappings, clientes, suscripciones, promociones, sesiones, operaciones, auditoría y correo identifican el entorno. Restricciones SQL y validaciones `livemode` impiden mezclas. |
 | 12 | Pruebas | 49 pruebas Deno; 19 pruebas React focales; regresión SQL ADMIN-2/ADMIN-3, ciclo mensual/anual Live simulado, concurrencia, TypeScript, ESLint y build. Ver comandos abajo. |
-| 13 | Security Advisors | Comparación antes/después del despliegue requerida; resultado definitivo en la entrega. Base: 23 avisos INFO RLS privado, 12 avisos WARN de RPC existentes y 1 WARN de protección de contraseñas filtradas deshabilitada. |
+| 13 | Security Advisors | Verificado después de aplicar la migración: cero hallazgos nuevos de seguridad. Se conservan: 23 avisos INFO RLS privado, 12 avisos WARN de RPC existentes y 1 WARN de protección de contraseñas filtradas deshabilitada. |
 | 14 | Git | Cambios aislados en `codex/live-one-preparation`; commit exacto indicado en la entrega. No se incluyen cambios ajenos de Ajustes o módulos clínicos. |
-| 15 | Vercel | Preparación destinada al proyecto `nuthrick`; URL y resultado del despliegue indicados en la entrega. Publicar este código no habilita Live. |
+| 15 | Vercel | Preparación publicada en el proyecto `nuthrick`; [deployment del backend compatible e45bf62](https://vercel.com/pepredador92/nuthrick/Foy9pe2ej4RowuHetntxmURayUAD) confirmado Ready/Production. Publicar este código no habilita Live. |
 | 16 | Cuenta piloto | Pendiente de selección explícita. No se agregó ninguna cuenta. Debe ser un profesional controlado por el administrador y sin acceso interno protegido. |
 | 17 | Plan piloto | Pendiente. La primera prueba será una suscripción, nunca una recarga IA. |
 | 18 | Importe | Pendiente de plan/intervalo; se informará el importe exacto MXN y cualquier promoción antes de solicitar autorización. No se crean precios de $1. |
@@ -54,7 +54,7 @@ No se cambió ningún estado legal. Un administrador autorizado debe registrar l
 
 ## Evidencia TEST conservada
 
-Producción contiene 2 clientes TEST, 1 suscripción TEST, 1 pago TEST, 1 compra de créditos TEST y 8 webhooks procesados. La cuenta sintética ya está identificada como **Prueba ADMIN-2 · Stripe TEST** (`admin2-test@example.test`). Las cinco campañas son privadas y plantillas TEST. No se borraron eventos ni se modificaron cuentas reales o expedientes clínicos.
+Producción contiene 2 registros de cliente TEST (uno con ID de Stripe y otro sin cliente remoto), 1 suscripción TEST, 1 pago TEST, 1 compra de créditos TEST y 8 webhooks procesados. La cuenta sintética ya está identificada como **Prueba ADMIN-2 · Stripe TEST** (`admin2-test@example.test`). Las cinco campañas son privadas y plantillas TEST. No se borraron eventos ni se modificaron cuentas reales o expedientes clínicos.
 
 La regresión local cubre Checkout/customer, mensual/anual, promociones, firmas, replay, cancelación, gracia, suspensión, recuperación, recargas, refunds/disputas y Portal. Esto es evidencia de código y SQL con fixtures; **no sustituye verificar Stripe Live real después de Legal**.
 
@@ -84,6 +84,12 @@ Después de confirmada la configuración segura:
 5. Ejecutar `inspect_live`, revisar `/admin/operations` y controles Live, seleccionar explícitamente cuenta/plan/intervalo/importe piloto. La lista no se abre al público.
 6. Preparar Checkout sin confirmar compra y repetir el reporte de 20 puntos. **Esperar confirmación textual del importe exacto antes del primer cargo.**
 7. Tras un cobro autorizado, verificar una suscripción, un pago, acceso, plan, intervalo, renovación, auditoría, correo y recibo. Detenerse de nuevo; cancelar o reembolsar requiere otra autorización.
+
+## Comprobaciones posteriores al despliegue
+
+- Edge Function `billing` v3 activa. Petición sin sesión: 401; webhook TEST con firma inválida: 400; ruta Live: 409 `live_legal_pending`.
+- Readiness remoto conserva 14/1/0 y los tres documentos v1 pendientes. Live: 0 clientes, suscripciones, pagos y emails; credenciales ausentes; preparación/checkout deshabilitados.
+- Security Advisors: ningún hallazgo nuevo. [Avisos heredados de RPC](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) y [protección de contraseñas filtradas](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) siguen fuera de este cambio. Performance no añadió claves foráneas sin índice; informa un [índice nuevo aún sin uso](https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index) para la lista de pilotos vacía.
 
 ## Verificación reproducible
 
