@@ -187,6 +187,9 @@ export class GmailEmailProvider implements TransactionalEmailProvider {
   }
 
   async send(message: Message, key: string): Promise<string> {
+    if (headerEmail(message.from) !== normalizeEmail(this.options.senderEmail)) {
+      throw new EmailError("email_sender_mismatch");
+    }
     const access = await this.accessToken();
     let response: Response;
     try {
@@ -203,10 +206,13 @@ export class GmailEmailProvider implements TransactionalEmailProvider {
         },
       );
     } catch {
-      throw new EmailError("email_delivery_unknown", true);
+      throw new EmailError("email_delivery_unknown", false);
     }
-    if (response.status === 429 || response.status >= 500) {
-      throw new EmailError("email_delivery_unknown", true);
+    if (response.status === 429) {
+      throw new EmailError("email_provider_rate_limited", true);
+    }
+    if (response.status >= 500) {
+      throw new EmailError("email_delivery_unknown", false);
     }
     if (!response.ok) throw new EmailError("email_provider_rejected");
     try {
@@ -214,7 +220,7 @@ export class GmailEmailProvider implements TransactionalEmailProvider {
       if (typeof data.id !== "string" || !data.id) throw new Error();
       return data.id;
     } catch {
-      throw new EmailError("email_delivery_unknown", true);
+      throw new EmailError("email_delivery_unknown", false);
     }
   }
 
@@ -244,6 +250,7 @@ export class GmailEmailProvider implements TransactionalEmailProvider {
       dkim: false,
       dmarc: false,
       oauth: true,
+      sender_email: normalizeEmail(profile.email),
       provider_status: "gmail_oauth",
       records: [],
       dmarc_records: [],

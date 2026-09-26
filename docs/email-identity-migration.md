@@ -28,10 +28,12 @@ Estas plantillas se administran en Supabase Auth. Un despliegue de la web o de E
 ## Evidencia y pendiente externo
 
 - La cuenta Gmail tiene verificación en dos pasos; su contraseña de aplicación se introdujo directamente en Supabase.
-- Se comprobó un correo de recuperación en la bandeja de entrada del destinatario controlado, enviado por `hola.nuthrick@gmail.com`.
+- Se comprobó un correo de recuperación en español en la bandeja de entrada del destinatario controlado, enviado por `hola.nuthrick@gmail.com` el 26 de septiembre de 2026. El enlace vuelve a `https://nuthrick.com/reset-password`; SPF, DKIM y DMARC de Gmail pasaron. No se utilizó el enlace ni se cambió una contraseña.
 - La función Agenda se desplegó con identidad central y autorización administrativa independiente.
 - La app OAuth de Google sigue en **Prueba**. La conexión nueva devolvió `403 access_denied` porque `hola.nuthrick@gmail.com` aún no figuraba entre los usuarios de prueba. El alta y el consentimiento de envío requieren confirmación del propietario.
 - Hasta completar OAuth y verificarlo, el worker conserva las comprobaciones de identidad y no debe enviar con la conexión antigua como sustituto.
+- El servidor rechaza credenciales y pruebas OAuth cuyo correo no coincida con el remitente configurado. Se invalidó una verificación previa que identificaba la conexión antigua. El proveedor también comprueba el perfil de Google y la cabecera From antes del envío.
+- Si Gmail devuelve un resultado de envío ambiguo (fallo de red, respuesta 5xx o respuesta sin identificador), se exige conciliación antes de reenviar para evitar duplicados. Los rechazos explícitos por límite de frecuencia admiten reintento.
 - El envío comercial continúa en modo controlado. Cambiar el remitente no habilita el envío general ni completa PRE-LIVE por sí solo.
 
 ## Cierre de la migración
@@ -52,3 +54,5 @@ El footer y los contactos vigentes de las páginas legales leen la configuració
 - Prueba SQL: cambiar el remitente no cambia el permiso del administrador ni concede permisos a un actor ausente.
 - Pruebas de seguridad de Agenda: cabeceras MIME, Reply-To independiente y rechazo de inyección de cabeceras.
 - Deno check, TypeScript y build de la web.
+- 15 pruebas del servicio transaccional: plantillas, autorización, transporte, identidad y tratamiento de entregas ambiguas.
+- Prueba SQL: se rechazan tanto la obtención de credenciales de la cuenta anterior como su uso para verificar el remitente nuevo.

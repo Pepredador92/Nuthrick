@@ -46,6 +46,7 @@ export type DomainEvidence = {
   dkim: boolean;
   dmarc: boolean;
   oauth?: boolean;
+  sender_email?: string;
   provider_status: string;
   records: Record<string, unknown>[];
   dmarc_records: string[];

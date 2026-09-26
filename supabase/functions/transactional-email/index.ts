@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createEmailHandler } from "./handler.ts";
 import { GmailEmailProvider } from "./gmail-provider.ts";
 import { ResendEmailProvider } from "./provider.ts";
+import { EmailError } from "./domain.ts";
 const db = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -33,8 +34,11 @@ Deno.serve(createEmailHandler({
         email: string;
         encrypted_refresh_token: string;
       }>("gmail_credentials");
+      if (!credentials || credentials.email.trim().toLowerCase() !== settings.from_email.trim().toLowerCase()) {
+        throw new EmailError("email_sender_mismatch");
+      }
       return new GmailEmailProvider({
-        senderEmail: credentials.email,
+        senderEmail: settings.from_email,
         encryptedRefreshToken: credentials.encrypted_refresh_token,
         encryptionKey: Deno.env.get("AGENDA_ENCRYPTION_KEY") ?? "",
         clientId: Deno.env.get("AGENDA_GOOGLE_CLIENT_ID") ?? "",
