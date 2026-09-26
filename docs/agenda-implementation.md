@@ -1,3 +1,5 @@
+> Actualización de correo del 26 de septiembre de 2026: el remitente vigente es `hola.nuthrick@gmail.com`, con administrador independiente por rol. Véase [email-identity-migration.md](email-identity-migration.md). Las notas siguientes conservan el contexto de las pruebas anteriores.
+
 # Agenda — checkpoint de implementación (15 septiembre 2026)
 
 ## Envío a destinatarios reales habilitado (15 septiembre, 20:19 México)

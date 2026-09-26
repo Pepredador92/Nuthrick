@@ -7,8 +7,6 @@ declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
 const env = (name: string) => { const value=Deno.env.get(name); if (!value) throw new Error('configuration_required'); return value; };
 const site = siteOrigin(Deno.env.get('AGENDA_SITE_URL'));
-const senderEmail = Deno.env.get('AGENDA_SENDER_EMAIL') || 'susy.asistencia.online@gmail.com';
-const adminEmail = Deno.env.get('AGENDA_MAIL_ADMIN_EMAIL') || senderEmail;
 const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false, autoRefreshToken: false } });
 const callback = `${env('SUPABASE_URL')}/functions/v1/agenda/oauth/callback`;
 const headers = { 'Content-Type':'application/json', 'Cache-Control':'no-store', 'Referrer-Policy':'no-referrer', 'X-Content-Type-Options':'nosniff', 'Access-Control-Allow-Origin':site, 'Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods':'POST, OPTIONS' };
@@ -24,6 +22,8 @@ async function rpc<T>(name: string, args: Json): Promise<T> {
 }
 const server = <T>(action: string,data: Json={}) => rpc<T>('agenda_server',{p_action:action,p_data:data});
 const credentials = (owner?: string) => server<Credentials>('credentials',{owner});
+type MailContext = {sender_email:string;reply_to:string;can_manage:boolean;test_recipients:string[]};
+const mailContext = (actor?: string) => rpc<MailContext>('operational_mail_context',{p_actor:actor??null});
 const key = () => env('AGENDA_ENCRYPTION_KEY');
 const base64Bytes=(bytes:Uint8Array)=>{let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(text);};
 async function planDocument(plan:unknown,professional:unknown,format:'pdf'|'tex'):Promise<Json> {
@@ -88,13 +88,18 @@ async function context(slug: unknown,from: unknown,days=7): Promise<Context> {
   if(data.error) throw new Error(data.error);
   return data;
 }
-function allowRecipient(email: string) {
+async function allowRecipient(email: string) {
   // Keep initial verification deliveries within the explicitly authorized
   // test address until the real integration has been validated.
-  if(Deno.env.get('AGENDA_EMAIL_MODE')!=='production'&&email!==senderEmail) throw new Error('email_test_mode');
+  if(Deno.env.get('AGENDA_EMAIL_MODE')==='production') return;
+  const identity=await mailContext();
+  if(email!==identity.sender_email&&!identity.test_recipients.includes(email)) throw new Error('email_test_mode');
 }
 async function oauthStart(owner: string,purpose: string) {
   if(!['calendar','gmail'].includes(purpose)) throw new Error('invalid_action');
+  const identity=purpose==='gmail'?await mailContext(owner):null;
+  if(identity&&!identity.can_manage) throw new Error('unauthorized');
+  if(identity) normalizeEmail(identity.sender_email);
   const state=secretToken(),verifier=secretToken();
   await server('oauth_begin',{owner,purpose,stateHash:await sha256(state),encryptedVerifier:await encrypt(key(),verifier)});
   const scopes=purpose==='gmail'
@@ -102,7 +107,7 @@ async function oauthStart(owner: string,purpose: string) {
     : 'https://www.googleapis.com/auth/calendar.calendarlist.readonly https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.events.freebusy';
   const url=new URL('https://accounts.google.com/o/oauth2/v2/auth');
   url.search=new URLSearchParams({client_id:env('AGENDA_GOOGLE_CLIENT_ID'),redirect_uri:callback,response_type:'code',scope:scopes,state,
-    code_challenge:await sha256(verifier),code_challenge_method:'S256',access_type:'offline',prompt:'consent',...(purpose==='gmail'?{login_hint:senderEmail}:{})}).toString();
+    code_challenge:await sha256(verifier),code_challenge_method:'S256',access_type:'offline',prompt:'consent',...(identity?{login_hint:identity.sender_email}:{})}).toString();
   return {url:url.toString()};
 }
 async function oauthCallback(url: URL) {
@@ -120,10 +125,12 @@ async function oauthCallback(url: URL) {
   const required=saved.purpose==='gmail'?['https://www.googleapis.com/auth/gmail.send']:['https://www.googleapis.com/auth/calendar.events','https://www.googleapis.com/auth/calendar.calendarlist.readonly','https://www.googleapis.com/auth/calendar.events.freebusy'];
   if(required.some(scope=>!granted.has(scope))) throw new Error('authorization_required');
   if(saved.purpose==='gmail') {
+    const configured=await mailContext(saved.professional_id);
+    if(!configured.can_manage) throw new Error('unauthorized');
     const identity=await fetch('https://openidconnect.googleapis.com/v1/userinfo',{headers:{Authorization:`Bearer ${data.access_token}`},signal:AbortSignal.timeout(12000)});
     const user=await identity.json();
-    if(!identity.ok||!user.email_verified||normalizeEmail(user.email)!==senderEmail) throw new Error('wrong_sender');
-    email=senderEmail;
+    if(!identity.ok||!user.email_verified||normalizeEmail(user.email)!==configured.sender_email) throw new Error('wrong_sender');
+    email=configured.sender_email;
   }
   await server('oauth_save',{owner:saved.professional_id,purpose:saved.purpose,email,encryptedToken:await encrypt(key(),data.refresh_token)});
   return new Response(null,{status:303,headers:{Location:`${site}/app/agenda?connected=${saved.purpose}`,'Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});
@@ -173,7 +180,7 @@ async function deliverMail(job: Job): Promise<string> {
   const entry=job.entry||job.request;
   const to=job.kind==='verification'?job.payload.email:entry?.contact_email;
   if(!to) throw new Error('invalid_email');
-  allowRecipient(to);
+  await allowRecipient(to);
   let subject='Tu cita en Nuthrick',message='';
   if(job.kind==='verification') {
     // Expired verification codes are never delivered by a delayed worker.
@@ -202,12 +209,13 @@ async function deliverMail(job: Job): Promise<string> {
   return sendPortalMail(to,subject,message,job.id);
 }
 async function sendPortalMail(to: string, subject: string, message: string, id: string): Promise<string> {
-  allowRecipient(to);
+  await allowRecipient(to);
   const {sender}=await credentials();
-  if(!sender) throw new Error('mail_not_connected');
+  const identity=await mailContext();
+  if(!sender||normalizeEmail(sender.email)!==identity.sender_email) throw new Error('mail_not_connected');
   const token=await googleToken(sender.encrypted_refresh_token);
   let res: Response;
-  try { res=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(15000),body:JSON.stringify({raw:gmailMessage(sender.email,to,subject,message,id)})}); }
+  try { res=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(15000),body:JSON.stringify({raw:gmailMessage(sender.email,to,subject,message,id,identity.reply_to)})}); }
   catch { throw new Error('mail_delivery_unknown'); }
   if(res.status>=500) throw new Error('mail_delivery_unknown');
   if(!res.ok) throw new Error('mail_send_failed');
@@ -295,7 +303,7 @@ async function handleAgenda(req: Request) {
       return respond(await server('resolve_local',{owner:ctx.professionalId,localTime}));
     }
     if(op==='send_code') {
-      const email=normalizeEmail(body.email); allowRecipient(email);
+      const email=normalizeEmail(body.email); await allowRecipient(email);
       await limit(`agenda:email:${email}`,3,900);
       await limit(`agenda:all-mail`,60,3600);
       const ctx=await context(body.slug,new Date().toISOString().slice(0,10),1);
@@ -353,10 +361,10 @@ async function handleAgenda(req: Request) {
     }
     if(op==='connection') {
       const c=await credentials(user.id);
-      return respond({calendarConnected:!!c.calendar,calendarActive:!!c.calendar?.active,busyCalendars:c.calendar?.busy_calendar_ids||[],writeCalendar:c.calendar?.write_calendar_id||'',mailConnected:!!c.sender,canConnectMail:user.email===adminEmail});
+      const identity=await mailContext(user.id);
+      return respond({calendarConnected:!!c.calendar,calendarActive:!!c.calendar?.active,busyCalendars:c.calendar?.busy_calendar_ids||[],writeCalendar:c.calendar?.write_calendar_id||'',mailConnected:!!c.sender&&c.sender.email===identity.sender_email,canConnectMail:identity.can_manage});
     }
     if(op==='oauth_start') {
-      if(body.purpose==='gmail'&&user.email!==adminEmail) throw new Error('unauthorized');
       return respond(await oauthStart(user.id,String(body.purpose)));
     }
     if(op==='calendar_list'||op==='calendar_save') {

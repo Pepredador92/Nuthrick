@@ -80,6 +80,9 @@ describe("agenda boundary security", () => {
     const decoded = Buffer.from(raw, "base64url").toString();
     expect(decoded).toContain("Content-Type: text/plain; charset=UTF-8");
     expect(decoded).toContain("Message-ID: <agenda-job-123@");
+    const withReply = Buffer.from(gmailMessage("sender@example.com", "patient@example.com", "Cita", "Detalles", "job-123", "support@example.com"), "base64url").toString();
+    expect(withReply).toContain("From: Nuthrick <sender@example.com>\r\nReply-To: support@example.com\r\n");
+    expect(() => gmailMessage("sender@example.com", "patient@example.com", "Cita", "Detalles", "job-123", "support@example.com\r\nBcc: other@example.com")).toThrow();
     expect(() =>
       gmailMessage("sender@example.com", "bad\n@example.com", "x", "y", "job"),
     ).toThrow();

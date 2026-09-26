@@ -51,11 +51,11 @@ export function readFreeBusy(body: unknown, calendarIds: string[]): { start: str
     return calendar.busy.map(item => ({ start: parseInstant(item.start), end: parseInstant(item.end) }));
   });
 }
-export function gmailMessage(sender: string, recipient: string, subject: string, text: string, id: string): string {
-  const from = normalizeEmail(sender), to = normalizeEmail(recipient);
+export function gmailMessage(sender: string, recipient: string, subject: string, text: string, id: string, replyTo = sender): string {
+  const from = normalizeEmail(sender), to = normalizeEmail(recipient), reply = normalizeEmail(replyTo);
   if (!/^[a-z0-9-]+$/i.test(id)) throw new Error('invalid_id');
   const encodedSubject = btoa(String.fromCharCode(...encoder.encode(subject)));
   const body = btoa(String.fromCharCode(...encoder.encode(text)));
-  const mime = `From: Nuthrick <${from}>\r\nTo: ${to}\r\nSubject: =?UTF-8?B?${encodedSubject}?=\r\nMessage-ID: <agenda-${id}@nuthrick.vercel.app>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${body}`;
+  const mime = `From: Nuthrick <${from}>\r\nReply-To: ${reply}\r\nTo: ${to}\r\nSubject: =?UTF-8?B?${encodedSubject}?=\r\nMessage-ID: <agenda-${id}@${from.split('@')[1]}>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${body}`;
   return base64url(encoder.encode(mime));
 }

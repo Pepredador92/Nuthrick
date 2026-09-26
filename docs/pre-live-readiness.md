@@ -70,7 +70,7 @@ La página de pagos enlaza únicamente URLs HTTPS de `invoice.stripe.com` verifi
 
 ## Emails, soporte y políticas
 
-PRE-LIVE ya incluye un outbox transaccional con quince plantillas, claves de evento idempotentes, reintentos y estados de fallo visibles en `/admin/operations`. El transporte temporal está preparado con Gmail API/OAuth y `susy.asistencia.online@gmail.com`, sin buzones `@nuthrick.com` ni DNS de correo. Falta renovar la autorización OAuth y completar las cinco pruebas controladas; mientras tanto no se habilita el envío comercial general.
+PRE-LIVE ya incluye un outbox transaccional con quince plantillas, claves de evento idempotentes, reintentos y estados de fallo visibles en `/admin/operations`. El transporte temporal está preparado con Gmail API/OAuth y `hola.nuthrick@gmail.com`, sin buzones `@nuthrick.com` ni DNS de correo. Falta renovar la autorización OAuth y completar las cinco pruebas controladas; mientras tanto no se habilita el envío comercial general.
 
 `/terms`, `/privacy` y `/refunds` publican las versiones v1 aprobadas con fecha efectiva 25 de septiembre de 2026. Términos y Privacidad requieren aceptación explícita; Reembolsos queda disponible para consulta. Los impuestos, soporte, canal de contacto y tiempos de respuesta siguen sujetos a la configuración operativa de PRE-LIVE.
 

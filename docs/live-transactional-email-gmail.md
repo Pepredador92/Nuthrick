@@ -5,7 +5,7 @@ Proyecto Supabase: `qlsqhvyrslclmlstlemn`
 
 ## Decisión operativa
 
-Durante esta fase Nuthrick utiliza exclusivamente `susy.asistencia.online@gmail.com` para correo transaccional controlado, soporte, privacidad y `Reply-To`. El dominio web canónico sigue siendo `https://nuthrick.com`; no se crean buzones `@nuthrick.com`, no se requiere Google Workspace y no se añaden registros MX, SPF, DKIM o DMARC.
+Durante esta fase Nuthrick utiliza exclusivamente `hola.nuthrick@gmail.com` para correo transaccional controlado, soporte, privacidad y `Reply-To`. El dominio web canónico sigue siendo `https://nuthrick.com`; no se crean buzones `@nuthrick.com`, no se requiere Google Workspace y no se añaden registros MX, SPF, DKIM o DMARC.
 
 La identidad administrativa y la identidad de envío son conceptos independientes aunque hoy coincidan.
 
@@ -29,17 +29,11 @@ La función `transactional-email` está desplegada y el panel administrativo exp
 
 ## Estado actual
 
-La configuración Gmail está guardada como `provider=gmail`, `mode=live` y `delivery_mode=controlled`, con el remitente operativo autorizado. La primera verificación detectó `invalid_grant` en Google: el refresh token de Agenda fue revocado, expiró o pertenece a otro cliente OAuth. Por seguridad, el worker no envía mensajes y el readiness permanece pendiente.
+El 26 de septiembre se migró la identidad central a `hola.nuthrick@gmail.com`. Auth SMTP ya envía desde esta cuenta. Agenda toma el remitente de la configuración central y verifica por separado el rol administrativo.
 
-Para desbloquearlo, el administrador debe iniciar sesión en Nuthrick, abrir Agenda, pulsar **Autorizar remitente**, aprobar nuevamente el acceso de Gmail para `susy.asistencia.online@gmail.com` y volver a ejecutar la verificación. No se debe pegar ningún token ni contraseña en el chat.
+La app OAuth de Google sigue en Prueba y la cuenta nueva debe autorizarse como usuario de prueba antes de completar `gmail.send`. Después se necesita verificar el worker y repetir las cinco pruebas con la nueva revisión. El correo comercial general sigue pendiente; no se debe interpretar un cambio de remitente como su activación.
 
-Después de renovar la autorización:
-
-1. Verificar la conexión Gmail.
-2. Preparar las cinco pruebas controladas al destinatario autorizado.
-3. Procesar la cola y confirmar la recepción real.
-4. Registrar la revisión de cada mensaje desde `/admin/operations`.
-5. Confirmar el readiness 15/15.
+Estado, configuración y checklist: [email-identity-migration.md](email-identity-migration.md).
 
 ## Migración futura
 

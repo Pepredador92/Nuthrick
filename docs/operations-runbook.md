@@ -89,4 +89,4 @@ Este runbook atiende incidentes de pagos y operación comercial. Se trabaja con 
 - `nuthrick-transactional-email-outbox`: cada 5 minutos.
 - `nuthrick-agenda-worker`: cada minuto.
 - Revisar el panel al detectar un error y al menos una vez antes de cualquier decisión de Live.
-- El canal configurado temporalmente es `susy.asistencia.online@gmail.com`, objetivo 48 horas, todavía en modo TEST. Los buzones `@nuthrick.com` quedan para una migración futura.
+- El canal configurado temporalmente es `hola.nuthrick@gmail.com`, objetivo 48 horas, todavía en modo TEST. Los buzones `@nuthrick.com` quedan para una migración futura.

@@ -20,7 +20,7 @@ La agenda existente permanece activa. El job de billing mensual/gracia llama a u
 
 ## 4. Emails transaccionales
 
-Hay 15 plantillas editables en la tabla privada: alta, suscripción activada, pago confirmado/fallido, gracia, suspensión, recuperación, cancelación programada/cerrada, renovación, Beta, compra/reembolso de créditos y promoción aplicada. El transporte temporal está configurado para Gmail API/OAuth con `susy.asistencia.online@gmail.com`, outbox, `event_key` idempotente, máximo de cinco intentos, reintento visible y fallo visible. La verificación técnica quedó pendiente porque la autorización OAuth respondió `invalid_grant`; no se envían correos hasta renovar la autorización y completar las cinco pruebas controladas. No contiene datos clínicos.
+Hay 15 plantillas editables en la tabla privada: alta, suscripción activada, pago confirmado/fallido, gracia, suspensión, recuperación, cancelación programada/cerrada, renovación, Beta, compra/reembolso de créditos y promoción aplicada. El transporte temporal está configurado para Gmail API/OAuth con `hola.nuthrick@gmail.com`, outbox, `event_key` idempotente, máximo de cinco intentos, reintento visible y fallo visible. La verificación técnica quedó pendiente porque la autorización OAuth respondió `invalid_grant`; no se envían correos hasta renovar la autorización y completar las cinco pruebas controladas. No contiene datos clínicos.
 
 ## 5. Legal y aceptación
 
@@ -28,7 +28,7 @@ Términos, privacidad y reembolsos están aprobados como v1 en `private.legal_do
 
 ## 6. Soporte operativo
 
-Existe configuración de canal, objetivo de respuesta, casos por categoría y resoluciones auditadas. El canal temporal es `susy.asistencia.online@gmail.com`, 48 horas y `test_mode=true`; los buzones `@nuthrick.com` quedan para una migración futura. El runbook está en [`docs/operations-runbook.md`](operations-runbook.md).
+Existe configuración de canal, objetivo de respuesta, casos por categoría y resoluciones auditadas. El canal temporal es `hola.nuthrick@gmail.com`, 48 horas y `test_mode=true`; los buzones `@nuthrick.com` quedan para una migración futura. El runbook está en [`docs/operations-runbook.md`](operations-runbook.md).
 
 ## 7. Reconciliación
 

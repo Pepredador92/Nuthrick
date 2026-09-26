@@ -1,0 +1,35 @@
+{
+  "footer": "<p style=\"color:#64786e;font-size:13px\">Nuthrick · <a href=\"{{ .SiteURL }}\">Ir a Nuthrick</a></p>",
+  "templates": {
+    "confirmation": {
+      "path": "confirm-sign-up",
+      "subject": "Confirma tu correo en Nuthrick",
+      "body": "<h2>Confirma tu correo electrónico</h2>\n<p>Confirma esta dirección para completar tu registro en Nuthrick.</p>\n<p><a href=\"{{ .ConfirmationURL }}\">Confirmar mi correo</a></p>\n<p>Si no creaste esta cuenta, puedes ignorar este mensaje.</p>"
+    },
+    "invite": {
+      "path": "invite-user",
+      "subject": "Tu invitación a Nuthrick",
+      "body": "<h2>Te invitamos a Nuthrick</h2>\n<p>Recibiste una invitación para crear una cuenta en Nuthrick.</p>\n<p><a href=\"{{ .ConfirmationURL }}\">Aceptar invitación</a></p>\n<p>Si no esperabas esta invitación, puedes ignorar este mensaje.</p>"
+    },
+    "magic_link": {
+      "path": "magic-link-or-otp",
+      "subject": "Tu enlace de acceso a Nuthrick",
+      "body": "<h2>Accede a Nuthrick</h2>\n<p>Usa este enlace de un solo uso para acceder a tu cuenta.</p>\n<p><a href=\"{{ .ConfirmationURL }}\">Iniciar sesión</a></p>\n<p>Si no solicitaste este acceso, puedes ignorar este mensaje. No compartas el enlace.</p>"
+    },
+    "email_change": {
+      "path": "change-email-address",
+      "subject": "Confirma tu cambio de correo en Nuthrick",
+      "body": "<h2>Confirma tu cambio de correo</h2>\n<p>Recibimos una solicitud para usar {{ .NewEmail }} como nuevo correo de tu cuenta de Nuthrick.</p>\n<p><a href=\"{{ .ConfirmationURL }}\">Confirmar cambio de correo</a></p>\n<p>Si no solicitaste este cambio, no lo confirmes y contacta al soporte desde Nuthrick.</p>"
+    },
+    "recovery": {
+      "path": "reset-password",
+      "subject": "Restablece tu contraseña de Nuthrick",
+      "body": "<h2>Restablece tu contraseña</h2>\n<p>Recibimos una solicitud para restablecer la contraseña de tu cuenta de Nuthrick.</p>\n<p><a href=\"{{ .ConfirmationURL }}\">Elegir una nueva contraseña</a></p>\n<p>Si no solicitaste este cambio, puedes ignorar este correo. Tu contraseña seguirá siendo la misma.</p>"
+    },
+    "reauthentication": {
+      "path": "reauthentication",
+      "subject": "Confirma tu identidad en Nuthrick",
+      "body": "<h2>Confirma tu identidad</h2>\n<p>Introduce este código en Nuthrick para continuar con la operación que solicitaste:</p>\n<p style=\"font-size:24px;font-weight:bold;letter-spacing:4px\">{{ .Token }}</p>\n<p>No compartas este código. Si no solicitaste esta operación, puedes ignorar el mensaje.</p>"
+    }
+  }
+}

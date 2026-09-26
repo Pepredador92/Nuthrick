@@ -8,7 +8,7 @@ redirige al dominio raíz con HTTP 308 y conserva ruta/parámetros.
 
 **Correo institucional temporal pendiente de migración futura**:
 `sender_email`, `reply_to`, `support_email` y `privacy_email` tienen como objetivo
-`susy.asistencia.online@gmail.com`. Tener dominio web no exige contratar buzones.
+`hola.nuthrick@gmail.com`. Tener dominio web no exige contratar buzones.
 No se crean buzones, Google Workspace ni registros DNS de correo en esta entrega.
 Los ajustes de Gmail preparados en `codex/live-one-b-gmail` siguen independientes
 de esta publicación del dominio web; cambiar URLs no activa su hook de Auth.
@@ -133,7 +133,7 @@ en sus propios worktrees.
 - Legales: `https://nuthrick.com/terms`, `/privacy`, `/refunds`.
 
 Los contactos de soporte, privacidad y Reply-To se comprobaron en la configuración
-productiva: conservan `susy.asistencia.online@gmail.com`. La revisión del dominio
+productiva: conservan `hola.nuthrick@gmail.com`. La revisión del dominio
 no aprueba los borradores legales ni certifica envío/recepción Auth. Consulta de
 solo lectura antes de integrar: Stripe Live `checkout_enabled=false`; ninguna
 feature OpenAI habilitada. No se realizan cobros ni solicitudes al proveedor IA.
