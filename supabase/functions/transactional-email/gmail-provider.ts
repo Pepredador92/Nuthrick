@@ -223,7 +223,7 @@ export class GmailEmailProvider implements TransactionalEmailProvider {
     let response: Response;
     try {
       response = await this.http(
-        "https://gmail.googleapis.com/gmail/v1/users/me/profile",
+        "https://openidconnect.googleapis.com/v1/userinfo",
         { headers: { Authorization: `Bearer ${access}` }, signal: AbortSignal.timeout(15000) },
       );
     } catch {
@@ -234,8 +234,8 @@ export class GmailEmailProvider implements TransactionalEmailProvider {
       console.error("gmail_provider_profile_rejected", { status: response.status });
       throw new EmailError("email_sender_unavailable");
     }
-    const profile = await response.json() as { emailAddress?: string };
-    if (normalizeEmail(profile.emailAddress) !== normalizeEmail(this.options.senderEmail)) {
+    const profile = await response.json() as { email?: string; email_verified?: boolean };
+    if (!profile.email_verified || normalizeEmail(profile.email) !== normalizeEmail(this.options.senderEmail)) {
       console.error("gmail_provider_profile_mismatch");
       throw new EmailError("email_sender_mismatch");
     }

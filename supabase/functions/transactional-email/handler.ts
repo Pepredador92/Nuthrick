@@ -171,7 +171,7 @@ export function createEmailHandler(deps: Dependencies) {
           await deps.rpc("verified", {
             ...settings,
             evidence,
-            runtime_ready: !!deps.workerSecret && deps.workerSecret.length >= 32 &&
+            runtime_ready: worker &&
               (!!evidence.oauth || !!deps.webhookSecret),
           }),
         );

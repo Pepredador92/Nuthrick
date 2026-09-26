@@ -45,8 +45,8 @@ Deno.test("Gmail provider verifies the OAuth sender identity without DNS records
     encryptionKey: secret,
     clientId: "client-id",
     clientSecret: "client-secret",
-    http: async (input) => String(input).includes("profile")
-      ? Response.json({ emailAddress: "susy.asistencia.online@gmail.com" })
+    http: async (input) => String(input).includes("userinfo")
+      ? Response.json({ email: "susy.asistencia.online@gmail.com", email_verified: true })
       : Response.json({ access_token: "access-token" }),
   });
   const evidence = await provider.inspectDomain("", "");
