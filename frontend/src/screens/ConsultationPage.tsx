@@ -18,6 +18,7 @@ import { InterviewReview } from "@/src/components/consultations/InterviewReview"
 import { PesCopilot, RecallCopilot } from "@/src/components/consultations/ClinicalCopilot";
 import { ClinicalObjective } from "@/src/components/consultations/ClinicalObjective";
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
+import { ConsultationCloseDialog } from "@/src/components/consultations/ConsultationCloseDialog";
 import { ConsultationMeasurements } from "@/src/components/consultations/ConsultationMeasurements";
 import { LaboratoryReports } from "@/src/components/consultations/LaboratoryReports";
 import { PatientEvolutionTable } from "@/src/components/patients/PatientEvolutionTable";
@@ -113,6 +114,12 @@ export function ConsultationPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [reviewed, setReviewed] = useState(false);
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [measurementsOpened, setMeasurementsOpened] = useState(false);
+  const [laboratoriesOpened, setLaboratoriesOpened] = useState(false);
+  const [measurementsPending, setMeasurementsPending] = useState(false);
+  const [laboratoriesPending, setLaboratoriesPending] = useState(false);
+  const closing = useRef(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [savedEncoded, setSavedEncoded] = useState("{}");
@@ -402,7 +409,11 @@ export function ConsultationPage() {
     }
   };
   const complete = async () => {
-    if (!consultation || !snapshot || !reviewed) return;
+    if (!consultation || !snapshot || !reviewed || closing.current) return;
+    if (measurementsPending || laboratoriesPending || clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient?.timezone)) {
+      setCloseDialogOpen(true);
+      return;
+    }
     setShowErrors(true);
     const firstInvalid = sections.findIndex((section) =>
       section.questions.some(
@@ -412,12 +423,15 @@ export function ConsultationPage() {
       ),
     );
     if (firstInvalid >= 0) {
+      setCloseDialogOpen(false);
+      setModule("interview");
       setActive(firstInvalid);
       setError(
         "Revisa los campos señalados antes de cerrar. Los campos opcionales pueden quedar sin responder.",
       );
       return;
     }
+    closing.current = true;
     setBusy(true);
     try {
       if (!(await save())) return;
@@ -452,6 +466,7 @@ export function ConsultationPage() {
           : "No se pudo cerrar la entrevista.",
       );
     } finally {
+      closing.current = false;
       setBusy(false);
     }
   };
@@ -767,6 +782,8 @@ export function ConsultationPage() {
           </div>
         </div>
       </header>
+      {closeDialogOpen && <ConsultationCloseDialog busy={busy || saving} reviewed={reviewed} pending={[measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error} onReview={setReviewed} onCancel={() => setCloseDialogOpen(false)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
+      <div className="sticky top-0 z-20 mt-4 flex justify-end rounded-xl bg-[#f7faf8]/95 p-2 backdrop-blur"><button type="button" className="nuth-button-secondary" disabled={busy || saving} onClick={() => { setReviewed(false); setError(""); setCloseDialogOpen(true); }}><ClipboardCheck size={16} />Revisar cierre de consulta</button></div>
       <nav
         className="mt-5 flex gap-2 overflow-x-auto border-b border-[#dfe5e1]"
         aria-label="Módulos de la consulta"
@@ -787,7 +804,7 @@ export function ConsultationPage() {
         <button
           type="button"
           aria-current={module === "measurements" ? "page" : undefined}
-          onClick={() => setModule("measurements")}
+          onClick={() => { setMeasurementsOpened(true); setModule("measurements"); }}
           className={
             "shrink-0 whitespace-nowrap rounded-t-xl px-4 py-3 text-sm font-semibold " +
             (module === "measurements"
@@ -800,7 +817,7 @@ export function ConsultationPage() {
         <button
           type="button"
           aria-current={module === "laboratories" ? "page" : undefined}
-          onClick={() => setModule("laboratories")}
+          onClick={() => { setLaboratoriesOpened(true); setModule("laboratories"); }}
           className={
             "shrink-0 whitespace-nowrap rounded-t-xl px-4 py-3 text-sm font-semibold " +
             (module === "laboratories"
@@ -831,14 +848,14 @@ export function ConsultationPage() {
           Taller de dietas
         </Link>
       </nav>
-      {module === "measurements" && (
-        <div className="mt-6">
-          <ConsultationMeasurements consultation={consultation} patient={patient} />
+      {measurementsOpened && (
+        <div className="mt-6" hidden={module !== "measurements"}>
+          <ConsultationMeasurements key={consultation.id} consultation={consultation} patient={patient} onPendingChange={setMeasurementsPending} />
         </div>
       )}
-      {module === "laboratories" && (
-        <div className="mt-6">
-          <LaboratoryReports consultation={consultation} />
+      {laboratoriesOpened && (
+        <div className="mt-6" hidden={module !== "laboratories"}>
+          <LaboratoryReports key={consultation.id} consultation={consultation} onPendingChange={setLaboratoriesPending} />
         </div>
       )}
       {module === "evolution" && (

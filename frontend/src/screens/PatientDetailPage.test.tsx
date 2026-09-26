@@ -4,11 +4,16 @@ import {MemoryRouter,Route,Routes} from 'react-router-dom';
 import {PatientDetailPage} from './PatientDetailPage';
 import {deleteConsultationRecord} from '@/src/services/consultations';
 import {updatePatient} from '@/src/services/patients';
+import {EvolutionExportDialog} from '@/src/components/patients/EvolutionExportDialog';
+import {loadProfessionalDocumentProfile} from '@/src/services/profile';
+import {getSignedMediaUrl} from '@/src/services/media';
 vi.mock('@/src/lib/supabase',()=>({supabase:{}}));
 vi.mock('@/src/features/auth/AuthProvider',()=>({useAuth:()=>({user:{id:'owner'}})}));
 vi.mock('@/src/components/patients/EvolutionCharts',()=>({PatientEvolutionCharts:()=>null}));
 vi.mock('@/src/components/patients/PatientEvolutionTable',()=>({PatientEvolutionTable:()=>null}));
-vi.mock('@/src/components/patients/EvolutionExportDialog',()=>({EvolutionExportDialog:()=>null}));
+vi.mock('@/src/components/patients/EvolutionExportDialog',()=>({EvolutionExportDialog:vi.fn(()=>null)}));
+vi.mock('@/src/services/profile',()=>({loadProfessionalDocumentProfile:vi.fn()}));
+vi.mock('@/src/services/media',()=>({getSignedMediaUrl:vi.fn(),getSignedPatientPhotoUrl:vi.fn(),uploadPatientProgressPhoto:vi.fn()}));
 vi.mock('@/src/components/consultations/SnapshotHistory',()=>({SnapshotHistory:()=>null}));
 vi.mock('@/src/services/consultations',()=>({deleteConsultationRecord:vi.fn(),getSnapshot:vi.fn(),listAnswers:vi.fn()}));
 vi.mock('@/src/services/patients',()=>({
@@ -46,5 +51,20 @@ describe('consultation removal feedback',()=>{
   const history=within(screen.getByRole('dialog',{name:'Historial del paciente'}));
   expect(await history.findByRole('alert')).toHaveTextContent('No pudimos eliminar la consulta.');
   expect(history.getByRole('button',{name:'Eliminar'})).toBeVisible();
+ });
+});
+
+describe('progress report professional identity',()=>{
+ it.each([true,false])('loads the configured logo and rejects an unavailable signed URL (available: %s)',async available=>{
+  vi.mocked(loadProfessionalDocumentProfile).mockResolvedValue({profile:{full_name:'Nutrióloga de prueba'},business:{logo_path:'owner/logo.png'},contacts:[],locations:[]} as never);
+  vi.mocked(getSignedMediaUrl).mockResolvedValue(available?'https://example.com/signed-logo.png':null);
+  render(<MemoryRouter initialEntries={['/patients/patient']}><Routes><Route path="/patients/:patientId" element={<PatientDetailPage/>}/></Routes></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button',{name:'Ver evolución'}));
+  fireEvent.click(screen.getByRole('button',{name:'Exportar'}));
+  const getInfo=vi.mocked(EvolutionExportDialog).mock.calls.at(-1)![0].getProfessionalInfo;
+  if (available) await expect(getInfo()).resolves.toMatchObject({fullName:'Nutrióloga de prueba',logoUrl:'https://example.com/signed-logo.png'});
+  else await expect(getInfo()).rejects.toThrow('No pudimos cargar el logo del nutriólogo');
+  expect(loadProfessionalDocumentProfile).toHaveBeenCalledWith('owner');
+  expect(getSignedMediaUrl).toHaveBeenCalledWith('owner/logo.png');
  });
 });

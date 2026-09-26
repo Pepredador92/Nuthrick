@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evolutionTextExport, exportableSeries, progressMetrics, reportSeries } from "./exportEvolution";
+import { evolutionTextExport, exportableSeries, numericPoints, progressMetrics, reportSeries } from "./exportEvolution";
 import type { LongitudinalHistory } from "./longitudinal";
 
 const history: LongitudinalHistory = {
@@ -52,6 +52,10 @@ describe("evolution export", () => {
     expect(text).not.toContain("Nota cualitativa");
   });
 
+  it("does not plot an absent or qualitative value at zero", () => {
+    const item = history.series[0];
+    expect(numericPoints({ ...item, points: [null, "", false, "estable"].map((raw_value) => ({ ...item.points[0], raw_value })) })).toEqual([]);
+  });
   it("does not expose unselected series to the PDF export input", () => {
     expect(exportableSeries(history, { seriesIds: ["note"] })).toEqual([]);
   });

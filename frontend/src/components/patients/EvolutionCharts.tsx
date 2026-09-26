@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { ClinicalProgressSummary } from "./ClinicalProgressSummary";
+import { ProgressReferenceControls } from "./ProgressReferenceControls";
+import { emptyProgressReferences, type ProgressReferenceOptions } from "@/src/features/evolution/progressReferences";
+import { somatoBoundary, somatoColors, somatoProjection, somatoRegions } from "@/src/features/evolution/somatochart";
+import { historicalClassification } from "@/src/features/evolution/clinicalSummary";
+import { formatPatientDate } from "@/src/features/patients/patientUtils";
 import { BarChart3 } from "lucide-react";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
 import { numericPoints } from "@/src/features/evolution/exportEvolution";
@@ -95,13 +101,15 @@ function LineChartCard({ series, compact }: { series: LongitudinalSeries; compac
   const style = evolutionCategoryStyles[series.category];
   const width = 480;
   const height = compact ? 150 : 190;
-  const left = 28;
-  const right = 16;
+  const left = 45;
+  const right = 28;
   const top = 18;
   const bottom = 30;
   const graphWidth = width - left - right;
   const graphHeight = height - top - bottom;
-  const x = (index: number) => points.length === 1 ? left + graphWidth / 2 : left + (graphWidth * index) / (points.length - 1);
+  const timestamps = points.map((point) => new Date(point.consultation_date).getTime());
+  const duration = timestamps.at(-1)! - timestamps[0];
+  const x = (index: number) => duration > 0 ? left + graphWidth * (timestamps[index] - timestamps[0]) / duration : left + graphWidth / 2;
   const y = (value: number) => top + graphHeight - ((value - low) / (high - low)) * graphHeight;
   const path = points.map((point, index) => `${index ? "L" : "M"}${x(index)} ${y(point.value)}`).join(" ");
   const latest = points.at(-1);
@@ -111,13 +119,14 @@ function LineChartCard({ series, compact }: { series: LongitudinalSeries; compac
       <svg viewBox={`0 0 ${width} ${height}`} className="mt-3 block w-full" role="img" aria-label={`Gráfica de evolución de ${series.label}`}>
         {[0, 1, 2, 3].map((step) => {
           const lineY = top + (graphHeight * step) / 3;
-          return <line key={step} x1={left} x2={width - right} y1={lineY} y2={lineY} stroke="#e2ebe5" strokeWidth="1" />;
+          return <g key={step}><line x1={left} x2={width - right} y1={lineY} y2={lineY} stroke="#e2ebe5" strokeWidth="1" /><text x={left - 8} y={lineY + 3} textAnchor="end" className="fill-[#718079] text-[10px]">{(high - (high - low) * step / 3).toLocaleString("es-MX", { maximumFractionDigits: 1 })}</text></g>;
         })}
         <path d={path} fill="none" stroke={style.line} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
         {points.map((point, index) => (
           <g key={`${point.consultation_id}-${index}`}>
+            <title>{`${shortDate(point.consultation_date)} · ${point.display_value} ${point.unit ?? ""}`}</title>
             <circle cx={x(index)} cy={y(point.value)} r="4" fill={style.line} stroke="white" strokeWidth="2" />
-            <text x={x(index)} y={height - 8} textAnchor="middle" className="fill-[#718079] text-[10px]">{shortDate(point.consultation_date)}</text>
+            {(index === 0 || index === points.length - 1 || index % Math.max(1, Math.ceil(points.length / 4)) === 0) && <text x={x(index)} y={height - 8} textAnchor="middle" className="fill-[#718079] text-[10px]">{shortDate(point.consultation_date)}</text>}
           </g>
         ))}
       </svg>
@@ -140,66 +149,40 @@ function SomatotypeGlyph({ variant }: { variant: "endo" | "meso" | "ecto" }) {
 
 export function SomatochartCard({ series, compact = false }: { series: LongitudinalSeries; compact?: boolean }) {
   const points = somatochartPoints(series);
-  const style = evolutionCategoryStyles[series.category];
-  const width = 520;
-  const height = compact ? 306 : 386;
-  const padding = 50;
-  const chartSize = Math.min(width - padding * 2, height - padding * 2 - 34);
-  const chartX = (width - chartSize) / 2;
-  const chartY = 30;
-  const limit = Math.max(4, ...points.flatMap((point) => [Math.abs(point.x), Math.abs(point.y)]).map((value) => Math.ceil(value + 1)));
-  const pointX = (value: number) => chartX + ((value + limit) / (limit * 2)) * chartSize;
-  const pointY = (value: number) => chartY + chartSize - ((value + limit) / (limit * 2)) * chartSize;
+  const width = 520, height = compact ? 350 : 400;
+  const { x, y, xMin, xMax, yMin, yMax } = somatoProjection(points, width, height, 40);
   const latest = points.at(-1);
-  const path = points.map((point, index) => `${index ? "L" : "M"}${pointX(point.x)} ${pointY(point.y)}`).join(" ");
-  const topX = chartX + chartSize / 2;
-  const topY = chartY;
-  const leftX = chartX;
-  const leftY = chartY + chartSize;
-  const rightX = chartX + chartSize;
-  const rightY = chartY + chartSize;
-  const centerX = topX;
-  const centerY = chartY + chartSize * 0.66;
-  const top = `${topX},${topY}`;
-  const left = `${leftX},${leftY}`;
-  const right = `${rightX},${rightY}`;
-  const center = `${centerX},${centerY}`;
-  const topLeft = `${(topX + leftX) / 2},${(topY + leftY) / 2}`;
-  const topRight = `${(topX + rightX) / 2},${(topY + rightY) / 2}`;
-  const bottomLeft = `${(leftX + centerX) / 2},${(leftY + centerY) / 2}`;
-  const bottomRight = `${(rightX + centerX) / 2},${(rightY + centerY) / 2}`;
-
+  const polygon = (entries: Array<{ x: number; y: number }>) => entries.map((point) => `${x(point.x)},${y(point.y)}`).join(" ");
+  const path = points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.y)}`).join(" ");
   return (
-    <ChartFrame
-      series={series}
-      latest={latest ? { ...latest, display_value: coordinateLabel(latest), unit: null } : undefined}
-    >
+    <ChartFrame series={series} latest={latest ? { ...latest, display_value: coordinateLabel(latest), unit: null } : undefined}>
       <svg viewBox={`0 0 ${width} ${height}`} className="mt-3 block w-full" role="img" aria-label="Somatocarta de evolución Heath-Carter">
-        <polygon points={`${top} ${left} ${right}`} fill="#f8fbf8" stroke="#b8cbc0" strokeWidth="1.5" />
-        <polygon points={`${top} ${topRight} ${center} ${topLeft}`} fill="#e7f1ea" fillOpacity=".94" />
-        <polygon points={`${left} ${bottomLeft} ${center} ${topLeft}`} fill="#f4e9dc" fillOpacity=".92" />
-        <polygon points={`${right} ${topRight} ${center} ${bottomRight}`} fill="#e6edf3" fillOpacity=".9" />
-        <line x1={chartX} x2={chartX + chartSize} y1={chartY + chartSize} y2={chartY + chartSize} stroke="#98aaa0" strokeWidth="1" />
-        <line x1={chartX + chartSize / 2} x2={chartX + chartSize / 2} y1={chartY} y2={chartY + chartSize} stroke="#ffffff" strokeWidth="1" strokeDasharray="4 5" />
-        <text x={chartX + chartSize / 2} y={chartY - 9} textAnchor="middle" className="fill-[#315e50] text-[11px] font-bold tracking-[.12em]">MESOMORFIA</text>
-        <text x={chartX - 5} y={chartY + chartSize + 19} textAnchor="start" className="fill-[#805a3c] text-[11px] font-bold tracking-[.1em]">ENDOMORFIA</text>
-        <text x={chartX + chartSize + 5} y={chartY + chartSize + 19} textAnchor="end" className="fill-[#456a86] text-[11px] font-bold tracking-[.1em]">ECTOMORFIA</text>
-        {points.length > 1 && <path d={path} fill="none" stroke={style.line} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
-        {points.map((point, index) => (
-          <g key={`${point.consultation_id}-${index}`}>
-            <title>{`${shortDate(point.consultation_date)} · ${coordinateLabel(point)}`}</title>
-            <circle cx={pointX(point.x)} cy={pointY(point.y)} r={index === points.length - 1 ? 6 : 4} fill={index === points.length - 1 ? style.line : "white"} stroke={style.line} strokeWidth="2.2" />
-            <text x={pointX(point.x) + 8} y={pointY(point.y) - 8} className="fill-[#63756d] text-[10px]">{shortDate(point.consultation_date)}</text>
-          </g>
-        ))}
-        <text x={chartX + chartSize / 2} y={height - 7} textAnchor="middle" className="fill-[#718079] text-[10px]">X · ectomorfia − endomorfia</text>
+        {somatoRegions.map((region) => <polygon key={region.color} points={polygon(region.points)} fill={region.color} />)}
+        <polygon points={polygon(somatoBoundary)} fill="none" stroke="#b4c6bf" strokeWidth="1.5"/>
+        {[-6, -3, 0, 3, 6].map((tick) => <g key={tick}><line x1={x(tick)} x2={x(tick)} y1={y(yMax)} y2={y(yMin)} stroke="#dce5e0" strokeDasharray="2 5"/><text x={x(tick)} y={y(yMin) + 14} textAnchor="middle" className="fill-[#74817d] text-[11px]">{tick}</text></g>)}
+        {[-6, 0, 6, 12].map((tick) => <g key={tick}><line x1={x(xMin)} x2={x(xMax)} y1={y(tick)} y2={y(tick)} stroke="#dce5e0" strokeDasharray="2 5"/><text x={x(xMin) - 6} y={y(tick) + 4} textAnchor="end" className="fill-[#74817d] text-[11px]">{tick}</text></g>)}
+        <line x1={x(0)} x2={x(0)} y1={y(12)} y2={y(-9)} stroke="#96afa3"/>
+        <line x1={x(-6)} x2={x(6)} y1={y(-6)} y2={y(6)} stroke="#96afa3" strokeDasharray="4 4"/>
+        <line x1={x(-6)} x2={x(6)} y1={y(6)} y2={y(-6)} stroke="#96afa3" strokeDasharray="4 4"/>
+        <text x={x(0)} y={y(12) - 12} textAnchor="middle" className="fill-[#315e50] text-[12px] font-bold">MESOMORFIA</text>
+        <text x={x(-6)} y={y(-6) + 18} textAnchor="end" className="fill-[#805a3c] text-[11px] font-bold">ENDOMORFIA</text>
+        <text x={x(6)} y={y(-6) + 18} textAnchor="start" className="fill-[#456a86] text-[11px] font-bold">ECTOMORFIA</text>
+        {points.length > 1 && <path d={path} fill="none" stroke="#466b63" strokeWidth="1.8" strokeDasharray="4 3"/>}
+        {points.map((point, index) => <g key={`${point.consultation_id}-${index}`}>
+          <title>{`${index + 1} · ${formatPatientDate(point.consultation_date)} · ${coordinateLabel(point)}`}</title>
+          {index === points.length - 1 && <circle cx={x(point.x)} cy={y(point.y)} r="11" fill="none" stroke="#315e4f" strokeWidth="1.5"/>}
+          <circle cx={x(point.x)} cy={y(point.y)} r="7" fill={somatoColors[index % somatoColors.length]} stroke="white" strokeWidth="1.5"/>
+          <text x={x(point.x)} y={y(point.y) + 3} textAnchor="middle" className="fill-white text-[9px] font-bold">{index + 1}</text>
+        </g>)}
+        <text x={width / 2} y={height - 7} textAnchor="middle" className="fill-[#718079] text-[10px]">X = ectomorfia − endomorfia · Y = 2 × mesomorfia − endomorfia − ectomorfia</text>
       </svg>
+      <ol aria-label="Consultas de la somatocarta" className="mt-2 max-h-52 space-y-2 overflow-y-auto text-xs">{points.map((point, index) => <li key={point.consultation_id} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-white p-2"><span className="grid size-5 place-items-center rounded-full text-[10px] font-bold text-white" style={{ background: somatoColors[index % somatoColors.length] }}>{index + 1}</span><span>{formatPatientDate(point.consultation_date)}</span><span className="text-[#74817d]">{coordinateLabel(point)}</span>{historicalClassification(point)?.label && <span>{historicalClassification(point)!.label}</span>}{index === points.length - 1 && <strong className="ml-auto text-[#315e4f]">Actual</strong>}</li>)}</ol>
       <ul aria-label="Regiones de la somatocarta" className="mt-2 grid gap-2 text-[11px] text-[#65766e] sm:grid-cols-3">
         <li className="flex items-center gap-2 rounded-xl bg-[#f8eee4] px-2.5 py-2"><SomatotypeGlyph variant="endo" /><span><strong className="block text-[#805a3c]">Endomorfia</strong><span>Adiposidad relativa</span></span></li>
         <li className="flex items-center gap-2 rounded-xl bg-[#edf5ef] px-2.5 py-2"><SomatotypeGlyph variant="meso" /><span><strong className="block text-[#315e50]">Mesomorfia</strong><span>Robustez relativa</span></span></li>
         <li className="flex items-center gap-2 rounded-xl bg-[#edf2f7] px-2.5 py-2"><SomatotypeGlyph variant="ecto" /><span><strong className="block text-[#456a86]">Ectomorfia</strong><span>Linealidad relativa</span></span></li>
       </ul>
-      <p className="mt-2 text-xs text-[#74817d]">Coordenadas Heath-Carter guardadas por consulta; la gráfica no clasifica ni emite diagnósticos.</p>
+      <p className="mt-2 text-xs text-[#74817d]">Coordenadas Heath-Carter guardadas por consulta. El contorno orienta la lectura; las categorías mostradas proceden de cada registro. Los puntos coincidentes conservan sus fechas en la lista.</p>
     </ChartFrame>
   );
 }
@@ -221,16 +204,22 @@ function preferredSeries(history: LongitudinalHistory) {
     .map((term) => all.find((series) => series.label.toLocaleLowerCase().includes(term)))
     .filter((series): series is LongitudinalSeries => Boolean(series));
   const somatochart = all.find((series) => series.visualization === "somatochart");
-  return [...new Map([...preferred, ...(somatochart ? [somatochart] : []), ...all].map((series) => [series.id, series])).values()].slice(0, 3);
+  return [...new Map([...preferred, ...(somatochart ? [somatochart] : []), ...all].map((series) => [series.id, series])).values()];
 }
 
 export function PatientEvolutionCharts({
   patientId,
   onOpenEvolution,
+  references = emptyProgressReferences,
+  onReferencesChange,
 }: {
   patientId: string;
   onOpenEvolution: () => void;
+  references?: ProgressReferenceOptions;
+  onReferencesChange?: (value: ProgressReferenceOptions) => void;
 }) {
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const [history, setHistory] = useState<LongitudinalHistory | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -265,11 +254,17 @@ export function PatientEvolutionCharts({
     );
   }
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {series.map((series) => <EvolutionChartCard key={series.id} series={series} compact />)}
+    <div className="space-y-4">
+      {onReferencesChange && <ProgressReferenceControls series={series} value={references} onChange={onReferencesChange} />}
+      <ClinicalProgressSummary series={series} contextSeries={history?.series} references={references} />
+      <div className="flex flex-wrap items-end gap-3"><label className="min-w-0 flex-1 text-xs font-semibold text-[#60766a]">Buscar una gráfica<input className="nuth-input mt-1" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Peso, cintura, pliegue…" /></label><label className="text-xs font-semibold text-[#60766a]">Tipo de registro<select className="nuth-input mt-1" value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">Todos</option>{Object.entries(evolutionCategoryStyles).map(([key, style]) => <option key={key} value={key}>{style.label}</option>)}</select></label></div>
+      <p className="text-xs text-[#60766a]">{series.length} gráficas disponibles con registros guardados. Cada método y equipo conserva su propia serie.</p>
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+      {series.filter((item) => (filter === "all" || item.category === filter) && item.label.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())).map((series) => <EvolutionChartCard key={series.id} series={series} compact />)}
       <button type="button" className="rounded-2xl border border-dashed border-[#cbd8d1] px-4 py-5 text-left text-sm font-semibold text-[#3d705d] hover:bg-[#f7faf8] lg:col-span-2" onClick={onOpenEvolution}>
-        Ver todas las gráficas y exportar evolución →
+        Seleccionar gráficas y exportar evolución →
       </button>
+      </div>
     </div>
   );
 }

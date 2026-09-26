@@ -88,6 +88,17 @@ describe("buildLongitudinalHistory", () => {
     expect(history.series.find((item) => item.id === "calculation:legacy:bmi:registered:")?.points[0].display_value).toBe("26.42");
   });
 
+  it("preserves the recorded reference weight and never turns absent legacy values into zeros", () => {
+    const history = buildLongitudinalHistory(input({ legacyMeasurements: [{ id: "legacy", consultation_id: "c1", weight_kg: 80, height_cm: null, bmi: null, ideal_weight_kg: 65, ideal_weight_method: "Referencia acordada" }] as never }));
+    expect(history.series).toHaveLength(1);
+    expect(history.series[0].points[0]).toMatchObject({ raw_value: 80, referenceWeight: { value: 65, method: "Referencia acordada" } });
+  });
+  it("carries the historical interpretation without reinterpreting it", () => {
+    const interpretation = { state: "classified", rule: { label: "Clasificación guardada" } };
+    const history = buildLongitudinalHistory(input({ calculations: [{ id: "bmi", consultation_id: "c1", calculation_code: "bmi", result_key: "bmi", method_name: "IMC", method_version: "1", raw_result: 25, displayed_result: "25", unit: "kg/m²", definition_snapshot: {}, interpretation_snapshot: interpretation }] as never }));
+    expect(history.series[0].conceptCode).toBe("bmi");
+    expect(history.series[0].points[0].interpretation).toBe(interpretation);
+  });
   it("keeps device values separate by physical device provenance", () => {
     const history = buildLongitudinalHistory(input({
       deviceSessions: [

@@ -1,3 +1,4 @@
+import type { Interpretation } from "@/src/features/interpretations/types";
 import type { Consultation, PatientMeasurement } from "@/src/types/domain";
 import type { ConsultationMeasurement, CatalogMeasurement } from "@/src/services/consultationMeasurements";
 import type { LaboratoryReport, LaboratoryResult } from "@/src/services/laboratories";
@@ -23,6 +24,9 @@ export type LongitudinalPoint = {
   source_reference: Record<string, string | null>;
   source_references?: Array<Record<string, string | null>>;
   coordinates?: { x: number; y: number };
+  interpretation?: Interpretation | null;
+  referenceWeight?: { value: number; method: string | null };
+  heightCm?: number;
 };
 
 export type LongitudinalSeries = {
@@ -30,6 +34,7 @@ export type LongitudinalSeries = {
   label: string;
   category: LongitudinalCategory;
   concept: string;
+  conceptCode?: string;
   unit: string | null;
   sourceType: LongitudinalSourceType;
   method: string | null;
@@ -55,6 +60,8 @@ export type HistoricalCalculation = {
   unit: string;
   definition_snapshot: Record<string, unknown>;
   result_values?: Record<string, unknown>;
+  interpretation_snapshot?: Interpretation | null;
+  input_snapshot?: Record<string, { value: string | number; unit?: string; measurementCode?: string; patientField?: string }>;
 };
 
 export type HistoricalDeviceSession = {
@@ -127,7 +134,7 @@ function storedCalculationLabel(result: HistoricalCalculation) {
   const method = result.method_name?.trim() ||
     (typeof snapshot.methodName === "string" ? snapshot.methodName : "") ||
     humanize(result.calculation_code);
-  return normalize(concept) === normalize(method) ? concept : `${concept} · ${method}`;
+  return normalize(method).startsWith(normalize(concept)) ? method : `${concept} · ${method}`;
 }
 
 function addPoint(series: LongitudinalSeries, point: LongitudinalPoint) {
@@ -203,6 +210,7 @@ export function buildLongitudinalHistory(
       label: session && deviceLabel ? `${concept} · ${deviceLabel}` : concept,
       category,
       concept,
+      conceptCode: catalog?.code,
       unit,
       sourceType,
       method: null,
@@ -247,8 +255,8 @@ export function buildLongitudinalHistory(
       value: number;
       decimalPlaces: number;
     }> = [
-      { code: "weight", fallbackLabel: "Peso", unit: "kg", value: Number(measurement.weight_kg), decimalPlaces: 2 },
-      { code: "height", fallbackLabel: "Estatura", unit: "cm", value: Number(measurement.height_cm), decimalPlaces: 2 },
+      { code: "weight", fallbackLabel: "Peso", unit: "kg", value: measurement.weight_kg ?? NaN, decimalPlaces: 2 },
+      { code: "height", fallbackLabel: "Estatura", unit: "cm", value: measurement.height_cm ?? NaN, decimalPlaces: 2 },
     ];
     for (const legacy of legacyValues) {
       if (!Number.isFinite(legacy.value)) continue;
@@ -260,6 +268,7 @@ export function buildLongitudinalHistory(
         category: "measurements",
         concept: catalog?.display_name || catalog?.name || legacy.fallbackLabel,
         unit,
+        conceptCode: legacy.code,
         sourceType: "manual_measurement",
         method: null,
         provenance: "Registro histórico de la consulta",
@@ -268,8 +277,11 @@ export function buildLongitudinalHistory(
         catalogOrder: catalog?.display_order ?? null,
         graphable: true,
       });
-      if (series.points.some((point) => point.consultation_id === consultation.id)) continue;
+      const referenceWeight = legacy.code === "weight" && measurement.ideal_weight_kg != null && Number.isFinite(Number(measurement.ideal_weight_kg)) && Number(measurement.ideal_weight_kg) > 0 ? { value: Number(measurement.ideal_weight_kg), method: measurement.ideal_weight_method } : undefined;
+      const existing = series.points.find((point) => point.consultation_id === consultation.id);
+      if (existing) { if (referenceWeight) existing.referenceWeight = referenceWeight; continue; }
       addPoint(series, {
+        referenceWeight,
         consultation_id: consultation.id,
         consultation_date: consultation.consultation_date,
         raw_value: legacy.value,
@@ -279,13 +291,14 @@ export function buildLongitudinalHistory(
       });
     }
 
-    const bmi = Number(measurement.bmi);
+    const bmi = measurement.bmi == null ? NaN : Number(measurement.bmi);
     if (!Number.isFinite(bmi)) continue;
     const series = ensure({
       id: "calculation:legacy:bmi:registered:",
       label: "IMC",
       category: "calculations",
       concept: "IMC",
+      conceptCode: "bmi",
       unit: null,
       sourceType: "calculation",
       method: "IMC registrado",
@@ -309,15 +322,18 @@ export function buildLongitudinalHistory(
     if (!consultation) continue;
     const label = storedCalculationLabel(result);
     const method = result.method_name?.trim() || humanize(result.calculation_code);
-    const x = Number(result.result_values?.x);
-    const y = Number(result.result_values?.y);
+    const x = result.result_values?.x == null ? NaN : Number(result.result_values.x);
+    const y = result.result_values?.y == null ? NaN : Number(result.result_values.y);
     const isSomatochart = result.calculation_code === "somatochart_coordinates";
     const hasCoordinates = Number.isFinite(x) && Number.isFinite(y);
+    const heightInput = Object.values(result.input_snapshot ?? {}).find((entry) => entry.measurementCode === "height" || entry.patientField === "height_cm");
+    const heightCm = heightInput?.value != null && (heightInput.unit === "cm" || heightInput.unit === "m") ? Number(heightInput.value) * (heightInput.unit === "m" ? 100 : 1) : NaN;
     const series = ensure({
       id: `calculation:${result.calculation_code}:${result.result_key}:${method}:${result.method_version}:${result.unit}`,
       label,
       category: "calculations",
       concept: humanize(result.result_key || result.calculation_code),
+      conceptCode: result.result_key || result.calculation_code,
       unit: result.unit || null,
       sourceType: "calculation",
       method,
@@ -337,6 +353,8 @@ export function buildLongitudinalHistory(
         result_key: result.result_key,
         method: method,
       },
+      interpretation: result.interpretation_snapshot ?? null,
+      ...(Number.isFinite(heightCm) && heightCm > 0 ? { heightCm } : {}),
       ...(hasCoordinates ? { coordinates: { x, y } } : {}),
     });
   }

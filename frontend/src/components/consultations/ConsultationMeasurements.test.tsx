@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConsultationMeasurements } from "./ConsultationMeasurements";
 import references from "@/src/features/interpretations/references.json";
@@ -57,15 +57,66 @@ describe("ConsultationMeasurements", () => {
     expect(screen.getByText("Peso inicial")).toBeInTheDocument();
     expect(screen.getByText("174 cm")).toBeInTheDocument();
     expect(screen.getByText("Masculino")).toBeInTheDocument();
-    expect(screen.getByLabelText(/peso corporal/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/peso corporal/i, { selector: "input" })).toBeInTheDocument();
     expect(screen.queryByLabelText(/estatura/i)).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText(/peso corporal/i), { target: { value: "82.4" } });
+    fireEvent.change(screen.getByLabelText(/peso corporal/i, { selector: "input" }), { target: { value: "82.4" } });
     expect(screen.getByText("27.2")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /guardar mediciones/i }));
     await waitFor(() => expect(api.save).toHaveBeenCalledWith(expect.anything(), { weight: 82.4 }));
     await waitFor(() => expect(calculationApi.save).toHaveBeenCalledWith("consultation", expect.objectContaining({ bmi: expect.objectContaining({ displayedResult: "27.2" }) }), false));
     fireEvent.change(screen.getByLabelText(/buscar una medición/i), { target: { value: "hemoglobina" } });
     expect(await screen.findByText(/no encontramos una medición disponible/i)).toBeInTheDocument();
+  });
+  it("normalizes commas and units, calculates immediately, and prevents invalid saves", async () => {
+    render(<ConsultationMeasurements consultation={consultation} patient={patient} />);
+    const weight = await screen.findByLabelText(/peso corporal/i, { selector: "input" });
+    fireEvent.change(weight, { target: { value: "82,4 kg" } });
+    expect(screen.getByText("27.2")).toBeInTheDocument();
+    fireEvent.blur(weight);
+    expect(weight).toHaveValue("82.4");
+    fireEvent.change(weight, { target: { value: "82,4 lb" } });
+    fireEvent.click(screen.getByRole("button", { name: /guardar mediciones/i }));
+    expect(weight).toHaveAttribute("aria-invalid", "true");
+    expect(api.save).not.toHaveBeenCalled();
+    expect(calculationApi.save).not.toHaveBeenCalled();
+    fireEvent.change(weight, { target: { value: "82,4" } });
+    fireEvent.click(screen.getByRole("button", { name: /guardar mediciones/i }));
+    await waitFor(() => expect(api.save).toHaveBeenCalledWith(consultation, { weight: 82.4 }));
+  });
+  it("groups active measurements by named categories without relying on color", async () => {
+    api.load.mockResolvedValue({ catalog, values: [], workspaceIds: ["weight", "waist_circumference", "hip_circumference"], hasFollowup: false, followupIds: [], previousValues: {} });
+    render(<ConsultationMeasurements consultation={consultation} patient={patient} />);
+    const basic = await screen.findByRole("region", { name: "Mediciones básicas" });
+    const girths = screen.getByRole("region", { name: "Circunferencias" });
+    expect(within(basic).getByLabelText(/peso corporal/i, { selector: "input" })).toBeInTheDocument();
+    expect(within(girths).getByLabelText(/^cintura/i)).toBeInTheDocument();
+    expect(within(girths).getByLabelText(/^cadera/i)).toBeInTheDocument();
+  });
+  it("reorders from keyboard and drag using the existing workspace save without changing measurements", async () => {
+    api.load.mockResolvedValue({ catalog, values: [{ measurement_type_id: "waist_circumference", value: 90 }], workspaceIds: ["weight", "waist_circumference", "hip_circumference"], hasFollowup: false, followupIds: [], previousValues: {} });
+    render(<ConsultationMeasurements consultation={consultation} patient={patient} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Subir Cadera" }));
+    await waitFor(() => expect(api.saveWorkspace).toHaveBeenLastCalledWith(["weight", "hip_circumference", "waist_circumference"]));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Subir Cadera" })).toBeDisabled());
+    const transfer = { setData: vi.fn(), effectAllowed: "", dropEffect: "" };
+    fireEvent.dragStart(screen.getByRole("button", { name: "Arrastrar Cintura" }), { dataTransfer: transfer });
+    fireEvent.drop(document.querySelector('[data-measurement="hip_circumference"]')!, { dataTransfer: transfer });
+    await waitFor(() => expect(api.saveWorkspace).toHaveBeenLastCalledWith(["weight", "waist_circumference", "hip_circumference"]));
+    expect(screen.getByLabelText(/^cintura/i)).toHaveValue("90");
+    expect(api.save).not.toHaveBeenCalled();
+    expect(calculationApi.save).not.toHaveBeenCalled();
+  });
+  it("rejects a drop in another category and keeps the old order if persistence fails", async () => {
+    api.load.mockResolvedValue({ catalog, values: [], workspaceIds: ["weight", "waist_circumference", "hip_circumference"], hasFollowup: false, followupIds: [], previousValues: {} });
+    render(<ConsultationMeasurements consultation={consultation} patient={patient} />);
+    const handle = await screen.findByRole("button", { name: "Arrastrar Cintura" });
+    fireEvent.dragStart(handle, { dataTransfer: { setData: vi.fn() } });
+    fireEvent.drop(document.querySelector('[data-measurement="weight"]')!, { dataTransfer: {} });
+    expect(api.saveWorkspace).not.toHaveBeenCalled();
+    api.saveWorkspace.mockRejectedValueOnce(new Error("No se pudo guardar el orden."));
+    fireEvent.click(screen.getByRole("button", { name: "Subir Cadera" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo guardar el orden.");
+    expect(screen.getByRole("button", { name: "Subir Cintura" })).toBeDisabled();
   });
   it("adds a searched measurement to the habitual workspace without saving a clinical value", async () => {
     render(<ConsultationMeasurements consultation={consultation} patient={patient} />);
@@ -77,7 +128,7 @@ describe("ConsultationMeasurements", () => {
   });
   it("updates interpretations reactively and removes them when the required measurement is cleared", async () => {
     render(<ConsultationMeasurements consultation={consultation} patient={patient} />);
-    const weight = await screen.findByLabelText(/peso corporal/i);
+    const weight = await screen.findByLabelText(/peso corporal/i, { selector: "input" });
     fireEvent.change(weight,{target:{value:"74"}});
     expect(screen.getAllByText("Peso normal")[0]).toBeInTheDocument();
     fireEvent.change(weight,{target:{value:"82"}});

@@ -2,6 +2,9 @@ import { requireEntitlement } from '@/src/features/admin/api';
 import { useEffect, useMemo, useState } from "react";
 import { Check, FileDown, FileText, LoaderCircle, X } from "lucide-react";
 import { EvolutionChartCard, graphableSeries } from "@/src/components/patients/EvolutionCharts";
+import { ClinicalProgressSummary } from "./ClinicalProgressSummary";
+import { ProgressReferenceControls } from "./ProgressReferenceControls";
+import { emptyProgressReferences, type ProgressReferenceOptions } from "@/src/features/evolution/progressReferences";
 import {
   downloadEvolutionPdf,
   downloadEvolutionText,
@@ -48,11 +51,17 @@ export function EvolutionExportDialog({
   patient,
   onClose,
   getProfessionalInfo,
+  references,
+  onReferencesChange,
 }: {
   patient: Patient;
   onClose: () => void;
   getProfessionalInfo: () => Promise<ProfessionalDocumentInfo>;
+  references?: ProgressReferenceOptions;
+  onReferencesChange?: (value: ProgressReferenceOptions) => void;
 }) {
+  const [localReferences, setLocalReferences] = useState(emptyProgressReferences);
+  const currentReferences = references ?? localReferences;
   const [history, setHistory] = useState<LongitudinalHistory | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,7 +103,7 @@ export function EvolutionExportDialog({
     setError("");
     try {
       const professional = await getProfessionalInfo();
-      const selection = { seriesIds: selected };
+      const selection = { seriesIds: selected, references: currentReferences };
       const name = `nuthrick-evolucion-${filenamePart(patient.full_name)}`;
       if (kind === "txt") {
         await requireEntitlement('exports.advanced');
@@ -127,7 +136,7 @@ export function EvolutionExportDialog({
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:overflow-hidden">
             <aside className="border-b border-[#e3eae4] bg-[#fbfcfa] p-5 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:p-6">
-              <p className="text-sm leading-6 text-[#74817d]">El PDF mostrará sólo gráficas. El TXT incluirá los valores de cada fecha.</p>
+              <p className="text-sm leading-6 text-[#74817d]">El PDF incluirá todas las gráficas seleccionadas y sus referencias, en las páginas necesarias. El TXT incluirá los valores de cada fecha.</p>
               <div className="mt-5 space-y-5">
                 {categories.map((category) => {
                   const entries = selectable.filter((series) => series.category === category.id);
@@ -174,11 +183,13 @@ export function EvolutionExportDialog({
             <main className="min-w-0 bg-white p-5 sm:p-7 lg:overflow-y-auto">
               <div className="mb-5 flex flex-wrap items-end justify-between gap-2">
                 <div>
-                  <p className="nuth-eyebrow">Vista previa del PDF</p>
+                  <p className="nuth-eyebrow">Contenido del PDF</p>
                   <h3 className="mt-1 text-xl font-semibold">{patient.full_name}</h3>
                 </div>
                 <p className="text-sm text-[#74817d]">{selectedSeries.length} {selectedSeries.length === 1 ? "gráfica" : "gráficas"} seleccionadas</p>
               </div>
+              <fieldset disabled={busy !== null} className="mb-5"><ProgressReferenceControls series={selectedSeries} value={currentReferences} onChange={onReferencesChange ?? setLocalReferences}/></fieldset>
+              <div className="mb-5"><ClinicalProgressSummary series={selectedSeries} contextSeries={history?.series} references={currentReferences}/></div>
               {selectedSeries.length ? (
                 <div className="grid gap-4 xl:grid-cols-2">
                   {selectedSeries.map((series) => <EvolutionChartCard key={series.id} series={series} />)}

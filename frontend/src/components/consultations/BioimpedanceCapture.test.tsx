@@ -35,6 +35,25 @@ describe('BioimpedanceCapture',()=>{
     await waitFor(()=>expect(api.save).toHaveBeenCalledWith('consultation-1','device-a',{weight:81.2}));
     expect(api.save.mock.calls[0][2]).not.toHaveProperty('body_fat_percentage_device');
   });
+  it('normalizes device decimals and blocks a save containing an invalid unit',async()=>{
+    const pending=vi.fn();
+    render(<BioimpedanceCapture consultation={consultation} onPendingChange={pending}/>);
+    await screen.findByRole('heading',{name:'Bioimpedancia'});
+    fireEvent.change(screen.getByLabelText(/equipo utilizado/i),{target:{value:'device-a'}});
+    const weight=screen.getByLabelText(/peso/i);
+    fireEvent.change(weight,{target:{value:'81,2 kg'}});
+    fireEvent.blur(weight);
+    expect(weight).toHaveValue('81.2');
+    expect(pending).toHaveBeenLastCalledWith(true);
+    fireEvent.change(weight,{target:{value:'81,2 lb'}});
+    fireEvent.click(screen.getByRole('button',{name:/guardar datos del equipo/i}));
+    expect(api.save).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('Revisa Peso');
+    fireEvent.change(weight,{target:{value:'81,2'}});
+    fireEvent.click(screen.getByRole('button',{name:/guardar datos del equipo/i}));
+    await waitFor(()=>expect(api.save).toHaveBeenCalledWith('consultation-1','device-a',{weight:81.2}));
+    await waitFor(()=>expect(pending).toHaveBeenLastCalledWith(false));
+  });
   it('shows simultaneous historical sessions without overwriting either device',async()=>{
     api.load.mockResolvedValue({devices,sessions:[
       {id:'s1',professional_device_id:'device-a',capture_source:'manual',device_snapshot:{alias:'InBody principal',manufacturer:'InBody',model:'270S',commercial_name:'InBody 270S',technology:'DSM',is_standard:true},measured_at:'2026-09-05T12:00:00Z',created_at:'2026-09-05T12:00:00Z',values:[{id:'v1',measurement_type_id:'weight',value:81.2,unit:'kg'}]},

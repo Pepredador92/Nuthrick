@@ -16,7 +16,7 @@ import {
   type LaboratoryResultDraft,
 } from "@/src/services/laboratories";
 
-type Props = { consultation: Consultation };
+type Props = { consultation: Consultation; onPendingChange?: (pending: boolean) => void };
 type LoadedLaboratories = Awaited<ReturnType<typeof loadLaboratoryData>>;
 
 const comparisonLabel: Record<LaboratoryRangeComparison, string> = {
@@ -100,7 +100,7 @@ function ResultEditor({ result, catalogItem, disabled, onChange, onRemove }: {
   );
 }
 
-export function LaboratoryReports({ consultation }: Props) {
+export function LaboratoryReports({ consultation, onPendingChange }: Props) {
   const [data, setData] = useState<LoadedLaboratories | null>(null);
   const [reports, setReports] = useState<LaboratoryReportDraft[]>([]);
   const [searches, setSearches] = useState<Record<string, string>>({});
@@ -109,6 +109,8 @@ export function LaboratoryReports({ consultation }: Props) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const editable = consultation.status === "draft";
+  const pending = loading || Boolean(savingId) || Boolean(data && JSON.stringify(reports) !== JSON.stringify(reportDrafts(data)));
+  useEffect(() => { onPendingChange?.(pending); }, [pending, onPendingChange]);
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try { const loaded = await loadLaboratoryData(consultation); setData(loaded); setReports(reportDrafts(loaded)); }

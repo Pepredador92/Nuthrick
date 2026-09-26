@@ -23,6 +23,8 @@ export async function loadInterpretationData(consultationId: string) {
       .from("consultation_snapshots")
       .select("revision")
       .eq("consultation_id", consultationId)
+      .order("revision", { ascending: false })
+      .limit(1)
       .maybeSingle(),
   ]);
   if (references.error || results.error || consultation.error || snapshot.error)

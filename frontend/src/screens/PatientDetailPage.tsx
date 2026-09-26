@@ -28,6 +28,7 @@ import {
 import {PublishedPlanHistory} from "@/src/components/patients/PublishedPlanHistory";
 import { PatientEvolutionTable } from "@/src/components/patients/PatientEvolutionTable";
 import { PatientEvolutionCharts } from "@/src/components/patients/EvolutionCharts";
+import { emptyProgressReferences, type ProgressReferenceOptions } from "@/src/features/evolution/progressReferences";
 import { EvolutionExportDialog } from "@/src/components/patients/EvolutionExportDialog";
 import { useAuth } from "@/src/features/auth/AuthProvider";
 import {
@@ -753,6 +754,9 @@ export function PatientDetailPage() {
   const [editing, setEditing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [evolutionOpen, setEvolutionOpen] = useState(false);
+  const [referenceState, setReferenceState] = useState({ patientId, value: emptyProgressReferences });
+  const progressReferences = referenceState.patientId === patientId ? referenceState.value : emptyProgressReferences;
+  const setProgressReferences = (value: ProgressReferenceOptions) => setReferenceState({ patientId, value });
   const [evolutionExportOpen, setEvolutionExportOpen] = useState(false);
   const [historyTab, setHistoryTab] = useState<HistoryTab>("consultations");
   const [selectedConsultationId, setSelectedConsultationId] = useState<
@@ -885,7 +889,7 @@ export function PatientDetailPage() {
     navigate(`/app/patients/${patient.id}/consultations/${consultation.id}`);
   };
   const professionalDocumentInfo =
-    async (): Promise<ProfessionalDocumentInfo> => {
+    async (requireConfiguredLogo = false): Promise<ProfessionalDocumentInfo> => {
       if (!user) throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
       const workspace = await loadProfessionalDocumentProfile(user.id);
       const contacts = workspace.contacts.map((contact) =>
@@ -893,6 +897,10 @@ export function PatientDetailPage() {
           ? `${contact.label ? `${contact.label}: ` : ""}${contact.country_code ?? ""} ${contact.contact_value}`.trim()
           : `${contact.label ? `${contact.label}: ` : ""}${contact.contact_value}`,
       );
+      const logoUrl = await getSignedMediaUrl(workspace.business?.logo_path);
+      if (requireConfiguredLogo && workspace.business?.logo_path && !logoUrl) {
+        throw new Error("No pudimos cargar el logo del nutriólogo. Reintenta la exportación o revisa el logo en Perfil.");
+      }
       return {
         fullName: workspace.profile.full_name,
         professionalTitle: workspace.profile.professional_title,
@@ -901,7 +909,7 @@ export function PatientDetailPage() {
         businessAddress:
           workspace.business?.address ?? workspace.locations[0]?.address,
         contactLines: contacts,
-        logoUrl: await getSignedMediaUrl(workspace.business?.logo_path),
+        logoUrl,
       };
     };
   const exportConsultation = async (consultation: Consultation) => {
@@ -1413,7 +1421,7 @@ export function PatientDetailPage() {
                 Ver evolución
               </button>
             </div>
-            <div className="mt-5"><PatientEvolutionCharts patientId={patient.id} onOpenEvolution={() => setEvolutionOpen(true)} /></div>
+            <div className="mt-5"><PatientEvolutionCharts key={patient.id} patientId={patient.id} references={progressReferences} onReferencesChange={setProgressReferences} onOpenEvolution={() => setEvolutionOpen(true)} /></div>
           </section>
         </main>
       </div>
@@ -1460,8 +1468,10 @@ export function PatientDetailPage() {
       {evolutionExportOpen && (
         <EvolutionExportDialog
           patient={patient}
+          references={progressReferences}
+          onReferencesChange={setProgressReferences}
           onClose={() => setEvolutionExportOpen(false)}
-          getProfessionalInfo={professionalDocumentInfo}
+          getProfessionalInfo={() => professionalDocumentInfo(true)}
         />
       )}
       {confirm && (

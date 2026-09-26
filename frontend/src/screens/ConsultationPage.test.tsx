@@ -153,6 +153,24 @@ vi.mock("@/src/components/consultations/SnapshotHistory", () => ({
   SnapshotHistory: () => null,
 }));
 
+vi.mock("@/src/components/consultations/ConsultationMeasurements", async () => {
+  const { useEffect, useState } = await import("react");
+  return { ConsultationMeasurements: ({ onPendingChange }: { onPendingChange: (pending: boolean) => void }) => {
+    const [value, setValue] = useState("");
+    const [pending, setPending] = useState(false);
+    useEffect(() => onPendingChange(pending), [pending, onPendingChange]);
+    return <section><input aria-label="Peso de prueba" value={value} onChange={(e) => { setValue(e.target.value); setPending(true); }} /><button onClick={() => setPending(false)}>Guardar medición de prueba</button></section>;
+  } };
+});
+vi.mock("@/src/components/consultations/LaboratoryReports", async () => {
+  const { useEffect, useState } = await import("react");
+  return { LaboratoryReports: ({ onPendingChange }: { onPendingChange: (pending: boolean) => void }) => {
+    const [pending, setPending] = useState(false);
+    useEffect(() => onPendingChange(pending), [pending, onPendingChange]);
+    return <button onClick={() => setPending(true)}>Editar laboratorio de prueba</button>;
+  } };
+});
+
 const mount = (entry = "/app/patients/patient/consultations/draft") =>
   render(
     <MemoryRouter initialEntries={[entry]}>
@@ -170,6 +188,8 @@ const mount = (entry = "/app/patients/patient/consultations/draft") =>
     </MemoryRouter>,
   );
 beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
+  HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
   vi.clearAllMocks();
   window.sessionStorage.clear();
   mocks.save.mockResolvedValue(undefined);
@@ -347,6 +367,78 @@ describe("consultation save and review workflow", () => {
     expect(screen.getByLabelText(/detalle breve de prueba/i)).toHaveValue(
       "No perder",
     );
+  });
+  it("closes from measurements after saving, preserving the form when switching tabs", async () => {
+    mount();
+    await screen.findByRole("heading", { name: "Apertura de prueba" });
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    fireEvent.change(await screen.findByRole("combobox", { name: /Confirmación de prueba/ }), { target: { value: "Revisado" } });
+    fireEvent.click(screen.getByRole("button", { name: "Mediciones" }));
+    fireEvent.change(screen.getByLabelText("Peso de prueba"), { target: { value: "87.6" } });
+    fireEvent.click(screen.getByRole("button", { name: "Entrevista" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mediciones" }));
+    expect(screen.getByLabelText("Peso de prueba")).toHaveValue("87.6");
+    fireEvent.click(screen.getByRole("button", { name: "Revisar cierre de consulta" }));
+    let dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    expect(within(dialog).getByRole("button", { name: "Confirmar cierre" })).toBeDisabled();
+    expect(mocks.finish).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getAllByRole("button", { name: "Volver a la consulta" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Guardar medición de prueba" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revisar cierre de consulta" }));
+    dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("checkbox")).not.toBeChecked();
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar cierre" }));
+    expect(await screen.findByRole("heading", { name: "Ficha guardada" })).toBeInTheDocument();
+    expect(mocks.finish).toHaveBeenCalledOnce();
+  });
+  it("can close after adopting an updated interview", async () => {
+    const previousVersion = fixtures.template.template.version;
+    fixtures.template.template.version = 3;
+    mocks.adopt.mockResolvedValue({ ...fixtures.snapshot, template_version: 3, revision: 2 });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    try {
+      mount();
+      fireEvent.click(await screen.findByRole("button", { name: "Usar entrevista actualizada" }));
+      await screen.findByText(/Entrevista actualizada\. Las respuestas anteriores/);
+      fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+      fireEvent.change(await screen.findByRole("combobox", { name: /Confirmación de prueba/ }), { target: { value: "Revisado" } });
+      fireEvent.click(screen.getByRole("button", { name: "Mediciones" }));
+      fireEvent.click(screen.getByRole("button", { name: "Revisar cierre de consulta" }));
+      const dialog = await screen.findByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("checkbox"));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar cierre" }));
+      expect(await screen.findByRole("heading", { name: "Ficha guardada" })).toBeInTheDocument();
+      expect(mocks.finish).toHaveBeenCalledOnce();
+    } finally {
+      fixtures.template.template.version = previousVersion;
+      confirm.mockRestore();
+    }
+  });
+  it("returns to the required answer when closing from another tab", async () => {
+    mount();
+    await screen.findByRole("heading", { name: "Apertura de prueba" });
+    fireEvent.click(screen.getByRole("button", { name: "Mediciones" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revisar cierre de consulta" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar cierre" }));
+    expect(await screen.findByRole("heading", { name: "Cierre de prueba" })).toBeVisible();
+    expect(mocks.finish).not.toHaveBeenCalled();
+  });
+  it("blocks closure with uncommitted laboratory edits even from another tab", async () => {
+    mount();
+    await screen.findByRole("heading", { name: "Apertura de prueba" });
+    fireEvent.click(screen.getByRole("button", { name: "Laboratorios" }));
+    fireEvent.click(screen.getByRole("button", { name: "Editar laboratorio de prueba" }));
+    fireEvent.click(screen.getByRole("button", { name: "Entrevista" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revisar cierre de consulta" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    expect(within(dialog).getByRole("status")).toHaveTextContent("Laboratorios");
+    expect(within(dialog).getByRole("button", { name: "Confirmar cierre" })).toBeDisabled();
+    expect(mocks.finish).not.toHaveBeenCalled();
   });
   it("requires review and catches missing required responses before closing", async () => {
     mount();

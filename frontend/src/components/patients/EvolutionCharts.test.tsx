@@ -1,7 +1,11 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import { SomatochartCard } from "./EvolutionCharts";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PatientEvolutionCharts, SomatochartCard } from "./EvolutionCharts";
 import type { LongitudinalSeries } from "@/src/features/evolution/longitudinal";
+
+const api = vi.hoisted(() => ({ load: vi.fn() }));
+vi.mock("@/src/services/longitudinalHistory", () => ({ loadLongitudinalHistory: api.load }));
+beforeEach(() => vi.clearAllMocks());
 
 const series: LongitudinalSeries = {
   id: "somatochart",
@@ -45,7 +49,23 @@ describe("SomatochartCard", () => {
     expect(screen.getByText("MESOMORFIA")).toBeInTheDocument();
     expect(screen.getByText("ECTOMORFIA")).toBeInTheDocument();
     expect(screen.getByRole("list", { name: "Regiones de la somatocarta" })).toHaveTextContent("Adiposidad relativa");
-    expect(screen.getByText("20-sep")).toBeInTheDocument();
-    expect(screen.getByText("X -0.8 · Y 2.7")).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Consultas de la somatocarta" })).toHaveTextContent("2026");
+    expect(screen.getAllByText("X -0.8 · Y 2.7")[0]).toBeInTheDocument();
+  });
+});
+
+describe("patient evolution gallery", () => {
+  it("shows every stored series, with search and category filters", async () => {
+    const entries = Array.from({ length: 6 }, (_, index) => ({ ...series, id: String(index), label: `Medición ${index + 1}`, visualization: "line", category: index === 5 ? "bioimpedance" : "measurements", points: series.points.map((point) => ({ ...point, raw_value: 70, display_value: "70", unit: "kg" })) }));
+    api.load.mockResolvedValue({ consultations: [], series: entries });
+    render(<PatientEvolutionCharts patientId="patient" onOpenEvolution={vi.fn()} />);
+    expect(await screen.findByText(/6 gráficas disponibles/)).toBeInTheDocument();
+    expect(screen.getAllByRole("img")).toHaveLength(6);
+    fireEvent.change(screen.getByLabelText("Tipo de registro"), { target: { value: "bioimpedance" } });
+    expect(screen.getAllByRole("img")).toHaveLength(1);
+    expect(screen.getByRole("img")).toHaveAccessibleName("Gráfica de evolución de Medición 6");
+    fireEvent.change(screen.getByLabelText("Tipo de registro"), { target: { value: "all" } });
+    fireEvent.change(screen.getByLabelText("Buscar una gráfica"), { target: { value: "Medición 4" } });
+    expect(screen.getAllByRole("img")).toHaveLength(1);
   });
 });

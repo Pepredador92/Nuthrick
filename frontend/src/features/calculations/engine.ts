@@ -9,6 +9,7 @@ import type {
   CalculationInputDefinition,
   CalculationInputSource,
 } from "./catalog";
+import { parseMeasurementNumber } from "./measurementNumber";
 import { calculateFormula } from "./mathematics";
 
 export type CalculationState =
@@ -71,19 +72,19 @@ type EvaluationContext = {
 
 function usableNumber(value: unknown) {
   if (value === "" || value === undefined || value === null || typeof value === "boolean") return undefined;
-  const parsed = Number(String(value).replace(",", "."));
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  const parsed = parseMeasurementNumber(value).value;
+  return parsed !== undefined && parsed > 0 ? parsed : undefined;
 }
 
 function resolveInput(input: CalculationInputDefinition, context: EvaluationContext): ResolvedCalculationInput {
   if (input.source === "consultation_measurement") {
     const measurement = context.measurementCatalog.find((item) => item.code === input.measurementCode);
-    const parsed = measurement ? usableNumber(context.values[measurement.id]) : undefined;
+    const parsed = measurement ? parseMeasurementNumber(context.values[measurement.id], measurement).value : undefined;
     const saved = context.savedMeasurements?.find((item) => item.measurement_type_id === measurement?.id);
     return {
       ...input,
-      available: parsed !== undefined,
-      value: parsed,
+      available: parsed !== undefined && parsed > 0,
+      value: parsed !== undefined && parsed > 0 ? parsed : undefined,
       unit: measurement?.unit,
       measurementId: saved?.id,
       inWorkspace: measurement ? context.workspaceIds.includes(measurement.id) : false,
