@@ -17,16 +17,19 @@ const errors: Record<string, string> = {
   legal_review_required: "Guarda el documento como pendiente de revisión.",
   legal_version_immutable: "Esta versión está aprobada. Crea una nueva versión.",
   invalid_legal_document: "Revisa el texto: debe tener entre 100 y 60 000 caracteres.",
-  email_configuration_required: "Faltan el proveedor, DNS o secretos del servicio de correo.",
+  email_configuration_required: "Falta configurar o verificar el transporte de correo.",
+  email_sender_unavailable: "La conexión Gmail de envío no está disponible o necesita reconectarse.",
+  email_sender_reauthorization_required: "La autorización de Gmail expiró o fue revocada. En Agenda pulsa «Autorizar remitente» y vuelve a intentarlo.",
+  email_sender_mismatch: "La conexión Gmail no corresponde al remitente operativo configurado.",
   email_not_retryable: "Este mensaje no admite reenvío automático.",
   email_delivery_requires_reconciliation: "La ventana de envío seguro terminó. Revisa el mensaje en el proveedor antes de actuar.",
   test_recipient_limit: "Se permiten como máximo dos bandejas controladas.",
   test_recipient_required: "Autoriza primero la bandeja de pruebas.",
   invalid_email: "Revisa la dirección de correo.",
-  invalid_sender: "El remitente debe pertenecer al dominio configurado.",
+  invalid_sender: "El remitente no coincide con la identidad operativa configurada.",
 };
 export function operationError(code: string) { return errors[code] ?? "No pudimos completar la operación. Revisa la configuración e intenta de nuevo."; }
-export async function adminRpc<T>(name: "legal_admin_api" | "email_admin_api", action: string, input: Record<string, unknown> = {}): Promise<T> {
+export async function adminRpc<T>(name: "legal_admin_api" | "email_admin_api" | "email_gmail_admin_api", action: string, input: Record<string, unknown> = {}): Promise<T> {
   const { data, error } = await supabase.rpc(name, {p_action: action, p_data: input});
   if (error) throw new Error(operationError(error.message));
   return data as T;

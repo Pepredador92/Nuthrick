@@ -1,4 +1,4 @@
-import { PUBLIC_SITE_ORIGIN } from "../_shared/site.ts";
+import { PUBLIC_SITE_ORIGIN } from "./site.ts";
 export const SITE = PUBLIC_SITE_ORIGIN;
 export const TEMPLATE_KEYS = [
   "welcome",
@@ -45,6 +45,7 @@ export type DomainEvidence = {
   spf: boolean;
   dkim: boolean;
   dmarc: boolean;
+  oauth?: boolean;
   provider_status: string;
   records: Record<string, unknown>[];
   dmarc_records: string[];

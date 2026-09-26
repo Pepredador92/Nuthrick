@@ -20,7 +20,7 @@ La agenda existente permanece activa. El job de billing mensual/gracia llama a u
 
 ## 4. Emails transaccionales
 
-Hay 15 plantillas editables en la tabla privada: alta, suscripción activada, pago confirmado/fallido, gracia, suspensión, recuperación, cancelación programada/cerrada, renovación, Beta, compra/reembolso de créditos y promoción aplicada. El proveedor está fijado en `test`, con outbox, `event_key` idempotente, máximo de cinco intentos, reintento visible y fallo visible. La prueba sintética se procesó: 1 enviado en TEST, 0 fallidos, 0 pendientes. No contiene datos clínicos.
+Hay 15 plantillas editables en la tabla privada: alta, suscripción activada, pago confirmado/fallido, gracia, suspensión, recuperación, cancelación programada/cerrada, renovación, Beta, compra/reembolso de créditos y promoción aplicada. El transporte temporal está configurado para Gmail API/OAuth con `susy.asistencia.online@gmail.com`, outbox, `event_key` idempotente, máximo de cinco intentos, reintento visible y fallo visible. La verificación técnica quedó pendiente porque la autorización OAuth respondió `invalid_grant`; no se envían correos hasta renovar la autorización y completar las cinco pruebas controladas. No contiene datos clínicos.
 
 ## 5. Legal y aceptación
 
@@ -70,7 +70,7 @@ La implementación operativa quedó en el commit `89929a9` de la rama `codex/adm
 - Live: deshabilitado.
 - OpenAI: deshabilitado.
 - Cargos reales: 0.
-- Emails reales: 0; proveedor operativo todavía no configurado.
+- Emails comerciales reales: 0; Gmail está configurado como transporte controlado, pero requiere renovar la autorización OAuth y confirmar cinco recepciones.
 
 ## 14. Lo que falta para una fase LIVE separada
 

@@ -1,4 +1,4 @@
-import { productOriginAllowed } from "../_shared/site.ts";
+import { productOriginAllowed } from "./site.ts";
 import { Webhook } from "svix";
 import {
   EmailError,
@@ -12,7 +12,7 @@ type Data = Record<string, unknown>;
 export type Dependencies = {
   rpc: <T = Data>(action: string, data?: Data) => Promise<T>;
   authenticate: (token: string) => Promise<string | null>;
-  provider: () => TransactionalEmailProvider;
+  provider: () => TransactionalEmailProvider | Promise<TransactionalEmailProvider>;
   workerSecret?: string;
   webhookSecret?: string;
   now?: () => number;
@@ -26,6 +26,9 @@ const safeErrors = new Set([
   "email_configuration_changed",
   "email_domain_unavailable",
   "email_domain_mismatch",
+  "email_sender_unavailable",
+  "email_sender_reauthorization_required",
+  "email_sender_mismatch",
   "invalid_domain",
   "email_worker_configuration_required",
 ]);
@@ -141,14 +144,21 @@ export function createEmailHandler(deps: Dependencies) {
         !data || Array.isArray(data) ||
         !["worker", "verify"].includes(String(data.action))
       ) throw new EmailError("invalid_input");
-      const worker = !!deps.workerSecret && deps.workerSecret.length >= 32 &&
-        token === deps.workerSecret && data.action === "worker";
+      let worker = !!deps.workerSecret && deps.workerSecret.length >= 32 &&
+        token === deps.workerSecret && ["worker", "verify"].includes(String(data.action));
+      if (!worker && token && ["worker", "verify"].includes(String(data.action))) {
+        try {
+          worker = await deps.rpc<boolean>("authorize_worker", { token });
+        } catch {
+          worker = false;
+        }
+      }
       if (!worker) {
         const actor = await deps.authenticate(token);
         if (!actor) throw new EmailError("unauthorized");
         await deps.rpc("authorize_admin", { actor });
       }
-      const provider = deps.provider();
+      const provider = await deps.provider();
       if (data.action === "verify") {
         const settings = await deps.rpc<
           { domain_id: string; domain_name: string }
@@ -161,8 +171,8 @@ export function createEmailHandler(deps: Dependencies) {
           await deps.rpc("verified", {
             ...settings,
             evidence,
-            runtime_ready: !!deps.webhookSecret && !!deps.workerSecret &&
-              deps.workerSecret.length >= 32,
+            runtime_ready: !!deps.workerSecret && deps.workerSecret.length >= 32 &&
+              (!!evidence.oauth || !!deps.webhookSecret),
           }),
         );
       }
@@ -207,6 +217,10 @@ export function createEmailHandler(deps: Dependencies) {
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       const code = safeErrors.has(message) ? message : "email_unavailable";
+      console.error("transactional_email_error", {
+        code,
+        error_type: error instanceof Error ? error.name : "unknown",
+      });
       return reply(
         { error: code },
         code === "unauthorized"
