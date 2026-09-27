@@ -3,8 +3,8 @@ import type { Patient } from "@/src/types/domain";
 import type { ProfessionalDocumentInfo } from "@/src/features/consultations/exportText";
 import { calculateAge, formatPatientDate } from "@/src/features/patients/patientUtils";
 import { exportableSeries, numericPoints, reportSeries, type EvolutionExportSelection } from "./exportEvolution";
-import { historicalClassification, pointClassification } from "./clinicalSummary";
-import { emptyProgressReferences, formatReferenceNumber, reportBodyFatInterpretation, weightReference } from "./progressReferences";
+import { classificationSummary, historicalClassification } from "./clinicalSummary";
+import { emptyProgressReferences, formatReferenceNumber, weightReference } from "./progressReferences";
 import { evolutionCategoryStyles, hexToRgb } from "./presentation";
 import { somatoBoundary, somatoColors, somatoProjection, somatoRegions } from "./somatochart";
 import type { LongitudinalHistory, LongitudinalSeries } from "./longitudinal";
@@ -101,9 +101,10 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
 
   const drawLineChart = (item: LongitudinalSeries) => {
     const points = numericPoints(item), latest = points.at(-1)!;
-    const classification = pointClassification(item, latest, history.series, references);
+    const classifications = classificationSummary(item, history.series, references);
+    const classification = classifications.displayed?.classification;
+    const classifiedPoint = classifications.displayed?.point;
     const weight = item.conceptCode === "weight" ? weightReference(latest, history.series, references) : null;
-    const bodyFat = reportBodyFatInterpretation(item, latest, history.series, references);
     const title = lines(item.label, width - 52, 10);
     const provenance = lines([item.unit, item.provenance].filter(Boolean).join(" · ") || "Medición registrada", width - 12, 7);
     const headerHeight = Math.max(14, title.length * 4.7 + 5) + provenance.length * 3.3;
@@ -111,8 +112,9 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
     if (weight?.interval) notes.push(`Intervalo por IMC adulto: ${formatReferenceNumber(weight.interval.lower)} a <${formatReferenceNumber(weight.interval.upper)} kg · talla ${weight.interval.heightCm} cm · OMS`);
     if (weight?.recorded) notes.push(`Referencia registrada: ${formatReferenceNumber(weight.recorded.value)} kg${weight.recorded.method ? ` · ${weight.recorded.method}` : ""}`);
     if (weight?.target) notes.push(`Objetivo elegido: ${formatReferenceNumber(weight.target.value)} kg · IMC ${weight.target.bmi}`);
+    if (classifications.current?.reason) notes.push(`Sin clasificación en esta consulta: ${classifications.current.reason}`);
+    if (classifications.isHistorical && classifiedPoint) notes.push(`${classifications.historicalLabel} · ${formatPatientDate(classifiedPoint.consultation_date)} · ${classifiedPoint.display_value} ${classifiedPoint.unit ?? ""}`);
     if (classification) notes.push(`${classification.origin}: ${classification.label} · ${classification.source}`);
-    else if (bodyFat?.reason) notes.push(`Sin categoría: ${bodyFat.reason}`);
     const noteLines = notes.flatMap((note) => lines(note, width - 12, 7));
     const bandHeight = classification?.bands.length ? 11 : 0;
     const weightBarHeight = weight && (weight.recorded || weight.interval || weight.target) ? 11 : 0;
@@ -171,11 +173,11 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
     });
     text(`${points.length} registros · Método y unidades conservados`, margin + 6, cursor + height - 3.5, 6.5, false, muted);
     cursor += height + 6;
-    const classifiedHistory = points.flatMap((point) => {
-      const saved = pointClassification(item, point, history.series, references);
-      return saved ? [`${shortDate(point.consultation_date)} · ${point.display_value} ${point.unit ?? ""} · ${saved.label} · ${saved.source}`] : [];
+    const classifiedHistory = classifications.history.flatMap(({ point, classification: saved, reason }) => {
+      const detail = saved ? `${saved.label} · ${saved.source}` : reason ? `Sin clasificación: ${reason}` : null;
+      return detail ? [`${shortDate(point.consultation_date)} · ${point.display_value} ${point.unit ?? ""} · ${detail}`] : [];
     });
-    if (classifiedHistory.length > 1) {
+    if (points.length > 1 && classifiedHistory.length > 0) {
       ensureSpace(15); flowText(`Historial de referencias · ${item.label}`, 7, ink, true);
       for (const entry of classifiedHistory) flowText(entry, 6.5);
       cursor += 4;

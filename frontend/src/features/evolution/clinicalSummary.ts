@@ -33,4 +33,17 @@ export function pointClassification(item: LongitudinalSeries, point: Longitudina
   return classified ? { ...classified, origin: "Comparación orientativa del informe" } : null;
 }
 
+/** A missing classification at the latest visit must not erase a recorded one. */
+export function classificationSummary(item: LongitudinalSeries, allSeries: LongitudinalSeries[], options: ProgressReferenceOptions = emptyProgressReferences) {
+  const history = item.points.map((point) => {
+    const classification = pointClassification(item, point, allSeries, options);
+    const reason = classification ? null : reportBodyFatInterpretation(item, point, allSeries, options)?.reason || point.interpretation?.reason || null;
+    return { point, classification, reason };
+  });
+  const current = history.at(-1);
+  const displayed = history.filter((entry) => entry.classification !== null).at(-1);
+  const historicalLabel = displayed?.classification?.origin === "Comparación orientativa del informe" ? "Última comparación orientativa" : "Última clasificación registrada";
+  return { history, current, displayed, historicalLabel, isHistorical: Boolean(displayed && displayed !== current) };
+}
+
 export const classificationColors = ["#c5d5ed", "#b8ded0", "#f2d39b", "#edbea8", "#dfa7ad", "#c58eaa", "#aa91b0"];

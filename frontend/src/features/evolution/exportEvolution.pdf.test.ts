@@ -35,6 +35,11 @@ vi.mock("jspdf", () => ({
 }));
 
 import { downloadEvolutionPdf } from "./exportEvolution";
+import { interpretResult } from "@/src/features/interpretations/engine";
+import references from "@/src/features/interpretations/references.json";
+import type { InterpretationReference } from "@/src/features/interpretations/types";
+import type { LongitudinalSeries } from "./longitudinal";
+import { historicalClassification } from "./clinicalSummary";
 const NativeURL = URL;
 
 describe("evolution PDF export", () => {
@@ -122,5 +127,34 @@ describe("evolution PDF export", () => {
     await downloadEvolutionPdf("missing.pdf", { full_name: "Ana", birth_date: null } as never, { consultations: [], series: [] }, { seriesIds: [] }, { fullName: "Profesional" });
     const rendered = mocks.text.mock.calls.flatMap(([value]) => Array.isArray(value) ? value : [value]).join("\n");
     expect(rendered).toContain("Edad al emitir: Sin registrar · Nacimiento: Sin registrar");
+  });
+
+  it.each([null, false])("preserves BMI classification history and uses the matching visit for the scale (pregnant=%s)", async (pregnant) => {
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    const bmi: LongitudinalSeries = {
+      id: "bmi", label: "IMC", concept: "IMC", conceptCode: "bmi", category: "calculations", unit: "kg/m²", sourceType: "calculation", method: "IMC", provenance: null, graphable: true,
+      points: [36.8, 33.9].map((value, index) => ({
+        consultation_id: String(index), consultation_date: `2026-09-${index ? "15" : "01"}T12:00:00Z`, raw_value: value, display_value: String(value), unit: "kg/m²", source_reference: {},
+        interpretation: interpretResult("bmi", value, "kg/m²", { age: 30, pregnant: index ? pregnant : false }, references as InterpretationReference[], String(index)),
+      })),
+    };
+    await downloadEvolutionPdf("bmi.pdf", { full_name: "Demostración" } as never, { consultations: [], series: [bmi] }, { seriesIds: ["bmi"] }, { fullName: "Profesional" });
+    const rendered = mocks.text.mock.calls.flatMap(([value]) => Array.isArray(value) ? value : [value]).join("\n");
+    expect(rendered).toContain("33.9 kg/m²");
+    expect(rendered).toContain("Historial de referencias · IMC");
+    expect(rendered).toMatch(/01 sept? 26 · 36.8 kg\/m² · Obesidad grado II/);
+    const displayedPoint = bmi.points[pregnant === null ? 0 : 1];
+    const scale = historicalClassification(displayedPoint)!;
+    const markerX = 22 + 166 * scale.marker / 100;
+    expect(mocks.line.mock.calls.some(([x1, y1, x2, y2]) => x1 === markerX && x2 === markerX && y2 - y1 === 5)).toBe(true);
+    if (pregnant === null) {
+      expect(rendered).toContain("Sin clasificación en esta consulta: Falta: situación de gestación.");
+      expect(rendered).toMatch(/Última clasificación registrada · 1 sept? 2026 · 36.8 kg\/m²/);
+      expect(rendered).toMatch(/15 sept? 26 · 33.9 kg\/m² · Sin clasificación/);
+    } else {
+      expect(rendered).toContain("Clasificación registrada: Obesidad grado I");
+      expect(rendered).not.toContain("Última clasificación registrada");
+      expect(rendered).not.toContain("Sin clasificación");
+    }
   });
 });
