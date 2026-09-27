@@ -10,8 +10,10 @@ export default function ApplicationRoute() {
 export async function generateMetadata({ params }: { params: Promise<{ path?: string[] }> }): Promise<Metadata> {
   const { path = [] } = await params;
   const pathname = '/' + path.map(encodeURIComponent).join('/');
-  const isPublic = ['/', '/terms', '/privacy', '/refunds'].includes(pathname);
+  const publicTitles: Record<string, string> = { '/terms': 'Términos de uso | Nuthrick', '/privacy': 'Aviso de privacidad | Nuthrick', '/refunds': 'Política de reembolsos | Nuthrick' };
+  const isPublic = pathname in publicTitles;
   return {
+    ...(isPublic ? { title: publicTitles[pathname] } : {}),
     alternates: { canonical: publicUrl(pathname) },
     openGraph: { ...productMetadata.openGraph, url: publicUrl(pathname) },
     ...(isPublic ? {} : { robots: { index: false, follow: false } }),

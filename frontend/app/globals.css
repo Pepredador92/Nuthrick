@@ -81,3 +81,8 @@ button:disabled { cursor: not-allowed; opacity: .72; }
   .nuth-public-card { min-width: 0; max-width: 100%; overflow-wrap: anywhere; border: 1px solid #dfe5e1; border-radius: 1.65rem; background: white; padding: clamp(1.4rem, 4vw, 2rem); box-shadow: 0 8px 24px rgb(24 61 53 / 4%); }
   .nuth-public-card :where(p, h1, h2, h3, li, a, span) { overflow-wrap: anywhere; }
 }
+
+/* Landing-only navigation offsets and readable mockups on small screens. */
+.landing section[id] { scroll-margin-top: 6rem; }
+.landing :where(a, button):focus-visible { outline: 3px solid #b87432; outline-offset: 4px; }
+.landing figure { margin-inline: 0; }

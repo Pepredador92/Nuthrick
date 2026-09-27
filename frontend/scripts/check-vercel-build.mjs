@@ -48,6 +48,15 @@ if (process.env.VERCEL === "1" || process.env.NITRO_PRESET === "vercel") {
         `SSR error shell rendered for ${path}`,
       );
       assert.ok(html.includes("<html"), `HTML document missing for ${path}`);
+      if (path === '/') {
+        assert.equal((html.match(/<h1\b/g) || []).length, 1, 'Exactly one server-rendered H1');
+        assert.ok(html.includes('Software para nutriólogos.'), 'Positioning must be in initial HTML');
+        assert.ok(html.includes('Nuthrick nació desde un nutriólogo de verdad.'), 'Creator must be in initial HTML');
+        assert.ok(html.includes('application/ld+json'), 'Structured data missing');
+        assert.ok(!/<meta[^>]*name="robots"[^>]*content="[^"]*noindex/.test(html), 'Landing must be indexable');
+      } else if (path !== '/planes') {
+        assert.ok(/<meta[^>]*name="robots"[^>]*content="[^"]*noindex/.test(html), `Private route missing noindex: ${path}`);
+      }
       console.log(`[SSR smoke, isolated] ${path}: OK`);
     }
     const canonical = siteOrigin(process.env.NEXT_PUBLIC_SITE_URL || PUBLIC_SITE_ORIGIN);
