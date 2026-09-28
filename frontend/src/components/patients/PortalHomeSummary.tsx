@@ -3,6 +3,7 @@ import { ArrowRight, CalendarDays, ClipboardList, MessageCircle, Target, Utensil
 import { formatFoodQuantity } from "@/src/features/menu/units";
 import { portalAction, type PortalAccess, type PortalPlan, type PortalView } from "@/src/services/patientPortal";
 import { portalProgress } from "@/src/features/patients/portalProgress";
+import { isPortalSomatochart, portalSomatochart } from "@/src/features/patients/portalSomatochart";
 import { PortalResultCard } from "./PortalResultCard";
 
 const dayNames: Record<string, string> = {
@@ -55,7 +56,7 @@ export function PortalHomeSummary({
     return plan.days.find((day) => day.name === name) || plan.days[0];
   }, [plan]);
   const results = view.shared.results;
-  const featured = results.find((result) => portalProgress(result).numeric.length > 0) ?? results[0];
+  const featured = results.find((result) => isPortalSomatochart(result) ? portalSomatochart(result).valid.length > 0 : portalProgress(result).numeric.length > 0) ?? results[0];
 
   return (
     <div className="portal-home space-y-4">

@@ -13,6 +13,7 @@ import { getPatient } from "@/src/services/patients";
 import { loadLongitudinalHistory } from "@/src/services/longitudinalHistory";
 import type { LongitudinalHistory } from "@/src/features/evolution/longitudinal";
 import { consultationLabel } from "@/src/features/patients/patientUtils";
+import { isPortalSomatochart, sharedSomatoValue } from "@/src/features/patients/portalSomatochart";
 import {
   portalAction,
   portalLink,
@@ -118,7 +119,7 @@ function OwnerPortal({ patientId }: { patientId: string }) {
           .map((p) => ({
             consultationId: p.consultation_id,
             date: p.consultation_date,
-            value: p.display_value,
+            value: s.visualization === "somatochart" ? sharedSomatoValue(p.coordinates, p.display_value) : p.display_value,
           })),
       }))
       .filter((s) => s.points.length);
@@ -460,6 +461,7 @@ function OwnerPortal({ patientId }: { patientId: string }) {
                           <span className="mt-1 block text-xs text-[#74817d]">
                             {r.points.length} consultas · {r.unit}
                           </span>
+                          {isPortalSomatochart(r) && <span className="mt-2 block text-xs font-medium text-[#315e4f]">Muestra la somatocarta con los puntos de cada consulta.</span>}
                         </span>
                       </label>
                     ))}

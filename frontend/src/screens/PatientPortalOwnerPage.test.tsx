@@ -118,3 +118,28 @@ it.each([0, 1, 2])("guides sharing with %s pending consultations and a direct hi
   fireEvent.click(historyLink);
   expect(await screen.findByText("Historial de consultas del paciente")).toBeVisible();
 });
+
+it("publishes both saved somatochart coordinates only after selecting the completed result", async () => {
+  vi.mocked(loadLongitudinalHistory).mockResolvedValueOnce({
+    consultations: [
+      { id: "closed", status: "completed", consultation_type: "initial", consultation_date: "2026-09-10" },
+      { id: "draft", status: "draft", consultation_date: "2026-09-15" },
+      { id: "deleted", status: "completed", deleted_at: "2026-09-16", consultation_date: "2026-09-15" },
+    ],
+    series: [{ id: "calculation:somatochart_coordinates:somatochart_coordinates:Heath-Carter:2:coordenadas", label: "Coordenadas de somatocarta", category: "calculations", visualization: "somatochart", unit: "coordenadas", method: "Heath-Carter", points: [
+      { consultation_id: "closed", consultation_date: "2026-09-10", display_value: "-1.2", coordinates: { x: -1.23456789, y: 3.456789 } },
+      { consultation_id: "draft", consultation_date: "2026-09-15", display_value: "PRIVATE DRAFT", coordinates: { x: 99, y: 99 } },
+      { consultation_id: "deleted", consultation_date: "2026-09-15", display_value: "DELETED", coordinates: { x: 98, y: 98 } },
+    ] }],
+  } as never);
+  render(<MemoryRouter initialEntries={["/app/patients/p1/portal"]}><Routes><Route path="/app/patients/:patientId/portal" element={<PatientPortalOwnerPage />} /></Routes></MemoryRouter>);
+  const checkbox = await screen.findByRole("checkbox", { name: /Coordenadas de somatocarta/ });
+  expect(checkbox).not.toBeChecked();
+  expect(screen.getByText("Muestra la somatocarta con los puntos de cada consulta.")).toBeVisible();
+  fireEvent.click(checkbox);
+  expect(vi.mocked(portalAction).mock.calls.some((call) => call[1] === "publish")).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Revisar antes de publicar" }));
+  expect(screen.getByRole("img", { name: "Somatocarta de evolución Heath-Carter" })).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Publicar para el paciente" }));
+  await waitFor(() => expect(portalAction).toHaveBeenCalledWith({ patientId: "p1" }, "publish", expect.objectContaining({ shared: expect.objectContaining({ results: [expect.objectContaining({ points: [{ consultationId: "closed", date: "2026-09-10", value: "X: -1.23456789 · Y: 3.456789" }] })] }) })));
+});

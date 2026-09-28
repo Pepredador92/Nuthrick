@@ -2,15 +2,23 @@ import { useId, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import type { SharedResult } from "@/src/services/patientPortal";
 import { portalChart, portalDate, portalProgress } from "@/src/features/patients/portalProgress";
+import { isPortalSomatochart } from "@/src/features/patients/portalSomatochart";
+import { PortalSomatochartCard } from "./PortalSomatochartCard";
 import "./PortalResultCard.css";
 
 const numberLabel = (value: number) => value.toLocaleString("es-MX", { maximumFractionDigits: 6 });
 
-export function PortalResultCard({ result, compact = false, showMethod = false }: {
+type ResultCardProps = {
   result: SharedResult;
   compact?: boolean;
   showMethod?: boolean;
-}) {
+};
+
+export function PortalResultCard(props: ResultCardProps) {
+  return isPortalSomatochart(props.result) ? <PortalSomatochartCard {...props} /> : <PortalNumericResultCard {...props} />;
+}
+
+function PortalNumericResultCard({ result, compact = false, showMethod = false }: ResultCardProps) {
   const id = useId();
   const progress = portalProgress(result);
   const chart = portalChart(progress);

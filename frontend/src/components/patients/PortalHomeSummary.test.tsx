@@ -48,4 +48,13 @@ describe("PortalHomeSummary", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ver todas mis gráficas" }));
     expect(onOpenTab).toHaveBeenCalledWith("results");
   });
+  it("features a published somatochart in the patient guide", async () => {
+    render(<PortalHomeSummary access={{ session: "session" }} view={{
+      patientName: "Paciente", professional: { name: "Profesional", title: null }, revision: 1, publishedAt: null, unread: 0,
+      shared: { goal: "", instructions: "", consultations: [], results: [{ id: "calculation:somatochart_coordinates:somatochart_coordinates:Heath-Carter:2:coordenadas", label: "Coordenadas de somatocarta", unit: "coordenadas", method: "Heath-Carter", points: [{ consultationId: "c1", date: "2026-09-20", value: "X: -1.2 · Y: 3.4" }] }] },
+    }} onOpenTab={vi.fn()} />);
+    expect(await screen.findByText("Avena con fruta")).toBeVisible();
+    expect(screen.getByRole("img", { name: "Somatocarta de evolución Heath-Carter" })).toBeVisible();
+    expect(screen.queryByText("Método: Heath-Carter")).not.toBeInTheDocument();
+  });
 });

@@ -22,6 +22,7 @@ const shared = {
       method: "Medición",
       points: [{ consultationId: "c1", date: "2026-09-10", value: "70" }],
     },
+    { id: "calculation:somatochart_coordinates:somatochart_coordinates:Heath-Carter:2:coordenadas", label: "Coordenadas de somatocarta", unit: "coordenadas", method: "Heath-Carter", points: [{ consultationId: "c1", date: "2026-09-10", value: "X: -1.2 · Y: 3.4" }] },
   ],
   consultations: [
     {
@@ -132,6 +133,7 @@ describe("patient space", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Resultados" }));
     expect(screen.getByText("Peso")).toBeVisible();
     expect(screen.getByRole("img", { name: /Gráfica de evolución de Peso/ })).toBeVisible();
+    expect(screen.getByRole("img", { name: "Somatocarta de evolución Heath-Carter" })).toBeVisible();
     expect(screen.queryByText("Método: Medición")).not.toBeInTheDocument();
     expect(
       screen.queryByText("Publicar para el paciente"),
