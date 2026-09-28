@@ -1,9 +1,9 @@
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 import {fireEvent,render,screen,waitFor,within} from '@testing-library/react';
-import {MemoryRouter,Route,Routes} from 'react-router-dom';
+import {MemoryRouter,Route,Routes,useLocation} from 'react-router-dom';
 import {PatientDetailPage} from './PatientDetailPage';
 import {deleteConsultationRecord} from '@/src/services/consultations';
-import {updatePatient} from '@/src/services/patients';
+import {listConsultations,updatePatient} from '@/src/services/patients';
 import {EvolutionExportDialog} from '@/src/components/patients/EvolutionExportDialog';
 import {loadProfessionalDocumentProfile} from '@/src/services/profile';
 import {getSignedMediaUrl} from '@/src/services/media';
@@ -18,11 +18,12 @@ vi.mock('@/src/components/consultations/SnapshotHistory',()=>({SnapshotHistory:(
 vi.mock('@/src/services/consultations',()=>({deleteConsultationRecord:vi.fn(),getSnapshot:vi.fn(),listAnswers:vi.fn()}));
 vi.mock('@/src/services/patients',()=>({
  getPatient:async()=>({id:'patient',full_name:'Paciente de prueba',status:'active',birth_date:null,email:null,phone:null,gender:null,timezone:'America/Mexico_City'}),
- listConsultations:async()=>[{id:'completed',patient_id:'patient',professional_id:'owner',consultation_date:'2026-09-15T10:00:00Z',consultation_type:'initial',sequence_number:1,status:'completed',summary:null}],
+ listConsultations:vi.fn(async()=>[{id:'completed',patient_id:'patient',professional_id:'owner',consultation_date:'2026-09-15T10:00:00Z',consultation_type:'initial',sequence_number:1,status:'completed',summary:null}]),
  listPatientNotes:async()=>[],listNutritionPlans:async()=>[],listProgressPhotos:async()=>[],
  archivePatient:vi.fn(),createPatientNote:vi.fn(),deletePatientNote:vi.fn(),deletePatient:vi.fn(),registerProgressPhoto:vi.fn(),restorePatient:vi.fn(),updatePatient:vi.fn(),updatePatientNote:vi.fn(),
 }));
 beforeEach(()=>vi.clearAllMocks());
+function CurrentLocation() { const location=useLocation(); return <output aria-label="Ruta actual">{location.pathname}{location.search}</output>; }
 async function openDelete() {
  render(<MemoryRouter initialEntries={['/patients/patient']}><Routes><Route path="/patients/:patientId" element={<PatientDetailPage/>}/></Routes></MemoryRouter>);
  fireEvent.click(await screen.findByRole('button',{name:'Historial'}));
@@ -66,5 +67,39 @@ describe('progress report professional identity',()=>{
   else await expect(getInfo()).rejects.toThrow('No pudimos cargar el logo del nutriólogo');
   expect(loadProfessionalDocumentProfile).toHaveBeenCalledWith('owner');
   expect(getSignedMediaUrl).toHaveBeenCalledWith('owner/logo.png');
+ });
+});
+
+describe('consultation status and history navigation',()=>{
+ it('opens history from the Superlink URL and keeps other parameters when closed',async()=>{
+  render(<MemoryRouter initialEntries={['/app/patients/patient?view=history&from=portal']}><CurrentLocation/><Routes><Route path="/app/patients/:patientId" element={<PatientDetailPage/>}/></Routes></MemoryRouter>);
+  const history=within(await screen.findByRole('dialog',{name:'Historial del paciente'}));
+  expect(history.getByRole('button',{name:'Editar'})).toBeVisible();
+  expect(history.getByRole('link',{name:'Configurar gráficas en Superlink'})).toHaveAttribute('href','/app/patients/patient/portal');
+  fireEvent.click(history.getByRole('button',{name:'Cerrar historial'}));
+  expect(screen.queryByRole('dialog',{name:'Historial del paciente'})).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Ruta actual')).toHaveTextContent('/app/patients/patient?from=portal');
+  fireEvent.click(screen.getByRole('button',{name:'Historial'}));
+  expect(screen.getByRole('dialog',{name:'Historial del paciente'})).toBeVisible();
+ });
+ it('distinguishes pending, closed and cancelled consultations in desktop and mobile history',async()=>{
+  vi.mocked(listConsultations).mockResolvedValueOnce(['draft','completed','cancelled'].map((status,index)=>({id:status,patient_id:'patient',professional_id:'owner',consultation_date:'2026-09-15T12:00:00Z',consultation_type:'follow_up',sequence_number:index+1,status,summary:null})) as never);
+  render(<MemoryRouter initialEntries={['/app/patients/patient?view=history']}><Routes><Route path="/app/patients/:patientId" element={<PatientDetailPage/>}/><Route path="/app/patients/:patientId/consultations/:id" element={<p>Editor de consulta</p>}/></Routes></MemoryRouter>);
+  const history=within(await screen.findByRole('dialog',{name:'Historial del paciente'}));
+  const overview=()=>within(history.getByRole('button',{name:'Editar'}).closest('article')!);
+  expect(overview().getByText('Pendiente de cerrar')).toHaveClass('bg-amber-50');
+  expect(overview().getByText(/entra en Editar y usa Revisar cierre de consulta/)).toBeVisible();
+  expect(history.getByRole('option',{name:/Pendiente de cerrar/})).toBeInTheDocument();
+  expect(history.getByRole('option',{name:/Consulta cerrada/})).toBeInTheDocument();
+  expect(history.getByRole('option',{name:/Consulta cancelada/})).toBeInTheDocument();
+  fireEvent.click(history.getByRole('button',{name:/Seguimiento.*Consulta cerrada/}));
+  expect(overview().getByText('Consulta cerrada')).toHaveClass('bg-emerald-50');
+  expect(overview().getByText(/selecciona los resultados en Superlink y pulsa Publicar/)).toBeVisible();
+  fireEvent.change(history.getByLabelText('Seleccionar consulta'),{target:{value:'cancelled'}});
+  expect(overview().getByText('Consulta cancelada')).toHaveClass('bg-slate-100');
+  expect(overview().queryByText('Pendiente de cerrar')).not.toBeInTheDocument();
+  fireEvent.change(history.getByLabelText('Seleccionar consulta'),{target:{value:'draft'}});
+  fireEvent.click(history.getByRole('button',{name:'Editar'}));
+  expect(await screen.findByText('Editor de consulta')).toBeVisible();
  });
 });

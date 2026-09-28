@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   CalendarPlus,
   Check,
+  Clock3,
   Edit3,
   FileDown,
   FileText,
@@ -17,7 +18,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Field, Input, Textarea } from "@/src/components/ui/FormField";
 import {
   EmptyState,
@@ -84,6 +85,17 @@ import type {
 type HistoryTab = "timeline" | "consultations" | "plans" | "notes";
 type ConfirmAction =
   "archive" | "delete" | "note-delete" | "consultation-delete";
+
+const consultationStates = {
+  draft: { label: "Pendiente de cerrar", color: "border-amber-200 bg-amber-50 text-amber-900", Icon: Clock3 },
+  completed: { label: "Consulta cerrada", color: "border-emerald-200 bg-emerald-50 text-emerald-800", Icon: Check },
+  cancelled: { label: "Consulta cancelada", color: "border-slate-200 bg-slate-100 text-slate-700", Icon: X },
+} as const;
+
+function ConsultationStatus({ status }: { status: Consultation["status"] }) {
+  const { label, color, Icon } = consultationStates[status];
+  return <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold ${color}`}><Icon size={14} aria-hidden="true" />{label}</span>;
+}
 
 const countries = [
   ["+52", "México (+52)"],
@@ -361,15 +373,21 @@ function ConsultationHistoryOverview({
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-[#82908a]">{consultationLabel(consultation)}</p>
           <h3 className="mt-2 text-2xl font-semibold">{formatPatientDate(consultation.consultation_date)}</h3>
-          <p className="mt-2 text-sm text-[#74817d]">Consulta {consultation.status === "completed" ? "finalizada" : "en borrador"}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <ConsultationStatus status={consultation.status} />
           <button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => onEdit(consultation)}><Edit3 size={14} />Editar</button>
           <button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => onExport(consultation)}><FileText size={14} />Exportar .txt</button>
           <button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => onExportPdf(consultation)}><FileText size={14} />Exportar PDF</button>
           <button type="button" className="rounded-xl px-3 py-2 text-xs font-semibold text-[#9b493a] hover:bg-[#fbe9e5]" onClick={() => onDelete(consultation)}><Trash2 size={14} />Eliminar</button>
         </div>
       </div>
+      {consultation.status !== "cancelled" && <div className="mt-5 border-t border-[#e3eae4] pt-4 text-sm leading-6 text-[#60726a]">
+        <p>{consultation.status === "draft"
+          ? "Para compartir sus mediciones, entra en Editar y usa Revisar cierre de consulta. Después selecciona los resultados en Superlink y publícalos para el paciente."
+          : "Esta consulta ya está cerrada. Para que el paciente vea sus gráficas, selecciona los resultados en Superlink y pulsa Publicar para el paciente."}</p>
+        <Link className="mt-3 inline-flex items-center gap-2 font-semibold text-[#315e4f]" to={`/app/patients/${consultation.patient_id}/portal`}><Link2 size={15} aria-hidden="true" />Configurar gráficas en Superlink</Link>
+      </div>}
     </article>
   );
 }
@@ -496,6 +514,7 @@ function HistoryModal({
                       <option key={item.id} value={item.id}>
                         {consultationLabel(item)} ·{" "}
                         {formatPatientDate(item.consultation_date)}
+                        {" · "}{consultationStates[item.status].label}
                       </option>
                     ))}
                   </select>
@@ -517,6 +536,7 @@ function HistoryModal({
                       <span className="mt-1 block text-xs text-[#74817d]">
                         {formatPatientDate(item.consultation_date)}
                       </span>
+                      <span className="mt-2 block"><ConsultationStatus status={item.status} /></span>
                     </button>
                   ))}
                   {!consultations.length && (
@@ -743,6 +763,7 @@ function RecentConsultations({
 export function PatientDetailPage() {
   const { patientId } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
@@ -752,7 +773,12 @@ export function PatientDetailPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [editing, setEditing] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const historyOpen = searchParams.get("view") === "history";
+  const setHistoryOpen = (open: boolean) => setSearchParams((current) => {
+    const next = new URLSearchParams(current);
+    if (open) next.set("view", "history"); else next.delete("view");
+    return next;
+  }, { replace: !open });
   const [evolutionOpen, setEvolutionOpen] = useState(false);
   const [referenceState, setReferenceState] = useState({ patientId, value: emptyProgressReferences });
   const progressReferences = referenceState.patientId === patientId ? referenceState.value : emptyProgressReferences;

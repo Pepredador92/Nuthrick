@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Copy,
   Eye,
+  History,
   Link2,
   MessageCircle,
   ShieldCheck,
@@ -92,6 +93,7 @@ function OwnerPortal({ patientId }: { patientId: string }) {
         .slice(0, 100),
     [history],
   );
+  const pendingConsultations = (history?.consultations || []).filter((c) => c.status === "draft" && !c.deleted_at).length;
   const resultOptions = useMemo(() => {
     const valid = new Set(consultations.map((c) => c.id));
     const options = (history?.series || [])
@@ -409,6 +411,13 @@ function OwnerPortal({ patientId }: { patientId: string }) {
               Solo datos de consultas finalizadas. Cada método se conserva por
               separado.
             </p>
+            <div className="mt-4 rounded-xl border border-[#dfe7e1] bg-[#f8faf7] p-4">
+              <p className="text-sm leading-6 text-[#52685d]">Para mostrar gráficas en el Superlink: cierra la consulta, selecciona aquí los resultados y pulsa Revisar antes de publicar. En la vista previa, confirma con Publicar para el paciente.</p>
+              {pendingConsultations > 0 && <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                {pendingConsultations === 1 ? "Tienes 1 consulta pendiente de cerrar. Sus mediciones aún no están disponibles para compartir." : `Tienes ${pendingConsultations} consultas pendientes de cerrar. Sus mediciones aún no están disponibles para compartir.`}
+              </p>}
+              <Link className="nuth-button-secondary mt-3 justify-center !text-sm" to={`/app/patients/${patientId}?view=history`}><History size={16} aria-hidden="true" />Ir al historial de consultas</Link>
+            </div>
             {!resultOptions.length && (
               <p className="mt-4 text-sm">
                 No hay resultados de consultas finalizadas para compartir.
