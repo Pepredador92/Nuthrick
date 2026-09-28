@@ -119,6 +119,22 @@ it.each([0, 1, 2])("guides sharing with %s pending consultations and a direct hi
   expect(await screen.findByText("Historial de consultas del paciente")).toBeVisible();
 });
 
+it("publishes the safe weight presentation used by the portal progress card", async () => {
+  vi.mocked(loadLongitudinalHistory).mockResolvedValueOnce({
+    consultations: [{ id: "c1", status: "completed", consultation_type: "initial", consultation_date: "2026-09-10" }],
+    series: [
+      { id: "weight", label: "Peso", conceptCode: "weight", category: "measurements", unit: "kg", points: [{ consultation_id: "c1", consultation_date: "2026-09-10", raw_value: 92.2, display_value: "92.2", interpretation: { context: { age: 30, pregnant: false } } }] },
+      { id: "height", label: "Talla", conceptCode: "height", category: "measurements", unit: "cm", points: [{ consultation_id: "c1", consultation_date: "2026-09-10", raw_value: 165, display_value: "165" }] },
+    ],
+  } as never);
+  render(<MemoryRouter initialEntries={["/app/patients/p1/portal"]}><Routes><Route path="/app/patients/:patientId/portal" element={<PatientPortalOwnerPage />} /></Routes></MemoryRouter>);
+  await screen.findByText("Su guía nutricional");
+  fireEvent.click(screen.getByRole("checkbox", { name: /Peso/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Vista del paciente" }));
+  expect(await screen.findByText(/Intervalo por IMC adulto/)).toBeVisible();
+  expect(screen.queryByText(/Edad|pregnant|context/)).not.toBeInTheDocument();
+});
+
 it("publishes both saved somatochart coordinates only after selecting the completed result", async () => {
   vi.mocked(loadLongitudinalHistory).mockResolvedValueOnce({
     consultations: [

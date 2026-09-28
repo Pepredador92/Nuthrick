@@ -3,6 +3,7 @@ import type { PortalContent } from "@/src/services/patientPortal";
 
 import { portalDate } from "@/src/features/patients/portalProgress";
 import { PortalResultCard } from "./PortalResultCard";
+import { PortalClinicalProgressSummary } from "./PortalProgressSummary";
 export { portalDate } from "@/src/features/patients/portalProgress";
 
 export function PortalContentView({
@@ -14,6 +15,8 @@ export function PortalContentView({
   section?: "all" | "today" | "results" | "history";
   showMethod?: boolean;
 }) {
+  const progressResults = content.results.filter((result) => result.conceptCode === "weight" || result.conceptCode === "bmi");
+  const otherResults = content.results.filter((result) => result.conceptCode !== "weight" && result.conceptCode !== "bmi");
   return (
     <div className="space-y-5">
       {(section === "all" || section === "today") && (
@@ -53,9 +56,10 @@ export function PortalContentView({
             </p>
           )}
           {content.results.length > 0 && <p className="mb-5 text-sm leading-6 text-[#61776c]">Cada consulta cuenta una parte de tu historia. Explora tus registros y comparte tus dudas con tu nutriólogo.</p>}
-          <div className="grid gap-4 md:grid-cols-2">
-            {content.results.map((result, i) => <PortalResultCard key={`${result.id}-${i}`} result={result} showMethod={showMethod} />)}
-          </div>
+          {progressResults.length > 0 && <div className="mb-5"><PortalClinicalProgressSummary results={progressResults} showSource={showMethod} /></div>}
+          {otherResults.length > 0 && <div className="grid gap-4 md:grid-cols-2">
+            {otherResults.map((result, i) => <PortalResultCard key={`${result.id}-${i}`} result={result} showMethod={showMethod} />)}
+          </div>}
         </section>
       )}
       {(section === "all" || section === "history") && (

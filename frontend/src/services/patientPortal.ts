@@ -5,6 +5,12 @@ import type {
   SharedResult,
 } from "../../../supabase/functions/agenda/portal-content";
 export type { PortalContent, SharedResult };
+export type {
+  SharedClassification,
+  SharedClassificationRule,
+  SharedResultPresentation,
+  SharedWeightReference,
+} from "../../../supabase/functions/agenda/portal-content";
 export type { PortalPlan } from "../../../supabase/functions/agenda/portal-plan";
 export type PortalAccess = { patientId: string } | { session: string };
 export type PortalView = {

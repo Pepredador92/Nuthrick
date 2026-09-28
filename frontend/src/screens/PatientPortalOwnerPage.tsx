@@ -12,6 +12,9 @@ import {
 import { getPatient } from "@/src/services/patients";
 import { loadLongitudinalHistory } from "@/src/services/longitudinalHistory";
 import type { LongitudinalHistory } from "@/src/features/evolution/longitudinal";
+import { numericPoints } from "@/src/features/evolution/exportEvolution";
+import { classificationSummary } from "@/src/features/evolution/clinicalSummary";
+import { emptyProgressReferences, weightReference } from "@/src/features/evolution/progressReferences";
 import { consultationLabel } from "@/src/features/patients/patientUtils";
 import { isPortalSomatochart, sharedSomatoValue } from "@/src/features/patients/portalSomatochart";
 import {
@@ -38,6 +41,37 @@ const empty: PortalContent = {
   results: [],
   consultations: [],
 };
+
+function portalProgressPresentation(series: LongitudinalHistory["series"][number], history: LongitudinalHistory) {
+  if (series.conceptCode !== "weight" && series.conceptCode !== "bmi") return undefined;
+  const summary = classificationSummary(series, history.series, emptyProgressReferences);
+  const displayed = summary.displayed?.classification;
+  const displayedPoint = summary.displayed?.point;
+  const classification = displayed && displayedPoint ? {
+    label: displayed.label,
+    origin: displayed.origin,
+    source: displayed.source,
+    consultationId: displayedPoint.consultation_id,
+    marker: displayed.marker,
+    low: displayed.low,
+    high: displayed.high,
+    rules: displayed.rules.map((rule) => ({ id: rule.id, label: rule.label, lower: rule.lower, upper: rule.upper })),
+  } : undefined;
+  const latest = numericPoints(series).at(-1);
+  const reference = series.conceptCode === "weight" && latest ? weightReference(latest, history.series, emptyProgressReferences) : null;
+  const weightReferenceData = reference && (reference.recorded || reference.interval || reference.target) ? {
+    ...(reference.recorded ? { recorded: reference.recorded } : {}),
+    ...(reference.interval ? { interval: reference.interval } : {}),
+    ...(reference.target ? { target: reference.target } : {}),
+  } : undefined;
+  if (!classification && !summary.current?.reason && !weightReferenceData) return undefined;
+  return {
+    ...(classification ? { classification } : {}),
+    ...(summary.current?.reason ? { currentReason: summary.current.reason } : {}),
+    ...(weightReferenceData ? { weightReference: weightReferenceData } : {}),
+  };
+}
+
 export function PatientPortalOwnerPage() {
   const { patientId = "" } = useParams();
   return <OwnerPortal key={patientId} patientId={patientId} />;
@@ -98,30 +132,38 @@ function OwnerPortal({ patientId }: { patientId: string }) {
   const resultOptions = useMemo(() => {
     const valid = new Set(consultations.map((c) => c.id));
     const options = (history?.series || [])
-      .map((s) => ({
-        id: s.id,
-        label: s.label,
-        unit: s.unit || "",
-        method: [s.method, s.provenance]
-          .filter(Boolean)
-          .join(" · ")
-          .slice(0, 300),
-        category:
-          s.catalogCategory ||
-          {
-            measurements: "Mediciones",
-            calculations: "Datos calculados",
-            bioimpedance: "Bioimpedancia",
-            laboratories: "Laboratorios",
-          }[s.category],
-        points: s.points
-          .filter((p) => valid.has(p.consultation_id))
-          .map((p) => ({
-            consultationId: p.consultation_id,
-            date: p.consultation_date,
-            value: s.visualization === "somatochart" ? sharedSomatoValue(p.coordinates, p.display_value) : p.display_value,
-          })),
-      }))
+      .map((s) => {
+        const presentation = history ? portalProgressPresentation(s, history) : undefined;
+        const classifications = history ? new Map(classificationSummary(s, history.series, emptyProgressReferences).history.map(({ point, classification }) => [point.consultation_id, classification?.label])) : new Map<string, string | undefined>();
+        return {
+          id: s.id,
+          label: s.label,
+          unit: s.unit || "",
+          conceptCode: s.conceptCode,
+          visualization: s.visualization,
+          presentation,
+          method: [s.method, s.provenance]
+            .filter(Boolean)
+            .join(" · ")
+            .slice(0, 300),
+          category:
+            s.catalogCategory ||
+            {
+              measurements: "Mediciones",
+              calculations: "Datos calculados",
+              bioimpedance: "Bioimpedancia",
+              laboratories: "Laboratorios",
+            }[s.category],
+          points: s.points
+            .filter((p) => valid.has(p.consultation_id))
+            .map((p) => ({
+              consultationId: p.consultation_id,
+              date: p.consultation_date,
+              value: s.visualization === "somatochart" ? sharedSomatoValue(p.coordinates, p.display_value) : p.display_value,
+              ...(classifications.get(p.consultation_id) ? { classificationLabel: classifications.get(p.consultation_id) } : {}),
+            })),
+        };
+      })
       .filter((s) => s.points.length);
     const current = new Set(options.map((s) => s.id));
     return [
@@ -136,11 +178,14 @@ function OwnerPortal({ patientId }: { patientId: string }) {
       ...draft,
       results: resultOptions
         .filter((s) => selected.includes(s.id))
-        .map(({ id, label, unit, method, points }): SharedResult => ({
+        .map(({ id, label, unit, method, conceptCode, visualization, presentation, points }): SharedResult => ({
           id,
           label,
           unit,
           method,
+          ...(conceptCode ? { conceptCode } : {}),
+          ...(visualization ? { visualization } : {}),
+          ...(presentation ? { presentation } : {}),
           points,
         })),
     }),
