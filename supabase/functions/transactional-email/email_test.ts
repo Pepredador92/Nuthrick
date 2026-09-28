@@ -29,6 +29,40 @@ const envelope: Envelope = {
   first_attempt_at: new Date().toISOString(),
   attempts: 1,
 };
+Deno.test("renewal shows validated amount, local date and cancellation link without arbitrary metadata", () => {
+  const m = renderEmail({
+    ...envelope,
+    mode: "live",
+    controlled_test: false,
+    template_key: "renewal_upcoming",
+    details: {
+      ends_at: "2026-10-05T18:00:00Z",
+      amount_minor: 34900,
+      currency: "MXN",
+      ...{ patient_name: "PRIVATE_SECRET" },
+    },
+  });
+  assert(m.text.includes("349.00"));
+  assert(m.text.includes("octubre"));
+  assert(m.text.includes("cancelar"));
+  assert(m.text.includes(SITE + "/app/my-plan"));
+  assert(!m.text.includes("PRIVATE_SECRET"));
+  assert(!m.subject.includes("TEST"));
+  assertThrows(
+    () => renderEmail({ ...envelope, details: { ends_at: "invalid" } }),
+    EmailError,
+    "invalid_template",
+  );
+  assertThrows(
+    () =>
+      renderEmail({
+        ...envelope,
+        details: { amount_minor: -1, currency: "MXN" },
+      }),
+    EmailError,
+    "invalid_template",
+  );
+});
 Deno.test("all 15 templates render production links, Spanish, footer and TEST label without patient payload", () => {
   for (const template_key of TEMPLATE_KEYS) {
     const input = {
@@ -275,4 +309,47 @@ Deno.test("worker persists frozen message and completion, but refuses resend aft
     assert(actions.includes("complete"));
     if (!expired) assert(actions.includes("prepare"));
   }
+});
+Deno.test("authorized failures before claiming mail are recorded, untrusted requests cannot write monitoring", async () => {
+  const actions: string[] = [];
+  const deps = dependencies(async <T>(a: string) => {
+    actions.push(a);
+    return true as T;
+  });
+  deps.provider = () => {
+    throw new EmailError("email_sender_reauthorization_required");
+  };
+  const handler = createEmailHandler(deps);
+  const request = (token?: string) =>
+    new Request("https://server/transactional-email", {
+      method: "POST",
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+      body: '{"action":"worker"}',
+    });
+  assertEquals((await handler(request())).status, 401);
+  assert(!actions.includes("worker_failed"));
+  assertEquals((await handler(request("w".repeat(32)))).status, 409);
+  assert(actions.includes("worker_failed"));
+});
+Deno.test("failed renewal collection is monitored while queued mail still sends", async () => {
+  let claims = 0;
+  let completion: Record<string, unknown> | undefined;
+  const deps = dependencies(
+    async <T>(a: string, d?: Record<string, unknown>) => {
+      if (a === "claim") return (claims++ === 0 ? envelope : null) as T;
+      if (a === "prepare") return d?.message as T;
+      if (a === "worker_done") completion = d;
+      return {} as T;
+    },
+  );
+  deps.collect = () => Promise.reject(new Error("provider unavailable"));
+  const response = await createEmailHandler(deps)(
+    new Request("https://server/transactional-email", {
+      method: "POST",
+      headers: { authorization: "Bearer " + "w".repeat(32) },
+      body: '{"action":"worker"}',
+    }),
+  );
+  assertEquals(response.status, 200);
+  assertEquals(completion, { accepted: 1, failed: 0, collection_failed: true });
 });

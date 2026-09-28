@@ -1,3 +1,4 @@
+import { StripeBillingProvider } from "../billing/stripe-provider.ts";
 import { createClient } from "@supabase/supabase-js";
 import { createEmailHandler } from "./handler.ts";
 import { GmailEmailProvider } from "./gmail-provider.ts";
@@ -10,7 +11,10 @@ const db = createClient(
 );
 
 type RpcData = Record<string, unknown>;
-async function rpc<T = RpcData>(action: string, data: RpcData = {}): Promise<T> {
+async function rpc<T = RpcData>(
+  action: string,
+  data: RpcData = {},
+): Promise<T> {
   const result = action === "authorize_worker"
     ? await db.rpc("transactional_email_worker_authorized", {
       p_token: data.token,
@@ -34,7 +38,11 @@ Deno.serve(createEmailHandler({
         email: string;
         encrypted_refresh_token: string;
       }>("gmail_credentials");
-      if (!credentials || credentials.email.trim().toLowerCase() !== settings.from_email.trim().toLowerCase()) {
+      if (
+        !credentials ||
+        credentials.email.trim().toLowerCase() !==
+          settings.from_email.trim().toLowerCase()
+      ) {
         throw new EmailError("email_sender_mismatch");
       }
       return new GmailEmailProvider({
@@ -46,6 +54,42 @@ Deno.serve(createEmailHandler({
       });
     }
     return new ResendEmailProvider(Deno.env.get("RESEND_API_KEY") ?? "");
+  },
+  collect: async () => {
+    const candidates = await rpc<
+      {
+        id: string;
+        provider_subscription_id: string;
+        provider_customer_id: string;
+        period_end: string;
+        mode: "test" | "live";
+      }[]
+    >("renewal_candidates");
+    const providers = new Map<string, StripeBillingProvider>();
+    for (const item of candidates) {
+      let provider = providers.get(item.mode);
+      if (!provider) {
+        const { data, error } = await db.rpc(
+          "billing_provider_credentials_for",
+          { p_environment: item.mode },
+        );
+        if (error || !data) throw new EmailError("billing_not_configured");
+        provider = new StripeBillingProvider(
+          data.secret_key,
+          data.webhook_secret,
+          undefined,
+          { mode: item.mode },
+        );
+        await provider.verifyAccount(data.account_id);
+        providers.set(item.mode, provider);
+      }
+      const notice = await provider.getRenewalNotice(
+        item.provider_subscription_id,
+        item.provider_customer_id,
+        item.period_end,
+      );
+      await rpc("renewal_verified", { id: item.id, ...notice });
+    }
   },
   workerSecret: Deno.env.get("TRANSACTIONAL_EMAIL_WORKER_SECRET"),
   webhookSecret: Deno.env.get("RESEND_WEBHOOK_SECRET"),

@@ -228,6 +228,15 @@ export function createBillingHandler(deps: BillingDependencies) {
           ? await provider.getInvoice(event.invoice_id)
           : null;
         subscriptionId ??= invoice?.subscription_id ?? null;
+        if (
+          invoice &&
+          (event.type.startsWith("refund.") || event.type === "charge.refunded")
+        ) {
+          if (!provider.getInvoiceRefunds) {
+            throw new Error("refund_verification_unavailable");
+          }
+          invoice.refunds = await provider.getInvoiceRefunds(invoice.id);
+        }
         let checkoutState: string | undefined;
         if (event.checkout_id) {
           const checkout = await provider.getCheckout(event.checkout_id);

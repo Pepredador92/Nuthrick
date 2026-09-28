@@ -12,7 +12,10 @@ type Data = Record<string, unknown>;
 export type Dependencies = {
   rpc: <T = Data>(action: string, data?: Data) => Promise<T>;
   authenticate: (token: string) => Promise<string | null>;
-  provider: () => TransactionalEmailProvider | Promise<TransactionalEmailProvider>;
+  provider: () =>
+    | TransactionalEmailProvider
+    | Promise<TransactionalEmailProvider>;
+  collect?: () => Promise<void>;
   workerSecret?: string;
   webhookSecret?: string;
   now?: () => number;
@@ -82,6 +85,7 @@ export function createEmailHandler(deps: Dependencies) {
     if (req.method !== "POST") {
       return reply({ error: "method_not_allowed" }, 405);
     }
+    let authorized = false;
     try {
       const raw = await readBody(req);
       if (new URL(req.url).pathname.endsWith("/transactional-email/webhook")) {
@@ -145,8 +149,11 @@ export function createEmailHandler(deps: Dependencies) {
         !["worker", "verify"].includes(String(data.action))
       ) throw new EmailError("invalid_input");
       let worker = !!deps.workerSecret && deps.workerSecret.length >= 32 &&
-        token === deps.workerSecret && ["worker", "verify"].includes(String(data.action));
-      if (!worker && token && ["worker", "verify"].includes(String(data.action))) {
+        token === deps.workerSecret &&
+        ["worker", "verify"].includes(String(data.action));
+      if (
+        !worker && token && ["worker", "verify"].includes(String(data.action))
+      ) {
         try {
           worker = await deps.rpc<boolean>("authorize_worker", { token });
         } catch {
@@ -158,6 +165,7 @@ export function createEmailHandler(deps: Dependencies) {
         if (!actor) throw new EmailError("unauthorized");
         await deps.rpc("authorize_admin", { actor });
       }
+      authorized = true;
       const provider = await deps.provider();
       if (data.action === "verify") {
         const settings = await deps.rpc<
@@ -176,7 +184,18 @@ export function createEmailHandler(deps: Dependencies) {
           }),
         );
       }
-      const counts = { accepted: 0, failed: 0 };
+      // Collection failures must be visible without blocking already queued notices.
+      let collectionFailed = false;
+      try {
+        await deps.collect?.();
+      } catch {
+        collectionFailed = true;
+      }
+      const counts = {
+        accepted: 0,
+        failed: 0,
+        collection_failed: collectionFailed,
+      };
       for (let i = 0; i < 5; i++) {
         const lease = crypto.randomUUID();
         const item = await deps.rpc<Envelope | null>("claim", {
@@ -217,6 +236,11 @@ export function createEmailHandler(deps: Dependencies) {
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       const code = safeErrors.has(message) ? message : "email_unavailable";
+      if (authorized) {
+        try {
+          await deps.rpc("worker_failed", { code });
+        } catch { /* Structured Edge log remains the fallback. */ }
+      }
       console.error("transactional_email_error", {
         code,
         error_type: error instanceof Error ? error.name : "unknown",

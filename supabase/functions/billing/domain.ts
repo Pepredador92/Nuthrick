@@ -120,6 +120,7 @@ export type SubscriptionSnapshot = {
   livemode: boolean;
 };
 export type InvoiceSnapshot = {
+  refunds?: { id: string; amount: number; currency: string }[];
   id: string;
   subscription_id: string;
   customer_id: string;
@@ -157,6 +158,9 @@ export type CheckoutInput = {
   expiresAt: number;
 };
 export interface BillingProvider {
+  getInvoiceRefunds?(
+    invoiceId: string,
+  ): Promise<{ id: string; amount: number; currency: string }[]>;
   readonly name: string;
   readonly mode: BillingEnvironment;
   inspectConfiguration?(input: {

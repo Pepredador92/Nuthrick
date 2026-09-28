@@ -611,6 +611,81 @@ export class StripeBillingProvider implements BillingProvider {
   async getInvoice(invoiceId: string) {
     return this.readInvoice(await this.stripe.invoices.retrieve(invoiceId));
   }
+  async getInvoiceRefunds(invoiceId: string) {
+    const invoice = await this.stripe.invoices.retrieve(invoiceId);
+    this.assertObject(invoice);
+    const refunds = new Map<
+      string,
+      { id: string; amount: number; currency: string }
+    >();
+    for await (
+      const payment of this.stripe.invoicePayments.list({
+        invoice: invoiceId,
+        status: "paid",
+        limit: 100,
+      })
+    ) {
+      this.assertObject(payment);
+      if (
+        id(payment.invoice) !== invoiceId ||
+        payment.currency !== invoice.currency
+      ) throw new Error("invalid_payment_identity");
+      const intentId = id(payment.payment.payment_intent);
+      if (!intentId) continue;
+      const intent = await this.stripe.paymentIntents.retrieve(intentId);
+      this.assertObject(intent);
+      if (
+        id(intent.customer) !== id(invoice.customer) ||
+        intent.currency !== invoice.currency
+      ) throw new Error("invalid_payment_identity");
+      for await (
+        const refund of this.stripe.refunds.list({
+          payment_intent: intentId,
+          limit: 100,
+        })
+      ) {
+        // Refund does not expose livemode; identity is anchored to the checked PaymentIntent.
+        if (
+          id(refund.payment_intent) !== intentId ||
+          refund.currency !== invoice.currency
+        ) throw new Error("invalid_payment_identity");
+        if (refund.status === "succeeded") {
+          refunds.set(refund.id, {
+            id: refund.id,
+            amount: refund.amount,
+            currency: refund.currency.toUpperCase(),
+          });
+        }
+      }
+    }
+    return [...refunds.values()];
+  }
+  async getRenewalNotice(
+    subscriptionId: string,
+    customerId: string,
+    periodEnd: string,
+  ) {
+    const subscription = await this.getSubscription(subscriptionId);
+    if (
+      subscription.customer_id !== customerId ||
+      Date.parse(subscription.period_end) !== Date.parse(periodEnd) ||
+      !["active", "trial"].includes(subscription.status) ||
+      subscription.cancel_at_period_end || subscription.pending_update
+    ) throw new Error("invalid_renewal_notice");
+    const preview = await this.stripe.invoices.createPreview({
+      subscription: subscriptionId,
+      customer: customerId,
+    });
+    this.assertObject(preview);
+    if (
+      id(preview.customer) !== customerId ||
+      id(preview.parent?.subscription_details?.subscription) !==
+        subscriptionId ||
+      preview.currency !== "mxn" || !Number.isSafeInteger(preview.amount_due) ||
+      preview.amount_due < 0
+    ) throw new Error("invalid_renewal_notice");
+    return { at: periodEnd, amount: preview.amount_due, currency: "MXN" };
+  }
   async getSubscription(subscriptionId: string): Promise<SubscriptionSnapshot> {
     const s = await this.stripe.subscriptions.retrieve(subscriptionId, {
       expand: ["latest_invoice", "schedule"],
@@ -866,6 +941,10 @@ export class StripeBillingProvider implements BillingProvider {
     const parent = v.parent as {
       subscription_details?: { subscription?: unknown };
     } | undefined;
+    let invoiceId = e.type.startsWith("invoice.") ? String(v.id) : null;
+    let subscriptionId = e.type.startsWith("customer.subscription.")
+      ? String(v.id)
+      : id(v.subscription) ?? id(parent?.subscription_details?.subscription);
     let customerId = id(v.customer);
     let paymentId = e.type.startsWith("payment_intent.")
       ? String(v.id)
@@ -906,6 +985,36 @@ export class StripeBillingProvider implements BillingProvider {
           creditReference;
       }
     }
+    if (
+      !invoiceId && !creditReference && paymentId &&
+      (e.type.startsWith("refund.") || e.type === "charge.refunded")
+    ) {
+      const payments = await this.stripe.invoicePayments.list({
+        payment: { type: "payment_intent", payment_intent: paymentId },
+        limit: 2,
+      });
+      if (payments.data.length > 1 || payments.has_more) {
+        throw new Error("ambiguous_refund_invoice");
+      }
+      const payment = payments.data[0];
+      if (payment) {
+        this.assertObject(payment);
+        if (id(payment.payment.payment_intent) !== paymentId) {
+          throw new Error("invalid_payment_identity");
+        }
+        invoiceId = id(payment.invoice);
+        if (invoiceId) {
+          const invoice = await this.stripe.invoices.retrieve(invoiceId);
+          this.assertObject(invoice);
+          if (id(invoice.customer) !== customerId) {
+            throw new Error("invalid_payment_identity");
+          }
+          subscriptionId = id(
+            invoice.parent?.subscription_details?.subscription,
+          );
+        }
+      }
+    }
     return {
       id: e.id,
       type: e.type,
@@ -915,10 +1024,8 @@ export class StripeBillingProvider implements BillingProvider {
       customer_id: customerId,
       payment_id: paymentId,
       credit_reference: creditReference,
-      subscription_id: e.type.startsWith("customer.subscription.")
-        ? String(v.id)
-        : id(v.subscription) ?? id(parent?.subscription_details?.subscription),
-      invoice_id: e.type.startsWith("invoice.") ? String(v.id) : null,
+      subscription_id: subscriptionId,
+      invoice_id: invoiceId,
       checkout_id: checkoutId,
     };
   }

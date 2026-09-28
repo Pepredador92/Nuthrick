@@ -22,6 +22,7 @@ const errors: Record<string, string> = {
   email_sender_reauthorization_required: "La autorización de Gmail expiró o fue revocada. En Agenda pulsa «Autorizar remitente» y vuelve a intentarlo.",
   email_sender_mismatch: "La conexión Gmail no corresponde al remitente operativo configurado.",
   email_not_retryable: "Este mensaje no admite reenvío automático.",
+  email_operational_not_ready: "Faltan las pruebas comerciales, la continuidad del remitente o los documentos legales publicados.",
   email_delivery_requires_reconciliation: "La ventana de envío seguro terminó. Revisa el mensaje en el proveedor antes de actuar.",
   test_recipient_limit: "Se permiten como máximo dos bandejas controladas.",
   test_recipient_required: "Autoriza primero la bandeja de pruebas.",

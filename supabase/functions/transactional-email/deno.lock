@@ -4,6 +4,7 @@
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "npm:@supabase/supabase-js@2.112.4": "2.112.4",
+    "npm:stripe@22.6.2": "22.6.2",
     "npm:svix@2.5.0": "2.5.0"
   },
   "jsr": {
@@ -79,6 +80,9 @@
         "fast-sha256"
       ]
     },
+    "stripe@22.6.2": {
+      "integrity": "sha512-PwRE2scocvXqDKPiskMa5vRJEAEkq46W69XyUYmAwrNSLr675lQnfqLwnsndAWizwgihOWw/irLmoFRo3ez7ew=="
+    },
     "svix@2.5.0": {
       "integrity": "sha512-mqcwCPKL6J5yqC2EQy5ZqE5XEJriCZffy49EGBDCsnrQ7RAYF4kZLJhKfXrB0n21S+3M9qYmQ9YjzrNjRlIuCw==",
       "dependencies": [
@@ -92,6 +96,7 @@
   "workspace": {
     "dependencies": [
       "npm:@supabase/supabase-js@2.112.4",
+      "npm:stripe@22.6.2",
       "npm:svix@2.5.0"
     ]
   }

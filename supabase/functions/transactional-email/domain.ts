@@ -10,6 +10,7 @@ export const TEMPLATE_KEYS = [
   "payment_recovered",
   "cancellation_scheduled",
   "subscription_cancelled",
+  "subscription_refunded",
   "renewal_upcoming",
   "beta_expiring",
   "beta_expired",
@@ -31,6 +32,7 @@ export type Envelope = {
   privacy_email: string;
   first_attempt_at: string;
   attempts: number;
+  details?: { ends_at?: string; amount_minor?: number; currency?: string };
   prepared_message?: Message | null;
 };
 export type Message = {
@@ -94,7 +96,41 @@ export function renderEmail(e: Envelope): Message {
   const subject = (e.mode === "test" ? "[TEST] " : "") + e.subject;
   const footer =
     `Soporte: ${e.support_email}\nPrivacidad: ${e.privacy_email}\nTérminos: ${SITE}/terms\nPrivacidad: ${SITE}/privacy\nReembolsos: ${SITE}/refunds`;
-  const text = ["Nuthrick", label, e.body, `Abrir Nuthrick: ${url}`, footer]
+  const details: string[] = [];
+  if (e.details?.ends_at) {
+    const date = new Date(e.details.ends_at);
+    if (!Number.isFinite(date.getTime())) {
+      throw new EmailError("invalid_template");
+    }
+    details.push(
+      `Fecha: ${
+        new Intl.DateTimeFormat("es-MX", {
+          dateStyle: "long",
+          timeStyle: "short",
+          timeZone: "America/Mexico_City",
+        }).format(date)
+      } (hora del centro de México).`,
+    );
+  }
+  if (e.details?.amount_minor !== undefined) {
+    if (
+      !Number.isSafeInteger(e.details.amount_minor) ||
+      e.details.amount_minor < 0 || e.details.currency !== "MXN"
+    ) throw new EmailError("invalid_template");
+    details.push(
+      `Importe: ${
+        new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" })
+          .format(e.details.amount_minor / 100)
+      } MXN.`,
+    );
+  }
+  if (e.template_key === "renewal_upcoming") {
+    details.push(
+      "Puedes cancelar la renovación desde Mi plan, sin penalización.",
+    );
+  }
+  const body = [e.body, ...details].join("\n\n");
+  const text = ["Nuthrick", label, body, `Abrir Nuthrick: ${url}`, footer]
     .filter(Boolean).join("\n\n");
   const html =
     `<!doctype html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f4f7f4;color:#203b32;font-family:Arial,sans-serif"><table role="presentation" style="width:100%;border-collapse:collapse"><tr><td style="padding:24px 12px"><table role="presentation" style="max-width:600px;width:100%;margin:auto;background:white;border-radius:18px"><tr><td style="padding:32px"><div style="font-size:24px;font-weight:700">Nuthrick</div>${
@@ -106,7 +142,7 @@ export function renderEmail(e: Envelope): Message {
     }<h1 style="font-size:23px;line-height:1.35">${
       escapeHtml(e.subject)
     }</h1><p style="line-height:1.7;white-space:pre-line">${
-      escapeHtml(e.body)
+      escapeHtml(body)
     }</p><p style="margin:28px 0"><a href="${url}" style="display:inline-block;padding:14px 22px;border-radius:9px;background:#23684e;color:white;text-decoration:none">Abrir Nuthrick</a></p><hr style="border:0;border-top:1px solid #dde5df"><p style="font-size:13px;line-height:1.7">Soporte: <a href="mailto:${
       escapeHtml(e.support_email)
     }">${escapeHtml(e.support_email)}</a><br>Privacidad: <a href="mailto:${
