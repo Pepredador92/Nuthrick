@@ -155,8 +155,11 @@ function SomatotypeGlyph({ variant }: { variant: "endo" | "meso" | "ecto" }) {
 
 export function SomatochartCard({ series, compact = false, patientView = false }: { series: LongitudinalSeries; compact?: boolean; patientView?: boolean }) {
   const points = somatochartPoints(series);
-  const width = 520, height = compact ? 350 : 400;
-  const { x, y, xMin, xMax, yMin, yMax } = somatoProjection(points, width, height, 40);
+  // Give the patient-facing chart a little more horizontal breathing room so
+  // its labels and points remain legible inside the narrower portal card.
+  const width = patientView ? 560 : 520;
+  const height = compact ? 350 : 400;
+  const { x, y, xMin, xMax, yMin, yMax } = somatoProjection(points, width, height, patientView ? 48 : 40);
   const latest = points.at(-1);
   const polygon = (entries: Array<{ x: number; y: number }>) => entries.map((point) => `${x(point.x)},${y(point.y)}`).join(" ");
   const path = points.map((point, index) => `${index ? "L" : "M"}${x(point.x)} ${y(point.y)}`).join(" ");
@@ -170,15 +173,15 @@ export function SomatochartCard({ series, compact = false, patientView = false }
         <line x1={x(0)} x2={x(0)} y1={y(12)} y2={y(-9)} stroke="#96afa3"/>
         <line x1={x(-6)} x2={x(6)} y1={y(-6)} y2={y(6)} stroke="#96afa3" strokeDasharray="4 4"/>
         <line x1={x(-6)} x2={x(6)} y1={y(6)} y2={y(-6)} stroke="#96afa3" strokeDasharray="4 4"/>
-        <text x={x(0)} y={y(12) - 12} textAnchor="middle" className="fill-[#315e50] text-[12px] font-bold">MESOMORFIA</text>
-        <text x={x(-6)} y={y(-6) + 18} textAnchor="end" className="fill-[#805a3c] text-[11px] font-bold">ENDOMORFIA</text>
-        <text x={x(6)} y={y(-6) + 18} textAnchor="start" className="fill-[#456a86] text-[11px] font-bold">ECTOMORFIA</text>
+        <text x={x(0)} y={y(12) - (patientView ? 18 : 12)} textAnchor="middle" className="fill-[#315e50] text-[12px] font-bold">MESOMORFIA</text>
+        <text x={x(-6) - (patientView ? 10 : 0)} y={y(-6) + (patientView ? 28 : 18)} textAnchor="end" className="fill-[#805a3c] text-[11px] font-bold">ENDOMORFIA</text>
+        <text x={x(6) + (patientView ? 10 : 0)} y={y(-6) + (patientView ? 28 : 18)} textAnchor="start" className="fill-[#456a86] text-[11px] font-bold">ECTOMORFIA</text>
         {points.length > 1 && <path d={path} fill="none" stroke="#466b63" strokeWidth="1.8" strokeDasharray="4 3"/>}
         {points.map((point, index) => <g key={`${point.consultation_id}-${index}`}>
           <title>{patientView ? `${index + 1} · ${chartDate(point.consultation_date)}` : `${index + 1} · ${chartDate(point.consultation_date)} · ${coordinateLabel(point)}`}</title>
-          {index === points.length - 1 && <circle cx={x(point.x)} cy={y(point.y)} r="11" fill="none" stroke="#315e4f" strokeWidth="1.5"/>}
-          <circle cx={x(point.x)} cy={y(point.y)} r="7" fill={somatoColors[index % somatoColors.length]} stroke="white" strokeWidth="1.5"/>
-          <text x={x(point.x)} y={y(point.y) + 3} textAnchor="middle" className="fill-white text-[9px] font-bold">{index + 1}</text>
+          {index === points.length - 1 && <circle cx={x(point.x)} cy={y(point.y)} r={patientView ? 8.5 : 11} fill="none" stroke="#315e4f" strokeWidth="1.5"/>}
+          <circle cx={x(point.x)} cy={y(point.y)} r={patientView ? 5.5 : 7} fill={somatoColors[index % somatoColors.length]} stroke="white" strokeWidth="1.5"/>
+          <text x={x(point.x)} y={y(point.y) + (patientView ? 2.5 : 3)} textAnchor="middle" className={patientView ? "fill-white text-[8px] font-bold" : "fill-white text-[9px] font-bold"}>{index + 1}</text>
         </g>)}
         {!patientView && <text x={width / 2} y={height - 7} textAnchor="middle" className="fill-[#718079] text-[10px]">X = ectomorfia − endomorfia · Y = 2 × mesomorfia − endomorfia − ectomorfia</text>}
       </svg>

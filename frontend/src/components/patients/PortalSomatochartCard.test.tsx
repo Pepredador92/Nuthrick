@@ -26,7 +26,7 @@ describe("patient somatochart", () => {
     render(<PortalContentView content={content()} section="results" showMethod={false} />);
 
     const svg = screen.getByRole("img", { name: "Somatocarta de evolución Heath-Carter" });
-    expect(svg).toHaveAttribute("viewBox", "0 0 520 400");
+    expect(svg).toHaveAttribute("viewBox", "0 0 560 400");
     expect(svg.textContent).toContain("MESOMORFIA");
     expect(svg.textContent).toContain("ENDOMORFIA");
     expect(svg.textContent).toContain("ECTOMORFIA");
