@@ -1,9 +1,19 @@
-import type { DietMenu, MealDistribution, MealOption } from "@/src/types/domain";
-import { activeMenu, calculateMenuStatus, calculateMenuUsage } from "./model";
+import type { DietMenu, ExchangeGroupCode, MealDistribution, MealOption } from "@/src/types/domain";
+import { activeMenu, calculateMenuStatus, calculateMenuUsage, roundMenuNumber } from "./model";
 import { menuRestrictions, recipeFromEntry, recipeHasKnownContributions } from "./mesa";
 import { isFoodRestricted } from "./planner";
 
 export const MAX_MEAL_OPTIONS = 7;
+/** Clinical confirmation margin per group; distinct from the calculator's 0.1 eq display comparison. */
+export const MEAL_CONFIRMATION_TOLERANCE = 0.5;
+export type MealConfirmationStatus = "exact" | "within_tolerance" | "outside_tolerance" | "invalid";
+export type MealConfirmationDeviation = {
+  group_code: ExchangeGroupCode;
+  required: number;
+  covered: number;
+  difference: number;
+  within_tolerance: boolean;
+};
 export function prescriptionKey(distribution: MealDistribution, mealId: string) {
   return JSON.stringify([distribution.meal_times.find(m => m.id === mealId)?.meal_type,
     distribution.distribution.filter(r => r.meal_time_id === mealId && r.portions > 0).map(r => [r.group_code, Number(r.portions.toFixed(6))]).sort()]);
@@ -33,6 +43,28 @@ export function optionCanConfirm(menu: DietMenu, distribution: MealDistribution,
       && (e.recipe_snapshot ? recipeHasKnownContributions(recipeFromEntry(e)!) : Boolean(e.food_snapshot && e.exchange_contributions.length > 0))
       && (e.food_snapshot ? [e.food_snapshot] : e.recipe_snapshot?.items.map(i => i.food_snapshot) ?? []).every(f => !isFoodRestricted(f, restrictions)));
 }
+/** One decision shared by confirmation actions and feedback. Does not alter the prescription. */
+export function evaluateMealConfirmationStatus(menu: DietMenu, distribution: MealDistribution, option: MealOption) {
+  const invalid = { status: "invalid" as MealConfirmationStatus, deviations: [] as MealConfirmationDeviation[], canConfirm: false, requiresExplicitConfirmation: false };
+  const prescribed = distribution.distribution.filter(row => row.meal_time_id === option.meal_time_id);
+  if (!optionCanConfirm(menu, distribution, option) || prescribed.some(row => !Number.isFinite(row.portions) || row.portions < 0)
+    || !prescribed.some(row => row.portions > 0)) return invalid;
+  const projected = projectOptions({ ...menu, meal_options: [option] }, distribution);
+  const rows = calculateMenuStatus(projected, distribution).rows.filter(row => row.meal_time_id === option.meal_time_id);
+  if (!rows.length || rows.some(row => !Number.isFinite(row.used) || !Number.isFinite(row.portions))) return invalid;
+  // The menu comparison intentionally omits an unprescribed group below 0.1 eq;
+  // confirmation still needs to distinguish that small contribution from exact zero.
+  const uncoveredUsage = calculateMenuUsage(projected).filter(usage => usage.meal_time_id === option.meal_time_id
+    && usage.portions > 0 && !rows.some(row => row.group_code === usage.group_code));
+  const deviations = [...rows, ...uncoveredUsage.map(usage => ({ ...usage, portions: 0, used: usage.portions }))].map(row => {
+    const difference = roundMenuNumber(row.used - row.portions);
+    return { group_code: row.group_code, required: row.portions, covered: row.used, difference,
+      within_tolerance: Math.abs(difference) <= MEAL_CONFIRMATION_TOLERANCE };
+  });
+  const status: MealConfirmationStatus = deviations.every(row => row.difference === 0) ? "exact"
+    : deviations.every(row => row.within_tolerance) ? "within_tolerance" : "outside_tolerance";
+  return { status, deviations, canConfirm: true, requiresExplicitConfirmation: status === "outside_tolerance" };
+}
 export function optionIsEligible(menu: DietMenu, distribution: MealDistribution, option: MealOption) {
   return option.status === "confirmed" && option.prescription_key === prescriptionKey(distribution, option.meal_time_id) && optionCanConfirm(menu, distribution, option);
 }
@@ -60,7 +92,7 @@ export function commitOptionEdits(root: DietMenu, projection: DietMenu, distribu
     if (option.id !== selected) return option;
     const entries = activeMenu(projection).meal_menus.find(m => m.meal_time_id === option.meal_time_id)?.entries ?? [];
     return JSON.stringify(entries) === JSON.stringify(option.entries) ? option : {
-      ...option, entries: structuredClone(entries), revision: option.revision + 1, status: "draft" as const, confirmed_at: null,
+      ...option, entries: structuredClone(entries), revision: option.revision + 1, status: "draft" as const, confirmed_at: null, confirmation_kind: undefined,
     };
   });
   return saveOptionBank(root, distribution, options);
@@ -69,9 +101,18 @@ export function newMealOption(menu: DietMenu, mealId: string, name: string, copy
   if ((menu.meal_options ?? []).filter(o => o.meal_time_id === mealId).length >= MAX_MEAL_OPTIONS) throw new Error("Puedes crear hasta siete opciones por tiempo.");
   return { id: crypto.randomUUID(), meal_time_id: mealId, name, entries: copy ? structuredClone(copy.entries).map(e => ({ ...e, id: crypto.randomUUID() })) : [], status: "draft", confirmed_at: null, prescription_key: null, revision: 1 };
 }
-export function confirmOption(menu: DietMenu, distribution: MealDistribution, id: string) {
-  return saveOptionBank(menu, distribution, (menu.meal_options ?? []).map(o => o.id === id && optionCanConfirm(menu, distribution, o)
-    ? { ...o, status: "confirmed", confirmed_at: new Date().toISOString(), prescription_key: prescriptionKey(distribution, o.meal_time_id) } : o));
+export function confirmOption(menu: DietMenu, distribution: MealDistribution, id: string, acceptOutsideTolerance = false) {
+  const selected = menu.meal_options?.find(option => option.id === id);
+  if (!selected) return menu;
+  const evaluation = evaluateMealConfirmationStatus(menu, distribution, selected);
+  if (!evaluation.canConfirm || (evaluation.requiresExplicitConfirmation && !acceptOutsideTolerance)) return menu;
+  return saveOptionBank(menu, distribution, (menu.meal_options ?? []).map(o => {
+    if (o.id !== id) return o;
+    return { ...o, status: "confirmed" as const, confirmed_at: new Date().toISOString(),
+      prescription_key: prescriptionKey(distribution, o.meal_time_id),
+      confirmation_kind: evaluation.status === "outside_tolerance" ? "with_deviation" as const
+        : evaluation.status === "within_tolerance" ? "within_tolerance" as const : "exact" as const };
+  }));
 }
 
 /** Undo the selected option only; retain a calendar or other bank edits made meanwhile. */

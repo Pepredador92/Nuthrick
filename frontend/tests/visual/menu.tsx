@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { DietMenuStep } from "@/src/components/diet/DietMenuStep";
 import { addFoodToMenu, createDietMenu, createFoodSnapshot, exchangeContributionForFood } from "@/src/features/menu/model";
@@ -58,7 +58,29 @@ function Harness(){
   const [saves,setSaves]=useState(0);
   const [librarySaves,setLibrarySaves]=useState(0);
   const [weekly] = useState(() => weeklyFixture());
+  const confirmationMode = new URLSearchParams(window.location.search).get("confirmation");
+  const [confirmationFixture] = useState(() => {
+    const fixture = weeklyFixture([1, 1, 1]);
+    const option = fixture.menu.meal_options![0];
+    const portions = confirmationMode === "exact" ? 1 : confirmationMode === "within" ? 1.3 : 2;
+    option.status = "draft";
+    option.confirmed_at = null;
+    option.entries[0].quantity = portions;
+    option.entries[0].exchange_contributions[0].portions = portions;
+    return fixture;
+  });
+  useEffect(() => {
+    if (confirmationMode !== "dialog") return;
+    const timer = window.setTimeout(() => {
+      [...document.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent?.trim() === "Confirmar de todos modos")?.click();
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [confirmationMode]);
   const weeklyMode = new URLSearchParams(window.location.search).has("weekly");
+  if (confirmationMode && ["exact", "within", "outside", "dialog"].includes(confirmationMode)) {
+    const portions = confirmationMode === "exact" ? 1 : confirmationMode === "within" ? 1.3 : 2;
+    return <main className="mx-auto min-h-screen max-w-[1440px] bg-[#f7f8f4] p-3 sm:p-8"><p role="status" className="mb-4 text-xs">Caso ficticio · confirmación {confirmationMode} · objetivo: 1 eq · cubierto: {portions} eq · guardados: {saves}.</p><DietMenuStep plan={{...plan,id:`confirmation-${confirmationMode}`,diet_menu:confirmationFixture.menu,meal_distribution:confirmationFixture.distribution}} catalog={{foods:confirmationFixture.foods,recipes:[]}} onSave={async()=>setSaves(n=>n+1)} onGoToMeals={()=>undefined}/></main>;
+  }
   if (new URLSearchParams(window.location.search).has("recipe-adjustment")) {
     const distribution:MealDistribution={...mealDistribution,meal_times:[meals[0]],distribution:[
       {meal_time_id:"breakfast",group_code:"FRUITS",portions:2},

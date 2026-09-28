@@ -716,6 +716,8 @@ export type MealOption = {
   confirmed_at: string | null;
   prescription_key: string | null;
   revision: number;
+  /** Decision recorded in the existing menu JSON; absent on older confirmed options. */
+  confirmation_kind?: "exact" | "within_tolerance" | "with_deviation";
   /** Publication-only metadata. Never changes prescribed entries or the recipe library. */
   patient_substitutions?: {
     schema_version: 1;

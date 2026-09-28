@@ -4,6 +4,7 @@ import { clearProposalSession } from "./useProposalExplorer";
 vi.mock("./usePreparationCatalog", () => ({ usePreparationCatalog: () => ({ loading: false }) }));
 beforeEach(clearProposalSession);
 import { DietEquivalentsStep } from "./DietEquivalentsStep";
+import { createExchangePrescription, setExchangePortions } from "@/src/features/exchanges/model";
 import type { NutritionPlan } from "@/src/types/domain";
 
 const plan: NutritionPlan = {
@@ -52,9 +53,44 @@ describe("DietEquivalentsStep", () => {
       derived_totals: expect.objectContaining({ energy_kcal: 12.5, carbohydrate_g: 2, protein_g: 1 }),
       status: "editing",
     }));
+    expect(screen.getByText(/supera ±100 kcal/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Confirmar equivalentes" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ status: "ready", confirmed_at: expect.any(String) }), true));
+  });
+
+  it("recognizes the 35 kcal difference as within margin and lets a confirmed plan continue", async () => {
+    const patientTargets = { energy_kcal: 1600, carbohydrate_g: 200, protein_g: 140, fat_g: 26.7 };
+    const portions = [
+      ["VEGETABLES", 1], ["FRUITS", 2], ["CEREALS_NO_FAT", 4],
+      ["LEGUMES", 4], ["AOA_VERY_LOW_FAT", 10], ["MILK_SEMI_SKIM", 3],
+    ] as const;
+    const prescription = portions.reduce(
+      (current, [code, amount]) => setExchangePortions(current, patientTargets, code, amount),
+      createExchangePrescription(patientTargets),
+    );
+    expect(prescription.derived_totals.energy_kcal).toBe(1635);
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const onContinue = vi.fn();
+    render(<DietEquivalentsStep plan={{ ...plan, exchange_prescription: prescription }} targets={patientTargets} onSave={onSave} onDraftChange={vi.fn()} onGoToMacros={vi.fn()} onContinue={onContinue} />);
+
+    expect(screen.getByText(/dentro de ±100 kcal/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar equivalentes" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ status: "ready", confirmed_at: expect.any(String) }), true));
+    expect(await screen.findByText("Cuadro confirmado")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Continuar a Tiempos" }));
+    expect(onContinue).toHaveBeenCalledOnce();
+  });
+
+  it("shows a save failure next to confirmation and permits retry", async () => {
+    const onSave = vi.fn().mockRejectedValueOnce(new Error("Sin conexión")).mockResolvedValue(undefined);
+    render(<DietEquivalentsStep plan={plan} targets={targets} onSave={onSave} onDraftChange={vi.fn()} onGoToMacros={vi.fn()} onContinue={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar equivalentes" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo guardar el cuadro");
+    expect(screen.getByText("No guardado")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar equivalentes" }));
+    expect(await screen.findByRole("button", { name: "Continuar a Tiempos" })).toBeInTheDocument();
+    expect(onSave).toHaveBeenCalledTimes(2);
   });
 
   it("previews a mathematical proposal without applying or confirming it", () => {

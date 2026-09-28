@@ -30,6 +30,8 @@ type Props = {
   onContinue?: () => void;
 };
 
+const ENERGY_MARGIN_KCAL = 100;
+
 const number = (value: string) => {
   if (value.trim() === "") return 0;
   const result = Number(value);
@@ -61,9 +63,9 @@ function PortionInput({ group, portions, onChange, disabled = false }: { group: 
   </div>;
 }
 
-function DifferenceMetric({ label, target, actual, difference, unit, precision = 1 }: { label: string; target: number; actual: number; difference: number; unit: string; precision?: number }) {
+function DifferenceMetric({ label, target, actual, difference, unit, precision = 1, closeWithin }: { label: string; target: number; actual: number; difference: number; unit: string; precision?: number; closeWithin?: number }) {
   const relativeDifference = Math.abs(difference) / Math.max(target, 1);
-  const proximity = relativeDifference <= 0.03 ? "Cerca" : difference < 0 ? "Por debajo" : "Por encima";
+  const proximity = (closeWithin === undefined ? relativeDifference <= 0.03 : Math.abs(difference) <= closeWithin) ? "Cerca" : difference < 0 ? "Por debajo" : "Por encima";
   const progress = Math.min(100, Math.max(0, (actual / Math.max(target, 1)) * 100));
   return <div className="min-w-0 border-b border-[#e1e8e3] py-3.5 first:pt-0">
     <p className="text-xs font-bold uppercase tracking-[.08em] text-[#597068]">{label}</p>
@@ -149,6 +151,11 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, 
   const byCode = portionsByCode(draft);
   const proposedByCode = proposal ? new Map(proposal.groups.map((group) => [group.groupCode, group.portions])) : null;
   const hasPortions = draft.groups.some((group) => group.portions > 0);
+  const confirmed = draft.status === "ready" && Boolean(draft.confirmed_at) &&
+    (saveState === "clean" || saveState === "saved");
+  const withinEnergyMargin = Math.abs(draft.differences.energy_kcal) <= ENERGY_MARGIN_KCAL;
+  const statusLabel = confirmed ? "Cuadro confirmado" : saveState === "error" ? "No guardado" : draft.status === "ready" ? "Guardando cuadro…" : draft.status === "editing" ? "En edición" : "Sin iniciar";
+  const statusTone = confirmed ? "bg-[#eaf3ec] text-[#315e4f]" : saveState === "error" ? "bg-[#fbe9e5] text-[#963f32]" : draft.status === "editing" || draft.status === "ready" ? "bg-[#fff4df] text-[#7a5a28]" : "bg-[#f2f5f3] text-[#65756d]";
   const change = (code: ExchangeCatalogGroup["groupCode"], value: number) => {
     if (locked[code] !== undefined) setLocked({ ...locked, [code]: value });
     update(setExchangePortions(draft, targets, code, value));
@@ -191,7 +198,7 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, 
   return <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-4 sm:p-7">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div><p className="nuth-eyebrow">Paso 3</p><h1 className="mt-2 text-2xl font-semibold text-[#173d36]">Equivalentes</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">Define las porciones del día.</p></div>
-      <span className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${draft.status === "ready" ? "bg-[#eaf3ec] text-[#315e4f]" : draft.status === "editing" ? "bg-[#fff4df] text-[#7a5a28]" : "bg-[#f2f5f3] text-[#65756d]"}`}>{draft.status === "ready" ? <Check size={14} /> : <CircleAlert size={14} />}{draft.status === "ready" ? "Cuadro listo" : draft.status === "editing" ? "En edición" : "Sin iniciar"}</span>
+      <span className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${statusTone}`}>{confirmed ? <Check size={14} /> : <CircleAlert size={14} />}{statusLabel}</span>
     </div>
     {objectivesChangedSinceConfirmation(draft) && <p role="status" className="mt-4 rounded-xl bg-[#fff6e6] px-4 py-3 text-sm text-[#765827]">Los objetivos nutricionales cambiaron desde la última confirmación. Las porciones se conservaron; revisa el cuadro y confírmalo de nuevo cuando esté listo.</p>}
 
@@ -227,7 +234,7 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, 
         <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.12em] text-[#477363]">Cuadro dietosintético</p><p className="mt-1 text-xs leading-5 text-[#718078]">{proposal ? "Propuesta lista · aún sin aplicar." : "Actual frente a objetivo."}</p></div>{proposal && <span className="rounded-full bg-[#e8f0f8] px-2.5 py-1 text-[11px] font-semibold text-[#3b627c]">Sin aplicar</span>}</div>
         <CompactSummary targets={targets} totals={displayedTotals} differences={displayedDifferences} />
         <div className="mt-4 hidden xl:block">
-          <DifferenceMetric label="Energía" target={targets.energy_kcal} actual={displayedTotals.energy_kcal} difference={displayedDifferences.energy_kcal} unit="kcal" precision={0} />
+          <DifferenceMetric label="Energía" target={targets.energy_kcal} actual={displayedTotals.energy_kcal} difference={displayedDifferences.energy_kcal} unit="kcal" precision={0} closeWithin={ENERGY_MARGIN_KCAL} />
           <DifferenceMetric label="Carbohidratos" target={targets.carbohydrate_g} actual={displayedTotals.carbohydrate_g} difference={displayedDifferences.carbohydrate_g} unit="g" />
           <DifferenceMetric label="Proteína" target={targets.protein_g} actual={displayedTotals.protein_g} difference={displayedDifferences.protein_g} unit="g" />
           <DifferenceMetric label="Grasas" target={targets.fat_g} actual={displayedTotals.fat_g} difference={displayedDifferences.fat_g} unit="g" />
@@ -242,9 +249,20 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, 
           <div className="grid grid-cols-2 gap-2"><button type="button" aria-label="Aplicar propuesta" className="nuth-button justify-center" onClick={applyProposal}>Aplicar</button><button type="button" aria-label="Conservar mis porciones" className="nuth-button-secondary justify-center" onClick={explorer.discard}>Descartar</button></div>
           <button type="button" aria-label="Volver a proponer porciones" className="mt-3 w-full text-center text-xs font-semibold text-[#477363] hover:text-[#24463b]" onClick={propose}>Otra propuesta</button>
         </div> : <div className="mt-4 border-t border-[#dfe6e1] pt-4">
-          <button type="button" disabled={preparation.loading} aria-label="Proponer porciones" className="nuth-button w-full justify-center" onClick={propose}><Calculator size={16} /> {preparation.loading ? "Preparando…" : explorer.count ? "Otra propuesta" : "Proponer"}</button>
+          <button type="button" disabled={preparation.loading} aria-label="Proponer porciones" className="nuth-button w-full justify-center" onClick={propose}><Calculator size={16} /> {preparation.loading ? "Preparando propuesta…" : explorer.count ? "Otra propuesta" : "Proponer"}</button>
           {hasPortions && <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 text-xs text-[#52675e]"><input type="checkbox" checked={startFromCurrent} onChange={(event) => setStartFromCurrent(event.target.checked)} /> Partir de mis porciones actuales</label>}
-          <button type="button" aria-label="Confirmar equivalentes" disabled={saveState === "saving"} className="nuth-button-secondary mt-3 w-full justify-center disabled:opacity-50" onClick={() => void confirm()}><Check size={16} /> Confirmar</button>
+          {hasPortions && <p className={`mt-3 text-center text-xs leading-5 ${withinEnergyMargin ? "text-[#52675e]" : "text-[#8a642b]"}`}>
+            {withinEnergyMargin
+              ? `La diferencia de energía está dentro de ±${ENERGY_MARGIN_KCAL} kcal. No necesitas un ajuste exacto para confirmar.`
+              : `La diferencia de energía supera ±${ENERGY_MARGIN_KCAL} kcal. Revísala antes de confirmar; puedes continuar según tu criterio clínico.`}
+          </p>}
+          {confirmed ? <div role="status" className="mt-3 text-center text-xs leading-5 text-[#315e4f]">
+            <p className="font-semibold">Equivalentes confirmados.</p>
+            {onContinue && <button type="button" className="nuth-button-secondary mt-2 w-full justify-center" onClick={onContinue}>Continuar a Tiempos</button>}
+          </div> : <button type="button" aria-label="Confirmar equivalentes" disabled={saveState === "saving"} className="nuth-button-secondary mt-3 w-full justify-center disabled:opacity-50" onClick={() => void confirm()}><Check size={16} /> Confirmar</button>}
+          {saveState === "error" && <p role="alert" className="mt-2 text-center text-xs leading-5 text-[#a64a3d]">No se pudo guardar el cuadro. Pulsa Confirmar para intentarlo de nuevo.</p>}
+          {saveState === "saving" && <p role="status" className="mt-2 text-center text-xs leading-5 text-[#52675e]">Guardando cambios… podrás confirmar en un momento.</p>}
+          {preparation.loading && <p className="mt-2 text-center text-xs leading-5 text-[#718078]">La propuesta automática se prepara por separado; puedes confirmar tus porciones actuales.</p>}
         </div>}
         <PreferencesPanel preferences={preferences} onChange={setPreference} />
       </aside>

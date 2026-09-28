@@ -55,7 +55,7 @@ const plan: NutritionPlan = {
 };
 
 describe("DietMenuStep", () => {
-  it.each([0.5, 1.5])("allows explicitly confirming %s portions with a visible warning", async portions => {
+  it.each([0.5, 1.5])("confirms %s portions within the margin without an extra step", async portions => {
     const f = weeklyFixture([1, 1, 1]);
     const option = f.menu.meal_options![0];
     option.status = "draft";
@@ -63,14 +63,50 @@ describe("DietMenuStep", () => {
     option.entries[0].exchange_contributions[0].portions = portions;
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(<DietMenuStep plan={{ ...plan, meal_distribution: f.distribution, diet_menu: f.menu }} catalog={{ foods: f.foods, recipes: [] }} onSave={onSave} onGoToMeals={vi.fn()} />);
-    expect(screen.getByText("Las porciones difieren de la distribución")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar con estas porciones" }));
+    expect(within(screen.getByRole("region", { name: "Diferencias de porciones" })).getByText("Distribución dentro del margen permitido.")).toBeInTheDocument();
+    expect(screen.queryByText("No quedan equivalentes por completar.")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar opción" }));
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     const saved = onSave.mock.calls.at(-1)![0];
     expect(saved.meal_options[0].status).toBe("confirmed");
+    expect(saved.meal_options[0].confirmation_kind).toBe("within_tolerance");
     expect(saved.meal_options[0].entries[0].quantity).toBe(portions);
-    expect(screen.queryByRole("button", { name: "Confirmar con estas porciones" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Agregar otra opción de desayuno" })).toBeEnabled();
+  });
+  it("requires an explicit second decision for an outside deviation, and cancel changes nothing", async () => {
+    const fixture = weeklyFixture([1, 1, 1]);
+    const option = fixture.menu.meal_options![0];
+    option.status = "draft";
+    option.entries[0].quantity = 2;
+    option.entries[0].exchange_contributions[0].portions = 2;
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<DietMenuStep plan={{ ...plan, meal_distribution: fixture.distribution, diet_menu: fixture.menu }} catalog={{ foods: fixture.foods, recipes: [] }} onSave={onSave} onGoToMeals={vi.fn()} />);
+    const differences = screen.getByRole("region", { name: "Diferencias de porciones" });
+    expect(within(differences).getByText("Hay diferencias por revisar.")).toBeInTheDocument();
+    expect(within(differences).getByText(/\+1 eq sobre el objetivo/)).toBeInTheDocument();
+    expect(screen.queryByText("No quedan equivalentes por completar.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Revisar" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar de todos modos" }));
+    let dialog = screen.getByRole("dialog", { name: "Confirmar con diferencias" });
+    expect(within(dialog).getByText(/\+1 eq · exceso/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(option.status).toBe("draft");
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar de todos modos" }));
+    dialog = screen.getByRole("dialog", { name: "Confirmar con diferencias" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar opción" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(onSave.mock.calls.at(-1)![0].meal_options[0]).toMatchObject({ status: "confirmed", confirmation_kind: "with_deviation" });
+    expect(fixture.distribution.distribution[0].portions).toBe(1);
+  });
+  it("blocks structurally invalid options without offering forced confirmation", () => {
+    const fixture = weeklyFixture([1, 1, 1]);
+    fixture.menu.meal_options![0].status = "draft";
+    fixture.menu.meal_options![0].entries[0].quantity = -1;
+    render(<DietMenuStep plan={{ ...plan, meal_distribution: fixture.distribution, diet_menu: fixture.menu }} catalog={{ foods: fixture.foods, recipes: [] }} onSave={vi.fn()} onGoToMeals={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Revisar opción" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Confirmar de todos modos" })).not.toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Diferencias de porciones" })).getByText("Revisa los datos de esta opción.")).toBeInTheDocument();
   });
   beforeEach(() => {
     vi.clearAllMocks();
@@ -272,7 +308,7 @@ describe("DietMenuStep", () => {
     expect(calculateMenuStatus(saved, distribution).rows.map(row => [row.group_code, row.remaining])).toEqual([
       ["FRUITS", 0], ["CEREALS_NO_FAT", 1], ["VEGETABLES", 1], ["FATS_NO_PROTEIN", -1],
     ]);
-    const needs = screen.getByText("Por completar").closest("details")!;
+    const needs = screen.getByText("Por revisar").closest("details")!;
     expect(within(needs).queryByRole("button", { name: /Frutas/ })).not.toBeInTheDocument();
     fireEvent.click(within(needs).getByRole("button", { name: /Cereales sin grasa/ }));
     expect(screen.getByRole("heading", { name: "Alimentos · Cereales sin grasa" })).toBeInTheDocument();
@@ -317,7 +353,7 @@ describe("DietMenuStep", () => {
     const saved = onSave.mock.calls.at(-1)![0];
     expect(activeMenu(saved).meal_menus[0].entries[0].recipe_snapshot?.items.map((item: { amount: number }) => item.amount)).toEqual([2, 2]);
     expect(mixed).toEqual(library);
-    const needs = screen.getByText("Por completar").closest("details")!;
+    const needs = screen.getByText("Por revisar").closest("details")!;
     fireEvent.click(within(needs).getByRole("button", { name: /Verduras/ }));
     expect(screen.getByRole("heading", { name: "Alimentos · Verduras" })).toBeInTheDocument();
     expect(screen.getByLabelText("Cantidad de Verduras")).toHaveValue(1);
@@ -349,7 +385,7 @@ describe("DietMenuStep", () => {
     expect(within(preview).getByText("✓ Frutas")).toBeInTheDocument();
     expect(within(preview).getAllByText("Ninguno")).toHaveLength(2);
     fireEvent.click(within(preview).getByRole("button", { name: "Usar y completar" }));
-    expect(screen.getByText("No quedan equivalentes por completar.")).toBeInTheDocument();
+    expect(screen.getAllByText("Equivalentes cubiertos.").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Confirmar opción" })).toBeEnabled();
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     expect(recipe).toEqual(libraryRecipe);
