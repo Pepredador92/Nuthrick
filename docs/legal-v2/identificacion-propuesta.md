@@ -1,6 +1,6 @@
 # Identificación legal: propuesta para decisión
 
-Revisión: 28 de septiembre de 2026. Documento privado de trabajo, sin aprobación ni publicación.
+Propuesta histórica del 28 de septiembre de 2026. Posteriormente se eligió la vía A, se integraron los datos facilitados fuera del repositorio y el usuario aprobó expresamente los documentos completos v2 y su publicación. Véase `README.md` para el estado vigente. El texto siguiente conserva el contexto de la decisión inicial.
 
 ## Punto que debemos resolver
 

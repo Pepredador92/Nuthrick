@@ -4,16 +4,18 @@ Los archivos `terms.md`, `privacy.md` y `refunds.md` de este directorio son plan
 
 El 28 de septiembre de 2026 el operador facilitó nombre completo, domicilio y teléfono para integrar la propuesta como persona física. Los textos completos están guardados en la base privada mediante la API legal auditada y en una copia local privada fuera del repositorio, presentada para revisión.
 
-Estado después de integrar esos datos:
+Estado después de la aprobación expresa y publicación del 28 de septiembre de 2026:
 
 | Documento | Versión | Revisión | Estado |
 | --- | --- | --- | --- |
-| Términos | 2 | 8 | Pendiente de aprobación |
-| Privacidad | 2 | 8 | Pendiente de aprobación |
-| Reembolsos | 2 | 6 | Pendiente de aprobación |
+| Términos | 2 | 9 | Aprobado y publicado |
+| Privacidad | 2 | 9 | Aprobado y publicado |
+| Reembolsos | 2 | 7 | Aprobado y publicado |
 
-Los borradores completos ya no contienen marcadores de decisiones pendientes. Los correos se resuelven desde la configuración central verificada. La copia de revisión coincide por hash con la vista previa de la base.
+Los textos completos ya no contienen marcadores de decisiones pendientes ni referencias a Stripe TEST u operaciones simuladas. Los correos se resolvieron desde la configuración central verificada. La publicación coincide por hash con la copia completa presentada para aprobación, incluidas la identificación y las cláusulas sobre Google.
 
-La entrega de datos para preparar los documentos no se registró como aprobación ni publicación. Las fechas de aprobación, publicación y efectividad permanecen pendientes; el historial y las aceptaciones de v1 se conservan. Se requiere aprobación expresa de los textos completos y de su publicación con los datos proporcionados antes de proceder.
+La entrega inicial de datos no se trató como aprobación. La aprobación expresa posterior del usuario autorizó publicar las tres versiones completas. Se utilizó la API legal auditada con control de versión, revisión y hash. Fecha efectiva: `2026-09-28T22:15:48Z`; publicación: `2026-09-28T22:16:10.136439Z`. Se conservaron las seis versiones del historial privado y las dos aceptaciones anteriores; no se simularon nuevas aceptaciones de usuarios.
+
+Verificadas en producción: [Términos](https://nuthrick.com/terms), [Privacidad](https://nuthrick.com/privacy) y [Reembolsos](https://nuthrick.com/refunds). Las tres muestran versión 2 y vigencia del 28/9/2026. El readiness pasó de 13/15 a 14/15; el pendiente es la continuidad de OAuth y la activación del correo comercial general.
 
 `identificacion-propuesta.md` conserva la propuesta que se presentó antes de recibir los datos; sus alternativas ya no describen una decisión abierta sobre operar como persona física.
