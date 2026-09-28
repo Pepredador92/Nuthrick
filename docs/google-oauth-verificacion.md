@@ -20,6 +20,8 @@ Cotejada con `supabase/functions/agenda/index.ts` y `calendar-reconciliation.ts`
 
 Duración orientativa: 4–6 minutos. Mostrar la barra de dirección, Nuthrick y el flujo real de consentimiento. Grabar con datos de demostración y destinatarios controlados, sin expedientes ni citas de pacientes reales. El video debe permitir a Google comprobar cada permiso solicitado y todos los clientes OAuth utilizados por el proyecto. No sustituir el flujo con imágenes ficticias o un video promocional.
 
+**Idioma:** elegir **English** en el selector de idioma de la pantalla de consentimiento de Google. Es un requisito expreso de su [guía del video](https://support.google.com/cloud/answer/13804565?hl=en). La narración puede apoyarse en los textos en inglés preparados abajo. Esto no requiere cambiar permanentemente el idioma del producto ni de la cuenta.
+
 1. **Presentación (30 s):** abrir `https://nuthrick.com`, mostrar el producto y el enlace a Privacidad. Explicar que Calendar es opcional por profesional y Gmail corresponde exclusivamente al remitente operativo administrado por Nuthrick.
 2. **Consentimiento Calendar (60–90 s):** desde Agenda iniciar la conexión. Mostrar la identidad de la app, los permisos solicitados y el retorno correcto a Nuthrick. Mostrar la lista de calendarios, elegir uno de demostración donde la cuenta tenga acceso de escritura y seleccionar los calendarios de disponibilidad. No cambiar los calendarios reales de otro profesional para la grabación.
 3. **Uso de Calendar (60–90 s):** crear una cita de demostración autorizada, mostrar su evento en Google Calendar y su disponibilidad; cancelar esa misma cita y mostrar el resultado. Explicar que se comprueban horario, estado y conflictos, sin copiar notas clínicas.
@@ -28,6 +30,40 @@ Duración orientativa: 4–6 minutos. Mostrar la barra de dirección, Nuthrick y
 6. **Revocación y cierre (20–30 s):** mostrar dónde se retira el acceso y el contacto de privacidad. Explicar que la retirada detiene futuras operaciones autorizadas y que las solicitudes de eliminación se atienden conforme al aviso publicado. No revocar el remitente productivo únicamente para grabar este paso.
 
 La grabación puede incluir la advertencia de app aún no verificada: Google la espera durante la revisión. Si aparece una nueva concesión de permisos o aceptación de condiciones, confirmar ese paso con el titular antes de ejecutarlo. Publicar el video para que Google pueda verlo, preferentemente como no listado, revisar el contenido y conservar el enlace exacto antes de enviar el formulario.
+
+## Preparación de la toma
+
+1. Resolver antes de grabar cualquier inicio de sesión y la aceptación de documentos de Nuthrick. En la sesión revisada, Agenda solicita aceptar Privacidad v2 y Términos v2; aprobar su publicación no registra esa aceptación de usuario. No se han marcado las casillas ni enviado el formulario por el titular.
+2. Usar una cita identificada como **Demostración OAuth**, sin información clínica. Comprobar antes qué calendario recibirá el evento y conservar su configuración previa. Si el calendario o la vista muestran pacientes reales, preparar una vista vacía antes de capturar; no modificar citas ajenas para despejarla.
+3. Preparar las pestañas del producto, Google Calendar y el mensaje de prueba específico. El envío utilizará `hola.nuthrick@gmail.com` y la bandeja controlada autorizada. Cerrar u ocultar del encuadre consolas de secretos, formularios SMTP, mensajes ajenos y esta conversación.
+4. Capturar la ventana o el área del navegador con su barra de dirección. En Mac, abrir Captura de pantalla con **Mayúsculas + Comando + 5**, elegir grabación de ventana o área y comprobar el destino en Opciones. Detener con **Comando + Control + Esc**. [Instrucciones de Apple](https://support.apple.com/es-mx/102618).
+5. No hace falta mostrar el rostro. Puede usarse voz o texto explicativo. Revisar una toma corta antes de grabar todo para comprobar que se leen permisos y botones. Pausar fuera de escena si se requiere escribir contraseñas, completar MFA o mostrar códigos.
+
+## Texto de apoyo para voz o subtítulos
+
+Estos textos acompañan acciones reales y deben ajustarse a lo que efectivamente se vea. No afirman que una prueba pasó hasta observar su resultado.
+
+| Escena y control en Nuthrick | Texto en inglés |
+| --- | --- |
+| Inicio y enlace de Privacidad | “Nuthrick helps nutrition professionals manage appointments. This is the production website. The public privacy policy explains how Google data is used. Calendar is optional for each professional; operational email is managed separately by platform administrators.” |
+| Agenda → Google Calendar → Conectar Google Calendar / Renovar autorización | “I am starting the Calendar connection from Nuthrick. This is Google's consent screen for the application. Calendar access is used to list calendars, check availability, and create or cancel appointment events.” |
+| Elegir calendarios → Consultar disponibilidad en / Crear citas en | “The calendar list lets the professional choose where to check availability and where to create appointment events. The destination must allow writing. The professional can choose an existing calendar, including one shared with writer access.” |
+| Cita de demostración y evento correspondiente | “This appointment contains demonstration data. After creating it in Nuthrick, I am showing the corresponding event in Google Calendar. I will cancel this same demonstration appointment and show the resulting calendar state.” |
+| Disponibilidad del horario de demostración | “Nuthrick uses calendar availability to check scheduling conflicts. This demonstration shows how the selected calendars affect the availability of this time slot.” |
+| Agenda → Correo de Nuthrick → Autorizar remitente | “This is the separate Gmail authorization, available to the platform administrator. The configured sender is hola.nuthrick@gmail.com. The application requests identity verification and permission to send email. It does not request permission to read or manage the mailbox.” |
+| Administración → Operaciones → Verificar conexión Gmail / Bandejas y cinco pruebas | “I am checking the configured sender and sending controlled test messages to an authorized mailbox. The receiving mailbox is shown manually as delivery evidence; Nuthrick does not read it through the Gmail API.” |
+| Mensaje concreto recibido | “This is the received test message. Its sender and reply address use the operational identity, and the product link points to nuthrick.com.” |
+| Cierre | “Google access can be revoked through the user's Google account. Privacy and deletion requests can be sent to the contact published in Nuthrick's privacy policy.” |
+
+Los controles «Preparar cinco pruebas» y «Procesar cola» envían mensajes reales a la bandeja elegida; no ejecutar varias veces para repetir una toma. Grabar el procesamiento y el mensaje concreto recibido, sin presentar un correo antiguo como prueba de un envío nuevo.
+
+## Revisión antes de subir
+
+- Se ven los dos consentimientos completos y en inglés, la app Nuthrick y el retorno al producto.
+- Los permisos corresponden a los declarados; se muestra lista, disponibilidad y creación/cancelación de Calendar, además de envío Gmail.
+- La demostración distingue la cuenta administradora de la identidad remitente y no implica acceso a lectura de Gmail.
+- No aparecen pacientes, credenciales, códigos, otros mensajes ni ventanas privadas. Revisar también primeros y últimos segundos y el audio.
+- El título previsto es **Nuthrick — OAuth verification demo — Calendar and Gmail**. Guardar el archivo original local y comprobar acceso al enlace que se entregará a Google. No hay video grabado, subido ni revisión de permisos enviada todavía.
 
 ## Cierre posterior
 
