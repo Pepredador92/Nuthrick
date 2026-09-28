@@ -55,3 +55,17 @@ select private.queue_subscription_refunds('{"id":"in_local_mail","refunds":[{"id
 select private.queue_subscription_refunds('{"id":"in_local_mail","refunds":[{"id":"re_localconfirmed","amount":12300,"currency":"MXN"}]}');
 select pg_temp.assert((select count(*)=1 from private.transactional_email_outbox where event_key='refund:test:re_localconfirmed' and payload->>'amount_minor'='12300'),'Confirmed subscription refund exactly once');
 select pg_temp.reject($q$select private.queue_subscription_refunds('{"id":"in_local_mail","refunds":[{"id":"re_invalid","amount":50000,"currency":"MXN"}]}')$q$,'invalid_refund_notice');
+do $$declare result jsonb;lease uuid:=gen_random_uuid();begin
+ result:=private.billing_server('claim_event',jsonb_build_object('environment','test','event_id','evt_subscription_without_credit_purchase','type','customer.subscription.updated','customer_id','cus_local_mail','subscription_id','sub_local_mail','created',extract(epoch from now()),'livemode',false,'lock_key',lease));
+ perform pg_temp.assert(result->'credit_purchase'='null'::jsonb,'Subscription webhook without a purchase returns JSON null, not an object with null fields');
+ perform private.billing_server('event_done',jsonb_build_object('environment','test','owner',result->>'owner','lock_key',lease,'event_id','evt_subscription_without_credit_purchase'));
+end $$;
+-- LOCAL fake transport evidence: an extra observed category cannot erase readiness
+-- and cannot substitute for one of the five specifically required categories.
+update private.transactional_email_settings set enabled=true,provider='gmail',mode='live',configuration_revision=50,verified_at=now(),runtime_verified_at=now(),last_worker_at=now(),delivery_mode='controlled';
+update private.support_settings set contacts_verified_at=now();
+insert into private.transactional_email_outbox(event_key,recipient_email,template_key,payload,mode,is_test_delivery,configuration_revision,status,delivery_status,provider_message_id,observed_at)
+select 'local-transport:'||k,'recipient@example.org',k,'{}','test',true,50,'sent','accepted','local-proof-'||k,now() from unnest(array['welcome','payment_confirmed','payment_failed','credits_purchased','credits_refunded','subscription_activated'])k;
+select pg_temp.assert(private.transactional_email_transport_ready(),'Required five transport proofs plus additional commercial templates remain ready');
+update private.transactional_email_outbox set observed_at=null where event_key='local-transport:credits_refunded';
+select pg_temp.assert(not private.transactional_email_transport_ready(),'Additional template cannot replace required credit refund proof');

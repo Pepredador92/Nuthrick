@@ -21,16 +21,19 @@ try {
   console.log('PASS subscription and credit regressions after LIVE-1B');
   sql(readFileSync(new URL('scripts/test-live-one-b.sql',root),'utf8'));
   console.log('PASS LIVE-1B baseline');
-  for (const suffix of ['transactional_email_gmail_transport','transactional_email_runtime_verify','transactional_email_gmail_queue','gmail_sender_verification_guard','commercial_email_pre_live']) {
+  for (const suffix of ['transactional_email_gmail_transport','transactional_email_runtime_verify','transactional_email_gmail_queue','gmail_sender_verification_guard','commercial_email_pre_live','billing_optional_credit_purchase','email_transport_required_proofs']) {
     const file=readdirSync(new URL('supabase/migrations/',root)).find(n=>n.endsWith('_'+suffix+'.sql'));
     assert.ok(file, suffix);
     sql(readFileSync(new URL('supabase/migrations/'+file,root),'utf8'));
   }
   sql(readFileSync(new URL('scripts/test-commercial-email.sql',root),'utf8'));
   console.log('PASS commercial mail event isolation, idempotency, privacy, retry and readiness gates');
+  if (process.env.COMMERCIAL_EMAIL_KEEP_DB === '1') console.log(`LOCAL_DATABASE=${database}`);
 
 } catch (error) {
   console.error(error.stderr?.toString() || error.message); process.exitCode=1;
 } finally {
-  execFileSync('docker',['exec','supabase_db_Nuthrick','psql','-X','-qAt','-U','postgres','-d','postgres','-c',`drop database ${database} with (force)`]);
+  if (process.env.COMMERCIAL_EMAIL_KEEP_DB !== '1' || process.exitCode) {
+    execFileSync('docker',['exec','supabase_db_Nuthrick','psql','-X','-qAt','-U','postgres','-d','postgres','-c',`drop database ${database} with (force)`]);
+  }
 }
