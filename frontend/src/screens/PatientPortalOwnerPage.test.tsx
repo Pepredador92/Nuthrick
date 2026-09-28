@@ -32,6 +32,9 @@ vi.mock("@/src/services/longitudinalHistory", () => ({
     ],
   })),
 }));
+vi.mock("qrcode", () => ({
+  toDataURL: vi.fn(async () => "data:image/png;base64,qr-code"),
+}));
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(portalAction).mockImplementation(async (_access, action) =>
@@ -158,4 +161,34 @@ it("publishes both saved somatochart coordinates only after selecting the comple
   expect(screen.getByRole("img", { name: "Somatocarta de evolución Heath-Carter" })).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Publicar para el paciente" }));
   await waitFor(() => expect(portalAction).toHaveBeenCalledWith({ patientId: "p1" }, "publish", expect.objectContaining({ shared: expect.objectContaining({ results: [expect.objectContaining({ points: [{ consultationId: "closed", date: "2026-09-10", value: "X: -1.23456789 · Y: 3.456789" }] })] }) })));
+});
+
+it("muestra el QR del enlace protegido cuando el acceso está habilitado", async () => {
+  vi.mocked(portalAction).mockImplementation(async (_access, action) =>
+    action === "view"
+      ? {
+          enabled: true,
+          link: "portal-token",
+          patientName: "Diana Laura Acuña Valdés",
+          professional: { name: "Profesional" },
+          unread: 0,
+          revision: 1,
+          shared: { goal: "", instructions: "", results: [], consultations: [] },
+        }
+      : action === "goal_candidates"
+        ? { goals: [] }
+        : action === "plan_options"
+          ? { plans: [], selectedPlanId: null }
+          : {},
+  );
+  render(
+    <MemoryRouter initialEntries={["/app/patients/p1/portal"]}>
+      <Routes>
+        <Route path="/app/patients/:patientId/portal" element={<PatientPortalOwnerPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  fireEvent.click(await screen.findByRole("button", { name: "Mostrar QR" }));
+  expect(await screen.findByRole("dialog", { name: "Código QR" })).toBeVisible();
+  expect(screen.getByRole("img", { name: /Código QR del Super Link/ })).toBeVisible();
 });

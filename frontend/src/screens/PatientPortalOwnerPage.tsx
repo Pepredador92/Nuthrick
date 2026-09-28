@@ -7,6 +7,7 @@ import {
   History,
   Link2,
   MessageCircle,
+  QrCode,
   ShieldCheck,
 } from "lucide-react";
 import { getPatient } from "@/src/services/patients";
@@ -32,6 +33,7 @@ import { PortalChat } from "@/src/components/patients/PortalChat";
 import { PortalAccessCode } from "@/src/components/patients/PortalAccessCode";
 import { PortalPlanSharing } from "@/src/components/patients/PortalPlanSharing";
 import { PortalGoal } from "@/src/components/patients/PortalGoal";
+import { PortalQrDialog } from "@/src/components/patients/PortalQrDialog";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
 import "./PatientPortal.css";
 
@@ -92,6 +94,7 @@ function OwnerPortal({ patientId }: { patientId: string }) {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState<"link" | "revoke" | null>(null);
+  const [qrOpen, setQrOpen] = useState(false);
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     let active = true;
@@ -306,6 +309,12 @@ function OwnerPortal({ patientId }: { patientId: string }) {
                 Copiar superlink
               </button>
             )}
+            {view.enabled && view.link && (
+              <button className="nuth-button-secondary" onClick={() => setQrOpen(true)}>
+                <QrCode size={16} />
+                Mostrar QR
+              </button>
+            )}
             <button
               disabled={busy}
               className="nuth-button-secondary"
@@ -332,6 +341,13 @@ function OwnerPortal({ patientId }: { patientId: string }) {
             readOnly
             value={portalLink(view.link)}
             onFocus={(e) => e.target.select()}
+          />
+        )}
+        {qrOpen && view.enabled && view.link && (
+          <PortalQrDialog
+            url={portalLink(view.link)}
+            patientName={view.patientName}
+            onClose={() => setQrOpen(false)}
           />
         )}
         {confirm && (
