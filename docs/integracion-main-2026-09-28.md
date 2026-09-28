@@ -12,6 +12,10 @@ El usuario pidió reunir el proyecto en `main` y continuar realizando commits y 
 
 ## Conservado fuera de la integración
 
-La carpeta principal conserva copias antiguas de trabajo: varias coinciden con archivos o versiones anteriores ya integradas. No se copiaron sobre el código reciente. Entre ellas hay una variante antigua de landing con contactos y enlaces legales superados por las decisiones actuales, fixtures de demostraciones anteriores y artefactos `output/`/`tmp/`. No se eliminaron ni se publicaron como cambios nuevos.
+La carpeta principal contenía copias antiguas de trabajo: varias coincidían con archivos o versiones anteriores ya integradas. No se copiaron sobre el código reciente. Entre ellas había una variante antigua de landing con contactos y enlaces legales superados por las decisiones actuales y fixtures de demostraciones anteriores. Se preservaron 60 archivos en el stash local `codex: preserve prior local drafts before main sync 2026-09-28`, sin publicarlos ni eliminar el respaldo. Después se actualizó `main` local por avance directo y se sincronizaron las dependencias con `npm ci --ignore-scripts`. Los artefactos `output/` y `tmp/` permanecen intactos fuera del commit.
+
+La instalación reportó nueve avisos de dependencias (uno bajo y ocho altos). Este bloque no aplicó actualizaciones forzadas ni acredita una auditoría de dependencias; esa salida requiere revisar alcance y compatibilidad antes de atribuir riesgo a producción.
+
+El archivo HTML de propiedad de Google se añadió posteriormente con autorización expresa en `76058e2`, incorporado a ambas ramas y al `main` local. Vercel terminó el despliegue productivo; se comprobó su contenido público y Search Console confirmó «Propiedad verificada» para `https://nuthrick.com/` con la cuenta propietaria del proyecto Google Cloud.
 
 La aprobación y los textos legales completos pertenecen al estado auditado de la base. El repositorio conserva las plantillas y el registro sin duplicar los datos particulares del operador. Las credenciales y tokens privados tampoco forman parte de los commits.
