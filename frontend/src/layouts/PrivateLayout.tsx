@@ -11,14 +11,14 @@ import { NotificationsProvider } from '@/src/features/notifications/useNotificat
 
 const nav = [
   { label: 'Dashboard', href: '/app', icon: LayoutDashboard, end: true },
-  { label: 'Créditos IA', href: '/app/credits', icon: CreditCard },
-  { label: 'Mi plan', href: '/app/my-plan', icon: CreditCard },
   { label: 'Perfil', href: '/app/profile', icon: UserRound },
   { label: 'Pacientes', href: '/app/patients', icon: UsersRound },
-  { label: 'Agenda', href: '/app/agenda', icon: CalendarDays },
-  { label: 'Mensajes', href: '/app/messages', icon: MessageCircle },
   { label: 'Taller de dietas', href: '/app/diet-workshop', icon: Salad },
   { label: 'Diseño de consulta', href: '/app/consultation-templates/initial', icon: ClipboardList },
+  { label: 'Agenda', href: '/app/agenda', icon: CalendarDays },
+  { label: 'Mensajes', href: '/app/messages', icon: MessageCircle },
+  { label: 'Créditos IA', href: '/app/credits', icon: CreditCard },
+  { label: 'Mi plan', href: '/app/my-plan', icon: CreditCard },
 ];
 
 export function PrivateLayout() {
