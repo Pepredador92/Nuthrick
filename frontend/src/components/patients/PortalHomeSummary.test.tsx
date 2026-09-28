@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PortalHomeSummary } from "./PortalHomeSummary";
 import { portalAction } from "@/src/services/patientPortal";
@@ -30,6 +30,7 @@ beforeEach(() => {
 
 describe("PortalHomeSummary", () => {
   it("shows an actionable patient summary without clinical calculation metadata", async () => {
+    const onOpenTab = vi.fn();
     render(<PortalHomeSummary access={{ session: "session" }} view={{
       patientName: "Paciente",
       professional: { name: "Profesional", title: null },
@@ -37,11 +38,14 @@ describe("PortalHomeSummary", () => {
       revision: 1,
       publishedAt: "2026-09-20T12:00:00Z",
       unread: 1,
-    }} onOpenTab={vi.fn()} />);
+    }} onOpenTab={onOpenTab} />);
 
     expect(await screen.findByText("Avena con fruta")).toBeVisible();
     expect(screen.getByText("Sentirme mejor")).toBeVisible();
     expect(screen.getByText("Tienes 1 mensaje nuevo de tu nutriólogo.")).toBeVisible();
     expect(screen.queryByText("Fórmula interna")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Gráfica de evolución de Peso/ })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Ver todas mis gráficas" }));
+    expect(onOpenTab).toHaveBeenCalledWith("results");
   });
 });

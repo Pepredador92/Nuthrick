@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, CalendarDays, ClipboardList, MessageCircle, Target, Utensils } from "lucide-react";
 import { formatFoodQuantity } from "@/src/features/menu/units";
 import { portalAction, type PortalAccess, type PortalPlan, type PortalView } from "@/src/services/patientPortal";
-import { portalDate } from "./PortalContentView";
+import { portalProgress } from "@/src/features/patients/portalProgress";
+import { PortalResultCard } from "./PortalResultCard";
 
 const dayNames: Record<string, string> = {
   sun: "Domingo",
@@ -17,10 +18,6 @@ const dayNames: Record<string, string> = {
 function currentDayName() {
   const code = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "America/Mexico_City" }).format(new Date()).slice(0, 3).toLowerCase();
   return dayNames[code] || "";
-}
-
-function latestValue(result: PortalView["shared"]["results"][number]) {
-  return [...result.points].sort((a, b) => b.date.localeCompare(a.date))[0];
 }
 
 export function PortalHomeSummary({
@@ -57,7 +54,8 @@ export function PortalHomeSummary({
     const name = currentDayName();
     return plan.days.find((day) => day.name === name) || plan.days[0];
   }, [plan]);
-  const results = view.shared.results.slice(0, 3);
+  const results = view.shared.results;
+  const featured = results.find((result) => portalProgress(result).numeric.length > 0) ?? results[0];
 
   return (
     <div className="portal-home space-y-4">
@@ -84,8 +82,8 @@ export function PortalHomeSummary({
         </section>
         <section className="portal-card">
           <div className="flex items-center gap-2 text-[#416955]"><CalendarDays size={18} /><h2 className="font-semibold">Mi progreso</h2></div>
-          {results.length ? <div className="mt-4 grid gap-3">{results.map((result) => { const latest = latestValue(result); return <div key={result.id} className="flex items-end justify-between gap-3 border-b border-[#edf1ed] pb-3 last:border-0 last:pb-0"><span className="min-w-0 text-sm text-[#53685e]">{result.label}<span className="mt-1 block text-xs text-[#89958f]">{latest ? portalDate(latest.date) : ""}</span></span><strong className="shrink-0 text-lg text-[#285d4d]">{latest?.value || "—"} <span className="text-xs font-normal">{result.unit}</span></strong></div>; })}</div> : <p className="mt-4 text-sm text-[#74817d]">Tu nutriólogo compartirá aquí los resultados que decida mostrarte.</p>}
-          <button type="button" className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#477363]" onClick={() => onOpenTab("results")}>Ver progreso <ArrowRight size={16} /></button>
+          {featured ? <div className="mt-4"><PortalResultCard key={featured.id} result={featured} compact /></div> : <p className="mt-4 text-sm text-[#74817d]">Tu nutriólogo compartirá aquí los resultados que decida mostrarte.</p>}
+          <button type="button" className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#477363]" onClick={() => onOpenTab("results")}>Ver todas mis gráficas <ArrowRight size={16} /></button>
         </section>
         <section className="portal-card">
           <div className="flex items-center gap-2 text-[#416955]"><ClipboardList size={18} /><h2 className="font-semibold">Consultas compartidas</h2></div>

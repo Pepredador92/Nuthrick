@@ -381,7 +381,10 @@ function PatientPortalContent() {
                   {tab === "plan" ? (
                     <PortalPatientPlan access={access} />
                   ) : tab === "today" ? (
-                    <PortalHomeSummary access={access} view={view} onOpenTab={setTab} />
+                    <PortalHomeSummary access={access} view={view} onOpenTab={(nextTab) => {
+                      setTab(nextTab);
+                      document.getElementById("portal-panel")?.scrollIntoView?.({ block: "start" });
+                    }} />
                   ) : tab === "chat" ? (
                     <PortalChat
                       key={session}

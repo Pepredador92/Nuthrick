@@ -131,6 +131,8 @@ describe("patient space", () => {
     await login();
     fireEvent.click(screen.getByRole("tab", { name: "Resultados" }));
     expect(screen.getByText("Peso")).toBeVisible();
+    expect(screen.getByRole("img", { name: /Gráfica de evolución de Peso/ })).toBeVisible();
+    expect(screen.queryByText("Método: Medición")).not.toBeInTheDocument();
     expect(
       screen.queryByText("Publicar para el paciente"),
     ).not.toBeInTheDocument();

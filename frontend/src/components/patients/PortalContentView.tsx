@@ -1,15 +1,10 @@
 import { Target, ClipboardList, Activity, CalendarDays } from "lucide-react";
 import type { PortalContent } from "@/src/services/patientPortal";
 
-export function portalDate(value: string) {
-  return new Date(
-    value.length === 10 ? `${value}T12:00:00` : value,
-  ).toLocaleDateString("es-MX", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
+import { portalDate } from "@/src/features/patients/portalProgress";
+import { PortalResultCard } from "./PortalResultCard";
+export { portalDate } from "@/src/features/patients/portalProgress";
+
 export function PortalContentView({
   content,
   section = "all",
@@ -57,63 +52,9 @@ export function PortalContentView({
               Tus resultados aparecerán cuando tu nutriólogo los comparta.
             </p>
           )}
-          <div className="grid gap-4 sm:grid-cols-2">
-            {content.results.map((result, i) => {
-              const points = [...result.points].sort((a, b) =>
-                a.date.localeCompare(b.date),
-              );
-              const latest = points.at(-1);
-              return (
-                <article
-                  key={`${result.id}-${i}`}
-                  className="min-w-0 rounded-2xl border border-[#dde6df] p-4"
-                >
-                  <h3 className="font-semibold">{result.label}</h3>
-                  <p className="mt-2 text-3xl font-semibold text-[#285d4d]">
-                    {latest?.value || "—"}{" "}
-                    <span className="text-sm font-normal">{result.unit}</span>
-                  </p>
-                  {latest && (
-                    <p className="mt-1 text-xs text-[#74817d]">
-                      {portalDate(latest.date)}
-                    </p>
-                  )}
-                  {showMethod && result.method && (
-                    <p className="mt-2 break-words text-xs text-[#74817d]">
-                      Método: {result.method}
-                    </p>
-                  )}
-                  {points.length > 1 && (
-                    <div className="mt-4 max-h-60 overflow-auto">
-                      <table className="w-full text-sm">
-                        <caption className="sr-only">
-                          Evolución de {result.label}
-                        </caption>
-                        <thead>
-                          <tr className="text-left text-xs text-[#74817d]">
-                            <th className="pb-2">Consulta</th>
-                            <th className="pb-2 text-right">Resultado</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {points.map((p, j) => (
-                            <tr
-                              key={`${p.consultationId}-${j}`}
-                              className="border-t border-[#edf1ed]"
-                            >
-                              <td className="py-2">{portalDate(p.date)}</td>
-                              <td className="py-2 text-right">
-                                {p.value} {result.unit}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </article>
-              );
-            })}
+          {content.results.length > 0 && <p className="mb-5 text-sm leading-6 text-[#61776c]">Cada consulta cuenta una parte de tu historia. Explora tus registros y comparte tus dudas con tu nutriólogo.</p>}
+          <div className="grid gap-4 md:grid-cols-2">
+            {content.results.map((result, i) => <PortalResultCard key={`${result.id}-${i}`} result={result} showMethod={showMethod} />)}
           </div>
         </section>
       )}
