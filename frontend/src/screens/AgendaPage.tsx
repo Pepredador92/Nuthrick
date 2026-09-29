@@ -6,6 +6,8 @@ import { supabase } from "@/src/lib/supabase";
 import { PatientModal } from "./PatientsPage";
 import {
   agendaApi,
+  agendaConfirmationLabel,
+  agendaConfirmationState,
   agendaDate,
   loadAgenda,
   type AgendaEntry,
@@ -251,6 +253,18 @@ export function AgendaPage() {
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
+                  {e.kind === "appointment" && (() => {
+                    const confirmation = agendaConfirmationState(e);
+                    const tone = confirmation === "both"
+                      ? "border-[#b9ddc4] bg-[#edf8ef] text-[#28633d]"
+                      : confirmation === "patient"
+                        ? "border-[#ead6a8] bg-[#fff8e7] text-[#795620]"
+                        : "border-[#c5d9f1] bg-[#eff6ff] text-[#28598f]";
+                    const dot = confirmation === "both" ? "🟢" : confirmation === "patient" ? "🟡" : "🔵";
+                    return <p className={`mb-3 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${tone}`} aria-label={`Confirmación: ${agendaConfirmationLabel(confirmation)}`}>
+                      <span aria-hidden="true">{dot}</span>{agendaConfirmationLabel(confirmation)}
+                    </p>;
+                  })()}
                   {e.requires_confirmation && <p className="mb-3 inline-block rounded-full bg-[#fff1d5] px-3 py-1 text-xs font-semibold text-[#795620]">Reserva pendiente de confirmación</p>}
                   <p className="text-xs font-semibold text-[#64786e]">
                     {e.kind === "block"

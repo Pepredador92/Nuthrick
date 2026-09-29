@@ -40,6 +40,8 @@ export type AgendaEntry = {
   contact_email: string | null;
   patient_id: string | null;
   requires_confirmation?: boolean;
+  registration_consented_at?: string | null;
+  professional_confirmed_at?: string | null;
   contact_phone?: string | null;
   registration_status?: 'none' | 'created' | 'review';
   calendar_status: string;
@@ -47,6 +49,21 @@ export type AgendaEntry = {
   calendar_check_error?: string | null;
   notification_status: string;
 };
+export type AgendaConfirmationState = "none" | "patient" | "both";
+
+/**
+ * A public registration is the patient's confirmation. The professional's
+ * explicit confirmation is recorded separately by the server.
+ */
+export function agendaConfirmationState(entry: Pick<AgendaEntry, "requires_confirmation" | "registration_consented_at" | "professional_confirmed_at">): AgendaConfirmationState {
+  if (entry.professional_confirmed_at) return "both";
+  if (entry.registration_consented_at || entry.requires_confirmation) return "patient";
+  return "none";
+}
+
+export function agendaConfirmationLabel(state: AgendaConfirmationState) {
+  return state === "both" ? "Ambos confirmaron" : state === "patient" ? "Paciente confirmó" : "Sin confirmaciones";
+}
 export type AgendaRequest = {
   id: string;
   status: string;

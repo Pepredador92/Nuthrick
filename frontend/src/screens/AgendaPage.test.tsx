@@ -160,9 +160,10 @@ describe("private agenda", () => {
   });
 
   it('confirms a pending reservation only after the explicit confirmation dialog', async () => {
-    vi.mocked(loadAgenda).mockResolvedValue({entries:[{...entry,requires_confirmation:true,registration_status:'review',contact_phone:'+524920000001'}],requests:[]});
+    vi.mocked(loadAgenda).mockResolvedValue({entries:[{...entry,requires_confirmation:true,registration_consented_at:'2026-09-20T12:00:00Z',registration_status:'review',contact_phone:'+524920000001'}],requests:[]});
     mount();
     await screen.findByText('Reserva pendiente de confirmación');
+    expect(screen.getByLabelText('Confirmación: Paciente confirmó')).toBeInTheDocument();
     expect(screen.getByRole('link',{name:/WhatsApp/})).toHaveAttribute('href','https://wa.me/524920000001');
     expect(screen.getByText(/se sincroniza al confirmar/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button',{name:'Confirmar reserva'}));
@@ -170,6 +171,12 @@ describe("private agenda", () => {
     fireEvent.click(screen.getByRole('button',{name:'Confirmar y notificar'}));
     await screen.findByText('Reserva confirmada.');
     expect(api).toHaveBeenCalledWith('manage',{payload:{action:'confirm_reservation',id:'appointment'},operationKey:expect.any(String)},true);
+  });
+  it('shows the green state after both sides confirm', async () => {
+    vi.mocked(loadAgenda).mockResolvedValue({entries:[{...entry,registration_consented_at:'2026-09-20T12:00:00Z',professional_confirmed_at:'2026-09-20T13:00:00Z'}],requests:[]});
+    mount();
+    expect(await screen.findByLabelText('Confirmación: Ambos confirmaron')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Confirmación: Sin confirmaciones')).not.toBeInTheDocument();
   });
   it("resolves internal blocks with verified private auth, not a public slug", async () => {
     mount();
