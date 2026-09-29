@@ -41,6 +41,7 @@ export type AgendaEntry = {
   patient_id: string | null;
   requires_confirmation?: boolean;
   registration_consented_at?: string | null;
+  patient_confirmed_at?: string | null;
   professional_confirmed_at?: string | null;
   contact_phone?: string | null;
   registration_status?: 'none' | 'created' | 'review';
@@ -49,20 +50,14 @@ export type AgendaEntry = {
   calendar_check_error?: string | null;
   notification_status: string;
 };
-export type AgendaConfirmationState = "none" | "patient" | "both";
-
-/**
- * A public registration is the patient's confirmation. The professional's
- * explicit confirmation is recorded separately by the server.
- */
-export function agendaConfirmationState(entry: Pick<AgendaEntry, "requires_confirmation" | "registration_consented_at" | "professional_confirmed_at">): AgendaConfirmationState {
-  if (entry.professional_confirmed_at) return "both";
-  if (entry.registration_consented_at || entry.requires_confirmation) return "patient";
-  return "none";
+export type AgendaConfirmationState = "none" | "patient" | "professional" | "both";
+export function agendaConfirmationState(entry: Pick<AgendaEntry, "patient_confirmed_at" | "registration_consented_at" | "professional_confirmed_at">): AgendaConfirmationState {
+  const patient = Boolean(entry.patient_confirmed_at || entry.registration_consented_at);
+  if (entry.professional_confirmed_at) return patient ? "both" : "professional";
+  return patient ? "patient" : "none";
 }
-
 export function agendaConfirmationLabel(state: AgendaConfirmationState) {
-  return state === "both" ? "Ambos confirmaron" : state === "patient" ? "Paciente confirmó" : "Sin confirmaciones";
+  return {both:"Ambos confirmaron",patient:"Paciente confirmó",professional:"Falta confirmar al paciente",none:"Sin confirmaciones"}[state];
 }
 export type AgendaRequest = {
   id: string;
@@ -77,6 +72,9 @@ export type AgendaRequest = {
   revision: number;
 };
 const messages: Record<string, string> = {
+  invalid_patient: "Selecciona un paciente activo de tu expediente.",
+  invalid_transition: "La cita cambió, ya fue confirmada o su fecha pasó. Actualiza la agenda.",
+  not_found: "La cita ya no está disponible.",
   registration_required: 'Completa tus datos básicos y autoriza su registro para continuar.',
   invalid_birth_date: 'Revisa tu fecha de nacimiento. No puede estar en el futuro.',
   invalid_phone: 'Revisa tu número de WhatsApp y la lada internacional.',
@@ -89,7 +87,7 @@ const messages: Record<string, string> = {
   rate_limited:
     "Has realizado varios intentos. Espera unos minutos antes de volver a intentar.",
   google_unavailable:
-    "No pudimos comprobar el calendario. Reintenta o envía una solicitud pendiente.",
+    "No pudimos comprobar Google Calendar. Reintenta o revisa su conexión en Agenda → Configuración.",
   configuration_required:
     "La conexión de Agenda todavía necesita configuración.",
   mail_not_connected:

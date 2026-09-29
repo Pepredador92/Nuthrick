@@ -1,3 +1,5 @@
+import { ScheduleAppointmentButton } from "@/src/components/agenda/ScheduleAppointmentButton";
+import { UpcomingAppointments } from "@/src/components/agenda/UpcomingAppointments";
 import { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import {
@@ -772,6 +774,7 @@ export function PatientDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [agendaRevision, setAgendaRevision] = useState(0);
   const [editing, setEditing] = useState(false);
   const historyOpen = searchParams.get("view") === "history";
   const setHistoryOpen = (open: boolean) => setSearchParams((current) => {
@@ -1121,6 +1124,7 @@ export function PatientDetailPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            {patient.status === "active" && <ScheduleAppointmentButton patient={patient} onSaved={() => setAgendaRevision(v=>v+1)} className="nuth-button-secondary"/>}
             <button
               type="button"
               className="rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold"
@@ -1143,6 +1147,7 @@ export function PatientDetailPage() {
           )}
         </div>
       </header>
+      <div className="mt-5"><UpcomingAppointments key={patient.id} patientId={patient.id} refreshKey={agendaRevision}/></div>
       {editing && (
         <form
           onSubmit={save}

@@ -1,3 +1,5 @@
+import { ScheduleAppointmentButton } from "@/src/components/agenda/ScheduleAppointmentButton";
+import { AppointmentActions, AppointmentStatus } from "@/src/components/agenda/AppointmentCard";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { CalendarDays, Check, RefreshCw } from "lucide-react";
@@ -6,8 +8,6 @@ import { supabase } from "@/src/lib/supabase";
 import { PatientModal } from "./PatientsPage";
 import {
   agendaApi,
-  agendaConfirmationLabel,
-  agendaConfirmationState,
   agendaDate,
   loadAgenda,
   type AgendaEntry,
@@ -86,7 +86,6 @@ export function AgendaPage() {
   const [patient, setPatient] = useState("");
   const [creatingPatient, setCreatingPatient] = useState(false);
   const [cancelEntry, setCancelEntry] = useState<AgendaEntry | null>(null);
-  const [confirmEntry, setConfirmEntry] = useState<AgendaEntry | null>(null);
   const [minimumNotice, setMinimumNotice] = useState(120);
   const [publicEnabled, setPublicEnabled] = useState(true);
   const [requestsEnabled, setRequestsEnabled] = useState(true);
@@ -182,6 +181,7 @@ export function AgendaPage() {
             Citas y solicitudes de tu perfil público.
           </p>
         </div>
+        <ScheduleAppointmentButton onSaved={() => void refresh()}/>
         <button
           className="nuth-button-secondary"
           disabled={working}
@@ -253,18 +253,7 @@ export function AgendaPage() {
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
-                  {e.kind === "appointment" && (() => {
-                    const confirmation = agendaConfirmationState(e);
-                    const tone = confirmation === "both"
-                      ? "border-[#b9ddc4] bg-[#edf8ef] text-[#28633d]"
-                      : confirmation === "patient"
-                        ? "border-[#ead6a8] bg-[#fff8e7] text-[#795620]"
-                        : "border-[#c5d9f1] bg-[#eff6ff] text-[#28598f]";
-                    const dot = confirmation === "both" ? "🟢" : confirmation === "patient" ? "🟡" : "🔵";
-                    return <p className={`mb-3 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${tone}`} aria-label={`Confirmación: ${agendaConfirmationLabel(confirmation)}`}>
-                      <span aria-hidden="true">{dot}</span>{agendaConfirmationLabel(confirmation)}
-                    </p>;
-                  })()}
+                  {e.kind === "appointment" && <div className="mb-3"><AppointmentStatus appointment={e}/></div>}
                   {e.requires_confirmation && <p className="mb-3 inline-block rounded-full bg-[#fff1d5] px-3 py-1 text-xs font-semibold text-[#795620]">Reserva pendiente de confirmación</p>}
                   <p className="text-xs font-semibold text-[#64786e]">
                     {e.kind === "block"
@@ -296,7 +285,7 @@ export function AgendaPage() {
                   {e.registration_status === 'review' && !e.patient_id && <p className="mt-2 text-xs text-[#795620]">Revisa si ya tiene expediente antes de vincular o dar de alta.</p>}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {e.requires_confirmation && <button disabled={working} className="nuth-button" onClick={() => setConfirmEntry(e)}>Confirmar reserva</button>}
+
                   {e.kind === "appointment" && !e.patient_id && (
                     <button
                       className="nuth-button-secondary"
@@ -333,6 +322,7 @@ export function AgendaPage() {
                   </button>
                 </div>
               </div>
+              {e.kind === "appointment" && <AppointmentActions appointment={{...e, professional_name: "tu nutriólogo"}} onChanged={() => void refresh()}/>}
               {e.kind === "appointment" && (
                 <div className="mt-4 flex flex-wrap gap-3 border-t border-[#edf1ed] pt-3 text-xs text-[#64786e]">
                   <span>
@@ -685,23 +675,16 @@ export function AgendaPage() {
           }}
         />
       )}
-      {!creatingPatient && (activeRequest || linkEntry || cancelEntry || confirmEntry) && (
+      {!creatingPatient && (activeRequest || linkEntry || cancelEntry) && (
         <AgendaDialog
           busy={working}
           close={() => {
             setActiveRequest(null);
             setLinkEntry(null);
             setCancelEntry(null);
-            setConfirmEntry(null);
           }}
         >
-          {confirmEntry ? <>
-            <h2 className="pr-16 text-xl font-semibold">Confirmar la reserva</h2>
-            <p className="mt-4 font-medium">{confirmEntry.contact_name}</p>
-            <p className="mt-2 text-sm">{agendaDate(confirmEntry.starts_at, confirmEntry.timezone)}</p>
-            <p className="mt-4 text-sm text-[#64786e]">Se enviará la confirmación al paciente y se sincronizará la cita con Google si está conectado.</p>
-            <button disabled={working} className="nuth-button mt-5" onClick={() => run(async () => { await manage({ action: 'confirm_reservation', id: confirmEntry.id }); setConfirmEntry(null); setNotice('Reserva confirmada.'); })}>Confirmar y notificar</button>
-          </> : activeRequest ? (
+          {activeRequest ? (
             <>
               <h2 className="pr-16 text-xl font-semibold">
                 {activeRequest.contact_name}

@@ -1,3 +1,4 @@
+import { UpcomingAppointments } from "@/src/components/agenda/UpcomingAppointments";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import {
@@ -378,6 +379,7 @@ function PatientPortalContent() {
                     { id: "plan", label: "Mi plan", Icon: Utensils },
                     { id: "today", label: "Mi guía", Icon: ClipboardList },
                     { id: "results", label: "Resultados", Icon: Activity },
+                    { id: "appointments", label: "Mis citas", Icon: CalendarDays },
                     { id: "history", label: "Consultas", Icon: CalendarDays },
                     { id: "chat", label: "Chat", Icon: MessageCircle },
                     { id: "notes", label: "Mis notas", Icon: NotebookPen },
@@ -403,7 +405,7 @@ function PatientPortalContent() {
                   role="tabpanel"
                   aria-labelledby={`tab-${tab}`}
                 >
-                  {tab === "plan" ? (
+                  {tab === "appointments" ? (<UpcomingAppointments key={session} session={session}/>) : tab === "plan" ? (
                     <PortalPatientPlan access={access} />
                   ) : tab === "today" ? (
                     <PortalHomeSummary access={access} view={view} onOpenTab={(nextTab) => {

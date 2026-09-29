@@ -1,4 +1,5 @@
 "use client";
+import { AppointmentConfirmationPage } from "@/src/screens/AppointmentConfirmationPage";
 import { LegalAdminPage } from "../features/legal/LegalAdminPage";
 
 import { useEffect, useSyncExternalStore } from "react";
@@ -151,6 +152,7 @@ export function ClientApplication() {
           <Route path="/p/:slug" element={<PublicProfilePage />} />
           <Route path="/p/:slug/agendar" element={<PublicBookingPage />} />
           <Route path="/p/:slug/agendar/datos" element={<PublicBookingPage />} />
+          <Route path="/agenda/confirmar" element={<AppointmentConfirmationPage />} />
           <Route path="/agenda/responder" element={<AgendaResponsePage />} />
           <Route path="/mi-espacio" element={<PatientPortalPage />} />
           <Route path="/privacy" element={<LegalPage type="privacy" />} />

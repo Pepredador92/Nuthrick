@@ -2,6 +2,7 @@ import { productOriginAllowed, siteOrigin } from '../_shared/site.ts';
 import { createClient } from '@supabase/supabase-js';
 import { codeHash, decrypt, encrypt, gmailMessage, normalizeEmail, overlaps, parseInstant, readFreeBusy, secretToken, sha256 } from './security.ts';
 import { checkCalendarConflict } from './calendar-reconciliation.ts';
+import { appointmentRequest } from './appointments.ts';
 import { portalRequest } from './portal.ts';
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
@@ -169,7 +170,7 @@ async function deliverCalendar(job: Job) {
     description:'Cita reservada en Nuthrick. Sin información clínica.',
     location:job.entry.modality==='online'?'En línea':job.entry.location_snapshot?.address,
     start:{dateTime:job.entry.starts_at,timeZone:job.entry.timezone},end:{dateTime:job.entry.ends_at,timeZone:job.entry.timezone},
-    attendees:[{email:job.entry.contact_email}],extendedProperties:{private:{nuthrickAppointment:job.entry.id}},
+    attendees:job.entry.contact_email?[{email:job.entry.contact_email}]:[],extendedProperties:{private:{nuthrickAppointment:job.entry.id}},
   })});
   if(!response.ok) throw new Error(response.status===409?'calendar_retry':'google_unavailable');
   return job.payload.eventId;
@@ -270,6 +271,7 @@ async function handleAgenda(req: Request) {
     if(op==='worker') {
       if(req.headers.get('authorization')!==`Bearer ${env('AGENDA_WORKER_SECRET')}`) throw new Error('unauthorized');
       await server('expire');
+      await rpc('agenda_upcoming_notifications',{});
       const jobs=await work(undefined,undefined,2);
       await reconcileCalendar();
       return respond({jobs});
@@ -278,6 +280,13 @@ async function handleAgenda(req: Request) {
     // mutations. Also limit each email globally to prevent multi-IP mail abuse.
     const ip=req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()||'unknown';
     await limit(`agenda:ip:${ip}`,120,60);
+    if(op.startsWith('appointment_') || ['portal_appointments','portal_confirm_appointment'].includes(op)) {
+      return respond(await appointmentRequest(req,body,{
+        owner:async request=>(await ownerFromRequest(request)).id,
+        call:(action,data)=>rpc('agenda_appointment_action',{p_action:action,p_data:data}),
+        busy:busyPermit,key:key(),site,
+      }));
+    }
     if(op.startsWith('portal_')) {
       try { return respond(await portalRequest(req,body,{rpc:args=>rpc('patient_portal',args),presence:args=>rpc('portal_presence_topic',args),owner:async req=>(await ownerFromRequest(req)).id,limit,mail:sendPortalMail,key:key(),document:planDocument})); }
       catch(error) {
@@ -416,7 +425,7 @@ async function handleAgenda(req: Request) {
     // responses. Return only a controlled vocabulary, not raw SQL/provider errors.
     const message=error instanceof Error?error.message:'';
     const known=['invalid_email','invalid_time','invalid_input','invalid_id','invalid_code','invalid_action','invalid_option','invalid_patient','invalid_calendars','invalid_request','invalid_transition','outside_schedule','not_found','slot_taken','google_unavailable','configuration_required','mail_not_connected','email_test_mode','rate_limited','unauthorized','profile_unavailable','booking_unavailable','verification_required','idempotency_mismatch','invalid_token','token_used','request_expired','authorization_required','authorization_cancelled','invalid_oauth_state','wrong_sender'];
-    const code=[...known,'registration_required','invalid_birth_date','invalid_phone'].includes(message)?message:'temporarily_unavailable';
+    const code=[...known,'registration_required','invalid_birth_date','invalid_phone','portal_unavailable','feature_disabled','account_suspended'].includes(message)?message:'temporarily_unavailable';
     return respond({error:code},code==='unauthorized'?401:code==='rate_limited'?429:code==='slot_taken'?409:400);
   }
 }

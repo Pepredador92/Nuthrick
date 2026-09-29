@@ -54,8 +54,8 @@ const entry: AgendaEntry = {
   id: "appointment",
   kind: "appointment",
   status: "confirmed",
-  starts_at: "2026-09-20T16:00:00Z",
-  ends_at: "2026-09-20T17:00:00Z",
+  starts_at: "2099-09-20T16:00:00Z",
+  ends_at: "2099-09-20T17:00:00Z",
   timezone: "America/Mexico_City",
   modality: "online",
   location_snapshot: null,
@@ -84,7 +84,7 @@ beforeEach(() => {
           writeCalendar: "",
         }
       : op === "resolve_time_private"
-        ? { instants: ["2026-09-20T16:00:00Z"] }
+        ? { instants: ["2099-09-20T16:00:00Z"] }
         : {},
   );
   // jsdom does not implement the native dialog methods; browser focus trapping
@@ -159,17 +159,16 @@ describe("private agenda", () => {
     ).not.toBeInTheDocument();
   });
 
-  it('confirms a pending reservation only after the explicit confirmation dialog', async () => {
+  it('confirms a pending reservation from its shared action', async () => {
     vi.mocked(loadAgenda).mockResolvedValue({entries:[{...entry,requires_confirmation:true,registration_consented_at:'2026-09-20T12:00:00Z',registration_status:'review',contact_phone:'+524920000001'}],requests:[]});
     mount();
     await screen.findByText('Reserva pendiente de confirmación');
     expect(screen.getByLabelText('Confirmación: Paciente confirmó')).toBeInTheDocument();
     expect(screen.getByRole('link',{name:/WhatsApp/})).toHaveAttribute('href','https://wa.me/524920000001');
     expect(screen.getByText(/se sincroniza al confirmar/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button',{name:'Confirmar reserva'}));
     expect(api.mock.calls.some(([op])=>op==='manage')).toBe(false);
-    fireEvent.click(screen.getByRole('button',{name:'Confirmar y notificar'}));
-    await screen.findByText('Reserva confirmada.');
+    fireEvent.click(screen.getByRole('button',{name:'Confirmar mi parte'}));
+    await screen.findByText('Confirmación guardada.');
     expect(api).toHaveBeenCalledWith('manage',{payload:{action:'confirm_reservation',id:'appointment'},operationKey:expect.any(String)},true);
   });
   it('shows the green state after both sides confirm', async () => {
