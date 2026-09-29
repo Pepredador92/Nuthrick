@@ -67,11 +67,9 @@ export async function portalRequest(req: Request, body: Json, deps: Dependencies
     actor = { sessionHash: await sha256(token(body.session)) };
   } else throw new Error('invalid_action');
 
-  if (action === 'presence_topic') {
+  if (action === 'presence' && body.op === 'portal_patient') {
     if (!deps.presence) throw new Error('temporarily_unavailable');
-    const result = await deps.presence(body.op === 'portal_owner'
-      ? { p_owner: actor.owner, p_patient_id: actor.patientId }
-      : { p_session_hash: actor.sessionHash });
+    const result = await deps.presence({ p_session_hash: actor.sessionHash });
     if (result.error) throw new Error(String(result.error));
     return result;
   }

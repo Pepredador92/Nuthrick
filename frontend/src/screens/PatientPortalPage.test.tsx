@@ -2,12 +2,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PatientPortalPage } from "./PatientPortalPage";
-import { portalAction, portalApi, subscribeProfessionalPresence } from "@/src/services/patientPortal";
+import { portalAction, portalApi } from "@/src/services/patientPortal";
 vi.mock("@/src/services/patientPortal", () => ({
   portalApi: vi.fn(),
   portalAction: vi.fn(),
   subscribePortalNotifications: vi.fn().mockResolvedValue(() => {}),
-  subscribeProfessionalPresence: vi.fn().mockReturnValue(() => {}),
   PortalError: class extends Error {
     code = "portal_unavailable";
   },
@@ -61,8 +60,8 @@ beforeEach(() => {
           ? { notes: [] }
       : action === "messages"
             ? { messages: [], before: null }
-            : action === "presence_topic"
-              ? { topic: "professional-presence:professional" }
+            : action === "presence"
+              ? { online: false }
             : { ok: true },
   );
 });
@@ -91,10 +90,10 @@ async function login() {
 }
 describe("patient space", () => {
   it("shows when the professional is online", async () => {
-    vi.mocked(subscribeProfessionalPresence).mockImplementation((_topic, onChange) => {
-      onChange(true);
-      return () => {};
-    });
+    const original = vi.mocked(portalAction).getMockImplementation()!;
+    vi.mocked(portalAction).mockImplementation(async (access, action, data) =>
+      action === "presence" ? { online: true } : original(access, action, data),
+    );
     open();
     await login();
     expect(screen.getByLabelText("Tu nutriólogo está en línea")).toBeVisible();

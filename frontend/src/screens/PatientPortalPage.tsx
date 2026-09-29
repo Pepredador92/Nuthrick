@@ -16,7 +16,6 @@ import {
   portalAction,
   PortalError,
   subscribePortalNotifications,
-  subscribeProfessionalPresence,
   type PortalView,
 } from "@/src/services/patientPortal";
 import { playNotificationSound } from "@/src/features/notifications/sound";
@@ -112,22 +111,21 @@ function PatientPortalContent() {
     };
   }, [link, session]);
   useEffect(() => {
-    if (!session) {
-      return;
-    }
+    if (!session) return;
     let active = true;
-    let stop: (() => void) | undefined;
-    void portalAction<{ topic: string }>({ session }, "presence_topic")
-      .then(({ topic }) => {
-        if (!active) return;
-        stop = subscribeProfessionalPresence(topic, setProfessionalOnline);
-      })
-      .catch(() => {
-        if (active) setProfessionalOnline(false);
-      });
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      void portalAction<{ online: boolean }>({ session }, "presence")
+        .then(({ online }) => { if (active) setProfessionalOnline(online === true); })
+        .catch(() => { if (active) setProfessionalOnline(false); });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 30000);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
       active = false;
-      stop?.();
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, [session]);
   async function sendCode() {

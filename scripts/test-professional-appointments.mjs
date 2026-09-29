@@ -19,6 +19,11 @@ create publication supabase_realtime;
 ${migration('../supabase/migrations/20260925070703_realtime_notifications.sql')}
 ${migration('../supabase/migrations/20260929223905_professional_appointments_confirmation.sql')}
 ${read('./test-professional-appointments.sql')}
+${process.argv.includes('--presence') ? `
+create table auth.sessions(id uuid primary key,user_id uuid);
+create function auth.jwt() returns jsonb language sql stable as $$ select jsonb_build_object('session_id',current_setting('request.jwt.claim.session_id',true)) $$;
+${migration('../supabase/migrations/20260929225328_authenticated_professional_presence.sql')}
+${read('./test-professional-presence.sql')}` : ''}
 rollback;`;
 const result=spawnSync('psql',['-X','-q','-h','/tmp','-d',process.env.AGENDA_TEST_DATABASE||'postgres','-v','ON_ERROR_STOP=1'],{input:sql,encoding:'utf8'});
 process.stdout.write(result.stdout||'');process.stderr.write(result.stderr||'');process.exit(result.status??1);
