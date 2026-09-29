@@ -112,6 +112,12 @@ export type AccessCode = {
   expires_at: string;
   active: boolean;
 };
+export type SiteAnalytics = {
+  days: number;
+  pageviews: number;
+  visitors: number;
+  daily: { day: string; pageviews: number; visitors: number }[];
+};
 const messages: Record<string, string> = {
   finite_monthly_credits_required:
     "Define una cantidad finita de créditos mensuales.",
@@ -152,6 +158,11 @@ export async function fetchMyAccess(): Promise<MyAccess> {
   if (error || !data?.access || typeof data.is_admin !== "boolean")
     throw new Error("No pudimos verificar el acceso de tu cuenta.");
   return data as MyAccess;
+}
+export async function fetchSiteAnalytics(days = 30): Promise<SiteAnalytics> {
+  const { data, error } = await supabase.rpc("admin_site_analytics", { p_days: days });
+  if (error) throw new Error(messages[error.message] ?? "No pudimos cargar las visitas públicas.");
+  return data as SiteAnalytics;
 }
 export function canUseFeature(
   access: Access | null | undefined,

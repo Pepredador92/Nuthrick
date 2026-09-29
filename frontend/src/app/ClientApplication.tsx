@@ -47,12 +47,21 @@ import { PreLiveReadinessPage } from '@/src/features/billing/PreLiveReadinessPag
 import { OperationsPage } from '@/src/features/billing/OperationsPage';
 import { CodesPage } from '@/src/features/admin/CodesPage';
 import { LegalAcceptanceGate } from '@/src/features/legal/LegalAcceptanceGate';
+import { trackSiteVisit } from '@/src/services/siteAnalytics';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [pathname]);
+  return null;
+}
+
+function SiteVisitTracker() {
+  const { pathname, search } = useLocation();
+  useEffect(() => {
+    trackSiteVisit(`${pathname}${search}`);
+  }, [pathname, search]);
   return null;
 }
 
@@ -70,6 +79,7 @@ export function ClientApplication() {
       <AuthProvider>
         <AccessProvider>
         <ScrollToTop />
+        <SiteVisitTracker />
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/planes" element={<CommercialPlansPage />} />
