@@ -29,7 +29,18 @@ export function formatPatientDate(
   fallback = "—",
 ): string {
   if (!value) return fallback;
-  const date = new Date(value);
+  // Date-only values represent a calendar date, not an instant in UTC. Parsing
+  // them with `new Date("YYYY-MM-DD")` shifts the displayed day for users west
+  // of UTC (for example 13/07 becomes 12/07 in Mexico City).
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  const date = dateOnly
+    ? new Date(
+        Number(dateOnly[1]),
+        Number(dateOnly[2]) - 1,
+        Number(dateOnly[3]),
+        12,
+      )
+    : new Date(value);
   return Number.isNaN(date.getTime())
     ? fallback
     : new Intl.DateTimeFormat("es-MX", { dateStyle: "medium" }).format(date);

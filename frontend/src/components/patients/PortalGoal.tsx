@@ -12,6 +12,7 @@ export function PortalGoal({patientId,content,onChange}:{patientId:string;conten
  },[patientId]);
  const current=goals.find(g=>g.consultationId===content.goalSource?.consultationId&&g.revision===content.goalSource?.revision&&g.questionKey===content.goalSource?.questionKey);
  const candidate=goals[0];
+ const currentSelection=Boolean(current&&content.goalSource&&current.content===content.goal);
  const apply=(g:Goal)=>onChange({...content,goal:g.content,goalSource:{consultationId:g.consultationId,revision:g.revision,questionKey:g.questionKey}});
  return <section className="mt-5" aria-label="Objetivo de consulta">
   <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">Objetivo actual</h3>
@@ -24,7 +25,7 @@ export function PortalGoal({patientId,content,onChange}:{patientId:string;conten
     {loading?<p role="status" className="mt-3 text-sm">Buscando objetivo de consulta…</p>:error?<p role="alert">{error}</p>:!candidate?<p className="mt-3 text-sm text-[#74817d]">Aún no hay objetivos registrados en una consulta finalizada.</p>:<>
      <p className="mt-3 whitespace-pre-line rounded-xl bg-[#f5f7f3] p-3 text-sm">{content.goalSource?content.goal:candidate.content}</p>
      <p className="mt-2 text-xs text-[#74817d]">{current?`Origen: consulta del ${portalDate(current.date)}`:content.goalSource?'El objetivo anterior ya no está disponible en una consulta finalizada.':`Origen: consulta del ${portalDate(candidate.date)}`}</p>
-     <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(content.goalSource&&content.goal)} onChange={e=>e.target.checked?apply(candidate):onChange({...content,goal:'',goalSource:null})}/>Compartir objetivo</label>
+     <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={currentSelection} onChange={e=>e.target.checked?apply(candidate):onChange({...content,goal:'',goalSource:null})}/>Compartir objetivo</label>
      {content.goalSource&&(candidate.consultationId!==content.goalSource.consultationId||candidate.revision!==content.goalSource.revision||candidate.content!==content.goal)&&<button type="button" className="mt-3 text-sm font-semibold underline" onClick={()=>apply(candidate)}>Usar objetivo más reciente · {portalDate(candidate.date)}</button>}
     </>}
    </>}

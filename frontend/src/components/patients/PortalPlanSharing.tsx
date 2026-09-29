@@ -154,8 +154,7 @@ export function PortalPlanSharing({ patientId }: { patientId: string }) {
               busy ||
               loading ||
               !reviewed ||
-              Boolean(selection && !plan) ||
-              selection === (options.selectedPlanId || "")
+              Boolean(selection && !plan)
             }
             onClick={() => void share()}
           >

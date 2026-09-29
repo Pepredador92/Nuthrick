@@ -3,6 +3,7 @@ import {
   calculateAge,
   calculateBmi,
   consultationLabel,
+  formatPatientDate,
   normalizePhone,
   patientStatusLabel,
 } from "./patientUtils";
@@ -18,6 +19,9 @@ describe("patient utilities", () => {
   });
   it("calculates BMI without allowing manual drift", () =>
     expect(calculateBmi(70, 175)).toBe(22.86));
+  it("formats date-only birth dates without shifting the calendar day", () => {
+    expect(formatPatientDate("1981-07-13")).toMatch(/13 jul 1981/i);
+  });
   it("normalizes local phone numbers to E.164", () =>
     expect(normalizePhone("+52", "55 1234 5678")).toBe("+525512345678"));
   it("keeps archived status distinct from inactive", () => {

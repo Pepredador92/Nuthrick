@@ -16,3 +16,21 @@ it('requires selection, patient preview and acknowledgement before sharing a pla
   await waitFor(()=>expect(portalAction).toHaveBeenCalledWith({patientId:'patient'},'share_plan',{planId:'published'}));
   await screen.findByText('Plan compartido. El paciente verá su última versión publicada.');
 });
+
+it('allows re-confirming the currently shared plan after reviewing it', async () => {
+  vi.mocked(portalAction).mockImplementation(async (_access, action) =>
+    action === 'plan_options'
+      ? { plans: [{ id: 'published', title: 'Publicado', version_number: 2, published_at: '2026-09-21' }], selectedPlanId: 'published' }
+      : action === 'plan_preview'
+        ? { plan: { title: 'Publicado', versionNumber: 2, publishedAt: '2026-09-21', days: [] } }
+        : { ok: true },
+  );
+  render(<MemoryRouter><PortalPlanSharing patientId="patient" /></MemoryRouter>);
+  await screen.findByRole('region', { name: 'Plan alimenticio publicado' });
+  const button = screen.getByRole('button', { name: 'Compartir plan' });
+  expect(button).toBeDisabled();
+  fireEvent.click(screen.getByRole('checkbox'));
+  expect(button).toBeEnabled();
+  fireEvent.click(button);
+  await waitFor(() => expect(portalAction).toHaveBeenCalledWith({ patientId: 'patient' }, 'share_plan', { planId: 'published' }));
+});
