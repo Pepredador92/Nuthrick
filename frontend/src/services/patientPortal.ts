@@ -143,3 +143,26 @@ export async function subscribePortalNotifications(
     void supabase.removeChannel(channel);
   };
 }
+
+export function subscribeProfessionalPresence(
+  topic: string,
+  onOnlineChange: (online: boolean) => void,
+) {
+  const channel = supabase
+    .channel(topic, { config: { presence: { key: "patient" } } })
+    .on("presence", { event: "sync" }, () => {
+      onOnlineChange(Object.keys(channel.presenceState()).length > 0);
+    })
+    .on("presence", { event: "join" }, () => onOnlineChange(true))
+    .on("presence", { event: "leave" }, () => {
+      onOnlineChange(Object.keys(channel.presenceState()).length > 0);
+    })
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        onOnlineChange(Object.keys(channel.presenceState()).length > 0);
+      }
+    });
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+}

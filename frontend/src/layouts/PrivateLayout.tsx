@@ -8,6 +8,7 @@ import { canReadFeature } from '@/src/features/admin/api';
 import { AIUsageIndicator } from '@/src/components/ai/AIControls';
 import { NotificationCenter } from '@/src/components/notifications/NotificationCenter';
 import { NotificationsProvider } from '@/src/features/notifications/useNotifications';
+import { useProfessionalPresence } from '@/src/features/presence/useProfessionalPresence';
 
 const nav = [
   { label: 'Dashboard', href: '/app', icon: LayoutDashboard, end: true },
@@ -23,6 +24,7 @@ const nav = [
 
 export function PrivateLayout() {
   const { profile, user, signOut } = useAuth();
+  useProfessionalPresence(user?.id);
   const navigate = useNavigate();
   const { data: accessData } = useAccess();
   const [mobileOpen, setMobileOpen] = useState(false);

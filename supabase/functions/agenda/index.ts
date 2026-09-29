@@ -279,7 +279,7 @@ async function handleAgenda(req: Request) {
     const ip=req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()||'unknown';
     await limit(`agenda:ip:${ip}`,120,60);
     if(op.startsWith('portal_')) {
-      try { return respond(await portalRequest(req,body,{rpc:args=>rpc('patient_portal',args),owner:async req=>(await ownerFromRequest(req)).id,limit,mail:sendPortalMail,key:key(),document:planDocument})); }
+      try { return respond(await portalRequest(req,body,{rpc:args=>rpc('patient_portal',args),presence:args=>rpc('portal_presence_topic',args),owner:async req=>(await ownerFromRequest(req)).id,limit,mail:sendPortalMail,key:key(),document:planDocument})); }
       catch(error) {
         const code=error instanceof Error?error.message:'';
         const safe=['portal_unavailable','email_required','stale_revision','invalid_consultation','invalid_plan','invalid_goal','document_too_large','identity_confirmation_required','invalid_input','invalid_code','invalid_action','unauthorized','rate_limited','note_limit','idempotency_mismatch','mail_not_connected','mail_send_failed','mail_delivery_unknown','email_test_mode'];

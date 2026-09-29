@@ -8,6 +8,7 @@ type Dependencies = {
   owner: (req: Request) => Promise<string>;
   limit: (bucket: string, max: number, seconds: number) => Promise<void>;
   mail: (to: string, subject: string, message: string, id: string) => Promise<string>;
+  presence?: (data: Json) => Promise<Json>;
   key: string;
   document?: (plan:unknown,professional:unknown,format:'pdf'|'tex')=>Promise<Json>;
 };
@@ -66,6 +67,14 @@ export async function portalRequest(req: Request, body: Json, deps: Dependencies
     actor = { sessionHash: await sha256(token(body.session)) };
   } else throw new Error('invalid_action');
 
+  if (action === 'presence_topic') {
+    if (!deps.presence) throw new Error('temporarily_unavailable');
+    const result = await deps.presence(body.op === 'portal_owner'
+      ? { p_owner: actor.owner, p_patient_id: actor.patientId }
+      : { p_session_hash: actor.sessionHash });
+    if (result.error) throw new Error(String(result.error));
+    return result;
+  }
   const allowed = body.op === 'portal_owner'
     ? ['view', 'link', 'revoke', 'publish', 'messages', 'message', 'read', 'issue_code', 'plan', 'plan_options', 'plan_preview', 'share_plan','goal_candidates','plan_history','plan_version','export_plan']
     : ['view', 'messages', 'message', 'read', 'notes', 'note', 'delete_note', 'logout', 'plan','export_plan'];

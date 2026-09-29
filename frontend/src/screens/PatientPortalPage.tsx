@@ -15,6 +15,7 @@ import {
   portalAction,
   PortalError,
   subscribePortalNotifications,
+  subscribeProfessionalPresence,
   type PortalView,
 } from "@/src/services/patientPortal";
 import { playNotificationSound } from "@/src/features/notifications/sound";
@@ -39,6 +40,7 @@ function PatientPortalContent() {
   const [session, setSession] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [view, setView] = useState<PortalView | null>(null);
+  const [professionalOnline, setProfessionalOnline] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState("today");
@@ -108,6 +110,25 @@ function PatientPortalContent() {
       stop?.();
     };
   }, [link, session]);
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+    let active = true;
+    let stop: (() => void) | undefined;
+    void portalAction<{ topic: string }>({ session }, "presence_topic")
+      .then(({ topic }) => {
+        if (!active) return;
+        stop = subscribeProfessionalPresence(topic, setProfessionalOnline);
+      })
+      .catch(() => {
+        if (active) setProfessionalOnline(false);
+      });
+    return () => {
+      active = false;
+      stop?.();
+    };
+  }, [session]);
   async function sendCode() {
     setBusy(true);
     setError("");
@@ -343,6 +364,10 @@ function PatientPortalContent() {
                       {view.professional.title}
                     </p>
                   )}
+                  <span className={`mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${professionalOnline ? "bg-[#e6f5e9] text-[#28633d]" : "bg-white/10 text-[#c4d9cc]"}`} aria-label={professionalOnline ? "Tu nutriólogo está en línea" : "Tu nutriólogo no está en línea"}>
+                    <span aria-hidden="true">{professionalOnline ? "●" : "○"}</span>
+                    {professionalOnline ? "Nutriólogo en línea" : "Nutriólogo desconectado"}
+                  </span>
                 </header>
                 <div
                   role="tablist"
