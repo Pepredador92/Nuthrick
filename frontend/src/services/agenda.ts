@@ -52,12 +52,12 @@ export type AgendaEntry = {
 };
 export type AgendaConfirmationState = "none" | "patient" | "professional" | "both";
 export function agendaConfirmationState(entry: Pick<AgendaEntry, "patient_confirmed_at" | "registration_consented_at" | "professional_confirmed_at">): AgendaConfirmationState {
-  const patient = Boolean(entry.patient_confirmed_at || entry.registration_consented_at);
+  const patient = Boolean(entry.patient_confirmed_at === undefined ? entry.registration_consented_at : entry.patient_confirmed_at);
   if (entry.professional_confirmed_at) return patient ? "both" : "professional";
   return patient ? "patient" : "none";
 }
 export function agendaConfirmationLabel(state: AgendaConfirmationState) {
-  return {both:"Ambos confirmaron",patient:"Paciente confirmó",professional:"Falta confirmar al paciente",none:"Sin confirmaciones"}[state];
+  return {both:"Ambos confirmaron",patient:"Paciente confirmó",professional:"Falta confirmación del paciente",none:"Sin confirmaciones"}[state];
 }
 export type AgendaRequest = {
   id: string;

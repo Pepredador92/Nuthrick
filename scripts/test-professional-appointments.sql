@@ -34,7 +34,11 @@ do $$ declare owner_id uuid:='00000000-0000-0000-0000-000000000001'; pid uuid:='
  if exists(select 1 from public.agenda_entries where id=other_id and patient_confirmed_at is not null) then raise exception 'False patient confirmation'; end if;
  perform public.agenda_appointment_action('patient_confirm',jsonb_build_object('sessionHash','session-fixture','id',other_id));
  if (select count(*) from public.professional_notifications where dedupe_key='patient-confirmed:'||eid)<>1 then raise exception 'Duplicate notification'; end if;
+ update public.agenda_entries set patient_id=null where id=eid;
+ if (select patient_confirmed_at is not null from public.agenda_entries where id=eid) then raise exception 'Old patient confirmation retained'; end if;
+ perform pg_temp.expect_error('select public.agenda_appointment_action(''info'',''{"tokenHash":"fixture-token"}'')','invalid_token');
  perform public.agenda_manage(owner_id,gen_random_uuid(),jsonb_build_object('action','cancel','id',eid));
+ if exists(select 1 from private.agenda_outbox where subject_id=eid and kind='cancellation') then raise exception 'Cancellation email without recipient'; end if;
  perform pg_temp.expect_error('select public.agenda_appointment_action(''info'',''{"tokenHash":"fixture-token"}'')','invalid_token');
  -- Expired links and unrelated patients cannot confirm.
  perform pg_temp.expect_error('select public.agenda_appointment_action(''info'',''{"tokenHash":"unknown"}'')','invalid_token');

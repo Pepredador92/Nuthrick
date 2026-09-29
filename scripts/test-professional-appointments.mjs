@@ -18,6 +18,7 @@ create table private.portal_messages(id uuid,patient_id uuid,sender text);
 create publication supabase_realtime;
 ${migration('../supabase/migrations/20260925070703_realtime_notifications.sql')}
 ${migration('../supabase/migrations/20260929223905_professional_appointments_confirmation.sql')}
+${migration('../supabase/migrations/20260929230755_appointment_contact_guards.sql')}
 ${read('./test-professional-appointments.sql')}
 ${process.argv.includes('--presence') ? `
 create table auth.sessions(id uuid primary key,user_id uuid);
