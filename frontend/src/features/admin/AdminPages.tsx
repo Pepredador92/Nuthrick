@@ -1,3 +1,4 @@
+import { SiteVisitStats } from "./SiteVisitStats";
 import {
   useCallback,
   useEffect,
@@ -11,7 +12,6 @@ import {
   actionLabels,
   adminRequest,
   dateLabel,
-  fetchSiteAnalytics,
   featureLabels,
   statusLabels,
   valueLabel,
@@ -200,11 +200,6 @@ export function AdminHome() {
     suspended: number;
   }>("overview");
   const audit = useAdminData<Audit[]>("audit");
-  const [analytics, setAnalytics] = useState<import("./api").SiteAnalytics | null>(null);
-  const [analyticsError, setAnalyticsError] = useState("");
-  useEffect(() => {
-    void fetchSiteAnalytics().then(setAnalytics).catch((cause) => setAnalyticsError(cause instanceof Error ? cause.message : "No pudimos cargar las visitas públicas."));
-  }, []);
   return (
     <>
       <Heading
@@ -251,18 +246,7 @@ export function AdminHome() {
           <LoadError error={audit.error} />
           <AuditList rows={audit.data ?? []} />
         </section>
-        <section className="admin-card" aria-label="Visitas públicas">
-          <h2>Visitas públicas</h2>
-          {analyticsError ? <p className="admin-note">{analyticsError}</p> : analytics ? <>
-            <div className="admin-metrics mt-4">
-              <div className="admin-metric"><p>Visitas · últimos {analytics.days} días</p><strong>{analytics.pageviews}</strong></div>
-              <div className="admin-metric"><p>Visitantes únicos</p><strong>{analytics.visitors}</strong></div>
-            </div>
-            <ul className="mt-4 space-y-2 text-sm">
-              {analytics.daily.slice(-7).map((day) => <li key={day.day} className="flex justify-between border-b border-[#edf1ed] pb-2"><span>{dateLabel(day.day)}</span><span>{day.pageviews} visitas · {day.visitors} visitantes</span></li>)}
-            </ul>
-          </> : <p className="admin-note">Cargando visitas públicas…</p>}
-        </section>
+        <SiteVisitStats />
       </Ready>
     </>
   );

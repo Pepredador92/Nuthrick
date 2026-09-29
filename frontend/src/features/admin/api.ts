@@ -113,6 +113,8 @@ export type AccessCode = {
   active: boolean;
 };
 export type SiteAnalytics = {
+  total: number;
+  timezone: string;
   days: number;
   pageviews: number;
   visitors: number;
