@@ -21,7 +21,7 @@ try {
   console.log('PASS subscription and credit regressions after LIVE-1B');
   sql(readFileSync(new URL('scripts/test-live-one-b.sql',root),'utf8'));
   console.log('PASS LIVE-1B baseline');
-  for (const suffix of ['transactional_email_gmail_transport','transactional_email_runtime_verify','transactional_email_gmail_queue','gmail_sender_verification_guard','commercial_email_pre_live','billing_optional_credit_purchase','email_transport_required_proofs']) {
+  for (const suffix of ['transactional_email_gmail_transport','transactional_email_runtime_verify','transactional_email_gmail_queue','gmail_sender_verification_guard','commercial_email_pre_live','billing_optional_credit_purchase','email_transport_required_proofs','email_operational_activation_alias']) {
     const file=readdirSync(new URL('supabase/migrations/',root)).find(n=>n.endsWith('_'+suffix+'.sql'));
     assert.ok(file, suffix);
     sql(readFileSync(new URL('supabase/migrations/'+file,root),'utf8'));

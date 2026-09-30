@@ -69,3 +69,24 @@ select 'local-transport:'||k,'recipient@example.org',k,'{}','test',true,50,'sent
 select pg_temp.assert(private.transactional_email_transport_ready(),'Required five transport proofs plus additional commercial templates remain ready');
 update private.transactional_email_outbox set observed_at=null where event_key='local-transport:credits_refunded';
 select pg_temp.assert(not private.transactional_email_transport_ready(),'Additional template cannot replace required credit refund proof');
+
+-- Complete LOCAL fixtures exercise the activation branch past its early gates.
+-- Missing/mismatched proofs must still fail; full proofs must reach the update.
+update private.transactional_email_outbox set observed_at=now() where event_key='local-transport:credits_refunded';
+select pg_temp.assert(private.billing_legal_ready(),'Local approved legal fixtures exist');
+select private.transactional_email_server('worker_done','{"accepted":0,"failed":0,"collection_failed":false}');
+insert into private.pre_live_operational_evidence(key,evidence) values
+ ('commercial_email_end_to_end','{"passed":true,"configuration_revision":50}')
+on conflict(key) do update set evidence=excluded.evidence;
+select pg_temp.reject($q$select public.email_admin_api('activate_operational','{"confirmation":"ACTIVAR CORREO OPERATIVO"}')$q$,'email_operational_not_ready');
+insert into private.pre_live_operational_evidence(key,evidence) values
+ ('mail_oauth_continuity','{"production_verified":true,"sender_email":"wrong@example.org"}')
+on conflict(key) do update set evidence=excluded.evidence;
+select pg_temp.reject($q$select public.email_admin_api('activate_operational','{"confirmation":"ACTIVAR CORREO OPERATIVO"}')$q$,'email_operational_not_ready');
+update private.pre_live_operational_evidence set evidence='{"production_verified":true,"sender_email":"sender@example.org"}' where key='mail_oauth_continuity';
+select public.email_admin_api('activate_operational','{"confirmation":"ACTIVAR CORREO OPERATIVO"}');
+select pg_temp.assert(private.transactional_email_ready(),'Complete evidence activates operational email through the administrative API');
+select pg_temp.assert((select operational_since is not null and delivery_mode='operational' from private.transactional_email_settings where id),'Activation records its start boundary');
+select pg_temp.assert(not (select checkout_enabled from private.billing_live_configuration where id),'Email activation does not enable Stripe Live checkout');
+select public.email_admin_api('pause_operational','{}');
+select pg_temp.assert(not private.transactional_email_ready(),'Pausing disables operational email readiness');
