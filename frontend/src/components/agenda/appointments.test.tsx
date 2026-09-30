@@ -14,7 +14,7 @@ it.each([true,false])('agendas from a preselected patient (%s) through the share
  const saved=vi.fn();render(<ScheduleAppointmentButton patient={preselected?{id:'p1',full_name:'Paciente prueba'}:undefined} onSaved={saved}/>);
  fireEvent.click(screen.getByRole('button',{name:'Agendar cita'}));
  await screen.findByText(/Duración: 60 min/);
- if(!preselected){await screen.findByRole('option',{name:'Paciente prueba'});fireEvent.change(screen.getByLabelText('Paciente'),{target:{value:'p1'}});}
+ if(!preselected){fireEvent.focus(screen.getByRole('combobox',{name:'Paciente'}));fireEvent.click(await screen.findByRole('option',{name:'Paciente prueba'}));}
  fireEvent.change(screen.getByLabelText('Fecha y hora'),{target:{value:'2099-10-01T10:00'}});
  fireEvent.click(screen.getAllByRole('button',{name:'Agendar cita'}).at(-1)!);
  await screen.findByText('Cita agendada');
