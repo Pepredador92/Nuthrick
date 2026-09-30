@@ -25,10 +25,23 @@ beforeEach(() => {
 
 it("shows test mode, readiness counts and actionable pending checks", async () => {
   render(<MemoryRouter><PreLiveReadinessPage /></MemoryRouter>);
-  expect(await screen.findByText(/Stripe TEST · Live deshabilitado/)).toBeInTheDocument();
+  expect(await screen.findByText(/Stripe TEST · Checkout Live cerrado/)).toBeInTheDocument();
   expect(screen.getByText("listos")).toBeInTheDocument();
   expect(screen.getByText("Términos, privacidad y reembolsos")).toBeInTheDocument();
   expect(screen.getByText("Pendiente")).toBeInTheDocument();
+});
+
+it.each([false, true])("distinguishes configured Live integration from checkout permission (%s)", async (checkoutEnabled) => {
+  rpc.mockResolvedValueOnce({ data: {
+    mode: "test", live_enabled: false, openai_enabled: false, live_payments: 0,
+    summary: { ready: 15, pending: 0, blocked: 0 }, checks: [],
+    live: { preparation_enabled: true, credentials_present: true, checkout_enabled: checkoutEnabled, checks: [] },
+  }, error: null });
+  render(<MemoryRouter><PreLiveReadinessPage /></MemoryRouter>);
+  const banner = await screen.findByRole("status");
+  expect(banner).toHaveTextContent("Integración Stripe Live configurada");
+  expect(banner).toHaveTextContent(checkoutEnabled ? "Checkout Live limitado a cuentas autorizadas" : "Checkout Live cerrado");
+  expect(banner).toHaveTextContent("OpenAI deshabilitado");
 });
 
 it("uses actual Live payment counts and shows Live blockers separately from general readiness", async () => {

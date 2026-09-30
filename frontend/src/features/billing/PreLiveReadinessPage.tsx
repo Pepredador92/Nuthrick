@@ -36,6 +36,10 @@ export function PreLiveReadinessPage() {
     return getPreLiveReadiness().then(setData).catch((e) => setError(e.message));
   }, []);
   useEffect(() => { void load(); }, [load]);
+  const liveCheckoutEnabled = data?.live?.checkout_enabled ?? data?.live_enabled;
+  const stripeStatus = data?.live?.preparation_enabled && data.live.credentials_present
+    ? "Integración Stripe Live configurada"
+    : `Stripe ${data?.mode.toUpperCase() ?? "TEST"}`;
 
   return (
     <>
@@ -59,14 +63,14 @@ export function PreLiveReadinessPage() {
           <section className="admin-card prelive-banner" role="status">
             <ShieldCheck size={22} aria-hidden="true" />
             <div>
-              <strong>Stripe {data.mode.toUpperCase()} · Live {data.live_enabled ? "limitado a cuentas autorizadas" : "deshabilitado"} · OpenAI {data.openai_enabled ? "habilitado" : "deshabilitado"}</strong>
+              <strong>{stripeStatus} · Checkout Live {liveCheckoutEnabled ? "limitado a cuentas autorizadas" : "cerrado"} · OpenAI {data.openai_enabled ? "habilitado" : "deshabilitado"}</strong>
               <p>Pagos Live confirmados: {data.live_payments ?? "pendiente de verificar"}. El primer cobro requiere autorización explícita.</p>
             </div>
           </section>
           {data.live && (
             <section className="admin-card billing-section" aria-label="Controles específicos Live">
               <h2>LIVE-1 · Activación controlada</h2>
-              <p className="admin-note">Estos controles complementan los 15 generales. Legal pendiente impide configurar credenciales Live. La lista de cuentas autorizadas y el checkout permanecen cerrados durante la preparación.</p>
+              <p className="admin-note">Estos controles complementan los 15 generales. Preparar la integración no abre el checkout: cada cuenta piloto requiere autorización y todos los controles deben estar listos para cobrar.</p>
               <div className="prelive-checks">
                 {data.live.checks.map((check) => (
                   <article className={`prelive-check ${statusClass[check.status]}`} key={check.key}>

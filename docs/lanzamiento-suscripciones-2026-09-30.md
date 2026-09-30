@@ -11,7 +11,7 @@ Se confirmó usar los dos planes actuales de Administración:
 | Esencial | $349 MXN | $3,490 MXN |
 | Profesional | $499 MXN | $4,990 MXN |
 
-Son los valores leídos del catálogo de producción en esta fecha. No se sustituyó el catálogo por los tres planes de referencia del landing ni se crearon precios nuevos en Stripe.
+Son los valores leídos del catálogo de producción en esta fecha. Los cuatro precios se crearon y verificaron en Stripe Live; el catálogo conserva los dos planes aprobados de Administración.
 
 ## Precio público y precio de cobro
 
@@ -30,9 +30,9 @@ Son los valores leídos del catálogo de producción en esta fecha. No se sustit
 - Publicado en `main` mediante `73eef22`; Vercel del proyecto `nuthrick` confirmó despliegue satisfactorio. Se comprobó en `https://nuthrick.com/#precios` la presencia de los dos planes, sus cuatro importes, límites de pacientes, enlaces al plan correspondiente y contacto `hola.nuthrick@gmail.com`. El landing ya no anuncia Agenda, Calendar ni correo Gmail. El proyecto Vercel heredado `frontend` sigue informando fallo separado y no sirve el dominio oficial.
 - Readiness final: **15 listos, 0 pendientes, 0 bloqueados**. El correo comercial está operativo desde `2026-09-30T06:28:36.993461Z`. El control adicional `live_email` también está listo; el checkout Live sigue deshabilitado.
 - Con confirmación explícita para continuar ante el aviso de app no verificada, se renovó el remitente a las `06:19:16Z`. Google mostró únicamente los accesos existentes de identidad y envío. La aceptación legal de la cuenta ya permite entrar en Agenda.
-- Stripe Live: cuenta Nuthrick `acct_1UJP0IDDGKbaZsh7` identificada al salir de su sandbox. Una primera vista mostró el proceso de activación y propuso reutilizar datos de otro negocio; no se seleccionó ni confirmó esa reutilización. La revisión posterior de Empresa → Estado de la cuenta confirmó **Pagos y transferencias activos, sin tareas de verificación pendientes**. No se atribuye a Codex la activación del negocio; falta ratificar estos controles mediante la API del servidor.
-- Preparación y checkout Live siguen cerrados; no hay credenciales Live configuradas ni precios/webhook/Portal Live verificados. No se ejecutó ningún cargo.
-- El siguiente paso es configurar credenciales por un canal seguro, sincronizar los cuatro precios confirmados, verificar webhook y Portal, y preparar un único pago piloto con importe y cuenta explícitos, incluida la comprobación de su correo real. El usuario autorizó crear «Nuthrick Billing Live» y guardarla en Supabase Vault; Stripe solicitó la verificación de identidad del titular antes de emitirla.
+- Stripe Live: la API confirmó la cuenta Nuthrick `acct_1UJP0IDDGKbaZsh7`, país MX, moneda MXN, nombre comercial Nuthrick, descriptor NUTHRICK, pagos y transferencias activos, datos completos y ningún requisito pendiente. No se reutilizaron datos de otro negocio ni se atribuye a Codex la activación comercial.
+- Preparación Live habilitada; credenciales en Vault y precios/webhook/Portal Live verificados. Checkout permanece cerrado y no se ejecutó ningún cargo.
+- El usuario autorizó un piloto separado con `hola.nuthrick+piloto@gmail.com`, Esencial mensual a $349 MXN. Falta completar el acceso de esa cuenta, aceptación legal, habilitación exclusiva del piloto y pago manual del titular. No se ha abierto la venta general.
 
 ## Cierre del correo operativo
 
@@ -46,10 +46,29 @@ Son los valores leídos del catálogo de producción en esta fecha. No se sustit
 
 ## Clave Live de integración
 
-- El usuario autorizó crear y almacenar la clave en Vault. La creación permanece detenida en la verificación de identidad de Stripe; no se ha recibido ni guardado la clave.
-- El borrador «Nuthrick Billing Live» limita la escritura a clientes, productos, precios, cupones, facturas, suscripciones, Checkout, Customer Portal y webhooks. Cuenta, eventos, cargos/reembolsos, disputas, intentos y métodos de pago quedan en lectura. No concede transferencias, emisión de tarjetas ni cambios de cuentas bancarias. Los permisos efectivos deberán comprobarse al ejecutar la integración.
+- El usuario autorizó crear y almacenar la clave en Vault. Stripe completó la verificación de identidad por correo y SMS y emitió «Nuthrick Billing Live». El secreto `nuthrick_billing_stripe_live` quedó guardado a las `07:21:44Z`, con clave restringida, firma del webhook, entorno y cuenta esperada; no contiene credenciales TEST.
+- «Nuthrick Billing Live» limita la escritura a clientes, productos, precios, cupones, facturas, suscripciones, Checkout, Customer Portal y webhooks. Cuenta, eventos, cargos/reembolsos, disputas, intentos y métodos de pago quedan en lectura. No concede transferencias, emisión de tarjetas ni cambios de cuentas bancarias. Las llamadas reales de creación y consulta confirmaron los permisos necesarios para preparar la integración; el pago y el reembolso siguen pendientes.
 - Stripe recomienda claves restringidas para nuevas integraciones: [API keys](https://docs.stripe.com/keys). El servidor y `20260930065315_live_stripe_restricted_key.sql` aceptan `rk_live_` además del formato existente, conservando la cuenta esperada, Legal, PRE-LIVE y el aislamiento de entornos. No se cambiaron permisos SQL ni el checkout.
 - Verificación: 53 pruebas Deno aprobadas, typecheck/lint y arnés SQL Live (incluidas ocho entregas de webhook y ocho jobs concurrentes). La regresión de credenciales comprueba rechazo de claves TEST, públicas, de organización, incompletas y de otra cuenta, además de acceso denegado al navegador y la conservación del control legal.
-- Migración aplicada y Edge Function `billing` v7 desplegada. Comprobación posterior: 15/15, correo operativo, credenciales Live ausentes, checkout cerrado y lista piloto vacía.
+- Migración aplicada y Edge Function `billing` v7 desplegada. Tras configurar Live y registrar la autorización del piloto: PRE-LIVE 15/15 y controles Live 11/11; checkout cerrado, cero pagos y cero suscripciones Live. Readiness no equivale a un cobro piloto completado.
+
+## Integración Live verificada
+
+- Webhook `we_1ULHp7DDGKbaZsh7Qt5VD7ib`: endpoint `/functions/v1/billing/webhook/live` del proyecto, API `2026-08-26.dahlia`, 27 eventos que maneja billing y dos eventos de catálogo para comprobar entrega firmada sin cobrar.
+- Se recibieron los seis eventos reales de creación de productos/precios, con `livemode=true` y `pending_webhooks=0`. El servidor verificó la firma a las `07:23:29Z`; no se utilizó una firma fabricada localmente. Ejemplo de evidencia: `evt_1ULHrPDDGKbaZsh7ll2csGAn` (`price.created`).
+- Portal `bpc_1ULHp8DDGKbaZsh7GEdOv0wG`: actualización de método de pago, facturas, nombre/dirección y cancelación al final del período. Cambios de plan deshabilitados en Portal; retorno y legales en `nuthrick.com`.
+- El operador ejecutó el proveedor del repositorio (`StripeBillingProvider`) contra la API Live y los RPC de billing mediante el conector autorizado de Supabase. Se conservaron guardas, mappings, bloqueo y auditoría; no se simuló una sesión ni se escribió una fecha de verificación inventada. `inspectConfiguration` confirmó los cuatro precios, endpoint, Portal y conciliación sin discrepancias, registrada a las `07:23:59Z`.
+- Esencial anual: `price_1ULHrNDDGKbaZsh75iqcgZWw`; mensual: `price_1ULHrNDDGKbaZsh7Ywwecbu3`. Profesional anual: `price_1ULHrODDGKbaZsh7w4EmLtKN`; mensual: `price_1ULHrPDDGKbaZsh7nVHN1UZK`.
+- El panel distingue integración Live configurada de Checkout Live cerrado/limitado a cuentas autorizadas. Cuatro pruebas de interfaz, TypeScript, ESLint focal y build aprobados.
+- Las copias temporales de la clave y firma fueron eliminadas tras comprobar que Vault conserva las credenciales válidas. Las evidencias guardadas contienen únicamente identificadores, estados e importes.
+
+## Siguiente control: un pago piloto
+
+1. Cuenta piloto creada por invitación de Supabase a las `07:28:03Z`, profesional `7193f80b-cd72-4388-99aa-0e67d8893a2c`. Falta abrir la invitación en el buzón autorizado, completar el acceso y aceptar los legales. No tiene rol administrador ni pacientes.
+2. La allowlist contiene únicamente ese profesional, con autorización y motivo registrados. Comprobar controles vigentes y habilitar Checkout solo para esa lista cuando la cuenta haya completado el acceso.
+3. Preparar Esencial mensual: $349 MXN, sin promoción. El usuario introduce la tarjeta y confirma el pago recurrente en Stripe; Codex no ejecuta el cobro final.
+4. Verificar una única sesión pagada, factura, webhook idempotente, acceso Esencial, límites y correo real recibido. Conciliar Stripe con Nuthrick.
+5. Cancelar la renovación y realizar el reembolso controlado con la autorización correspondiente, comprobando su reflejo en la aplicación y correo. No borrar pacientes ni expedientes.
+6. Cerrar el piloto y autorizar por separado la apertura comercial a los primeros usuarios. Las verificaciones operativas caducan a las 24 horas y deben refrescarse si la prueba se posterga.
 
 La propuesta de retención al cancelar y el borrado de pacientes no forman parte de este cambio. El video OAuth continúa pendiente; no se presenta como enviado o aprobado.
