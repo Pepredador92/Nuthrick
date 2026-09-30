@@ -35,4 +35,4 @@ El administrador puede sincronizar los precios Live desde el catálogo. Cada che
 - `production_enabled`, `credit_purchase_enabled` y `ai_feature_config.enabled` permiten detener la operación sin borrar consentimientos, compras ni ledger.
 - La activación de IA no cambia el interruptor de checkout de suscripciones.
 
-Estado de publicación: pendiente de verificación final. No se realizó un cobro real por créditos durante esta implementación.
+Activado en producción el 30 de septiembre de 2026: servidor real, tres funciones habilitadas, recargas Live habilitadas y tres precios versionados sincronizados con Stripe. Readiness: 15/15. Verificado el aviso de consentimiento en nuthrick.com. Pruebas: 110 de IA, 56 de billing y 22 de frontend; typecheck, build y regresión SQL aislada satisfactorios. No se realizó un cobro real por créditos ni se envió información de pacientes durante esta implementación. Cada profesional debe aceptar el aviso antes de usar IA o comprar recargas.

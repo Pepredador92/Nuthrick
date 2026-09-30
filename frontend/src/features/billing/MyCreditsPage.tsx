@@ -33,6 +33,9 @@ export function MyCreditsPage() {
     }), []);
   useEffect(() => {
     void load();
+    const refresh = () => { void load(); };
+    window.addEventListener("nuthrick:ai-consent-changed", refresh);
+    return () => window.removeEventListener("nuthrick:ai-consent-changed", refresh);
   }, [load]);
   const returned = data?.purchases.find((p) => p.id === purchaseId);
   const confirmed = !!returned?.credited_at;

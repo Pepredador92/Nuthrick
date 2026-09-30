@@ -46,6 +46,7 @@ export function AIProcessingConsent() {
       setError('No pudimos guardar tu consentimiento. Actualiza el aviso e inténtalo de nuevo.');
     } else {
       setStatus(data as ConsentStatus);
+      window.dispatchEvent(new Event('nuthrick:ai-consent-changed'));
       setOpen(false);
       setAuthorization(false);
     }
@@ -59,6 +60,7 @@ export function AIProcessingConsent() {
     if (problem || !data) setError('No pudimos retirar el consentimiento. Intenta de nuevo.');
     else {
       setStatus(data as ConsentStatus);
+      window.dispatchEvent(new Event('nuthrick:ai-consent-changed'));
       setAuthorization(false);
     }
     setBusy(false);
