@@ -87,6 +87,13 @@ export function MyPlanPage() {
   const s = data?.subscription;
   const checkoutPayment = data?.payments.find(p => p.provider_invoice_id === s?.latest_invoice_id && p.status === 'paid');
   const selected = plans.find((p) => p.id === target);
+  const cheaperPlans = plans.flatMap((p) => {
+    if (!s || !p.id || !p.active || p.internal_only || p.id === s.plan_id || p.currency !== s.currency) return [];
+    const price = s.interval === "annual" ? p.annual_price : p.monthly_price;
+    return price != null && price > 0 && price * 100 < s.amount
+      ? [{ id: p.id, name: p.name, price }]
+      : [];
+  });
   return (
     <div>
       <header className="admin-heading">
@@ -305,6 +312,29 @@ export function MyPlanPage() {
                   Cancelar al terminar tu período
                 </h3>
                 <p className="my-3">
+                  Puedes conservar tu suscripción{cheaperPlans.length > 0 ? " o revisar un plan más económico" : ""}.
+                  Si prefieres cancelar, puedes hacerlo aquí mismo.
+                </p>
+                {cheaperPlans.length > 0 && s?.state === "active" && !s.manual_hold && (
+                  <div className="billing-controls" aria-label="Alternativas de plan">
+                    {cheaperPlans.map((p) => (
+                      <button
+                        key={p.id}
+                        className="admin-button secondary"
+                        disabled={busy}
+                        onClick={() => {
+                          setTarget(p.id);
+                          setInterval(s.interval);
+                          operation.current = crypto.randomUUID();
+                          setConfirm("change");
+                        }}
+                      >
+                        Ver {p.name} · {money(p.price * 100, s.currency)} / {intervalLabel(s.interval)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <p className="my-3">
                   Mantienes acceso hasta{" "}
                   {dateLabel(s?.period_end)}. Se cancelan los cambios de plan
                   pendientes. Tus pacientes, consultas y archivos se conservan.
@@ -319,6 +349,7 @@ export function MyPlanPage() {
                   </button>
                   <button
                     className="admin-button secondary"
+                    disabled={busy}
                     onClick={() => setConfirm(null)}
                   >
                     Conservar suscripción

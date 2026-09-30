@@ -136,6 +136,42 @@ it("Mi plan presents local balances and uses an explicit cancellation confirmati
   );
   expect(await screen.findByText(/Solicitud enviada/)).toBeInTheDocument();
 });
+it("offers a cheaper catalog plan without cancelling or charging until confirmation", async () => {
+  const cheaper = { ...plan, id: "cheaper-plan", name: "Plan económico", monthly_price: 120, annual_price: 1200 };
+  rpc.mockImplementation(async (name: string) => ({ data: name === "my_billing" ? summary : [plan, cheaper], error: null }));
+  show(<MyPlanPage />);
+  await screen.findByText("Esencial");
+  fireEvent.click(screen.getByRole("button", { name: "Cancelar suscripción" }));
+  fireEvent.click(screen.getByRole("button", { name: /Ver Plan económico/ }));
+  expect(invoke).not.toHaveBeenCalled();
+  expect(screen.getByLabelText("Plan")).toHaveValue("cheaper-plan");
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar cambio" }));
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith("billing", expect.objectContaining({ body: expect.objectContaining({ action: "change", plan_id: "cheaper-plan", interval: "monthly" }) })));
+});
+it("keeping the subscription exits cancellation without a billing request", async () => {
+  show(<MyPlanPage />);
+  await screen.findByText("Esencial");
+  fireEvent.click(screen.getByRole("button", { name: "Cancelar suscripción" }));
+  expect(screen.queryByRole("button", { name: /Ver .* ·/ })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Conservar suscripción" }));
+  expect(invoke).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "Confirmar cancelación al vencimiento" })).not.toBeInTheDocument();
+});
+it("does not offer unavailable plans or savings against a discounted subscription that are not real", async () => {
+  const candidates = [
+    { ...plan, id: "no-price", monthly_price: null },
+    { ...plan, id: "internal", monthly_price: 20, internal_only: true },
+    { ...plan, id: "inactive", monthly_price: 20, active: false },
+    { ...plan, id: "other-currency", monthly_price: 20, currency: "USD" },
+    { ...plan, id: "costlier-than-promotion", monthly_price: 120 },
+  ];
+  rpc.mockImplementation(async (name: string) => ({ data: name === "my_billing" ? { ...summary, subscription: { ...subscription, amount: 10000 } } : [plan, ...candidates], error: null }));
+  show(<MyPlanPage />);
+  await screen.findByText("Esencial");
+  fireEvent.click(screen.getByRole("button", { name: "Cancelar suscripción" }));
+  expect(screen.queryByLabelText("Alternativas de plan")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Confirmar cancelación al vencimiento" })).toBeEnabled();
+});
 it("the checkout success URL does not activate or invoke any billing mutation", async () => {
   rpc.mockImplementation(async (name: string) => ({
     data: name === "my_billing"
