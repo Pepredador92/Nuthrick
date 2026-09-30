@@ -298,7 +298,7 @@ function ContextEditor({
 
 function WorkshopLanding({ busy, onCreate }: { busy: boolean; onCreate: () => void }) {
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="w-full min-w-0">
       <header className="rounded-[28px] bg-[#173d36] p-6 text-white sm:p-8">
         <p className="text-xs font-bold uppercase tracking-[.16em] text-[#efbd6b]">Espacio clínico</p>
         <div className="mt-2 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
@@ -657,7 +657,7 @@ export function DietWorkshopPage() {
     acceptLibraryUpdate(await restoreDietLibrary(planRef.current ?? saved, token));
   };
   return (
-    <div className="mx-auto min-w-0 max-w-7xl pb-16 [overflow-wrap:anywhere]">
+    <div className="min-w-0 w-full pb-16 [overflow-wrap:anywhere]">
       <PlanContextHeader plan={{ ...plan, title }} patient={patient} consultation={consultation} onChangeContext={() => void openContextEditor()} onSaveAndExit={() => void flushPendingDraft().then(() => navigate(exitTarget)).catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el plan."))} />
       {contextEditor && <ContextEditor currentPatient={patient} patients={patients} consultations={consultations} selectedPatientId={contextPatientId} selectedConsultationId={contextConsultationId} busy={busy} onPatient={(id) => void chooseContextPatient(id)} onConsultation={setContextConsultationId} onCancel={() => setContextEditor(false)} onSave={() => void saveContext()} />}
       <WorkshopNavigation targetReady={Boolean(plan.target_calories && plan.target_calories > 0)} macrosReady={macrosReady} mealsReady={Boolean(plan.meal_distribution?.distribution.some((item) => item.portions > 0))} activeStep={activeStep} onSelect={setActiveStep} />

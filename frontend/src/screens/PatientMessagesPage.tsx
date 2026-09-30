@@ -46,7 +46,7 @@ export function PatientMessagesPage() {
     };
   }, [page, search]);
   return (
-    <section className="mx-auto max-w-3xl">
+    <section className="w-full min-w-0">
       <p className="nuth-eyebrow">Acompañamiento</p>
       <h1 className="mt-2 text-3xl font-semibold">Mensajes</h1>
       <p className="mt-3 text-sm text-[#74817d]">
@@ -76,7 +76,7 @@ export function PatientMessagesPage() {
       {loading ? (
         <p role="status">Cargando conversaciones…</p>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-[#dfe7df] bg-white">
+        <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
           {!patients.length && (
             <div className="p-10 text-center">
               <MessageCircle className="mx-auto mb-3 text-[#74817d]" />
@@ -91,7 +91,7 @@ export function PatientMessagesPage() {
             <Link
               key={p.id}
               to={`/app/patients/${p.id}/portal?tab=chat`}
-              className="flex items-center gap-4 border-b border-[#edf1ed] p-5 last:border-0 hover:bg-[#f6f9f2]"
+              className="flex min-w-0 items-center gap-3 rounded-2xl border border-[#dfe7df] bg-white p-4 hover:bg-[#f6f9f2]"
             >
               <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#eaf1e6]">
                 <MessageCircle size={20} />

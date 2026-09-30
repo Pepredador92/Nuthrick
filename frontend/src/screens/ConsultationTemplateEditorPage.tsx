@@ -498,7 +498,7 @@ export function ConsultationTemplateEditorPage() {
     return null;
   }
   return (
-    <div className="mx-auto min-w-0 max-w-6xl pb-24 [overflow-wrap:anywhere]">
+    <div className="w-full min-w-0 pb-24 [overflow-wrap:anywhere]">
       <header className="rounded-[24px] bg-[#173d36] p-5 text-white sm:p-7">
         <p className="text-xs text-white/60">
           Guiones y cuestionarios de consulta
@@ -580,7 +580,7 @@ export function ConsultationTemplateEditorPage() {
               Vista previa
             </button>
           </div>
-          <ol className="mt-5 grid gap-2 sm:grid-cols-2">
+          <ol className="mt-5 grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
             {loaded.sections.map((s, index) => (
               <li key={s.id}>
                 <button

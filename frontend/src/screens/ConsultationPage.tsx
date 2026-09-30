@@ -708,7 +708,7 @@ export function ConsultationPage() {
   const total = progress.reduce((sum, item) => sum + item.total, 0);
   const dirty = JSON.stringify(values) !== savedEncoded;
   return (
-    <div className="mx-auto min-w-0 max-w-6xl pb-28 [overflow-wrap:anywhere]">
+    <div className="w-full min-w-0 pb-28 [overflow-wrap:anywhere]">
       <header className="rounded-[24px] bg-[#173d36] p-5 text-white sm:p-7">
         <Link
           to={"/app/patients/" + patient.id}

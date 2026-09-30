@@ -61,7 +61,7 @@
 }
 .admin-main {
   margin-left: 232px;
-  max-width: 1560px;
+  min-width: 0;
   padding: 25px 42px 60px;
 }
 .admin-topline {

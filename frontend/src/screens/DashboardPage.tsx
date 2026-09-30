@@ -45,13 +45,13 @@ function profileCompletion(profile: ReturnType<typeof useAuth>["profile"]) {
   return Math.round((fields.filter(Boolean).length / fields.length) * 100);
 }
 
-function AppointmentItem({ entry, timezone }: { entry: AgendaEntry; timezone: string }) {
+function AppointmentItem({ entry, timezone, inverse = false }: { entry: AgendaEntry; timezone: string; inverse?: boolean }) {
   return (
-    <Link to="/app/agenda" className="flex items-center gap-3 rounded-2xl px-3 py-3 transition hover:bg-[#f4f8f4]">
+    <Link to="/app/agenda" className={`flex items-center gap-3 rounded-2xl px-3 py-3 transition ${inverse ? 'hover:bg-white/10' : 'hover:bg-[#f4f8f4]'}`}>
       <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#eaf1e6] text-[#477363]"><Clock3 size={17} /></span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-[#24463b]">{entry.contact_name || "Cita sin nombre"}</span>
-        <span className="mt-1 block text-xs text-[#75837d]">{dateLabel(entry.starts_at, timezone)} · {entry.modality === "online" ? "En línea" : "En consultorio"}</span>
+        <span className={`block truncate text-sm font-semibold ${inverse ? 'text-white' : 'text-[#24463b]'}`}>{entry.contact_name || "Cita sin nombre"}</span>
+        <span className={`mt-1 block text-xs ${inverse ? 'text-white/80' : 'text-[#75837d]'}`}>{dateLabel(entry.starts_at, timezone)} · {entry.modality === "online" ? "En línea" : "En consultorio"}</span>
       </span>
       <ChevronRight size={16} className="shrink-0 text-[#91a099]" />
     </Link>
@@ -107,7 +107,8 @@ export function DashboardPage() {
 
       {error && <p role="alert" className="mt-5 flex items-center gap-2 rounded-xl bg-[#fff0e9] p-4 text-sm text-[#963f34]"><AlertCircle size={16} />{error}</p>}
 
-      <section className="mt-8 grid gap-5 lg:grid-cols-[1.25fr_.75fr]">
+      <div className="mt-6 grid gap-5 min-[1800px]:grid-cols-2">
+      <section className="grid min-w-0 gap-5 md:grid-cols-2">
         <div className="rounded-[28px] bg-[#173d36] p-7 text-white sm:p-8">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -116,7 +117,7 @@ export function DashboardPage() {
             </div>
             <span className="grid size-12 place-items-center rounded-2xl bg-white/10 text-[#efbd6b]"><CalendarDays size={22} /></span>
           </div>
-          {today.length ? <div className="mt-5 divide-y divide-white/10">{today.slice(0, 3).map((entry) => <AppointmentItem key={entry.id} entry={entry} timezone={timezone} />)}</div> : <p className="mt-6 text-sm leading-6 text-white/65">No tienes citas confirmadas para hoy. Puedes revisar solicitudes o abrir un espacio para una nueva consulta.</p>}
+          {today.length ? <div className="mt-5 divide-y divide-white/10">{today.slice(0, 3).map((entry) => <AppointmentItem key={entry.id} entry={entry} timezone={timezone} inverse />)}</div> : <p className="mt-6 text-sm leading-6 text-white/65">No tienes citas confirmadas para hoy. Puedes revisar solicitudes o abrir un espacio para una nueva consulta.</p>}
           <Link to="/app/agenda" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#f2c47a]">Abrir agenda <ArrowRight size={16} /></Link>
         </div>
 
@@ -130,7 +131,7 @@ export function DashboardPage() {
         </div>
       </section>
 
-      <section className="mt-6 grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
+      <section className="grid min-w-0 gap-5 md:grid-cols-2">
         <div className="rounded-[24px] border border-[#dfe5e1] bg-white p-5 sm:p-6">
           <div className="flex items-center justify-between gap-3"><div><h2 className="text-xl font-semibold text-[#24463b]">Próximas citas</h2><p className="mt-1 text-xs text-[#7a8982]">Lo siguiente en tu agenda</p></div><Link to="/app/agenda" className="text-xs font-semibold text-[#477363]">Ver agenda</Link></div>
           {upcoming.length ? <div className="mt-4 divide-y divide-[#edf1ed]">{upcoming.map((entry) => <AppointmentItem key={entry.id} entry={entry} timezone={timezone} />)}</div> : <p className="mt-6 rounded-2xl bg-[#f5f7f4] p-4 text-sm text-[#75837d]">No hay citas próximas.</p>}
@@ -142,6 +143,7 @@ export function DashboardPage() {
         </div>
       </section>
 
+      </div>
       <section className="mt-6 rounded-[24px] border border-[#dfe5e1] bg-white p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-semibold text-[#24463b]">Pacientes recientes</h2><p className="mt-1 text-xs text-[#7a8982]">Ordenados por su última actividad registrada</p></div><Link to="/app/patients" className="inline-flex items-center gap-1 text-xs font-semibold text-[#477363]">Ver pacientes <ArrowRight size={14} /></Link></div>
         {data.patients.length ? <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">{data.patients.map((patient) => <Link key={patient.id} to={`/app/patients/${patient.id}`} className="rounded-2xl border border-[#edf1ed] p-4 hover:border-[#bfd3c5] hover:bg-[#f7faf7]"><span className="grid size-9 place-items-center rounded-xl bg-[#eaf1e6] text-[#477363]"><UserRound size={16} /></span><span className="mt-3 block truncate text-sm font-semibold text-[#315e4f]">{patient.full_name}</span><span className="mt-1 block text-xs text-[#7b8982]">Abrir ficha</span></Link>)}</div> : <p className="mt-5 rounded-2xl bg-[#f5f7f4] p-4 text-sm text-[#75837d]">Aún no tienes pacientes activos. Agrega el primero para iniciar una consulta.</p>}

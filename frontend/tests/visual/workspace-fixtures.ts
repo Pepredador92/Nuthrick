@@ -1,0 +1,15 @@
+export * from '../../src/services/agenda';
+export * from '../../src/services/patients';
+export * from '../../src/services/appointments';
+const now = Date.now();
+const patients = Array.from({ length: 6 }, (_, i) => ({ id: `demo-${i}`, full_name: ['Ana Martínez López', 'Carlos Pérez Gómez', 'María González Ruiz'][i % 3], email: 'paciente@example.test', status: 'active', portal_access_enabled: true, last_activity_at: new Date(now).toISOString(), birth_date: '1990-04-15', created_at: new Date(now).toISOString() }));
+const entries = patients.map((p, i) => ({ id: p.id, kind: 'appointment', status: 'confirmed', starts_at: new Date(now + (i + 1) * 3600000).toISOString(), ends_at: new Date(now + (i + 2) * 3600000).toISOString(), timezone: 'America/Mexico_City', modality: 'online', contact_name: p.full_name, patient_id: p.id, calendar_status: 'not_connected', notification_status: 'not_required' }));
+export const useAuth = () => ({ profile: { full_name: 'Profesional de demostración', timezone: 'America/Mexico_City', specialties: [], is_public: false }, user: { id: 'demo' } });
+export const useAccess = () => ({ data: null });
+export const useNotifications = () => ({ items: [], loading: false });
+export const listPatients = async () => ({ rows: patients, total: patients.length });
+export const getPatientCounters = async () => ({ total: 6, active: 6 });
+export const loadAgenda = async () => ({ entries, requests: [] });
+export const listAppointments = async () => ({ appointments: entries });
+export const agendaApi = async () => ({ connected: false, calendars: [], busyCalendars: [], writeCalendar: '', appointments: entries });
+export const supabase = { from: () => ({ select: () => ({ maybeSingle: async () => ({ data: null }) }) }) };

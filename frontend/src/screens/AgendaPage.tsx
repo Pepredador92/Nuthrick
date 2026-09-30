@@ -231,7 +231,7 @@ export function AgendaPage() {
       {loading ? (
         <p className="mt-8">Cargando agenda…</p>
       ) : section === "appointments" ? (
-        <section className="mt-6 space-y-3">
+        <section className="mt-6 grid items-start gap-4 xl:grid-cols-2 min-[1800px]:grid-cols-3">
           {!activeEntries.length && (
             <div className="rounded-3xl border border-[#dce4df] bg-white p-8">
               <CalendarDays size={28} />
@@ -385,7 +385,7 @@ export function AgendaPage() {
           )}
         </section>
       ) : section === "requests" ? (
-        <section className="mt-6 space-y-3">
+        <section className="mt-6 grid items-start gap-4 xl:grid-cols-2 min-[1800px]:grid-cols-3">
           {!requests.length && (
             <div className="rounded-3xl bg-white p-8">
               <Check size={26} />

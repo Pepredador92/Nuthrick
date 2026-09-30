@@ -661,18 +661,18 @@ export function PatientsPage() {
           <SuccessNote>{notice}</SuccessNote>
         </div>
       )}
-      <section className="mt-8 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl bg-[#173d36] p-5 text-white">
+      <section className="mt-6 grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="rounded-2xl bg-[#173d36] p-3 text-white sm:p-4">
           <UsersRound size={19} className="text-[#efbd6b]" />
-          <p className="mt-4 text-3xl font-semibold">{addedTotal}</p>
+          <p className="mt-2 text-2xl font-semibold">{addedTotal}</p>
           <p className="mt-1 text-sm text-white/60">Total</p>
         </div>
-        <div className="rounded-2xl border border-[#dfe5e1] bg-white p-5">
-          <p className="text-3xl font-semibold text-[#285647]">{activeTotal}</p>
+        <div className="rounded-2xl border border-[#dfe5e1] bg-white p-3 sm:p-4">
+          <p className="text-2xl font-semibold text-[#285647]">{activeTotal}</p>
           <p className="mt-1 text-sm text-[#718079]">Activos</p>
         </div>
-        <div className="rounded-2xl border border-[#dfe5e1] bg-white p-5">
-          <p className="text-3xl font-semibold text-[#285647]">{total}</p>
+        <div className="rounded-2xl border border-[#dfe5e1] bg-white p-3 sm:p-4">
+          <p className="text-2xl font-semibold text-[#285647]">{total}</p>
           <p className="mt-1 text-sm text-[#718079]">Resultados</p>
         </div>
       </section>
@@ -693,7 +693,7 @@ export function PatientsPage() {
           </div>
           <button
             type="button"
-            className={`nuth-button-secondary shrink-0 ${filtersOpen ? "!bg-[#edf4ef]" : ""}`}
+            className={`nuth-button-secondary shrink-0 2xl:hidden ${filtersOpen ? "!bg-[#edf4ef]" : ""}`}
             onClick={() => setFiltersOpen((value) => !value)}
           >
             <Filter size={16} />
@@ -705,7 +705,7 @@ export function PatientsPage() {
             )}
           </button>
         </div>
-        {filtersOpen && (
+        <div className={filtersOpen ? "" : "hidden 2xl:block"}>
           <FiltersPanel
             status={status}
             portal={portal}
@@ -713,7 +713,7 @@ export function PatientsPage() {
             onApply={applyFilters}
             onClear={clearFilters}
           />
-        )}
+        </div>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[#74817d]">
           <span>
             {status === "active"
@@ -762,7 +762,7 @@ export function PatientsPage() {
           />
         ) : (
           <>
-            <div className="hidden overflow-visible rounded-[24px] border border-[#dfe5e1] bg-white lg:block">
+            <div className="hidden overflow-visible rounded-[24px] border border-[#dfe5e1] bg-white xl:block">
               <table className="w-full text-left text-sm">
                 <thead className="bg-[#f5f7f3] text-xs uppercase tracking-wide text-[#82908a]">
                   <tr>
@@ -770,8 +770,6 @@ export function PatientsPage() {
                     <th className="px-5 py-4">Estado</th>
                     <th className="px-5 py-4">Portal</th>
                     <th className="px-5 py-4">Última actividad</th>
-                    <th className="px-5 py-4">Último plan</th>
-                    <th className="px-5 py-4">Cuestionario</th>
                     <th className="px-5 py-4" />
                   </tr>
                 </thead>
@@ -812,8 +810,6 @@ export function PatientsPage() {
                       <td className="px-5 py-4 text-xs text-[#73817b]">
                         {formatPatientDate(patient.last_activity_at)}
                       </td>
-                      <td className="px-5 py-4 text-xs text-[#9aa5a0]">—</td>
-                      <td className="px-5 py-4 text-xs text-[#9aa5a0]">—</td>
                       <td className="px-5 py-4">
                         <PatientActionMenu
                           patient={patient}
@@ -831,7 +827,7 @@ export function PatientsPage() {
                 </tbody>
               </table>
             </div>
-            <div className="grid gap-4 lg:hidden">
+            <div className="grid gap-4 md:grid-cols-2 xl:hidden">
               {rows.map((patient) => (
                 <article
                   key={patient.id}
@@ -881,10 +877,6 @@ export function PatientsPage() {
                       <dd className="mt-1 font-semibold text-[#385a4e]">
                         {formatPatientDate(patient.last_activity_at)}
                       </dd>
-                    </div>
-                    <div>
-                      <dt>Último plan</dt>
-                      <dd className="mt-1 font-semibold text-[#385a4e]">—</dd>
                     </div>
                   </dl>
                 </article>
