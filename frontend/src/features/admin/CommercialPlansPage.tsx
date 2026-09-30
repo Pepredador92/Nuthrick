@@ -96,7 +96,6 @@ export function CommercialPlansPage() {
                 ["consultations", "Consultas"],
                 ["consultation_design", "Diseño de consulta"],
                 ["diet_workshop", "Taller manual"],
-                ["agenda", "Agenda"],
                 ["public_profile", "Perfil público"],
                 ["patient_superlink", "Superlink con chat"],
               ]

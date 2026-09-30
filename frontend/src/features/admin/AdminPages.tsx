@@ -620,8 +620,10 @@ function PlanEditor({
         Créditos mensuales provisionales
       </label>
       <p className="admin-note">
-        Los precios son informativos. Desactivar un plan conserva los accesos ya
-        asignados.
+        El precio guardado se usa para nuevas contrataciones. Stripe crea o
+        reutiliza el precio al iniciar el pago, o al sincronizar desde
+        Facturación. Las suscripciones existentes conservan el precio contratado.
+        Desactivar un plan conserva los accesos ya asignados.
       </p>
       <EntitlementInputs
         catalog={catalog}

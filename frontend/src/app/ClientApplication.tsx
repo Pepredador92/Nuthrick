@@ -17,7 +17,7 @@ import {
   ResetPasswordPage,
 } from "@/src/screens/AuthPages";
 import { DashboardPage } from "@/src/screens/DashboardPage";
-import { LandingPage } from "@/src/screens/LandingPage";
+import { PublicLandingClient } from "@/src/components/marketing/PublicLandingClient";
 import { LegalPage } from "@/src/screens/LegalPage";
 import { NotFoundPage } from "@/src/screens/NotFoundPage";
 import { OnboardingPage } from "@/src/screens/OnboardingPage";
@@ -83,7 +83,7 @@ export function ClientApplication() {
         <ScrollToTop />
         <SiteVisitTracker />
         <Routes>
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<PublicLandingClient />} />
           <Route path="/planes" element={<CommercialPlansPage />} />
           <Route path="/login" element={<AuthPage mode="login" />} />
           <Route path="/register" element={<AuthPage mode="register" />} />

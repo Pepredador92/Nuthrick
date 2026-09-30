@@ -4,6 +4,9 @@ import { productMetadata } from '@/src/lib/productMetadata';
 import { landingStructuredData } from '@/src/lib/landingStructuredData';
 import { publicUrl } from '@/src/lib/site';
 import { PublicVisitTracker } from '@/src/components/marketing/PublicVisitTracker';
+import { loadPublicCommercialData } from '@/src/lib/publicCommercial';
+
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   ...productMetadata,
@@ -12,10 +15,11 @@ export const metadata: Metadata = {
   openGraph: { ...productMetadata.openGraph, url: publicUrl('/') },
 };
 
-export default function PublicLanding() {
+export default async function PublicLanding() {
+  const commercial = await loadPublicCommercialData();
   return <>
     <PublicVisitTracker path="/" />
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(landingStructuredData).replace(/</g, '\\u003c') }} />
-    <LandingPage />
+    <LandingPage plans={commercial.plans} supportEmail={commercial.supportEmail} />
   </>;
 }
