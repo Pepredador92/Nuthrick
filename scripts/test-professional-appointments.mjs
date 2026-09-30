@@ -22,6 +22,8 @@ ${migration('../supabase/migrations/20260929230755_appointment_contact_guards.sq
 ${read('./test-professional-appointments.sql')}
 ${migration('../supabase/migrations/20260930043255_appointment_availability_picker.sql')}
 ${read('./test-appointment-availability.sql')}
+${migration('../supabase/migrations/20260930044012_appointment_attendance_reminders.sql')}
+${read('./test-appointment-attendance.sql')}
 ${process.argv.includes('--presence') ? `
 create table auth.sessions(id uuid primary key,user_id uuid);
 create function auth.jwt() returns jsonb language sql stable as $$ select jsonb_build_object('session_id',current_setting('request.jwt.claim.session_id',true)) $$;

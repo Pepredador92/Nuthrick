@@ -254,7 +254,7 @@ export function AgendaPage() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
                   {e.kind === "appointment" && <div className="mb-3"><AppointmentStatus appointment={e}/></div>}
-                  {e.requires_confirmation && <p className="mb-3 inline-block rounded-full bg-[#fff1d5] px-3 py-1 text-xs font-semibold text-[#795620]">Reserva pendiente de confirmación</p>}
+                  {e.requires_confirmation && <p className="mb-3 inline-block rounded-full bg-[#fff1d5] px-3 py-1 text-xs font-semibold text-[#795620]">Reserva pendiente de aceptación</p>}
                   <p className="text-xs font-semibold text-[#64786e]">
                     {e.kind === "block"
                       ? "Tiempo bloqueado"
@@ -337,7 +337,7 @@ export function AgendaPage() {
                   </span>
                   <span>
                     Google Calendar:{" "}
-                    {e.requires_confirmation ? 'se sincroniza al confirmar' : {
+                    {e.requires_confirmation ? 'se sincroniza al aceptar la reserva' : {
                       not_connected: "sin conexión",
                       pending: "pendiente",
                       synced: "sincronizado",

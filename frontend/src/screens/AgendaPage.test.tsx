@@ -162,13 +162,13 @@ describe("private agenda", () => {
   it('confirms a pending reservation from its shared action', async () => {
     vi.mocked(loadAgenda).mockResolvedValue({entries:[{...entry,requires_confirmation:true,registration_consented_at:'2026-09-20T12:00:00Z',registration_status:'review',contact_phone:'+524920000001'}],requests:[]});
     mount();
-    await screen.findByText('Reserva pendiente de confirmación');
+    await screen.findByText('Reserva pendiente de aceptación');
     expect(screen.getByLabelText('Confirmación: Paciente confirmó')).toBeInTheDocument();
     expect(screen.getByRole('link',{name:/WhatsApp/})).toHaveAttribute('href','https://wa.me/524920000001');
-    expect(screen.getByText(/se sincroniza al confirmar/)).toBeInTheDocument();
+    expect(screen.getByText(/se sincroniza al aceptar la reserva/)).toBeInTheDocument();
     expect(api.mock.calls.some(([op])=>op==='manage')).toBe(false);
-    fireEvent.click(screen.getByRole('button',{name:'Confirmar mi parte'}));
-    await screen.findByText('Confirmación guardada.');
+    fireEvent.click(screen.getByRole('button',{name:'Aceptar reserva'}));
+    await screen.findByText('Reserva aceptada.');
     expect(api).toHaveBeenCalledWith('manage',{payload:{action:'confirm_reservation',id:'appointment'},operationKey:expect.any(String)},true);
   });
   it('shows the green state after both sides confirm', async () => {

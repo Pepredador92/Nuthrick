@@ -286,12 +286,18 @@ async function handleAgenda(req: Request) {
       load:(owner,day,mode,location)=>rpc('agenda_appointment_availability',{p_owner:owner,p_day:day,p_mode:mode,p_location:location}),
       busy,
     }));
+    if(op==='appointment_confirm_attendance') {
+      const owner=await ownerFromRequest(req);
+      return respond(await rpc('agenda_confirm_attendance',{p_owner:owner.id,p_entry:validUUID(body.id)}));
+    }
     if(op.startsWith('appointment_') || ['portal_appointments','portal_confirm_appointment'].includes(op)) {
-      return respond(await appointmentRequest(req,body,{
+      const result=await appointmentRequest(req,body,{
         owner:async request=>(await ownerFromRequest(request)).id,
         call:(action,data)=>rpc('agenda_appointment_action',{p_action:action,p_data:data}),
         busy:busyPermit,key:key(),site,
-      }));
+      });
+      if(op==='appointment_create' && result?.id) EdgeRuntime.waitUntil(work(undefined,String(result.id)).catch(()=>undefined));
+      return respond(result);
     }
     if(op.startsWith('portal_')) {
       try { return respond(await portalRequest(req,body,{rpc:args=>rpc('patient_portal',args),presence:args=>rpc('portal_professional_presence',args),owner:async req=>(await ownerFromRequest(req)).id,limit,mail:sendPortalMail,key:key(),document:planDocument})); }
@@ -431,7 +437,7 @@ async function handleAgenda(req: Request) {
     // responses. Return only a controlled vocabulary, not raw SQL/provider errors.
     const message=error instanceof Error?error.message:'';
     const known=['invalid_email','invalid_time','invalid_input','invalid_id','invalid_code','invalid_action','invalid_option','invalid_patient','invalid_calendars','invalid_request','invalid_transition','outside_schedule','not_found','slot_taken','google_unavailable','configuration_required','mail_not_connected','email_test_mode','rate_limited','unauthorized','profile_unavailable','booking_unavailable','verification_required','idempotency_mismatch','invalid_token','token_used','request_expired','authorization_required','authorization_cancelled','invalid_oauth_state','wrong_sender'];
-    const code=[...known,'registration_required','invalid_birth_date','invalid_phone','portal_unavailable','feature_disabled','account_suspended'].includes(message)?message:'temporarily_unavailable';
+    const code=[...known,'invalid_range','confirmation_too_early','reservation_pending','registration_required','invalid_birth_date','invalid_phone','portal_unavailable','feature_disabled','account_suspended'].includes(message)?message:'temporarily_unavailable';
     return respond({error:code},code==='unauthorized'?401:code==='rate_limited'?429:code==='slot_taken'?409:400);
   }
 }

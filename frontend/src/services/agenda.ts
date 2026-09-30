@@ -43,6 +43,8 @@ export type AgendaEntry = {
   registration_consented_at?: string | null;
   patient_confirmed_at?: string | null;
   professional_confirmed_at?: string | null;
+  patient_attendance_at?: string | null;
+  professional_attendance_at?: string | null;
   contact_phone?: string | null;
   registration_status?: 'none' | 'created' | 'review';
   calendar_status: string;
@@ -51,9 +53,10 @@ export type AgendaEntry = {
   notification_status: string;
 };
 export type AgendaConfirmationState = "none" | "patient" | "professional" | "both";
-export function agendaConfirmationState(entry: Pick<AgendaEntry, "patient_confirmed_at" | "registration_consented_at" | "professional_confirmed_at">): AgendaConfirmationState {
-  const patient = Boolean(entry.patient_confirmed_at === undefined ? entry.registration_consented_at : entry.patient_confirmed_at);
-  if (entry.professional_confirmed_at) return patient ? "both" : "professional";
+export function agendaConfirmationState(entry: Pick<AgendaEntry, "patient_attendance_at" | "professional_attendance_at" | "patient_confirmed_at" | "registration_consented_at" | "professional_confirmed_at">): AgendaConfirmationState {
+  const patient = Boolean(entry.patient_attendance_at === undefined ? (entry.patient_confirmed_at === undefined ? entry.registration_consented_at : entry.patient_confirmed_at) : entry.patient_attendance_at);
+  const professional = entry.professional_attendance_at === undefined ? entry.professional_confirmed_at : entry.professional_attendance_at;
+  if (professional) return patient ? "both" : "professional";
   return patient ? "patient" : "none";
 }
 export function agendaConfirmationLabel(state: AgendaConfirmationState) {
@@ -72,6 +75,9 @@ export type AgendaRequest = {
   revision: number;
 };
 const messages: Record<string, string> = {
+  confirmation_too_early: "La asistencia se puede confirmar desde 48 horas antes de la cita.",
+  reservation_pending: "El nutriólogo debe aceptar la reserva antes de confirmar asistencia.",
+  invalid_range: "Elige una fecha dentro del periodo disponible.",
   invalid_patient: "Selecciona un paciente activo de tu expediente.",
   invalid_transition: "La cita cambió, ya fue confirmada o su fecha pasó. Actualiza la agenda.",
   not_found: "La cita ya no está disponible.",
