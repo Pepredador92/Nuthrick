@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { codeHash, decrypt, encrypt, gmailMessage, normalizeEmail, overlaps, parseInstant, readFreeBusy, secretToken, sha256 } from './security.ts';
 import { checkCalendarConflict } from './calendar-reconciliation.ts';
 import { appointmentRequest } from './appointments.ts';
+import { appointmentAvailability } from './appointment-availability.ts';
 import { portalRequest } from './portal.ts';
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
@@ -280,6 +281,11 @@ async function handleAgenda(req: Request) {
     // mutations. Also limit each email globally to prevent multi-IP mail abuse.
     const ip=req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()||'unknown';
     await limit(`agenda:ip:${ip}`,120,60);
+    if(op==='appointment_availability') return respond(await appointmentAvailability(req,body,{
+      owner:async request=>(await ownerFromRequest(request)).id,
+      load:(owner,day,mode,location)=>rpc('agenda_appointment_availability',{p_owner:owner,p_day:day,p_mode:mode,p_location:location}),
+      busy,
+    }));
     if(op.startsWith('appointment_') || ['portal_appointments','portal_confirm_appointment'].includes(op)) {
       return respond(await appointmentRequest(req,body,{
         owner:async request=>(await ownerFromRequest(request)).id,

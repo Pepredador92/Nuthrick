@@ -12,13 +12,16 @@ const appointment={id:'20000000-0000-0000-0000-000000000001',status:'confirmed',
 try {
  await page.route('**/functions/v1/agenda',async route=>{
   const body=route.request().postDataJSON();
+  if(body.op==='appointment_availability') {
+   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({day:body.day||'2099-10-01',today:'2099-10-01',lastDay:'2099-12-31',timezone:'America/Mexico_City',weekdays:[1,2,3,4,5],slots:[{start:appointment.starts_at,end:appointment.ends_at}],connectionError:false})});return;
+  }
   const data=body.op==='appointment_options'?{timezone:'America/Mexico_City',duration:60,minimumNoticeMinutes:120,horizonDays:90,options:[{modality:'online',location_id:null,label:'En línea'}]}:body.op==='resolve_time_private'?{instants:[appointment.starts_at]}:body.op==='appointment_create'?appointment:body.op==='appointment_link'?{url:'https://example.invalid/agenda/confirmar#synthetic',phone:'+524920000000'}:{id:appointment.id,status:'confirmed'};
   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
  });
  await page.goto('http://127.0.0.1:4187/tests/visual/appointments.html');
  await page.getByText('34',{exact:true}).waitFor();
  await page.getByRole('button',{name:'Agendar cita',exact:true}).click();
- await page.getByLabel('Fecha y hora').fill('2099-10-01T10:00');
+ await page.getByRole('button',{name:/10:00/}).click();
  for(const width of [1280,390,320]){
   await page.setViewportSize({width,height:900});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),`Overflow ${width}`);

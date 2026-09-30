@@ -3,6 +3,7 @@ export type Appointment = Pick<AgendaEntry,'id'|'starts_at'|'ends_at'|'timezone'
  professional_name: string; contact_name?: string | null; contact_phone?: string | null; patient_id?: string | null;
 };
 export type AppointmentOptions = { timezone:string; duration:number; minimumNoticeMinutes:number; horizonDays:number; options:{modality:string;location_id:string|null;label:string}[] };
+export type AppointmentAvailability = { day:string; today:string; lastDay:string; timezone:string; weekdays:number[]; slots:{start:string;end:string}[]; connectionError:boolean };
 export const listAppointments = (patientId?:string) => agendaApi<{appointments:Appointment[]}>('appointment_list',patientId?{patientId}:{},true);
 export const confirmAppointment = (id:string,operationKey:string) => agendaApi('manage',{operationKey,payload:{action:'confirm_reservation',id}},true);
 export const patientAppointments = (session:string) => agendaApi<{appointments:Appointment[]}>('portal_appointments',{session});
