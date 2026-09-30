@@ -84,9 +84,12 @@ insert into private.pre_live_operational_evidence(key,evidence) values
 on conflict(key) do update set evidence=excluded.evidence;
 select pg_temp.reject($q$select public.email_admin_api('activate_operational','{"confirmation":"ACTIVAR CORREO OPERATIVO"}')$q$,'email_operational_not_ready');
 update private.pre_live_operational_evidence set evidence='{"production_verified":true,"sender_email":"sender@example.org"}' where key='mail_oauth_continuity';
+select pg_temp.assert((select c->>'status'='pending' from jsonb_array_elements(private.billing_live_readiness()->'checks')c where c->>'key'='live_email'),'Live email stays pending until operational activation');
 select public.email_admin_api('activate_operational','{"confirmation":"ACTIVAR CORREO OPERATIVO"}');
 select pg_temp.assert(private.transactional_email_ready(),'Complete evidence activates operational email through the administrative API');
+select pg_temp.assert((select c->>'status'='ready' from jsonb_array_elements(private.billing_live_readiness()->'checks')c where c->>'key'='live_email'),'Live email recognizes the verified operational sender');
 select pg_temp.assert((select operational_since is not null and delivery_mode='operational' from private.transactional_email_settings where id),'Activation records its start boundary');
 select pg_temp.assert(not (select checkout_enabled from private.billing_live_configuration where id),'Email activation does not enable Stripe Live checkout');
 select public.email_admin_api('pause_operational','{}');
 select pg_temp.assert(not private.transactional_email_ready(),'Pausing disables operational email readiness');
+select pg_temp.assert((select c->>'status'='pending' from jsonb_array_elements(private.billing_live_readiness()->'checks')c where c->>'key'='live_email'),'Pausing also revokes the Live email check');

@@ -1,5 +1,7 @@
 # Nuthrick · PRE-LIVE / Beta comercial
 
+> Actualización 30/09/2026: controles generales 15/15, correo comercial operativo y precios públicos unificados con Administración. Stripe Live permanece deshabilitado. Consultar el [cierre y los pendientes de activación](lanzamiento-suscripciones-2026-09-30.md); el contenido fechado abajo conserva el historial previo.
+
 Fecha de revisión: 25 de septiembre de 2026
 Entorno revisado: Nuthrick en Vercel + Supabase `qlsqhvyrslclmlstlemn` + Stripe Sandbox de Nuthrick.  
 Estado: **Stripe TEST solamente, OpenAI deshabilitado, cobros reales = 0**.

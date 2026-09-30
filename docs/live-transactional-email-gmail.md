@@ -1,5 +1,7 @@
 # LIVE-1B · Correo transaccional comercial temporal
 
+> Actualización 30/09/2026: remitente renovado, cinco pruebas recibidas y correo operativo activo; PRE-LIVE 15/15. El video OAuth sigue aplazado y no se ofrecen conexiones Google como beneficio general. Estado y límites vigentes en [cierre operativo](lanzamiento-suscripciones-2026-09-30.md). Las notas fechadas anteriores se conservan como historial.
+
 Fecha de implementación: 25 de septiembre de 2026  
 Proyecto Supabase: `qlsqhvyrslclmlstlemn`
 
