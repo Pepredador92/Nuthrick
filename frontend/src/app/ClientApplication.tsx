@@ -37,6 +37,7 @@ import { PatientMessagesPage } from "@/src/screens/PatientMessagesPage";
 
 import { AccessProvider, AdminGuard, ProfessionalAccessGate } from '@/src/features/admin/AccessProvider';
 import { AdminLayout } from '@/src/features/admin/AdminLayout';
+import { AdminSupportPage } from '@/src/features/support/AdminSupportPage';
 import { AdminHome, ProfessionalsPage, PlansPage, PlanEditorPage, CreditsPage } from '@/src/features/admin/AdminPages';
 import { ProfessionalPage } from '@/src/features/admin/ProfessionalPage';
 import { CommercialPlansPage } from '@/src/features/admin/CommercialPlansPage';
@@ -95,6 +96,7 @@ export function ClientApplication() {
           <Route element={<AdminGuard />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminHome />} />
+              <Route path="support" element={<AdminSupportPage />} />
               <Route path="professionals" element={<ProfessionalsPage />} />
               <Route path="professionals/:professionalId" element={<ProfessionalPage />} />
               <Route path="plans" element={<PlansPage />} />

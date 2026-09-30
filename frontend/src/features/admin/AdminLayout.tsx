@@ -13,13 +13,16 @@ import {
   Layers,
   ClipboardCheck,
   Activity,
+  Headphones,
 } from "lucide-react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/src/features/auth/AuthProvider";
 import "./admin.css";
+import { SupportProvider, SupportUnread } from '@/src/features/support/SupportProvider';
 const nav = [
   ["", "Inicio", LayoutDashboard],
   ["professionals", "Profesionales", Users],
+  ["support", "Atención a nutriólogos", Headphones],
   ["plans", "Planes", Layers],
   ["access", "Accesos", KeyRound],
   ["credits", "IA y créditos", Coins],
@@ -33,7 +36,7 @@ const nav = [
 export function AdminLayout() {
   const { signOut } = useAuth();
   return (
-    <div className="admin-shell">
+    <SupportProvider admin><div className="admin-shell">
       <aside className="admin-sidebar">
         <Link className="admin-brand" to="/admin">
           <ShieldCheck size={25} />
@@ -51,6 +54,7 @@ export function AdminLayout() {
             >
               <Icon size={18} />
               {label}
+              {path==='support'&&<SupportUnread/>}
             </NavLink>
           ))}
         </nav>
@@ -74,6 +78,6 @@ export function AdminLayout() {
         </div>
         <Outlet />
       </main>
-    </div>
+    </div></SupportProvider>
   );
 }

@@ -231,6 +231,7 @@ export function AdminHome() {
             ["plans", "Planes", "Decide qué incluye cada acceso."],
             ["access", "Accesos", "Otorga pruebas y crea códigos beta."],
             ["credits", "IA y créditos", "Consulta consumo y ajusta créditos."],
+            ["support", "Atención a nutriólogos", "Responde dudas y consulta el historial de soporte."],
           ].map(([path, title, text]) => (
             <Link className="admin-card" to={`/admin/${path}`} key={path}>
               <div className="flex justify-between">
