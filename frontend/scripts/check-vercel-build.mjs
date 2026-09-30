@@ -50,8 +50,8 @@ if (process.env.VERCEL === "1" || process.env.NITRO_PRESET === "vercel") {
       assert.ok(html.includes("<html"), `HTML document missing for ${path}`);
       if (path === '/') {
         assert.equal((html.match(/<h1\b/g) || []).length, 1, 'Exactly one server-rendered H1');
-        assert.ok(html.includes('Software para nutriólogos.'), 'Positioning must be in initial HTML');
-        assert.ok(html.includes('Nuthrick nació desde un nutriólogo de verdad.'), 'Creator must be in initial HTML');
+        assert.ok(html.includes('Más tiempo para escuchar.'), 'Positioning must be in initial HTML');
+        assert.ok(html.includes('Como nutriólogo y programador'), 'Clinician introduction must be in initial HTML');
         assert.ok(html.includes('application/ld+json'), 'Structured data missing');
         assert.ok(!/<meta[^>]*name="robots"[^>]*content="[^"]*noindex/.test(html), 'Landing must be indexable');
       } else if (path !== '/planes') {
