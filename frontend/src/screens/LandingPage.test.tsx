@@ -11,23 +11,22 @@ const plans = [{
 describe('LandingPage', () => {
   it('renders its positioning and creator in the initial HTML without a router or auth', () => {
     const html = renderToString(<LandingPage />);
-    expect(html).toContain('Software para nutriólogos.');
-    expect(html).toContain('Termina cada consulta con el trabajo hecho.');
-    expect(html).toContain('José Olmedo, nutriólogo con más de 8 años de experiencia en consulta privada');
+    expect(html).toContain('Software para nutriólogos');
+    expect(html).toContain('Más tiempo para escuchar.');
+    expect(html).not.toContain('José Olmedo');
     expect(html.match(/<h1\b/g)).toHaveLength(1);
   });
 
-  it('preserves the complete founder statement and responsive real photograph', () => {
+  it('keeps the real photograph and an empathetic clinician-programmer introduction', () => {
     render(<LandingPage />);
-    const founder = screen.getByRole('region', { name: 'Creado desde la experiencia de un nutriólogo.' });
-    expect(founder).toHaveTextContent('Nuthrick nació desde un nutriólogo de verdad.');
-    expect(founder).toHaveTextContent('todo el trabajo que continúa después de que termina la consulta.');
-    expect(founder).toHaveTextContent('hacer más simple, rápido y organizado el trabajo del nutriólogo, sin reemplazar su criterio profesional.');
+    const founder = screen.getByRole('region', { name: 'También he terminado planes después de cerrar el consultorio.' });
+    expect(founder).toHaveTextContent('Como nutriólogo y programador');
+    expect(founder).toHaveTextContent('Tú sigues tomando las decisiones.');
     const image = within(founder).getByRole('img');
     expect(image).toHaveAttribute('loading', 'lazy');
     expect(image).toHaveAttribute('width', '1280');
     expect(image.getAttribute('srcSet')).toContain('640w');
-    expect(within(founder).getByText('José Olmedo, nutriólogo con más de 8 años de experiencia en consulta privada').tagName).toBe('STRONG');
+    expect(founder).not.toHaveTextContent('José Olmedo');
   });
 
   it('offers a keyboard-operable menu and real navigation destinations', () => {
