@@ -39,5 +39,6 @@ try {
 } catch (error) {
   console.error(error.stderr?.toString() || error.message); process.exitCode=1;
 } finally {
-  execFileSync('docker',['exec','supabase_db_Nuthrick','psql','-X','-qAt','-U','postgres','-d','postgres','-c',`drop database ${database} with (force)`]);
+  if (process.env.LIVE_KEEP_DB === '1') console.log('LOCAL_DATABASE='+database);
+  else execFileSync('docker',['exec','supabase_db_Nuthrick','psql','-X','-qAt','-U','postgres','-d','postgres','-c',`drop database ${database} with (force)`]);
 }

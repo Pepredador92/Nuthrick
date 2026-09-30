@@ -79,7 +79,7 @@ export function MyCreditsPage() {
       setBusy(false);
     }
   };
-  const canBuy = data?.enabled && data.eligible && data.test_eligible;
+  const canBuy = data?.enabled && data.eligible && (data.mode === "live" || data.test_eligible);
   return (
     <div>
       <header className="admin-heading">
@@ -90,10 +90,10 @@ export function MyCreditsPage() {
         </div>
         <Link className="admin-link" to="/app/my-plan">Mi plan</Link>
       </header>
-      <p className="billing-test">
+      {data?.mode === "test" && <p className="billing-test">
         Entorno de prueba · Los paquetes e importes TEST son provisionales. No
         se realizan cobros reales.
-      </p>
+      </p>}
       {error && <p role="alert" className="admin-error">{error}</p>}
       {waiting && (
         <p role="status" className="billing-benefits">
@@ -173,11 +173,10 @@ export function MyCreditsPage() {
                   consultarlo con administración.
                 </p>
               )
-              : !data.test_eligible || !data.enabled
+              : (data.mode === "test" && !data.test_eligible) || !data.enabled
               ? (
                 <p className="admin-note">
-                  Las recargas TEST están disponibles para las cuentas de prueba
-                  autorizadas.
+                  Las recargas aún no están habilitadas para tu cuenta.
                 </p>
               )
               : null}
@@ -200,7 +199,7 @@ export function MyCreditsPage() {
                     disabled={busy}
                     onClick={() => goHosted(data.pending?.url, "checkout")}
                   >
-                    Continuar pago TEST
+                    Continuar pago{data.mode === "test" ? " TEST" : ""}
                   </button>
                 )}
                 <button
@@ -215,7 +214,7 @@ export function MyCreditsPage() {
           )}
           {showPackages && canBuy && !data.pending && (
             <section className="admin-card billing-section">
-              <h2>Elige tu recarga TEST</h2>
+              <h2>Elige tu recarga{data.mode === "test" ? " TEST" : ""}</h2>
               <div className="credits-packages">
                 {data.packages.map((p) => (
                   <button
@@ -232,7 +231,7 @@ export function MyCreditsPage() {
                       operation.current = crypto.randomUUID();
                     }}
                   >
-                    <small>TEST</small>
+                    {data.mode === "test" && <small>TEST</small>}
                     <strong>{n(p.credits)} créditos</strong>
                     <span>{p.name}</span>
                     {p.bonus_credits > 0 && (
@@ -282,7 +281,7 @@ export function MyCreditsPage() {
                         </p>
                       )}
                       <p>
-                        Pago único TEST. Los créditos se asignan al confirmar el
+                        Pago único{data.mode === "test" ? " TEST" : ""}. Los créditos se asignan al confirmar el
                         pago.
                       </p>
                       <button
@@ -290,7 +289,7 @@ export function MyCreditsPage() {
                         disabled={busy}
                         onClick={() => void run("credit_checkout")}
                       >
-                        {busy ? "Procesando…" : "Comprar en Stripe TEST"}
+                        {busy ? "Procesando…" : `Comprar en Stripe${data.mode === "test" ? " TEST" : ""}`}
                       </button>
                     </div>
                   )}

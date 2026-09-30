@@ -1,6 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { dateLabel, money } from "./api";
+import { billingAction, dateLabel, money } from "./api";
 import {
   creditAdmin,
   creditNumber as n,
@@ -14,7 +14,7 @@ function CreditHeading({ title }: { title: string }) {
     <>
       <header className="admin-heading">
         <div>
-          <p className="admin-eyebrow">IA Y CRÉDITOS · TEST</p>
+          <p className="admin-eyebrow">IA Y CRÉDITOS</p>
           <h1>{title}</h1>
         </div>
       </header>
@@ -28,8 +28,7 @@ function CreditHeading({ title }: { title: string }) {
         </Link>
       </nav>
       <p className="billing-test">
-        Catálogo TEST. Los importes son provisionales y no constituyen una
-        oferta comercial definitiva.
+        Los paquetes definen las recargas disponibles. Los cambios de precio aplican a nuevas compras.
       </p>
     </>
   );
@@ -67,13 +66,19 @@ export function CreditPackagesPage() {
         <Link className="admin-button" to="/admin/credits/packages/new">
           Crear paquete
         </Link>
+        <button className="admin-button secondary" disabled={busy} onClick={async () => {
+          setBusy(true); setError("");
+          try { await billingAction("sync_credit_prices", { environment: "live", operation_key: crypto.randomUUID() }); await load(); }
+          catch (e) { setError((e as Error).message); }
+          finally { setBusy(false); }
+        }}>Sincronizar precios Live</button>
       </div>
       {error && <p className="admin-error" role="alert">{error}</p>}
       <section className="admin-card billing-section">
         {!rows ? <p>Cargando paquetes…</p> : !rows.length
           ? (
             <p>
-              Aún no hay paquetes. Define cantidad y precio de prueba para
+              Aún no hay paquetes. Define cantidad y precio para
               comenzar.
             </p>
           )
@@ -84,7 +89,7 @@ export function CreditPackagesPage() {
                   <tr>
                     <th>Nombre</th>
                     <th>Créditos</th>
-                    <th>Precio TEST</th>
+                    <th>Precio</th>
                     <th>Estado</th>
                     <th>Orden</th>
                     <th>Compras</th>
@@ -154,7 +159,7 @@ const emptyPackage = (): CreditPackage => ({
   currency: "MXN",
   active: false,
   internal_only: false,
-  test_only: true,
+  test_only: false,
   display_order: 0,
 });
 export function CreditPackageEditorPage() {
@@ -247,7 +252,7 @@ export function CreditPackageEditorPage() {
                 />
               </label>
               <label className="admin-field">
-                Precio TEST<input
+                Precio<input
                   required
                   type="number"
                   min={10}
@@ -368,7 +373,7 @@ export function CreditPurchasesPage() {
                     <th>Profesional</th>
                     <th>Paquete</th>
                     <th>Créditos</th>
-                    <th>Importe TEST</th>
+                    <th>Importe</th>
                     <th>Estado</th>
                     <th>Promoción</th>
                   </tr>
@@ -417,7 +422,7 @@ export function CreditPurchasesPage() {
           )}
         <p className="admin-note mt-4">
           Últimas 200 compras. Los reembolsos y disputas se gestionan en Stripe
-          TEST y se reflejan aquí al confirmarse.
+          y se reflejan aquí al confirmarse.
         </p>
       </section>
     </>

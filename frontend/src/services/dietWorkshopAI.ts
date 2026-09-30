@@ -9,7 +9,7 @@ export type WorkshopContext = Pick<DietGenerationContext, 'clinical'|'prescripti
   restrictions: Pick<DietGenerationContext['restrictions'], 'reaction_status'|'reactions'>;
   preferences: Pick<DietGenerationContext['preferences'], 'eating_pattern'|'foods'>;
 };
-export type WorkshopPreflight = {eligible:boolean; reasons:Array<{code:string}>; contextToken:string; context:WorkshopContext};
+export type WorkshopPreflight = {eligible:boolean; reasons:Array<{code:string}>; contextToken?:string; context?:WorkshopContext};
 export type WorkshopProposal = {generationId:string; validation:DietDraftValidation; hasManualMenu:boolean};
 export type WorkshopTransport = {
   preflight(plan:NutritionPlan, instructions:string):Promise<WorkshopPreflight>;

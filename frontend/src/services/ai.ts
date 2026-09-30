@@ -5,14 +5,16 @@ export type AIState = 'idle' | 'generating' | 'ready' | 'error' | 'insufficient'
 export const aiMessages: Record<string,string> = {
   insufficient_credits: 'Ya utilizaste los créditos de IA incluidos en tu plan.',
   feature_disabled: 'Esta función de IA aún no está habilitada.',
-  pilot_limit_reached: 'El límite del piloto para esta función ya se alcanzó.',
-  pilot_daily_limit: 'El piloto alcanzó su límite diario de generaciones.',
-  pilot_daily_budget: 'El piloto alcanzó su presupuesto diario de créditos.',
+  pilot_limit_reached: 'Se alcanzó el límite de uso de esta función.',
+  pilot_daily_limit: 'Alcanzaste el límite diario de generaciones. Intenta mañana.',
+  pilot_daily_budget: 'Alcanzaste el límite diario de consumo de IA. Intenta mañana.',
   feature_not_implemented: 'Esta función estará disponible en una próxima iteración.',
   provider_outcome_unknown: 'La solicitud está pendiente de revisión. No la vuelvas a generar para evitar un consumo duplicado.',
   service_unavailable: 'No pudimos verificar el resultado. Consulta su estado antes de volver a generar.',
   invalid_output: 'La respuesta no pasó la validación. No se modificó el expediente.',
-  provider_credit_exhausted: 'La cuenta de OpenAI no tiene saldo disponible para esta prueba. Agrega crédito en OpenAI y vuelve a intentarlo.',
+  provider_credit_exhausted: 'La IA no está disponible temporalmente. Contacta a soporte.',
+  ai_consent_required: 'Antes de usar IA, revisa y acepta el aviso de tratamiento de datos.',
+  ai_consent_unavailable: 'No pudimos verificar tu autorización para usar IA. Intenta de nuevo.',
 };
 export async function getAIBalance(): Promise<AIBalance> {
   const { data, error } = await supabase.rpc('ai_balance');
@@ -30,6 +32,12 @@ export async function getAIGenerationStatus(idempotencyKey: string) {
 // Reuse the same key when checking/retrying a logical request. Never supply owner/model/prompt/prices.
 export async function runAIRequest(request: { feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean }> {
   try {
+    const consent = await supabase.rpc('my_ai_processing_consent');
+    if (consent.error || !consent.data) throw new AIRequestError('ai_consent_unavailable');
+    if (consent.data.eligible && !consent.data.accepted) {
+      window.dispatchEvent(new Event('nuthrick:ai-consent-manage'));
+      throw new AIRequestError('ai_consent_required');
+    }
     const { data, error } = await supabase.functions.invoke('ai',{ body: request });
     if (error) {
       let code = 'service_unavailable';

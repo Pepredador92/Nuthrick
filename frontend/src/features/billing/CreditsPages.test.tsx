@@ -156,7 +156,7 @@ it("entitlement disables checkout while debt explains the AI block", async () =>
 });
 it("package editor keeps commercial price unset and saves admin configuration", async () => {
   show(<CreditPackageEditorPage />, "/admin/credits/packages/new");
-  expect(screen.getByLabelText("Precio TEST")).toHaveValue(null);
+  expect(screen.getByLabelText("Precio")).toHaveValue(null);
   fireEvent.change(screen.getByLabelText("Nombre"), {
     target: { value: "Paquete TEST" },
   });
@@ -166,7 +166,7 @@ it("package editor keeps commercial price unset and saves admin configuration", 
   fireEvent.change(screen.getByLabelText("Créditos"), {
     target: { value: "500" },
   });
-  fireEvent.change(screen.getByLabelText("Precio TEST"), {
+  fireEvent.change(screen.getByLabelText("Precio"), {
     target: { value: "25" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Guardar paquete" }));
@@ -200,4 +200,14 @@ it("shared promotion editor limits package benefits to discount and bonus", asyn
     .toBeInTheDocument();
   expect(screen.getByRole("option", { name: "Créditos bonus por recarga" }))
     .toBeInTheDocument();
+});
+
+it("Live recargas are available without TEST account membership and never claim no real charges", async () => {
+  summary.mode = "live"; summary.test_eligible = false;
+  show(<MyCreditsPage />);
+  const buy = await screen.findByRole("button", { name: "Recargar créditos" });
+  expect(buy).toBeEnabled();
+  expect(screen.queryByText(/No se realizan cobros reales/)).not.toBeInTheDocument();
+  fireEvent.click(buy);
+  expect(screen.getByText("Elige tu recarga")).toBeInTheDocument();
 });

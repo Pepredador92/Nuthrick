@@ -11,7 +11,7 @@ export type CreditPackage = {
   currency: string;
   active: boolean;
   internal_only: boolean;
-  test_only: true;
+  test_only: boolean;
   display_order: number;
   version: number;
   purchases?: number;
@@ -34,7 +34,7 @@ export type CreditPurchase = {
   promotion_code?: string | null;
 };
 export type MyCredits = {
-  mode: "test";
+  mode: "test" | "live";
   enabled: boolean;
   eligible: boolean;
   test_eligible: boolean;

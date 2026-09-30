@@ -307,6 +307,7 @@ export function createBillingHandler(deps: BillingDependencies) {
           "resume",
           "cancel_now",
           "sync_prices",
+          "sync_credit_prices",
           "inspect_live",
         ].includes(action)
       ) throw new Error("invalid_input");
@@ -329,7 +330,7 @@ export function createBillingHandler(deps: BillingDependencies) {
       });
       if (
         action === "cancel_now" || action === "sync_prices" ||
-        action === "inspect_live"
+        action === "inspect_live" || action === "sync_credit_prices"
       ) {
         await rpc("authorize_admin", { actor });
       }
@@ -367,6 +368,15 @@ export function createBillingHandler(deps: BillingDependencies) {
           webhookUrl: deps.liveWebhookUrl,
         });
         return reply(await rpc("live_inspection_saved", { actor, result }));
+      }
+      if (action === "sync_credit_prices") {
+        const prices = await rpc<import("./domain.ts").CreditPrice[]>("credit_price_catalog", { actor });
+        const provider = await getProvider();
+        for (const price of prices) {
+          const priceId = await provider.ensureCreditPrice(price);
+          await rpc("credit_price_saved", { actor, price_mapping_id: price.id, price_id: priceId });
+        }
+        return reply({ synced: prices.length, mode: environment });
       }
       if (action === "sync_prices") {
         const prices = await rpc<Price[]>("price_catalog", { actor });

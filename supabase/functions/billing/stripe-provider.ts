@@ -330,7 +330,7 @@ export class StripeBillingProvider implements BillingProvider {
     return { status: s.status ?? "open", subscriptionId: id(s.subscription) };
   }
   async ensureCreditPrice(p: CreditPrice) {
-    if (this.mode !== "test") throw new Error("live_credit_purchases_disabled");
+    if ((p.mode ?? "test") !== this.mode) throw new Error("stripe_environment_mismatch");
     const existing = await this.stripe.prices.list({
       lookup_keys: [p.fingerprint],
       limit: 1,
@@ -352,7 +352,7 @@ export class StripeBillingProvider implements BillingProvider {
       this.assertObject(
         await this.stripe.products.create({
           id: productId,
-          name: `TEST · ${p.package_name}`,
+          name: `${this.mode === "test" ? "TEST · " : "Nuthrick · "}${p.package_name}`,
           metadata: { nuthrick_package: p.package_id },
         }, {
           idempotencyKey:
@@ -378,7 +378,7 @@ export class StripeBillingProvider implements BillingProvider {
     return price.id;
   }
   async createCreditCheckout(i: CheckoutInput) {
-    if (this.mode !== "test") throw new Error("live_credit_purchases_disabled");
+    await this.checkoutReferences(i);
     const session = await this.stripe.checkout.sessions.create({
       mode: "payment",
       customer: i.customerId,
@@ -402,7 +402,6 @@ export class StripeBillingProvider implements BillingProvider {
     return { id: session.id, url, expires_at: session.expires_at };
   }
   async getCreditPayment(checkoutId: string): Promise<CreditPayment> {
-    if (this.mode !== "test") throw new Error("live_credit_purchases_disabled");
     const s = await this.stripe.checkout.sessions.retrieve(checkoutId, {
       expand: ["payment_intent.latest_charge"],
     });
@@ -486,7 +485,7 @@ export class StripeBillingProvider implements BillingProvider {
       refund_pending: refundPending,
       dispute_id: dispute?.id ?? null,
       dispute_status: dispute?.status ?? null,
-      livemode: false,
+      livemode: this.mode === "live",
     };
   }
   async findCheckout(customerId: string, intentId: string) {

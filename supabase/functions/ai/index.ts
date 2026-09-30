@@ -48,10 +48,12 @@ Deno.serve(async request => {
       const {action: _action, ...fields} = body as Record<string, unknown>;
       const r = parseRequest(fields);
       if (r.feature !== 'diet_draft') throw new AIError('invalid_request');
+      if (!dietEnabled || !Deno.env.get('OPENAI_API_KEY')) return respond({eligible:false,reasons:[{code:'feature_disabled'}]});
+      const config = await db.rpc('ai_server',{p_action:'config',p_owner:owner,p_data:{feature:'diet_draft'}});
+      if (config.error || config.data?.enabled !== true) return respond({eligible:false,reasons:[{code:'feature_disabled'}]});
       const {data: loaded, error} = await db.rpc('ai_diet_source',{p_owner:owner,p_plan:r.planId,p_revision:r.revision});
       if (error || !loaded || loaded.source.plan.patient_id !== (r.patientId ?? null) || loaded.source.plan.consultation_id !== (r.consultationId ?? null)) throw new AIError('context_unavailable');
       loaded.source.additionalInstructions = r.narrative ?? '';
-      const config = await db.rpc('ai_server',{p_action:'config',p_owner:owner,p_data:{feature:'diet_draft'}});
       // Read balance with the caller's JWT; never impersonate an owner in a browser.
       const caller = createClient(url, serviceKey, {global:{headers:{Authorization:`Bearer ${token}`}},auth:{persistSession:false,autoRefreshToken:false}});
       const balance = await caller.rpc('ai_balance');

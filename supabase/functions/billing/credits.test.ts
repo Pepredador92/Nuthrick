@@ -241,10 +241,10 @@ Deno.test("credit entitlement and checkout rate limits return actionable HTTP st
     429,
   );
 });
-function sdkFixture() {
+function sdkFixture(live = false) {
   const charge = {
     id: "ch_credit",
-    livemode: false,
+    livemode: live,
     customer: "cus_existing",
     payment_intent: "pi_credit",
     paid: true,
@@ -253,7 +253,7 @@ function sdkFixture() {
   };
   const pi = {
     id: "pi_credit",
-    livemode: false,
+    livemode: live,
     customer: "cus_existing",
     amount: 2500,
     amount_received: 2500,
@@ -264,7 +264,7 @@ function sdkFixture() {
   };
   const session = {
     id: "cs_credit",
-    livemode: false,
+    livemode: live,
     mode: "payment",
     status: "complete",
     payment_status: "paid",
@@ -285,6 +285,8 @@ function sdkFixture() {
   const disputes: { id: string; status: string; livemode: boolean }[] = [];
   let checkoutParams: Record<string, unknown> | undefined;
   const sdk = {
+    customers: {retrieve: async () => ({id: "cus_existing", livemode: live})},
+    prices: {retrieve: async () => ({id: "price_credit", livemode: live})},
     checkout: {
       sessions: {
         retrieve: async () => session,
@@ -297,7 +299,7 @@ function sdkFixture() {
           return {
             id: "cs_credit",
             url: "https://checkout.stripe.com/c/pay/test",
-            livemode: false,
+            livemode: live,
             expires_at: Date.now() / 1000 + 2100,
           };
         },
@@ -313,9 +315,10 @@ function sdkFixture() {
     disputes: { list: async () => ({ data: disputes }) },
   } as unknown as Stripe;
   const provider = new StripeBillingProvider(
-    "sk_test_fixture",
+    live ? "sk_live_fixture" : "sk_test_fixture",
     "whsec_fixture",
     sdk,
+    { mode: live ? "live" : "test" },
   );
   return {
     provider,
@@ -390,4 +393,12 @@ Deno.test("unpaid, wrong-owner and live Stripe payment objects cannot grant", as
     () => f.provider.getCreditPayment("cs_credit"),
     /live_mode_forbidden/,
   );
+});
+
+Deno.test("Live credit payment proof preserves mode and rejects Test objects", async () => {
+  const f = sdkFixture(true);
+  assert.equal((await f.provider.getCreditPayment("cs_credit")).livemode, true);
+  assert.equal((await f.provider.getCreditPayment("cs_credit")).paid, true);
+  f.session.livemode = false;
+  await assert.rejects(() => f.provider.getCreditPayment("cs_credit"), /stripe_environment_mismatch/);
 });

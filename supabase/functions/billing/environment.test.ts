@@ -147,11 +147,11 @@ Deno.test("idempotency namespaces and successful Checkout remain separate by env
   assert.ok(test.writes.every((key) => key.startsWith("nuthrick:test:")));
   assert.ok(live.writes.every((key) => key.startsWith("nuthrick:live:")));
 });
-Deno.test("LIVE keeps credit purchases disabled and requires a reviewed portal configuration", async () => {
-  const f = fixture("live", true, true);
+Deno.test("LIVE credit checkout rejects TEST references and requires a reviewed portal configuration", async () => {
+  const f = fixture("live", false, true);
   await assert.rejects(
     () => f.provider.createCreditCheckout(input),
-    /live_credit_purchases_disabled/,
+    /stripe_environment_mismatch/,
   );
   await assert.rejects(
     () => f.provider.createCustomerPortal("cus_fixture", input.site, "fixture"),

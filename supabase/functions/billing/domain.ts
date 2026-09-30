@@ -62,6 +62,7 @@ export type Price = {
   fingerprint: string;
 };
 export type CreditPrice = {
+  mode?: BillingEnvironment;
   id: string;
   package_id: string;
   package_name: string;

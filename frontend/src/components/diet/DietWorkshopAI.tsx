@@ -57,6 +57,7 @@ export function DietWorkshopAI({plan,before,onApplied,transport=workshopTranspor
     try {
       const saved=await before(),fresh=await transport.preflight(saved,instructions);
       setPreflight(fresh);if(!fresh.eligible)return;
+      if(!fresh.contextToken)throw new AIRequestError('context_unavailable');
       generatedToken.current=fresh.contextToken;
       key=crypto.randomUUID();sessionStorage.setItem(storageKey,key);
       const result=await transport.generate(saved,instructions,key);
@@ -92,7 +93,7 @@ export function DietWorkshopAI({plan,before,onApplied,transport=workshopTranspor
       sessionStorage.removeItem(storageKey);setUncertain(null);setError('La solicitud terminó. No se enviará otra propuesta automáticamente.');
     }else setError(copilotMessage('provider_outcome_unknown'));}catch(e){fail(e);}finally{lock.current=false;setBusy(null);}
   }
-  const v=proposal?.validation,targets=preflight?targetNutrition(preflight.context):null;
+  const v=proposal?.validation,targets=preflight?.eligible&&preflight.context?targetNutrition(preflight.context):null;
   const needsAcceptance=Boolean(v&&(v.status==='needs_adjustment'||v.requiresTargetReview));
   return <>
     {!available&&<span className="text-xs text-[#687870]">{accessData?.access.read_only?"IA no disponible en modo de consulta":"Taller IA disponible en Profesional"}</span>}
@@ -108,8 +109,8 @@ export function DietWorkshopAI({plan,before,onApplied,transport=workshopTranspor
       {busy&&<div role="status" className="my-5 flex items-start gap-2 text-sm"><LoaderCircle size={18} className="shrink-0 animate-spin"/><div>{busy==='generate'?'Preparando propuesta…':busy==='apply'?'Revisando y aplicando al borrador…':busy==='context'?'Revisando contexto…':'Comprobando solicitud…'}{busy==='generate'&&<p className="mt-1 text-[#74817d]">Tu borrador permanece sin cambios mientras preparamos la propuesta.</p>}</div></div>}
       {preflight&&!proposal&&<>
         {!preflight.eligible&&<ul aria-label="Requisitos pendientes" className="my-3 space-y-1 rounded-xl bg-[#fff7e7] p-3 text-sm">{[...new Set(preflight.reasons.map(r=>copilotMessage(r.code)))].map(m=><li key={m}>{m}</li>)}</ul>}
-        <button type="button" className="my-2 text-sm font-semibold text-[#477363] underline" aria-expanded={contextOpen} aria-controls={`${id}-context`} disabled={!!busy} onClick={()=>setContextOpen(!contextOpen)}>{contextOpen?'Ocultar contexto':'Revisar contexto'}</button>
-        {contextOpen&&<div id={`${id}-context`}><ContextSummary context={preflight.context}/></div>}
+        {preflight.context&&<><button type="button" className="my-2 text-sm font-semibold text-[#477363] underline" aria-expanded={contextOpen} aria-controls={`${id}-context`} disabled={!!busy} onClick={()=>setContextOpen(!contextOpen)}>{contextOpen?'Ocultar contexto':'Revisar contexto'}</button>
+        {contextOpen&&<div id={`${id}-context`}><ContextSummary context={preflight.context}/></div>}</>}
         <div className="mt-4"><label htmlFor={`${id}-instructions`} className="text-sm font-semibold">Indicaciones adicionales</label><p id={`${id}-help`} className="mt-1 text-xs text-[#74817d]">Agrega información que Nuthrick todavía no conozca.</p>
           <textarea id={`${id}-instructions`} aria-describedby={`${id}-help`} className="nuth-input mt-2 min-h-24 resize-y" maxLength={1200} disabled={!!busy} value={instructions} onChange={e=>setInstructions(e.target.value)} placeholder="Ej. desayuno para llevar, preparaciones rápidas, priorizar alimentos económicos…"/></div>
       </>}
@@ -124,7 +125,7 @@ export function DietWorkshopAI({plan,before,onApplied,transport=workshopTranspor
             <p>Objetivo: {numberText(targets[key])} {unit}</p><p>Propuesta: {numberText(v.totals![key])} {unit}</p><p className="text-[#74817d]">Diferencia: {numberText(v.totals![key]-targets[key])} {unit}</p></div>)}
         </section>}
         {v.draft&&<div className="space-y-3">{activeMenu(v.draft).meal_menus.map((meal,i)=><section key={meal.meal_time_id} className="rounded-xl border border-[#dfe6e1] p-3 text-sm">
-          <h3 className="font-semibold">{preflight?.context.meals[plan.meal_distribution?.meal_times.slice().sort((a,b)=>a.display_order-b.display_order).findIndex(m=>m.id===meal.meal_time_id)??i]??'Tiempo de comida'}</h3><ul className="mt-2 space-y-1">{meal.entries.map(e=><li key={e.id}>{e.name_snapshot} · {numberText(e.quantity)} {e.unit==='recipe_serving'?'porción':foodUnitLabels[e.unit]}{e.recipe_snapshot?.instructions&&<p className="mt-1 text-xs text-[#74817d]">{e.recipe_snapshot.instructions}</p>}</li>)}</ul>
+          <h3 className="font-semibold">{preflight?.context?.meals[plan.meal_distribution?.meal_times.slice().sort((a,b)=>a.display_order-b.display_order).findIndex(m=>m.id===meal.meal_time_id)??i]??'Tiempo de comida'}</h3><ul className="mt-2 space-y-1">{meal.entries.map(e=><li key={e.id}>{e.name_snapshot} · {numberText(e.quantity)} {e.unit==='recipe_serving'?'porción':foodUnitLabels[e.unit]}{e.recipe_snapshot?.instructions&&<p className="mt-1 text-xs text-[#74817d]">{e.recipe_snapshot.instructions}</p>}</li>)}</ul>
         </section>)}</div>}
         {needsAcceptance&&v.status!=='invalid'&&<label className="my-4 flex items-start gap-2 rounded-xl bg-[#fff7e7] p-3 text-sm"><input type="checkbox" className="mt-1" checked={accept} disabled={!!busy||stale} onChange={e=>setAccept(e.target.checked)}/>Revisé las diferencias de la propuesta</label>}
       </>}
