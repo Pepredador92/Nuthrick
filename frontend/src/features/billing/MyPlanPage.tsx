@@ -14,6 +14,7 @@ import {
   type Interval,
   intervalLabel,
   money,
+  paymentLabel,
   type MyBilling,
   stateLabel,
 } from "./api";
@@ -84,6 +85,7 @@ export function MyPlanPage() {
     }
   };
   const s = data?.subscription;
+  const checkoutPayment = data?.payments.find(p => p.provider_invoice_id === s?.latest_invoice_id && p.status === 'paid');
   const selected = plans.find((p) => p.id === target);
   return (
     <div>
@@ -108,8 +110,9 @@ export function MyPlanPage() {
       </p>}
       {params.get("checkout") === "success" && (
         <p role="status" className="billing-benefits">
-          Estamos confirmando tu pago. El estado de tu plan se
-          actualizará en unos momentos.
+          {checkoutPayment
+            ? (checkoutPayment.refunded_amount ? 'El reembolso de tu pago está registrado en el historial.' : 'Tu pago está confirmado. El estado de tu plan está actualizado.')
+            : 'Estamos confirmando tu pago. El estado de tu plan se actualizará en unos momentos.'}
         </p>
       )}
       {error && <p role="alert" className="admin-error">{error}</p>}
@@ -411,13 +414,10 @@ export function MyPlanPage() {
                                 : p.amount_due,
                               p.currency,
                             )} {p.currency}
+                            {!!p.refunded_amount && <small className="block">Devuelto: {money(p.refunded_amount,p.currency)} {p.currency}</small>}
                           </td>
                           <td>
-                            {p.status === "paid"
-                              ? "Pagado"
-                              : p.status === "open"
-                              ? "Pendiente"
-                              : p.status}
+                            {paymentLabel(p)}
                           </td>
                           <td>
                             {hostedUrl(p.hosted_url, "invoice")

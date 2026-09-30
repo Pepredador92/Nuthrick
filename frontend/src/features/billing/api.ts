@@ -66,6 +66,7 @@ export type Payment = {
   professional_id?: string;
   plan_name?: string;
   amount_paid: number;
+  refunded_amount?: number;
   amount_due: number;
   currency: string;
   status: string;
@@ -98,6 +99,7 @@ export type Subscription = {
   campaign_id: string | null;
   campaign_snapshot: Campaign | null;
   last_payment?: string | null;
+  latest_invoice_id?: string | null;
   provider_subscription_id: string;
 };
 export type MyBilling = {
@@ -410,4 +412,11 @@ export function checkoutAmount(price: number, benefits: Benefit[] = []) {
     : b.type === "fixed_discount"
     ? Math.max(0, price - Math.round((b.amount ?? 0) * 100))
     : Math.round(price * (1 - (b.amount ?? 0) / 100));
+}
+
+export function paymentLabel(payment: Payment) {
+  if ((payment.refunded_amount ?? 0) > 0) {
+    return payment.refunded_amount === payment.amount_paid ? 'Reembolsado' : 'Reembolso parcial';
+  }
+  return payment.status === 'paid' ? 'Pagado' : payment.status === 'open' ? 'Pendiente' : payment.status;
 }

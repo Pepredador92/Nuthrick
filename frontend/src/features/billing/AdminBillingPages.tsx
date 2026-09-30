@@ -22,6 +22,7 @@ import {
   hostedUrl,
   type Interval,
   money,
+  paymentLabel,
   type Payment,
   stateLabel,
   type Subscription,
@@ -1067,13 +1068,10 @@ export function PaymentsPage() {
                           p.status === "paid" ? p.amount_paid : p.amount_due,
                           p.currency,
                         )} {p.currency}
+                        {!!p.refunded_amount && <small className="block">Devuelto: {money(p.refunded_amount,p.currency)} {p.currency}</small>}
                       </td>
                       <td>
-                        {p.status === "paid"
-                          ? "Pagado"
-                          : p.status === "open"
-                          ? "Pendiente"
-                          : p.status}
+                        {paymentLabel(p)}
                       </td>
                       <td>{p.plan_name}</td>
                       <td>{p.provider} · {(p.mode ?? "test").toUpperCase()}</td>

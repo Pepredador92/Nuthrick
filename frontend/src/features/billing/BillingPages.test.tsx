@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
 import { MyPlanPage } from "./MyPlanPage";
-import { PromotionEditorPage } from "./AdminBillingPages";
+import { PaymentsPage, PromotionEditorPage } from "./AdminBillingPages";
 import { CheckoutChoice } from "./CheckoutChoice";
 import { billingReturn, rememberPlan } from "./returnToPlan";
 import { checkoutAmount, hostedUrl } from "./api";
@@ -90,6 +90,20 @@ beforeEach(() => {
 });
 const show = (component: React.ReactNode, path = "/app/my-plan") =>
   render(<MemoryRouter initialEntries={[path]}>{component}</MemoryRouter>);
+it.each([[34900, 'Reembolsado'], [12300, 'Reembolso parcial']] as const)('shows verified refund %s without losing the original payment', async (refunded, label) => {
+  const payment = {provider_invoice_id:'in_refund',amount_paid:34900,amount_due:34900,refunded_amount:refunded,currency:'MXN',status:'paid',issued_at:'2026-09-30T07:55:00Z',paid_at:'2026-09-30T07:55:00Z',hosted_url:null};
+  rpc.mockImplementation(async(name:string)=>({data:name==='my_billing'?{...summary,mode:'live',subscription:{...subscription,latest_invoice_id:'in_refund'},payments:[payment]}:[],error:null}));
+  show(<MyPlanPage />, '/app/my-plan?checkout=success');
+  expect(await screen.findByText(label)).toBeInTheDocument();
+  expect(screen.getByText(/Devuelto:/)).toHaveTextContent(refunded===34900?'$349.00':'$123.00');
+  expect(screen.queryByText(/Estamos confirmando tu pago/)).not.toBeInTheDocument();
+  expect(screen.getByText('Activa')).toBeInTheDocument();
+});
+it('shows the refund in the administrative payment history', async()=>{
+  rpc.mockResolvedValue({data:[{provider_invoice_id:'in_refund',amount_paid:34900,amount_due:34900,refunded_amount:34900,currency:'MXN',status:'paid',issued_at:'2026-09-30T07:55:00Z',hosted_url:null}],error:null});
+  show(<PaymentsPage />,'/admin/payments');
+  expect(await screen.findByText('Reembolsado')).toBeInTheDocument();
+});
 it('Live checkout discloses recurring real charges and never asks for a test card', async () => {
   rpc.mockResolvedValue({ data: { ...summary, mode: 'live', checkout_eligible: true, subscription: null }, error: null });
   show(<CheckoutChoice plan={plan} interval="monthly" close={() => {}} />);
