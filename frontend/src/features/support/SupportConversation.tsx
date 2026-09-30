@@ -1,23 +1,48 @@
 import { useEffect, useRef, useState } from 'react';
-import { Send } from 'lucide-react';
+import { Send, Paperclip, X } from 'lucide-react';
 import { SupportMacroPicker } from './SupportContent';
-import { supportDate, supportRequest, type SupportDetail, type SupportMessage, type SupportThread } from './api';
+import { supportDate, supportRequest, supportFiles, validateSupportFile, supportUploadAlreadyExists, cleanupPendingSupportFiles, type SupportAttachment, type SupportDetail, type SupportMessage, type SupportThread } from './api';
+import { SupportImage } from './SupportImage';
 
 export function SupportComposer({threadId,topic='other',source='',admin=false,onSent}:{threadId?:string;topic?:string;source?:string;admin?:boolean;onSent:()=>Promise<void>|void}){
  const [text,setText]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const [file,setFile]=useState<File|null>(null);const fileInput=useRef<HTMLInputElement>(null);
+ const pending=useRef<{file:File;asset:SupportAttachment;uploaded:boolean}|null>(null);
  const operation=useRef({fingerprint:'',key:''});
+ useEffect(()=>{void cleanupPendingSupportFiles(admin).catch(()=>{});},[admin]);
+ function chooseFile(next:File|null){
+  if(busy)return;
+  try{if(next)validateSupportFile(next);}catch(e){setError((e as Error).message);return;}
+  if(pending.current)void supportFiles().remove([pending.current.asset.path]);
+  pending.current=null;setFile(next);setError('');
+ }
  async function send(event:React.FormEvent){
   event.preventDefault();if(busy||!text.trim())return;setBusy(true);setError('');
-  const data={body:text.trim(),topic,source,...(threadId?{threadId}:{})},fingerprint=JSON.stringify(data);
-  if(operation.current.fingerprint!==fingerprint)operation.current={fingerprint,key:crypto.randomUUID()};
-  try{await supportRequest('send',{...data,clientKey:operation.current.key},admin);setText('');operation.current={fingerprint:'',key:''};await onSent();}
+  try{
+   let assetId:string|undefined;
+   if(file){
+    if(!pending.current)pending.current={file,asset:await supportRequest<SupportAttachment>('prepare_asset',{fileName:file.name.slice(0,160),mime:file.type,bytes:file.size},admin),uploaded:false};
+    if(!pending.current.uploaded){
+     const {error:uploadError}=await supportFiles().upload(pending.current.asset.path,file,{contentType:file.type,upsert:false,cacheControl:'0'});
+     if(uploadError&&!supportUploadAlreadyExists(uploadError))throw new Error('No pudimos cargar la captura. Tu mensaje y archivo siguen aquí para reintentar.');
+     pending.current.uploaded=true;
+    }
+    assetId=pending.current.asset.id;
+   }
+   const data={body:text.trim(),topic,source,...(threadId?{threadId}:{}),...(assetId?{assetId}:{})},fingerprint=JSON.stringify(data);
+   if(operation.current.fingerprint!==fingerprint)operation.current={fingerprint,key:crypto.randomUUID()};
+   await supportRequest('send',{...data,clientKey:operation.current.key},admin);setText('');setFile(null);pending.current=null;operation.current={fingerprint:'',key:''};await onSent();
+  }
   catch(e){setError(e instanceof Error?e.message:'No pudimos enviar el mensaje.');}finally{setBusy(false);}
  }
  return <form onSubmit={send} className="support-composer">
   <>{admin&&<SupportMacroPicker disabled={busy} onSelect={body=>setText(current=>`${current}${current?'\n\n':''}${body}`.slice(0,8000))}/>}</>
   <label className="sr-only" htmlFor={`support-message-${threadId??'new'}`}>Mensaje para {admin?'el nutriólogo':'soporte'}</label>
   <textarea id={`support-message-${threadId??'new'}`} value={text} onChange={e=>setText(e.target.value)} maxLength={8000} disabled={busy} rows={3} placeholder={admin?'Escribe una respuesta…':'Cuéntanos en qué podemos ayudarte…'} className="nuth-input resize-y"/>
-  <div className="flex items-center justify-between gap-3"><span className="text-xs text-[#63796d]">{text.length.toLocaleString('es-MX')} / 8,000</span><button className="nuth-button" disabled={busy||!text.trim()}><Send size={16} aria-hidden="true"/>{busy?'Enviando…':'Enviar'}</button></div>
+  <input ref={fileInput} type="file" className="sr-only" tabIndex={-1} aria-label="Seleccionar captura" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={e=>{chooseFile(e.target.files?.[0]??null);e.target.value='';}}/>
+  {file&&<div className="flex items-center justify-between gap-2 rounded-lg bg-[#f3f6f2] p-2 text-xs"><span className="min-w-0 break-all">{file.name} · {(file.size/1024).toFixed(0)} KB</span><button type="button" className="p-2" disabled={busy} aria-label="Quitar captura" onClick={()=>chooseFile(null)}><X size={16}/></button></div>}
+  <div className="flex flex-wrap items-center justify-between gap-3"><button type="button" className="flex items-center gap-1 text-xs font-medium" disabled={busy} onClick={()=>fileInput.current?.click()}><Paperclip size={16}/>Adjuntar captura</button><span className="text-xs text-[#63796d]">{text.length.toLocaleString('es-MX')} / 8,000</span><button className="nuth-button" disabled={busy||!text.trim()}><Send size={16} aria-hidden="true"/>{busy?'Enviando…':'Enviar'}</button></div>
+  <p className="text-[11px] text-[#63796d]">PNG, JPG o WebP · hasta 5 MB</p>
   {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
  </form>;
 }
@@ -49,6 +74,7 @@ export function SupportConversation({thread,admin=false,onChange}:{thread:Suppor
    {messages.map(message=><article key={message.seq} className={`support-message ${message.sender===(admin?'admin':'professional')?'support-message-own':''}`}>
     <p className="mb-1 text-xs font-semibold">{message.sender==='admin'?'Equipo Nuthrick':admin?'Nutriólogo':'Tú'}</p>
     <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.body}</p>
+    {message.attachment&&<SupportImage attachment={message.attachment}/>}
     <time dateTime={message.created_at} className="mt-2 block text-[11px] text-[#63796d]">{supportDate(message.created_at)}</time>
    </article>)}<div ref={end}/>
    {error&&<p role="alert" className="text-sm text-red-700">{error} <button className="underline" onClick={()=>setReload(n=>n+1)}>Reintentar</button></p>}

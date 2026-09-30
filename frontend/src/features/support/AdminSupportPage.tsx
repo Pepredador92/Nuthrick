@@ -6,6 +6,7 @@ import { useSupport } from './SupportProvider';
 import { supportDate, supportRequest, supportStatuses, supportTopics, type SupportStatus, type SupportThread } from './api';
 import './support.css';
 import { AdminSupportContent } from './SupportContent';
+import { SupportStats } from './SupportStats';
 function SupportInbox(){
  const {revision,refresh}=useSupport();
  const [items,setItems]=useState<SupportThread[]>([]),[selected,setSelected]=useState<SupportThread|null>(null),[status,setStatus]=useState(''),[search,setSearch]=useState(''),[offset,setOffset]=useState(0),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
@@ -38,6 +39,6 @@ function SupportInbox(){
 }
 
 export function AdminSupportPage(){
- const [tab,setTab]=useState<'inbox'|'content'>('inbox');
- return <><Heading eyebrow="Soporte" title="Atención a nutriólogos" text="Responde dudas y resuelve casos. Al resolver, el nutriólogo vuelve al inicio y el historial queda aquí."/><nav aria-label="Secciones de soporte" className="mb-5 flex flex-wrap gap-2"><button className={`admin-button ${tab==='inbox'?'':'secondary'}`} aria-pressed={tab==='inbox'} onClick={()=>setTab('inbox')}>Conversaciones</button><button className={`admin-button ${tab==='content'?'':'secondary'}`} aria-pressed={tab==='content'} onClick={()=>setTab('content')}>Respuestas y horario</button></nav>{tab==='inbox'?<SupportInbox/>:<AdminSupportContent/>}</>;
+ const [tab,setTab]=useState<'inbox'|'content'|'stats'>('inbox');
+ return <><Heading eyebrow="Soporte" title="Atención a nutriólogos" text="Responde dudas y resuelve casos. Al resolver, el nutriólogo vuelve al inicio y el historial queda aquí."/><nav aria-label="Secciones de soporte" className="mb-5 flex flex-wrap gap-2"><button className={`admin-button ${tab==='inbox'?'':'secondary'}`} aria-pressed={tab==='inbox'} onClick={()=>setTab('inbox')}>Conversaciones</button><button className={`admin-button ${tab==='content'?'':'secondary'}`} aria-pressed={tab==='content'} onClick={()=>setTab('content')}>Respuestas y horario</button><button className={`admin-button ${tab==='stats'?'':'secondary'}`} aria-pressed={tab==='stats'} onClick={()=>setTab('stats')}>Estadísticas</button></nav>{tab==='inbox'?<SupportInbox/>:tab==='content'?<AdminSupportContent/>:<SupportStats/>}</>;
 }

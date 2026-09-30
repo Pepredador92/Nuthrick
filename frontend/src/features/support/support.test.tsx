@@ -5,9 +5,10 @@ import { SupportWidget } from './SupportWidget';
 import { AdminSupportPage } from './AdminSupportPage';
 import { SupportComposer } from './SupportConversation';
 import { useSupport } from './SupportProvider';
-import { supportRequest, supportSource, supportContentRequest, type SupportThread } from './api';
+import { supportRequest, supportSource, supportContentRequest, supportFiles, validateSupportFile, supportUploadAlreadyExists, type SupportThread } from './api';
 import { AdminSupportContent, SupportFAQ, supportHours } from './SupportContent';
-vi.mock('./api',async original=>({...await original<typeof import('./api')>(),supportRequest:vi.fn(),supportContentRequest:vi.fn()}));
+import { elapsedSupportTime, SupportStats } from './SupportStats';
+vi.mock('./api',async original=>({...await original<typeof import('./api')>(),supportRequest:vi.fn(),supportContentRequest:vi.fn(),cleanupPendingSupportFiles:vi.fn(async()=>{}),supportFiles:vi.fn()}));
 vi.mock('./SupportProvider',()=>({useSupport:vi.fn()}));
 vi.mock('@/src/features/admin/AdminPages',()=>({Heading:({title}:{title:string})=><h1>{title}</h1>}));
 const thread:SupportThread={id:'thread1',professional_id:'pro1',topic:'agenda',source:'Agenda',status:'waiting',revision:3,last_seq:2,professional_unread:1,admin_unread:0,preview:'Respuesta de soporte',created_at:'2026-09-30T01:00:00Z',updated_at:'2026-09-30T01:05:00Z',first_response_at:'2026-09-30T01:05:00Z',resolved_at:null,professional_name:'Nutrióloga de prueba',email:'example@example.test'};
@@ -15,6 +16,7 @@ const refresh=vi.fn(async()=>{});
 const state={thread,unread:1,revision:1,loading:false,error:'',refresh};
 beforeEach(()=>{
  vi.clearAllMocks();vi.mocked(useSupport).mockReturnValue(state);
+ vi.mocked(supportFiles).mockReturnValue({upload:vi.fn(async()=>({error:null})),remove:vi.fn(async()=>({error:null}))} as unknown as ReturnType<typeof supportFiles>);
  vi.mocked(supportContentRequest).mockResolvedValue({settings:{starts_at:'09:00',ends_at:'17:00',timezone:'America/Mexico_City',revision:1},answers:[]});
  HTMLDialogElement.prototype.showModal=vi.fn(function(this:HTMLDialogElement){this.open=true;});HTMLDialogElement.prototype.close=vi.fn(function(this:HTMLDialogElement){this.open=false;});
  vi.mocked(supportRequest).mockImplementation(async action=>action==='thread'?{thread,messages:[{seq:2,sender:'admin',body:'Respuesta de soporte',created_at:thread.updated_at}]}:action==='inbox'?{items:[thread]}:{});
@@ -72,4 +74,30 @@ it('allows administrators to configure the requested support hours',async()=>{
  fireEvent.change(screen.getByLabelText('Hasta'),{target:{value:'16:00'}});fireEvent.click(screen.getByRole('button',{name:'Guardar horario'}));
  await waitFor(()=>expect(supportContentRequest).toHaveBeenCalledWith('save_settings',{starts_at:'09:00',ends_at:'16:00',timezone:'America/Mexico_City',revision:1},true));
  expect(supportHours({starts_at:'09:00',ends_at:'17:00',timezone:'America/Mexico_City',revision:1})).toBe('9:00 a. m. a 5:00 p. m. · Ciudad de México');
+});
+it('validates screenshot type and size before making any upload',()=>{
+ expect(()=>validateSupportFile(new File(['svg'],'capture.svg',{type:'image/svg+xml'}))).toThrow('hasta 5 MB');
+ const large=new File(['png'],'large.png',{type:'image/png'});Object.defineProperty(large,'size',{value:5242881});expect(()=>validateSupportFile(large)).toThrow('hasta 5 MB');
+ render(<SupportComposer onSent={refresh}/>);fireEvent.change(screen.getByLabelText('Seleccionar captura'),{target:{files:[large]}});
+ expect(screen.getByRole('alert')).toHaveTextContent('hasta 5 MB');expect(supportRequest).not.toHaveBeenCalled();
+ expect(supportUploadAlreadyExists({statusCode:'400',message:'The resource already exists'})).toBe(true);
+ expect(supportUploadAlreadyExists({statusCode:409})).toBe(true);
+ expect(supportUploadAlreadyExists({statusCode:400,message:'Invalid file'})).toBe(false);
+});
+it('uploads a private screenshot once and retries the same message without duplicating it',async()=>{
+ let sendCount=0;
+ vi.mocked(supportRequest).mockImplementation(async action=>{
+  if(action==='prepare_asset')return {id:'asset1',path:'user/capture.png',file_name:'capture.png'};
+  if(action==='send'&&++sendCount===1)throw new Error('Sin conexión');return {};
+ });
+ render(<SupportComposer onSent={refresh}/>);fireEvent.change(screen.getByLabelText('Seleccionar captura'),{target:{files:[new File(['png'],'capture.png',{type:'image/png'})]}});
+ fireEvent.change(screen.getByRole('textbox'),{target:{value:'Este es el error'}});fireEvent.click(screen.getByRole('button',{name:'Enviar'}));await screen.findByText('Sin conexión');
+ fireEvent.click(screen.getByRole('button',{name:'Enviar'}));await waitFor(()=>expect(refresh).toHaveBeenCalled());
+ const sends=vi.mocked(supportRequest).mock.calls.filter(c=>c[0]==='send');expect(sends[0]).toEqual(sends[1]);expect(sends[0][1]).toMatchObject({assetId:'asset1'});
+ expect(supportFiles().upload).toHaveBeenCalledTimes(1);
+});
+it('shows no invented response average when no cases have been answered',async()=>{
+ vi.mocked(supportRequest).mockResolvedValue({new:0,in_progress:0,waiting:0,without_reply:0,opened_30d:0,resolved_30d:0,response_minutes:null,response_sample:0,resolution_minutes:null,as_of:thread.created_at});
+ render(<SupportStats/>);expect(await screen.findAllByText('Sin datos')).toHaveLength(2);
+ expect(supportRequest).toHaveBeenCalledWith('stats',{},true);expect(elapsedSupportTime(120)).toBe('2 h');
 });
