@@ -48,6 +48,7 @@ export type Campaign = {
   visibility: "private" | "public";
 };
 export type Price = {
+  retention_days?: number;
   mode?: BillingEnvironment;
   provider_product_id?: string | null;
   id: string;
@@ -104,6 +105,7 @@ export type CollectionState =
   | "paused"
   | "ended";
 export type SubscriptionSnapshot = {
+  retention_ends_at?: string | null;
   id: string;
   intent_id: string | null;
   customer_id: string;
@@ -215,7 +217,7 @@ export interface BillingProvider {
     price: Price,
     timing: "immediate" | "period_end",
     key: string,
-  ): Promise<{ scheduleId: string | null }>;
+  ): Promise<{ scheduleId: string | null; retentionStartsAt?: string; retentionEndsAt?: string }>;
   cancelSubscription(
     id: string,
     immediately: boolean,

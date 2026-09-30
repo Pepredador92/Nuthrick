@@ -231,6 +231,9 @@ export class StripeBillingProvider implements BillingProvider {
   }
   async ensurePrice(p: Price) {
     this.assertPrice(p);
+    const recurring = p.retention_days === 90
+      ? { interval: "day" as const, interval_count: 30 }
+      : { interval: p.interval === "monthly" ? "month" as const : "year" as const, interval_count: 1 };
     const prices = await this.stripe.prices.list({
       lookup_keys: [p.fingerprint],
       limit: 1,
@@ -240,9 +243,8 @@ export class StripeBillingProvider implements BillingProvider {
       this.assertObject(v);
       if (
         v.unit_amount !== p.amount || v.currency.toUpperCase() !== p.currency ||
-        v.recurring?.interval !==
-          (p.interval === "monthly" ? "month" : "year") ||
-        v.recurring.interval_count !== 1
+        v.recurring?.interval !== recurring.interval ||
+        v.recurring.interval_count !== recurring.interval_count
       ) throw new Error("price_mapping_mismatch");
       p.provider_product_id = id(v.product);
       return v.id;
@@ -262,7 +264,7 @@ export class StripeBillingProvider implements BillingProvider {
       product: productId,
       currency: p.currency.toLowerCase(),
       unit_amount: p.amount,
-      recurring: { interval: p.interval === "monthly" ? "month" : "year" },
+      recurring,
       lookup_key: p.fingerprint,
       metadata: { nuthrick_plan: p.plan_id, nuthrick_interval: p.interval },
     }, { idempotencyKey: `nuthrick:${this.mode}:price:${p.fingerprint}` });
@@ -709,6 +711,8 @@ export class StripeBillingProvider implements BillingProvider {
         (typeof s.schedule === "object" &&
           s.schedule?.end_behavior === "cancel"),
       schedule_id: id(s.schedule),
+      retention_ends_at: typeof s.schedule === "object" && s.schedule?.end_behavior === "cancel" && s.schedule.metadata?.nuthrick_retention_end
+        ? iso(Number(s.schedule.metadata.nuthrick_retention_end)) : null,
       pending_update: Boolean(s.pending_update),
       latest_invoice: typeof s.latest_invoice === "object" && s.latest_invoice
         ? await this.readInvoice(s.latest_invoice, i.price.id)
@@ -818,6 +822,7 @@ export class StripeBillingProvider implements BillingProvider {
       metadata: {
         nuthrick: "admin2-test-v1",
         nuthrick_discount_until: discountEnd ? String(discountEnd) : "",
+        nuthrick_retention_end: "",
       },
       proration_behavior: options.immediate ? "always_invoice" : "none",
       phases,
@@ -836,6 +841,41 @@ export class StripeBillingProvider implements BillingProvider {
     this.assertObject(s);
     if (s.status !== "active" || s.pending_update) {
       throw new Error("payment_pending");
+    }
+    if (p.retention_days === 90) {
+      const start = s.items.data[0].current_period_end;
+      const end = start + 90 * 86400;
+      const schedule = s.schedule
+        ? await this.stripe.subscriptionSchedules.retrieve(id(s.schedule)!)
+        : await this.stripe.subscriptionSchedules.create({ from_subscription: s.id }, {
+          idempotencyKey: `nuthrick:${this.mode}:retention:create:${key}`,
+        });
+      this.assertObject(schedule);
+      const current = schedule.phases.find(phase => phase.start_date === schedule.current_phase?.start_date) ?? schedule.phases[0];
+      if (!current || s.items.data.length !== 1) throw new Error("unsupported_subscription");
+      await this.stripe.subscriptionSchedules.update(schedule.id, {
+        end_behavior: "cancel",
+        proration_behavior: "none",
+        metadata: { nuthrick_retention_end: String(end) },
+        phases: [
+          {
+            start_date: current.start_date,
+            end_date: start,
+            items: [{ price: s.items.data[0].price.id, quantity: 1 }],
+            discounts: s.discounts.map(discount => ({ discount: id(discount)! })),
+            proration_behavior: "none",
+          },
+          {
+            start_date: start,
+            end_date: end,
+            billing_cycle_anchor: "phase_start",
+            items: [{ price: p.provider_price_id!, quantity: 1 }],
+            discounts: [],
+            proration_behavior: "none",
+          },
+        ],
+      }, { idempotencyKey: `nuthrick:${this.mode}:retention:update:${key}` });
+      return { scheduleId: schedule.id, retentionStartsAt: iso(start), retentionEndsAt: iso(end) };
     }
     if (timing === "immediate" && !s.schedule) {
       const result = await this.stripe.subscriptions.update(s.id, {

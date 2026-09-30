@@ -9,6 +9,7 @@ export type Access = {
   ends_at: string | null;
   allowed: boolean;
   read_only?: boolean;
+  retention?: { ends_at: string; patient_ids: string[] } | null;
   arrangement?: string;
   patient_usage?: {
     active: number;
@@ -181,6 +182,10 @@ export function canReadFeature(
   return access?.allowed === true && access.values[key] === true;
 }
 export const accessMessages: Record<string, string> = {
+  retention_patient_limit:
+    "Ya ocupaste los cinco lugares de Respaldo. Elige un plan habitual en Mi plan para agregar más pacientes.",
+  retention_patient_read_only:
+    "Este paciente está en lectura durante Respaldo. Puedes consultar su expediente y exportarlo. Para volver a editarlo, elige un plan habitual en Mi plan.",
   patients_limit_reached:
     "Has alcanzado el límite de pacientes activos de tu plan. Archiva un paciente para liberar cupo o consulta los planes disponibles.",
   consultations_limit_reached:

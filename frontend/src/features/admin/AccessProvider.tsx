@@ -174,6 +174,12 @@ export function ProfessionalAccessGate() {
     );
   return (
     <>
+      {data.access.retention && !data.access.read_only && (
+        <div role="status" className="mb-5 rounded-2xl border border-[#b9cec3] bg-[#f3f8f5] p-4 text-sm">
+          Plan Respaldo: puedes trabajar con tus {data.access.retention.patient_ids.length} pacientes elegidos.
+          Los demás expedientes están en lectura. <Link className="underline" to="/app/my-plan">Ver mi plan y pacientes</Link>
+        </div>
+      )}
       {data.access.read_only && (
         <div
           role="status"

@@ -76,6 +76,7 @@ export type Payment = {
   provider?: string;
 };
 export type Subscription = {
+  retention_ends_at?: string | null;
   mode?: "test" | "live";
   id: string;
   professional_id: string;
@@ -296,6 +297,8 @@ const messages: Record<string, string> = {
   customer_missing: "Todavía no tienes un cliente de pago.",
   operation_already_used: "Actualiza la página y vuelve a intentar.",
   operation_mismatch: "Actualiza la página antes de realizar otra operación.",
+  retention_unavailable: "Respaldo no está disponible para esta suscripción. Actualiza Mi plan para revisar su estado.",
+  retention_patient_selection_required: "Elige hasta cinco pacientes activos de tu cuenta, sin repetirlos.",
 };
 export function billingError(code: string) {
   return messages[code] ??

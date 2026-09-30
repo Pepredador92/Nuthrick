@@ -75,6 +75,8 @@ const publicErrors = new Set([
   "customer_missing",
   "same_plan",
   "subscription_change_unavailable",
+  "retention_unavailable",
+  "retention_patient_selection_required",
   "payment_pending",
   "invalid_signature",
   "live_mode_forbidden",
@@ -261,6 +263,7 @@ export function createBillingHandler(deps: BillingDependencies) {
           financialBenefit(ctx.intent.campaign_snapshot.benefits);
         if (
           financial?.duration.kind === "until" &&
+          !subscription.retention_ends_at &&
           ["active", "trial"].includes(subscription.status) &&
           !subscription.pending_update
         ) {
@@ -299,6 +302,7 @@ export function createBillingHandler(deps: BillingDependencies) {
           "expire_checkout",
           "portal",
           "change",
+          "retention",
           "cancel",
           "resume",
           "cancel_now",
@@ -474,7 +478,11 @@ export function createBillingHandler(deps: BillingDependencies) {
           await rpc("checkout_expired", { intent_id: ctx.intent.id }),
         );
       }
-      const request: Data = action === "change"
+      const request: Data = action === "retention"
+        ? { patient_ids: Array.isArray(input.patient_ids) && input.patient_ids.length <= 5
+          ? input.patient_ids.map(requireUUID)
+          : (() => { throw new Error("retention_patient_selection_required"); })() }
+        : action === "change"
         ? planRequest()
         : action === "cancel_now"
         ? { confirmation: input.confirmation, reason: input.reason }
@@ -505,7 +513,7 @@ export function createBillingHandler(deps: BillingDependencies) {
             operationKey!,
           ),
         };
-      } else if (action === "change") {
+      } else if (action === "change" || action === "retention") {
         const price = ctx.target_price!;
         price.provider_price_id = await provider.ensurePrice(price);
         await rpc("price_saved", {
@@ -524,7 +532,9 @@ export function createBillingHandler(deps: BillingDependencies) {
           timing,
           operationKey!,
         );
-        result = { requested: true, timing, schedule_id: changed.scheduleId };
+        result = { requested: true, timing, schedule_id: changed.scheduleId,
+          ...(changed.retentionStartsAt ? { retention_starts_at: changed.retentionStartsAt, retention_ends_at: changed.retentionEndsAt } : {}),
+        };
       } else if (action === "resume") {
         await provider.resumeSubscription(
           ctx.subscription.provider_subscription_id,

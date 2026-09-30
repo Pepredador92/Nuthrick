@@ -16,6 +16,7 @@ export const supabase={rpc:async(name:string,args?:{p_action?:string;p_data?:Rec
  const action=args?.p_action,input=args?.p_data;let data:unknown=null;
  if(name==='plan_catalog')data=catalog.plans;
  if(name==='my_billing')data=summary;
+ if(name==='my_retention_offer')data={eligible:true,current:false,amount:14900,currency:'MXN',duration_days:90,cycle_days:30,starts_at:null,ends_at:null,patient_ids:[],patients:Array.from({length:8},(_,i)=>({id:`patient-${i}`,name:`Paciente de prueba ${i+1}`}))};
  if(name==='admin_api')data=action==='catalog'?catalog:{items:[{id:owner,name:'Profesional de prueba',email:'prueba@example.test'}],total:1};
  if(name==='billing_admin_api'){
  if(action==='campaigns')data=campaigns;

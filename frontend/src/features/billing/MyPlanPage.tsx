@@ -20,9 +20,11 @@ import {
 } from "./api";
 import "../admin/admin.css";
 import "./billing.css";
+import { RetentionOffer, RetentionStatus, type RetentionOfferData } from "./RetentionOffer";
 export function MyPlanPage() {
   const [data, setData] = useState<MyBilling | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [retention, setRetention] = useState<RetentionOfferData | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -31,6 +33,7 @@ export function MyPlanPage() {
   const [interval, setInterval] = useState<Interval>("monthly");
   const [params] = useSearchParams();
   const operation = useRef(crypto.randomUUID());
+  const retentionSelection = useRef("");
   const { refresh } = useAccess();
   const load = useCallback(() =>
     getMyBilling().then((current) => {
@@ -40,6 +43,9 @@ export function MyPlanPage() {
   useEffect(() => {
     void load();
     void supabase.rpc("plan_catalog").then(({ data }) => setPlans(data ?? []));
+    void supabase.rpc("my_retention_offer").then(({ data, error }) => {
+      if (!error && data && !Array.isArray(data)) setRetention(data);
+    });
   }, [load]);
   useEffect(() => {
     if (params.get("checkout") !== "success") return;
@@ -52,7 +58,7 @@ export function MyPlanPage() {
     }, 5000);
     return () => window.clearInterval(timer);
   }, [params, load, refresh]);
-  const action = async (kind: "portal" | "change" | "cancel" | "resume") => {
+  const action = async (kind: "portal" | "change" | "cancel" | "resume" | "retention", patientIds?: string[]) => {
     setBusy(true);
     setError("");
     try {
@@ -61,6 +67,7 @@ export function MyPlanPage() {
         {
           operation_key: operation.current,
           ...(kind === "change" ? { plan_id: target, interval } : {}),
+          ...(kind === "retention" ? { patient_ids: patientIds } : {}),
         },
       );
       operation.current = crypto.randomUUID();
@@ -77,6 +84,8 @@ export function MyPlanPage() {
           : "Solicitud enviada. Actualiza el estado en unos segundos.",
       );
       await load();
+      const offer = await supabase.rpc("my_retention_offer");
+      if (!offer.error && offer.data && !Array.isArray(offer.data)) setRetention(offer.data);
       await refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -88,7 +97,7 @@ export function MyPlanPage() {
   const checkoutPayment = data?.payments.find(p => p.provider_invoice_id === s?.latest_invoice_id && p.status === 'paid');
   const selected = plans.find((p) => p.id === target);
   const cheaperPlans = plans.flatMap((p) => {
-    if (!s || !p.id || !p.active || p.internal_only || p.id === s.plan_id || p.currency !== s.currency) return [];
+    if (!s || !p.id || p.active === false || p.internal_only || p.id === s.plan_id || p.currency !== s.currency) return [];
     const price = s.interval === "annual" ? p.annual_price : p.monthly_price;
     return price != null && price > 0 && price * 100 < s.amount
       ? [{ id: p.id, name: p.name, price }]
@@ -140,7 +149,7 @@ export function MyPlanPage() {
                 <dt>Modalidad</dt>
                 <dd>
                   {s
-                    ? s.interval === "monthly" ? "Mensual" : "Anual"
+                    ? data.access.retention ? "Cada 30 días" : s.interval === "monthly" ? "Mensual" : "Anual"
                     : data.access.arrangement === "founder"
                     ? "Acceso permanente"
                     : "Acceso administrado"}
@@ -152,7 +161,7 @@ export function MyPlanPage() {
                     <dt>Precio base contratado</dt>
                     <dd>
                       {money(s.amount, s.currency)} /{" "}
-                      {intervalLabel(s.interval)}
+                      {data.access.retention ? "30 días" : intervalLabel(s.interval)}
                     </dd>
                   </div>
                   <div>
@@ -225,11 +234,11 @@ export function MyPlanPage() {
                 Cambio pendiente: {s.pending_plan_name ?? plans.find((p) =>
                   p.id === s.pending_plan_id
                 )?.name} ·{" "}
-                {s.pending_interval === "annual" ? "Anual" : "Mensual"}. Se
+                {retention?.current ? "Cada 30 días" : s.pending_interval === "annual" ? "Anual" : "Mensual"}. Se
                 confirma mediante Stripe.
               </p>
             )}
-            {s?.cancel_at_period_end && (
+            {s?.cancel_at_period_end && !s.retention_ends_at && !retention?.current && (
               <p className="billing-benefits">
                 Cancelación programada para{" "}
                 {dateLabel(s.period_end)}. Tus datos se conservarán.
@@ -263,7 +272,7 @@ export function MyPlanPage() {
               {s && s.state !== "cancelled"
                 ? (
                   <>
-                    {s.cancel_at_period_end
+                    {s.cancel_at_period_end && !retention?.current
                       ? (
                         <button
                           className="admin-button secondary"
@@ -306,6 +315,7 @@ export function MyPlanPage() {
                   <Link className="admin-button" to="/planes">Elegir plan</Link>
                 )}
             </div>
+            {retention && <RetentionStatus offer={retention} />}
             {confirm === "cancel" && (
               <div className="billing-confirm">
                 <h3 className="font-semibold">
@@ -315,6 +325,16 @@ export function MyPlanPage() {
                   Puedes conservar tu suscripción{cheaperPlans.length > 0 ? " o revisar un plan más económico" : ""}.
                   Si prefieres cancelar, puedes hacerlo aquí mismo.
                 </p>
+                {retention && <RetentionOffer offer={retention} busy={busy} onConfirm={ids => {
+                  const selection = JSON.stringify(ids);
+                  if (retention.retry_operation_key) {
+                    operation.current = retention.retry_operation_key;
+                  } else if (selection !== retentionSelection.current) {
+                    operation.current = crypto.randomUUID();
+                    retentionSelection.current = selection;
+                  }
+                  void action("retention", ids);
+                }} />}
                 {cheaperPlans.length > 0 && s?.state === "active" && !s.manual_hold && (
                   <div className="billing-controls" aria-label="Alternativas de plan">
                     {cheaperPlans.map((p) => (
@@ -338,6 +358,8 @@ export function MyPlanPage() {
                   Mantienes acceso hasta{" "}
                   {dateLabel(s?.period_end)}. Se cancelan los cambios de plan
                   pendientes. Tus pacientes, consultas y archivos se conservan.
+                  Después podrás entrar, consultar y exportar información básica;
+                  para volver a trabajar necesitarás un plan vigente.
                 </p>
                 <div className="billing-controls">
                   <button

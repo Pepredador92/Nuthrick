@@ -172,6 +172,37 @@ Deno.test("downgrade keeps current paid price until period end and preserves dis
   assert.deepEqual(phases[1].items, [{ price: "price_current", quantity: 1 }]);
   assert.deepEqual(phases[2].items, [{ price: "price_target", quantity: 1 }]);
 });
+Deno.test("Respaldo starts after paid access and cancels exactly after three 30-day periods", async () => {
+  const { provider, calls, end } = fixture();
+  const result = await provider.changeSubscription("sub_fixture", { ...target, retention_days: 90, rank: 1, amount: 14900 }, "period_end", "retention");
+  const update = calls[0].params as unknown as Stripe.SubscriptionScheduleUpdateParams;
+  assert.equal(update.end_behavior, "cancel");
+  assert.equal(update.proration_behavior, "none");
+  assert.equal(update.phases![0].end_date, end);
+  assert.equal(update.phases![1].start_date, end);
+  assert.equal(update.phases![1].end_date, end + 90 * 86400);
+  assert.equal(update.phases![1].billing_cycle_anchor, "phase_start");
+  assert.deepEqual(update.phases![1].discounts, []);
+  assert.equal(Date.parse(result.retentionEndsAt!) - Date.parse(result.retentionStartsAt!), 90 * 86400_000);
+});
+Deno.test("Respaldo price uses 30-day recurrence, never a calendar month", async () => {
+  const { sdk, calls } = fixture();
+  const configuredSdk = {
+    ...sdk,
+    products: { retrieve: () => Promise.resolve({ id: "prod_retention", livemode: false }) },
+    prices: {
+      list: () => Promise.resolve({ data: [] }),
+      create: (params: Record<string, unknown>) => {
+        calls.push({ method: "price.create", params });
+        return Promise.resolve({ id: "price_retention", product: "prod_retention", livemode: false });
+      },
+    },
+  };
+  const provider = new StripeBillingProvider("sk_test_fixture", "whsec_fixture", configuredSdk as unknown as Stripe);
+  await provider.ensurePrice({ ...target, retention_days: 90, amount: 14900 });
+  assert.deepEqual(calls[0].params.recurring, { interval: "day", interval_count: 30 });
+  assert.equal(calls[0].params.unit_amount, 14900);
+});
 Deno.test("a scheduled promotion does not block an immediate prorated upgrade", async () => {
   const { provider, calls } = fixture();
   await provider.changeSubscription(

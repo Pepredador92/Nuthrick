@@ -55,6 +55,16 @@ La [calibración existente](ai-phase-4d-calibration.md) midió aproximadamente 0
 
 ## Pacientes, downgrade y suspensión
 
+### Retención Respaldo — acuerdo del 30 de septiembre de 2026
+
+Oferta privada al cancelar una suscripción pagada activa: **149 MXN cada 30 días, durante 90 días exactos**, con hasta tres cobros y terminación automática. El usuario confirmó expresamente ciclos de 30 días en lugar de meses de calendario. Empieza al finalizar el período ya pagado, sin prorratear ni convertir automáticamente a Esencial después. Se puede solicitar la cancelación de las renovaciones restantes o volver voluntariamente a un plan habitual. Se ofrece una vez por cuenta y entorno; no aparece en el catálogo público ni se contrata por Checkout normal.
+
+El profesional elige hasta cinco pacientes antes de confirmar. Los demás expedientes permanecen en lectura, sin archivo ni eliminación automática. Los lugares no ocupados pueden destinarse a nuevos pacientes; la selección no se rota para operar una cartera ilimitada durante los 90 días. Incluye consultas, Taller manual, biblioteca básica, agenda, mensajes, Super Link y exportación básica para el alcance permitido. No incluye perfil público, biblioteca completa ni exportación avanzada. No incluye uso ni créditos IA; los créditos adicionales previos se conservan.
+
+La selección se protege en la base de datos para escrituras clínicas y mensajes, y en el servicio del portal para publicación/enlaces. El vencimiento se comprueba también al resolver acceso, sin depender de que llegue inmediatamente el webhook. Cancelar una cuenta pagada conserva lectura y exportación básica, por ahora sin fecha de eliminación automática. El usuario puede volver a contratar para recuperar operación. La eliminación permanente no se ejecuta desde este flujo.
+
+Pruebas focales: `scripts/test-retention.mjs` usa un clon local descartable, sin cobros ni datos reales; cubre autorización, idempotencia, selección, lectura, vencimiento y vuelta a Esencial. Las pruebas del adaptador verifican precio recurrente cada 30 días, tres ciclos y fin automático. La contratación real requiere que el propio profesional acepte los cobros; no se realiza un cobro real como parte de estas pruebas.
+
 El cupo cuenta `status=active`, `archived_at IS NULL`, `deleted_at IS NULL`. Un bloqueo por profesional serializa altas/reactivaciones. Al llegar a 30 se bloquea solamente agregar o reactivar por encima del cupo; editar, consultar y archivar pacientes existentes sigue permitido. Los archivados no consumen cupo. La UI explica el límite y enlaza a Ver planes.
 
 Un downgrade de 60 activos a límite 30 devuelve `patient_usage.over_limit=true`; conserva los 60, no archiva ni elimina automáticamente. Sólo se admiten nuevas altas/reactivaciones cuando el resultado quede dentro del cupo.
