@@ -259,7 +259,8 @@ export function assertEnvironmentSecret(
   secret: string,
   mode: BillingEnvironment,
 ) {
-  if (!(new RegExp(`^sk_${mode}_[A-Za-z0-9]+$`)).test(secret)) {
+  const keyType = mode === "live" ? "(?:sk|rk)" : "sk";
+  if (!(new RegExp(`^${keyType}_${mode}_[A-Za-z0-9]+$`)).test(secret)) {
     throw new Error(
       mode === "test"
         ? "stripe_test_configuration_required"

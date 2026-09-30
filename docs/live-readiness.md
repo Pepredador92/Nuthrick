@@ -1,6 +1,6 @@
 # Nuthrick · Informe de preparación LIVE
 
-> Actualización 30/09/2026: PRE-LIVE 15/15 y correo operativo verificado. Stripe Live todavía requiere activación de cuenta, integración y pago piloto. Este informe conserva la revisión del 25/09; consultar el [estado vigente](lanzamiento-suscripciones-2026-09-30.md).
+> Actualización 30/09/2026: PRE-LIVE 15/15 y correo operativo verificado. Stripe muestra pagos y transferencias activos; faltan la integración Live y el pago piloto. Este informe conserva la revisión del 25/09; consultar el [estado vigente](lanzamiento-suscripciones-2026-09-30.md).
 
 Fecha de revisión: 25 de septiembre de 2026
 Proyecto Supabase: `qlsqhvyrslclmlstlemn`  

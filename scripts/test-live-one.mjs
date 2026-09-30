@@ -22,6 +22,11 @@ try {
   console.log('PASS ADMIN-3 TEST regression after environment isolation');
   sql(readFileSync(new URL('scripts/test-live-one.sql',root),'utf8'));
   console.log('PASS LIVE-1 isolation, legal gate and simulated subscription lifecycle');
+  const restrictedKeyMigration = readdirSync(new URL('supabase/migrations/',root)).find(name => name.endsWith('_live_stripe_restricted_key.sql'));
+  assert.ok(restrictedKeyMigration);
+  sql(readFileSync(new URL('supabase/migrations/'+restrictedKeyMigration,root),'utf8'));
+  sql(readFileSync(new URL('scripts/test-live-stripe-credentials.sql',root),'utf8'));
+  console.log('PASS restricted Live credentials preserve environment, account and access boundaries');
   const concurrent = query => run('docker',['exec','supabase_db_Nuthrick','psql','-X','-qAt','-U','postgres','-d',database,'-v','ON_ERROR_STOP=1','-c',query]);
   const before=sql("select jsonb_build_array((select count(*) from private.billing_payments where mode='live'),(select count(*) from private.transactional_email_outbox where mode='live'),(select count(*) from private.admin_audit where metadata->>'mode'='live'))").trim();
   await Promise.all(Array.from({length:8},()=>concurrent("select live_one_test.event(owner,'evt_live_concurrent',snapshot) from live_one_test.snapshots where owner='1e000000-0000-4000-8000-000000000002'")));

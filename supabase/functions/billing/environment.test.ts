@@ -72,6 +72,25 @@ function fixture(
   };
 }
 Deno.test("secret prefixes and missing/foreign livemode fail closed", () => {
+  assertEnvironmentSecret("rk_live_synthetic", "live");
+  assertEnvironmentSecret("sk_live_synthetic", "live");
+  for (
+    const key of [
+      "rk_test_synthetic",
+      "pk_live_synthetic",
+      "sk_org_synthetic",
+      "rk_live_",
+    ]
+  ) {
+    assert.throws(
+      () => assertEnvironmentSecret(key, "live"),
+      /stripe_environment_mismatch/,
+    );
+  }
+  assert.throws(
+    () => assertEnvironmentSecret("rk_live_synthetic", "test"),
+    /stripe_test_configuration_required/,
+  );
   assert.throws(
     () => assertEnvironmentSecret("sk_test_synthetic", "live"),
     /stripe_environment_mismatch/,
