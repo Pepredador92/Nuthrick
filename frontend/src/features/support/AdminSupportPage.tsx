@@ -5,7 +5,8 @@ import { SupportConversation } from './SupportConversation';
 import { useSupport } from './SupportProvider';
 import { supportDate, supportRequest, supportStatuses, supportTopics, type SupportStatus, type SupportThread } from './api';
 import './support.css';
-export function AdminSupportPage(){
+import { AdminSupportContent } from './SupportContent';
+function SupportInbox(){
  const {revision,refresh}=useSupport();
  const [items,setItems]=useState<SupportThread[]>([]),[selected,setSelected]=useState<SupportThread|null>(null),[status,setStatus]=useState(''),[search,setSearch]=useState(''),[offset,setOffset]=useState(0),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
  useEffect(()=>{
@@ -22,7 +23,6 @@ export function AdminSupportPage(){
   catch(e){setError(e instanceof Error?e.message:'No pudimos actualizar el caso.');await refresh();}finally{setBusy(false);}
  }
  return <>
-  <Heading eyebrow="Soporte" title="Atención a nutriólogos" text="Responde dudas y resuelve casos. Al resolver, el nutriólogo vuelve al inicio y el historial queda aquí."/>
   <div className="mb-5 flex flex-wrap gap-3"><label className="min-w-52 flex-1 text-sm">Buscar nutriólogo<input className="nuth-input mt-1" value={search} onChange={e=>{setSearch(e.target.value);setOffset(0);}} placeholder="Nombre o correo"/></label><label className="text-sm">Estado<select className="nuth-input mt-1" value={status} onChange={e=>{setStatus(e.target.value);setOffset(0);}}><option value="">Todos los casos</option>{Object.entries(supportStatuses).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label><button className="admin-button secondary self-end" onClick={()=>void refresh()}>Actualizar</button></div>
   {error&&<p role="alert" className="mb-4 text-sm text-red-700">{error}</p>}
   <div className="support-admin-grid">
@@ -35,4 +35,9 @@ export function AdminSupportPage(){
    </section>
   </div>
  </>;
+}
+
+export function AdminSupportPage(){
+ const [tab,setTab]=useState<'inbox'|'content'>('inbox');
+ return <><Heading eyebrow="Soporte" title="Atención a nutriólogos" text="Responde dudas y resuelve casos. Al resolver, el nutriólogo vuelve al inicio y el historial queda aquí."/><nav aria-label="Secciones de soporte" className="mb-5 flex flex-wrap gap-2"><button className={`admin-button ${tab==='inbox'?'':'secondary'}`} aria-pressed={tab==='inbox'} onClick={()=>setTab('inbox')}>Conversaciones</button><button className={`admin-button ${tab==='content'?'':'secondary'}`} aria-pressed={tab==='content'} onClick={()=>setTab('content')}>Respuestas y horario</button></nav>{tab==='inbox'?<SupportInbox/>:<AdminSupportContent/>}</>;
 }

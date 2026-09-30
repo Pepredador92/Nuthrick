@@ -4,7 +4,10 @@ import assert from 'node:assert/strict';
 const browser=await chromium.launch({channel:'chrome',headless:true});
 const context=await browser.newContext();let thread=null,messages=[],seq=0;
 await context.route('**/__support',async route=>{
- const {p_action:action,p_data:data}=route.request().postDataJSON();let result={};
+ const {p_action:action,p_data:data,name}=route.request().postDataJSON();let result={};
+ if(name==='support_content'){
+  result={settings:{starts_at:'09:00',ends_at:'17:00',timezone:'America/Mexico_City',revision:1},answers:[{id:'faq1',kind:'faq',topic:'agenda',title:'¿Dónde puedo agendar una cita?',body:'En Agenda o en la ficha del paciente, pulsa Agendar cita.',active:true,position:0,revision:1},...(data.admin?[{id:'macro1',kind:'macro',topic:'other',title:'Primera respuesta',body:'Revisamos el caso contigo.',active:true,position:0,revision:1}]:[])]};
+ }
  if(action==='summary')result=data.admin?{unread:0}:{thread:thread?.status==='resolved'?null:thread,unread:0};
  if(action==='send'){
   thread??={id:'synthetic-case',professional_name:'Nutrióloga de prueba',email:'demo@example.test',professional_id:'synthetic-professional',topic:data.topic,status:'new',revision:1,created_at:new Date().toISOString(),source:data.source};
@@ -28,5 +31,7 @@ for(const width of [320,390,1280]){
 }
 await page.getByRole('button',{name:'Abrir soporte'}).click();await page.getByLabel('Mensaje para soporte').fill('Necesito ayuda para compartir un plan.');await page.getByRole('button',{name:'Enviar',exact:true}).click();await page.getByText('Necesito ayuda para compartir un plan.').waitFor();
 const admin=await context.newPage();await admin.setViewportSize({width:1280,height:900});await admin.goto(`${base}?view=admin`);await admin.getByRole('button',{name:/Nutrióloga de prueba/}).click();await admin.getByLabel('Mensaje para el nutriólogo').fill('Revisamos el caso contigo.');await admin.getByRole('button',{name:'Enviar',exact:true}).click();await admin.getByRole('log').getByText('Revisamos el caso contigo.',{exact:true}).waitFor();await admin.screenshot({path:'../output/support/admin.png',fullPage:true});
-await admin.getByRole('button',{name:'Resolver y reiniciar'}).click();await admin.getByRole('button',{name:'Reabrir caso'}).waitFor();await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await page.getByRole('heading',{name:'¿En qué podemos ayudarte?'}).waitFor();assert.equal(await page.getByLabel('Mensaje para soporte').inputValue(),'');assert.equal(messages.length,2);assert.deepEqual(errors,[]);
+await admin.getByRole('button',{name:'Resolver y reiniciar'}).click();await admin.getByRole('button',{name:'Reabrir caso'}).waitFor();await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await page.getByRole('heading',{name:'¿En qué podemos ayudarte?'}).waitFor();assert.equal(await page.getByLabel('Mensaje para soporte').inputValue(),'');assert.equal(messages.length,2);
+await admin.getByRole('button',{name:'Respuestas y horario'}).click();await admin.getByLabel('Desde').waitFor();await admin.screenshot({path:'../output/support/settings.png',fullPage:true});
+await page.getByRole('button',{name:'¿Dónde puedo agendar una cita?'}).click();await page.getByRole('button',{name:'Resolvió mi duda'}).click();assert.equal(messages.length,2);assert.deepEqual(errors,[]);
 console.log('PASS: 320/390/1280px, keyboard/focus, conversation, admin resolution, fresh composer, retained archive.');await browser.close();

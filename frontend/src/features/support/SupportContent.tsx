@@ -1,0 +1,42 @@
+import { useEffect, useState } from 'react';
+import { supportContentRequest, supportTopics, type SupportAnswer, type SupportContent, type SupportSettings } from './api';
+
+export function useSupportContent(admin=false){
+ const [data,setData]=useState<SupportContent|null>(null),[error,setError]=useState(''),[reload,setReload]=useState(0);
+ useEffect(()=>{let live=true;void supportContentRequest<SupportContent>('get',{},admin).then(result=>{if(live){setData(result);setError('');}}).catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[admin,reload]);
+ return {data,error,refresh:()=>setReload(n=>n+1)};
+}
+export function supportHours(settings:SupportSettings){
+ const time=(value:string)=>{const [h,m]=value.split(':').map(Number);return `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'a. m.':'p. m.'}`;};
+ return `${time(settings.starts_at)} a ${time(settings.ends_at)} · ${settings.timezone==='America/Mexico_City'?'Ciudad de México':settings.timezone.replaceAll('_',' ')}`;
+}
+export function SupportFAQ({answers,topic,onContact}:{answers:SupportAnswer[];topic:string;onContact:()=>void}){
+ const [selected,setSelected]=useState<SupportAnswer|null>(null),[solved,setSolved]=useState(false);
+ const visible=answers.filter(a=>a.active&&a.kind==='faq'&&(topic==='other'||a.topic===topic));
+ if(!visible.length)return null;
+ return <section className="mt-5" aria-label="Respuestas rápidas">
+  <h4 className="text-sm font-semibold">Respuestas rápidas</h4>
+  {solved?<p role="status" className="mt-2 rounded-xl bg-[#edf5ef] p-3 text-sm">Qué bueno que pudimos ayudarte. Aquí estamos si necesitas algo más.</p>:selected?<div className="mt-2 rounded-xl bg-[#f3f6f2] p-3"><h5 className="text-sm font-semibold">{selected.title}</h5><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">{selected.body}</p><div className="mt-3 flex flex-wrap gap-2"><button className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={()=>{setSelected(null);setSolved(true);}}>Resolvió mi duda</button><button className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={onContact}>Hablar con el equipo</button><button className="text-xs underline" onClick={()=>setSelected(null)}>Volver</button></div></div>:<div className="mt-2 space-y-2">{visible.map(answer=><button key={answer.id} className="block w-full rounded-xl border border-[#dbe5df] px-3 py-2 text-left text-sm hover:bg-[#f3f6f2]" onClick={()=>setSelected(answer)}>{answer.title}</button>)}</div>}
+ </section>;
+}
+export function SupportMacroPicker({onSelect,disabled}:{onSelect:(body:string)=>void;disabled:boolean}){
+ const {data}=useSupportContent(true);
+ const macros=data?.answers.filter(a=>a.kind==='macro'&&a.active)??[];
+ if(!macros.length)return null;
+ return <label className="text-xs text-[#63796d]">Respuesta guardada<select className="nuth-input mt-1 !text-sm" disabled={disabled} value="" onChange={e=>{const macro=macros.find(a=>a.id===e.target.value);if(macro)onSelect(macro.body);}}><option value="">Insertar y revisar antes de enviar</option>{macros.map(m=><option key={m.id} value={m.id}>{m.title}</option>)}</select></label>;
+}
+const blank:Omit<SupportAnswer,'id'|'revision'>={kind:'faq',topic:'other',title:'',body:'',active:true,position:0};
+function SettingsForm({settings,onSaved}:{settings:SupportSettings;onSaved:()=>void}){
+ const [draft,setDraft]=useState(settings),[busy,setBusy]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState(false);
+ async function save(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');setSaved(false);try{await supportContentRequest('save_settings',draft,true);setSaved(true);onSaved();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ return <form className="admin-card space-y-4" onSubmit={save}><h2 className="font-semibold">Horario de atención</h2><p className="text-sm text-[#63796d]">Se muestra en la burbuja. Los mensajes se reciben también fuera de este horario.</p><div className="flex flex-wrap gap-3"><label className="text-sm">Desde<input required type="time" className="nuth-input mt-1" value={draft.starts_at} onChange={e=>setDraft({...draft,starts_at:e.target.value})}/></label><label className="text-sm">Hasta<input required type="time" className="nuth-input mt-1" value={draft.ends_at} onChange={e=>setDraft({...draft,ends_at:e.target.value})}/></label><label className="min-w-0 flex-1 text-sm">Zona horaria<input required className="nuth-input mt-1" value={draft.timezone} onChange={e=>setDraft({...draft,timezone:e.target.value})} placeholder="America/Mexico_City"/></label></div><button className="admin-button" disabled={busy}>Guardar horario</button>{error&&<p role="alert" className="text-sm text-red-700">{error}</p>}{saved&&<p role="status">Horario guardado.</p>}</form>;
+}
+function AnswerForm({answer,onSaved,onCancel}:{answer:Partial<SupportAnswer>;onSaved:()=>void;onCancel:()=>void}){
+ const [draft,setDraft]=useState({...blank,...answer}),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ async function save(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await supportContentRequest('save_answer',draft,true);onSaved();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ return <form className="admin-card space-y-4" onSubmit={save}><h3 className="font-semibold">{answer.id?'Editar respuesta':'Nueva respuesta'}</h3><div className="grid gap-3 sm:grid-cols-2"><label className="text-sm">Uso<select className="nuth-input mt-1" value={draft.kind} onChange={e=>setDraft({...draft,kind:e.target.value as 'faq'|'macro'})}><option value="faq">Ayuda para el nutriólogo</option><option value="macro">Respuesta guardada del equipo</option></select></label><label className="text-sm">Tema<select className="nuth-input mt-1" value={draft.topic} onChange={e=>setDraft({...draft,topic:e.target.value as SupportAnswer['topic']})}>{Object.entries(supportTopics).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label></div><label className="block text-sm">Título<input className="nuth-input mt-1" required maxLength={160} value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})}/></label><label className="block text-sm">Respuesta<textarea className="nuth-input mt-1" required maxLength={8000} rows={5} value={draft.body} onChange={e=>setDraft({...draft,body:e.target.value})}/></label><div className="flex flex-wrap items-end gap-4"><label className="text-sm">Orden<input className="nuth-input mt-1 !w-24" required type="number" min={0} max={999} value={draft.position} onChange={e=>setDraft({...draft,position:Number(e.target.value)})}/></label><label className="flex gap-2 py-3 text-sm"><input type="checkbox" checked={draft.active} onChange={e=>setDraft({...draft,active:e.target.checked})}/>Activa</label></div><div className="flex gap-3"><button className="admin-button" disabled={busy}>Guardar respuesta</button><button type="button" className="admin-button secondary" disabled={busy} onClick={onCancel}>Cancelar</button></div>{error&&<p role="alert" className="text-sm text-red-700">{error}</p>}</form>;
+}
+export function AdminSupportContent(){
+ const {data,error,refresh}=useSupportContent(true);const [editing,setEditing]=useState<Partial<SupportAnswer>|null>(null);
+ return <div className="space-y-5">{error&&<p role="alert">{error} <button className="underline" onClick={refresh}>Recargar</button></p>}{data?<><SettingsForm key={data.settings.revision} settings={data.settings} onSaved={refresh}/><section className="admin-card"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Ayuda y respuestas guardadas</h2><button className="admin-button" onClick={()=>setEditing({})}>Nueva respuesta</button></div><ul className="mt-4 divide-y divide-[#dbe5df]">{data.answers.map(a=><li key={a.id} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><p className="break-words text-sm font-medium">{a.title}</p><p className="text-xs text-[#63796d]">{a.kind==='faq'?'Ayuda pública':'Respuesta del equipo'} · {supportTopics[a.topic]} · {a.active?'Activa':'Inactiva'}</p></div><button className="admin-button secondary" onClick={()=>setEditing(a)}>Editar</button></li>)}</ul></section>{editing&&<AnswerForm key={editing.id??'new'} answer={editing} onSaved={()=>{setEditing(null);refresh();}} onCancel={()=>setEditing(null)}/>}</>:!error&&<p role="status">Cargando ayuda…</p>}</div>;
+}

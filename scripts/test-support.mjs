@@ -18,7 +18,9 @@ insert into auth.users values('10000000-0000-0000-0000-000000000001','one@exampl
 insert into public.professional_profiles select id,email from auth.users;
 insert into private.platform_admins(user_id) values('10000000-0000-0000-0000-000000000003');
 ${migration('../supabase/migrations/20260930051234_professional_support_chat.sql')}
+${migration('../supabase/migrations/20260930052755_support_answers_and_hours.sql')}
 ${read('./test-support.sql')}
+${read('./test-support-content.sql')}
 rollback;`;
 const result=spawnSync('psql',['-X','-q','-h','/tmp','-d',process.env.SUPPORT_TEST_DATABASE||'postgres','-v','ON_ERROR_STOP=1'],{input:sql,encoding:'utf8'});
 process.stdout.write(result.stdout||'');process.stderr.write(result.stderr||'');process.exit(result.status??1);

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Send } from 'lucide-react';
+import { SupportMacroPicker } from './SupportContent';
 import { supportDate, supportRequest, type SupportDetail, type SupportMessage, type SupportThread } from './api';
 
 export function SupportComposer({threadId,topic='other',source='',admin=false,onSent}:{threadId?:string;topic?:string;source?:string;admin?:boolean;onSent:()=>Promise<void>|void}){
@@ -13,6 +14,7 @@ export function SupportComposer({threadId,topic='other',source='',admin=false,on
   catch(e){setError(e instanceof Error?e.message:'No pudimos enviar el mensaje.');}finally{setBusy(false);}
  }
  return <form onSubmit={send} className="support-composer">
+  <>{admin&&<SupportMacroPicker disabled={busy} onSelect={body=>setText(current=>`${current}${current?'\n\n':''}${body}`.slice(0,8000))}/>}</>
   <label className="sr-only" htmlFor={`support-message-${threadId??'new'}`}>Mensaje para {admin?'el nutriólogo':'soporte'}</label>
   <textarea id={`support-message-${threadId??'new'}`} value={text} onChange={e=>setText(e.target.value)} maxLength={8000} disabled={busy} rows={3} placeholder={admin?'Escribe una respuesta…':'Cuéntanos en qué podemos ayudarte…'} className="nuth-input resize-y"/>
   <div className="flex items-center justify-between gap-3"><span className="text-xs text-[#63796d]">{text.length.toLocaleString('es-MX')} / 8,000</span><button className="nuth-button" disabled={busy||!text.trim()}><Send size={16} aria-hidden="true"/>{busy?'Enviando…':'Enviar'}</button></div>

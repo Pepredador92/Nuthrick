@@ -5,6 +5,14 @@ export type SupportStatus = keyof typeof supportStatuses;
 export type SupportThread = { id:string; professional_id:string; topic:keyof typeof supportTopics; source:string; status:SupportStatus; revision:number; last_seq:number; professional_unread:number; admin_unread:number; preview:string; created_at:string; updated_at:string; first_response_at:string|null; resolved_at:string|null; professional_name?:string; email?:string };
 export type SupportMessage = { seq:number; body:string; sender:'professional'|'admin'; created_at:string };
 export type SupportDetail = { thread:SupportThread; messages:SupportMessage[] };
+export type SupportSettings = {starts_at:string;ends_at:string;timezone:string;revision:number};
+export type SupportAnswer = {id:string;kind:'faq'|'macro';topic:keyof typeof supportTopics;title:string;body:string;active:boolean;position:number;revision:number};
+export type SupportContent = {settings:SupportSettings;answers:SupportAnswer[]};
+export async function supportContentRequest<T>(action:string,data:Record<string,unknown>={},admin=false):Promise<T>{
+ const {data:result,error}=await supabase.rpc('support_content',{p_action:action,p_data:{...data,admin}});
+ if(error)throw new Error(({stale_content:'Otra persona actualizó esta información. Recarga antes de guardar.',invalid_schedule:'Revisa las horas y la zona horaria.',invalid_answer:'Revisa el título, la respuesta y su orden.',answer_limit:'Se alcanzó el límite de 100 respuestas. Edita una existente.'} as Record<string,string>)[error.message]||'No pudimos cargar o guardar la ayuda. Intenta de nuevo.');
+ return result as T;
+}
 const errors:Record<string,string>={ unauthorized:'Inicia sesión para contactar a soporte.',admin_required:'Sólo administración puede realizar esta acción.',not_found:'Esta conversación ya no está disponible.',conversation_resolved:'Administración resolvió este caso. Puedes iniciar una nueva consulta.',stale_revision:'Hay un mensaje o cambio nuevo. Revísalo antes de resolver el caso.',active_conversation_exists:'Este nutriólogo ya tiene otra conversación abierta. Atiéndela antes de reabrir este caso.',rate_limited:'Has enviado varios mensajes seguidos. Espera un momento para continuar.',invalid_message:'Escribe un mensaje de hasta 8,000 caracteres.',idempotency_conflict:'El mensaje cambió. Revisa el texto y vuelve a enviarlo.' };
 export async function supportRequest<T>(action:string,data:Record<string,unknown>={},admin=false):Promise<T>{
  const {data:result,error}=await supabase.rpc('support_api',{p_action:action,p_data:{...data,admin}});
