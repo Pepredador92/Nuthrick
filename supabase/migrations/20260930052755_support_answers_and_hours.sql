@@ -1,11 +1,11 @@
 begin;
-create table private.support_settings (
+create table private.support_chat_settings (
  singleton boolean primary key default true check(singleton),
  starts_at text not null default '09:00',ends_at text not null default '17:00',
  timezone text not null default 'America/Mexico_City',revision integer not null default 1,
  updated_at timestamptz not null default now()
 );
-insert into private.support_settings(singleton) values(true);
+insert into private.support_chat_settings(singleton) values(true);
 create table private.support_answers (
  id uuid primary key default gen_random_uuid(),kind text not null check(kind in ('faq','macro')),
  topic text not null check(topic in ('agenda','patients','diet','billing','account','technical','other')),
@@ -14,11 +14,11 @@ create table private.support_answers (
  active boolean not null default true,position integer not null default 0 check(position between 0 and 999),
  revision integer not null default 1,updated_at timestamptz not null default now()
 );
-alter table private.support_settings enable row level security;
+alter table private.support_chat_settings enable row level security;
 alter table private.support_answers enable row level security;
-create policy support_rpc_only on private.support_settings to authenticated using(false);
+create policy support_rpc_only on private.support_chat_settings to authenticated using(false);
 create policy support_rpc_only on private.support_answers to authenticated using(false);
-revoke all on private.support_settings,private.support_answers from public,anon,authenticated;
+revoke all on private.support_chat_settings,private.support_answers from public,anon,authenticated;
 insert into private.support_answers(kind,topic,title,body,position) values
  ('faq','agenda','¿Dónde puedo agendar una cita?','En Agenda o en la ficha del paciente, pulsa Agendar cita. Busca al paciente, elige fecha y horario, revisa los datos y guarda la cita.',10),
  ('faq','patients','¿Cómo comparto el Super Link?','Abre la ficha del paciente y entra a Super Link. Desde ahí puedes generar el enlace o mostrar su código QR. El paciente verá únicamente la información que hayas publicado para él.',20),
@@ -30,7 +30,7 @@ insert into private.support_answers(kind,topic,title,body,position) values
 create function private.support_content(p_action text,p_data jsonb) returns jsonb
 language plpgsql security definer set search_path='' as $$
 declare actor uuid:=auth.uid(); admin_mode boolean:=coalesce((p_data->>'admin')::boolean,false);
- settings private.support_settings; answer private.support_answers; answer_id uuid:=(p_data->>'id')::uuid;
+ settings private.support_chat_settings; answer private.support_answers; answer_id uuid:=(p_data->>'id')::uuid;
 begin
  if actor is null then raise exception 'unauthorized'; end if;
  if admin_mode then
@@ -38,15 +38,15 @@ begin
  elsif not exists(select 1 from public.professional_profiles where id=actor) then raise exception 'professional_required'; end if;
  if octet_length(p_data::text)>40000 then raise exception 'invalid_input'; end if;
  if p_action='get' then
-  return jsonb_build_object('settings',(select to_jsonb(s)-'singleton' from private.support_settings s),'answers',(select coalesce(jsonb_agg(a order by position,title,id),'[]') from private.support_answers a where admin_mode or (active and kind='faq')));
+  return jsonb_build_object('settings',(select to_jsonb(s)-'singleton' from private.support_chat_settings s),'answers',(select coalesce(jsonb_agg(a order by position,title,id),'[]') from private.support_answers a where admin_mode or (active and kind='faq')));
  end if;
  if not admin_mode then raise exception 'admin_required'; end if;
  if p_action='save_settings' then
   if coalesce(p_data->>'starts_at','')!~'^([01][0-9]|2[0-3]):[0-5][0-9]$' or coalesce(p_data->>'ends_at','')!~'^([01][0-9]|2[0-3]):[0-5][0-9]$'
    or (p_data->>'starts_at')>=(p_data->>'ends_at') or not exists(select 1 from pg_catalog.pg_timezone_names where name=p_data->>'timezone') then raise exception 'invalid_schedule'; end if;
-  select * into settings from private.support_settings for update;
+  select * into settings from private.support_chat_settings for update;
   if settings.revision is distinct from (p_data->>'revision')::integer then raise exception 'stale_content'; end if;
-  update private.support_settings set starts_at=p_data->>'starts_at',ends_at=p_data->>'ends_at',timezone=p_data->>'timezone',revision=revision+1,updated_at=now() returning * into settings;
+  update private.support_chat_settings set starts_at=p_data->>'starts_at',ends_at=p_data->>'ends_at',timezone=p_data->>'timezone',revision=revision+1,updated_at=now() returning * into settings;
   return to_jsonb(settings);
  elsif p_action='save_answer' then
   if coalesce(p_data->>'kind','') not in ('faq','macro') or coalesce(p_data->>'topic','') not in ('agenda','patients','diet','billing','account','technical','other')
