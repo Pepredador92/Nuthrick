@@ -103,9 +103,12 @@ export function CheckoutChoice(
           Cerrar
         </button>
       </div>
-      <p className="billing-test">
+      {billing?.mode === 'test' && <p className="billing-test">
         Entorno de prueba · Usa únicamente datos de tarjeta de prueba de Stripe.
-      </p>
+      </p>}
+      {billing?.mode === 'live' && <p className="admin-note">
+        Cobro real · La suscripción se renueva automáticamente cada {interval === 'monthly' ? 'mes' : 'año'} hasta que la canceles.
+      </p>}
       <p className="my-4 text-2xl font-semibold">
         {money(
           checkoutAmount(normal, preview?.campaign?.benefits),
@@ -205,7 +208,7 @@ export function CheckoutChoice(
         Los créditos incluidos se asignan por mes, también en modalidad anual.
       </p>
       <p className="admin-note mt-2">
-        Consulta <Link to="/terms">Términos</Link>, <Link to="/privacy">Privacidad</Link> y <Link to="/refunds">Reembolsos</Link>. {billing?.mode === "live" ? "Esta suscripción tiene cobro real." : "En TEST no se activa ningún cobro real."}
+        Consulta <Link to="/terms">Términos</Link>, <Link to="/privacy">Privacidad</Link> y <Link to="/refunds">Reembolsos</Link>. {billing?.mode === "live" ? "Esta suscripción tiene cobro real." : billing?.mode === 'test' ? "En TEST no se activa ningún cobro real." : "El importe se confirmará antes de pagar."}
       </p>
     </section>
   );

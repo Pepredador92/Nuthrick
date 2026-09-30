@@ -32,7 +32,7 @@ Son los valores leídos del catálogo de producción en esta fecha. Los cuatro p
 - Con confirmación explícita para continuar ante el aviso de app no verificada, se renovó el remitente a las `06:19:16Z`. Google mostró únicamente los accesos existentes de identidad y envío. La aceptación legal de la cuenta ya permite entrar en Agenda.
 - Stripe Live: la API confirmó la cuenta Nuthrick `acct_1UJP0IDDGKbaZsh7`, país MX, moneda MXN, nombre comercial Nuthrick, descriptor NUTHRICK, pagos y transferencias activos, datos completos y ningún requisito pendiente. No se reutilizaron datos de otro negocio ni se atribuye a Codex la activación comercial.
 - Preparación Live habilitada; credenciales en Vault y precios/webhook/Portal Live verificados. Checkout permanece cerrado y no se ejecutó ningún cargo.
-- El usuario autorizó un piloto separado con `hola.nuthrick+piloto@gmail.com`, Esencial mensual a $349 MXN. Falta completar el acceso de esa cuenta, aceptación legal, habilitación exclusiva del piloto y pago manual del titular. No se ha abierto la venta general.
+- El usuario autorizó un piloto separado con `hola.nuthrick+piloto@gmail.com`, Esencial mensual a $349 MXN. La cuenta confirmó su correo y completó el perfil; el usuario aceptó Términos v2 y Privacidad v2. Falta habilitar exclusivamente el piloto y el pago manual del titular. No se ha abierto la venta general.
 
 ## Cierre del correo operativo
 
@@ -64,7 +64,7 @@ Son los valores leídos del catálogo de producción en esta fecha. Los cuatro p
 
 ## Siguiente control: un pago piloto
 
-1. Cuenta piloto creada por invitación de Supabase a las `07:28:03Z`, profesional `7193f80b-cd72-4388-99aa-0e67d8893a2c`. Falta abrir la invitación en el buzón autorizado, completar el acceso y aceptar los legales. No tiene rol administrador ni pacientes.
+1. Cuenta piloto creada por invitación de Supabase a las `07:28:03Z`, profesional `7193f80b-cd72-4388-99aa-0e67d8893a2c`. Correo confirmado a las `07:40:56Z`, perfil completo y aceptación del usuario de Términos v2 y Privacidad v2 registrada a las `07:43:09Z`. No tiene rol administrador ni pacientes.
 2. La allowlist contiene únicamente ese profesional, con autorización y motivo registrados. Comprobar controles vigentes y habilitar Checkout solo para esa lista cuando la cuenta haya completado el acceso.
 3. Preparar Esencial mensual: $349 MXN, sin promoción. El usuario introduce la tarjeta y confirma el pago recurrente en Stripe; Codex no ejecuta el cobro final.
 4. Verificar una única sesión pagada, factura, webhook idempotente, acceso Esencial, límites y correo real recibido. Conciliar Stripe con Nuthrick.
@@ -72,3 +72,10 @@ Son los valores leídos del catálogo de producción en esta fecha. Los cuatro p
 6. Cerrar el piloto y autorizar por separado la apertura comercial a los primeros usuarios. Las verificaciones operativas caducan a las 24 horas y deben refrescarse si la prueba se posterga.
 
 La propuesta de retención al cancelar y el borrado de pacientes no forman parte de este cambio. El video OAuth continúa pendiente; no se presenta como enviado o aprobado.
+
+## Retorno de invitaciones y aviso del piloto
+
+- La invitación del Dashboard regresó a Site URL (`/`) con la sesión en el fragmento. El landing público se renderiza fuera del cliente autenticado y no procesaba ese retorno. Se recuperó la sesión existente llevando el fragmento a `/auth/callback`, sin volver a invitar ni exponer credenciales.
+- El landing ahora reconoce retornos de autenticación y los dirige a rutas locales fijas: `/auth/callback` o `/reset-password` para recuperación. Conserva el fragmento en el navegador, evita contabilizarlo como visita comercial y no cambia los anclajes normales del landing. Un callback sin sesión muestra opciones para recuperar acceso en vez de un indicador de carga permanente.
+- Checkout muestra la advertencia de tarjeta de prueba solamente en TEST. En Live informa cobro real y renovación mensual/anual; mientras consulta el entorno no afirma que sea TEST.
+- Verificación local: 19 pruebas aprobadas (retorno de Auth, facturación y landing), TypeScript, ESLint focal y build. El pago real todavía está pendiente.

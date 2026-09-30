@@ -5,6 +5,7 @@ import { landingStructuredData } from '@/src/lib/landingStructuredData';
 import { publicUrl } from '@/src/lib/site';
 import { PublicVisitTracker } from '@/src/components/marketing/PublicVisitTracker';
 import { loadPublicCommercialData } from '@/src/lib/publicCommercial';
+import { AuthReturnRedirect } from '@/src/features/auth/AuthReturnRedirect';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,7 @@ export const metadata: Metadata = {
 export default async function PublicLanding() {
   const commercial = await loadPublicCommercialData();
   return <>
+    <AuthReturnRedirect />
     <PublicVisitTracker path="/" />
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(landingStructuredData).replace(/</g, '\\u003c') }} />
     <LandingPage plans={commercial.plans} supportEmail={commercial.supportEmail} />

@@ -90,6 +90,14 @@ beforeEach(() => {
 });
 const show = (component: React.ReactNode, path = "/app/my-plan") =>
   render(<MemoryRouter initialEntries={[path]}>{component}</MemoryRouter>);
+it('Live checkout discloses recurring real charges and never asks for a test card', async () => {
+  rpc.mockResolvedValue({ data: { ...summary, mode: 'live', checkout_eligible: true, subscription: null }, error: null });
+  show(<CheckoutChoice plan={plan} interval="monthly" close={() => {}} />);
+  expect(await screen.findByText(/Cobro real · La suscripción se renueva automáticamente cada mes/)).toBeInTheDocument();
+  expect(screen.queryByText(/Usa únicamente datos de tarjeta de prueba/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/En TEST no se activa/)).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Continuar a Stripe Live' })).toBeEnabled();
+});
 it("Mi plan presents local balances and uses an explicit cancellation confirmation", async () => {
   show(<MyPlanPage />);
   expect(await screen.findByText("Esencial")).toBeInTheDocument();
