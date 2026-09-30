@@ -7,6 +7,7 @@ import { useAccess, routeEntitlement } from '@/src/features/admin/AccessProvider
 import { canReadFeature } from '@/src/features/admin/api';
 import { AIUsageIndicator } from '@/src/components/ai/AIControls';
 import { NotificationCenter } from '@/src/components/notifications/NotificationCenter';
+import { EntryDigest } from '@/src/components/notifications/EntryDigest';
 import { NotificationsProvider } from '@/src/features/notifications/useNotifications';
 import { useProfessionalPresence } from '@/src/features/presence/useProfessionalPresence';
 import { SupportProvider } from '@/src/features/support/SupportProvider';
@@ -38,6 +39,7 @@ export function PrivateLayout() {
 
   return (
     <SupportProvider><NotificationsProvider>
+    <EntryDigest />
     <div className="min-h-screen bg-[#f6f7f3] text-[#17312c]">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[250px] flex-col border-r border-[#e1e7e2] bg-white lg:flex">{sidebar}</aside>
       {mobileOpen && <div className="fixed inset-0 z-40 lg:hidden"><button type="button" className="absolute inset-0 bg-[#102d27]/45" aria-label="Cerrar menú" onClick={() => setMobileOpen(false)} /><aside className="relative flex h-full w-[280px] flex-col bg-white shadow-2xl">{sidebar}</aside></div>}
