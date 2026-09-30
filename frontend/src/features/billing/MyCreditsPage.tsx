@@ -172,8 +172,8 @@ export function MyCreditsPage() {
             {!data.eligible
               ? (
                 <p className="admin-note">
-                  Tu acceso actual no permite comprar créditos. Puedes
-                  consultarlo con administración.
+                  Para recargar necesitas un plan con IA y aceptar el aviso en
+                  el menú de tu cuenta → Privacidad de IA.
                 </p>
               )
               : (data.mode === "test" && !data.test_eligible) || !data.enabled
