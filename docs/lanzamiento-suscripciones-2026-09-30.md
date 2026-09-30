@@ -28,11 +28,11 @@ Son los valores leídos del catálogo de producción en esta fecha. Los cuatro p
 - Lectura con rol `anon`: catálogo comercial y contacto públicos disponibles; planes internos fuera del catálogo.
 - Pruebas de catálogo, fallo de servicio, cambio de precio entre solicitudes, HTML público y regresión de billing: 21 aprobadas. TypeScript, ESLint focal y build Vercel con smoke SSR aislado aprobados.
 - Publicado en `main` mediante `73eef22`; Vercel del proyecto `nuthrick` confirmó despliegue satisfactorio. Se comprobó en `https://nuthrick.com/#precios` la presencia de los dos planes, sus cuatro importes, límites de pacientes, enlaces al plan correspondiente y contacto `hola.nuthrick@gmail.com`. El landing ya no anuncia Agenda, Calendar ni correo Gmail. El proyecto Vercel heredado `frontend` sigue informando fallo separado y no sirve el dominio oficial.
-- Readiness final: **15 listos, 0 pendientes, 0 bloqueados**. El correo comercial está operativo desde `2026-09-30T06:28:36.993461Z`. El control adicional `live_email` también está listo; el checkout Live sigue deshabilitado.
+- Readiness final: **15 listos, 0 pendientes, 0 bloqueados**. El correo comercial está operativo desde `2026-09-30T06:28:36.993461Z`. El control adicional `live_email` también está listo; el checkout Live se habilitó exclusivamente para la cuenta piloto autorizada.
 - Con confirmación explícita para continuar ante el aviso de app no verificada, se renovó el remitente a las `06:19:16Z`. Google mostró únicamente los accesos existentes de identidad y envío. La aceptación legal de la cuenta ya permite entrar en Agenda.
 - Stripe Live: la API confirmó la cuenta Nuthrick `acct_1UJP0IDDGKbaZsh7`, país MX, moneda MXN, nombre comercial Nuthrick, descriptor NUTHRICK, pagos y transferencias activos, datos completos y ningún requisito pendiente. No se reutilizaron datos de otro negocio ni se atribuye a Codex la activación comercial.
-- Preparación Live habilitada; credenciales en Vault y precios/webhook/Portal Live verificados. Checkout permanece cerrado y no se ejecutó ningún cargo.
-- El usuario autorizó un piloto separado con `hola.nuthrick+piloto@gmail.com`, Esencial mensual a $349 MXN. La cuenta confirmó su correo y completó el perfil; el usuario aceptó Términos v2 y Privacidad v2. Falta habilitar exclusivamente el piloto y el pago manual del titular. No se ha abierto la venta general.
+- Preparación Live habilitada; credenciales en Vault y precios/webhook/Portal Live verificados. Checkout está limitado a la allowlist de una cuenta y no se ejecutó ningún cargo.
+- El usuario autorizó un piloto separado con `hola.nuthrick+piloto@gmail.com`, Esencial mensual a $349 MXN. La cuenta confirmó su correo y completó el perfil; el usuario aceptó Términos v2 y Privacidad v2. Falta el pago manual del titular. No se ha abierto la venta general.
 
 ## Cierre del correo operativo
 
@@ -65,7 +65,7 @@ Son los valores leídos del catálogo de producción en esta fecha. Los cuatro p
 ## Siguiente control: un pago piloto
 
 1. Cuenta piloto creada por invitación de Supabase a las `07:28:03Z`, profesional `7193f80b-cd72-4388-99aa-0e67d8893a2c`. Correo confirmado a las `07:40:56Z`, perfil completo y aceptación del usuario de Términos v2 y Privacidad v2 registrada a las `07:43:09Z`. No tiene rol administrador ni pacientes.
-2. La allowlist contiene únicamente ese profesional, con autorización y motivo registrados. Comprobar controles vigentes y habilitar Checkout solo para esa lista cuando la cuenta haya completado el acceso.
+2. La allowlist contiene únicamente ese profesional, con autorización y motivo registrados. Checkout se habilitó después de comprobar correo confirmado, perfil completo, aceptación legal vigente, PRE-LIVE 15/15 y controles Live 11/11. La verificación posterior confirmó entorno Live para el piloto y TEST para el administrador; se registró auditoría atribuida a la operación de Codex autorizada por el usuario.
 3. Preparar Esencial mensual: $349 MXN, sin promoción. El usuario introduce la tarjeta y confirma el pago recurrente en Stripe; Codex no ejecuta el cobro final.
 4. Verificar una única sesión pagada, factura, webhook idempotente, acceso Esencial, límites y correo real recibido. Conciliar Stripe con Nuthrick.
 5. Cancelar la renovación y realizar el reembolso controlado con la autorización correspondiente, comprobando su reflejo en la aplicación y correo. No borrar pacientes ni expedientes.
@@ -79,3 +79,4 @@ La propuesta de retención al cancelar y el borrado de pacientes no forman parte
 - El landing ahora reconoce retornos de autenticación y los dirige a rutas locales fijas: `/auth/callback` o `/reset-password` para recuperación. Conserva el fragmento en el navegador, evita contabilizarlo como visita comercial y no cambia los anclajes normales del landing. Un callback sin sesión muestra opciones para recuperar acceso en vez de un indicador de carga permanente.
 - Checkout muestra la advertencia de tarjeta de prueba solamente en TEST. En Live informa cobro real y renovación mensual/anual; mientras consulta el entorno no afirma que sea TEST.
 - Verificación local: 19 pruebas aprobadas (retorno de Auth, facturación y landing), TypeScript, ESLint focal y build. El pago real todavía está pendiente.
+- El cambio `5a7fcfc` quedó en `main` y Vercel `nuthrick` confirmó el despliegue. La comprobación de `/planes` encontró además una frase fija que describía toda contratación como prueba: se retiró, conservando el aviso de IA no disponible. Mi plan espera a conocer el entorno antes de mostrar su aviso. Las 13 pruebas de catálogo/facturación, TypeScript y ESLint focal aprobaron esta corrección adicional.

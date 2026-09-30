@@ -103,9 +103,9 @@ export function MyPlanPage() {
           Actualizar estado
         </button>
       </header>
-      <p className="billing-test">
+      {data && <p className="billing-test">
         {data?.mode === "live" ? "Stripe Live · Suscripción con cobro real." : "Stripe Test · Los pagos de esta sección son pruebas."}
-      </p>
+      </p>}
       {params.get("checkout") === "success" && (
         <p role="status" className="billing-benefits">
           Estamos confirmando tu pago. El estado de tu plan se

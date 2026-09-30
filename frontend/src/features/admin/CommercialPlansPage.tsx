@@ -141,8 +141,7 @@ export function CommercialPlansPage() {
         ))}
       </div>
       <p className="admin-note mt-6">
-        La contratación está en etapa de prueba. Los
-        créditos incluidos se renuevan mensualmente también en anual y no se
+        Los créditos incluidos se renuevan mensualmente también en anual y no se
         acumulan; las recargas y cortesías se conservan. La IA aún no está
         habilitada para uso general.
       </p>
