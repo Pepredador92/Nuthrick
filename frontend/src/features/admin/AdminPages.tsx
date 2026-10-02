@@ -1,3 +1,4 @@
+import { CommercialCostPreview, ProviderCreditLink } from "./CommercialCostPreview";
 import { SiteVisitStats } from "./SiteVisitStats";
 import {
   useCallback,
@@ -632,11 +633,12 @@ function PlanEditor({
           setPlan((p) => ({ ...p, values: { ...p.values, [key]: value } }))
         }
       />
+      <CommercialCostPreview monthlyPrice={plan.monthly_price} annualPrice={plan.annual_price} currency={plan.currency} credits={typeof plan.values["ai.monthly_credits"] === 'number' ? plan.values["ai.monthly_credits"] : NaN} />
       <p className="admin-note mt-5">
         La asignación mensual reemplaza los créditos incluidos del período
         anterior y conserva las recargas y cortesías. En anual se asigna cada
-        mes. La renovación automática se conectará con pagos; hoy se ejecuta
-        desde la ficha administrativa.
+        mes. En las suscripciones, la renovación depende del pago verificado
+        por Stripe. Las asignaciones manuales se gestionan desde administración.
       </p>
     </ActionForm>
   );
@@ -733,7 +735,7 @@ export function CreditsPage() {
         title="IA y créditos"
         text="Consulta los saldos y abre una cuenta para agregar o retirar créditos con un motivo administrativo."
       />
-      <nav className="billing-controls mb-6" aria-label="Administrar créditos"><Link className="admin-button" to="/admin/credits/packages">Paquetes de créditos</Link><Link className="admin-button secondary" to="/admin/credits/purchases">Compras de créditos</Link></nav>
+      <nav className="billing-controls mb-6" aria-label="Administrar créditos"><Link className="admin-button" to="/admin/credits/packages">Paquetes de créditos</Link><Link className="admin-button secondary" to="/admin/credits/purchases">Compras de créditos</Link><ProviderCreditLink /></nav>
       <Ready data={data} error={error}>
         <section className="admin-card">
           <h2>Consumo de los últimos 30 días</h2>

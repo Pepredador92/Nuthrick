@@ -1,3 +1,4 @@
+import { CommercialCostPreview, ProviderCreditLink } from "../admin/CommercialCostPreview";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { billingAction, dateLabel, money } from "./api";
@@ -26,6 +27,7 @@ function CreditHeading({ title }: { title: string }) {
         <Link className="admin-link" to="/admin/credits/purchases">
           Compras
         </Link>
+        <ProviderCreditLink />
       </nav>
       <p className="billing-test">
         Los paquetes definen las recargas disponibles. Los cambios de precio aplican a nuevas compras.
@@ -321,6 +323,7 @@ export function CreditPackageEditorPage() {
                 </label>
               </div>
             </details>
+            <CommercialCostPreview packagePrice={pkg.price_amount} credits={pkg.credits + pkg.bonus_credits} currency={pkg.currency} />
             <p className="admin-note">
               Los cambios se aplican a nuevas recargas. Las compras y sesiones
               de pago ya creadas conservan la cantidad, el precio y los

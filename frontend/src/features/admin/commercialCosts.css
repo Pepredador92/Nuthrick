@@ -1,0 +1,76 @@
+.commercial-costs {
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  border: 1px solid #d6e4df;
+  border-radius: 1rem;
+  background: #f5f9f7;
+  color: #173d36;
+}
+.commercial-costs-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.commercial-costs h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.commercial-costs h4 {
+  font-weight: 700;
+  margin-bottom: .75rem;
+}
+.commercial-costs-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(170px,1fr));
+  gap: .8rem;
+  margin: 1rem 0;
+}
+.commercial-costs-unit {
+  margin: 1rem 0;
+  padding: .8rem;
+  background: #e5f0ec;
+  border-radius: .6rem;
+  font-size: .9rem;
+}
+.commercial-costs-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(min(100%,240px),1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+.commercial-costs-results article {
+  background: white;
+  border: 1px solid #d6e4df;
+  border-radius: .75rem;
+  padding: 1rem;
+}
+.commercial-costs dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .35rem 0;
+  font-size: .85rem;
+}
+.commercial-costs dd {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.commercial-costs-margin {
+  border-top: 1px solid #d6e4df;
+  margin-top: .7rem;
+  padding-top: .8rem;
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+}
+.commercial-costs-margin strong {
+  font-size: 1.6rem;
+}
+.commercial-costs-margin small {
+  color: #587168;
+}
+.commercial-costs-margin.negative {
+  color: #a33e2d;
+}

@@ -1,0 +1,31 @@
+create function pg_temp.sales_assert(v boolean,label text) returns void language plpgsql as $$begin if v is distinct from true then raise exception 'ASSERT: %',label; end if;end$$;
+create function pg_temp.sales_reject(q text,msg text) returns void language plpgsql as $$begin begin execute q;exception when others then if position(msg in sqlerrm)>0 then return;end if;raise;end;raise exception 'Expected %',msg;end$$;
+insert into auth.users(id,email,email_confirmed_at) values('1e000000-0000-4000-8000-000000000003','public-sales@example.invalid',now());
+select pg_temp.sales_assert(private.billing_owner_environment('1e000000-0000-4000-8000-000000000003')='live','Normal customers never fall back to Test');
+select pg_temp.sales_assert(not private.billing_live_customer_allowed('1e000000-0000-4000-8000-000000000003'),'Public sales start closed');
+select pg_temp.sales_assert(private.billing_owner_environment((select professional_id from private.billing_test_accounts limit 1))='test','Explicit test account stays Test');
+select pg_temp.sales_assert(not has_function_privilege('authenticated','private.billing_server(text,jsonb)','execute'),'Browser cannot forge provider inspection');
+select pg_temp.sales_assert(not has_function_privilege('anon','public.billing_provider_credentials_for(text)','execute'),'Anonymous cannot get credentials');
+update private.billing_live_configuration set public_sales_enabled=true,preparation_enabled=true,checkout_enabled=true;
+select pg_temp.sales_assert(private.billing_live_customer_allowed('1e000000-0000-4000-8000-000000000003'),'General sales does not need a pilot allowlist');
+select pg_temp.sales_assert(not private.billing_live_customer_allowed((select professional_id from private.billing_test_accounts limit 1)),'Test identities cannot enter Live sales');
+select pg_temp.sales_assert(not private.billing_live_customer_allowed('00000000-0000-4000-8000-000000000000'),'Unknown profile is not a customer');
+select pg_temp.sales_reject($q$select private.billing_live_guard('1e000000-0000-4000-8000-000000000003',true)$q$,'live_legal_pending');
+-- Substitute only external prerequisite proofs in this rollback-only fixture.
+create or replace function private.billing_legal_ready() returns boolean language sql stable as $$select true$$;
+create or replace function private.pre_live_evidence() returns jsonb language sql stable as $$select '{"summary":{"ready":15,"pending":0,"blocked":0}}'::jsonb$$;
+select pg_temp.sales_reject($q$select private.billing_live_guard('1e000000-0000-4000-8000-000000000003',true)$q$,'live_readiness_incomplete');
+select pg_temp.sales_assert((private.billing_summary('1e000000-0000-4000-8000-000000000003')->>'checkout_eligible')::boolean,'User can request a refresh when evidence expired');
+select set_config('nuthrick.billing_environment','live',true);
+select private.billing_lock('1e000000-0000-4000-8000-000000000003','1e000000-0000-4000-8000-000000000004');
+do $$ declare c jsonb; begin
+ c:=private.billing_server('sales_inspection_context','{"environment":"live","owner":"1e000000-0000-4000-8000-000000000003","lock_key":"1e000000-0000-4000-8000-000000000004"}');
+ perform pg_temp.sales_assert((c->>'required')::boolean,'Expired evidence requires real provider inspection');
+ perform pg_temp.sales_assert(jsonb_array_length(c->'prices')=4,'Both plans and intervals inspected');
+ perform pg_temp.sales_assert(not exists(select 1 from jsonb_array_elements(c->'prices') p where p->>'mode'<>'live'),'Refresh cannot mix Test prices');
+end$$;
+select pg_temp.sales_reject($q$select private.billing_server('sales_inspection_context','{"environment":"test","owner":"1e000000-0000-4000-8000-000000000003","lock_key":"1e000000-0000-4000-8000-000000000004"}')$q$,'live_account_not_allowed');
+update private.billing_live_configuration set checkout_enabled=false;
+select pg_temp.sales_assert(not (private.billing_summary('1e000000-0000-4000-8000-000000000003')->>'enabled')::boolean,'Closing sales disables UI');
+select pg_temp.sales_assert(private.billing_owner_environment('1e000000-0000-4000-8000-000000000003')='live','Closing sales never sends customers to Test');
+select pg_temp.sales_reject($q$select private.billing_server('sales_inspection_context','{"environment":"live","owner":"1e000000-0000-4000-8000-000000000003","lock_key":"1e000000-0000-4000-8000-000000000004"}')$q$,'live_checkout_disabled');
