@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/src/features/auth/AuthProvider";
+import { useAccess } from "@/src/features/admin/AccessProvider";
+import { BeginnerOnboarding } from "@/src/features/onboarding/BeginnerOnboarding";
 import { notificationPath, relativeNotificationDate } from "@/src/features/notifications/model";
 import { useNotifications } from "@/src/features/notifications/useNotifications";
 import { todayAppointments, unreadMessageCount, upcomingAppointments } from "@/src/features/dashboard/model";
@@ -59,7 +61,8 @@ function AppointmentItem({ entry, timezone, inverse = false }: { entry: AgendaEn
 }
 
 export function DashboardPage() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  const { data: accessData } = useAccess();
   const { items: notifications, loading: notificationsLoading } = useNotifications();
   const [data, setData] = useState<DashboardData>({ entries: [], requests: [], patients: [] });
   const [loading, setLoading] = useState(true);
@@ -106,6 +109,18 @@ export function DashboardPage() {
       </header>
 
       {error && <p role="alert" className="mt-5 flex items-center gap-2 rounded-xl bg-[#fff0e9] p-4 text-sm text-[#963f34]"><AlertCircle size={16} />{error}</p>}
+
+      {user && accessData?.access.allowed && !accessData.access.read_only && (
+        <BeginnerOnboarding
+          key={user.id}
+          userId={user.id}
+          includeAI={[
+            accessData.access.values["ai.recall_24h"],
+            accessData.access.values["ai.pes"],
+            accessData.access.values["ai.diet_draft"],
+          ].some((value) => value === true)}
+        />
+      )}
 
       <div className="mt-6 grid gap-5 min-[1800px]:grid-cols-2">
       <section className="grid min-w-0 gap-5 md:grid-cols-2">
