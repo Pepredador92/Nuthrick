@@ -77,3 +77,24 @@ permiso de inspección, barrera legal, permisos de planes y RPC administrativo.
 Antes de publicar: typecheck, ESLint focal, Deno lint, build Vercel, diff/check/status.
 Activar venta general sólo después de desplegar migraciones y función billing,
 y obtener los controles LIVE listos mediante inspección real del proveedor.
+
+### Resultado de producción
+
+- Migraciones aplicadas mediante el conector autenticado de Supabase. Los nombres
+  locales se alinearon con las versiones efectivamente registradas en el remoto.
+- `billing` desplegada, versión 13; autenticación JWT de usuario y firma de webhook
+  conservadas dentro del handler.
+- Inspección administrativa real a las **06:54:59 UTC del 2 de octubre**:
+  precios, webhook, portal y conciliación correctos; cero discrepancias.
+- Venta general abierta a las **06:55:29 UTC**, con registro administrativo.
+  Readiness: 11/11 controles LIVE y 15/15 generales. Sigue existiendo un único
+  pago LIVE, correspondiente al piloto previo: no se hizo un nuevo cobro.
+- Corregida también la validación que exigía los importes y cantidades originales
+  del piloto. Se permiten cambios de precio/catálogo desde Admin; cada versión
+  sigue contrastándose con Stripe. Pruebas locales cubren el cambio $349 → $299.
+- Vercel confirmó `04ba225` como READY/Production. Se revisaron visualmente la
+  apertura de ventas y el simulador de Profesional en `nuthrick.com`.
+- Pruebas: 55 frontend focales, 29 Deno y regresión SQL local; typecheck, ESLint
+  focal, Deno lint, build y diff --check correctos. Los avisos de seguridad de
+  Supabase correspondían a objetos preexistentes; no se señalaron los RPC añadidos.
+- No se apagó el equipo: sigue pendiente la decisión de modalidad de prueba gratuita.

@@ -110,12 +110,12 @@ export function PreLiveReadinessPage() {
             </div>
           </section>
           <section className="admin-card billing-section">
-            <h2>Antes de Live</h2>
+            <h2>Validaciones de lanzamiento</h2>
             <p className="admin-note">
-              Aprobar precios y políticas, textos legales, proveedor de email,
-              soporte, monitoring, productos/precios/webhook Live, Customer
-              Portal Live y una prueba de cobro real autorizada. Esta lista es
-              deliberadamente manual y no expone credenciales.
+              Se conserva la evidencia del piloto de pago. Las revisiones
+              posteriores consultan la configuración y la conciliación de Stripe;
+              no requieren repetir cobros. Los precios vigentes se toman del catálogo
+              administrado en Nuthrick.
             </p>
           </section>
           {data.operations && (

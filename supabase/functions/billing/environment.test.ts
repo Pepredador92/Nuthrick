@@ -325,10 +325,13 @@ Deno.test("Live inspection reads catalogue, portal, webhook and subscriptions wi
     mismatches: [],
   });
   remoteStatus = "past_due";
+  assert.equal((await provider.inspectConfiguration({ ...context, prices: prices.slice(0, 2) })).prices_verified, true);
+  assert.equal((await provider.inspectConfiguration({ ...context, prices: [] })).prices_verified, false);
+  assert.equal((await provider.inspectConfiguration({ ...context, prices: [{ ...prices[0], amount: 29900 }] })).prices_verified, false);
   const mismatch = await provider.inspectConfiguration(context);
   assert.equal(mismatch.reconciliation_ok, false);
   assert.deepEqual(mismatch.mismatches, ["sub_fixture"]);
-  assert.equal(reads.length, 8);
+  assert.equal(reads.length, 11);
 });
 Deno.test("Live inspection is admin-only and Legal gate runs before provider access", async () => {
   let providerCalls = 0;

@@ -41,6 +41,7 @@ try {
       "20260930200548_controlled_ai_credit_pilot.sql",
       "20260930204511_live_ai_production.sql",
       "20261002065042_public_subscription_sales.sql",
+      "20261002070010_commercial_editable_prices_readiness.sql",
     ]
   ) {
     q += readFileSync(new URL("supabase/migrations/" + file, root), "utf8")

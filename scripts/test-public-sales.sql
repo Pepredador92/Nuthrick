@@ -11,6 +11,11 @@ select pg_temp.sales_assert(private.billing_live_customer_allowed('1e000000-0000
 select pg_temp.sales_assert(not private.billing_live_customer_allowed((select professional_id from private.billing_test_accounts limit 1)),'Test identities cannot enter Live sales');
 select pg_temp.sales_assert(not private.billing_live_customer_allowed('00000000-0000-4000-8000-000000000000'),'Unknown profile is not a customer');
 select pg_temp.sales_reject($q$select private.billing_live_guard('1e000000-0000-4000-8000-000000000003',true)$q$,'live_legal_pending');
+-- Editing commercial prices must not revive pilot-only amounts.
+update private.plans set monthly_price=299 where code='esencial';
+select pg_temp.sales_assert((select c->>'status'='ready' from jsonb_array_elements(private.pre_live_evidence()->'checks') c where c->>'key'='commercial_plans'),'Edited plan amount is valid');
+update private.ai_credit_packages set price_amount=123 where active and not internal_only;
+select pg_temp.sales_assert((select c->>'status'='ready' from jsonb_array_elements(private.pre_live_evidence()->'checks') c where c->>'key'='credit_packages'),'Edited package amount is valid');
 -- Substitute only external prerequisite proofs in this rollback-only fixture.
 create or replace function private.billing_legal_ready() returns boolean language sql stable as $$select true$$;
 create or replace function private.pre_live_evidence() returns jsonb language sql stable as $$select '{"summary":{"ready":15,"pending":0,"blocked":0}}'::jsonb$$;

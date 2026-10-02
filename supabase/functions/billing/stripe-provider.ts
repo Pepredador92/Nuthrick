@@ -146,7 +146,7 @@ export class StripeBillingProvider implements BillingProvider {
     },
   ) {
     if (this.mode !== "live") throw new Error("stripe_environment_mismatch");
-    let pricesVerified = input.prices.length === 4;
+    let pricesVerified = input.prices.length > 0;
     for (const price of input.prices) {
       this.assertPrice(price);
       if (!price.provider_price_id || !price.provider_product_id) {
