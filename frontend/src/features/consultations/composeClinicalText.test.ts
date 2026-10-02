@@ -27,13 +27,13 @@ describe("clinical text composition", () => {
   it("organizes patient instructions from professional-entered values only", () => {
     expect(
       composePatientInstructions({
-        action: "Incluir una colación por la tarde",
+        action: "Incluye una colación por la tarde.",
         timing: "En los días con jornada larga",
-        alternative: "Llevar una fruta",
-        review: "Revisaremos qué opción fue práctica",
+        alternative: "Puedes llevar una fruta.",
+        review: "Hablaremos de qué opción te resultó más práctica.",
       }),
     ).toBe(
-      "Plan acordado\n• Qué haré: Incluir una colación por la tarde\n• Cuándo: En los días con jornada larga\n• Si se complica: Llevar una fruta\n• En la próxima revisión: Revisaremos qué opción fue práctica",
+      "Tus indicaciones\n• Qué harás: Incluye una colación por la tarde.\n• Cuándo: En los días con jornada larga\n• Si se te complica: Puedes llevar una fruta.\n• En la próxima consulta: Hablaremos de qué opción te resultó más práctica.",
     );
   });
 

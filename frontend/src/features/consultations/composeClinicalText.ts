@@ -68,13 +68,13 @@ export function composeInterviewDraft(
 export function composePatientInstructions(parts: InstructionParts): string {
   const action = parts.action.trim();
   if (!action) return "";
-  const lines = [`• Qué haré: ${action}`];
+  const lines = [`• Qué harás: ${action}`];
   if (parts.timing.trim()) lines.push(`• Cuándo: ${parts.timing.trim()}`);
   if (parts.alternative.trim())
-    lines.push(`• Si se complica: ${parts.alternative.trim()}`);
+    lines.push(`• Si se te complica: ${parts.alternative.trim()}`);
   if (parts.review.trim())
-    lines.push(`• En la próxima revisión: ${parts.review.trim()}`);
-  return `Plan acordado\n${lines.join("\n")}`;
+    lines.push(`• En la próxima consulta: ${parts.review.trim()}`);
+  return `Tus indicaciones\n${lines.join("\n")}`;
 }
 
 export function appendComposedText(existing: unknown, addition: string): string {

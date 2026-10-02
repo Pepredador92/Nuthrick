@@ -480,16 +480,16 @@ function OwnerPortal({ patientId }: { patientId: string }) {
                 <div>
                   <h3 className="text-sm font-semibold text-amber-950">Organizar indicaciones acordadas</h3>
                   <p className="mt-1 text-xs leading-5 text-amber-900">
-                    Completa con lo conversado con el paciente. Este apoyo solo ordena tus palabras y no agrega recomendaciones clínicas. Después, pídele que explique con sus palabras cómo pondrá en práctica el acuerdo y aclara cualquier duda.
+                    Escribe el acuerdo como se lo dirías al paciente: de tú, con palabras sencillas y una acción concreta. Este apoyo solo ordena tus palabras; no agrega recomendaciones clínicas. Después, pídele que te explique con sus palabras cómo lo pondrá en práctica y aclara sus dudas.
                   </p>
                 </div>
               </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {([
-                  ["action", "Qué hará", "Acción acordada, con palabras sencillas"],
-                  ["timing", "Cuándo o con qué frecuencia", "Solo si se acordó"],
-                  ["alternative", "Una alternativa si se complica", "Opción conversada"],
-                  ["review", "Qué revisarán juntos", "Tema para la próxima revisión"],
+                  ["action", "Qué harás", "Ej. Incluye una colación por la tarde."],
+                  ["timing", "Cuándo o con qué frecuencia", "Ej. En los días con jornada larga."],
+                  ["alternative", "Si se te complica", "Ej. Puedes llevar una fruta."],
+                  ["review", "Qué revisarán juntos", "Ej. Hablaremos de qué opción te resultó más práctica."],
                 ] as const).map(([key, label, placeholder]) => (
                   <label key={key} className="block text-xs font-medium text-[#52685d]">
                     {label}
