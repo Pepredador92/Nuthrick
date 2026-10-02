@@ -112,20 +112,9 @@ export function CommercialPlansPage() {
                     <li key={key}>{label}</li>
                   ))}
                 <li>
-                  {[
-                    ["ai.recall_24h", "R24h"],
-                    ["ai.pes", "PES"],
-                  ]
-                    .filter(([key]) => p.values[key] === true)
-                    .map(([, label]) => label)
-                    .join(" y ") || "IA sin R24h/PES"}{" "}
-                  · {valueLabel(p.values["ai.monthly_credits"])} créditos
-                  incluidos por mes {p.credits_provisional && "(provisionales)"}
-                </li>
-                <li>
-                  {p.values["ai.diet_draft"]
-                    ? "Taller con IA incluido"
-                    : "Taller con IA no incluido"}
+                  {["ai.recall_24h", "ai.pes", "ai.diet_draft"].some(key => p.values[key] === true)
+                    ? <>IA: {[["ai.recall_24h", "R24h"], ["ai.pes", "PES"], ["ai.diet_draft", "Taller"]].filter(([key]) => p.values[key] === true).map(([, label]) => label).join(", ")} · {valueLabel(p.values["ai.monthly_credits"])} créditos incluidos por mes {p.credits_provisional && "(provisionales)"}</>
+                    : "Funciones básicas · Sin IA"}
                 </li>
                 {p.values["diet_library"] === true && (
                   <li>
@@ -150,8 +139,8 @@ export function CommercialPlansPage() {
         </div>
         <p className="admin-note commercial-plans-footnote">
           Los créditos incluidos se renuevan mensualmente también en anual y no se
-          acumulan; las recargas y cortesías se conservan. La IA aún no está
-          habilitada para uso general.
+          acumulan; las recargas y cortesías se conservan. Las funciones de IA
+          requieren un plan que las incluya, consentimiento y saldo disponible.
         </p>
       </div>
     </main>

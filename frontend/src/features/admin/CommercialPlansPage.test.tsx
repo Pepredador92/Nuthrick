@@ -55,3 +55,10 @@ it("does not present an unconfigured price as free", async () => {
   expect(await screen.findByText("Por definir")).toBeInTheDocument();
   expect(screen.queryByText("$0")).not.toBeInTheDocument();
 });
+it('clearly distinguishes a basic plan without promising AI', async () => {
+  rpc.mockResolvedValue({data:[{...plan, values:{'patients.limit':30,'ai.monthly_credits':0,consultations:true}}],error:null});
+  show();
+  expect(await screen.findByText('Funciones básicas · Sin IA')).toBeInTheDocument();
+  expect(screen.queryByText(/IA sin R24h/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/IA aún no está habilitada/)).not.toBeInTheDocument();
+});
