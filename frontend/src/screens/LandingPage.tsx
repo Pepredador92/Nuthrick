@@ -39,7 +39,7 @@ export function LandingPage({ plans = [], supportEmail = null }: { plans?: Publi
         </div>
         <div className="landing-hero-photos">
           <figure className="landing-hero-portrait"><img src={`${photos}nutriologos-en-grupo.jpg`} width="1538" height="1025" fetchPriority="high" alt="Grupo de nutriólogos reunidos durante una actividad de formación en antropometría" /></figure>
-          <div className="landing-photo-note"><p>Muchos nutriólogos ya decidieron <strong>evolucionar su consulta.</strong></p><a href="/planes" className="landing-photo-plans">Conocer los planes <ArrowRight size={16} aria-hidden="true" /></a></div>
+          <div className="landing-photo-note"><p>Muchos nutriólogos ya decidieron <strong>evolucionar su consulta.</strong></p><a href="/planes" className="landing-photo-plans">VER PLANES</a></div>
           <figure className="landing-hero-inset"><img src={`${photos}evaluacion-antropometrica.png`} width="857" height="573" alt="Nutrióloga concentrada mientras marca puntos de referencia para una evaluación antropométrica" decoding="async" /><figcaption>Tu paciente valora que lo escuches con atención y que recuerdes lo que conversaron en la siguiente consulta.</figcaption></figure>
         </div>
       </section>
