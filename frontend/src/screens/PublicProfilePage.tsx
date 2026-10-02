@@ -50,7 +50,7 @@ export function PublicProfilePage() {
     <header className="border-b border-[#e1e8e2] bg-[#fbfcfa]/90 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-5 sm:px-8">
         <div className="flex min-w-0 items-center gap-3"><Logo /><span className="hidden border-l border-[#dce5de] pl-3 text-xs font-semibold tracking-wide text-[#718078] sm:inline">Perfil público</span></div>
-        <Link to="/register" className="min-h-11 min-w-0 rounded-full px-3 py-2 text-right text-sm font-semibold text-[#496e61] transition hover:bg-[#edf4ef]">¿Eres nutriólogo? Crea tu perfil</Link>
+        <Link to="/register" className="min-h-11 min-w-0 rounded-full px-3 py-2 text-right text-sm font-semibold text-[#496e61] transition hover:bg-[#edf4ef]">Impulsado por Nuthrick</Link>
       </div>
     </header>
     <div className="mx-auto w-full max-w-7xl min-w-0 px-5 pb-20 pt-8 sm:px-8">

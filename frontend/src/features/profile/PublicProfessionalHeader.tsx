@@ -43,7 +43,7 @@ export function PublicProfessionalHeader({ profile }: { profile: HeaderProfile }
       <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-32 -z-10 size-80 rounded-full border-[48px] border-white/[0.035]"/>
       <div aria-hidden="true" className="pointer-events-none absolute -bottom-36 -left-24 -z-10 size-72 rounded-full border-[40px] border-[#efbd6b]/[0.035]"/>
       <p className="text-[10px] font-bold uppercase tracking-[.22em] text-[#efc583]">Perfil profesional</p>
-      <div className="mx-auto mt-5 grid size-24 shrink-0 place-items-center overflow-hidden rounded-full bg-[#e4b272] text-3xl font-semibold text-[#17312c] shadow-lg ring-4 ring-white/15 ring-offset-4 ring-offset-[#21483e] sm:size-28">
+      <div className="mx-auto mt-5 grid size-40 shrink-0 place-items-center overflow-hidden rounded-full bg-[#e4b272] text-3xl font-semibold text-[#17312c] shadow-lg ring-4 ring-white/15 ring-offset-4 ring-offset-[#21483e] sm:size-48">
         {profile.avatarUrl ? <img src={profile.avatarUrl} alt={`Foto de ${profile.name}`} className="size-full object-cover"/> : profile.name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('')}
       </div>
       <h1 className="mx-auto mt-5 max-w-lg break-words text-3xl font-semibold leading-tight tracking-[-.035em] sm:text-4xl">{profile.name}</h1>
