@@ -1,10 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
 import { PreLiveReadinessPage } from "./PreLiveReadinessPage";
 
-const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }));
-vi.mock("@/src/lib/supabase", () => ({ supabase: { rpc } }));
+const { rpc, invoke } = vi.hoisted(() => ({ rpc: vi.fn(), invoke: vi.fn() }));
+vi.mock("@/src/lib/supabase", () => ({ supabase: { rpc, functions: { invoke } } }));
 
 beforeEach(() => {
   rpc.mockResolvedValue({
@@ -54,4 +54,11 @@ it("uses actual Live payment counts and shows Live blockers separately from gene
   expect(await screen.findByText(/Pagos Live confirmados: 3/)).toBeInTheDocument();
   expect(screen.getByRole("region", { name: "Controles específicos Live" })).toHaveTextContent("Bloqueado");
   expect(screen.getByLabelText("Resumen de readiness")).toHaveTextContent("14 listos");
+});
+
+it("refreshes Live proof through the existing admin inspection without starting checkout", async () => {
+  invoke.mockResolvedValue({ data: { prices_verified: true }, error: null });
+  render(<MemoryRouter><PreLiveReadinessPage /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button', { name: 'Verificar Stripe Live' }));
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith('billing', expect.objectContaining({ body: expect.objectContaining({ action: 'inspect_live', operation_key: expect.any(String) }) })));
 });

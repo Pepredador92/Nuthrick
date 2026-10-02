@@ -127,6 +127,7 @@ export type PreLiveReadiness = {
   live?: {
     preparation_enabled: boolean;
     checkout_enabled: boolean;
+    public_sales_enabled?: boolean;
     credentials_present: boolean;
     checks: PreLiveCheck[];
     counts: BillingEnvironmentOverview;

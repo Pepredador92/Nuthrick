@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2, CircleAlert, Clock3, ShieldCheck } from "lucide-react";
-import { getPreLiveReadiness, type PreLiveCheck, type PreLiveReadiness } from "./api";
+import { billingAction, getPreLiveReadiness, type PreLiveCheck, type PreLiveReadiness } from "./api";
 import "./billing.css";
 
 const statusLabel: Record<PreLiveCheck["status"], string> = {
@@ -32,6 +32,7 @@ function StatusIcon({ status }: { status: PreLiveCheck["status"] }) {
 export function PreLiveReadinessPage() {
   const [data, setData] = useState<PreLiveReadiness | null>(null);
   const [error, setError] = useState("");
+  const [inspecting, setInspecting] = useState(false);
   const load = useCallback(() => {
     return getPreLiveReadiness().then(setData).catch((e) => setError(e.message));
   }, []);
@@ -45,16 +46,24 @@ export function PreLiveReadinessPage() {
     <>
       <header className="admin-heading">
         <div>
-          <p className="admin-eyebrow">PRE-LIVE · SOLO LECTURA</p>
+          <p className="admin-eyebrow">FACTURACIÓN · VERIFICACIÓN</p>
           <h1>Readiness comercial</h1>
           <p className="admin-description">
-            Evidencia operativa para decidir cuándo autorizar Live. Esta vista
-            no cambia Stripe, OpenAI ni ningún secreto.
+            Estado operativo de pagos. Verificar Stripe consulta la configuración
+            del proveedor y actualiza la evidencia; no genera cobros.
           </p>
         </div>
         <button className="admin-button secondary" onClick={() => { setError(""); void load(); }}>
           Actualizar revisión
         </button>
+        <button className="admin-button" disabled={inspecting} onClick={async () => {
+          setInspecting(true); setError("");
+          try {
+            await billingAction("inspect_live", { operation_key: crypto.randomUUID() });
+            await load();
+          } catch (e) { setError((e as Error).message); }
+          finally { setInspecting(false); }
+        }}>{inspecting ? "Verificando…" : "Verificar Stripe Live"}</button>
       </header>
       {error && <p role="alert" className="admin-error">{error}</p>}
       {!data && !error && <p>Cargando revisión…</p>}
@@ -63,14 +72,14 @@ export function PreLiveReadinessPage() {
           <section className="admin-card prelive-banner" role="status">
             <ShieldCheck size={22} aria-hidden="true" />
             <div>
-              <strong>{stripeStatus} · Checkout Live {liveCheckoutEnabled ? "limitado a cuentas autorizadas" : "cerrado"} · OpenAI {data.openai_enabled ? "habilitado" : "deshabilitado"}</strong>
-              <p>Pagos Live confirmados: {data.live_payments ?? "pendiente de verificar"}. El primer cobro requiere autorización explícita.</p>
+              <strong>{stripeStatus} · Checkout Live {liveCheckoutEnabled ? data.live?.public_sales_enabled ? "abierto a clientes" : "limitado a cuentas autorizadas" : "cerrado"} · OpenAI {data.openai_enabled ? "habilitado" : "deshabilitado"}</strong>
+              <p>Pagos Live confirmados: {data.live_payments ?? "pendiente de verificar"}. Cada contratación requiere aceptación y pago del cliente.</p>
             </div>
           </section>
           {data.live && (
             <section className="admin-card billing-section" aria-label="Controles específicos Live">
-              <h2>LIVE-1 · Activación controlada</h2>
-              <p className="admin-note">Estos controles complementan los 15 generales. Preparar la integración no abre el checkout: cada cuenta piloto requiere autorización y todos los controles deben estar listos para cobrar.</p>
+              <h2>Controles de producción</h2>
+              <p className="admin-note">Todos los controles deben estar listos para abrir un pago. El servidor renueva las verificaciones vencidas al continuar al pago o aplicar un código.</p>
               <div className="prelive-checks">
                 {data.live.checks.map((check) => (
                   <article className={`prelive-check ${statusClass[check.status]}`} key={check.key}>

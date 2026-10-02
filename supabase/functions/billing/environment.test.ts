@@ -367,3 +367,44 @@ Deno.test("Live inspection is admin-only and Legal gate runs before provider acc
   }
   assert.equal(providerCalls, 0);
 });
+
+Deno.test("Live checkout refreshes expired provider evidence before preview; failure blocks it", async () => {
+  for (const verified of [true, false]) {
+    const calls: string[] = [];
+    const livePrice = { ...price, mode: 'live' as const };
+    const handler = createBillingHandler({
+      site: 'https://nuthrick.com', liveWebhookUrl: 'https://example.supabase.co/functions/v1/billing/webhook/live',
+      authenticate: async () => input.owner, resolveEnvironment: async () => 'live',
+      provider: async () => ({
+        mode: 'live',
+        ensurePrice: async () => { calls.push('ensure'); return 'price_live'; },
+        inspectConfiguration: async () => { calls.push('inspect'); return { prices_verified: verified, webhook_reachable: true, portal_verified: true, reconciliation_ok: true, mismatches: [] }; },
+      } as unknown as import('./domain.ts').BillingProvider),
+      rpc: async <T>(action: string): Promise<T> => {
+        calls.push(action);
+        if (action === 'sales_inspection_context') return { required: true, prices: [livePrice], subscriptions: [] } as T;
+        return {} as T;
+      },
+    });
+    const response = await handler(new Request('https://example.supabase.co/functions/v1/billing', {
+      method:'POST', headers:{Authorization:'Bearer fixture',Origin:'https://nuthrick.com','Content-Type':'application/json'},
+      body:JSON.stringify({action:'preview',plan_id:price.plan_id,interval:'monthly'}),
+    }));
+    assert.ok(calls.indexOf('inspect') < calls.indexOf('sales_inspection_saved'));
+    assert.equal(calls.includes('preview'), verified);
+    assert.ok(calls.includes('unlock'));
+    if (!verified) assert.equal((await response.json()).error,'live_readiness_incomplete');
+    else assert.equal(response.status,200);
+  }
+});
+Deno.test("Fresh Live evidence is reused without inspecting or creating provider resources", async () => {
+  const calls: string[] = [];
+  const handler = createBillingHandler({
+    site:'https://nuthrick.com', authenticate: async()=>input.owner, resolveEnvironment:async()=> 'live',
+    provider:async()=>{throw new Error('Unexpected provider');},
+    rpc:async<T>(action:string):Promise<T>=>{ calls.push(action); return (action==='sales_inspection_context'?{required:false}:{}) as T; },
+  });
+  const response=await handler(new Request('https://example.supabase.co/functions/v1/billing',{method:'POST',headers:{Authorization:'Bearer fixture',Origin:'https://nuthrick.com','Content-Type':'application/json'},body:JSON.stringify({action:'preview',plan_id:price.plan_id,interval:'monthly'})}));
+  assert.equal(response.status,200);
+  assert.ok(calls.includes('preview'));
+});

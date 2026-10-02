@@ -341,6 +341,38 @@ export function createBillingHandler(deps: BillingDependencies) {
       ) ?? "test";
       await rpc("lock");
       locked = true;
+      const refreshSalesInspection = async () => {
+        if (environment !== "live") return;
+        const context = await rpc<
+          { required: boolean } & Omit<
+            Parameters<NonNullable<BillingProvider["inspectConfiguration"]>>[0],
+            "webhookUrl"
+          >
+        >("sales_inspection_context");
+        if (!context.required) return;
+        const provider = await getProvider();
+        if (!provider.inspectConfiguration || !deps.liveWebhookUrl) {
+          throw new Error("billing_not_configured");
+        }
+        // Ensure current catalogue versions, without changing existing subscriptions.
+        for (const price of context.prices) {
+          price.provider_price_id = await provider.ensurePrice(price);
+          await rpc("price_saved", {
+            price_mapping_id: price.id,
+            price_id: price.provider_price_id,
+            product_id: price.provider_product_id,
+          });
+        }
+        const result = await provider.inspectConfiguration({
+          ...context,
+          webhookUrl: deps.liveWebhookUrl,
+        });
+        await rpc("sales_inspection_saved", { result });
+        if (!result.prices_verified || !result.webhook_reachable ||
+          !result.portal_verified || !result.reconciliation_ok) {
+          throw new Error("live_readiness_incomplete");
+        }
+      };
       if (typeof action === "string" && action.startsWith("credit_")) {
         return reply(
           await creditAction(
@@ -394,9 +426,11 @@ export function createBillingHandler(deps: BillingDependencies) {
         );
       }
       if (action === "preview") {
+        await refreshSalesInspection();
         return reply(await rpc("preview", planRequest()));
       }
       if (action === "checkout") {
+        await refreshSalesInspection();
         const ctx = await rpc<
           { intent: Intent; price: Price; customer_id: string | null }
         >("prepare_checkout", {

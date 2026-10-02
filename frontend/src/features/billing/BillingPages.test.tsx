@@ -110,7 +110,7 @@ it('Live checkout discloses recurring real charges and never asks for a test car
   expect(await screen.findByText(/Cobro real · La suscripción se renueva automáticamente cada mes/)).toBeInTheDocument();
   expect(screen.queryByText(/Usa únicamente datos de tarjeta de prueba/)).not.toBeInTheDocument();
   expect(screen.queryByText(/En TEST no se activa/)).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Continuar a Stripe Live' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Continuar al pago' })).toBeEnabled();
 });
 it("Mi plan presents local balances and uses an explicit cancellation confirmation", async () => {
   show(<MyPlanPage />);
@@ -290,7 +290,7 @@ it("Checkout requires validated promotion preview before sending to Stripe", asy
   });
   expect(screen.getByRole("button", { name: "Continuar a Stripe Test" }))
     .toBeDisabled();
-  fireEvent.click(screen.getByRole("button", { name: "Validar código" }));
+  fireEvent.click(screen.getByRole("button", { name: "Aplicar código" }));
   expect(await screen.findByText("Universidad UAZ")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Continuar a Stripe Test" }))
     .toBeEnabled();

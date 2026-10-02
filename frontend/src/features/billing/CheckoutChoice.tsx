@@ -121,6 +121,7 @@ export function CheckoutChoice(
             <label className="admin-field">
               Código promocional (opcional)<input
                 value={code}
+                disabled={busy}
                 maxLength={40}
                 onChange={(e) => {
                   setCode(e.target.value.toUpperCase());
@@ -134,7 +135,7 @@ export function CheckoutChoice(
               disabled={busy || !code}
               onClick={check}
             >
-              Validar código
+              Aplicar código
             </button>
           </div>
           {preview?.campaign && (
@@ -145,6 +146,7 @@ export function CheckoutChoice(
                   <li key={i}>{benefitLabel(b)} · {durationLabel(b)}</li>
                 ))}
               </ul>
+              <p>Precio normal: {money(normal, plan.currency)} · Descuento: {money(normal - checkoutAmount(normal, preview.campaign.benefits), plan.currency)} · Total: {money(checkoutAmount(normal, preview.campaign.benefits), plan.currency)}</p>
               <p>
                 Al terminar el beneficio de precio, se cobra el precio normal
                 contratado: {money(normal, plan.currency)} /{" "}
@@ -178,7 +180,7 @@ export function CheckoutChoice(
               >
                 {busy
                   ? "Preparando…"
-                  : (billing?.mode === "live" ? "Continuar a Stripe Live" : "Continuar a Stripe Test")}
+                  : (billing?.mode === "live" ? "Continuar al pago" : "Continuar a Stripe Test")}
               </button>
             )}
         </LegalAcceptanceGate>
