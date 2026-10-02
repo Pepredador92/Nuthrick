@@ -118,6 +118,26 @@ export function portalLink(token: string) {
   return `${publicUrl('/mi-espacio')}#${token}`;
 }
 
+async function portalSessionStorageKey(link: string) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(link),
+  );
+  return `nuthrick:portal-session:${base64Url(new Uint8Array(digest))}`;
+}
+
+export async function getStoredPortalSession(link: string) {
+  return localStorage.getItem(await portalSessionStorageKey(link));
+}
+
+export async function storePortalSession(link: string, session: string) {
+  localStorage.setItem(await portalSessionStorageKey(link), session);
+}
+
+export async function clearStoredPortalSession(link: string) {
+  localStorage.removeItem(await portalSessionStorageKey(link));
+}
+
 function base64Url(bytes: Uint8Array) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);

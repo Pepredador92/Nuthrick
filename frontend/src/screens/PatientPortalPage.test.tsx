@@ -6,6 +6,9 @@ import { portalAction, portalApi } from "@/src/services/patientPortal";
 vi.mock("@/src/services/patientPortal", () => ({
   portalApi: vi.fn(),
   portalAction: vi.fn(),
+  getStoredPortalSession: vi.fn().mockResolvedValue(null),
+  storePortalSession: vi.fn().mockResolvedValue(undefined),
+  clearStoredPortalSession: vi.fn().mockResolvedValue(undefined),
   subscribePortalNotifications: vi.fn().mockResolvedValue(() => {}),
   PortalError: class extends Error {
     code = "portal_unavailable";

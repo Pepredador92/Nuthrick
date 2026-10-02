@@ -1,5 +1,5 @@
 import { UpcomingAppointments } from "@/src/components/agenda/UpcomingAppointments";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import {
   Activity,
@@ -16,6 +16,9 @@ import {
   portalAction,
   PortalError,
   subscribePortalNotifications,
+  getStoredPortalSession,
+  storePortalSession,
+  clearStoredPortalSession,
   type PortalView,
 } from "@/src/services/patientPortal";
 import { playNotificationSound } from "@/src/features/notifications/sound";
@@ -33,19 +36,21 @@ export function PatientPortalPage() {
 function PatientPortalContent() {
   const location = useLocation();
   const link = location.hash.slice(1);
+  const hasValidLink = /^[A-Za-z0-9_-]{40,100}$/.test(link);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [challenge, setChallenge] = useState("");
   const [method, setMethod] = useState<"email" | "professional">("email");
   const [session, setSession] = useState("");
-  const [expiresAt, setExpiresAt] = useState("");
+  const [sessionReady, setSessionReady] = useState(!hasValidLink);
   const [view, setView] = useState<PortalView | null>(null);
   const [professionalOnline, setProfessionalOnline] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState("today");
   const access = useMemo(() => ({ session }), [session]);
-  function expire() {
+  const expire = useCallback(() => {
+    void clearStoredPortalSession(link).catch(() => {});
     setSession("");
     setView(null);
     setChallenge("");
@@ -53,7 +58,21 @@ function PatientPortalContent() {
     setError(
       "Tu sesión terminó. Solicita un nuevo código para volver a entrar.",
     );
-  }
+  }, [link]);
+  useEffect(() => {
+    let active = true;
+    if (!hasValidLink) return;
+    void getStoredPortalSession(link)
+      .then((stored) => {
+        if (!active) return;
+        if (stored) setSession(stored);
+        setSessionReady(true);
+      })
+      .catch(() => {
+        if (active) setSessionReady(true);
+      });
+    return () => { active = false; };
+  }, [hasValidLink, link]);
   useEffect(() => {
     if (!session) return;
     let active = true,
@@ -79,18 +98,13 @@ function PatientPortalContent() {
     };
     void refresh();
     const timer = window.setInterval(() => void refresh(), 15000);
-    const ttl = window.setTimeout(
-      expire,
-      Math.max(0, Date.parse(expiresAt) - Date.now()),
-    );
     document.addEventListener("visibilitychange", refresh);
     return () => {
       active = false;
       window.clearInterval(timer);
-      window.clearTimeout(ttl);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [session, expiresAt]);
+  }, [expire, session]);
   useEffect(() => {
     if (!session || !link) return;
     let active = true;
@@ -148,14 +162,20 @@ function PatientPortalContent() {
     setBusy(true);
     setError("");
     try {
-      const result = await portalApi<{ session: string; expiresAt: string }>(
+      const result = await portalApi<{ session: string }>(
         method === "professional"
           ? "portal_verify_professional"
           : "portal_verify",
         { link, id: challenge, code },
       );
-      setExpiresAt(result.expiresAt);
       setSession(result.session);
+      try {
+        await storePortalSession(link, result.session);
+      } catch {
+        setError(
+          "Tu navegador no permitió guardar el acceso. Podrás continuar, pero tendrás que volver a identificarte si cierras esta página.",
+        );
+      }
       setCode("");
     } catch (e) {
       setError((e as Error).message);
@@ -166,8 +186,10 @@ function PatientPortalContent() {
   async function logout() {
     try {
       await portalAction(access, "logout");
+      await clearStoredPortalSession(link);
     } catch {
-      /* Local erasure always completes. Server session expires after two hours. */
+      setError("No pudimos cerrar tu sesión. Revisa tu conexión e inténtalo de nuevo.");
+      return;
     }
     setSession("");
     setView(null);
@@ -196,7 +218,11 @@ function PatientPortalContent() {
             </button>
           )}
         </div>
-        {!session ? (
+        {!sessionReady ? (
+          <p role="status" className="portal-card mx-auto mt-12 max-w-md !p-8">
+            Abriendo tu espacio…
+          </p>
+        ) : !session ? (
           <div className="portal-card mx-auto mt-12 max-w-md !p-8">
             <div className="mb-6 grid size-14 place-items-center rounded-2xl bg-[#edf3e7]">
               <LockKeyhole size={25} />
