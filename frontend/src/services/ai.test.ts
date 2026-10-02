@@ -34,3 +34,7 @@ it('keeps OpenAI credentials and direct calls out of frontend modules',()=>{
     expect(source).not.toMatch(/OPENAI_API_KEY|api\.openai\.com|SUPABASE_SERVICE_ROLE_KEY/);
   }
 });
+it.each(['input_too_large','input_count_unavailable'])('explains %s and keeps the manual completion path clear', async code => {
+  vi.mocked(supabase.functions.invoke).mockResolvedValue({data:null,error:{context:{json:async()=>({error:code})}}} as never);
+  await expect(runAIRequest({feature:'pes_diagnosis',idempotencyKey:'key'})).rejects.toThrow(/manualmente/);
+});

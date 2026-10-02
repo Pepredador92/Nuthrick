@@ -3,6 +3,9 @@ import { supabase } from '@/src/lib/supabase';
 export type AIBalance = { available_credits: number; reserved_credits: number };
 export type AIState = 'idle' | 'generating' | 'ready' | 'error' | 'insufficient' | 'uncertain';
 export const aiMessages: Record<string,string> = {
+  input_too_large: 'El contexto supera el límite de esta función de IA. No se cobró esta solicitud. Puedes redactar y cerrar la consulta manualmente; contacta a soporte para revisar el contexto.',
+  input_count_unavailable: 'No pudimos comprobar el tamaño del contexto. No se generó una propuesta ni se cobró esta solicitud. Puedes reintentar o continuar manualmente.',
+  context_unavailable: 'La consulta cambió o ya no está disponible para esta solicitud. Guarda los cambios y actualiza la página. Puedes continuar manualmente.',
   instruction_agreements_required: 'Esta consulta no tiene objetivos o acciones registrados para redactar indicaciones. Puedes escribirlas manualmente.',
   insufficient_credits: 'Ya utilizaste los créditos de IA incluidos en tu plan.',
   feature_disabled: 'Esta función de IA aún no está habilitada.',

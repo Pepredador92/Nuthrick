@@ -118,3 +118,34 @@ Deno.test('JSON schema validation rejects unknown fields and wrong types',() => 
   const schema={type:'object',properties:{n:{type:'number'}},required:['n'],additionalProperties:false};
   assert.equal(validOutput(schema,{n:1}),true);assert.equal(validOutput(schema,{n:'1'}),false);assert.equal(validOutput(schema,{n:1,extra:true}),false);
 });
+
+Deno.test('clinical byte overestimate uses exact tokens without increasing the credit limit',async()=>{
+  const calls:{url:string;body:Record<string,unknown>}[]=[];
+  const provider=new OpenAIResponsesProvider('test',(_url,init)=>{
+    const url=String(_url);calls.push({url,body:JSON.parse(String(init?.body))});
+    return Promise.resolve(url.endsWith('/input_tokens') ? new Response(JSON.stringify({object:'response.input_tokens',input_tokens:2200})) : response());
+  });
+  await provider.run({...providerInput,config:{...config,feature:'pes_diagnosis'},context:{facts:'Datos sintéticos de consulta. '.repeat(400)}});
+  assert.equal(calls.length,2);assert.ok(calls[0].url.endsWith('/input_tokens'));assert.ok(calls[1].url.endsWith('/responses'));
+  for(const key of ['model','instructions','input','text'])assert.deepEqual(calls[0].body[key],calls[1].body[key]);
+  assert.equal(calls[1].body.max_output_tokens,config.max_output_tokens);
+});
+Deno.test('exact counts reject over budget and unavailable counts never start a generation',async()=>{
+  for(const count of [9000,null,-1,1.5]) {
+    let calls=0;
+    const provider=new OpenAIResponsesProvider('test',url=>{
+      calls++;assert.ok(String(url).endsWith('/input_tokens'));
+      return Promise.resolve(new Response(JSON.stringify({input_tokens:count})));
+    });
+    await assert.rejects(()=>provider.run({...providerInput,config:{...config,feature:'pes_diagnosis'},context:'a'.repeat(9000)}),count===9000?/input_too_large/:/input_count_unavailable/);
+    assert.equal(calls,1);
+  }
+});
+Deno.test('failed input count releases the full reservation without uncertain usage',async()=>{
+  const store:Store & AIStore=new Store();store.config=()=>Promise.resolve({...config,feature:'pes_diagnosis',prompt_version:'pes_diagnosis@1'});
+  store.context=()=>Promise.resolve({context:{facts:[{source:'Entrevista',finding:'a'.repeat(9000)}]},stamp:'s'});
+  store.bindContext=()=>Promise.resolve();
+  const provider=new OpenAIResponsesProvider('test',()=>Promise.reject(new Error('private provider failure')));
+  await assert.rejects(()=>runAIRequest({...request,feature:'pes_diagnosis',revision:1},store,provider),/input_count_unavailable/);
+  assert.equal(store.generation?.status,'failed');assert.deepEqual(store.settlements,[{input_tokens:0,output_tokens:0,cached_tokens:0}]);
+});

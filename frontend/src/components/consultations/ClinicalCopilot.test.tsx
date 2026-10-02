@@ -80,6 +80,17 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe("PES copilot", () => {
+  it("preserves manual review and approval after a context-size failure", async () => {
+    api.generate.mockRejectedValue(new AIRequestError("input_too_large"));
+    render(<PesCopilot {...props} answers={{ pes_problem: "P", pes_etiology: "E", pes_evidence: "Dato registrado", pes_statement: "PES manual revisado" }} />);
+    await screen.findByText("Antropometría disponible");
+    fireEvent.click(screen.getByText("Generar borrador"));
+    await screen.findByText(/Puedes redactar y cerrar la consulta manualmente/);
+    fireEvent.click(screen.getByText("Revisar PES escrito"));
+    fireEvent.click(screen.getByText("Aprobar"));
+    await waitFor(() => expect(props.onPes).toHaveBeenCalledWith(expect.objectContaining({ pesStatement: "PES manual revisado" })));
+    expect(sessionStorage.getItem("clinical-pending:test-consult:pes_diagnosis")).toBeNull();
+  });
   it.each(["B", "C"] as const)("explains real %s abstention without allowing approval", async (key) => {
     api.generate.mockResolvedValue({ generationId: "real-fixture", status: "succeeded", output: realCalibration[key].output, replay: false });
     render(<PesCopilot {...props} />);

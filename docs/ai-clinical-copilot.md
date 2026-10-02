@@ -1,5 +1,15 @@
 # IA-2 · Copiloto clínico
 
+## Corrección del límite de contexto · 2 de octubre de 2026
+
+- Causa: el filtro conservador de bytes + 2,048 se trataba como rechazo definitivo, aunque el límite configurado se expresa en tokens. Una consulta completa podía fallar antes de llegar al proveedor.
+- PES, objetivos e indicaciones ahora compactan el JSON y eliminan duplicados exactos. Conservan completos los hechos actuales permitidos por cada función. El historial numérico se limita a peso, cintura, IMC y porcentaje de grasa, con el primer/último registro **disponibles**, sus fechas, unidades y métodos. Se conservan lecturas contradictorias de esas fechas. No se interpreta ni calcula una evolución nueva, ni se escribe un resumen en el expediente. Se eliminó el recorte arbitrario a 700 caracteres de los hechos para objetivos/indicaciones.
+- Cuando el tamaño conservador supera el límite, se usa [el conteo exacto de tokens de OpenAI](https://developers.openai.com/api/docs/guides/token-counting) con las mismas instrucciones, entrada y esquema de salida. Se genera sólo si cabe en el límite contratado/configurado. El conteo no genera texto y no requiere una segunda generación de resumen. Sin conteo válido se libera la reserva; nunca se cobra uso generado inexistente ni se repite automáticamente una generación incierta. Se conserva un techo técnico de 64 KiB para estos contextos.
+- Los límites, modelos, precios, créditos y permisos permanecen iguales. PES usa `pes_diagnosis@2`; Edge `ai` v23 y migración `20261002195623_clinical_context_budget_fix.sql`. Configuración remota verificada: entrada 8,192, salida 4,096 y política válida.
+- Diagnóstico de sólo lectura del caso reportado: el contexto disponible durante la comprobación bajó de 8,465 a 6,245 bytes (26 %); esto mide tamaño de texto, no ahorro facturado de tokens. No se modificó el expediente ni se envió este caso a una generación de prueba.
+- Prueba real única con datos sintéticos: un conteo, una generación, 2,117 tokens de entrada, 316 de salida; estado completado, esquema y evidencia válidos, borrador PES presente. El resultado del conteo coincidió con el consumo de entrada reportado. No se cargó a una cuenta profesional de créditos.
+- Verificación: 42 pruebas focales frontend; 45 pruebas de proveedor/contratos y 22 pasos HTTP; typecheck, ESLint focal, Deno check, build y diff check. Incluye revisión/aprobación manual tras fallo de tamaño y las pruebas existentes de cierre. La consulta mantiene su cierre manual y sus validaciones profesionales cuando la IA no está disponible. Los errores de tamaño/conteo ahora explican el problema y esa alternativa.
+
 ## Actualización · 2 de octubre de 2026
 
 - **R24h:** en «Texto libre y análisis de alimentos → Capturar/Revisar recordatorio», el botón **Dictar** transcribe en español cuando el navegador admite `SpeechRecognition`. Se puede detener y corregir el texto antes de organizar los alimentos. Al ocultar la página o salir del componente se detiene la escucha. Nuthrick no guarda audio; el servicio de voz del navegador puede procesarlo en línea. Sin soporte o permiso, la captura escrita sigue disponible.

@@ -55,9 +55,10 @@ export class OpenAIResponsesProvider implements AIProvider {
     const started = performance.now();
     if (!this.key) throw new AIError('configuration_required');
     const input = JSON.stringify(context);
-    // Byte upper bound for text tokens + framing reserve. No images/tools or hidden history.
+    // A byte bound proves small inputs fit, but is not a token count. Clinical
+    // records that exceed it get an exact count before any generation, keeping
+    // the configured credit reservation instead of raising the spending limit.
     const bytes = new TextEncoder().encode(instructions + input + JSON.stringify(schema)).length;
-    if (bytes + 2048 > config.max_input_tokens) throw new AIError('input_too_large');
     const body = {
       model: config.model, instructions, input, store: false, background: false,
       max_output_tokens: config.max_output_tokens, truncation: 'disabled',
@@ -66,6 +67,25 @@ export class OpenAIResponsesProvider implements AIProvider {
       ...(config.temperature !== null ? { temperature: config.temperature } : {}),
     };
     const signal = AbortSignal.timeout(config.timeout_ms);
+    if (bytes + 2048 > config.max_input_tokens) {
+      if (!['pes_diagnosis','consultation_support','patient_instructions'].includes(config.feature) || bytes > 65536) throw new AIError('input_too_large');
+      let tokens: unknown;
+      try {
+        const count = await this.transport('https://api.openai.com/v1/responses/input_tokens', {
+          method: 'POST', signal: AbortSignal.any([signal, AbortSignal.timeout(10000)]),
+          headers: { Authorization: `Bearer ${this.key}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({model: body.model, instructions, input, text: body.text, truncation: 'disabled'}),
+        });
+        if (!count.ok) throw new Error('count_unavailable');
+        tokens = (await count.json()).input_tokens;
+        if (!Number.isSafeInteger(tokens) || Number(tokens) < 1) throw new Error('invalid_count');
+      } catch {
+        // No generation was dispatched: release the reservation, never mark
+        // this as uncertain usage or expose a provider response body.
+        throw new AIError('input_count_unavailable');
+      }
+      if (Number(tokens) > config.max_input_tokens) throw new AIError('input_too_large');
+    }
     // Only an explicit rate-limit rejection is retried once. Never replay timeout/5xx/network uncertainty.
     const attempts = config.max_provider_attempts === 1 || config.feature === 'diet_draft' ? 1 : 2;
     for (let attempt = 0; attempt < attempts; attempt++) {
