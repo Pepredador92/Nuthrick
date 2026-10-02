@@ -6,6 +6,7 @@ import {
 } from "../../src/components/consultations/ClinicalCopilot";
 import "./style.css";
 import { ClinicalObjective } from "../../src/components/consultations/ClinicalObjective";
+import { appendComposedText } from "../../src/features/consultations/composeClinicalText";
 function Fixture() {
   const [tab, setTab] = React.useState("pes");
   const [goal, setGoal] = React.useState(
@@ -57,6 +58,7 @@ function Fixture() {
             {...props}
             questionKey="treatment_objective"
             value={goal}
+            onApplySuggestion={(text) => setGoal((current) => appendComposedText(current, text))}
             before={async () => {
               localStorage.setItem("qa-goal-text", goal);
               return true;

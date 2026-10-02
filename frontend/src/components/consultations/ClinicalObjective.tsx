@@ -108,7 +108,7 @@ export function ClinicalObjective({
         El objetivo expresa lo acordado con el paciente. Las kcal objetivo y los
         macronutrientes se ajustan por separado.
       </p>
-      {questionKey !== "treatment_objective" && patientId && onApplySuggestion && (
+      {patientId && onApplySuggestion && (
         <ConsultationObjectiveAI
           patientId={patientId}
           consultationId={consultationId}

@@ -1,5 +1,11 @@
 # IA-2 · Copiloto clínico
 
+## Objetivo de la consulta inicial · 2 de octubre de 2026
+
+- Se habilitó el componente existente **Proponer objetivos con IA** en `treatment_objective` (Objetivo acordado con el paciente). Una condición de interfaz lo excluía de la consulta inicial aunque la generación y el guardado ya estaban integrados.
+- **Actualizar contexto** sólo carga datos. **Proponer objetivos** guarda la entrevista y solicita borradores mediante `consultation_support`, con los mismos permisos, configuración administrativa, contexto optimizado y créditos. La generación no reemplaza el texto ni lo aprueba: **Agregar a la entrevista** conserva lo escrito, agrega la propuesta elegida y permite editarla. La aprobación conserva el requisito de PES revisado.
+- Verificación: prueba de regresión que falla sin el ajuste y pasa con él; 26 pruebas focales de consulta/objetivos, typecheck, ESLint focal, build y diff check. Revisión visual local del componente real con respuesta sintética: generar, revisar y agregar manteniendo texto previo. Sin consumir créditos de IA ni modificar consultas reales. No hay cambios de backend, fórmulas ni persistencia.
+
 ## Corrección del límite de contexto · 2 de octubre de 2026
 
 - Causa: el filtro conservador de bytes + 2,048 se trataba como rechazo definitivo, aunque el límite configurado se expresa en tokens. Una consulta completa podía fallar antes de llegar al proveedor.

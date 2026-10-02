@@ -9,6 +9,16 @@ const mocks = vi.hoisted(() => ({
   adopt: vi.fn(),
   cancel: vi.fn(),
   ensure: vi.fn(),
+  objective: vi.fn(),
+  generate: vi.fn(),
+}));
+vi.mock("@/src/services/clinicalCopilot", async (original) => ({
+  ...(await original<object>()),
+  clinicalObjective: mocks.objective,
+}));
+vi.mock("@/src/services/ai", async (original) => ({
+  ...(await original<object>()),
+  runAIRequest: mocks.generate,
 }));
 const fixtures = vi.hoisted(() => {
   const c = {
@@ -200,6 +210,47 @@ beforeEach(() => {
 });
 
 describe("consultation save and review workflow", () => {
+  it("generates an initial treatment objective on request and saves only the reviewed editable text", async () => {
+    const question = fixtures.snapshot.structure.sections[0].questions[0];
+    const previous = { ...question };
+    Object.assign(question, {
+      question_key: "treatment_objective",
+      label: "Objetivo acordado con el paciente",
+      question_type: "long_text",
+    });
+    mocks.objective.mockResolvedValue({ stamp: "current", facts: [], pes: null, objective: null, target: null });
+    const suggestion = "Organizar las comidas durante la jornada laboral.";
+    mocks.generate.mockResolvedValue({ generationId: "g", status: "succeeded", output: {
+      objectives: [{ text: suggestion, evidence: [{ source: "Entrevista · expectations", finding: "Organizar comidas" }] }],
+    } });
+    try {
+      mount();
+      const field = await screen.findByLabelText(question.label);
+      fireEvent.click(screen.getByRole("button", { name: "Actualizar contexto" }));
+      await waitFor(() => expect(mocks.objective).toHaveBeenCalledTimes(2));
+      expect(mocks.generate).not.toHaveBeenCalled();
+      fireEvent.change(field, { target: { value: "Acuerdo escrito por el profesional." } });
+      fireEvent.click(screen.getByRole("button", { name: "Proponer objetivos con IA" }));
+      await screen.findByText(suggestion);
+      expect(mocks.generate).toHaveBeenCalledOnce();
+      expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
+        feature: "consultation_support", patientId: "patient", consultationId: "draft", revision: 1,
+      }));
+      expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(mocks.generate.mock.invocationCallOrder[0]);
+      expect(field).toHaveValue("Acuerdo escrito por el profesional.");
+      fireEvent.click(screen.getByRole("button", { name: "Agregar a la entrevista" }));
+      expect(field).toHaveValue(`Acuerdo escrito por el profesional.\n\n${suggestion}`);
+      expect(screen.getByRole("button", { name: "Aprobar objetivo" })).toBeDisabled();
+      expect(mocks.objective.mock.calls.every(args => args.length === 2)).toBe(true);
+      fireEvent.change(field, { target: { value: "Objetivo revisado y editado." } });
+      fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+      await waitFor(() => expect(mocks.save).toHaveBeenLastCalledWith(
+        expect.objectContaining({ id: "draft" }),
+        expect.objectContaining({ revision: 1 }),
+        { treatment_objective: "Objetivo revisado y editado." },
+      ));
+    } finally { Object.assign(question, previous); }
+  });
   it("respects the saved custom label even for a canonical question key", async () => {
     const question=fixtures.snapshot.structure.sections[0].questions[0];
     const previous={...question};

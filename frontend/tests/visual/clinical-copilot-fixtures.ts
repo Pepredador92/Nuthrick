@@ -163,6 +163,13 @@ export async function runAIRequest(request: {
   narrative?: string;
 }) {
   await new Promise((r) => setTimeout(r, 250));
+  if (request.feature === "consultation_support") return {
+    generationId: crypto.randomUUID(), status: "succeeded", replay: false,
+    output: { objectives: [{
+      text: "Organizar las comidas durante la jornada laboral.",
+      evidence: [{ source: "Entrevista · Motivo", finding: "Mejorar la regularidad de comidas" }],
+    }] },
+  };
   const item = (
     rawText: string,
     normalizedName: string,
