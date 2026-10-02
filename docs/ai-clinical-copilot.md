@@ -1,5 +1,17 @@
 # IA-2 · Copiloto clínico
 
+## Actualización · 2 de octubre de 2026
+
+- **R24h:** en «Texto libre y análisis de alimentos → Capturar/Revisar recordatorio», el botón **Dictar** transcribe en español cuando el navegador admite `SpeechRecognition`. Se puede detener y corregir el texto antes de organizar los alimentos. Al ocultar la página o salir del componente se detiene la escucha. Nuthrick no guarda audio; el servicio de voz del navegador puede procesarlo en línea. Sin soporte o permiso, la captura escrita sigue disponible.
+- **Resultados:** se mantienen kcal y gramos del catálogo. Se muestran también porcentajes calculados con los factores 4/4/9 existentes; el denominador es la energía de los macronutrientes, sin alterar las kcal del catálogo. Confirmar guarda el mismo registro canónico de alimentos, cantidades y narrativa que antes.
+- **Contexto clínico:** PES y objetivos reciben alimentos y nutrientes del R24h confirmado, calculados en servidor con la misma función pura que usa la entrevista. El texto bruto de la narrativa no se añade como evidencia. El contexto indica que describe un solo día, no la ingesta habitual.
+- **Indicaciones:** en la configuración del Super Link, junto al texto de indicaciones, **Preparar indicaciones con IA** permite elegir una consulta finalizada. Produce hasta tres borradores basados en sus acuerdos y R24h. El profesional revisa la evidencia, agrega lo que desea y publica mediante el flujo existente. No se genera una prescripción a partir del recordatorio ni se publica automáticamente.
+- **Administración y créditos:** nueva capacidad `ai.patient_instructions`, habilitada en Profesional y Full Access; configuración `patient_instructions@1`, copiada de objetivos (modelo `gpt-5.6-luna`, máximo 768 tokens de salida, un intento). Conserva consentimiento, límites, reserva y liquidación de créditos. Objetivos usa `consultation_support@2`. El dictado y los porcentajes no consumen créditos IA de Nuthrick. Sin acuerdos registrados se evita la llamada pagada de indicaciones.
+- **Servidor:** migración `20261002192736_recall_context_and_patient_instructions.sql` aplicada y Edge `ai` v22 activa, con JWT. El RPC de indicaciones sólo es ejecutable por `service_role`, valida propietario, paciente, consulta finalizada y revisión; PES/objetivos mantienen el requisito de borrador. La política global de IA fue verificada como válida.
+- **Verificación:** 44 pruebas focales de frontend; 25 de Deno más 22 pasos HTTP; prueba SQL aislada `node scripts/test-recall-guidance.mjs`; typecheck, ESLint focal, build y `git diff --check` correctos. Revisión visual local en escritorio y móvil con datos sintéticos. No se probaron audio real ni generaciones pagadas en esta entrega. Persisten los avisos previos del asesor de seguridad documentados al final; no aparecen avisos para el nuevo RPC.
+
+Lo siguiente conserva el registro histórico de la primera entrega (incluidos su estado deshabilitado y conteos originales).
+
 ## Alcance y uso
 
 PES está integrado en la sección existente **Diagnóstico nutricional (PES)** del Guión. R24h aparece junto al recordatorio existente, mediante **Capturar recordatorio**. No se sustituyeron los campos manuales ni se añadió IA al Taller, chat o Superlink.

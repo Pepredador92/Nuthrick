@@ -1,5 +1,3 @@
-import { calculateExchangeTotals } from "@/src/features/exchanges/model";
-import { exchangeContributionForFood } from "@/src/features/menu/model";
 import { normalizeFoodName } from "@/src/services/foodCatalog";
 import type { FoodItem, FoodSnapshot } from "@/src/types/domain";
 
@@ -154,25 +152,4 @@ export function canonicalRecallItem(
     food,
   };
 }
-export function calculateRecall(items: RecallSavedItem[]) {
-  const groups = items.flatMap((i) =>
-    exchangeContributionForFood(i.food, i.quantity),
-  );
-  const total = calculateExchangeTotals(groups);
-  const meals = [...new Set(items.map((i) => i.mealLabel))].map((mealLabel) => {
-    const totals = calculateExchangeTotals(
-      items
-        .filter((i) => i.mealLabel === mealLabel)
-        .flatMap((i) => exchangeContributionForFood(i.food, i.quantity)),
-    );
-    return {
-      mealLabel,
-      ...totals,
-      energyPercent:
-        total.energy_kcal > 0
-          ? (totals.energy_kcal / total.energy_kcal) * 100
-          : 0,
-    };
-  });
-  return { total, meals, groups };
-}
+export { calculateRecall } from "./recallNutrition";

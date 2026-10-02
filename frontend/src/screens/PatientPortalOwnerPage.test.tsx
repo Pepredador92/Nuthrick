@@ -3,7 +3,12 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
 import { PatientPortalOwnerPage } from "./PatientPortalOwnerPage";
 import { portalAction } from "@/src/services/patientPortal";
+import { runAIRequest } from "@/src/services/ai";
+import { getClinicalRevision } from "@/src/services/clinicalCopilot";
 import { loadLongitudinalHistory } from "@/src/services/longitudinalHistory";
+vi.mock("@/src/services/ai", async (original) => ({ ...(await original<object>()), runAIRequest: vi.fn() }));
+vi.mock("@/src/services/clinicalCopilot", () => ({ getClinicalRevision: vi.fn(async () => 1) }));
+vi.mock("@/src/components/ai/AIControls", () => ({ AIButton: ({ children, onClick, disabled }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button type="button" disabled={disabled} onClick={onClick}>{children}</button> }));
 vi.mock("@/src/services/patientPortal", () => ({
   portalAction: vi.fn(),
   portalLink: (s: string) => `https://example.invalid/mi-espacio#${s}`,
@@ -191,4 +196,24 @@ it("muestra el QR del enlace protegido cuando el acceso está habilitado", async
   fireEvent.click(await screen.findByRole("button", { name: "Mostrar QR" }));
   expect(await screen.findByRole("dialog", { name: "Código QR" })).toBeVisible();
   expect(screen.getByRole("img", { name: /Código QR del Super Link/ })).toBeVisible();
+});
+
+
+it("uses the selected completed consultation and appends reviewed instructions without publishing", async () => {
+  vi.mocked(runAIRequest).mockResolvedValue({ generationId: "g", status: "succeeded", replay: false, output: {
+    instructions: [{ text: "Prepara la colación que acordamos.", evidence: [{ source: "Entrevista · first actions", finding: "Preparar colación" }] }],
+  } });
+  render(<MemoryRouter initialEntries={["/app/patients/p1/portal"]}><Routes><Route path="/app/patients/:patientId/portal" element={<PatientPortalOwnerPage />} /></Routes></MemoryRouter>);
+  await screen.findByText("Su guía nutricional");
+  expect(getClinicalRevision).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText("Indicaciones nutricionales"), { target: { value: "Acuerdo previo." } });
+  fireEvent.click(screen.getByRole("button", { name: "Preparar indicaciones con IA" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Proponer indicaciones" }));
+  expect(getClinicalRevision).toHaveBeenCalledWith("p1", "c1");
+  expect(screen.getByLabelText("Consulta de origen").children).toHaveLength(1);
+  await screen.findByText("Prepara la colación que acordamos.");
+  expect(screen.getByLabelText("Indicaciones nutricionales")).toHaveValue("Acuerdo previo.");
+  fireEvent.click(screen.getByRole("button", { name: "Agregar a indicaciones" }));
+  expect(screen.getByLabelText("Indicaciones nutricionales")).toHaveValue("Acuerdo previo.\n\nPrepara la colación que acordamos.");
+  expect(vi.mocked(portalAction).mock.calls.some(call => call[1] === "publish")).toBe(false);
 });

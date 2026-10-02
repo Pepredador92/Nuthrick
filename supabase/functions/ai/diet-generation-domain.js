@@ -1134,6 +1134,24 @@ function parseDietModelOutput(value) {
   return issues.length ? { issues } : { data: value, issues };
 }
 
+// frontend/src/features/consultations/recallNutrition.ts
+function calculateRecall(items) {
+  const groups3 = items.flatMap((item) => exchangeContributionForFood(item.food, item.quantity));
+  const total = calculateExchangeTotals(groups3);
+  const meals = [...new Set(items.map((item) => item.mealLabel))].map((mealLabel) => {
+    const totals = calculateExchangeTotals(items.filter((item) => item.mealLabel === mealLabel).flatMap((item) => exchangeContributionForFood(item.food, item.quantity)));
+    return { mealLabel, ...totals, energyPercent: total.energy_kcal > 0 ? totals.energy_kcal / total.energy_kcal * 100 : 0 };
+  });
+  const grams = { CARBOHYDRATE: total.carbohydrate_g, PROTEIN: total.protein_g, FAT: total.fat_g };
+  const macroEnergy = macroCatalog.reduce((sum, macro) => sum + grams[macro.code] * macro.kcalPerGram, 0);
+  const macros = macroCatalog.map((macro) => ({
+    ...macro,
+    grams: grams[macro.code],
+    percentage: macroEnergy > 0 ? grams[macro.code] * macro.kcalPerGram / macroEnergy * 100 : null
+  }));
+  return { total, meals, groups: groups3, macros };
+}
+
 // frontend/src/features/diet-workshop/generationBoundary.ts
 var defaultPolicy = { restrictions: {}, unresolved: [] };
 var manualGenerationPolicy = () => structuredClone(defaultPolicy);
@@ -1313,6 +1331,7 @@ var FakeDietGenerator = class {
 export {
   FakeDietGenerator,
   applyDietGenerationDraft,
+  calculateRecall,
   dietGenerationOutputSchema,
   estimateDietPayload,
   getDietGenerationEligibility,

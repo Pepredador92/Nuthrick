@@ -229,6 +229,7 @@ export const featureLabels: Record<string, string> = {
   pes_diagnosis: "PES",
   diet_draft: "Taller",
   consultation_support: "Objetivos de consulta",
+  patient_instructions: "Indicaciones del paciente",
   diet_workshop: "Taller anterior",
   core_check: "Prueba técnica",
   consultation_summary: "Resumen",

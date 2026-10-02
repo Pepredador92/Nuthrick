@@ -1,5 +1,12 @@
 import { supabase } from "@/src/lib/supabase";
 import type { RecallSavedItem } from "@/src/features/consultations/clinicalCopilot";
+export async function getClinicalRevision(patientId: string, consultationId: string) {
+  const { data, error } = await supabase.from("consultation_snapshots")
+    .select("revision").eq("patient_id", patientId).eq("consultation_id", consultationId)
+    .order("revision", { ascending: false }).limit(1).maybeSingle();
+  if (error || !data) throw new Error("No pudimos cargar esta consulta. Intenta nuevamente.");
+  return data.revision as number;
+}
 export type ObjectiveWorkspace = {
   stamp: string;
   facts: { source: string; finding: string }[];

@@ -34,6 +34,7 @@ import { PortalChat } from "@/src/components/patients/PortalChat";
 import { PortalAccessCode } from "@/src/components/patients/PortalAccessCode";
 import { PortalPlanSharing } from "@/src/components/patients/PortalPlanSharing";
 import { PortalGoal } from "@/src/components/patients/PortalGoal";
+import { PortalInstructionAI } from "@/src/components/patients/PortalInstructionAI";
 import { PortalQrDialog } from "@/src/components/patients/PortalQrDialog";
 import { appendComposedText, composePatientInstructions } from "@/src/features/consultations/composeClinicalText";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
@@ -471,6 +472,8 @@ function OwnerPortal({ patientId }: { patientId: string }) {
               }
               placeholder="Escribe aquí las indicaciones que deseas que pueda consultar."
             />
+            <PortalInstructionAI key={patientId} patientId={patientId} consultations={consultations} disabled={busy}
+              onApply={(text) => setDraft((current) => ({ ...current, instructions: appendComposedText(current.instructions, text) }))} />
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
               <div className="flex items-start gap-2">
                 <ListChecks size={17} className="mt-0.5 text-amber-800" aria-hidden="true" />

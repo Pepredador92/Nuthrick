@@ -1,5 +1,6 @@
 // Offline visual/E2E fixture only. Never imported by the application build.
 import type { FoodItem } from "../../src/types/domain";
+export const hasSupabaseConfig = false;
 export const aiMessages = {
   insufficient_credits: "No tienes créditos de IA disponibles.",
   provider_outcome_unknown: "Comprueba la solicitud pendiente.",

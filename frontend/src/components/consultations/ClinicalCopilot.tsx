@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, Circle, X } from "lucide-react";
 import { AIButton } from "@/src/components/ai/AIControls";
+import { RecallNarrativeInput } from "./RecallNarrativeInput";
 import { CustomFoodForm } from "@/src/components/diet/MenuEditors";
 import {
   AIRequestError,
@@ -455,6 +456,18 @@ export function RecallTotals({
         {result.total.carbohydrate_g.toFixed(1)} g · Grasa{" "}
         {result.total.fat_g.toFixed(1)} g
       </p>
+      <div className="mt-3" aria-label="Distribución de macronutrientes">
+        <p className="text-xs font-semibold">Distribución energética por macronutriente</p>
+        <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-white" aria-hidden="true">
+          {result.macros.map((macro) => <span key={macro.code} style={{ width: `${macro.percentage ?? 0}%`, backgroundColor: macro.color }} />)}
+        </div>
+        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+          {result.macros.map((macro) => <li key={macro.code}>
+            {macro.label}: {macro.percentage === null ? "Sin datos" : `${macro.percentage.toFixed(1)} %`}
+          </li>)}
+        </ul>
+        <p className="mt-1 text-xs">Porcentajes sobre la energía de los macros, con factores 4/4/9.</p>
+      </div>
       <ul className="mt-2 text-xs">
         {result.meals.map((m) => (
           <li key={m.mealLabel}>
@@ -540,6 +553,7 @@ export function RecallCopilot(props: Props) {
   const clinical = useClinical(props, "recall_24h");
   const [open, setOpen] = useState(false);
   const [narrative, setNarrative] = useState("");
+  const [dictating, setDictating] = useState(false);
   const [foods, setFoods] = useState<FoodItem[]>([]);
   const [rows, setRows] = useState<RecallRow[]>([]);
   const [ambiguities, setAmbiguities] = useState<string[]>([]);
@@ -616,23 +630,14 @@ export function RecallCopilot(props: Props) {
       )}
       {open && (
         <div className="mt-4 space-y-4">
-          <label className="block text-sm">
-            Texto capturado
-            <textarea
-              className={input}
-              rows={4}
-              maxLength={8000}
-              disabled={clinical.state === "generating" || clinical.saving}
-              placeholder="Describe lo que comió y bebió, con las cantidades que recuerde."
-              value={narrative}
-              onChange={(e) => setNarrative(e.target.value)}
-            />
-          </label>
+          <RecallNarrativeInput value={narrative} onChange={setNarrative}
+            disabled={clinical.state === "generating" || clinical.saving} onListeningChange={setDictating} />
           <div className="flex flex-wrap gap-2">
             <AIButton capability="ai.recall_24h"
               state={clinical.state}
               disabled={
                 !narrative.trim() ||
+                dictating ||
                 !foods.length ||
                 clinical.saving ||
                 !!replacement
@@ -896,6 +901,7 @@ export function RecallCopilot(props: Props) {
               className={secondary}
               disabled={
                 clinical.saving ||
+                dictating ||
                 clinical.state === "generating" ||
                 !!replacement ||
                 !items.length ||

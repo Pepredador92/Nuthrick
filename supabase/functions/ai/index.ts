@@ -1,7 +1,8 @@
 import { productOriginAllowed, siteOrigin } from '../_shared/site.ts';
 import { createClient } from '@supabase/supabase-js';
 import { AIError, type AIStore, type FeatureConfig, type Generation, OpenAIResponsesProvider, parseRequest, runAIRequest } from './core.ts';
-import { buildConsultationSupportContext, buildPesClinicalContext, redactClinicalText, type ClinicalSource, type ConsultationSupportFact } from './clinical.ts';
+import { buildConsultationSupportContext, buildPesClinicalContext, instructionAgreement, redactClinicalText, type ClinicalSource, type ConsultationSupportFact } from './clinical.ts';
+import { withConfirmedRecall } from './recall-context.ts';
 import { prepareDietSnapshot, prepareDietAlternative, verifyDietSnapshot, validateSnapshot, parseDietDecision, DietRoutingProvider, type DietSnapshot } from './diet.ts';
 import { dietPreflight } from './diet-ux.ts';
 import { localDietTestMode, SimulatedDietProvider } from './diet-provider-test.ts';
@@ -104,13 +105,14 @@ Deno.serve(async request => {
           }else dietSnapshot=await prepareDietSnapshot(loaded);
           return {stamp:dietSnapshot.sourceStamp,context:dietSnapshot.prepared.payload};
         }
-        const { data: source, error } = await db.rpc('ai_clinical_source',{p_owner:owner,p_patient:r.patientId,p_consultation:r.consultationId,p_revision:r.revision});
+        const { data: source, error } = await db.rpc(r.feature==='patient_instructions' ? 'ai_patient_instructions_source' : 'ai_clinical_source',{p_owner:owner,p_patient:r.patientId,p_consultation:r.consultationId,p_revision:r.revision});
         if (error || !source) throw new AIError('context_unavailable');
-        const clinical = source as ClinicalSource;
+        const clinical = r.feature==='recall_24h' ? source as ClinicalSource : withConfirmedRecall(source as ClinicalSource);
         const context=r.feature==='pes_diagnosis' ? buildPesClinicalContext(clinical)
-          : r.feature==='consultation_support' ? buildConsultationSupportContext(clinical)
+          : ['consultation_support','patient_instructions'].includes(r.feature) ? buildConsultationSupportContext(clinical,r.feature==='patient_instructions')
           : {narrative:redactClinicalText(r.narrative!,clinical.identifiers?.filter((v): v is string => typeof v === 'string'))};
-        if(r.feature==='consultation_support') consultationSupportFacts=(context as {facts:ConsultationSupportFact[]}).facts;
+        if(['consultation_support','patient_instructions'].includes(r.feature)) consultationSupportFacts=(context as {facts:ConsultationSupportFact[]}).facts;
+        if(r.feature==='patient_instructions' && !consultationSupportFacts?.some(fact=>instructionAgreement(fact.source))) throw new AIError('instruction_agreements_required');
         if ('facts' in context && context.facts.length===0) throw new AIError('context_unavailable');
         return {stamp:clinical.stamp,context};
       },
@@ -151,10 +153,11 @@ Deno.serve(async request => {
       await verifyDietSnapshot(saved.snapshot);
       return respond({...result,output:{validation:saved.result.validation,hasManualMenu:saved.snapshot.hasManualMenu,snapshotHash:saved.snapshot.hash},decision:saved.decision});
     }
-    if(input.feature==='consultation_support' && result.output && consultationSupportFacts) {
-      const output=result.output as {objectives:{text:string;evidenceFactIds:string[]}[]};
+    if(['consultation_support','patient_instructions'].includes(input.feature) && result.output && consultationSupportFacts) {
+      const key=input.feature==='patient_instructions'?'instructions':'objectives';
+      const output=result.output as Record<typeof key,{text:string;evidenceFactIds:string[]}[]>;
       return respond({...result,output:{
-        objectives:output.objectives.map(objective=>({
+        [key]:output[key].map(objective=>({
           text:objective.text,
           evidence:objective.evidenceFactIds.flatMap(id=>{
             const fact=consultationSupportFacts!.find(candidate=>candidate.id===id);

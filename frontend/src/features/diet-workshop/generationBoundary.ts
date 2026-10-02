@@ -194,3 +194,5 @@ export class FakeDietGenerator implements DietGenerator {
   }
 }
 export { dietGenerationOutputSchema, parseDietModelOutput } from './generationSchema';
+
+export { calculateRecall } from "../consultations/recallNutrition";

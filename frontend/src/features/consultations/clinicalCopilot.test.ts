@@ -202,3 +202,14 @@ describe("clinical recall deterministic model", () => {
     expect(r.meals.map((m) => m.energyPercent)).toEqual([50, 50]);
   });
 });
+
+
+describe("recall macro distribution", () => {
+  it("uses the existing 4/4/9 factors and leaves catalog energy unchanged", () => {
+    const result = calculateRecall([{ mealLabel: "Desayuno", rawText: "1 huevo", quantity: 1, unit: "piece", food: egg }]);
+    expect(result.total.energy_kcal).toBe(75);
+    expect(result.macros.find(macro => macro.code === "PROTEIN")?.percentage).toBeCloseTo(7 * 4 / (7 * 4 + 5 * 9) * 100);
+    expect(result.macros.reduce((sum, macro) => sum + (macro.percentage ?? 0), 0)).toBeCloseTo(100);
+    expect(calculateRecall([]).macros.every(macro => macro.percentage === null)).toBe(true);
+  });
+});

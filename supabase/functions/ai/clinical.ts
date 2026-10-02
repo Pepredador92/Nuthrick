@@ -36,6 +36,7 @@ export const consultationSupportSchema = object({
     }),
   },
 });
+export const patientInstructionsSchema = object({ instructions: consultationSupportSchema.properties.objectives });
 export const recallSchema = object({
   meals: {
     type: "array",
@@ -72,10 +73,15 @@ export function clinicalAdapter(feature: string, version: string) {
       schema: pesSchema,
       instructions: `${boundary} Redacta únicamente un borrador nutricional PES para revisión profesional. Usa SOLO facts. Cada evidence debe copiar literalmente source y finding de un fact disponible; nunca inventes mediciones, síntomas, antecedentes o consumo. Si falta sustento, deja el campo vacío y explica en missingContext/uncertainties. Señala contradicciones sin resolverlas por tu cuenta. No presentes la propuesta como diagnóstico validado.`,
     };
-  if (feature === "consultation_support" && version === "consultation_support@1")
+  if (feature === "consultation_support" && ["consultation_support@1", "consultation_support@2"].includes(version))
     return {
       schema: consultationSupportSchema,
-      instructions: `${boundary} Sugiere de 0 a 3 borradores de objetivos conductuales para que el profesional los converse y acuerde con la persona. Prioriza lo que la persona expresó como importante y las acciones que ya constan en facts; usa el historial solo como contexto, nunca conviertas una medición en una meta. No inventes frecuencia, plazo, capacidad, diagnóstico, conducta, preferencias ni resultados. No indiques pérdida de peso ni metas numéricas, kcal, macros, suplementos o cambios de tratamiento salvo que consten literalmente como acuerdo y aun así pide revisión. Redacta en lenguaje sencillo, concreto y respetuoso, centrado en acciones bajo control de la persona. Cada objetivo debe citar de 1 a 3 evidenceFactIds existentes. Si no hay base explícita para una propuesta, devuelve objectives vacío. No apruebes ni guardes objetivos.`,
+      instructions: `${boundary} Sugiere de 0 a 3 borradores de objetivos conductuales para que el profesional los converse y acuerde con la persona. Prioriza lo que la persona expresó como importante y las acciones que ya constan en facts; usa el historial solo como contexto, nunca conviertas una medición en una meta. El recordatorio y su consumo estimado aportan contexto de UN día: no infieras hábitos ni prescribas metas a partir de él. No inventes frecuencia, plazo, capacidad, diagnóstico, conducta, preferencias ni resultados. No indiques pérdida de peso ni metas numéricas, kcal, macros, suplementos o cambios de tratamiento salvo que consten literalmente como acuerdo y aun así pide revisión. Redacta en lenguaje sencillo, concreto y respetuoso, centrado en acciones bajo control de la persona. Cada objetivo debe citar de 1 a 3 evidenceFactIds existentes. Si no hay base explícita para una propuesta, devuelve objectives vacío. No apruebes ni guardes objetivos.`,
+    };
+  if (feature === "patient_instructions" && version === "patient_instructions@1")
+    return {
+      schema: patientInstructionsSchema,
+      instructions: `${boundary} Redacta de 0 a 3 borradores breves de indicaciones nutricionales en lenguaje sencillo para revisión del profesional antes de compartir con el paciente. Reformula SOLO acciones, objetivos o acuerdos registrados en facts. Cuando estén documentados, incluye qué hacer, cuándo y cómo revisarlo; omite los datos faltantes. Usa el recordatorio confirmado y su consumo estimado únicamente para contextualizar esos acuerdos, sin inferir hábitos a partir de UN día. No inventes ni calcules dietas, alimentos nuevos, cantidades, frecuencias, metas de peso/kcal/macros, diagnósticos, tratamientos, suplementos o plazos. Respeta las alergias y limitaciones documentadas; ante contradicciones omite la propuesta. Nunca presentes propuestas pendientes como acuerdos ya aceptados. Cada indicación debe citar 1 a 3 evidenceFactIds y al menos uno debe ser un acuerdo/objetivo/acción de la entrevista; el recordatorio solo no basta. Si no hay acuerdos suficientes devuelve instructions vacío. No incluyas identidad, diagnósticos privados ni notas internas en el texto destinado al paciente. No guardes ni publiques.`,
     };
   if (feature === "recall_24h" && version === "recall_24h@1")
     return {
@@ -90,6 +96,7 @@ export type ClinicalSource = {
   identifiers?: string[];
   stamp: string;
   records?: unknown;
+  recall?: unknown;
 };
 export function redactClinicalText(value: string, identifiers: string[] = []) {
   let result = value;
@@ -126,18 +133,26 @@ export function buildPesClinicalContext(source: ClinicalSource) {
   };
 }
 export type ConsultationSupportFact = ClinicalFact & { id: string };
-export function buildConsultationSupportContext(source: ClinicalSource) {
+export const instructionAgreement = (source: string) => /^Entrevista · (objectives|next objectives|treatment objective|first actions|adjustments)$/.test(source);
+export function buildConsultationSupportContext(source: ClinicalSource, instructions = false) {
   const permitted = source.facts.filter((fact) => {
     const sourceLabel = fact?.source?.toLocaleLowerCase() ?? "";
     if (sourceLabel.startsWith("entrevista · ")) {
-      return /(?:main reason|expectations|consult now|objectives|treatment objective|next objectives|first actions|interview priorities|access barriers|eating drivers|changes since last|progress perception|symptoms changes|medical changes|indicators reviewed|barriers|adjustments|measurement notes|indicator progress)/i.test(sourceLabel);
+      return /(?:main reason|expectations|consult now|objectives|treatment objective|next objectives|first actions|interview priorities|access barriers|eating drivers|changes since last|progress perception|symptoms changes|medical changes|indicators reviewed|barriers|adjustments|measurement notes|indicator progress|recall 24h v2|recall date|recall day type)/i.test(sourceLabel)
+        || instructions && /(?:medical history|medical diagnoses|medication|food reactions)/i.test(sourceLabel);
     }
+    if (sourceLabel.startsWith("recordatorio confirmado")) return true;
     if (sourceLabel.startsWith("historial · "))
       return /(?:^| · )(?:peso|peso corporal|índice de masa corporal|imc|porcentaje de grasa corporal)(?: ·|$)/i.test(sourceLabel);
     if (sourceLabel.startsWith("historial calculado · "))
       return /(?:^| · )(?:imc|índice de masa corporal|porcentaje de grasa corporal)(?: ·|$)/i.test(sourceLabel);
     return false;
-  }).slice(0, 18);
+  }).sort((a, b) => {
+    const rank = (fact: ClinicalFact) => /food reactions|medication|medical diagnoses/.test(fact.source) ? 0
+      : /objectives|treatment objective|first actions|adjustments/.test(fact.source) ? 1
+        : fact.source.startsWith("Recordatorio confirmado") ? 2 : 3;
+    return rank(a) - rank(b);
+  }).slice(0, 20);
   const facts = permitted.flatMap((fact, index) => {
     if (typeof fact?.source !== "string" || typeof fact.finding !== "string") return [];
     const finding = redactClinicalText(fact.finding.trim(), source.identifiers).slice(0, 700);
@@ -168,15 +183,18 @@ export function clinicalEvidenceValid(
       )
     );
   }
-  if (feature === "consultation_support") {
+  if (feature === "consultation_support" || feature === "patient_instructions") {
     const o = output as {
       objectives: { text: string; evidenceFactIds: string[] }[];
+      instructions: { text: string; evidenceFactIds: string[] }[];
     };
     const facts = (context as { facts: ConsultationSupportFact[] }).facts;
-    return o.objectives.every((objective) =>
+    const drafts = feature === "patient_instructions" ? o.instructions : o.objectives;
+    return drafts.every((objective) =>
       objective.text.trim().length >= 8 &&
       objective.evidenceFactIds.length > 0 &&
-      objective.evidenceFactIds.every((id) => facts.some((fact) => fact.id === id)),
+      objective.evidenceFactIds.every((id) => facts.some((fact) => fact.id === id)) &&
+      (feature !== "patient_instructions" || objective.evidenceFactIds.some((id) => facts.some(fact => fact.id === id && instructionAgreement(fact.source)))),
     );
   }
   if (feature === "recall_24h") {

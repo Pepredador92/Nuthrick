@@ -22,8 +22,12 @@ Deno.test('HTTP production handler: contracts, auth, upstream failures and secre
     if(url.includes('/rest/v1/rpc/')) {
       const body=JSON.parse(String(init?.body));
       if(url.endsWith('ai_clinical_source')) return mode==='foreign' ? json({message:'context_unavailable'},403) : json({facts:mode==='empty'?[]:recorded.A.exactInput.context.facts,identifiers:[],stamp:'stamp'});
+      if(url.endsWith('ai_patient_instructions_source')) return mode==='foreign-instructions' ? json({message:'context_unavailable'},403) : json({
+        stamp:'s', identifiers:[], facts:mode==='no-agreements'?[]:[{source:'Entrevista · first actions',finding:'Preparar la colación acordada'}],
+        recall:{approved_at:'2026-10-02',items:[{mealLabel:'Desayuno',quantity:1,unit:'piece',food:{name:'Huevo',portion_amount:1,portion_unit:'piece',group_code:'AOA_MODERATE_FAT'}}]},
+      });
       if(url.endsWith('ai_bind_clinical_context')) return json(null);
-      if(body.p_action==='config') return json(config);
+      if(body.p_action==='config') return json(body.p_data.feature==='patient_instructions'?{...config,feature:'patient_instructions',prompt_version:'patient_instructions@1'}:config);
       if(body.p_action==='reserve') return mode==='budget' ? json({message:'pilot_daily_budget'},400) : json({created:true,generation:{id:owner,status:'reserved'}});
       if(body.p_action==='claim') return json({claimed:true});
       return json({id:owner,status:body.p_data?.status??'uncertain'});
@@ -31,7 +35,8 @@ Deno.test('HTTP production handler: contracts, auth, upstream failures and secre
     assert.equal(url,'https://api.openai.com/v1/responses'); calls++;
     if(mode==='timeout') { await new Promise((_,reject)=>init!.signal!.addEventListener('abort',()=>reject(new Error(env.OPENAI_API_KEY)),{once:true})); }
     if(mode==='upstream') return json({error:{code:env.OPENAI_API_KEY,message:env.SUPABASE_SERVICE_ROLE_KEY}},503);
-    const output=mode==='schema'?{bad:true}:mode==='empty'?recorded.B.output:recorded.A.output;
+    if(mode==='instructions') assert.ok(String(init?.body).includes('75 kcal'));
+    const output=mode==='instructions'?{instructions:[{text:'Preparar la colación acordada.',evidenceFactIds:['f1','f2']}]}:mode==='schema'?{bad:true}:mode==='empty'?recorded.B.output:recorded.A.output;
     return json({id:'resp_mock',status:'completed',usage:{input_tokens:10,output_tokens:10,total_tokens:20},output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(output)}]}]});
   };
   Deno.serve = ((handler: Deno.ServeHandler)=> { server=nativeServe({hostname:'127.0.0.1',port:0,onListen:a=>{port=a.port;}},handler); return server; }) as typeof Deno.serve;
@@ -60,6 +65,10 @@ Deno.test('HTTP production handler: contracts, auth, upstream failures and secre
     mode='upstream'; await check('upstream error',request,409,'provider_outcome_unknown');
     mode='timeout'; await check('controlled timeout',request,409,'provider_outcome_unknown');
     mode='ok'; await check('valid response',request,200);
+    const count=calls, guidance={...request,feature:'patient_instructions'};
+    mode='no-agreements'; await check('no agreements prevents paid call',guidance,409,'instruction_agreements_required'); assert.equal(calls,count);
+    mode='foreign-instructions'; await check('foreign instruction source rejected',guidance,409,'context_unavailable'); assert.equal(calls,count);
+    mode='instructions'; await check('guidance uses catalog recall and cited agreements',guidance,200); assert.equal(calls,count+1);
     await t.step('no secret in logs',()=>{for(const secret of [env.OPENAI_API_KEY,env.SUPABASE_SERVICE_ROLE_KEY]) assert.ok(!logs.join('\n').includes(secret));});
   } finally {
     await server!?.shutdown(); globalThis.fetch=nativeFetch; Deno.serve=nativeServe; console.warn=nativeWarn;

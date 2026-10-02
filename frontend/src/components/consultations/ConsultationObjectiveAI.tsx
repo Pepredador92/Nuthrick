@@ -10,20 +10,32 @@ import {
 type Evidence = { source: string; finding: string };
 type Suggestion = { text: string; evidence: Evidence[] };
 
-export function ConsultationObjectiveAI({
-  patientId,
-  consultationId,
-  revision,
-  before,
-  onApply,
-}: {
+type SuggestionProps = {
   patientId: string;
   consultationId: string;
   revision: number;
   before: () => Promise<boolean>;
   onApply: (text: string) => void;
-}) {
-  const storageKey = `clinical-pending:${consultationId}:consultation_support`;
+  disabled?: boolean;
+};
+
+export function ConsultationObjectiveAI(props: SuggestionProps) {
+  return <ClinicalSuggestionsAI {...props} kind="objectives" />;
+}
+
+export function ClinicalSuggestionsAI({
+  patientId,
+  consultationId,
+  revision,
+  before,
+  onApply,
+  kind,
+  disabled = false,
+}: SuggestionProps & { kind: "objectives" | "instructions" }) {
+  const instructions = kind === "instructions";
+  const feature = instructions ? "patient_instructions" : "consultation_support";
+  const label = instructions ? "indicaciones" : "objetivos";
+  const storageKey = `clinical-pending:${consultationId}:${feature}`;
   const [state, setState] = useState<AIState>(() =>
     sessionStorage.getItem(storageKey) ? "uncertain" : "idle",
   );
@@ -32,6 +44,7 @@ export function ConsultationObjectiveAI({
   const [applied, setApplied] = useState<number[]>([]);
 
   async function generate() {
+    if (disabled || state === "generating") return;
     if (sessionStorage.getItem(storageKey)) {
       setState("uncertain");
       setMessage("Comprueba primero el estado de la solicitud pendiente.");
@@ -40,13 +53,14 @@ export function ConsultationObjectiveAI({
     setState("generating");
     setMessage("");
     setSuggestions([]);
+    setApplied([]);
     try {
       if (!(await before()))
         throw new Error("Guarda la entrevista antes de continuar.");
       const idempotencyKey = crypto.randomUUID();
       sessionStorage.setItem(storageKey, idempotencyKey);
       const result = await runAIRequest({
-        feature: "consultation_support",
+        feature,
         idempotencyKey,
         patientId,
         consultationId,
@@ -59,9 +73,11 @@ export function ConsultationObjectiveAI({
       }
       const output = result.output as {
         objectives?: unknown;
+        instructions?: unknown;
       };
-      const next = Array.isArray(output.objectives)
-        ? output.objectives.flatMap((item) => {
+      const drafts = output[kind];
+      const next = Array.isArray(drafts)
+        ? drafts.flatMap((item) => {
             if (!item || typeof item !== "object") return [];
             const candidate = item as Partial<Suggestion>;
             if (typeof candidate.text !== "string" || !candidate.text.trim())
@@ -75,7 +91,7 @@ export function ConsultationObjectiveAI({
                     typeof (entry as Evidence).finding === "string",
                 )
               : [];
-            return [{ text: candidate.text.trim(), evidence }];
+            return evidence.length ? [{ text: candidate.text.trim(), evidence }] : [];
           })
         : [];
       sessionStorage.removeItem(storageKey);
@@ -83,7 +99,7 @@ export function ConsultationObjectiveAI({
       setState("ready");
       if (!next.length)
         setMessage(
-          "No hay información suficiente para proponer un objetivo concreto. Puedes completar estos datos o redactarlo manualmente.",
+          `No hay acuerdos suficientes para proponer ${label}. Puedes completar lo conversado con el paciente o redactar manualmente.`,
         );
     } catch (error) {
       const uncertain =
@@ -126,18 +142,19 @@ export function ConsultationObjectiveAI({
     <section className="mt-4 rounded-xl border border-blue-200 bg-blue-50/60 p-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h4 className="text-sm font-semibold text-[#173d36]">Proponer objetivos con IA</h4>
+          <h4 className="text-sm font-semibold text-[#173d36]">Proponer {label} con IA</h4>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-[#52675f]">
             Máximo 3 borradores breves, basados en lo registrado. Usa créditos de IA según el consumo real.
           </p>
         </div>
         <AIButton
-          capability="ai.consultation_support"
+          capability={instructions ? "ai.patient_instructions" : "ai.consultation_support"}
+          disabled={disabled}
           state={state}
           onClick={() => void generate()}
-          aria-label="Proponer objetivos con IA"
+          aria-label={`Proponer ${label} con IA`}
         >
-          Proponer objetivos
+          Proponer {label}
         </AIButton>
       </div>
       {state === "uncertain" && (
@@ -177,13 +194,13 @@ export function ConsultationObjectiveAI({
               <button
                 type="button"
                 className="mt-3 rounded-lg border border-[#c9d9ce] px-3 py-2 text-xs font-semibold text-[#315e4f] hover:bg-[#f4f8f5]"
-                disabled={applied.includes(index)}
+                disabled={disabled || applied.includes(index)}
                 onClick={() => {
                   onApply(suggestion.text);
                   setApplied((items) => [...items, index]);
                 }}
               >
-                {applied.includes(index) ? "Agregado · puedes editarlo" : "Agregar a la entrevista"}
+                {applied.includes(index) ? "Agregado · puedes editarlo" : instructions ? "Agregar a indicaciones" : "Agregar a la entrevista"}
               </button>
             </article>
           ))}

@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ConsultationObjectiveAI } from "./ConsultationObjectiveAI";
+import { ClinicalSuggestionsAI, ConsultationObjectiveAI } from "./ConsultationObjectiveAI";
 
 const api = vi.hoisted(() => ({ generate: vi.fn(), status: vi.fn() }));
 vi.mock("@/src/services/ai", async (original) => ({
@@ -62,4 +62,20 @@ describe("ConsultationObjectiveAI", () => {
     await waitFor(() => expect(screen.getByRole("status").textContent).toContain("Guarda la entrevista"));
     expect(api.generate).not.toHaveBeenCalled();
   });
+});
+
+
+it("drafts instructions separately, preserves review and can apply a new generation", async () => {
+  api.generate.mockResolvedValue({ generationId: "g", status: "succeeded", output: {
+    instructions: [{ text: "Prepara la colación acordada antes de salir.", evidence: [{ source: "Entrevista · first actions", finding: "Preparar colación" }] }],
+  } });
+  render(<ClinicalSuggestionsAI {...props} kind="instructions" />);
+  fireEvent.click(screen.getByRole("button", { name: "Proponer indicaciones" }));
+  await screen.findByText("Prepara la colación acordada antes de salir.");
+  expect(api.generate).toHaveBeenCalledWith(expect.objectContaining({ feature: "patient_instructions" }));
+  expect(props.onApply).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Agregar a indicaciones" }));
+  expect(props.onApply).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole("button", { name: "Proponer indicaciones" }));
+  expect(await screen.findByRole("button", { name: "Agregar a indicaciones" })).toBeEnabled();
 });

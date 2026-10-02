@@ -3,6 +3,7 @@ import { supabase } from '@/src/lib/supabase';
 export type AIBalance = { available_credits: number; reserved_credits: number };
 export type AIState = 'idle' | 'generating' | 'ready' | 'error' | 'insufficient' | 'uncertain';
 export const aiMessages: Record<string,string> = {
+  instruction_agreements_required: 'Esta consulta no tiene objetivos o acciones registrados para redactar indicaciones. Puedes escribirlas manualmente.',
   insufficient_credits: 'Ya utilizaste los créditos de IA incluidos en tu plan.',
   feature_disabled: 'Esta función de IA aún no está habilitada.',
   pilot_limit_reached: 'Se alcanzó el límite de uso de esta función.',

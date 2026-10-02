@@ -1,0 +1,14 @@
+select pg_temp.assert_true(not has_function_privilege('authenticated','public.ai_patient_instructions_source(uuid,uuid,uuid,integer)','EXECUTE'),'instruction source cannot be invoked directly by the browser');
+select pg_temp.assert_true(not has_function_privilege('anon','public.ai_patient_instructions_source(uuid,uuid,uuid,integer)','EXECUTE'),'instruction source denies anonymous access');
+select pg_temp.assert_true(has_function_privilege('service_role','public.ai_patient_instructions_source(uuid,uuid,uuid,integer)','EXECUTE'),'server can read authorized context');
+select pg_temp.assert_true(ai_patient_instructions_source('00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',2)->'recall'->>'narrative'='2 huevos','completed context includes confirmed recall');
+select pg_temp.reject($q$select ai_patient_instructions_source('00000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',2)$q$,'context_unavailable');
+select pg_temp.reject($q$select ai_patient_instructions_source('00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001',2)$q$,'context_unavailable');
+select pg_temp.reject($q$select ai_patient_instructions_source('00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',1)$q$,'context_unavailable');
+select pg_temp.reject($q$select ai_patient_instructions_source('00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',null)$q$,'context_unavailable');
+select pg_temp.reject($q$select ai_clinical_source('00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',2)$q$,'context_unavailable');
+update consultations set deleted_at=now();
+select pg_temp.reject($q$select ai_patient_instructions_source('00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',2)$q$,'context_unavailable');
+update consultations set deleted_at=null,status='draft';
+select pg_temp.reject($q$select ai_patient_instructions_source('00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',2)$q$,'context_unavailable');
+select pg_temp.assert_true(ai_clinical_source('00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',2)->'recall'->>'narrative'='2 huevos','PES and objectives receive the same frozen food record');
