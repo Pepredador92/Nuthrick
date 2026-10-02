@@ -27,6 +27,12 @@ function show() {
     </MemoryRouter>,
   );
 }
+it('advertises the card trial only when the server enables it', async () => {
+  rpc.mockResolvedValue({ data: [{...plan,welcome_trial_days:30}],error:null });
+  show();
+  expect(await screen.findByText('30 días gratis')).toBeInTheDocument();
+  expect(screen.getByText('Para nuevos usuarios · Con tarjeta')).toBeInTheDocument();
+});
 it("reads the public projection and toggles independently configured prices", async () => {
   show();
   expect(await screen.findByText("Plan configurable")).toBeInTheDocument();

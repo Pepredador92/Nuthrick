@@ -164,3 +164,7 @@
 .billing-retention-patients { max-height: 240px; overflow-y: auto; margin: 12px 0; }
 .billing-retention-patients label, .billing-retention-consent { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; }
 .billing-retention input[type="checkbox"] { flex: 0 0 auto; margin-top: 6px; }
+.commercial-plan-trial { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.35rem .75rem; padding:.75rem 1rem; border-radius:.75rem; background:#e7f3ed; color:#173f35; margin-bottom:1rem; }
+.commercial-plan-trial span { font-size:.8rem; }
+.billing-trial-consent { display:flex; align-items:flex-start; gap:.6rem; margin-top:1rem; line-height:1.5; }
+.billing-trial-consent input { flex:none; margin-top:.3rem; }

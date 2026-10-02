@@ -40,6 +40,7 @@ try {
     const file of [
       "20260930200548_controlled_ai_credit_pilot.sql",
       "20260930204511_live_ai_production.sql",
+      "20260930182752_retention_backup_plan.sql",
       "20261002065042_public_subscription_sales.sql",
       "20261002070010_commercial_editable_prices_readiness.sql",
     ]
@@ -75,11 +76,14 @@ try {
  select set_config('request.jwt.claim.sub',(select user_id::text from private.platform_admins limit 1),true);
  select pg_temp.sales_assert(public.admin_commercial_costs() ? 'features','Admin can read configured conversion');
  select pg_temp.sales_assert(not has_function_privilege('anon','public.admin_commercial_costs()','execute'),'Anonymous cannot read commercial costs');
- rollback;`;
+ `;
+  q += readFileSync(new URL("supabase/migrations/20261002164305_welcome_card_trial.sql", root), "utf8").replace(/^begin;/, "").replace(/commit;\s*$/, "");
+  q += readFileSync(new URL("scripts/test-welcome-trial.sql", root), "utf8");
+  q += "rollback;";
 
   sql(q);
   console.log(
-    "PASS public sales routing, closed switch, legal gate, server-only refresh and TEST isolation",
+    "PASS public sales, TEST isolation, card-trial consent, lifecycle, cancellation, payment failure/recovery and single trial credits",
   );
 } finally {
   if (!process.env.BILLING_TEST_DATABASE) {

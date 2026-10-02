@@ -12,6 +12,7 @@ import {
 import { creditAction, type CreditPurchase } from "./credit-handler.ts";
 type Data = Record<string, unknown>;
 type Intent = {
+  trial_days?: number;
   id: string;
   professional_id: string;
   provider_session_id: string | null;
@@ -38,6 +39,8 @@ export type BillingDependencies = {
 };
 // Only these public codes may cross the boundary; provider payloads and credentials never do.
 const publicErrors = new Set([
+  "trial_consent_required",
+  "trial_offer_changed",
   "credit_package_unavailable",
   "credit_payment_minimum",
   "credit_purchase_not_allowed",
@@ -436,6 +439,7 @@ export function createBillingHandler(deps: BillingDependencies) {
         >("prepare_checkout", {
           ...planRequest(),
           operation_key: operationKey,
+          welcome_trial_consent: input.welcome_trial_consent === true,
         });
         if (Date.parse(ctx.intent.expires_at) <= Date.now() + 60_000) {
           throw new Error("checkout_expired");
@@ -473,6 +477,7 @@ export function createBillingHandler(deps: BillingDependencies) {
           customerId,
           priceId,
           intentId: ctx.intent.id,
+          trialDays: ctx.intent.trial_days,
           couponId: promo?.couponId ?? undefined,
           site: deps.site,
           expiresAt: Math.floor(Date.parse(ctx.intent.expires_at) / 1000),

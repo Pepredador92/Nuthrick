@@ -232,6 +232,42 @@ function request(
     body: JSON.stringify(data),
   });
 }
+Deno.test("checkout forwards only the server's trial duration, never a browser-supplied trial", async () => {
+  for (const days of [0, 30]) {
+    const {handler, provider, calls} = setup(action => action === "prepare_checkout" ? {
+      intent: {id:intentId, expires_at:new Date(Date.now()+35*60000).toISOString(),url:null,campaign_snapshot:null,trial_days:days},price,customer_id:"cus_fixture",
+    } : undefined);
+    const response = await handler(request({action:"checkout",plan_id:planId,interval:"monthly",operation_key:intentId,trial_days:730,welcome_trial_consent:true}));
+    assert.equal(response.status,200);
+    assert.equal(provider.checkoutInput?.trialDays,days);
+    assert.equal(calls.find(c=>c.action==='prepare_checkout')?.data.welcome_trial_consent,true);
+  }
+});
+Deno.test("card trial requires a card and configures exactly 30 days at Stripe, with idempotency", async () => {
+  const params: Stripe.Checkout.SessionCreateParams[] = [];
+  const keys: string[] = [];
+  const sdk = {
+    customers:{retrieve:()=>Promise.resolve({id:'cus_fixture',livemode:false})},
+    prices:{retrieve:()=>Promise.resolve({id:'price_es',livemode:false})},
+    checkout:{sessions:{create:(p:Stripe.Checkout.SessionCreateParams,o:{idempotencyKey:string})=>{
+      params.push(p); keys.push(o.idempotencyKey);
+      return Promise.resolve({id:'cs_trial',url:'https://checkout.stripe.com/c/pay/cs_trial',expires_at:1900000000,livemode:false});
+    }}},
+  } as unknown as Stripe;
+  const provider = new StripeBillingProvider('sk_test_fixture','whsec_fixture',sdk);
+  const input = {owner,customerId:'cus_fixture',priceId:'price_es',intentId,site:'https://nuthrick.com',expiresAt:1900000000,trialDays:30};
+  await provider.createCheckout(input);
+  await provider.createCheckout(input);
+  assert.equal(params[0].subscription_data?.trial_period_days,30);
+  assert.equal(params[0].payment_method_collection,'always');
+  assert.deepEqual(params[0].payment_method_types,['card']);
+  assert.equal(params[0].subscription_data?.trial_settings?.end_behavior.missing_payment_method,'cancel');
+  assert.equal(keys[0],keys[1]);
+  await provider.createCheckout({...input,trialDays:0});
+  assert.equal(params[2].subscription_data?.trial_period_days,undefined);
+  await assert.rejects(()=>provider.createCheckout({...input,trialDays:730}),/invalid_input/);
+  await assert.rejects(()=>provider.createCheckout({...input,couponId:'coupon_fixture'}),/invalid_input/);
+});
 Deno.test("UAZ2026 maps to a 100 MXN discount for 12 months; non-price benefits stay local", () => {
   assert.deepEqual(couponFor(campaign, price), {
     amount_off: 10000,

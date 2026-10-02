@@ -82,6 +82,7 @@ export function CommercialPlansPage() {
         <div className="commercial-plan-grid" aria-busy={loading}>
           {plans.map((p) => (
             <section key={p.name} className="admin-card commercial-plan-card">
+              {p.welcome_trial_days === 30 && <div className="commercial-plan-trial"><strong>30 días gratis</strong><span>Para nuevos usuarios · Con tarjeta</span></div>}
               <div className="commercial-plan-heading">
                 <p className="commercial-plan-label">PARA TU PRÁCTICA</p>
                 <h2 className="admin-plan-name">{p.name}</h2>

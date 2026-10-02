@@ -30,6 +30,11 @@ export function CheckoutChoice(
   const [billing, setBilling] = useState<MyBilling | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [trialConsent, setTrialConsent] = useState(false);
+  const [openedAt] = useState(() => Date.now());
+  const trial = Boolean(billing?.welcome_trial?.eligible && !preview?.campaign);
+  const trialDays = billing?.welcome_trial?.days ?? 30;
+  const expectedChargeDate = new Intl.DateTimeFormat('es-MX', { dateStyle: 'long' }).format(new Date(openedAt + trialDays * 86400000));
   const operation = useRef(crypto.randomUUID());
   useEffect(() => {
     if (!user) return;
@@ -81,6 +86,7 @@ export function CheckoutChoice(
         interval,
         code,
         operation_key: operation.current,
+        welcome_trial_consent: trial && trialConsent,
       });
       clearPlanReturn();
       goHosted(result.url, "checkout");
@@ -106,7 +112,7 @@ export function CheckoutChoice(
       {billing?.mode === 'test' && <p className="billing-test">
         Entorno de prueba · Usa únicamente datos de tarjeta de prueba de Stripe.
       </p>}
-      {billing?.mode === 'live' && <p className="admin-note">
+      {billing?.mode === 'live' && !trial && <p className="admin-note">
         Cobro real · La suscripción se renueva automáticamente cada {interval === 'monthly' ? 'mes' : 'año'} hasta que la canceles.
       </p>}
       <p className="my-4 text-2xl font-semibold">
@@ -115,6 +121,15 @@ export function CheckoutChoice(
           plan.currency,
         )} MXN / {interval === "monthly" ? "mes" : "año"}
       </p>
+      {trial && <div className="billing-benefits" aria-label="Prueba gratis con tarjeta">
+        <strong>{trialDays} días gratis · Hoy $0 MXN</strong>
+        <p>Registra tu tarjeta en Stripe. Después se cobrarán {money(normal, plan.currency)} MXN cada {interval === 'monthly' ? 'mes' : 'año'}, hasta que canceles.</p>
+        <p>Primer cobro previsto: {expectedChargeDate}, si comienzas hoy. Stripe mostrará la fecha exacta antes de confirmar.</p>
+        <p>Puedes cancelar desde Mi plan antes del primer cobro. Incluye las funciones y los límites de {plan.name}; los créditos de IA incluidos se asignan una sola vez durante la prueba.</p>
+        <label className="billing-trial-consent"><input type="checkbox" checked={trialConsent} disabled={busy} onChange={e => setTrialConsent(e.target.checked)} />
+          Acepto que, al terminar los {trialDays} días gratis, se cobre automáticamente {money(normal, plan.currency)} MXN cada {interval === 'monthly' ? 'mes' : 'año'} si no cancelo antes.
+        </label>
+      </div>}
       {user && (
         <>
           <div className="billing-inline">
@@ -126,6 +141,7 @@ export function CheckoutChoice(
                 onChange={(e) => {
                   setCode(e.target.value.toUpperCase());
                   setPreview(null);
+                  setTrialConsent(false);
                 }}
                 autoComplete="off"
               />
@@ -138,6 +154,7 @@ export function CheckoutChoice(
               Aplicar código
             </button>
           </div>
+          {billing?.welcome_trial?.eligible && <p className="admin-note">La prueba de bienvenida no se acumula con códigos promocionales. Al aplicar un código se usarán sus condiciones y el total mostrado.</p>}
           {preview?.campaign && (
             <div className="billing-benefits">
               <strong>{preview.campaign.name}</strong>
@@ -175,12 +192,13 @@ export function CheckoutChoice(
                 className="admin-button"
                 disabled={busy ||
                   Boolean(!billing?.enabled || !(billing?.checkout_eligible ?? billing?.test_eligible)) ||
+                  (trial && !trialConsent) ||
                   Boolean(code && !preview?.campaign)}
                 onClick={checkout}
               >
                 {busy
                   ? "Preparando…"
-                  : (billing?.mode === "live" ? "Continuar al pago" : "Continuar a Stripe Test")}
+                  : (billing?.mode === "live" ? (trial ? "Continuar con 30 días gratis" : "Continuar al pago") : "Continuar a Stripe Test")}
               </button>
             )}
         </LegalAcceptanceGate>
@@ -206,7 +224,7 @@ export function CheckoutChoice(
         </button>
       )}
       <p className="admin-note mt-4">
-        La suscripción se confirma al recibir el resultado verificado del pago.
+        La suscripción se activa al recibir la confirmación verificada de Stripe.
         Los créditos incluidos se asignan por mes, también en modalidad anual.
       </p>
       <p className="admin-note mt-2">

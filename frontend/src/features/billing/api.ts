@@ -104,6 +104,7 @@ export type Subscription = {
   provider_subscription_id: string;
 };
 export type MyBilling = {
+  welcome_trial?: { days: number; eligible: boolean };
   mode: "test" | "live";
   enabled: boolean;
   test_eligible: boolean;
@@ -236,6 +237,8 @@ export const stateLabel = (
   cancelled: "Cancelada",
 }[value] ?? "Pendiente");
 const messages: Record<string, string> = {
+  trial_consent_required: "Confirma el cobro automático al terminar los 30 días gratis para continuar.",
+  trial_offer_changed: "La oferta de bienvenida cambió. Actualiza la página para revisar las condiciones antes de continuar.",
   credit_package_unavailable: "Este paquete ya no está disponible.",
   credit_purchase_not_allowed: "Tu acceso no permite comprar créditos.",
   credit_checkout_pending: "Tienes una recarga pendiente. Continúa el pago o cancela la sesión antes de elegir otra.",

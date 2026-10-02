@@ -112,6 +112,39 @@ it('Live checkout discloses recurring real charges and never asks for a test car
   expect(screen.queryByText(/En TEST no se activa/)).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Continuar al pago' })).toBeEnabled();
 });
+it.each(['monthly', 'annual'] as const)('requires explicit card-trial consent with the correct %s renewal amount', async interval => {
+  rpc.mockResolvedValue({ data: { ...summary, mode: 'live', checkout_eligible: true, subscription: null, welcome_trial: { eligible: true, days: 30 } }, error: null });
+  show(<CheckoutChoice plan={plan} interval={interval} close={() => {}} />);
+  const button = await screen.findByRole('button', { name: 'Continuar con 30 días gratis' });
+  expect(button).toBeDisabled();
+  const consent = screen.getByRole('checkbox', { name: /Acepto que, al terminar/ });
+  expect(consent).not.toBeChecked();
+  expect(screen.getByLabelText('Prueba gratis con tarjeta')).toHaveTextContent(interval === 'monthly' ? '$349.00 MXN cada mes' : '$3,490.00 MXN cada año');
+  fireEvent.click(consent);
+  expect(button).toBeEnabled();
+  fireEvent.click(button);
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith('billing', expect.objectContaining({body: expect.objectContaining({action:'checkout',welcome_trial_consent:true})})));
+});
+it('a promotional code replaces the welcome trial and displays the payable price', async () => {
+  rpc.mockResolvedValue({ data: { ...summary, mode: 'live', checkout_eligible: true, subscription: null, welcome_trial: { eligible: true, days: 30 } }, error: null });
+  invoke.mockResolvedValue({data:{campaign:{name:'Descuento de prueba',benefits:[{type:'percentage_discount',amount:20,duration:{kind:'invoice'}}]}},error:null});
+  show(<CheckoutChoice plan={plan} interval="monthly" close={() => {}} />);
+  await screen.findByLabelText('Prueba gratis con tarjeta');
+  fireEvent.change(screen.getByLabelText('Código promocional (opcional)'),{target:{value:'PROMO'}});
+  fireEvent.click(screen.getByRole('button',{name:'Aplicar código'}));
+  await screen.findByText('Descuento de prueba');
+  expect(screen.queryByLabelText('Prueba gratis con tarjeta')).not.toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'Continuar al pago'})).toBeEnabled();
+  expect(screen.getByText(/Precio normal:/)).toHaveTextContent('Total: $279.20');
+});
+it.each([false,true])('shows the first trial charge or cancellation without claiming a payment (cancelled=%s)', async cancelled => {
+  rpc.mockImplementation(async (name:string)=>({data:name==='my_billing'?{...summary, mode:'live',subscription:{...subscription,state:'trial',paid_through:null,cancel_at_period_end:cancelled},access:{...summary.access,status:'trial',ends_at:subscription.period_end}}:[],error:null}));
+  show(<MyPlanPage />, '/app/my-plan?checkout=success');
+  await screen.findByText(/Tus 30 días de prueba están activos/);
+  expect(screen.queryByText(/Tu pago está confirmado/)).not.toBeInTheDocument();
+  expect(screen.getByText(cancelled?'Prueba disponible hasta':'Primer cobro')).toBeInTheDocument();
+  expect(screen.getByText(cancelled?/no se realizará el primer cobro/:/Después se cobrarán automáticamente/)).toBeInTheDocument();
+});
 it("Mi plan presents local balances and uses an explicit cancellation confirmation", async () => {
   show(<MyPlanPage />);
   expect(await screen.findByText("Esencial")).toBeInTheDocument();

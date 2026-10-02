@@ -126,7 +126,7 @@ export function MyPlanPage() {
       </p>}
       {params.get("checkout") === "success" && (
         <p role="status" className="billing-benefits">
-          {checkoutPayment
+          {s?.state === 'trial' ? 'Tus 30 días de prueba están activos. Puedes ver la fecha del primer cobro y cancelar desde aquí.' : checkoutPayment
             ? (checkoutPayment.refunded_amount ? 'El reembolso de tu pago está registrado en el historial.' : 'Tu pago está confirmado. El estado de tu plan está actualizado.')
             : 'Estamos confirmando tu pago. El estado de tu plan se actualizará en unos momentos.'}
         </p>
@@ -166,7 +166,7 @@ export function MyPlanPage() {
                   </div>
                   <div>
                     <dt>
-                      {s.cancel_at_period_end
+                      {s.state === 'trial' ? (s.cancel_at_period_end ? 'Prueba disponible hasta' : 'Primer cobro') : s.cancel_at_period_end
                         ? "Acceso pagado hasta"
                         : "Próxima renovación"}
                     </dt>
@@ -206,8 +206,11 @@ export function MyPlanPage() {
             )}
             {data.access.status === "trial" && data.access.ends_at && (
               <p role="status" className="billing-benefits">
-                Tu acceso de prueba termina el {dateLabel(data.access.ends_at)}.
-                Elige un plan antes de esa fecha para continuar sin interrupciones. <Link className="admin-link" to="/planes">Ver planes</Link>
+                {s?.state === 'trial' ? <>
+                  Tu prueba termina el {dateLabel(s.period_end)}. {s.cancel_at_period_end
+                    ? 'La renovación está cancelada; no se realizará el primer cobro.'
+                    : <>Después se cobrarán automáticamente {money(s.amount, s.currency)} MXN por {intervalLabel(s.interval)}. Puedes cancelar antes de esa fecha desde esta página.</>}
+                </> : <>Tu acceso de prueba termina el {dateLabel(data.access.ends_at)}. Elige un plan antes de esa fecha para continuar sin interrupciones. <Link className="admin-link" to="/planes">Ver planes</Link></>}
               </p>
             )}
             {data.access.status === "cancelled" && (

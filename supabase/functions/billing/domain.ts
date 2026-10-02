@@ -106,6 +106,7 @@ export type CollectionState =
   | "paused"
   | "ended";
 export type SubscriptionSnapshot = {
+  trial_end?: string | null;
   retention_ends_at?: string | null;
   id: string;
   intent_id: string | null;
@@ -152,6 +153,7 @@ export type VerifiedEvent = {
   livemode: boolean;
 };
 export type CheckoutInput = {
+  trialDays?: number;
   owner: string;
   customerId: string;
   priceId: string;

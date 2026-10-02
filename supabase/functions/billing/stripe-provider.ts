@@ -303,6 +303,10 @@ export class StripeBillingProvider implements BillingProvider {
     };
   }
   async createCheckout(i: CheckoutInput) {
+    if (i.trialDays !== undefined && i.trialDays !== 0 && i.trialDays !== 30) {
+      throw new Error("invalid_input");
+    }
+    if (i.trialDays && i.couponId) throw new Error("invalid_input");
     await this.checkoutReferences(i);
     const s = await this.stripe.checkout.sessions.create({
       mode: "subscription",
@@ -310,13 +314,21 @@ export class StripeBillingProvider implements BillingProvider {
       client_reference_id: i.owner,
       line_items: [{ price: i.priceId, quantity: 1 }],
       payment_method_types: ["card"],
+      payment_method_collection: "always",
       success_url: `${i.site}/app/my-plan?checkout=success`,
       cancel_url: `${i.site}/planes?checkout=cancelled`,
       expires_at: i.expiresAt,
       metadata: { nuthrick_intent: i.intentId },
       subscription_data: {
         metadata: { nuthrick_intent: i.intentId, nuthrick_owner: i.owner },
+        ...(i.trialDays ? {
+          trial_period_days: i.trialDays,
+          trial_settings: { end_behavior: { missing_payment_method: "cancel" as const } },
+        } : {}),
       },
+      ...(i.trialDays ? {
+        custom_text: { submit: { message: "30 días gratis. Después se cobrará automáticamente el importe y la periodicidad indicados. Cancela antes del primer cobro desde Mi plan en Nuthrick." } },
+      } : {}),
       ...(i.couponId ? { discounts: [{ coupon: i.couponId }] } : {}),
     }, { idempotencyKey: `nuthrick:${this.mode}:checkout:${i.intentId}` });
     this.assertObject(s);
@@ -703,6 +715,7 @@ export class StripeBillingProvider implements BillingProvider {
       price_id: i.price.id,
       status: collectionState(s.status),
       provider_status: s.status,
+      trial_end: s.trial_end ? iso(s.trial_end) : null,
       period_start: iso(i.current_period_start),
       period_end: iso(i.current_period_end),
       anchor: iso(s.billing_cycle_anchor),

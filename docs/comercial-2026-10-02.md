@@ -61,12 +61,45 @@ entorno limitada a la lista piloto y verificaciones con vencimiento de 24 horas.
 - Botón administrativo a [saldo OpenAI](https://platform.openai.com/settings/organization/billing/overview).
   Recarga el administrador; no se realizan compras automáticas ni se muestra un saldo inventado.
 
-## Pendiente de decisión: 30 días gratis
+## 30 días gratis con tarjeta — decisión del 2 de octubre
 
-El usuario pidió 30 días para nuevos usuarios. Falta definir si será sin tarjeta
-(contratación al vencer) o con tarjeta y renovación automática informada. Se hizo
-la pregunta y no hay respuesta al redactar este registro. Por eso no se anuncia
-una prueba inexistente ni se configura un cobro automático no definido.
+El usuario eligió **con tarjeta**. Se implementó la prueba de bienvenida al
+contratar Esencial o Profesional, mensual o anual:
+
+- Banner en las tarjetas cuando el servidor habilita la oferta. Checkout explica
+  hoy $0, precio y periodicidad posteriores, fecha prevista y cancelación desde
+  Mi plan; casilla de aceptación desmarcada. Stripe muestra la fecha definitiva.
+- `trial_period_days=30`, tarjeta obligatoria y cancelación si se elimina el
+  método de pago antes del vencimiento. Se conserva la integración Checkout
+  existente, sin actualizar la versión de API ni crear otro sistema de cobro.
+- Servidor decide elegibilidad: cuenta sin acceso comercial/administrativo previo,
+  concesiones ni suscripción anterior en ese entorno. Una prueba por cuenta;
+  cancelar no la renueva. Un checkout abandonado no la consume. TEST y LIVE siguen
+  separados. La duración enviada por el navegador no tiene autoridad.
+- La aceptación y duración se guardan en el intento de checkout existente.
+  Activar acceso sigue dependiendo de la suscripción verificada por webhook.
+- Prueba y código promocional no se acumulan: aplicar un código muestra sus
+  condiciones y el importe a pagar, conservando las promociones existentes.
+- Funciones/límites del plan elegido. Esencial sin IA; Profesional recibe una
+  sola cuota de 50 créditos durante los 30 días, incluso al cruzar febrero.
+  Los meses pagados empiezan al terminar la prueba, sin duplicar asignaciones.
+- La factura inicial de $0 nunca cuenta como un periodo pagado, ni después de
+  cancelar. Un primer cobro fallido no concede acceso pagado. Mi plan distingue
+  primer cobro, prueba activa y cancelación, sin informar un pago inexistente.
+- El recordatorio de renovación existente ya incluye suscripciones en prueba
+  entre cinco y ocho días antes; usa el importe verificado por Stripe.
+- `welcome_trial_enabled` nace apagado. Se habilita después de desplegar el
+  backend y frontend compatibles. Función `billing` desplegada en versión 14;
+  migración remota/local `20261002164305_welcome_card_trial`.
+
+Verificación: 26 pruebas frontend focales, 31 Deno, regresión SQL desechable
+(consentimiento, reintentos, cancelación, fallo/recuperación, créditos de prueba y
+primer periodo pagado, febrero), typecheck, ESLint focal, Deno lint y build.
+El harness incluye la arquitectura de retención real. Sin nuevos cobros LIVE.
+Los avisos de seguridad de Supabase son preexistentes; ninguno corresponde a los
+objetos añadidos. La vista local está disponible en el fixture `state=welcome`.
+
+Referencia: [Stripe Checkout — pruebas gratuitas con tarjeta](https://docs.stripe.com/payments/checkout/free-trials?payment-ui=stripe-hosted).
 PWA y Web Push siguen fuera de esta intervención.
 
 ## Verificación y publicación
@@ -78,7 +111,7 @@ Antes de publicar: typecheck, ESLint focal, Deno lint, build Vercel, diff/check/
 Activar venta general sólo después de desplegar migraciones y función billing,
 y obtener los controles LIVE listos mediante inspección real del proveedor.
 
-### Resultado de producción
+### Resultado de producción de la primera entrega (06:55 UTC)
 
 - Migraciones aplicadas mediante el conector autenticado de Supabase. Los nombres
   locales se alinearon con las versiones efectivamente registradas en el remoto.
@@ -97,4 +130,4 @@ y obtener los controles LIVE listos mediante inspección real del proveedor.
 - Pruebas: 55 frontend focales, 29 Deno y regresión SQL local; typecheck, ESLint
   focal, Deno lint, build y diff --check correctos. Los avisos de seguridad de
   Supabase correspondían a objetos preexistentes; no se señalaron los RPC añadidos.
-- No se apagó el equipo: sigue pendiente la decisión de modalidad de prueba gratuita.
+- En esa entrega no se apagó el equipo porque faltaba elegir la modalidad de prueba.

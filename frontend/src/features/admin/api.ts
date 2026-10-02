@@ -28,6 +28,7 @@ export type Entitlement = {
   display_order: number;
 };
 export type Plan = {
+  welcome_trial_days?: number;
   id?: string;
   code: string;
   name: string;
