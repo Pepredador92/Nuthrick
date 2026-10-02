@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import handler from '../.vercel/output/functions/__server.func/index.mjs';
 const root = resolve('.vercel/output/static');
-const types={'.js':'text/javascript','.css':'text/css','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml','.woff2':'font/woff2','.ico':'image/x-icon'};
+const types={'.js':'text/javascript','.css':'text/css','.webp':'image/webp','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.woff2':'font/woff2','.ico':'image/x-icon'};
 createServer(async(req,res)=>{
   const send=(status,headers,body)=>{
     delete headers['content-length'];

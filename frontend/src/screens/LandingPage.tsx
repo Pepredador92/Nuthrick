@@ -1,131 +1,92 @@
-/* eslint-disable @next/next/no-html-link-for-pages -- Full document links cross the SSR marketing / React Router product boundary without prefetching private application code. */
-import { ArrowDown, ArrowRight, ClipboardList } from "lucide-react";
-import { LandingHeader } from "@/src/components/marketing/LandingHeader";
-import { publicPrice, type PublicPlan } from "@/src/lib/publicCommercial";
+/* eslint-disable @next/next/no-html-link-for-pages -- Public links cross the SSR marketing / React Router product boundary. */
+import { ArrowDown, ArrowRight, Check, ClipboardList, Heart, MoveUpRight, Sparkles } from 'lucide-react';
+import { LandingHeader } from '@/src/components/marketing/LandingHeader';
+import { LandingProductTour } from '@/src/components/marketing/LandingProductTour';
+import { publicPrice, type PublicPlan } from '@/src/lib/publicCommercial';
 
-function SectionHeading({ eyebrow, title, description, inverse = false }: { eyebrow?: string; title: React.ReactNode; description?: string; inverse?: boolean }) {
-  return <div>
-    {eyebrow && <p className={`text-xs font-bold uppercase tracking-[.16em] ${inverse ? "text-[#efbd6b]" : "text-[#477363]"}`}>{eyebrow}</p>}
-    <h2 className={`mt-4 text-balance text-3xl font-semibold leading-[1.12] tracking-[-.04em] sm:text-4xl lg:text-5xl ${inverse ? "text-white" : "text-[#17312c]"}`}>{title}</h2>
-    {description && <p className={`mt-6 max-w-2xl text-pretty text-lg leading-8 ${inverse ? "text-white/80" : "text-[#65746f]"}`}>{description}</p>}
-  </div>;
-}
-
-function WindowFrame({ children, label }: { children: React.ReactNode; label: string }) {
-  return <div className="rounded-[28px] border border-white/80 bg-white/85 p-2.5 shadow-[0_30px_80px_rgba(23,61,54,.13)] backdrop-blur">
-    <div className="overflow-hidden rounded-[21px] border border-[#e0e7e2] bg-[#fbfcfa]">
-      <div className="flex h-10 items-center gap-1.5 border-b border-[#e5ebe6] px-4" role="group" aria-label={label}>
-        <span className="h-2 w-2 rounded-full bg-[#e5a0a0]" /><span className="h-2 w-2 rounded-full bg-[#efd38d]" /><span className="h-2 w-2 rounded-full bg-[#90c6a4]" />
-        <span className="ml-3 h-4 w-32 rounded bg-[#edf1ed]" />
-      </div>
-      {children}
-    </div>
-  </div>;
-}
-
-function HeroProductMockup() {
-  const records = [
-    ["01", "Mariana López", "Evaluación completa", "bg-[#e9f4ed] text-[#356653]"],
-    ["02", "Carlos Hernández", "Plan por revisar", "bg-[#fff2df] text-[#975d2e]"],
-    ["03", "Daniela Ruiz", "Evolución registrada", "bg-[#eef2f0] text-[#53655d]"],
-  ];
-  return <div className="relative mx-auto w-full max-w-[650px]" role="group" aria-label="Vista conceptual de expedientes y pendientes de Nuthrick">
-    <div className="relative"><WindowFrame label="Panel de inicio de Nuthrick"><div className="grid min-h-[430px] grid-cols-[58px_1fr] sm:grid-cols-[146px_1fr]">
-      <aside className="border-r border-[#e4e9e5] bg-[#f5f7f4] p-3 sm:p-4"><div className="grid h-8 w-8 place-items-center rounded-xl bg-[#173d36] text-xs font-bold text-white">N</div><div className="mt-8 space-y-3">{["Inicio", "Pacientes", "Consultas", "Planes"].map((item, index) => <div key={item} className={`flex h-8 items-center rounded-lg px-2 text-[10px] font-medium ${index === 0 ? "bg-white text-[#24483d] shadow-sm" : "text-[#52655d]"}`}><span className={`mr-2 h-3 w-3 rounded ${index === 0 ? "bg-[#72a48e]" : "bg-[#dbe2dd]"}`} /><span className="hidden sm:block">{item}</span></div>)}</div></aside>
-      <div className="p-5 sm:p-7"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[.15em] text-[#52655d]">Martes, 9 de septiembre</p><p className="mt-2 text-xl font-semibold tracking-[-.04em] text-[#173d36]">Buenos días, Andrea</p></div><div className="grid h-9 w-9 place-items-center rounded-full bg-[#ebbb7c] text-[10px] font-bold text-[#674018]">AR</div></div>
-        <div className="mt-6 grid gap-3 lg:grid-cols-[1.1fr_.9fr]"><section className="rounded-2xl border border-[#e2e8e3] bg-white p-4"><div className="flex items-center justify-between"><p className="text-xs font-semibold text-[#28493f]">Expedientes</p><ClipboardList size={14} className="text-[#6d887c]" /></div><div className="mt-3 space-y-2">{records.map(([number, patient, type, tone]) => <div key={number} className="flex items-center gap-2.5"><span className="w-8 text-[10px] font-semibold text-[#6c7973]">{number}</span><span className={`min-w-0 flex-1 rounded-xl px-2.5 py-2 ${tone}`}><strong className="block truncate text-[10px]">{patient}</strong><span className="block truncate text-[9px] ">{type}</span></span></div>)}</div></section><section className="rounded-2xl bg-[#173d36] p-4 text-white"><div className="flex items-center justify-between"><p className="text-xs font-semibold">Pendientes</p><span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px]">4</span></div><div className="mt-4 space-y-3 text-[10px] text-white/78">{["Evaluación de Mariana completa", "Revisar borrador de Carlos", "Revisar evolución de Daniela", "1 indicación por entregar"].map((item, index) => <p key={item} className="flex gap-2"><span className={index === 0 ? "text-[#edbf6d]" : "text-white/50"}>{index === 0 ? "✓" : "○"}</span>{item}</p>)}</div></section></div>
-        <div className="mt-3 rounded-2xl border border-[#e3e9e4] bg-[#f7faf7] px-4 py-3"><p className="text-[10px] text-[#5d7167]"><strong className="text-[#294c40]">Tu consultorio, en movimiento.</strong> La información de cada consulta sigue trabajando contigo.</p></div>
-      </div>
-    </div></WindowFrame></div>
-  </div>;
-}
-
-function FlowVisual() {
-  const steps = [["Consulta", "Entrevista, antecedentes, alimentación y mediciones."], ["Resuelve", "Resultados, cálculos, borradores y decisiones."], ["Entrega", "Indicaciones, objetivos y documentos aprobados."], ["Sigue", "Mediciones, objetivos y evolución."]];
-  return <div className="relative mt-14 grid gap-4 md:grid-cols-4">{steps.map(([title, text], index) => <article key={title} className="relative rounded-[26px] border border-[#dde6e0] bg-white p-6 shadow-[0_14px_35px_rgba(24,61,53,.05)]"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e9f3ec] text-sm font-bold text-[#3e735f]">0{index + 1}</span><h3 className="mt-7 text-xl font-semibold tracking-[-.03em]">{title}</h3><p className="mt-3 text-sm leading-6 text-[#6a7873]">{text}</p>{index < steps.length - 1 && <ArrowRight aria-hidden="true" className="absolute -right-7 top-1/2 z-10 hidden -translate-y-1/2 text-[#82a493] md:block" size={22} />}</article>)}</div>;
-}
-
-function AIContextVisual() {
-  const context = ["Entrevista", "Antropometría", "Recordatorio 24 h", "Laboratorios", "Evolución", "Objetivos"];
-  return <div className="rounded-[28px] border border-white/15 bg-white/[.06] p-5 sm:p-7"><div className="grid items-center gap-4 sm:grid-cols-[1fr_auto_1fr]"><div className="grid gap-2">{context.map((item) => <span key={item} className="rounded-xl border border-white/10 bg-white/[.07] px-3 py-2.5 text-sm text-white/82">{item}</span>)}</div><ArrowRight className="mx-auto rotate-90 text-[#efbd6b] sm:rotate-0" aria-hidden="true" /><div className="rounded-[22px] bg-[#f5bb65] p-5 text-[#17312c]"><p className="text-xs font-bold uppercase tracking-[.14em] text-[#674318]">Nuthrick prepara</p><p className="mt-8 text-xl font-semibold tracking-[-.03em]">Borrador listo para tu revisión.</p><div className="mt-6 rounded-xl bg-white/60 p-3 text-xs leading-5 text-[#5b4c38]">Mantienes el contexto, revisas la propuesta y decides qué se convierte en parte de la atención.</div></div></div></div>;
-}
-
-function CalculationsMockup() {
-  const cards = [["IMC", "22.4", "kg/m²", "#4e846b"], ["Relación cintura/talla", "0.46", "razón", "#b37537"], ["Grasa corporal", "28.1", "%", "#69799b"]];
-  return <div className="rounded-[28px] border border-[#dbe5df] bg-white p-5 shadow-[0_18px_45px_rgba(23,61,54,.06)] sm:p-7"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-[#4c7766]">Resultados de Mariana López</p><p className="mt-2 text-lg font-semibold text-[#173d36]">Listos cuando los necesitas</p></div><span className="rounded-full bg-[#edf5ef] px-3 py-1.5 text-xs font-semibold text-[#41775f]">Consulta 09 sep 2026</span></div><div className="mt-6 grid gap-3 sm:grid-cols-3">{cards.map(([name, value, unit, color]) => <article key={name} className="rounded-2xl border border-[#e3eae5] p-4"><p className="text-xs font-semibold text-[#66776f]">{name}</p><p className="mt-6 text-3xl font-semibold tracking-[-.05em]" style={{ color }}><span>{value}</span><small className="ml-1 text-xs font-medium text-[#52655d]">{unit}</small></p><p className="mt-5 text-[10px] text-[#52655d]">Procedencia disponible · comparar evolución</p></article>)}</div><div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-[#f4f7f4] px-4 py-3 text-xs"><span className="font-semibold text-[#385c4e]">Mifflin–St Jeor · v1.0.0</span><span className="text-[#52655d]">Datos conectados, sin volver a capturar</span></div></div>;
-}
-
-const features = [
-  ['01', 'Expediente clínico nutricional', 'Reúne antecedentes, entrevista, mediciones y consultas en la ficha del paciente. Retoma su historia sin reconstruirla en cada visita.'],
-  ['02', 'Planes de alimentación', 'Organiza equivalentes, tiempos de comida y menús. Revisa la propuesta y ajusta cada plan a las necesidades de tu paciente.'],
-  ['03', 'Seguimiento nutricional', 'Compara mediciones entre consultas, revisa la evolución y prepara un reporte para compartir los avances con tu paciente.'],
-] as const;
+const photos = '/images/landing/';
+const steps = [
+  ['Escucha', 'Retoma la historia, entrevista y antecedentes de tu paciente.'],
+  ['Evalúa', 'Registra mediciones y consulta los cálculos de tu valoración.'],
+  ['Prepara', 'Trabaja el plan de alimentación y ajusta las indicaciones.'],
+  ['Da continuidad', 'Conserva lo acordado y compara la evolución en la siguiente visita.'],
+];
+const questions = [
+  ['¿Para quién está pensado Nuthrick?', 'Para nutriólogos que quieren ofrecer una consulta atenta y organizada, conectar mejor con cada paciente y reducir los pendientes para no llevarse trabajo a casa al terminar.'],
+  ['¿Puedo trabajar con mi propia forma de consultar?', 'Puedes organizar el expediente y personalizar tus plantillas de consulta. Tú eliges qué evaluar, cómo ajustar el plan y qué información compartir con el paciente.'],
+  ['¿Qué puedo hacer con los planes de alimentación?', 'Puedes trabajar con equivalentes, distribuir tiempos de comida y preparar menús. Aunque hacer los cálculos sea sencillo, armar el menú puede tomar tiempo: si tienes la IA habilitada, te ayuda a avanzar más rápido con una propuesta que después puedes revisar y ajustar a cada paciente. También puedes consultar los planes publicados y dar continuidad al seguimiento.'],
+  ['¿Cómo recibe la información mi paciente?', 'Puedes compartir el plan y la información que decidas publicar a través de su portal, o preparar los documentos disponibles para entrega. Las funciones incluidas dependen de tu plan.'],
+  ['¿La inteligencia artificial toma decisiones por mí?', 'No. Los borradores requieren tu revisión. Las funciones de IA disponibles dependen de la habilitación de tu cuenta y de tu plan; tu criterio profesional guía lo que se utiliza en consulta.'],
+  ['¿Cómo empiezo?', 'Crea tu cuenta desde Registrarme y revisa las funciones, capacidades y condiciones vigentes en la página de planes.'],
+];
 
 export function LandingPage({ plans = [], supportEmail = null }: { plans?: PublicPlan[]; supportEmail?: string | null }) {
-  return <div className="landing bg-[#f7f8f4] text-[#17312c]">
-    <a href="#contenido" className="sr-only focus:not-sr-only focus:fixed focus:left-5 focus:top-5 focus:z-[100] focus:rounded-xl focus:bg-white focus:p-4">Saltar al contenido</a>
+  return <div className="landing landing-editorial">
+    <a href="#contenido" className="landing-skip">Saltar al contenido</a>
     <LandingHeader />
     <main id="contenido">
-      <section className="mx-auto grid max-w-[1440px] items-center gap-10 bg-[radial-gradient(ellipse_at_top_right,#e0ece2,transparent_65%)] px-5 pb-16 pt-10 sm:px-8 sm:pt-16 lg:grid-cols-[.9fr_1.1fr] lg:px-12 lg:pb-20 lg:pt-20">
-        <div className="relative z-10 min-w-0">
-          <p className="inline-flex rounded-full border border-[#c4d8ca] bg-white/70 px-4 py-2 text-xs font-semibold text-[#477363]">Software para nutriólogos</p>
-          <h1 className="mt-6 max-w-xl text-balance text-4xl font-semibold leading-[1.08] tracking-[-.045em] sm:text-5xl lg:text-6xl">Más tiempo para escuchar.<span className="mt-3 block text-[#477863]">Menos pendientes al terminar.</span></h1>
-          <p className="mt-6 max-w-xl text-lg leading-8 text-[#53665d]">La entrevista, las mediciones y el plan de alimentación, en un mismo lugar. Retoma la historia de cada paciente y prepara su siguiente paso sin volver a empezar.</p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row"><a href="/register" className="nuth-button justify-center px-6 py-3.5" data-cta="hero-register">Registrarme <ArrowRight size={17} aria-hidden="true" /></a><a href="#segunda-jornada" className="nuth-button-secondary justify-center px-6 py-3.5">Ver cómo funciona <ArrowDown size={16} aria-hidden="true" /></a></div>
-          <p className="mt-5 text-sm font-medium text-[#53665d]">Hecho desde la consulta, por un nutriólogo y programador.</p>
+      <section className="landing-shell landing-hero" aria-labelledby="landing-title">
+        <div className="landing-hero-copy">
+          <p className="landing-kicker"><span aria-hidden="true" />Software para nutriólogos, creado por un nutriólogo</p>
+          <h1 id="landing-title">Tu consulta merece tu atención.<br /><em>Tu vida también.</em></h1>
+          <p className="landing-lead">Da una consulta de calidad, mantén el control de tu práctica y termina con tus pendientes.</p>
+          <p className="landing-body">Expedientes, mediciones, planes de alimentación y seguimiento. Conectados para ayudarte a resolver más durante la consulta.</p>
+          <div className="landing-actions">
+            <a href="/register" className="landing-cta" data-cta="hero-register">Registrarme <ArrowRight size={18} aria-hidden="true" /></a>
+            <a href="#como-funciona" className="landing-text-link">Ver Nuthrick por dentro <ArrowDown size={17} aria-hidden="true" /></a>
+          </div>
+          <p className="landing-hero-note">Tu criterio. Tu forma de atender. Tu tiempo.</p>
         </div>
-        <figure className="min-w-0"><HeroProductMockup /><figcaption className="relative mt-5 text-center text-xs leading-5 text-[#53665d]">Vista ilustrativa del flujo de trabajo · datos de ejemplo</figcaption></figure>
+        <div className="landing-hero-photos">
+          <figure className="landing-hero-portrait"><img src={`${photos}nutriologa-plicometro.jpg`} width="735" height="928" fetchPriority="high" alt="Nutrióloga sonriendo con un plicómetro en la mano" /></figure>
+          <div className="landing-photo-note"><span aria-hidden="true">↗</span> Hecho para quienes<br />cuidan de otros.</div>
+          <figure className="landing-hero-inset"><img src={`${photos}evaluacion-antropometrica.png`} width="857" height="573" alt="Nutrióloga concentrada mientras marca puntos de referencia para una evaluación antropométrica" decoding="async" /><figcaption>La atención está en los detalles.</figcaption></figure>
+          <span className="landing-vertical-note" aria-hidden="true">DESDE LA CONSULTA REAL</span>
+        </div>
       </section>
 
-      <section id="segunda-jornada" className="border-y border-[#dfe7e1] bg-white py-12 sm:py-20">
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 sm:px-8 lg:grid-cols-2 lg:px-12">
-          <SectionHeading eyebrow="Sabemos cómo es" title={<>Termina la consulta.<br />Todavía queda el plan.</>} />
-          <div className="self-center"><p className="text-lg leading-8 text-[#53665d]">Recalcular, buscar notas, terminar el plan y preparar documentos. Lo que queda pendiente también ocupa tu tiempo.</p><p className="mt-5 text-lg leading-8 text-[#53665d]">Nuthrick es un software de nutrición que conecta la información que ya capturaste para ayudarte a avanzar hasta el cierre de la consulta.</p><a href="#como-funciona" className="mt-6 inline-flex items-center gap-2 py-3 font-semibold text-[#365f4d]">Conoce el flujo de consulta <ArrowRight size={16} aria-hidden="true" /></a></div>
+      <div className="landing-principles"><div className="landing-shell"><span><Heart size={18} aria-hidden="true" /> Calidad para tu paciente</span><span><ClipboardList size={18} aria-hidden="true" /> Control para tu consulta</span><span><MoveUpRight size={18} aria-hidden="true" /> Tiempo para ti</span></div></div>
+
+      <section id="segunda-jornada" className="landing-shell landing-section landing-problem">
+        <div><p className="landing-eyebrow">Seguro te ha pasado</p><h2>El paciente se va y<br /><em>los pendientes se quedan.</em></h2></div>
+        <div className="landing-problem-copy"><p className="landing-lead">Terminar el plan. Encontrar las mediciones de consultas previas. Volver a hacer un cálculo porque el plan necesita ajustes. Enviar al paciente lo que no alcanzaste a entregarle durante la consulta.</p><p className="landing-body">Elegiste esta profesión para cuidar de las personas. Nuthrick reúne el trabajo de la consulta para ayudarte a cerrar el día con más orden y menos cosas por resolver.</p><a href="#como-funciona" className="landing-text-link">Así se conecta tu consulta <ArrowDown size={17} aria-hidden="true" /></a></div>
+      </section>
+
+      <section id="como-funciona" className="landing-product landing-section" aria-labelledby="product-title">
+        <div className="landing-shell"><div className="landing-section-intro"><div><p className="landing-eyebrow">Nuthrick, por dentro</p><h2 id="product-title">De escuchar a tu paciente<br /><em>a tener el siguiente paso listo.</em></h2></div><p className="landing-body">La información que capturas acompaña tu trabajo. Revisa, ajusta y avanza con el contexto de cada persona.</p></div><ol className="landing-flow">{steps.map(([title, description], i) => <li key={title}><span className="landing-step-number">0{i + 1}</span><h3>{title}</h3><p>{description}</p></li>)}</ol><LandingProductTour /></div>
+      </section>
+
+      <section id="funciones" className="landing-shell landing-section landing-clinical" aria-labelledby="clinical-title">
+        <div className="landing-clinical-photos"><figure className="landing-measuring-photo"><img src={`${photos}medicion-brazo.png`} width="320" height="576" loading="lazy" decoding="async" alt="Nutrióloga realizando una medición antropométrica en el brazo" /></figure><figure className="landing-caliper-photo"><img src={`${photos}plicometria.png`} width="600" height="800" loading="lazy" decoding="async" alt="Detalle de las manos y el plicómetro durante la medición de un pliegue cutáneo" /><figcaption>Detrás de cada dato,<br />está tu criterio.</figcaption></figure></div>
+        <div><p className="landing-eyebrow">Calidad de consulta · Control profesional</p><h2 id="clinical-title">Más atención.<br /><em>Crea una conexión.</em></h2><p className="landing-body">Tu atención vale. Ten a la mano lo que necesitas para interpretar, explicar y tomar decisiones junto a tu paciente. Contar con ese contexto te ayuda a comunicar tus recomendaciones con claridad y a transmitir la preparación que hay detrás de tu consulta.</p>
+          <div className="landing-feature-list">
+            <article><span>01</span><div><h3>Una historia que puedes retomar</h3><p>Consulta cálculos, métodos y evolución a partir de los datos registrados. Compara lo que cambia entre visitas y retoma las mediciones de consultas previas.</p></div></article>
+            <article><span>02</span><div><h3>Tu consulta, a tu manera</h3><p>Personaliza tus plantillas y organiza el expediente según lo que necesitas conocer y seguir en cada consulta.</p></div></article>
+            <article><span>03</span><div><h3>Tú decides qué entregar</h3><p>Revisa el plan y las indicaciones. Comparte con el paciente la información que elijas publicar en su portal.</p></div></article>
+          </div>
+          <div id="nuthrick-ai" className="landing-ai-note"><Sparkles size={20} aria-hidden="true" /><div><h3>La IA te ayudará, pero el criterio seguirá siendo tuyo.</h3><p>Los borradores son un apoyo para revisar y ajustar. Su disponibilidad depende de la habilitación de tu cuenta y de tu plan.</p></div></div>
         </div>
       </section>
 
-      <section id="como-funciona" className="py-16 sm:py-24"><div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12"><div className="max-w-3xl"><SectionHeading eyebrow="Cómo funciona" title="Captura una vez. Avanza en cada etapa." description="Desde la entrevista hasta las indicaciones: trabaja con el contexto del paciente y revisa lo que vas a entregar." /></div><FlowVisual /></div></section>
-
-      <section id="funciones" className="bg-[#eef4ef] py-16 sm:py-24"><div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12"><SectionHeading eyebrow="Para tu consulta" title="La historia, el plan y la evolución. Juntos." /><div className="mt-12 grid gap-8 md:grid-cols-3">{features.map(([number,title,description]) => <article key={number} className="border-t border-[#bccfc1] pt-6"><span className="text-sm font-semibold text-[#477363]">{number}</span><h3 className="mt-5 text-2xl font-semibold tracking-tight">{title}</h3><p className="mt-4 leading-7 text-[#53665d]">{description}</p></article>)}</div>
-        <div className="mt-16 grid items-center gap-10 lg:grid-cols-[1.1fr_.9fr]"><figure className="min-w-0"><CalculationsMockup /><figcaption className="mt-4 text-xs text-[#53665d]">Ejemplo ilustrativo de resultados; cada evaluación depende de los datos capturados.</figcaption></figure><div><h3 className="text-3xl font-semibold leading-tight tracking-tight">Cálculos conectados con tu evaluación.</h3><p className="mt-5 text-lg leading-8 text-[#53665d]">Consulta resultados, métodos y evolución a partir de las mediciones registradas. Dedica tu atención a interpretarlos y decidir el siguiente paso.</p></div></div>
+      <section id="tu-tiempo" className="landing-life" aria-labelledby="life-title"><div className="landing-shell landing-section">
+        <div className="landing-life-grid"><div className="landing-life-copy"><p className="landing-eyebrow">La vida después de la consulta</p><h2 id="life-title">Hay algo que<br />también merece<br /><em>un lugar en tu día.</em></h2><p className="landing-lead">Eso que te gusta.<br />Eso que también eres.</p><p className="landing-body">Entrenar, salir con amigos, aprender algo nuevo o simplemente descansar. Reducir los pendientes de la consulta es hacer espacio para tu vida.</p><a href="/register" className="landing-text-link">Empieza a organizar tu consulta <ArrowRight size={18} aria-hidden="true" /></a></div><figure className="landing-exercise-photo"><img src={`${photos}tiempo-para-entrenar.jpg`} width="1080" height="720" loading="lazy" decoding="async" alt="Grupo de personas haciendo ejercicio al aire libre, con una mujer sonriente en primer plano" /><figcaption>El consultorio es parte de tu vida.<br /><em>Hay mucho más afuera.</em></figcaption></figure></div>
+        <div className="landing-community"><figure><img src={`${photos}nutriologos-en-grupo.jpg`} width="1538" height="1025" loading="lazy" decoding="async" alt="Grupo de nutriólogos reunidos durante una actividad de formación en antropometría" /></figure><div><p className="landing-eyebrow">Compartimos una forma de ver la profesión</p><h3>Ser nutriólogo/a es<br />cuidar de otros y seguir<br />aprendiendo. <em>Pero también<br />es cuidar de ti.</em></h3><p className="landing-body">Nuthrick está pensado para quienes quieren ejercer con atención y hacer sostenible su día a día en consulta.</p></div></div>
       </div></section>
 
-      <section id="nuthrick-ai" className="bg-[#173d36] py-16 sm:py-24"><div className="mx-auto grid max-w-7xl items-center gap-12 px-5 sm:px-8 lg:grid-cols-2 lg:px-12"><div><SectionHeading inverse eyebrow="Inteligencia artificial como apoyo" title="Nuthrick prepara. Tú decides." description="Usa el contexto de la consulta para trabajar con borradores que puedes revisar y ajustar. Tu criterio profesional guía cada decisión y cada indicación." /><p className="mt-6 text-sm leading-6 text-white/80">La visión de automatización de Nuthrick AI continúa en desarrollo. Los borradores requieren revisión profesional antes de utilizarlos.</p></div><AIContextVisual /></div></section>
-
-      <section className="py-16 sm:py-24"><div className="mx-auto grid max-w-7xl gap-10 px-5 sm:px-8 lg:grid-cols-2 lg:px-12"><SectionHeading eyebrow="Después de la consulta" title="Da continuidad sin perder el contexto." description="Retoma las mediciones, el plan y los objetivos acordados en la siguiente visita. La evolución del paciente tiene un lugar en su expediente." /><div className="self-center border-l-2 border-[#bd8a42] pl-7"><h3 className="text-2xl font-semibold">Menos cosas que buscar.<br />Menos cosas que hacer dos veces.</h3><p className="mt-5 leading-7 text-[#53665d]">Tus expedientes, documentos y planes de alimentación acompañan cada evaluación. Consulta el historial y compara la evolución para preparar la siguiente indicación.</p></div></div></section>
-
-      <section id="creador" aria-labelledby="creador-titulo" className="border-y border-[#e5dccb] bg-[#f1ece2] py-16 sm:py-24">
-        <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 sm:px-8 lg:grid-cols-[.9fr_1.1fr] lg:gap-16 lg:px-12">
-          <figure className="min-w-0 rounded-[28px] border border-white/80 bg-white/50 p-3 shadow-sm"><img src="/images/jose-olmedo-nuthrick-1280.webp" srcSet="/images/jose-olmedo-nuthrick-640.webp 640w, /images/jose-olmedo-nuthrick-1280.webp 1280w" sizes="(min-width: 1280px) 500px, (min-width: 1024px) 40vw, calc(100vw - 64px)" width="1280" height="907" loading="lazy" decoding="async" alt="Nutriólogo y programador de Nuthrick en su espacio de trabajo, acompañado de su perro" className="h-auto w-full rounded-[20px]" /><figcaption className="px-2 py-4 text-sm font-semibold text-[#405d4e]">Nutriólogo y programador · Del consultorio al código</figcaption></figure>
-          <div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#477363]">Una experiencia compartida</p><h2 id="creador-titulo" className="mt-4 text-balance text-3xl font-semibold leading-[1.1] tracking-[-.04em] sm:text-4xl lg:text-5xl">También he terminado planes después de cerrar el consultorio.</h2><p className="mt-7 text-lg leading-8 text-[#40584c]">Buscar una medición entre notas, repetir un cálculo o dedicar la noche a lo que quedó pendiente. Si trabajas en consulta, probablemente te resulte familiar.</p><p className="mt-5 text-lg leading-8 text-[#40584c]">Como nutriólogo y programador, empecé Nuthrick para resolver esas tareas que nos quitan tiempo. Para poder escuchar al paciente, encontrar su información y continuar donde nos quedamos.</p><p className="mt-6 border-l-2 border-[#bb914e] pl-5 text-xl font-medium leading-8">La herramienta debe adaptarse a tu forma de atender. Tú sigues tomando las decisiones.</p></div>
-        </div>
+      <section id="creador" aria-labelledby="creador-titulo" className="landing-shell landing-section landing-founder">
+        <figure><img src="/images/jose-olmedo-nuthrick-1280.webp" srcSet="/images/jose-olmedo-nuthrick-640.webp 640w, /images/jose-olmedo-nuthrick-1280.webp 1280w" sizes="(min-width: 1024px) 50vw, calc(100vw - 40px)" width="1280" height="907" loading="lazy" decoding="async" alt="José Olmedo, creador de Nuthrick, con su perro frente a las tres computadoras de su espacio de trabajo" /><figcaption><span>José Olmedo</span>Nutriólogo y creador de Nuthrick</figcaption></figure>
+        <div><p className="landing-eyebrow">Creado por un nutriólogo</p><h2 id="creador-titulo">Nuthrick nació desde<br /><em>un nutriólogo de verdad.</em></h2><p className="landing-body">Soy <strong>nutriólogo con más de 8 años de experiencia en consulta privada</strong>. Desarrollé Nuthrick a partir de los problemas que he vivido en el día a día y que sé que muchos nutriólogos también enfrentan: hacer cálculos, preparar planes de alimentación, dar seguimiento, llevar agenda y expedientes, promocionar mis servicios, conseguir pacientes y atender todo el trabajo que continúa después de la consulta.</p><p className="landing-body">Intenté resolverlo con hojas de cálculo llenas de fórmulas, documentos de texto, recordatorios en el celular y notas por aquí y por allá. También probé otros softwares de nutrición, pero seguía encontrando huecos en mi consulta. ¿De qué sirve tener un montón de recetas si muchos pacientes suelen irse por lo básico? ¿Y para qué tantas fotos de platillos con presentaciones perfectas si el paciente puede frustrarse cuando lo que prepara no le queda igual?</p><p className="landing-body">Por eso no quería hacer otro software de nutrición lleno de funciones que no siempre responden a lo que vivimos en consulta. Pensé Nuthrick para ayudarte a trabajar de una forma <strong>más simple, rápida y organizada</strong>: tener la información a la mano, avanzar con tus planes y dar seguimiento sin cargar con todo después. Es una herramienta para apoyarte, <strong>no para reemplazar tu criterio profesional</strong>: tú decides qué necesita cada paciente y cómo acompañarlo.</p><p className="landing-founder-signature">Del consultorio al código.</p></div>
       </section>
 
-      <section id="precios" aria-label="Planes vigentes" className="bg-white py-16 sm:py-24"><div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-12"><div className="max-w-3xl"><SectionHeading eyebrow="Planes individuales" title="Un plan para acompañar tu práctica." description="Elige la capacidad que necesitas. Revisa las funciones y condiciones de cada plan antes de contratar." /></div>
-        <div className="mt-12 grid gap-5 md:grid-cols-2">{plans.map((plan, index) => {
-          const featured = index === 1;
-          const muted = featured ? 'text-white/80' : 'text-[#53665d]';
-          return <article key={plan.id} className={`flex flex-col rounded-[24px] border p-7 ${featured ? 'border-[#173d36] bg-[#173d36] text-white shadow-[0_24px_60px_rgba(23,61,54,.18)]' : 'border-[#dce5df] bg-white'}`}>
-            <h3 className="text-xl font-semibold">{plan.name}</h3>
-            <p className="mt-6 text-4xl font-semibold tracking-tight">{publicPrice(plan.monthly_price, plan.currency)}<span className={`ml-2 text-sm font-normal tracking-normal ${muted}`}>{plan.currency} / mes</span></p>
-            {plan.annual_price !== null && <p className={`mt-3 text-sm ${muted}`}>{publicPrice(plan.annual_price, plan.currency)} {plan.currency} / año · pago anual</p>}
-            <p className={`mb-7 mt-5 leading-7 ${muted}`}>{plan.values['patients.limit'] === 'unlimited' ? 'Pacientes activos ilimitados.' : typeof plan.values['patients.limit'] === 'number' ? `Hasta ${plan.values['patients.limit']} pacientes activos.` : 'Consulta las capacidades incluidas en este plan.'}</p>
-            <a href={`/planes?plan=${encodeURIComponent(plan.id)}`} className={`mt-auto inline-flex min-h-12 items-center justify-center rounded-xl px-4 py-3 text-sm font-bold ${featured ? 'bg-white text-[#173d36]' : 'bg-[#edf4ef] text-[#285441]'}`} aria-label={`Consultar plan ${plan.name}`}>Consultar plan <ArrowRight className="ml-2" size={16} aria-hidden="true" /></a>
-          </article>;
-        })}</div>
-        {!plans.length && <p className="mt-6 text-[#53665d]">Consulta la disponibilidad y los precios en <a className="font-semibold underline" href="/planes">Planes vigentes</a>.</p>}
-        <p className="mt-6 max-w-3xl text-sm leading-6 text-[#53665d]">Revisa el importe y la periodicidad antes de confirmar tu contratación.</p>
+      <section id="precios" aria-label="Planes vigentes" className="landing-pricing landing-section"><div className="landing-shell">
+        <div className="landing-section-intro"><div><p className="landing-eyebrow">El siguiente paso</p><h2>Dale la oportunidad<br /><em>a una mejor forma de trabajar.</em></h2></div><p className="landing-body">Elige el plan que acompañe tu práctica. Las capacidades, funciones y condiciones están disponibles antes de contratar.</p></div>
+        {plans.length > 0 ? <div className="landing-plans">{plans.map((plan, index) => <article key={plan.id} className={`landing-plan${index === 1 ? ' landing-plan-featured' : ''}`}><p className="landing-eyebrow">Para tu práctica</p><h3>{plan.name}</h3><p className="landing-price">{publicPrice(plan.monthly_price, plan.currency)}<span>{plan.currency} / mes</span></p>{plan.annual_price !== null && <p className="landing-annual">{publicPrice(plan.annual_price, plan.currency)} {plan.currency} / año · pago anual</p>}<p className="landing-plan-capacity"><Check size={17} aria-hidden="true" />{plan.values['patients.limit'] === 'unlimited' ? 'Pacientes activos ilimitados.' : typeof plan.values['patients.limit'] === 'number' ? `Hasta ${plan.values['patients.limit']} pacientes activos.` : 'Consulta las capacidades incluidas en este plan.'}</p><a href={`/planes?plan=${encodeURIComponent(plan.id)}`} className="landing-cta" aria-label={`Consultar plan ${plan.name}`}>Consultar plan <ArrowRight size={17} aria-hidden="true" /></a></article>)}</div> : <div className="landing-plan-fallback"><p>Consulta la disponibilidad y los precios en la página de planes vigentes.</p><a href="/planes" className="landing-cta">Conocer los planes <ArrowRight size={17} aria-hidden="true" /></a></div>}
+        <p className="landing-pricing-note">Revisa el importe y la periodicidad antes de confirmar tu contratación.</p>
       </div></section>
 
-      <section id="preguntas" className="border-t border-[#dfe7e1] py-16 sm:py-24"><div className="mx-auto grid max-w-7xl gap-10 px-5 sm:px-8 lg:grid-cols-[.8fr_1.2fr] lg:px-12"><SectionHeading eyebrow="Antes de empezar" title="Preguntas sobre Nuthrick" /><div className="divide-y divide-[#d5dfd7]">{[
-        ['¿Para quién está pensado Nuthrick?', 'Para nutriólogos que trabajan en consulta y buscan organizar expedientes, evaluación, planes de alimentación y seguimiento en un mismo flujo.'],
-        ['¿Puedo preparar planes de alimentación?', 'Sí. Puedes trabajar con equivalentes, tiempos de comida y menús, revisando y ajustando el plan según las necesidades de cada paciente.'],
-        ['¿La inteligencia artificial reemplaza mi criterio?', 'No. Las propuestas y borradores son un apoyo. Tú revisas, ajustas y decides qué forma parte de la atención nutricional.'],
-        ['¿Cómo empiezo?', 'Crea tu cuenta desde Registrarme y consulta las condiciones vigentes en la página de planes.']
-      ].map(([question,answer]) => <article key={question} className="py-6 first:pt-0"><h3 className="text-lg font-semibold">{question}</h3><p className="mt-3 leading-7 text-[#53665d]">{answer}</p></article>)}</div></div></section>
-
-      <section className="px-5 pb-20 sm:px-8"><div className="mx-auto max-w-6xl rounded-[28px] bg-[#173d36] px-6 py-14 text-center text-white sm:px-12"><p className="font-semibold text-[#efbd6b]">Tu próxima consulta, más organizada</p><h2 className="mx-auto mt-5 max-w-3xl text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">Que tus pendientes no se lleven el resto del día.</h2><p className="mx-auto mt-6 max-w-xl text-lg leading-8 text-white/80">Conoce Nuthrick y encuentra una forma más sencilla de llevar tu consulta.</p><a href="/register" className="mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-[#efbd6b] px-7 py-4 font-bold text-[#173d36]" data-cta="closing-register">Registrarme <ArrowRight size={17} aria-hidden="true" /></a></div></section>
+      <section id="preguntas" className="landing-shell landing-section landing-faq"><div><p className="landing-eyebrow">Antes de empezar</p><h2>Conoce un poco más.<br /><em>Decide con calma.</em></h2></div><div>{questions.map(([question, answer]) => <details key={question}><summary>{question}<span aria-hidden="true">+</span></summary><p>{answer}</p></details>)}</div></section>
+      <section className="landing-closing"><div className="landing-shell"><p className="landing-eyebrow">Una consulta de calidad. Una vida con espacio.</p><h2>Que tus pendientes<br />no se lleven <em>el resto del día.</em></h2><a href="/register" className="landing-cta" data-cta="closing-register">Registrarme <ArrowRight size={18} aria-hidden="true" /></a><p>Empieza por tu próxima consulta.</p></div></section>
     </main>
-    <footer className="border-t border-[#d8e1d9] px-5 py-10 sm:px-8"><div className="mx-auto flex max-w-7xl flex-col justify-between gap-8 lg:flex-row lg:px-4"><div><a href="/" className="text-xl font-bold">Nuthrick</a><p className="mt-3 max-w-sm text-sm leading-6 text-[#53665d]">Software para una consulta nutricional más simple y organizada.</p><p className="mt-5 text-xs text-[#53665d]">© 2026 Nuthrick</p></div><nav aria-label="Enlaces del pie" className="grid grid-cols-2 gap-x-10 gap-y-2 text-sm text-[#405d4e]"><a className="py-2" href="#creador">Quién lo creó</a><a className="py-2" href="/login">Iniciar sesión</a><a className="py-2" href="/planes">Planes vigentes</a><a className="py-2" href="/register">Registrarme</a><a className="py-2" href="/privacy">Privacidad</a><a className="py-2" href="/terms">Términos</a><a className="py-2" href="/refunds">Reembolsos</a>{supportEmail && <a className="py-2" href={`mailto:${supportEmail}`}>Contacto</a>}</nav></div></footer>
+    <footer className="landing-footer landing-shell"><div><a href="/" className="landing-wordmark">Nuthrick</a><p>Más presente en consulta.<br />Más tiempo para ti.</p><small>© 2026 Nuthrick</small></div><nav aria-label="Enlaces del pie"><a href="#creador">Quién lo creó</a><a href="/login">Iniciar sesión</a><a href="/planes">Planes vigentes</a><a href="/register">Registrarme</a><a href="/privacy">Privacidad</a><a href="/terms">Términos</a><a href="/refunds">Reembolsos</a>{supportEmail && <a href={`mailto:${supportEmail}`}>Contacto</a>}</nav></footer>
   </div>;
 }

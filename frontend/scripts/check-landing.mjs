@@ -5,7 +5,7 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({headless:true, channel:'chrome'});
 const origin = process.env.LANDING_URL || 'http://127.0.0.1:4188';
-const output = new URL('../../output/landing-seo/',import.meta.url).pathname;
+const output = new URL('../../output/landing-editorial/',import.meta.url).pathname;
 await mkdir(output,{recursive:true});
 const results=[];
 try {
@@ -23,7 +23,7 @@ try {
     await page.goto(origin,{waitUntil:'networkidle'});
     await page.evaluate(()=>document.fonts.ready);
     assert.equal(await page.locator('h1').count(),1);
-    assert.ok((await page.locator('h1').innerText()).includes('Software para nutriólogos'));
+    assert.ok((await page.locator('h1').innerText()).includes('Tu consulta merece tu atención.'));
     assert.equal(await page.locator('link[rel=canonical]').count(),1);
     assert.equal(await page.locator('meta[name=robots]').getAttribute('content'),'index, follow');
     assert.equal(await page.locator('script[type="application/ld+json"]').count(),1);
@@ -40,6 +40,20 @@ try {
     await page.locator('#creador img').evaluate(async img=>await img.decode());
     await page.locator('#creador').screenshot({path:output+`creador-${width}.png`});
     await page.locator('#precios').screenshot({path:output+`precios-${width}.png`});
+    await page.locator('#tu-tiempo').screenshot({path:output+`tiempo-${width}.png`});
+    for (const label of ['Cálculos y mediciones', 'Tus pacientes', 'Planes de alimentación']) {
+      await page.getByRole('tab',{name:label,exact:true}).click();
+      const activePanel=page.getByRole('tabpanel');
+      await activePanel.locator('img').evaluate(async img=>await img.decode());
+      assert.equal(await activePanel.locator('img').evaluate(img=>img.naturalWidth),1280);
+    }
+    await page.locator('summary').filter({hasText:'¿Cómo empiezo?'}).click();
+    assert.ok(await page.locator('#preguntas details').last().evaluate(node=>node.open));
+    for(const picture of await page.locator('main img').all()) {
+      await picture.scrollIntoViewIfNeeded();
+      await picture.evaluate(async img=>await img.decode());
+      assert.ok(await picture.evaluate(img=>img.naturalWidth>0));
+    }
     await page.screenshot({path:output+`full-${width}.png`,fullPage:true});
     results.push({width,bounds,vitals:await page.evaluate(()=>window.__vitals),resources:await page.evaluate(()=>performance.getEntriesByType('resource').filter(e=>e.name.endsWith('.js')).map(e=>({name:e.name.split('/').pop(),bytes:e.decodedBodySize})))});
   }

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { SITE_ORIGIN } from './site';
 
 const title = 'Software para nutriólogos | Nuthrick';
-const description = 'Organiza expedientes, cálculos, planes de alimentación y seguimiento con Nuthrick. Software creado por un nutriólogo para terminar cada consulta con el trabajo hecho.';
+const description = 'Cuida tu consulta y tu tiempo. Organiza expedientes, cálculos, planes de alimentación y seguimiento con Nuthrick, software creado por un nutriólogo.';
 
 export const productMetadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
