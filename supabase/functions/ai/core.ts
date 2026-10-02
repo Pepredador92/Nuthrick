@@ -141,7 +141,7 @@ export function parseRequest(value: unknown): AIRequest {
   if (!workshop && ['planId','rejectedFoodIds','rejectedSignatures'].some(k => v[k] !== undefined)) throw new AIError('invalid_request');
   if (v.rejectedFoodIds !== undefined && (!Array.isArray(v.rejectedFoodIds) || v.rejectedFoodIds.length>30 || v.rejectedFoodIds.some(id => typeof id!=='string'||!uuid.test(id)))) throw new AIError('invalid_request');
   if (v.rejectedSignatures !== undefined && (!Array.isArray(v.rejectedSignatures) || v.rejectedSignatures.length>3 || v.rejectedSignatures.some(s => typeof s!=='string'||s.length>16000))) throw new AIError('invalid_request');
-  const clinical = ['pes_diagnosis','recall_24h'].includes(v.feature as string);
+  const clinical = ['pes_diagnosis','recall_24h','consultation_support'].includes(v.feature as string);
   if (clinical && (!v.consultationId || !Number.isSafeInteger(v.revision) || Number(v.revision) < 1)) throw new AIError('invalid_request');
   if (!clinical && !workshop && (v.revision !== undefined || v.narrative !== undefined)) throw new AIError('invalid_request');
   // Reuse the already fingerprinted narrative field for bounded diet instructions.
@@ -155,7 +155,7 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   const config = await store.config(request.feature);
   if (!config.enabled || config.provider !== 'openai') throw new AIError('feature_disabled');
   const adapter = featureAdapter(request.feature, config.prompt_version);
-  const clinical = ['pes_diagnosis','recall_24h','diet_draft'].includes(request.feature);
+  const clinical = ['pes_diagnosis','recall_24h','consultation_support','diet_draft'].includes(request.feature);
   if (clinical && (!store.context || !store.bindContext)) throw new AIError('context_unavailable');
   const hydrated = clinical ? await store.context!(request) : null;
   if (hydrated) adapter.context = hydrated.context;

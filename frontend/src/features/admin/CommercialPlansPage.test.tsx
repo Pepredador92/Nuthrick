@@ -42,6 +42,17 @@ it("reads the public projection and toggles independently configured prices", as
   expect(screen.getByText("$3,490")).toBeInTheDocument();
   expect(screen.getByText(/10 créditos incluidos por mes/)).toBeInTheDocument();
 });
+it("advertises objective assistance only when the plan grants that AI entitlement", async () => {
+  rpc.mockResolvedValue({
+    data: [{
+      ...plan,
+      values: { ...plan.values, "ai.consultation_support": true },
+    }],
+    error: null,
+  });
+  show();
+  expect(await screen.findByText(/Objetivos de consulta/)).toBeInTheDocument();
+});
 it("describes the returned capabilities without assuming a commercial plan name", async () => {
   show();
   await screen.findByText("Plan configurable");

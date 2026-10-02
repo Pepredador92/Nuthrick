@@ -228,6 +228,7 @@ export const featureLabels: Record<string, string> = {
   recall_24h: "R24h",
   pes_diagnosis: "PES",
   diet_draft: "Taller",
+  consultation_support: "Objetivos de consulta",
   diet_workshop: "Taller anterior",
   core_check: "Prueba técnica",
   consultation_summary: "Resumen",

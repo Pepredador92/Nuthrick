@@ -113,8 +113,8 @@ export function CommercialPlansPage() {
                     <li key={key}>{label}</li>
                   ))}
                 <li>
-                  {["ai.recall_24h", "ai.pes", "ai.diet_draft"].some(key => p.values[key] === true)
-                    ? <>IA: {[["ai.recall_24h", "R24h"], ["ai.pes", "PES"], ["ai.diet_draft", "Taller"]].filter(([key]) => p.values[key] === true).map(([, label]) => label).join(", ")} · {valueLabel(p.values["ai.monthly_credits"])} créditos incluidos por mes {p.credits_provisional && "(provisionales)"}</>
+                  {["ai.recall_24h", "ai.pes", "ai.diet_draft", "ai.consultation_support"].some(key => p.values[key] === true)
+                    ? <>IA: {[["ai.recall_24h", "R24h"], ["ai.pes", "PES"], ["ai.diet_draft", "Taller"], ["ai.consultation_support", "Objetivos de consulta"]].filter(([key]) => p.values[key] === true).map(([, label]) => label).join(", ")} · {valueLabel(p.values["ai.monthly_credits"])} créditos incluidos por mes {p.credits_provisional && "(provisionales)"}</>
                     : "Funciones básicas · Sin IA"}
                 </li>
                 {p.values["diet_library"] === true && (

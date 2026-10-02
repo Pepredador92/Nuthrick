@@ -1,7 +1,7 @@
 import { productOriginAllowed, siteOrigin } from '../_shared/site.ts';
 import { createClient } from '@supabase/supabase-js';
 import { AIError, type AIStore, type FeatureConfig, type Generation, OpenAIResponsesProvider, parseRequest, runAIRequest } from './core.ts';
-import { buildPesClinicalContext, redactClinicalText, type ClinicalSource } from './clinical.ts';
+import { buildConsultationSupportContext, buildPesClinicalContext, redactClinicalText, type ClinicalSource, type ConsultationSupportFact } from './clinical.ts';
 import { prepareDietSnapshot, prepareDietAlternative, verifyDietSnapshot, validateSnapshot, parseDietDecision, DietRoutingProvider, type DietSnapshot } from './diet.ts';
 import { dietPreflight } from './diet-ux.ts';
 import { localDietTestMode, SimulatedDietProvider } from './diet-provider-test.ts';
@@ -88,6 +88,7 @@ Deno.serve(async request => {
       }
       throw new AIError('service_unavailable',true);
     }
+    let consultationSupportFacts: ConsultationSupportFact[] | null = null;
     let dietSnapshot: DietSnapshot | null=null;
     let dietValidation: ReturnType<typeof validateSnapshot> | null=null;
     const store: AIStore = {
@@ -106,7 +107,10 @@ Deno.serve(async request => {
         const { data: source, error } = await db.rpc('ai_clinical_source',{p_owner:owner,p_patient:r.patientId,p_consultation:r.consultationId,p_revision:r.revision});
         if (error || !source) throw new AIError('context_unavailable');
         const clinical = source as ClinicalSource;
-        const context=r.feature==='pes_diagnosis' ? buildPesClinicalContext(clinical) : {narrative:redactClinicalText(r.narrative!,clinical.identifiers?.filter((v): v is string => typeof v === 'string'))};
+        const context=r.feature==='pes_diagnosis' ? buildPesClinicalContext(clinical)
+          : r.feature==='consultation_support' ? buildConsultationSupportContext(clinical)
+          : {narrative:redactClinicalText(r.narrative!,clinical.identifiers?.filter((v): v is string => typeof v === 'string'))};
+        if(r.feature==='consultation_support') consultationSupportFacts=(context as {facts:ConsultationSupportFact[]}).facts;
         if ('facts' in context && context.facts.length===0) throw new AIError('context_unavailable');
         return {stamp:clinical.stamp,context};
       },
@@ -146,6 +150,18 @@ Deno.serve(async request => {
       const saved=await dietRpc('get',{generationId:result.generationId});
       await verifyDietSnapshot(saved.snapshot);
       return respond({...result,output:{validation:saved.result.validation,hasManualMenu:saved.snapshot.hasManualMenu,snapshotHash:saved.snapshot.hash},decision:saved.decision});
+    }
+    if(input.feature==='consultation_support' && result.output && consultationSupportFacts) {
+      const output=result.output as {objectives:{text:string;evidenceFactIds:string[]}[]};
+      return respond({...result,output:{
+        objectives:output.objectives.map(objective=>({
+          text:objective.text,
+          evidence:objective.evidenceFactIds.flatMap(id=>{
+            const fact=consultationSupportFacts!.find(candidate=>candidate.id===id);
+            return fact?[{source:fact.source,finding:fact.finding}]:[];
+          }),
+        })),
+      }});
     }
     return respond(result);
   } catch (error) {

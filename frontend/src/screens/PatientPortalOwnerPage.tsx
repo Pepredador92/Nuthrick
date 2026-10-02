@@ -9,6 +9,7 @@ import {
   MessageCircle,
   QrCode,
   ShieldCheck,
+  ListChecks,
 } from "lucide-react";
 import { getPatient } from "@/src/services/patients";
 import { loadLongitudinalHistory } from "@/src/services/longitudinalHistory";
@@ -34,6 +35,7 @@ import { PortalAccessCode } from "@/src/components/patients/PortalAccessCode";
 import { PortalPlanSharing } from "@/src/components/patients/PortalPlanSharing";
 import { PortalGoal } from "@/src/components/patients/PortalGoal";
 import { PortalQrDialog } from "@/src/components/patients/PortalQrDialog";
+import { appendComposedText, composePatientInstructions } from "@/src/features/consultations/composeClinicalText";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
 import "./PatientPortal.css";
 
@@ -86,6 +88,12 @@ function OwnerPortal({ patientId }: { patientId: string }) {
   const [draft, setDraft] = useState<PortalContent>(empty);
   const [selected, setSelected] = useState<string[]>([]);
   const [email, setEmail] = useState("");
+  const [instructionParts, setInstructionParts] = useState({
+    action: "",
+    timing: "",
+    alternative: "",
+    review: "",
+  });
   const [tab, setTab] = useState(
     searchParams.get("tab") === "chat" ? "chat" : "share",
   );
@@ -463,6 +471,48 @@ function OwnerPortal({ patientId }: { patientId: string }) {
               }
               placeholder="Escribe aquí las indicaciones que deseas que pueda consultar."
             />
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+              <div className="flex items-start gap-2">
+                <ListChecks size={17} className="mt-0.5 text-amber-800" aria-hidden="true" />
+                <div>
+                  <h3 className="text-sm font-semibold text-amber-950">Organizar indicaciones acordadas</h3>
+                  <p className="mt-1 text-xs leading-5 text-amber-900">
+                    Completa con lo conversado con el paciente. Este apoyo solo ordena tus palabras y no agrega recomendaciones clínicas. Después, pídele que explique con sus palabras cómo pondrá en práctica el acuerdo y aclara cualquier duda.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {([
+                  ["action", "Qué hará", "Acción acordada, con palabras sencillas"],
+                  ["timing", "Cuándo o con qué frecuencia", "Solo si se acordó"],
+                  ["alternative", "Una alternativa si se complica", "Opción conversada"],
+                  ["review", "Qué revisarán juntos", "Tema para la próxima revisión"],
+                ] as const).map(([key, label, placeholder]) => (
+                  <label key={key} className="block text-xs font-medium text-[#52685d]">
+                    {label}
+                    <input
+                      className="nuth-input mt-1.5 !bg-white"
+                      maxLength={500}
+                      value={instructionParts[key]}
+                      placeholder={placeholder}
+                      onChange={(event) => setInstructionParts((current) => ({ ...current, [key]: event.target.value }))}
+                    />
+                  </label>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="mt-3 rounded-lg border border-amber-300 bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-950 hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!instructionParts.action.trim()}
+                onClick={() => setDraft((current) => ({
+                  ...current,
+                  instructions: appendComposedText(current.instructions, composePatientInstructions(instructionParts)),
+                }))}
+              >
+                <ListChecks size={14} className="mr-1.5 inline" aria-hidden="true" />
+                Agregar texto ordenado
+              </button>
+            </div>
           </section>
           <section className="portal-card">
             <h2 className="font-semibold">

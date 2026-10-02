@@ -3,6 +3,7 @@ import {
   clinicalObjective,
   type ObjectiveWorkspace,
 } from "@/src/services/clinicalCopilot";
+import { ConsultationObjectiveAI } from "@/src/components/consultations/ConsultationObjectiveAI";
 
 export function ClinicalObjective({
   consultationId,
@@ -10,12 +11,16 @@ export function ClinicalObjective({
   questionKey,
   value,
   before,
+  patientId,
+  onApplySuggestion,
 }: {
   consultationId: string;
   revision: number;
   questionKey: string;
   value: unknown;
   before: () => Promise<boolean>;
+  patientId?: string;
+  onApplySuggestion?: (text: string) => void;
 }) {
   const [workspace, setWorkspace] = useState<ObjectiveWorkspace | null>(null);
   const [message, setMessage] = useState("");
@@ -103,6 +108,15 @@ export function ClinicalObjective({
         El objetivo expresa lo acordado con el paciente. Las kcal objetivo y los
         macronutrientes se ajustan por separado.
       </p>
+      {questionKey !== "treatment_objective" && patientId && onApplySuggestion && (
+        <ConsultationObjectiveAI
+          patientId={patientId}
+          consultationId={consultationId}
+          revision={revision}
+          before={before}
+          onApply={onApplySuggestion}
+        />
+      )}
       <details className="mt-3 text-xs text-[#52675f]">
         <summary className="cursor-pointer">
           Consultar contexto registrado

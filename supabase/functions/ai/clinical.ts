@@ -20,6 +20,22 @@ export const pesSchema = object({
   missingContext: strings,
   uncertainties: strings,
 });
+export const consultationSupportSchema = object({
+  objectives: {
+    type: "array",
+    minItems: 0,
+    maxItems: 3,
+    items: object({
+      text: { type: "string", minLength: 8, maxLength: 300 },
+      evidenceFactIds: {
+        type: "array",
+        minItems: 1,
+        maxItems: 3,
+        items: { type: "string", pattern: "^f[0-9]{1,2}$" },
+      },
+    }),
+  },
+});
 export const recallSchema = object({
   meals: {
     type: "array",
@@ -55,6 +71,11 @@ export function clinicalAdapter(feature: string, version: string) {
     return {
       schema: pesSchema,
       instructions: `${boundary} Redacta únicamente un borrador nutricional PES para revisión profesional. Usa SOLO facts. Cada evidence debe copiar literalmente source y finding de un fact disponible; nunca inventes mediciones, síntomas, antecedentes o consumo. Si falta sustento, deja el campo vacío y explica en missingContext/uncertainties. Señala contradicciones sin resolverlas por tu cuenta. No presentes la propuesta como diagnóstico validado.`,
+    };
+  if (feature === "consultation_support" && version === "consultation_support@1")
+    return {
+      schema: consultationSupportSchema,
+      instructions: `${boundary} Sugiere de 0 a 3 borradores de objetivos conductuales para que el profesional los converse y acuerde con la persona. Prioriza lo que la persona expresó como importante y las acciones que ya constan en facts; usa el historial solo como contexto, nunca conviertas una medición en una meta. No inventes frecuencia, plazo, capacidad, diagnóstico, conducta, preferencias ni resultados. No indiques pérdida de peso ni metas numéricas, kcal, macros, suplementos o cambios de tratamiento salvo que consten literalmente como acuerdo y aun así pide revisión. Redacta en lenguaje sencillo, concreto y respetuoso, centrado en acciones bajo control de la persona. Cada objetivo debe citar de 1 a 3 evidenceFactIds existentes. Si no hay base explícita para una propuesta, devuelve objectives vacío. No apruebes ni guardes objetivos.`,
     };
   if (feature === "recall_24h" && version === "recall_24h@1")
     return {
@@ -104,6 +125,28 @@ export function buildPesClinicalContext(source: ClinicalSource) {
       })),
   };
 }
+export type ConsultationSupportFact = ClinicalFact & { id: string };
+export function buildConsultationSupportContext(source: ClinicalSource) {
+  const permitted = source.facts.filter((fact) => {
+    const sourceLabel = fact?.source?.toLocaleLowerCase() ?? "";
+    if (sourceLabel.startsWith("entrevista · ")) {
+      return /(?:main reason|expectations|consult now|objectives|treatment objective|next objectives|first actions|interview priorities|access barriers|eating drivers|changes since last|progress perception|symptoms changes|medical changes|indicators reviewed|barriers|adjustments|measurement notes|indicator progress)/i.test(sourceLabel);
+    }
+    if (sourceLabel.startsWith("historial · "))
+      return /(?:^| · )(?:peso|peso corporal|índice de masa corporal|imc|porcentaje de grasa corporal)(?: ·|$)/i.test(sourceLabel);
+    if (sourceLabel.startsWith("historial calculado · "))
+      return /(?:^| · )(?:imc|índice de masa corporal|porcentaje de grasa corporal)(?: ·|$)/i.test(sourceLabel);
+    return false;
+  }).slice(0, 18);
+  const facts = permitted.flatMap((fact, index) => {
+    if (typeof fact?.source !== "string" || typeof fact.finding !== "string") return [];
+    const finding = redactClinicalText(fact.finding.trim(), source.identifiers).slice(0, 700);
+    const label = redactClinicalText(fact.source.trim(), source.identifiers).slice(0, 180);
+    if (!finding || !label || ["null", "undefined", '""', "[]", "{}"].includes(finding)) return [];
+    return [{ id: `f${index + 1}`, source: label, finding }];
+  });
+  return { facts };
+}
 export function clinicalEvidenceValid(
   feature: string,
   output: unknown,
@@ -123,6 +166,17 @@ export function clinicalEvidenceValid(
       o.evidence.every((e) =>
         facts.some((f) => f.source === e.source && f.finding === e.finding),
       )
+    );
+  }
+  if (feature === "consultation_support") {
+    const o = output as {
+      objectives: { text: string; evidenceFactIds: string[] }[];
+    };
+    const facts = (context as { facts: ConsultationSupportFact[] }).facts;
+    return o.objectives.every((objective) =>
+      objective.text.trim().length >= 8 &&
+      objective.evidenceFactIds.length > 0 &&
+      objective.evidenceFactIds.every((id) => facts.some((fact) => fact.id === id)),
     );
   }
   if (feature === "recall_24h") {

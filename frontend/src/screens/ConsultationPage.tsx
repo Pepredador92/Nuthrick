@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
+  FileText,
   LoaderCircle,
   Save,
   Salad,
@@ -29,11 +30,14 @@ import {
 import {
   createSaveQueue,
   emptyValue,
+  isRecord,
   matchesCondition,
   questionErrors,
+  repeatableFields,
   sectionProgress,
 } from "@/src/features/consultations/questionnaire";
-import type { Answers } from "@/src/features/consultations/questionnaire";
+import { appendComposedText, composeInterviewDraft } from "@/src/features/consultations/composeClinicalText";
+import type { Answers, Question } from "@/src/features/consultations/questionnaire";
 import { getPatient, listConsultations } from "@/src/services/patients";
 import {
   adoptTemplate,
@@ -355,6 +359,25 @@ export function ConsultationPage() {
     valuesRef.current = next;
     setValues(next);
     setReviewed(false);
+  };
+  const addObjectiveSuggestion = (question: Question, text: string) => {
+    if (question.question_type === "repeatable_group") {
+      const fields = repeatableFields(question.configuration);
+      const objectiveField = fields.find((field) =>
+        /objetivo|goal/i.test(`${field.key} ${field.label}`),
+      );
+      if (!objectiveField) return;
+      const row = Object.fromEntries(fields.map((field) => [field.key, ""]));
+      row[objectiveField.key] = text;
+      const existing = valuesRef.current[question.question_key];
+      const rows = Array.isArray(existing) ? existing.filter(isRecord) : [];
+      setAnswer(question.question_key, [...rows, row]);
+      return;
+    }
+    setAnswer(
+      question.question_key,
+      appendComposedText(valuesRef.current[question.question_key], text),
+    );
   };
   const sections = snapshot?.structure.sections ?? [];
   const reviewing = active === sections.length;
@@ -1077,7 +1100,20 @@ export function ConsultationPage() {
                   setAnswer('pes_evidence', draft.signsSymptoms.join('\n'));
                   setAnswer('pes_statement', draft.pesStatement);
                 }} />}
-                {current?.questions.filter(q => ['objectives', 'treatment_objective', 'next_objectives'].includes(q.question_key)).map(q => <ClinicalObjective key={`${consultation.id}:${snapshot.revision}:${q.question_key}`} consultationId={consultation.id} revision={snapshot.revision} questionKey={q.question_key} value={values[q.question_key]} before={save} />)}
+                {current?.questions
+                  .filter((question) => ["objectives", "treatment_objective", "next_objectives"].includes(question.question_key))
+                  .map((question) => (
+                    <ClinicalObjective
+                      key={`${consultation.id}:${snapshot.revision}:${question.question_key}`}
+                      consultationId={consultation.id}
+                      revision={snapshot.revision}
+                      questionKey={question.question_key}
+                      value={values[question.question_key]}
+                      before={save}
+                      patientId={patient.id}
+                      onApplySuggestion={(text) => addObjectiveSuggestion(question, text)}
+                    />
+                  ))}
                 {current?.questions.some(q => q.question_key === 'recall_24h_v2') && <RecallCopilot key={`${consultation.id}:${snapshot.revision}:recall`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} before={save} />}
                 <fieldset
                   disabled={busy}
@@ -1088,22 +1124,33 @@ export function ConsultationPage() {
                       matchesCondition(question.visibility_condition, values),
                     )
                     .map((question) => (
-                      <QuestionField
-                        key={question.question_key}
-                        question={question}
-                        value={values[question.question_key]}
-                        errors={
-                          showErrors
-                            ? questionErrors(
-                                question,
-                                values[question.question_key],
-                              )
-                            : []
-                        }
-                        onChange={(value) =>
-                          setAnswer(question.question_key, value)
-                        }
-                      />
+                      <div key={question.question_key}>
+                        {question.question_type === "long_text" && composeInterviewDraft(question.question_key, values) && (
+                          <button
+                            type="button"
+                            className="mb-2 inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-950 hover:bg-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
+                            onClick={() => setAnswer(question.question_key, appendComposedText(values[question.question_key], composeInterviewDraft(question.question_key, values)))}
+                          >
+                            <FileText size={15} aria-hidden="true" />
+                            Redactar con datos registrados
+                          </button>
+                        )}
+                        <QuestionField
+                          question={question}
+                          value={values[question.question_key]}
+                          errors={
+                            showErrors
+                              ? questionErrors(
+                                  question,
+                                  values[question.question_key],
+                                )
+                              : []
+                          }
+                          onChange={(value) =>
+                            setAnswer(question.question_key, value)
+                          }
+                        />
+                      </div>
                     ))}
                   {!current?.questions.length && (
                     <p className="text-sm text-[#74817d]">
