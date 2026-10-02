@@ -454,7 +454,281 @@
 }
 
 .commercial-plans {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 32px clamp(20px, 4vw, 48px) 60px;
+  position: relative;
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 86% 7%, #e4ead8 0, transparent 30%),
+    #f5f6f1;
+}
+.commercial-plans-inner {
+  width: min(100%, 1760px);
+  margin-inline: auto;
+  padding: 28px clamp(22px, 5vw, 84px) 76px;
+}
+.commercial-plans-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #dbe2d8;
+}
+.commercial-plans-topbar .admin-link {
+  color: #486557;
+  text-decoration: none;
+}
+.commercial-plans-topbar .admin-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.commercial-plans-wordmark {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #77867a;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+}
+.commercial-plans-wordmark i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #a75b3d;
+}
+.commercial-plans-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(270px, .55fr);
+  align-items: end;
+  gap: clamp(32px, 7vw, 112px);
+  padding-block: clamp(52px, 7vw, 94px) clamp(34px, 5vw, 62px);
+}
+.commercial-plans-intro .admin-eyebrow {
+  margin-bottom: 18px;
+  color: #8a573d;
+}
+.commercial-plans-intro h1 {
+  max-width: 900px;
+  color: #203e36;
+  font-size: clamp(44px, 5.2vw, 76px);
+  font-weight: 550;
+  letter-spacing: -.06em;
+  line-height: 1.02;
+}
+.commercial-plans-intro h1 span {
+  color: #a34e35;
+}
+.commercial-plans-intro .admin-description {
+  max-width: 620px;
+  margin-top: 18px;
+  color: #5c6c61;
+  font-size: clamp(15px, 1.25vw, 18px);
+  line-height: 1.7;
+}
+.commercial-plans-billing {
+  justify-self: end;
+  width: min(100%, 340px);
+  padding: 16px;
+  border: 1px solid #dce3d9;
+  border-radius: 17px;
+  background: #ffffffa8;
+  box-shadow: 0 12px 32px #203c3109;
+}
+.commercial-plans-billing-label {
+  margin: 0 0 10px;
+  color: #53675b;
+  font-size: 12px;
+  font-weight: 650;
+}
+.commercial-plan-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin: 0;
+  padding: 4px;
+  border-radius: 12px;
+  background: #edf0e9;
+}
+.commercial-plan-switch .admin-button {
+  min-height: 44px;
+  padding: 10px 13px;
+  border-radius: 9px;
+  font-size: 13px;
+}
+.commercial-plan-switch .admin-button.secondary {
+  border-color: transparent;
+  background: transparent;
+  color: #5e6d62;
+}
+.commercial-plan-switch .admin-button.secondary:hover {
+  background: #ffffffa8;
+}
+.commercial-plans-checkout {
+  margin-bottom: 28px;
+}
+.commercial-plans .billing-choice {
+  margin: 0;
+  border-color: #d8e1d9;
+  border-radius: 20px;
+  box-shadow: 0 12px 32px #203c3109;
+}
+.commercial-plans-message {
+  margin: 0 0 22px;
+  padding: 18px 20px;
+  border: 1px solid #dce3d9;
+  border-radius: 14px;
+  background: #fff;
+  color: #596a5f;
+  font-size: 14px;
+}
+.commercial-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr));
+  align-items: stretch;
+  gap: 18px;
+}
+.commercial-plan-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100%;
+  margin: 0;
+  padding: clamp(24px, 2.4vw, 38px);
+  border-color: #dce3d8;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 18px 44px #203c310a;
+}
+.commercial-plan-label {
+  margin: 0 0 11px;
+  color: #8b654b;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .14em;
+}
+.commercial-plan-card .admin-plan-name {
+  margin: 0 !important;
+  color: #203e36;
+  font-size: clamp(24px, 2vw, 31px) !important;
+  letter-spacing: -.04em;
+  line-height: 1.15;
+}
+.commercial-plan-description {
+  min-height: 3em;
+  margin-top: 12px;
+  color: #69776d;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.commercial-plan-price {
+  margin: 25px 0 23px;
+  color: #203e36;
+  font-size: clamp(35px, 3.2vw, 48px);
+  font-weight: 650;
+  letter-spacing: -.055em;
+  line-height: 1;
+}
+.commercial-plan-price span {
+  display: block;
+  margin-top: 9px;
+  color: #6a786e;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.commercial-plan-features {
+  display: grid;
+  gap: 13px;
+  margin: 0 0 30px;
+  padding: 22px 0 0;
+  border-top: 1px solid #e6ebe4;
+  color: #415449;
+  font-size: 14px;
+  line-height: 1.5;
+  list-style: none;
+}
+.commercial-plan-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+.commercial-plan-features li::before {
+  content: "✓";
+  display: grid;
+  flex: 0 0 19px;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: #e8efe4;
+  color: #527351;
+  font-size: 11px;
+  font-weight: 800;
+}
+.commercial-plan-action {
+  width: 100%;
+  min-height: 50px;
+  margin-top: auto;
+  border-radius: 11px;
+  font-size: 14px;
+  transition: background .18s, transform .18s;
+}
+.commercial-plan-action:not(:disabled):hover {
+  transform: translateY(-1px);
+  background: #2c5949;
+}
+.commercial-plan-action:focus-visible,
+.commercial-plan-switch .admin-button:focus-visible {
+  outline: 3px solid #ae7657;
+  outline-offset: 3px;
+}
+.commercial-plans-footnote {
+  max-width: 105ch;
+  margin: 24px 0 0;
+  padding: 17px 20px;
+  border-left: 3px solid #b07855;
+  border-radius: 0 12px 12px 0;
+  background: #e9eee6;
+  color: #596a5f;
+  font-size: 12px;
+}
+@media (max-width: 900px) {
+  .commercial-plans-hero {
+    grid-template-columns: 1fr;
+    gap: 30px;
+    padding-top: 54px;
+  }
+  .commercial-plans-billing {
+    justify-self: start;
+    width: min(100%, 360px);
+  }
+}
+@media (max-width: 620px) {
+  .commercial-plans-inner {
+    padding: 22px 20px 48px;
+  }
+  .commercial-plans-wordmark {
+    font-size: 9px;
+  }
+  .commercial-plans-hero {
+    gap: 25px;
+    padding-block: 43px 29px;
+  }
+  .commercial-plans-intro h1 {
+    font-size: clamp(40px, 12vw, 56px);
+  }
+  .commercial-plan-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .commercial-plan-card {
+    padding: 24px 21px;
+  }
 }

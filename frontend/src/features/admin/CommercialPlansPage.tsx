@@ -37,114 +37,123 @@ export function CommercialPlansPage() {
   }, []);
   return (
     <main className="admin-shell commercial-plans">
-      <Link className="admin-link" to="/app">
-        ← Volver a mi espacio
-      </Link>
-      <header className="admin-heading mt-8">
-        <div>
-          <p className="admin-eyebrow">NUTHRICK</p>
-          <h1>Un plan para tu consulta</h1>
-          <p className="admin-description">
-            Conserva tus expedientes. Elige la capacidad que necesitas para
-            seguir atendiendo.
-          </p>
+      <div className="commercial-plans-inner">
+        <div className="commercial-plans-topbar">
+          <Link className="admin-link" to="/app">
+            ← Volver a mi espacio
+          </Link>
+          <span className="commercial-plans-wordmark">NUTHRICK <i /> PLANES</span>
         </div>
-      </header>
-      <div className="admin-tabs mb-6" aria-label="Modalidad de precios">
-        <button
-          className={`admin-button ${interval === "monthly" ? "" : "secondary"}`}
-          aria-pressed={interval === "monthly"}
-          onClick={() => setInterval("monthly")}
-        >
-          Mensual
-        </button>
-        <button
-          className={`admin-button ${interval === "annual" ? "" : "secondary"}`}
-          aria-pressed={interval === "annual"}
-          onClick={() => setInterval("annual")}
-        >
-          Anual
-        </button>
-      </div>
-      {error && <p role="alert">{error}</p>}
-      {loading && <p>Cargando planes…</p>}
-      {!loading && !error && !plans.length && (
-        <p>No hay planes disponibles por el momento.</p>
-      )}
-      {selection && plans.find(p=>p.id===selection) && <CheckoutChoice key={`${selection}:${interval}`} plan={plans.find(p=>p.id===selection)!} interval={interval} close={()=>setSelection(null)} />}
-      <div className="admin-grid">
-        {plans.map((p) => (
-          <section key={p.name} className="admin-card">
-            <h2 className="admin-plan-name">{p.name}</h2>
-            <p className="admin-note min-h-16">{p.description}</p>
-            <p className="my-6 text-3xl font-semibold">
-              {formatPrice(
-                interval === "monthly" ? p.monthly_price : p.annual_price,
-                p.currency,
-              )}{" "}
-              <span className="text-sm font-normal">
-                {p.currency} / {interval === "monthly" ? "mes" : "año"}
-              </span>
+        <header className="commercial-plans-hero">
+          <div className="commercial-plans-intro">
+            <p className="admin-eyebrow">PLANES PARA NUTRIÓLOGOS</p>
+            <h1>Un plan para tu consulta<span>.</span></h1>
+            <p className="admin-description">
+              Conserva tus expedientes. Elige la capacidad que necesitas para
+              seguir atendiendo.
             </p>
-            <ul className="space-y-3 text-sm">
-              <li>
-                {p.values["patients.limit"] === "unlimited"
-                  ? "Pacientes activos ilimitados"
-                  : `${valueLabel(p.values["patients.limit"])} pacientes activos`}
-              </li>
-              {[
-                ["consultations", "Consultas"],
-                ["consultation_design", "Diseño de consulta"],
-                ["diet_workshop", "Taller manual"],
-                ["public_profile", "Perfil público"],
-                ["patient_superlink", "Superlink con chat"],
-              ]
-                .filter(([key]) => p.values[key] === true)
-                .map(([key, label]) => (
-                  <li key={key}>{label}</li>
-                ))}
-              <li>
+          </div>
+          <div className="commercial-plans-billing">
+            <p className="commercial-plans-billing-label">Elige tu modalidad</p>
+            <div className="admin-tabs commercial-plan-switch" role="group" aria-label="Modalidad de precios">
+              <button
+                className={`admin-button ${interval === "monthly" ? "" : "secondary"}`}
+                aria-pressed={interval === "monthly"}
+                onClick={() => setInterval("monthly")}
+              >
+                Mensual
+              </button>
+              <button
+                className={`admin-button ${interval === "annual" ? "" : "secondary"}`}
+                aria-pressed={interval === "annual"}
+                onClick={() => setInterval("annual")}
+              >
+                Anual
+              </button>
+            </div>
+          </div>
+        </header>
+        {selection && plans.find(p=>p.id===selection) && <div className="commercial-plans-checkout"><CheckoutChoice key={`${selection}:${interval}`} plan={plans.find(p=>p.id===selection)!} interval={interval} close={()=>setSelection(null)} /></div>}
+        {error && <p role="alert" className="commercial-plans-message">{error}</p>}
+        {loading && <p role="status" className="commercial-plans-message">Cargando planes…</p>}
+        {!loading && !error && !plans.length && (
+          <p className="commercial-plans-message">No hay planes disponibles por el momento.</p>
+        )}
+        <div className="commercial-plan-grid" aria-busy={loading}>
+          {plans.map((p) => (
+            <section key={p.name} className="admin-card commercial-plan-card">
+              <div className="commercial-plan-heading">
+                <p className="commercial-plan-label">PARA TU PRÁCTICA</p>
+                <h2 className="admin-plan-name">{p.name}</h2>
+                <p className="admin-note commercial-plan-description">{p.description}</p>
+              </div>
+              <p className="commercial-plan-price">
+                {formatPrice(
+                  interval === "monthly" ? p.monthly_price : p.annual_price,
+                  p.currency,
+                )}
+                <span>{p.currency} / {interval === "monthly" ? "mes" : "año"}</span>
+              </p>
+              <ul className="commercial-plan-features">
+                <li>
+                  {p.values["patients.limit"] === "unlimited"
+                    ? "Pacientes activos ilimitados"
+                    : `${valueLabel(p.values["patients.limit"])} pacientes activos`}
+                </li>
                 {[
-                  ["ai.recall_24h", "R24h"],
-                  ["ai.pes", "PES"],
+                  ["consultations", "Consultas"],
+                  ["consultation_design", "Diseño de consulta"],
+                  ["diet_workshop", "Taller manual"],
+                  ["public_profile", "Perfil público"],
+                  ["patient_superlink", "Superlink con chat"],
                 ]
                   .filter(([key]) => p.values[key] === true)
-                  .map(([, label]) => label)
-                  .join(" y ") || "IA sin R24h/PES"}{" "}
-                · {valueLabel(p.values["ai.monthly_credits"])} créditos
-                incluidos por mes {p.credits_provisional && "(provisionales)"}
-              </li>
-              <li>
-                {p.values["ai.diet_draft"]
-                  ? "Taller con IA incluido"
-                  : "Taller con IA no incluido"}
-              </li>
-              {p.values["diet_library"] === true && (
+                  .map(([key, label]) => (
+                    <li key={key}>{label}</li>
+                  ))}
                 <li>
-                  {p.values["diet_library.full"]
-                    ? "Biblioteca compartida completa"
-                    : "Biblioteca personal y selección inicial compartida"}
+                  {[
+                    ["ai.recall_24h", "R24h"],
+                    ["ai.pes", "PES"],
+                  ]
+                    .filter(([key]) => p.values[key] === true)
+                    .map(([, label]) => label)
+                    .join(" y ") || "IA sin R24h/PES"}{" "}
+                  · {valueLabel(p.values["ai.monthly_credits"])} créditos
+                  incluidos por mes {p.credits_provisional && "(provisionales)"}
                 </li>
-              )}
-              {[
-                ["exports", "PDF de planes"],
-                ["exports.tex", "LaTeX para el profesional"],
-                ["exports.advanced", "Exportaciones avanzadas"],
-              ]
-                .filter(([key]) => p.values[key] === true)
-                .map(([key, label]) => (
-                  <li key={key}>{label}</li>
-                ))}
-            </ul>
-            <button className="admin-button mt-6" disabled={!p.id || (interval === 'monthly' ? p.monthly_price : p.annual_price) === null} onClick={()=>{setSelection(p.id!);window.scrollTo({top:0,behavior:'smooth'});}}>Elegir {p.name}</button>
-          </section>
-        ))}
+                <li>
+                  {p.values["ai.diet_draft"]
+                    ? "Taller con IA incluido"
+                    : "Taller con IA no incluido"}
+                </li>
+                {p.values["diet_library"] === true && (
+                  <li>
+                    {p.values["diet_library.full"]
+                      ? "Biblioteca compartida completa"
+                      : "Biblioteca personal y selección inicial compartida"}
+                  </li>
+                )}
+                {[
+                  ["exports", "PDF de planes"],
+                  ["exports.tex", "LaTeX para el profesional"],
+                  ["exports.advanced", "Exportaciones avanzadas"],
+                ]
+                  .filter(([key]) => p.values[key] === true)
+                  .map(([key, label]) => (
+                    <li key={key}>{label}</li>
+                  ))}
+              </ul>
+              <button className="admin-button commercial-plan-action" disabled={!p.id || (interval === 'monthly' ? p.monthly_price : p.annual_price) === null} onClick={()=>{setSelection(p.id!);window.scrollTo({top:0,behavior:'smooth'});}}>Elegir {p.name}</button>
+            </section>
+          ))}
+        </div>
+        <p className="admin-note commercial-plans-footnote">
+          Los créditos incluidos se renuevan mensualmente también en anual y no se
+          acumulan; las recargas y cortesías se conservan. La IA aún no está
+          habilitada para uso general.
+        </p>
       </div>
-      <p className="admin-note mt-6">
-        Los créditos incluidos se renuevan mensualmente también en anual y no se
-        acumulan; las recargas y cortesías se conservan. La IA aún no está
-        habilitada para uso general.
-      </p>
     </main>
   );
 }
