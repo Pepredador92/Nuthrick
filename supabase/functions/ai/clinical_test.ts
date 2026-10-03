@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 import {
   buildPesClinicalContext,
+  buildConsultationSupportContext,
   clinicalAdapter,
   clinicalEvidenceValid,
   conservativeRecallQuantities,
@@ -238,6 +239,31 @@ Deno.test("PES refuses unsupported etiology even when problem and statement are 
 Deno.test("PES field limits agree with persistence", () => {
   assert.equal(validOutput(pesSchema, { ...pes, problem: "x".repeat(501) }), false);
   assert.equal(validOutput(pesSchema, { ...pes, etiology: "x".repeat(1501) }), false);
+});
+Deno.test("dated history retains clinical qualifiers and is not treated as current support", () => {
+  const facts = [
+    { source: "Antropometría · peso", finding: "90.3 kg · medición 2026-10-03" },
+    { source: "Entrevista · adherence", finding: "Parcial" },
+    { source: "Antecedente de entrevista · 2026-07-18 · eating drivers", finding: "Ansiedad; relación con ingesta pendiente de confirmar" },
+    { source: "Antecedente de entrevista · 2026-08-01 · symptoms changes", finding: "No persiste el síntoma anterior" },
+    { source: "PES previo aprobado · 2026-07-18 · pes etiology", finding: "Hipótesis por revisar" },
+  ];
+  assert.deepEqual(buildPesClinicalContext({ stamp: "a", facts }).facts, facts);
+  assert.ok(buildConsultationSupportContext({ stamp: "a", facts }).facts.every(f => !/Antecedente|PES previo/.test(f.source)));
+  const prompt = clinicalAdapter("pes_diagnosis", "pes_diagnosis@3")!.instructions;
+  assert.match(prompt, /no confirma su vigencia actual/);
+  assert.match(prompt, /etiology y pesStatement vacíos/);
+});
+Deno.test("history compaction keeps numeric methods, units, dates and conflicting values", () => {
+  const facts = [
+    { source: "Historial · peso", finding: "100 kg · consulta 2026-07-18" },
+    { source: "Historial · peso", finding: "95 kg · consulta 2026-08-01" },
+    { source: "Historial · peso", finding: "94 kg · consulta 2026-08-01" },
+    { source: "Historial · tríceps", finding: "30 mm · consulta 2026-07-18" },
+  ];
+  const context = buildPesClinicalContext({ stamp: "a", facts });
+  assert.equal(context.facts.length, 1);
+  for (const reading of facts.slice(0, 3)) assert.ok(context.facts[0].finding.includes(reading.finding));
 });
 Deno.test("PES context omits absent facts without altering units, decimals or dates", () => {
   const units = [

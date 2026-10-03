@@ -253,6 +253,9 @@ export function PesCopilot(props: Props) {
           : "Agregar antropometría puede aportar más contexto; no es obligatorio."}{" "}
         Puedes redactar el PES manualmente.
       </p>
+      <p className="mt-1 text-xs text-[#687870]">
+        La propuesta puede usar antecedentes de consultas cerradas con su fecha. Revisa cuáles siguen vigentes.
+      </p>
       {!draft && (
         <AIButton capability="ai.pes"
           className="mt-4"
@@ -291,6 +294,16 @@ export function PesCopilot(props: Props) {
               Información insuficiente para proponer un PES. Revisa los datos faltantes antes de completar o aprobar el diagnóstico.
             </p>
           )}
+          {!draft.etiology.trim() && (
+            <div role="status" className="rounded-lg bg-[#fff7e7] p-3 text-sm text-[#715326]">
+              <p>Falta completar la etiología con sustento clínico antes de aprobar el PES. Revisa los antecedentes y confirma con el paciente los factores que siguen vigentes.</p>
+              {draft.missingContext.length > 0 && (
+                <ul className="mt-2 list-disc pl-5">
+                  {draft.missingContext.map((missing, i) => <li key={i}>{missing}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
           {(
             [
               ["problem", "Problema"],
@@ -307,6 +320,7 @@ export function PesCopilot(props: Props) {
                   key === "problem" ? 500 : key === "etiology" ? 1500 : 2000
                 }
                 value={draft[key]}
+                aria-invalid={key === "etiology" && !draft.etiology.trim() ? true : undefined}
                 onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
               />
             </label>

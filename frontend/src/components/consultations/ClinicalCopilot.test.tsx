@@ -80,6 +80,24 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe("PES copilot", () => {
+  it("blocks a partial PES with empty etiology and exposes the missing context", async () => {
+    api.generate.mockResolvedValue({ generationId: "partial", status: "succeeded", output: {
+      ...draft, etiology: "", missingContext: ["Confirmar si persiste la barrera de horarios registrada en julio"],
+    }, replay: false });
+    render(<PesCopilot {...props} />);
+    await screen.findByText("Antropometría disponible");
+    fireEvent.click(screen.getByText("Generar borrador"));
+    await screen.findByText(/Falta completar la etiología/);
+    expect(screen.getByText("Confirmar si persiste la barrera de horarios registrada en julio", { selector: "li" })).toBeTruthy();
+    expect(screen.getByLabelText("Etiología").getAttribute("aria-invalid")).toBe("true");
+    expect((screen.getByText("Aprobar") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Etiología"), { target: { value: " \n\t " } });
+    expect((screen.getByText("Aprobar") as HTMLButtonElement).disabled).toBe(true);
+    expect(api.workspace.mock.calls.every((c) => !c[2])).toBe(true);
+    fireEvent.change(screen.getByLabelText("Etiología"), { target: { value: "Barrera de horarios confirmada en entrevista" } });
+    fireEvent.click(screen.getByText("Aprobar"));
+    await waitFor(() => expect(props.onPes).toHaveBeenCalledWith(expect.objectContaining({ etiology: "Barrera de horarios confirmada en entrevista" })));
+  });
   it("preserves manual review and approval after a context-size failure", async () => {
     api.generate.mockRejectedValue(new AIRequestError("input_too_large"));
     render(<PesCopilot {...props} answers={{ pes_problem: "P", pes_etiology: "E", pes_evidence: "Dato registrado", pes_statement: "PES manual revisado" }} />);

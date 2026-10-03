@@ -29,6 +29,7 @@ export function canApprovePes(draft: PesDraft) {
   return (
     draft.problem.trim().length > 0 &&
     draft.problem.length <= 500 &&
+    draft.etiology.trim().length > 0 &&
     draft.etiology.length <= 1500 &&
     draft.pesStatement.trim().length > 0 &&
     draft.pesStatement.length <= 2000 &&
