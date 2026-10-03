@@ -189,6 +189,9 @@ export interface Consultation {
   patient_id: string;
   consultation_type: "initial" | "follow_up";
   sequence_number: number;
+  display_name?: string | null;
+  /** Presentation order among current follow-ups; never replaces the stored identifier. */
+  display_sequence_number?: number | null;
   consultation_date: string;
   status: "draft" | "completed" | "cancelled";
   summary: string | null;

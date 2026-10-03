@@ -1,5 +1,6 @@
 import { accessMessages } from "@/src/features/admin/api";
 import { supabase } from "@/src/lib/supabase";
+import { withConsultationDisplayNumbers } from "@/src/features/patients/patientUtils";
 import type {
   Consultation,
   ConsultationNote,
@@ -322,7 +323,7 @@ export async function listConsultations(
     .eq("patient_id", patientId)
     .is("deleted_at", null)
     .order("consultation_date", { ascending: false });
-  return unwrap((data ?? []) as Consultation[], error);
+  return withConsultationDisplayNumbers(unwrap((data ?? []) as Consultation[], error));
 }
 
 export async function createConsultation(

@@ -1,4 +1,4 @@
-import { formatPatientDate } from "@/src/features/patients/patientUtils";
+import { consultationLabel, formatPatientDate } from "@/src/features/patients/patientUtils";
 import {
   emptyValue,
   formatAnswer,
@@ -39,6 +39,7 @@ export function consultationTextExport(
         ]
       : []),
     `Paciente: ${patient.full_name}`,
+    `Consulta: ${consultationLabel(consultation)}`,
     `Fecha: ${formatPatientDate(consultation.consultation_date)}`,
     `Tipo: ${consultation.consultation_type === "initial" ? "Consulta inicial" : "Consulta de seguimiento"}`,
     `Plantilla: ${snapshot.template_name} · v${snapshot.template_version}`,
@@ -194,6 +195,7 @@ export async function downloadConsultationPdf(
     cursor,
   );
   cursor += 7;
+  write(`Consulta: ${consultationLabel(consultation)}`);
   const basics = patientBasics(patient).flatMap(
     (line) =>
       pdf.splitTextToSize(line, pageWidth - margin * 2 - 10) as string[],

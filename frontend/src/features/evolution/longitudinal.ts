@@ -1,5 +1,6 @@
 import type { Interpretation } from "@/src/features/interpretations/types";
 import type { Consultation, PatientMeasurement } from "@/src/types/domain";
+import { withConsultationDisplayNumbers } from "@/src/features/patients/patientUtils";
 import type { ConsultationMeasurement, CatalogMeasurement } from "@/src/services/consultationMeasurements";
 import type { LaboratoryReport, LaboratoryResult } from "@/src/services/laboratories";
 
@@ -161,7 +162,7 @@ function addPoint(series: LongitudinalSeries, point: LongitudinalPoint) {
 export function buildLongitudinalHistory(
   input: LongitudinalHistoryInput,
 ): LongitudinalHistory {
-  const consultations = input.consultations
+  const consultations = withConsultationDisplayNumbers(input.consultations)
     .slice()
     .sort(
       (left, right) =>
@@ -401,8 +402,11 @@ export function buildLongitudinalHistory(
     });
   }
 
+  // Archived attempts with no recorded values should not create empty visits.
+  // Keep any archived clinical values and their original consultation provenance.
+  const consultationsWithValues = new Set([...byId.values()].flatMap((series) => series.points.map((point) => point.consultation_id)));
   return {
-    consultations,
+    consultations: consultations.filter((item) => (!item.deleted_at && item.status !== "cancelled") || consultationsWithValues.has(item.id)),
     series: [...byId.values()]
       .map((series) => ({
         ...series,

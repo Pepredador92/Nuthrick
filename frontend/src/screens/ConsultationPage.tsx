@@ -25,6 +25,7 @@ import { LaboratoryReports } from "@/src/components/consultations/LaboratoryRepo
 import { PatientEvolutionTable } from "@/src/components/patients/PatientEvolutionTable";
 import {
   consultationLabel,
+  withConsultationDisplayNumbers,
   formatPatientDate,
 } from "@/src/features/patients/patientUtils";
 import {
@@ -97,6 +98,7 @@ export function ConsultationPage() {
   const navigate = useNavigate();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [consultation, setConsultation] = useState<Consultation | null>(null);
+  const consultationHistory = useRef<Consultation[]>([]);
   const [clinicalDate, setClinicalDate] = useState(() => dateInZone(new Date()));
   const clinicalDateRef = useRef(clinicalDate);
   const changeClinicalDate = (date: string) => {
@@ -144,6 +146,7 @@ export function ConsultationPage() {
           getPatient(patientId),
           listConsultations(patientId),
         ]);
+        consultationHistory.current = history;
         if (!loadedPatient)
           throw new Error(
             "No encontramos este paciente o no tienes autorización para verlo.",
@@ -223,7 +226,11 @@ export function ConsultationPage() {
               : null,
         );
         setPatient(loadedPatient);
-        setConsultation(consultationForLoad);
+        consultationHistory.current = withConsultationDisplayNumbers([
+          ...history.filter((item) => item.id !== consultationForLoad.id),
+          consultationForLoad,
+        ]);
+        setConsultation(consultationHistory.current.find((item) => item.id === consultationForLoad.id)!);
         changeClinicalDate(dateInZone(new Date(consultationForLoad.consultation_date), loadedPatient.timezone));
         setSnapshot(startedSnapshot);
         setValues(nextValues);
@@ -507,7 +514,10 @@ export function ConsultationPage() {
     setError("");
     try {
       const updated = await updateConsultationDate(consultation.id, clinicalDate, patient?.timezone);
-      setConsultation(updated);
+      consultationHistory.current = withConsultationDisplayNumbers([
+        ...consultationHistory.current.filter((item) => item.id !== updated.id), updated,
+      ]);
+      setConsultation(consultationHistory.current.find((item) => item.id === updated.id)!);
       changeClinicalDate(dateInZone(new Date(updated.consultation_date), patient?.timezone));
       setNotice("Fecha de consulta actualizada.");
     } catch (cause) {

@@ -25,6 +25,16 @@ const input = (overrides: Partial<LongitudinalHistoryInput> = {}): LongitudinalH
 });
 
 describe("buildLongitudinalHistory", () => {
+  it("hides empty discarded attempts but retains archived values and current visits with gaps", () => {
+    const archived = { ...consultations[0], id: "archived", deleted_at: "2026-10-03", status: "cancelled" as const };
+    const emptyAttempts = Array.from({ length: 4 }, (_, index) => ({ ...archived, id: `empty-${index}` }));
+    const history = buildLongitudinalHistory(input({
+      consultations: [...consultations, archived, ...emptyAttempts, { ...archived, id: "cancelled", deleted_at: null }],
+      measurements: [{ id: "preserved-zero", consultation_id: "archived", measurement_type_id: "weight", value: 0, unit: "kg", data_type: "number", measured_at: archived.consultation_date }],
+    }));
+    expect(history.consultations.map((visit) => visit.id).sort()).toEqual(["archived", "c1", "c2", "c3"]);
+    expect(history.series[0].points[0]).toMatchObject({ consultation_id: "archived", raw_value: 0 });
+  });
   it("orders by clinical date and keeps an explicit gap instead of carrying a value forward", () => {
     const history = buildLongitudinalHistory(input({
       measurements: [

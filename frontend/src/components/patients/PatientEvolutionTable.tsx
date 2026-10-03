@@ -8,6 +8,7 @@ import {
   type LongitudinalSeries,
 } from "@/src/features/evolution/longitudinal";
 import { loadLongitudinalHistory } from "@/src/services/longitudinalHistory";
+import { consultationLabel } from "@/src/features/patients/patientUtils";
 
 type CategoryFilter = "all" | LongitudinalCategory;
 
@@ -89,6 +90,7 @@ function EvolutionMatrix({
                     className="w-full text-left font-semibold text-[#24473d] hover:text-[#3d705d] focus:outline-none focus:ring-2 focus:ring-[#76a78e] focus:ring-offset-2"
                     aria-label={`Abrir consulta del ${consultationDate(consultation.consultation_date)}`}
                   >
+                    <span className="mb-1 block">{consultationLabel(consultation)}</span>
                     {consultationDate(consultation.consultation_date)}
                     {consultation.deleted_at ? <span className="mt-1 block text-xs font-normal text-[#74817d]">Consulta retirada · datos conservados</span> : null}
                   </button>

@@ -41,6 +41,7 @@ import {
   normalizePhone,
   patientInitials,
   patientStatusLabel,
+  withConsultationDisplayNumbers,
 } from "@/src/features/patients/patientUtils";
 import {
   getSignedPatientPhotoUrl,
@@ -61,6 +62,7 @@ import {
   updatePatientNote,
 } from "@/src/services/patients";
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
+import { ConsultationNameDialog } from "@/src/components/consultations/ConsultationNameDialog";
 import {
   consultationTextExport,
   downloadConsultationPdf,
@@ -356,12 +358,14 @@ function ConsultationDetail({
 function ConsultationHistoryOverview({
   consultation,
   onEdit,
+  onRename,
   onExport,
   onExportPdf,
   onDelete,
 }: {
   consultation: Consultation | null;
   onEdit: (consultation: Consultation) => void;
+  onRename: (consultation: Consultation) => void;
   onExport: (consultation: Consultation) => void;
   onExportPdf: (consultation: Consultation) => void;
   onDelete: (consultation: Consultation) => void;
@@ -373,7 +377,10 @@ function ConsultationHistoryOverview({
     <article className="rounded-2xl border border-[#dfe5e1] bg-[#fbfcfa] p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-[#82908a]">{consultationLabel(consultation)}</p>
+          <div className="flex items-center gap-2">
+            <p className="break-words text-sm font-semibold text-[#60726a]">{consultationLabel(consultation)}</p>
+            <button type="button" className="rounded-lg p-2 hover:bg-[#eaf3ed]" aria-label={`Cambiar nombre de ${consultationLabel(consultation)}`} onClick={() => onRename(consultation)}><Edit3 size={15} aria-hidden="true" /></button>
+          </div>
           <h3 className="mt-2 text-2xl font-semibold">{formatPatientDate(consultation.consultation_date)}</h3>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -420,6 +427,7 @@ function HistoryModal({
   onEditNote,
   onDeleteNote,
   onEditConsultation,
+  onRenameConsultation,
   onExportConsultation,
   onExportConsultationPdf,
   onDeleteConsultation,
@@ -438,6 +446,7 @@ function HistoryModal({
   onEditNote: (note: PatientNote) => void;
   onDeleteNote: (note: PatientNote) => void;
   onEditConsultation: (consultation: Consultation) => void;
+  onRenameConsultation: (consultation: Consultation) => void;
   onExportConsultation: (consultation: Consultation) => void;
   onExportConsultationPdf: (consultation: Consultation) => void;
   onDeleteConsultation: (consultation: Consultation) => void;
@@ -562,6 +571,7 @@ function HistoryModal({
               <ConsultationHistoryOverview
                 consultation={selectedConsultation}
                 onEdit={onEditConsultation}
+                onRename={onRenameConsultation}
                 onExport={onExportConsultation}
                 onExportPdf={onExportConsultationPdf}
                 onDelete={onDeleteConsultation}
@@ -737,9 +747,11 @@ function EvolutionModal({
 function RecentConsultations({
   consultations,
   onOpen,
+  onRename,
 }: {
   consultations: Consultation[];
   onOpen: (id: string) => void;
+  onRename: (consultation: Consultation) => void;
 }) {
   if (!consultations.length) {
     return (
@@ -752,22 +764,16 @@ function RecentConsultations({
   return (
     <div className="mt-5 space-y-2">
       {consultations.slice(0, 5).map((item) => (
-        <button
-          type="button"
-          key={item.id}
-          className="flex w-full items-center justify-between rounded-xl border border-[#e4eae5] p-4 text-left hover:bg-[#f5f7f3]"
-          onClick={() => onOpen(item.id)}
-        >
-          <span>
-            <span className="block font-semibold text-[#315e4f]">
-              {consultationLabel(item)}
+        <div key={item.id} className="flex items-center rounded-xl border border-[#e4eae5]">
+          <button type="button" className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl p-4 text-left hover:bg-[#f5f7f3]" onClick={() => onOpen(item.id)}>
+            <span className="min-w-0">
+              <span className="block break-words font-semibold text-[#315e4f]">{consultationLabel(item)}</span>
+              <span className="mt-1 block text-xs text-[#82908a]">{formatPatientDate(item.consultation_date)}</span>
             </span>
-            <span className="mt-1 block text-xs text-[#82908a]">
-              {formatPatientDate(item.consultation_date)}
-            </span>
-          </span>
-          <span className="text-sm text-[#3d705d]">Ver →</span>
-        </button>
+            <span className="shrink-0 text-sm text-[#3d705d]">Ver →</span>
+          </button>
+          <button type="button" className="mr-2 shrink-0 rounded-lg p-3 text-[#315e4f] hover:bg-[#eaf3ed]" aria-label={`Cambiar nombre de ${consultationLabel(item)}`} title="Cambiar nombre" onClick={() => onRename(item)}><Edit3 size={16} aria-hidden="true" /></button>
+        </div>
       ))}
     </div>
   );
@@ -780,6 +786,7 @@ export function PatientDetailPage() {
   const { user } = useAuth();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [renamingConsultation, setRenamingConsultation] = useState<Consultation | null>(null);
   const [notes, setNotes] = useState<PatientNote[]>([]);
   const [photos, setPhotos] = useState<PatientProgressPhoto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1005,7 +1012,7 @@ export function PatientDetailPage() {
     setConfirm(null);
     await run(async () => {
       await deleteConsultationRecord(id);
-      setConsultations((current) => current.filter((item) => item.id !== id));
+      setConsultations((current) => withConsultationDisplayNumbers(current.filter((item) => item.id !== id)));
       setSelectedConsultationId((current) => (current === id ? null : current));
     }, "Consulta retirada del historial. Sus datos y planes se conservaron con su procedencia.");
   };
@@ -1411,6 +1418,7 @@ export function PatientDetailPage() {
             </div>
             <RecentConsultations
               consultations={consultations}
+              onRename={setRenamingConsultation}
               onOpen={(id) => {
                 const consultation = consultations.find((item) => item.id === id);
                 if (consultation) editConsultation(consultation);
@@ -1483,6 +1491,7 @@ export function PatientDetailPage() {
           onEditNote={(note) => void editNote(note)}
           onDeleteNote={(note) => setConfirm({ action: "note-delete", note })}
           onEditConsultation={editConsultation}
+          onRenameConsultation={setRenamingConsultation}
           onExportConsultation={(consultation) =>
             void exportConsultation(consultation)
           }
@@ -1492,6 +1501,17 @@ export function PatientDetailPage() {
           onDeleteConsultation={(consultation) =>
             setConfirm({ action: "consultation-delete", consultation })
           }
+        />
+      )}
+      {renamingConsultation && (
+        <ConsultationNameDialog
+          consultation={renamingConsultation}
+          onClose={() => setRenamingConsultation(null)}
+          onSaved={(updated) => {
+            setConsultations((current) => current.map((item) => item.id === updated.id ? { ...item, display_name: updated.display_name, updated_at: updated.updated_at } : item));
+            setRenamingConsultation(null);
+            setNotice("Nombre de consulta actualizado.");
+          }}
         />
       )}
       {evolutionOpen && (

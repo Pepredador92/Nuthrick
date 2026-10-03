@@ -339,6 +339,27 @@ export async function deleteConsultationRecord(
   fail(error, "No pudimos eliminar la consulta.");
 }
 
+export async function renameConsultation(
+  consultation: Consultation,
+  name: string,
+): Promise<Consultation> {
+  const trimmed = name.trim();
+  if (Array.from(trimmed).length > 120) throw new Error("El nombre puede tener hasta 120 caracteres.");
+  const { data, error } = await supabase.rpc("rename_consultation", {
+    target_consultation: consultation.id,
+    requested_name: trimmed || null,
+    expected_name: consultation.display_name ?? null,
+  }).single();
+  if (error?.message === "consultation_name_conflict") {
+    throw new Error("El nombre cambió en otra ventana. Cierra este diálogo y recarga antes de renombrar.");
+  }
+  if (error?.code === "42501") {
+    throw new Error("No tienes permiso para cambiar el nombre de esta consulta.");
+  }
+  fail(error, "No pudimos cambiar el nombre. Vuelve a intentarlo.");
+  return { ...(data as Consultation), display_sequence_number: consultation.display_sequence_number };
+}
+
 export const listTemplate = (type: Consultation["consultation_type"]) =>
   loadActiveTemplate(type, true);
 

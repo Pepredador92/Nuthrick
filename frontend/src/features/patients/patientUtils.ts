@@ -65,9 +65,27 @@ export function patientStatusLabel(status: PatientStatus): string {
 }
 
 export function consultationLabel(
-  consultation: Pick<Consultation, "consultation_type" | "sequence_number">,
+  consultation: Pick<Consultation, "consultation_type" | "sequence_number" | "display_name" | "display_sequence_number">,
 ): string {
+  if (consultation.display_name?.trim()) return consultation.display_name.trim();
   return consultation.consultation_type === "initial"
     ? "Consulta de inicio"
-    : `Seguimiento ${consultation.sequence_number}`;
+    : consultation.display_sequence_number === null
+      ? "Consulta de seguimiento"
+      : `Seguimiento ${consultation.display_sequence_number ?? consultation.sequence_number}`;
+}
+
+/** Number visible follow-ups without counting discarded attempts or changing record IDs. */
+export function withConsultationDisplayNumbers(consultations: Consultation[]): Consultation[] {
+  const counters = new Map<string, number>();
+  const numbers = new Map<string, number>();
+  [...consultations]
+    .filter((item) => !item.deleted_at && item.status !== "cancelled" && item.consultation_type === "follow_up")
+    .sort((a, b) => a.consultation_date.localeCompare(b.consultation_date) || a.sequence_number - b.sequence_number || a.id.localeCompare(b.id))
+    .forEach((item) => {
+      const count = (counters.get(item.patient_id) ?? 0) + 1;
+      counters.set(item.patient_id, count);
+      numbers.set(item.id, count);
+    });
+  return consultations.map((item) => ({ ...item, display_sequence_number: numbers.get(item.id) ?? null }));
 }

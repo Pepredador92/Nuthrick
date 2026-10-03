@@ -8,7 +8,7 @@ describe('consultation history visibility',()=>{
   const query={select:vi.fn(),eq:vi.fn(),is:vi.fn(),order:vi.fn().mockResolvedValue({data:[{id:'visible'}],error:null})};
   query.select.mockReturnValue(query);query.eq.mockReturnValue(query);query.is.mockReturnValue(query);
   vi.mocked(supabase.from).mockReturnValue(query as never);
-  expect(await listConsultations('patient')).toEqual([{id:'visible'}]);
+  expect(await listConsultations('patient')).toEqual([expect.objectContaining({id:'visible'})]);
   expect(supabase.from).toHaveBeenCalledWith('consultations');
   expect(query.eq).toHaveBeenCalledWith('patient_id','patient');
   expect(query.is).toHaveBeenCalledWith('deleted_at',null);
