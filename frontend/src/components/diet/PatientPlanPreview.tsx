@@ -1,3 +1,4 @@
+import { PatientSupplements } from "./PatientSupplements";
 import type { PatientPlanView } from "@/src/features/diet-review/model";
 import { canSubstitute, type PatientPreparation } from "@/src/features/diet-review/preparation";
 import { foodUnitLabels, formatFoodQuantity } from "@/src/features/menu/units";
@@ -27,6 +28,7 @@ export function PatientPlanPreview({ value, historical = false }: { value: Patie
     <p className="nuth-eyebrow">Vista para paciente</p>
     <h3 className="mt-1 break-words text-lg font-semibold text-[#173d36]">{value.title}</h3>
     <p className="mt-1 text-sm text-[#6d7d75]">{value.patientName} · {value.days.length} {value.days.length === 1 ? "día" : "días"}</p>
+    <PatientSupplements items={value.supplements} />
     {legacy && <p className="mt-3 text-xs leading-5 text-[#7b694b]">Esta versión se publicó sin sustituciones. Para incluirlas, revisa y publica una nueva versión desde el borrador.</p>}
     <div className="mt-4 space-y-5">{value.days.map(day => <section key={day.name} aria-label={day.name} className="min-w-0 border-t border-[#e6ece7] pt-3">
       <h4 className="text-sm font-semibold text-[#244b3e]">{day.name}</h4>

@@ -1,3 +1,4 @@
+import {patientSupplements,type PatientSupplement} from '../_shared/supplements.ts';
 // Server-side patient projection. Raw clinical snapshots never reach the browser.
 type ObjectValue = Record<string, unknown>;
 const object = (v: unknown): ObjectValue => {
@@ -26,7 +27,7 @@ const canonical = (v: unknown) => JSON.stringify(v, (_key,value: unknown) =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
     ? Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b,'en'))) : value);
 export type PortalPlanIngredient = {name:string;amount:number;unit:string;alternatives:{name:string;amount:number;unit:string}[]};
-export type PortalPlan = {title:string;versionNumber:number;publishedAt:string;days:{name:string;meals:{name:string;time:string|null;title:string;ingredients:PortalPlanIngredient[];instructions:string[]}[]}[]};
+export type PortalPlan = {supplements?:PatientSupplement[];title:string;versionNumber:number;publishedAt:string;days:{name:string;meals:{name:string;time:string|null;title:string;ingredients:PortalPlanIngredient[];instructions:string[]}[]}[]};
 
 export function projectPortalPlan(raw: unknown): PortalPlan | null {
   if (raw === null) return null;
@@ -35,6 +36,7 @@ export function projectPortalPlan(raw: unknown): PortalPlan | null {
   const times = list(distribution.meal_times, 50).map(object);
   return {
     title:text(object(snapshot.plan).title), versionNumber:positive(published.versionNumber), publishedAt:text(published.publishedAt,50),
+    supplements:patientSupplements((object(snapshot.prescription).macro_distribution as ObjectValue | null)?.supplements),
     days:list(snapshot.calendar,7).map(value=>{
       const day = object(value), dayCode = text(day.day,3);
       if (!Object.hasOwn(days,dayCode)) throw new Error('invalid_plan');

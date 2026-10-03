@@ -17,3 +17,14 @@ it('rejects drafts or malformed versions instead of exporting partial clinical c
  expect(()=>buildPlanDocument({snapshot:{}},{})).toThrow();
  expect(()=>buildPlanDocument({...raw('Arroz',1),versionNumber:0},{})).toThrow();
 });
+
+import {supplementItem} from '../../tests/fixtures/supplements';
+it('includes green supplementation in both documents, using the immutable patient projection',()=>{
+ const source=raw('Arroz',1);
+ const model=buildPlanDocument({...source,snapshot:{...source.snapshot,prescription:{...source.snapshot.prescription,macro_distribution:{supplements:[supplementItem]}}}},{});
+ expect(planDocumentBlocks(model)[0]).toEqual({kind:'supplement-heading',text:'TU SUPLEMENTACIÓN'});
+ expect(planDocumentBlocks(model).map(b=>b.text)).toContain('Con tu desayuno.');
+ expect(renderPlanTex(model)).toContain('\\colorbox{nuthmint}');
+ expect(renderPlanTex(model)).toContain('Proteína de ejemplo');
+ expect(new TextDecoder().decode(renderPlanPdf(model))).toContain('TU SUPLEMENTACI');
+});

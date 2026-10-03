@@ -1,3 +1,4 @@
+import { PatientSupplements } from "../diet/PatientSupplements";
 import { useEffect, useState } from "react";
 import {
   portalAction,
@@ -29,6 +30,7 @@ export function PortalPlanContent({ plan }: { plan: PortalPlan | null }) {
         Versión {plan.versionNumber} · Publicado el{" "}
         {portalDate(plan.publishedAt)}
       </p>
+      <PatientSupplements items={plan.supplements} />
       <div className="mt-6 space-y-7">
         {plan.days.map((day) => (
           <section key={day.name} className="border-t border-[#e0e7de] pt-4">

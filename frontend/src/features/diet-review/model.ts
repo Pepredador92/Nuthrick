@@ -1,3 +1,4 @@
+import { isSupplementList, patientSupplements, type PatientSupplement, type SupplementItem } from "../../../../supabase/functions/_shared/supplements";
 import { optionCanConfirm, optionIsEligible, optionPortionDifferences } from "@/src/features/menu/options";
 import { getExchangeGroup } from "@/src/features/exchanges/catalog";
 import { assignment, dayName, weekProblems } from "@/src/features/menu/week";
@@ -40,6 +41,7 @@ export function validateNutritionPlanForPublication(plan: NutritionPlan): Public
   const errors: PublicationIssue[] = [];
   const warnings: PublicationIssue[] = [];
   const info: PublicationIssue[] = [];
+  if (!isSupplementList(plan.macro_distribution?.supplements ?? [])) errors.push(error("SUPPLEMENTS_INVALID", "Revisa las cantidades y etiquetas de los suplementos.", {step:"macros"}));
   if (!plan.patient_id) errors.push(error("PATIENT_REQUIRED", "Asigna un paciente antes de publicar."));
   if (!Number.isFinite(plan.target_calories) || !plan.target_calories || plan.target_calories <= 0)
     warnings.push(warning("ENERGY_TARGET_REQUIRED", "Define un objetivo energético válido.", { step: "energy" }));
@@ -109,13 +111,14 @@ export function prepareSingleDayForReview(menu: DietMenu, distribution: MealDist
 
 export type PatientPlanMeal = { name: string; time: string | null; entries: DietMenuEntry[]; preparation: PatientPreparation };
 export type PatientPlanDay = { name: string; meals: PatientPlanMeal[] };
-export type PatientPlanView = { title: string; patientName: string; days: PatientPlanDay[] };
+export type PatientPlanView = { supplements?: PatientSupplement[]; title: string; patientName: string; days: PatientPlanDay[] };
 
-function patientView(title: string, patientName: string, distribution: MealDistribution | null, calendar: DietMenu["week_plan"]): PatientPlanView {
+function patientView(title: string, patientName: string, distribution: MealDistribution | null, calendar: DietMenu["week_plan"], supplements?: SupplementItem[]): PatientPlanView {
   const byId = new Map((distribution?.meal_times ?? []).map((meal) => [meal.id, meal]));
   return {
     title,
     patientName,
+    supplements: patientSupplements(supplements),
     days: (calendar?.days ?? []).map((day) => ({
       name: dayName(day.day),
       meals: [...day.assignments]
@@ -131,9 +134,9 @@ function patientView(title: string, patientName: string, distribution: MealDistr
 }
 
 export function patientPlanViewFromDraft(plan: NutritionPlan, patientName = "Paciente"): PatientPlanView {
-  return patientView(plan.title, patientName, plan.meal_distribution, plan.diet_menu?.week_plan ?? null);
+  return patientView(plan.title, patientName, plan.meal_distribution, plan.diet_menu?.week_plan ?? null, plan.macro_distribution?.supplements);
 }
 
 export function patientPlanViewFromVersion(snapshot: NutritionPlanVersionSnapshot): PatientPlanView {
-  return patientView(snapshot.plan.title, snapshot.patient.full_name, snapshot.prescription.meal_distribution, { schema_version: 1, days: snapshot.calendar });
+  return patientView(snapshot.plan.title, snapshot.patient.full_name, snapshot.prescription.meal_distribution, { schema_version: 1, days: snapshot.calendar }, snapshot.prescription.macro_distribution?.supplements);
 }

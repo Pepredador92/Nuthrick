@@ -7,6 +7,7 @@ export type PublishedNutritionPlanDocumentModel = {
 };
 const safeText=(v:unknown,max=12000):string=>{
   if(typeof v!=='string'||v.length>max) throw new Error('invalid_plan');
+  // deno-lint-ignore no-control-regex -- strip non-printable characters from document text.
   return v.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g,'');
 };
 const obj=(v:unknown):Record<string,unknown>=>{if(!v||typeof v!=='object'||Array.isArray(v))throw new Error('invalid_plan');return v as Record<string,unknown>;};
@@ -25,10 +26,20 @@ export const planFileName=(model:PublishedNutritionPlanDocumentModel,format:'pdf
 };
 export const planDate=(value:string)=>new Date(value).toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric',timeZone:'America/Mexico_City'});
 const amount=(value:number)=>new Intl.NumberFormat('es-MX',{maximumFractionDigits:3}).format(value);
-export type PlanDocumentBlock={kind:'day'|'meal'|'title'|'text'|'label';text:string};
+export type PlanDocumentBlock={kind:'day'|'meal'|'title'|'text'|'label'|'supplement-heading'|'supplement-title'|'supplement-text';text:string};
 /** Shared clinical ordering and wording for PDF and TEX. */
 export function planDocumentBlocks(model:PublishedNutritionPlanDocumentModel):PlanDocumentBlock[] {
  const blocks:PlanDocumentBlock[]=[];
+ if(model.plan.supplements?.length){
+  blocks.push({kind:'supplement-heading',text:'TU SUPLEMENTACIÓN'},{kind:'supplement-text',text:'Cantidades diarias indicadas por tu nutriólogo.'});
+  for(const item of model.plan.supplements){
+   blocks.push({kind:'supplement-title',text:item.name});
+   const brand=[item.brand,item.presentation].filter(Boolean).join(' · ');
+   if(brand)blocks.push({kind:'supplement-text',text:brand});
+   blocks.push({kind:'supplement-text',text:item.quantity});
+   if(item.instructions)blocks.push({kind:'supplement-text',text:item.instructions});
+  }
+ }
  for(const day of model.plan.days){
   blocks.push({kind:'day',text:day.name});
   for(const meal of day.meals){
@@ -45,10 +56,10 @@ export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:str
  const pdf=new jsPDF({unit:'mm',format:'a4'}),width=pdf.internal.pageSize.getWidth(),bottom=pdf.internal.pageSize.getHeight()-19;
  let y=drawProfessionalHeader(pdf,model.professional,logo,false,'NONE');
  const page=()=>{pdf.addPage();y=drawProfessionalHeader(pdf,model.professional,logo,true,'NONE');};
- const write=(text:string,size=10,bold=false,gap=5)=>{
+ const write=(text:string,size=10,bold=false,gap=5,green=false)=>{
   pdf.setFont('helvetica',bold?'bold':'normal');pdf.setFontSize(size);
   const lines=pdf.splitTextToSize(text,width-32) as string[];
-  for(const line of lines){if(y+gap>bottom)page();pdf.setTextColor(55,77,69);pdf.setFont('helvetica',bold?'bold':'normal');pdf.setFontSize(size);pdf.text(line,16,y);y+=gap;}
+  for(const line of lines){if(y+gap>bottom)page();if(green){pdf.setFillColor(237,246,238);pdf.rect(14,y-4,width-28,gap+2,'F');}pdf.setTextColor(...(green?[40,95,64]:[55,77,69]) as [number,number,number]);pdf.setFont('helvetica',bold?'bold':'normal');pdf.setFontSize(size);pdf.text(line,16,y);y+=gap;}
   y+=2;
  };
  write('PLAN DE ALIMENTACIÓN',17,true,7);
@@ -56,7 +67,10 @@ export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:str
  write(`Paciente: ${model.patientName}`);
  write(`Versión ${model.plan.versionNumber} · Publicado: ${planDate(model.plan.publishedAt)}`,9);
  for(const block of planDocumentBlocks(model)){
-  if(block.kind==='day'||block.kind==='meal'){
+  if(block.kind.startsWith('supplement-')){
+   if(block.kind!=='supplement-text'&&y+24>bottom)page();
+   write(block.text,block.kind==='supplement-heading'?12:10,block.kind!=='supplement-text',5,true);
+  }else if(block.kind==='day'||block.kind==='meal'){
    if(y+28>bottom)page();y+=4;
    if(block.kind==='day'){pdf.setFillColor(237,243,239);pdf.roundedRect(16,y-4,width-32,9,2,2,'F');}
    write(block.text,block.kind==='day'?12:11,true,6);
@@ -73,7 +87,7 @@ export function escapeLatex(text:string):string {
 export function renderPlanTex(model:PublishedNutritionPlanDocumentModel,logo:string|null=null):string {
  const e=escapeLatex,p=model.professional,brand=p.businessName||p.fullName;
  const contact=[p.businessAddress,...(p.contactLines||[])].filter(Boolean).map(x=>e(x!)).join('\\par\n');
- const blocks=planDocumentBlocks(model).map(b=>b.kind==='day'?`\\section*{${e(b.text)}}`:b.kind==='meal'?`\\subsection*{${e(b.text)}}`:b.kind==='title'||b.kind==='label'?`\\noindent\\textbf{${e(b.text)}}\\par\\nopagebreak[3]`:`\\noindent ${e(b.text)}\\par`).join('\n');
+ const blocks=planDocumentBlocks(model).map(b=>b.kind.startsWith('supplement-')?`\\noindent\\colorbox{nuthmint}{\\parbox{\\dimexpr\\linewidth-2\\fboxsep\\relax}{\\color{nuthgreen}${b.kind==='supplement-text'?'':'\\bfseries '}${e(b.text)}}}\\par`:b.kind==='day'?`\\section*{${e(b.text)}}`:b.kind==='meal'?`\\subsection*{${e(b.text)}}`:b.kind==='title'||b.kind==='label'?`\\noindent\\textbf{${e(b.text)}}\\par\\nopagebreak[3]`:`\\noindent ${e(b.text)}\\par`).join('\n');
  // Embed the optional verified raster image as hexadecimal, never TeX commands
  // or external URLs. LuaLaTeX uses a unique temporary file and removes it after
  // embedding; no shell escape, persistent asset or user-controlled path.
@@ -87,6 +101,7 @@ export function renderPlanTex(model:PublishedNutritionPlanDocumentModel,logo:str
 \\IfFileExists{spanish.ldf}{\\usepackage[spanish]{babel}}{}
 \\usepackage{xcolor,fancyhdr}
 \\definecolor{nuthgreen}{RGB}{23,61,54}
+\\definecolor{nuthmint}{RGB}{237,246,238}
 \\definecolor{nuthgold}{RGB}{205,161,96}
 \\pagestyle{fancy}\\fancyhf{}
 \\fancyhead[L]{\\small\\textcolor{nuthgreen}{${e(brand)}}}

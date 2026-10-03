@@ -83,3 +83,13 @@ describe("published patient plan projection", () => {
   it("keeps missing plans explicit", () =>
     expect(projectPortalPlan(null)).toBeNull());
 });
+
+import {supplementItem} from '../../tests/fixtures/supplements';
+it('projects supplementation from the published copy without catalog identifiers or source URLs',()=>{
+ const raw={versionNumber:1,publishedAt:'2026-10-03',snapshot:{plan:{title:'Plan'},prescription:{meal_distribution:{meal_times:[]},macro_distribution:{supplements:[structuredClone(supplementItem)]}},calendar:[]}};
+ const result=projectPortalPlan(raw)!;
+ expect(result.supplements).toEqual([{name:'Proteína de ejemplo',brand:'Marca de prueba',presentation:'Vainilla',quantity:'1 porción al día · Porción de referencia: 1 medida (30 g)',instructions:'Con tu desayuno.'}]);
+ expect(JSON.stringify(result)).not.toContain('private-reference');expect(JSON.stringify(result)).not.toContain('owner_id');
+ raw.snapshot.prescription.macro_distribution.supplements[0].quantity=-1;
+ expect(()=>projectPortalPlan(raw)).toThrow('invalid_plan');
+});
