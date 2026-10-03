@@ -1,0 +1,3 @@
+import type {SupplementItem,SupplementCatalogItem} from '../../../supabase/functions/_shared/supplements';
+export const supplementProduct:SupplementCatalogItem={id:'supplement-product',owner_id:null,active:true,name:'Proteína de ejemplo',brand:'Marca de prueba',presentation:'Vainilla',serving_label:'1 medida (30 g)',serving_grams:30,scoops_per_serving:1,energy_kcal:120,protein_g:25,carbohydrate_g:3,fat_g:1,source_url:'https://example.com/private-reference',label_url:null,verified_at:'2026-10-03'};
+export const supplementItem:SupplementItem={id:'supplement-item',product:supplementProduct,quantity:1,unit:'serving',instructions:'Con tu desayuno.'};

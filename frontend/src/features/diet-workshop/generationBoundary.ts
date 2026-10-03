@@ -26,7 +26,8 @@ function contextEligibility(input: GenerationInput, availability: GenerationAvai
   const reasons: GenerationIssue[] = result.blockers.filter(b => b !== 'catalog_required').map(code => ({ code, path: 'context' }));
   const distribution = plan.meal_distribution, prescription = plan.exchange_prescription;
   const macros = result.context.prescription.macros.fact;
-  const targets = macros.state === 'known' ? { energy_kcal: plan.target_calories!, carbohydrate_g: macros.value.CARBOHYDRATE.grams, protein_g: macros.value.PROTEIN.grams, fat_g: macros.value.FAT.grams } : null;
+  const energy = result.context.prescription.energy_kcal.fact;
+  const targets = macros.state === 'known' && energy.state === 'known' ? { energy_kcal: energy.value, carbohydrate_g: macros.value.CARBOHYDRATE.grams, protein_g: macros.value.PROTEIN.grams, fat_g: macros.value.FAT.grams } : null;
   if (!prescription || prescription.status !== 'ready' || !prescription.confirmed_at || !targets
     || !sameExchangeTargets(prescription.target_snapshot, targets)
     || !prescription.confirmed_target_snapshot || !sameExchangeTargets(prescription.confirmed_target_snapshot, targets)) reasons.push({ code: 'exchanges_unconfirmed', path: 'exchange_prescription' });

@@ -230,3 +230,13 @@ describe('DietGenerationContext phase 1 — no network', () => {
     } finally { fetch.mockRestore(); }
   });
 });
+
+import {supplementItem} from '../../../tests/fixtures/supplements';
+it('sends only the food share to generation without changing the daily prescription',()=>{
+ const source=fixture();source.plan.macro_distribution!.supplements=[supplementItem];
+ const result=build(source);
+ expect(result.context.prescription.energy_kcal.fact).toEqual({state:'known',value:1880});
+ expect(result.context.prescription.macros.fact).toMatchObject({state:'known',value:{PROTEIN:{grams:75},CARBOHYDRATE:{grams:247}}});
+ expect(source.plan.target_calories).toBe(2000);expect(source.plan.macro_distribution!.macros.PROTEIN.grams).toBe(100);
+ expect(JSON.stringify(result.context)).not.toContain('Proteína de ejemplo');
+});

@@ -20,6 +20,7 @@ insert into nutrition_plans(id,professional_id,patient_id,title,meal_distributio
 'a3000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','a2000000-0000-4000-8000-000000000001','Plan manual',
 '{"status":"editing","meal_times":[{"id":"breakfast","display_name":"Desayuno"}],"distribution":[]}',
 '{"status":"editing","week_plan":{"days":[{"day":"mon","assignments":[{"meal_time_id":"breakfast","option_snapshot":{"meal_time_id":"breakfast","entries":[]}}]}]}}');
+update nutrition_plans set macro_distribution='{"supplements":[{"id":"one","product":{"id":"p","name":"Ejemplo","brand":"Marca","presentation":"Envase","serving_label":"1 medida (30 g)","serving_grams":30,"scoops_per_serving":1,"energy_kcal":120,"protein_g":25,"carbohydrate_g":3,"fat_g":1,"source_url":null,"label_url":null,"verified_at":null},"quantity":1.5,"unit":"scoop","instructions":"Con el desayuno."}]}';
 select set_config('request.jwt.claim.sub','a1000000-0000-4000-8000-000000000001',true);
 set local role authenticated;
 select public.publish_nutrition_plan_version('a3000000-0000-4000-8000-000000000001',1,'a4000000-0000-4000-8000-000000000001');
@@ -30,6 +31,12 @@ declare p public.nutrition_plans; v jsonb;
 begin
  if (select count(*) from nutrition_plan_versions) <> 1 then raise exception 'Idempotency failed';end if;
  select * into p from nutrition_plans limit 1;
+ if (select snapshot #>> '{prescription,macro_distribution,supplements,0,quantity}' from nutrition_plan_versions limit 1) <> '1.5' then raise exception 'Supplement snapshot lost';end if;
+ begin
+  update nutrition_plans set macro_distribution=jsonb_set(macro_distribution,'{supplements,0,quantity}','-1');
+  raise exception 'Negative supplement accepted';
+ exception when check_violation then null;end;
+ if private.valid_diet_supplements('[{}]') or private.valid_diet_supplements('null') then raise exception 'Malformed supplement accepted';end if;
  if private.nutrition_plan_publication_errors(p)<>'[]'::jsonb then raise exception 'Incomplete plan blocked';end if;
  p.diet_menu:=jsonb_set(p.diet_menu,'{week_plan,days,0,assignments,0,option_snapshot,entries}','[{"quantity":-1,"unit":"g","type":"food","food_snapshot":{}}]');
  if private.nutrition_plan_publication_errors(p)='[]'::jsonb then raise exception 'Negative entry accepted';end if;

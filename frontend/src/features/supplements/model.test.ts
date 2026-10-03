@@ -31,3 +31,12 @@ describe('supplement prescription',()=>{
   expect(supplementQuantityLabel(item)).toBe('1 medida del producto al día (30 g)');
  });
 });
+
+import {foodTargetsFor} from './targets';
+import {createMacroDistribution,patchMacroInput,reconcileMacroDistribution} from '../macros/model';
+it('reconciles daily macros without erasing supplements and keeps food targets separate',()=>{
+ let m=createMacroDistribution(2000,80);m=patchMacroInput(m,'PROTEIN','grams',100);m.supplements=[item];
+ const next=reconcileMacroDistribution(m,2100,80);
+ expect(next.supplements).toEqual([item]);expect(next.macros.PROTEIN.grams).toBe(100);
+ expect(foodTargetsFor({target_calories:2100,macro_distribution:next}).protein_g).toBe(80);
+});

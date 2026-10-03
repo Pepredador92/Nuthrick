@@ -46,7 +46,7 @@ export function supplementTotals(items: SupplementItem[] = []): SupplementNutrit
 export function splitSupplementTargets(daily: SupplementNutrition, items: SupplementItem[] = []) {
   const supplements = supplementTotals(items), food = zeroNutrition(), excess = zeroNutrition();
   for (const k of nutritionKeys) {
-    food[k] = roundNutrition(Math.max(0, daily[k] - supplements[k]));
+    food[k] = supplements[k] === 0 ? daily[k] : roundNutrition(Math.max(0, daily[k] - supplements[k]));
     excess[k] = roundNutrition(Math.max(0, supplements[k] - daily[k]));
   }
   return { daily, supplements, food, excess };
@@ -55,5 +55,12 @@ export function supplementQuantityLabel(item: SupplementItem) {
   const amount = item.quantity.toLocaleString('es-MX',{maximumFractionDigits:3});
   if (item.unit === 'g') return `${amount} g al día`;
   if (item.unit === 'scoop') return `${amount} medida${item.quantity === 1 ? '' : 's'} del producto al día${item.product.serving_grams ? ` (${roundNutrition(supplementServings(item)*item.product.serving_grams)} g)` : ''}`;
-  return `${amount} porción${item.quantity === 1 ? '' : 'es'} al día · Porción de referencia: ${item.product.serving_label}`;
+  return `${amount} ${item.quantity === 1 ? 'porción' : 'porciones'} al día · Porción de referencia: ${item.product.serving_label}`;
+}
+
+export type PatientSupplement = {name:string;brand:string;presentation:string;quantity:string;instructions:string};
+export function patientSupplements(value: unknown): PatientSupplement[] {
+  if (value === undefined) return [];
+  if (!isSupplementList(value)) throw new Error('invalid_plan');
+  return value.map(item=>({name:item.product.name,brand:item.product.brand,presentation:item.product.presentation,quantity:supplementQuantityLabel(item),instructions:item.instructions}));
 }

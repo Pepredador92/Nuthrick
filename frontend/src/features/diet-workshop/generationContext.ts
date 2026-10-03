@@ -1,3 +1,5 @@
+import { foodTargetsFor } from '../supplements/targets';
+import { isSupplementList } from '../../../../supabase/functions/_shared/supplements';
 /** Phase 1 specification/prototype only. Not imported by any screen or AI handler.
  * The future server adapter must authenticate, load one owned revision, redact
  * text and re-read its fingerprint before applying. This is NOT an auth boundary.
@@ -161,7 +163,7 @@ export function buildDietGenerationContext(source: DietContextSource, sanitizeTe
   const sameContext = Boolean(c && c.id === plan.consultation_id && c.patient_id === plan.patient_id && c.professional_id === plan.professional_id && Number.isInteger(c.revision) && c.revision > 0);
   if (c && !sameContext) blockers.push('context_mismatch');
 
-  const energy = contextFact(plan.target_calories, positive);
+  let energy = contextFact(plan.target_calories, positive);
   if (!isPlanEnergyTargetValid(plan.target_calories)) blockers.push('energy_required');
   let macros: Fact<Record<MacroCode, { grams: number; percentage: number; kcal: number }>> = unavailable();
   const m = plan.macro_distribution;
@@ -180,6 +182,13 @@ export function buildDietGenerationContext(source: DietContextSource, sanitizeTe
       const item = calculated.macros[code];
       return [code, { grams: item.grams!, percentage: item.percentage!, kcal: item.kcal! }];
     })) as Record<MacroCode, { grams: number; percentage: number; kcal: number }> };
+  }
+  if (!isSupplementList(m?.supplements ?? [])) blockers.push('prescription_inconsistent');
+  else if (macros.state === 'known' && m?.supplements?.length) {
+    const food = foodTargetsFor({...plan, macro_distribution: calculateMacroDistribution(m)});
+    energy = contextFact(food.energy_kcal, positive);
+    const grams = {CARBOHYDRATE:food.carbohydrate_g, PROTEIN:food.protein_g, FAT:food.fat_g};
+    macros = {state:'known',value:Object.fromEntries(macroCatalog.map(({code,kcalPerGram})=>[code,{grams:grams[code],kcal:grams[code]*kcalPerGram,percentage:food.energy_kcal>0?grams[code]*kcalPerGram/food.energy_kcal*100:0}])) as Record<MacroCode,{grams:number;percentage:number;kcal:number}>};
   }
   if (plan.energy_calculation?.prescribed_target_kcal != null && plan.energy_calculation.prescribed_target_kcal !== plan.target_calories)
     blockers.push('prescription_inconsistent');
@@ -245,7 +254,7 @@ export function buildDietGenerationContext(source: DietContextSource, sanitizeTe
       pes: { fact: pesApproved ? { state: 'known', value: clean(c!.pes!.statement) } : unavailable(), origin: { source: 'consultation_snapshots', path: 'clinical_records.pes + pes_statement', kind: 'approved_pes' } },
       objective: { fact: goalApproved ? { state: 'known', value: clean(c!.objective!.content) } : unavailable(), origin: { source: 'consultation_snapshots', path: 'clinical_records.objective', kind: 'approved_objective' } },
     },
-    prescription: { energy_kcal: fromPlan('target_calories', energy), macros: fromPlan('macro_distribution.macros.input_value + input_mode', macros, true) },
+    prescription: { energy_kcal: fromPlan('target_calories minus macro_distribution.supplements', energy), macros: fromPlan('macro_distribution.macros.input_value + input_mode minus supplements', macros, true) },
     meals: fromPlan('meal_distribution.meal_times', validMeals ? { state: 'known', value: [...meals!].sort((a,b) => a.display_order - b.display_order).map(v => ({ id: v.id, meal_type: v.meal_type, display_name: clean(v.display_name), time: contextFact(v.time, time), display_order: v.display_order })) } : unavailable()),
     meal_distribution: fromPlan('meal_distribution.distribution', validCells && cells.length ? { state: 'known', value: {
       exchanges: cells.map(v => ({ meal_time_id: v.meal_time_id, group_code: v.group_code, portions: v.portions })),

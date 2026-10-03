@@ -1,3 +1,5 @@
+import { SupplementEditor } from "./SupplementEditor";
+import { dietNutritionSplit } from "@/src/features/supplements/targets";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, CircleAlert, LoaderCircle, RotateCcw } from "lucide-react";
 import { WorkshopStepFooter } from "./WorkshopStepFooter";
@@ -71,7 +73,7 @@ function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, 
   const hasData = Object.values(draft.macros).some((macro) => macro.input_value !== null);
   const reset = () => {
     if (hasData && !window.confirm("¿Restablecer la distribución? Se eliminarán únicamente los valores de macronutrientes de este plan.")) return;
-    update(createMacroDistribution(targetEnergyKcal, energyReferenceWeightKg));
+    update({ ...createMacroDistribution(targetEnergyKcal, energyReferenceWeightKg), supplements: draft.supplements });
   };
 
   return (
@@ -139,6 +141,8 @@ function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, 
         </div>
       </div>
       {!hasReferenceWeight && <p className="mt-3 text-xs leading-5 text-[#7a5a28]">Registra un peso de referencia para habilitar el modo g/kg. Esto no modifica los datos del paciente.</p>}
+
+      <SupplementEditor items={draft.supplements ?? []} daily={dietNutritionSplit({target_calories:targetEnergyKcal,macro_distribution:draft}).daily} onChange={supplements=>update({...draft,supplements,updated_at:new Date().toISOString()})} />
 
       <section className="mt-5 rounded-2xl bg-[#173d36] p-5 text-white">
         <div className="grid gap-4 sm:grid-cols-3">

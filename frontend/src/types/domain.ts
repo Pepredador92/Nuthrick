@@ -482,6 +482,7 @@ export type PlanMacro = {
 };
 
 export type MacroDistribution = {
+  supplements?: import("../../../supabase/functions/_shared/supplements").SupplementItem[];
   version: 1;
   target_energy_kcal: number;
   reference_weight_kg: number | null;

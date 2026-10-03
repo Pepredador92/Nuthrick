@@ -1,3 +1,4 @@
+import { foodTargetsFor } from '../supplements/targets';
 /** Shared deterministic boundary. Bundled for Edge Functions by the checked-in
  * build script; do not implement separate clinical arithmetic in the AI service. */
 import { exchangeCatalog } from '../exchanges/catalog';
@@ -10,8 +11,7 @@ import { exchangeAlternatives, mealAlternatives } from './proposals';
 import type { FoodItem, NutritionPlan, Recipe } from '../../types/domain';
 
 export function workshopTargets(plan: NutritionPlan) {
-  const m = plan.macro_distribution?.macros;
-  const t = { energy_kcal: plan.target_calories ?? 0, carbohydrate_g: m?.CARBOHYDRATE?.grams ?? -1, protein_g: m?.PROTEIN?.grams ?? -1, fat_g: m?.FAT?.grams ?? -1 };
+  const t = foodTargetsFor(plan);
   if (!Object.values(t).every(n => Number.isFinite(n) && n > 0)) throw new Error('targets_required');
   return t;
 }

@@ -1,3 +1,4 @@
+import { foodTargetsFor } from "@/src/features/supplements/targets";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -43,7 +44,7 @@ import {
   type DietReferenceData,
 } from "@/src/services/dietPlans";
 import { getPatient, listConsultations, listPatients } from "@/src/services/patients";
-import type { Consultation, DietMenu, ExchangePrescription, ExchangeTargetSnapshot, MacroDistribution, MealDistribution, NutritionPlan, NutritionPlanVersion, Patient, PlanEnergyCalculation } from "@/src/types/domain";
+import type { Consultation, DietMenu, ExchangePrescription, MacroDistribution, MealDistribution, NutritionPlan, NutritionPlanVersion, Patient, PlanEnergyCalculation } from "@/src/types/domain";
 
 const steps = [
   { id: "energy", label: "Objetivo energético", shortLabel: "Energía" },
@@ -66,10 +67,7 @@ function planStatus(plan: NutritionPlan) {
   return "Archivado";
 }
 
-function exchangeTargetsFor(plan: Pick<NutritionPlan, "target_calories" | "macro_distribution">): ExchangeTargetSnapshot {
-  return { energy_kcal: plan.target_calories ?? 0, carbohydrate_g: plan.macro_distribution?.macros?.CARBOHYDRATE?.grams ?? 0,
-    protein_g: plan.macro_distribution?.macros?.PROTEIN?.grams ?? 0, fat_g: plan.macro_distribution?.macros?.FAT?.grams ?? 0 };
-}
+const exchangeTargetsFor = foodTargetsFor;
 
 function ConsultationChoice({
   consultation,

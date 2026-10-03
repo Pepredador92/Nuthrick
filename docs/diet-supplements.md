@@ -52,3 +52,11 @@ Catálogo inicial GNC México, etiquetas inspeccionadas el 3 de octubre de 2026.
 No es el catálogo completo de GNC ni implica recomendación de consumo. No se transfieren nutrientes entre productos, países o sabores. Las instrucciones y la cantidad diaria las define el profesional. Los productos manuales requieren kcal y macros explícitos, incluso cero; nunca se interpreta un campo vacío como cero. Gramos/scoops sólo se habilitan si existe conversión conocida. La fuente y fecha permanecen visibles para revisión.
 
 Pruebas SQL locales transaccionales: catálogo legible, referencia no editable, biblioteca privada, acceso cruzado y anónimo rechazados, cantidades negativas rechazadas. Pruebas del modelo: conversión de unidades, suma, decimales, exceso sin negativos, entradas inválidas y compatibilidad con planes previos.
+
+## Etapa 4 · selección, dosis y metas de alimentos
+
+`SupplementEditor` incorpora buscador, catálogo GNC México, biblioteca propia y formulario manual. Admite varios suplementos, porciones/scoops/gramos con conversiones conocidas, decimales con punto o coma, edición de indicaciones y eliminación. Usa el mismo autosave de Macros, incluyendo la descarga de cambios pendientes antes de navegar.
+
+`foodTargetsFor` centraliza el descuento. El motor de equivalentes y el menú reciben sólo lo destinado a alimentos; las metas originales permanecen en Macros. La generación automática usa también ese contexto reducido, sin enviar marcas ni instrucciones de suplementos al modelo. El exceso se muestra como aviso y el objetivo alimentario nunca es negativo. Restablecer macros conserva suplementos. Un campo JSON opcional se incluye automáticamente en las versiones existentes; la base comprueba estructura, valores y conversiones antes de guardar.
+
+Verificación: pruebas de búsqueda, captura manual, decimales, conversiones y persistencia tras remontar el editor; contexto de generación limitado a alimentos; SQL con publicación e idempotencia conserva el suplemento. Revisión visual del modal a 390 px y escritorio, compilación de producción y typecheck correctos. Sin dependencias nuevas ni cambios de fórmulas SMAE.
