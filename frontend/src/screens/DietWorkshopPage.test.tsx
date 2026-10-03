@@ -130,12 +130,12 @@ describe("DietWorkshopPage", () => {
     expect(screen.queryByRole("heading", { name: "Elige la fuente del plan" })).not.toBeInTheDocument();
   });
 
-  it("recovers an existing draft and reads reference data without enabling later steps", async () => {
+  it("recovers an existing draft and reads reference data with manual navigation enabled", async () => {
     mount("/app/diet-workshop/plan");
     expect(await screen.findByRole("heading", { name: "Objetivo energético" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("Plan nutricional")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByLabelText("Peso")).toHaveValue(72));
-    expect(screen.getByRole("button", { name: /Macronutrientes/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Macronutrientes/ })).toBeEnabled();
     expect(api.loadReference).toHaveBeenCalledWith("consultation");
   });
 
@@ -148,7 +148,7 @@ describe("DietWorkshopPage", () => {
     expect((await screen.findAllByText("Sin asignar")).length).toBeGreaterThanOrEqual(2);
   });
 
-  it("enables Tiempos de comida after macros and guides back when the exchange inventory is empty", async () => {
+  it("opens Tiempos de comida even when the exchange inventory is empty", async () => {
     api.getPlan.mockResolvedValue({
       ...plan,
       target_calories: 1800,
@@ -158,8 +158,7 @@ describe("DietWorkshopPage", () => {
     const meals = await screen.findByRole("button", { name: /Tiempos de comida/ });
     expect(meals).toBeEnabled();
     fireEvent.click(meals);
-    expect(screen.getByText("Define primero los equivalentes del día.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ir a Equivalentes" })).toBeInTheDocument();
+    expect(await screen.findByLabelText("Nombre de Desayuno")).toBeInTheDocument();
   });
 
   it("recovers Objective 6 and enables the menu builder without duplicating the distribution", async () => {
@@ -179,7 +178,7 @@ describe("DietWorkshopPage", () => {
     const menu = await screen.findByRole("button", { name: /Menú/ });
     expect(menu).toBeEnabled();
     fireEvent.click(menu);
-    expect(screen.getByRole("heading", { name: "Nuthrick a la Mesa" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Nuthrick a la Mesa" })).toBeInTheDocument();
     expect(screen.getByText("Falta 1")).toBeInTheDocument();
   });
 

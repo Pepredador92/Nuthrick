@@ -42,21 +42,7 @@ function MacroModeSelect({ value, disabled, onChange }: { value: MacroInputMode;
 }
 
 export function DietMacrosStep({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, onDraftChange, onGoToEnergy, onContinue }: Props) {
-  if (!targetEnergyKcal || targetEnergyKcal <= 0) {
-    return (
-      <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-5 sm:p-7">
-        <p className="nuth-eyebrow">Paso 2</p>
-        <h1 className="mt-2 text-2xl font-semibold text-[#173d36]">Kilocalorías y macronutrientes</h1>
-        <div className="mt-5 rounded-2xl bg-[#fff6e6] p-5 text-sm leading-6 text-[#765827]">
-          <p className="font-semibold">Define primero un objetivo energético.</p>
-          <p className="mt-1">La distribución se calcula a partir de la prescripción guardada en el paso anterior.</p>
-          <button type="button" className="nuth-button mt-4" onClick={onGoToEnergy}>Ir al objetivo energético</button>
-        </div>
-      </section>
-    );
-  }
-
-  return <MacroEditor key={`${plan.id}:${targetEnergyKcal}`} plan={plan} targetEnergyKcal={targetEnergyKcal} energyReferenceWeightKg={energyReferenceWeightKg} onSave={onSave} onDraftChange={onDraftChange} onGoToEnergy={onGoToEnergy} onContinue={onContinue} />;
+  return <MacroEditor key={`${plan.id}:${targetEnergyKcal}`} plan={plan} targetEnergyKcal={targetEnergyKcal ?? 0} energyReferenceWeightKg={energyReferenceWeightKg} onSave={onSave} onDraftChange={onDraftChange} onGoToEnergy={onGoToEnergy} onContinue={onContinue} />;
 }
 
 function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, onDraftChange, onGoToEnergy, onContinue }: Omit<Props, "targetEnergyKcal"> & { targetEnergyKcal: number }) {
@@ -161,11 +147,11 @@ function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, 
           <div><p className="text-xs text-white/65">Diferencia</p><p className="mt-1 text-xl font-semibold">{draft.totals.difference_kcal > 0 ? "+" : ""}{display(draft.totals.difference_kcal, 1)} kcal</p></div>
         </div>
         <div className="mt-5 border-t border-white/15 pt-5">
-          <p className="text-xs leading-5 text-white/70">Tolerancia de cierre: ±1 kcal. No se redistribuyen macros de forma automática.</p>
+          <p className="text-xs leading-5 text-white/70">Puedes continuar con diferencias o datos pendientes. Los valores registrados se conservan.</p>
         </div>
       </section>
       <div className="mt-4 flex min-h-5 items-center gap-2">{saveState === "saving" && <LoaderCircle size={14} className="animate-spin text-[#3d705d]" />}<AutosaveFeedback status={saveState} savingLabel="Guardando trazabilidad…" /></div>
-      <WorkshopStepFooter onPrevious={onGoToEnergy} onNext={onContinue} nextDisabled={!draft.complete || saveState === "saving"} nextAriaLabel="Continuar a equivalentes" nextHint={!draft.complete ? "Completa la distribución para continuar." : undefined} />
+      <WorkshopStepFooter onPrevious={onGoToEnergy} onNext={onContinue} nextDisabled={saveState === "saving"} nextAriaLabel="Continuar a equivalentes" nextHint={!draft.complete ? "Puedes continuar y completar la distribución después." : undefined} />
     </section>
   );
 }

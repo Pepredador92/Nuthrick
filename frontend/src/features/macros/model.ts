@@ -47,7 +47,7 @@ export function createMacroDistribution(targetEnergyKcal: number, energyWeightKg
 function calculatedMacro(macro: PlanMacro, targetEnergyKcal: number, referenceWeightKg: number | null): PlanMacro {
   const factor = getMacroCatalogEntry(macro.code).kcalPerGram;
   const input = finiteNonNegative(macro.input_value) ? macro.input_value! : null;
-  if (input === null || targetEnergyKcal <= 0) return { ...macro, input_value: input, percentage: null, kcal: null, grams: null, grams_per_kg: null };
+  if (input === null) return { ...macro, input_value: input, percentage: null, kcal: null, grams: null, grams_per_kg: null };
 
   let kcal: number | null = null;
   if (macro.input_mode === "percentage") kcal = targetEnergyKcal * input / 100;
@@ -61,7 +61,7 @@ function calculatedMacro(macro: PlanMacro, targetEnergyKcal: number, referenceWe
     input_value: input,
     kcal,
     grams,
-    percentage: kcal / targetEnergyKcal * 100,
+    percentage: targetEnergyKcal > 0 ? kcal / targetEnergyKcal * 100 : null,
     grams_per_kg: referenceWeightKg && referenceWeightKg > 0 ? grams / referenceWeightKg : null,
   };
 }

@@ -22,11 +22,11 @@ const plan: NutritionPlan = {
 };
 
 describe("DietMealDistributionStep", () => {
-  it("asks for equivalents when the inventory is empty", () => {
-    const emptyPlan = { ...plan, exchange_prescription: createExchangePrescription(targets) };
-    render(<DietMealDistributionStep plan={emptyPlan} onSave={vi.fn()} onDraftChange={vi.fn()} onGoToEquivalents={vi.fn()} />);
-    expect(screen.getByText("Define primero los equivalentes del día.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ir a Equivalentes" })).toBeInTheDocument();
+  it("allows confirming even with an empty inventory", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<DietMealDistributionStep plan={{ ...plan, exchange_prescription: null }} onSave={onSave} onDraftChange={vi.fn()} onGoToEquivalents={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar distribución" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ status: "ready", distribution: [] }), true));
   });
 
   it("shows default times, edits a decimal cell and autosaves", async () => {

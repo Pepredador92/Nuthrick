@@ -25,7 +25,7 @@ const plan: NutritionPlan = {
 };
 
 describe("DietMacrosStep", () => {
-  it("starts empty, keeps percentages authoritative, and only enables continuation when it closes", () => {
+  it("starts empty, keeps percentages authoritative, and allows continuation with missing nutrients", () => {
     const onContinue = vi.fn();
     render(
       <DietMacrosStep
@@ -39,6 +39,7 @@ describe("DietMacrosStep", () => {
       />,
     );
 
+    expect(screen.getByRole("button", { name: "Continuar a equivalentes" })).toBeEnabled();
     expect(screen.getByLabelText("Valor de Carbohidratos")).toHaveValue(null);
     fireEvent.change(screen.getByLabelText("Valor de Carbohidratos"), { target: { value: "50" } });
     fireEvent.change(screen.getByLabelText("Valor de Proteína"), { target: { value: "20" } });

@@ -19,9 +19,8 @@ export function dayMenu(menu: DietMenu, distribution: MealDistribution, day: Men
 export function weekProblems(menu: DietMenu, distribution: MealDistribution, week: MenuWeekPlan): string[] {
   if (!week.days.length || week.days.length > 7 || new Set(week.days.map(d => d.day)).size !== week.days.length) return ["Elige entre uno y siete días distintos."];
   return week.days.flatMap(d => distribution.meal_times.flatMap(m => {
-    const required = distribution.distribution.some(r => r.meal_time_id === m.id && r.portions > 0);
     const a = d.assignments.find(a => a.meal_time_id === m.id);
-    return required && !a ? [`${dayName(d.day)} · falta ${m.display_name}.`] : a && !optionIsEligible(menu, distribution, a.option_snapshot) ? [`${dayName(d.day)} · revisa ${m.display_name} con la prescripción vigente.`] : [];
+    return a && !optionIsEligible(menu, distribution, a.option_snapshot) ? [`${dayName(d.day)} · revisa ${m.display_name} con la prescripción vigente.`] : [];
   })).concat(week.days.flatMap(d => d.assignments.filter(a => !distribution.meal_times.some(m => m.id === a.meal_time_id)).map(() => `${dayName(d.day)} · hay un tiempo retirado de la prescripción; organiza de nuevo.`)));
 }
 
@@ -38,8 +37,6 @@ export function organizeWeek({ menu, distribution, days, participants = {}, prev
   for (const [mealIndex, meal] of distribution.meal_times.entries()) {
     const all = eligible.filter(o => o.meal_time_id === meal.id);
     const options = all.filter(o => !participants[meal.id] || participants[meal.id].includes(o.id));
-    const required = distribution.distribution.some(r => r.meal_time_id === meal.id && r.portions > 0);
-    if (required && !options.length) throw new Error(`${meal.display_name}: confirma y selecciona al menos una opción compatible.`);
     if (options.length > days.length) throw new Error(`${meal.display_name}: ${options.length} opciones no caben en ${days.length} días. Amplía los días o elige cuáles participarán.`);
     const fixed = orderedDays.map(day => previous?.days.find(d => d.day === day)?.assignments.find(a => a.meal_time_id === meal.id && a.fixed));
     if (fixed.some(a => a && !optionIsEligible(menu, distribution, a.option_snapshot))) throw new Error(`${meal.display_name}: revisa o libera las asignaciones fijas incompatibles.`);

@@ -49,24 +49,35 @@ describe("publication review", () => {
     expect(validateNutritionPlanForPublication(plan)).toMatchObject({ canPublish: true, errors: [] });
   });
 
-  it("reports the exact day and meal that is missing", () => {
+  it("warns without blocking a day with missing meals", () => {
     const plan = readyPlan();
     plan.diet_menu!.week_plan!.days[0].assignments = plan.diet_menu!.week_plan!.days[0].assignments.filter((entry) => entry.meal_time_id !== "lunch");
-    expect(validateNutritionPlanForPublication(plan).errors).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: "CALENDAR_INCOMPATIBLE", step: "menu" }),
+    expect(validateNutritionPlanForPublication(plan).canPublish).toBe(true);
+    expect(validateNutritionPlanForPublication(plan).warnings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "MEAL_EMPTY", step: "menu" }),
     ]));
   });
 
-  it("requires an explicit confirmation for the times and applied menu", () => {
+  it("allows publication with confirmation pending and warns", () => {
     const plan = readyPlan();
     plan.meal_distribution = { ...plan.meal_distribution!, confirmed_at: null };
     plan.diet_menu = { ...plan.diet_menu!, confirmed_at: null };
-    expect(validateNutritionPlanForPublication(plan).errors).toEqual(expect.arrayContaining([
+    expect(validateNutritionPlanForPublication(plan).canPublish).toBe(true);
+    expect(validateNutritionPlanForPublication(plan).warnings).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: "MEAL_DISTRIBUTION_INCOMPLETE", step: "meals" }),
       expect.objectContaining({ code: "MENU_UNCONFIRMED", step: "menu" }),
     ]));
   });
 
+  it("allows incomplete macros and an empty applied meal without changing the prescription", () => {
+    const plan = readyPlan(); plan.macro_distribution!.complete = false;
+    plan.diet_menu!.week_plan!.days[0].assignments[0].option_snapshot.entries = [];
+    const before = structuredClone(plan);
+    expect(validateNutritionPlanForPublication(plan).canPublish).toBe(true);
+    expect(plan).toEqual(before);
+    plan.diet_menu!.week_plan!.days[0].assignments[1].option_snapshot.entries[0].quantity = -1;
+    expect(validateNutritionPlanForPublication(plan).canPublish).toBe(false);
+  });
   it("prepares a legacy plan as one explicit day without generating a week", () => {
     const plan = readyPlan();
     const legacy = { ...plan.diet_menu!, week_plan: null };

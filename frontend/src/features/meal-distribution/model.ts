@@ -238,8 +238,7 @@ export function portionsAssignedToMeal(current: MealDistribution, mealTimeId: st
 }
 
 export function confirmMealDistribution(current: MealDistribution, prescription: ExchangePrescription) {
-  const summary = calculateDistributionStatus(current.distribution, prescription);
-  if (!summary.canConfirm || current.meal_times.some((meal) => !meal.display_name.trim())) return current;
+  if (!current.meal_times.length || current.meal_times.some((meal) => !meal.display_name.trim()) || current.distribution.some(entry => !validPortions(entry.portions))) return current;
   return {
     ...rebuild(current, current.distribution, current.meal_times, "ready", now()),
     source_exchange_snapshot: snapshotExchangeInventory(prescription),

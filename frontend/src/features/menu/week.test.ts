@@ -20,10 +20,10 @@ describe("meal options and weekly scheduling", () => {
     expect(weekProblems(confirmed, f.distribution, week)).toEqual([]);
     expect(week.days.every(day => JSON.stringify(day.assignments[0].option_snapshot.entries) === JSON.stringify(entries))).toBe(true);
   });
-  it("still rejects empty, invalid or excluded entries", () => {
+  it("allows empty options but rejects invalid quantities or excluded entries", () => {
     const f = weeklyFixture([1, 1, 1]);
     const option = f.menu.meal_options![0];
-    expect(optionCanConfirm(f.menu, f.distribution, { ...option, entries: [] })).toBe(false);
+    expect(optionCanConfirm(f.menu, f.distribution, { ...option, entries: [] })).toBe(true);
     option.entries[0].quantity = 0;
     expect(optionCanConfirm(f.menu, f.distribution, option)).toBe(false);
     option.entries[0].quantity = 1;
@@ -69,9 +69,9 @@ describe("meal options and weekly scheduling", () => {
     expect(new Set(week.days.map(d => d.assignments[1].option_id))).toEqual(new Set(["lunch-1", "lunch-3"]));
     expect(f.menu.meal_options).toHaveLength(9);
   });
-  it("excludes drafts and blocks required meals without a confirmed option", () => {
+  it("organizes available confirmed meals even when other meals are pending", () => {
     const f = weeklyFixture(); f.menu.meal_options!.find(o => o.meal_time_id === "dinner")!.status = "draft";
-    expect(() => organizeWeek({ ...f, days })).toThrow(/Cena.*confirma/);
+    expect(organizeWeek({ ...f, days }).days.every(day => !day.assignments.some(a => a.meal_time_id === "dinner"))).toBe(true);
   });
   it("honors fixed snapshots even when detached from the bank", () => {
     const f = weeklyFixture(); const week = organizeWeek({ ...f, days: days.slice(0, 5) });
@@ -80,7 +80,7 @@ describe("meal options and weekly scheduling", () => {
     f.menu.meal_options = f.menu.meal_options!.filter(o => o.id !== fixed.option_id);
     for (const next of weekAlternatives({ ...f, days: days.slice(0, 5), previous: week })) expect(next.days[2].assignments[0]).toEqual(fixed);
   });
-  it("retains applied snapshots when editing/deleting options and flags changed prescriptions", () => {
+  it("retains applied snapshots when editing/deleting options and allows changed portion targets", () => {
     const f = weeklyFixture(); const week = organizeWeek({ ...f, days: days.slice(0, 5) });
     f.menu.week_plan = week; const before = JSON.stringify(week);
     const option = f.menu.meal_options![0]; const selection = { breakfast: option.id };
@@ -91,7 +91,7 @@ describe("meal options and weekly scheduling", () => {
     const removed = saveOptionBank(next, f.distribution, next.meal_options!.filter(o => o.id !== option.id));
     expect(JSON.stringify(removed.week_plan)).toBe(before); expect(weekProblems(removed, f.distribution, week)).toEqual([]);
     const distribution = structuredClone(f.distribution); distribution.distribution[0].portions = 2;
-    expect(weekProblems(removed, distribution, week).length).toBe(5);
+    expect(weekProblems(removed, distribution, week).length).toBe(0);
     expect(optionIsEligible(f.menu, distribution, f.menu.meal_options!.find(o => o.meal_time_id === "lunch")!)).toBe(true);
   });
   it("keeps confirmations independent, copies deeply and enforces seven options", () => {

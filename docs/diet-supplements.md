@@ -28,3 +28,9 @@ Base: `c186603`, rama `main`. Los directorios locales `output/` y `tmp/` quedan 
 - Las metas diarias siguen siendo del profesional; el sistema no añade dosis ni recomendaciones.
 - Los planes anteriores sin suplementos conservan su funcionamiento.
 - El paciente ve nombre, porción e instrucciones en lenguaje sencillo y un bloque verde distinguible de las comidas.
+
+## Etapa 2 completada · confirmación manual
+
+Navegación disponible con metas incompletas; Tiempos y opciones vacías pueden confirmarse; calendario permite tiempos pendientes. Revisión convierte la completitud nutricional en avisos. La publicación mantiene permisos/entitlements, cantidades válidas, snapshots, concurrencia e idempotencia. Las indicaciones manuales ya admitían texto libre y no precisaron cambios.
+
+Verificación: 100 pruebas focales finales, typecheck, ESLint focal y diff check correctos. Pruebas SQL locales con rollback: publicación incompleta, idempotencia, valores inválidos, snapshots ausentes, revisión y propietario. Docker falló por filesystem de sólo lectura; se utilizó PostgreSQL 16 aislado en `/tmp/nuthrick-supplements-pg`.

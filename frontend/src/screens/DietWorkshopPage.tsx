@@ -27,7 +27,7 @@ import { withPatientSubstitutions } from "@/src/features/diet-review/preparation
 import type { FoodItem } from "@/src/types/domain";
 import type { EnergyReferenceContext } from "@/src/features/diet-energy/model";
 import { reconcileExchangePrescription } from "@/src/features/exchanges/model";
-import { reconcileMealDistribution } from "@/src/features/meal-distribution/model";
+import { createMealDistribution, reconcileMealDistribution } from "@/src/features/meal-distribution/model";
 import { reconcileDietMenu } from "@/src/features/menu/model";
 import { reconcileMacroDistribution } from "@/src/features/macros/model";
 import { changedDietPlanPatch, encodePersistedValue } from "@/src/features/diet-workshop/autosave";
@@ -66,13 +66,9 @@ function planStatus(plan: NutritionPlan) {
   return "Archivado";
 }
 
-function exchangeTargetsFor(plan: Pick<NutritionPlan, "target_calories" | "macro_distribution">): ExchangeTargetSnapshot | null {
-  const macros = plan.macro_distribution?.macros;
-  const carbohydrate = macros?.CARBOHYDRATE.grams;
-  const protein = macros?.PROTEIN.grams;
-  const fat = macros?.FAT.grams;
-  if (!plan.target_calories || carbohydrate === null || protein === null || fat === null || carbohydrate === undefined || protein === undefined || fat === undefined) return null;
-  return { energy_kcal: plan.target_calories, carbohydrate_g: carbohydrate, protein_g: protein, fat_g: fat };
+function exchangeTargetsFor(plan: Pick<NutritionPlan, "target_calories" | "macro_distribution">): ExchangeTargetSnapshot {
+  return { energy_kcal: plan.target_calories ?? 0, carbohydrate_g: plan.macro_distribution?.macros?.CARBOHYDRATE?.grams ?? 0,
+    protein_g: plan.macro_distribution?.macros?.PROTEIN?.grams ?? 0, fat_g: plan.macro_distribution?.macros?.FAT?.grams ?? 0 };
 }
 
 function ConsultationChoice({
@@ -214,7 +210,7 @@ function PlanContextHeader({
 
 type WorkshopStep = (typeof steps)[number]["id"];
 
-function WorkshopNavigation({ targetReady, macrosReady, mealsReady, activeStep, onSelect }: { targetReady: boolean; macrosReady: boolean; mealsReady: boolean; activeStep: WorkshopStep; onSelect: (step: WorkshopStep) => void }) {
+function WorkshopNavigation({ activeStep, onSelect }: { activeStep: WorkshopStep; onSelect: (step: WorkshopStep) => void }) {
   const activeIndex = steps.findIndex((step) => step.id === activeStep);
   return (
     <nav className="mt-5 overflow-x-auto rounded-2xl border border-[#dfe6e1] bg-white p-1.5" aria-label="Secciones del Taller de dietas">
@@ -222,7 +218,7 @@ function WorkshopNavigation({ targetReady, macrosReady, mealsReady, activeStep, 
         {steps.map((step, index) => {
           // Review is deliberately available even with pending work: it is the
           // place that explains what still needs clinical confirmation.
-          const ready = step.id === "energy" || step.id === "review" ? true : step.id === "macros" ? targetReady : step.id === "equivalents" || step.id === "meals" ? macrosReady : step.id === "menu" ? mealsReady : false;
+          const ready = true;
           const current = activeStep === step.id;
           const completed = ready && index < activeIndex;
           return (
@@ -636,8 +632,14 @@ export function DietWorkshopPage() {
     weightSource: reference?.weight ? "consultation" : patient?.weight_kg !== null && patient?.weight_kg !== undefined ? "patient" : undefined,
     heightSource: reference?.height ? "consultation" : patient?.height_cm !== null && patient?.height_cm !== undefined ? "patient" : undefined,
   };
+  const selectStep = async (step: WorkshopStep) => {
+    try {
+      const current = await flushPendingDraft();
+      if (step === "menu" && !current.meal_distribution) await savePlanPatch({ meal_distribution: createMealDistribution() });
+      setActiveStep(step);
+    } catch (cause) { setError((cause as Error).message); }
+  };
   const energyReferenceWeightKg = plan.energy_calculation?.inputs.weight_kg.value ?? null;
-  const macrosReady = Boolean(plan.macro_distribution?.complete);
   const exchangeTargets = exchangeTargetsFor(plan);
   const acceptLibraryUpdate = (updated: NutritionPlan) => {
     planRef.current = updated;
@@ -660,7 +662,7 @@ export function DietWorkshopPage() {
     <div className="min-w-0 w-full pb-16 [overflow-wrap:anywhere]">
       <PlanContextHeader plan={{ ...plan, title }} patient={patient} consultation={consultation} onChangeContext={() => void openContextEditor()} onSaveAndExit={() => void flushPendingDraft().then(() => navigate(exitTarget)).catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el plan."))} />
       {contextEditor && <ContextEditor currentPatient={patient} patients={patients} consultations={consultations} selectedPatientId={contextPatientId} selectedConsultationId={contextConsultationId} busy={busy} onPatient={(id) => void chooseContextPatient(id)} onConsultation={setContextConsultationId} onCancel={() => setContextEditor(false)} onSave={() => void saveContext()} />}
-      <WorkshopNavigation targetReady={Boolean(plan.target_calories && plan.target_calories > 0)} macrosReady={macrosReady} mealsReady={Boolean(plan.meal_distribution?.distribution.some((item) => item.portions > 0))} activeStep={activeStep} onSelect={setActiveStep} />
+      <WorkshopNavigation activeStep={activeStep} onSelect={(step) => { void selectStep(step); }} />
       {notice && <p role="status" className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]">{notice}</p>}
       {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{error}</p>}
       <div className="mt-5 space-y-5" key={libraryEpoch}>
@@ -727,7 +729,7 @@ export function DietWorkshopPage() {
             }}
             onDraftChange={(prescription) => { pendingExchangePrescription.current = prescription; }}
             onGoToMacros={() => setActiveStep("macros")}
-            onContinue={() => setActiveStep("meals")}
+            onContinue={() => { void selectStep("meals"); }}
           />}
           {activeStep === "meals" && <DietMealDistributionStep
             plan={plan}
@@ -741,7 +743,7 @@ export function DietWorkshopPage() {
             }}
             onDraftChange={(distribution) => { pendingMealDistribution.current = distribution; }}
             onGoToEquivalents={() => setActiveStep("equivalents")}
-            onContinue={() => setActiveStep("menu")}
+            onContinue={() => { void selectStep("menu"); }}
           />}
           {activeStep === "menu" && <DietMenuStep
             plan={plan}

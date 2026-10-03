@@ -27,7 +27,7 @@ export function MenuWeekPlanner({ planId, menu, distribution, onChange, onEditMe
   const [detail, setDetail] = useState<MealOption | null>(null);
   const [error, setError] = useState("");
   const options = eligibleOptions(menu, distribution);
-  const count = automaticDays(menu, distribution);
+  const count = Math.max(1, automaticDays(menu, distribution));
   const days = mode === "auto" ? WEEK_DAYS.slice(0, count).map(d => d.id) : chosenDays;
   const context = JSON.stringify([menu.meal_options, menu.food_preferences, distribution, mode, days, participants]);
   const explorer = useProposalExplorer<MenuWeekPlan, { week: MenuWeekPlan | null }>(`mesa:${planId}:week`, context, weekSignature);

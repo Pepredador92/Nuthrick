@@ -177,11 +177,11 @@ describe("meal distribution model", () => {
     expect(applied.suggestion_metadata).toMatchObject({ source: "automatic", algorithm: "MEAL_DISTRIBUTION_V1" });
   });
 
-  it("confirms only a complete distribution and saves the exchange snapshot", () => {
+  it("confirms an incomplete or complete distribution and saves the exchange snapshot", () => {
     const exchange = inventory({ VEGETABLES: 2, FRUITS: 1 });
     let value = createMealDistribution(ids());
     value = setDistributedPortions(value, "VEGETABLES", value.meal_times[2].id, 2);
-    expect(confirmMealDistribution(value, exchange).status).toBe("editing");
+    expect(confirmMealDistribution(value, exchange).status).toBe("ready");
     value = setDistributedPortions(value, "FRUITS", value.meal_times[0].id, 1);
     const confirmed = confirmMealDistribution(value, exchange);
     expect(confirmed.status).toBe("ready");

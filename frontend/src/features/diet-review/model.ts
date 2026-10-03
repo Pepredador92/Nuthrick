@@ -1,4 +1,4 @@
-import { optionIsEligible, optionPortionDifferences } from "@/src/features/menu/options";
+import { optionCanConfirm, optionIsEligible, optionPortionDifferences } from "@/src/features/menu/options";
 import { getExchangeGroup } from "@/src/features/exchanges/catalog";
 import { assignment, dayName, weekProblems } from "@/src/features/menu/week";
 import { patientPreparation, type PatientPreparation } from "./preparation";
@@ -20,6 +20,8 @@ export type PublicationValidation = {
   info: PublicationIssue[];
 };
 
+const warning = (code: string, message: string, location: Omit<PublicationIssue, "code" | "message" | "severity"> = {}): PublicationIssue => ({ code, message, severity: "warning", ...location });
+
 const error = (code: string, message: string, location: Omit<PublicationIssue, "code" | "message" | "severity"> = {}): PublicationIssue => ({ code, message, severity: "error", ...location });
 
 function validEntry(entry: DietMenuEntry) {
@@ -40,13 +42,13 @@ export function validateNutritionPlanForPublication(plan: NutritionPlan): Public
   const info: PublicationIssue[] = [];
   if (!plan.patient_id) errors.push(error("PATIENT_REQUIRED", "Asigna un paciente antes de publicar."));
   if (!Number.isFinite(plan.target_calories) || !plan.target_calories || plan.target_calories <= 0)
-    errors.push(error("ENERGY_TARGET_REQUIRED", "Define un objetivo energético válido.", { step: "energy" }));
+    warnings.push(warning("ENERGY_TARGET_REQUIRED", "Define un objetivo energético válido.", { step: "energy" }));
   if (!plan.macro_distribution?.complete)
-    errors.push(error("MACROS_INCOMPLETE", "Completa y confirma los macronutrientes.", { step: "macros" }));
+    warnings.push(warning("MACROS_INCOMPLETE", "Completa y confirma los macronutrientes.", { step: "macros" }));
   if (plan.exchange_prescription?.status !== "ready" || !plan.exchange_prescription.confirmed_at)
-    errors.push(error("EXCHANGES_UNCONFIRMED", "Completa y confirma los equivalentes.", { step: "equivalents" }));
+    warnings.push(warning("EXCHANGES_UNCONFIRMED", "Completa y confirma los equivalentes.", { step: "equivalents" }));
   if (!plan.meal_distribution || plan.meal_distribution.status !== "ready" || !plan.meal_distribution.confirmed_at)
-    errors.push(error("MEAL_DISTRIBUTION_INCOMPLETE", "Completa y confirma los tiempos de comida.", { step: "meals" }));
+    warnings.push(warning("MEAL_DISTRIBUTION_INCOMPLETE", "Completa y confirma los tiempos de comida.", { step: "meals" }));
 
   const distribution = plan.meal_distribution;
   const menu = plan.diet_menu;
@@ -56,10 +58,14 @@ export function validateNutritionPlanForPublication(plan: NutritionPlan): Public
     return { canPublish: false, errors, warnings, info };
   }
   if (menu.status !== "ready" || !menu.confirmed_at)
-    errors.push(error("MENU_UNCONFIRMED", "Confirma el menú aplicado antes de publicarlo.", { step: "menu" }));
+    warnings.push(warning("MENU_UNCONFIRMED", "Confirma el menú aplicado antes de publicarlo.", { step: "menu" }));
   for (const message of weekProblems(menu, distribution, week))
     errors.push(error("CALENDAR_INCOMPATIBLE", message, { step: "menu" }));
   for (const day of week.days) {
+    for (const meal of distribution.meal_times) {
+      const applied = day.assignments.find(item => item.meal_time_id === meal.id);
+      if (!applied?.option_snapshot.entries.length) warnings.push(warning("MEAL_EMPTY", `${dayName(day.day)} · ${meal.display_name}: sin alimentos registrados.`, { step: "menu" }));
+    }
     const used = new Set<string>();
     for (const applied of day.assignments) {
       if (used.has(applied.meal_time_id))
@@ -73,9 +79,9 @@ export function validateNutritionPlanForPublication(plan: NutritionPlan): Public
           message: `${dayName(day.day)} · ${mealName}: porciones distintas a la distribución (${differences.map(row => `${getExchangeGroup(row.group_code).shortName}: ${row.used} de ${row.portions} eq`).join("; ")}).`,
         });
       }
-      if (applied.option_snapshot.meal_time_id !== applied.meal_time_id || !optionIsEligible(menu, distribution, applied.option_snapshot))
+      if (applied.option_snapshot.meal_time_id !== applied.meal_time_id || !optionCanConfirm(menu, distribution, applied.option_snapshot))
         errors.push(error("APPLIED_OPTION_INVALID", `${dayName(day.day)} tiene una opción que necesita revisión.`, { step: "menu", day: day.day, mealTimeId: applied.meal_time_id }));
-      if (!applied.option_snapshot.entries.length || applied.option_snapshot.entries.some((entry) => !validEntry(entry)))
+      if (applied.option_snapshot.entries.some((entry) => !validEntry(entry)))
         errors.push(error("APPLIED_SNAPSHOT_INVALID", `${dayName(day.day)} contiene una comida con cantidades o snapshots incompletos.`, { step: "menu", day: day.day, mealTimeId: applied.meal_time_id }));
     }
   }
@@ -88,11 +94,9 @@ export function validateNutritionPlanForPublication(plan: NutritionPlan): Public
 export function prepareSingleDayForReview(menu: DietMenu, distribution: MealDistribution): DietMenu | null {
   if (menu.week_plan) return menu;
   const assignments = distribution.meal_times
-    .filter((meal) => distribution.distribution.some((entry) => entry.meal_time_id === meal.id && entry.portions > 0))
     .map((meal) => (menu.meal_options ?? []).find((option) => option.meal_time_id === meal.id && optionIsEligible(menu, distribution, option)))
     .filter((option): option is NonNullable<typeof option> => Boolean(option))
     .map((option) => assignment(option));
-  if (!assignments.length) return null;
   return {
     ...menu,
     week_plan: { schema_version: 1, days: [{ day: "mon", assignments }] },
