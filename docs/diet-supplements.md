@@ -34,3 +34,21 @@ Base: `c186603`, rama `main`. Los directorios locales `output/` y `tmp/` quedan 
 Navegación disponible con metas incompletas; Tiempos y opciones vacías pueden confirmarse; calendario permite tiempos pendientes. Revisión convierte la completitud nutricional en avisos. La publicación mantiene permisos/entitlements, cantidades válidas, snapshots, concurrencia e idempotencia. Las indicaciones manuales ya admitían texto libre y no precisaron cambios.
 
 Verificación: 100 pruebas focales finales, typecheck, ESLint focal y diff check correctos. Pruebas SQL locales con rollback: publicación incompleta, idempotencia, valores inválidos, snapshots ausentes, revisión y propietario. Docker falló por filesystem de sólo lectura; se utilizó PostgreSQL 16 aislado en `/tmp/nuthrick-supplements-pg`.
+
+## Etapa 3 · biblioteca y catálogo
+
+La prescripción se añadirá como `macro_distribution.supplements` (opcional). Reutiliza la cola de guardado, revisión y snapshot existentes, sin columna paralela ni un segundo sistema de persistencia. Cada selección guarda una copia independiente del producto y su etiqueta; la biblioteca usa `supplement_products`, con catálogo de lectura y productos privados protegidos por RLS.
+
+Catálogo inicial GNC México, etiquetas inspeccionadas el 3 de octubre de 2026. Porción = medida del envase, nunca una conversión de cucharada doméstica. Las kcal son las declaradas en la etiqueta; no se sustituyen por una fórmula de macros (las reglas de etiquetado pueden producir diferencias).
+
+| SKU | Producto / presentación | Porción | kcal | C (g) | P (g) | G (g) | Fuente de etiqueta |
+| --- | --- | --- | ---: | ---: | ---: | ---: | --- |
+| 106306005 | Isopure Zero Carb, vainilla, 3 lb | 32 g / 1 medida | 104.5 | 0 | 25 | 0.5 | [GNC](https://gnc.com.mx/media/catalog/product/1/0/106306005_01_02.jpg) |
+| 107206001 | ON Gold Standard 100% Whey, chocolate, 5 lb | 31 g / 1 medida | 121.5 | 3 | 24 | 1.5 | [GNC](https://gnc.com.mx/media/catalog/product/1/0/107206001_01_02.jpg) |
+| 100101039 | GNC Total Lean Shake 25, vainilla, 832 g | 52 g / 1 medida copeteada | 180 | 19 | 25 | 3 | [GNC](https://gnc.com.mx/media/catalog/product/1/0/100101039_b_2_.jpg) |
+| 107206013 | ON Serious Mass, chocolate, 6 lb | 340 g / 2 medidas | 1258 | 251 | 50 | 6 | [GNC](https://gnc.com.mx/media/catalog/product/1/0/107206013_01_02.jpg) |
+| 100106052 | GNC Pro Performance 100% Whey, vainilla, 408 g | 30.77 g / 1 medida | 117 | 2 | 25 | 1 | [GNC](https://gnc.com.mx/media/catalog/product/1/0/100106052_02.jpg) |
+
+No es el catálogo completo de GNC ni implica recomendación de consumo. No se transfieren nutrientes entre productos, países o sabores. Las instrucciones y la cantidad diaria las define el profesional. Los productos manuales requieren kcal y macros explícitos, incluso cero; nunca se interpreta un campo vacío como cero. Gramos/scoops sólo se habilitan si existe conversión conocida. La fuente y fecha permanecen visibles para revisión.
+
+Pruebas SQL locales transaccionales: catálogo legible, referencia no editable, biblioteca privada, acceso cruzado y anónimo rechazados, cantidades negativas rechazadas. Pruebas del modelo: conversión de unidades, suma, decimales, exceso sin negativos, entradas inválidas y compatibilidad con planes previos.
