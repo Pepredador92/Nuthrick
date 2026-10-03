@@ -86,7 +86,7 @@ describe('consultation status and history navigation',()=>{
   vi.mocked(listConsultations).mockResolvedValueOnce(['draft','completed','cancelled'].map((status,index)=>({id:status,patient_id:'patient',professional_id:'owner',consultation_date:'2026-09-15T12:00:00Z',consultation_type:'follow_up',sequence_number:index+1,status,summary:null})) as never);
   render(<MemoryRouter initialEntries={['/app/patients/patient?view=history']}><Routes><Route path="/app/patients/:patientId" element={<PatientDetailPage/>}/><Route path="/app/patients/:patientId/consultations/:id" element={<p>Editor de consulta</p>}/></Routes></MemoryRouter>);
   const history=within(await screen.findByRole('dialog',{name:'Historial del paciente'}));
-  const overview=()=>within(history.getByRole('button',{name:'Editar'}).closest('article')!);
+  const overview=()=>within(history.getByRole('button',{name:/^(Editar|Reabrir consulta)$/}).closest('article')!);
   expect(overview().getByText('Pendiente de cerrar')).toHaveClass('bg-amber-50');
   expect(overview().getByText(/entra en Editar y usa Revisar cierre de consulta/)).toBeVisible();
   expect(history.getByRole('option',{name:/Pendiente de cerrar/})).toBeInTheDocument();
@@ -97,6 +97,7 @@ describe('consultation status and history navigation',()=>{
   expect(overview().getByText(/selecciona los resultados en Superlink y pulsa Publicar/)).toBeVisible();
   fireEvent.change(history.getByLabelText('Seleccionar consulta'),{target:{value:'cancelled'}});
   expect(overview().getByText('Consulta cancelada')).toHaveClass('bg-slate-100');
+  expect(history.getByRole('button',{name:'Reabrir consulta'})).toBeVisible();
   expect(overview().queryByText('Pendiente de cerrar')).not.toBeInTheDocument();
   fireEvent.change(history.getByLabelText('Seleccionar consulta'),{target:{value:'draft'}});
   fireEvent.click(history.getByRole('button',{name:'Editar'}));

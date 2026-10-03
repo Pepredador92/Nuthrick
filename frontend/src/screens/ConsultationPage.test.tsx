@@ -7,7 +7,11 @@ const mocks = vi.hoisted(() => ({
   save: vi.fn(),
   finish: vi.fn(),
   adopt: vi.fn(),
-  cancel: vi.fn(),
+  begin: vi.fn(),
+  listConsultations: vi.fn(),
+  getSnapshot: vi.fn(),
+  reopen: vi.fn(),
+  updateDate: vi.fn(),
   ensure: vi.fn(),
   objective: vi.fn(),
   generate: vi.fn(),
@@ -108,14 +112,13 @@ const fixtures = vi.hoisted(() => {
 });
 vi.mock("@/src/services/patients", () => ({
   getPatient: async () => ({ id: "patient", full_name: "Paciente de prueba" }),
-  listConsultations: async () => [fixtures.c],
+  listConsultations: mocks.listConsultations,
 }));
 vi.mock("@/src/services/consultations", () => ({
   loadActiveTemplate: async () => fixtures.template,
   loadSystemTemplate: async () => fixtures.template,
   ensureSnapshot: mocks.ensure,
-  getSnapshot: async () =>
-    mocks.cancel.mock.calls.length ? null : fixtures.snapshot,
+  getSnapshot: mocks.getSnapshot,
   listAvailableSystemTemplates: async (type: string) =>
     type === "initial"
       ? [fixtures.template, fixtures.sportsTemplate]
@@ -147,16 +150,12 @@ vi.mock("@/src/services/consultations", () => ({
           },
         ],
   loadTemplateById: async () => fixtures.template,
-  reopenConsultationForEdit: async () => fixtures.c,
-  beginConsultation: async () => fixtures.c,
-  updateConsultationDate: async (_id: string, date: string) => ({
-    ...fixtures.c,
-    consultation_date: `${date}T12:00:00.000Z`,
-  }),
+  reopenConsultationForEdit: mocks.reopen,
+  beginConsultation: mocks.begin,
+  updateConsultationDate: mocks.updateDate,
   listAnswers: async () => [],
   saveAnswers: mocks.save,
   finishConsultation: mocks.finish,
-  cancelConsultationDraft: mocks.cancel,
   adoptTemplate: mocks.adopt,
 }));
 vi.mock("@/src/components/consultations/SnapshotHistory", () => ({
@@ -204,7 +203,17 @@ beforeEach(() => {
   window.sessionStorage.clear();
   mocks.save.mockResolvedValue(undefined);
   mocks.finish.mockResolvedValue(fixtures.c);
-  mocks.cancel.mockResolvedValue({ ...fixtures.c, status: "cancelled" });
+  fixtures.c.status = "draft";
+  mocks.listConsultations.mockResolvedValue([fixtures.c]);
+  mocks.begin.mockResolvedValue(fixtures.c);
+  mocks.getSnapshot.mockResolvedValue(fixtures.snapshot);
+  mocks.reopen.mockResolvedValue({ ...fixtures.c, status: "draft" });
+  mocks.updateDate.mockImplementation(async (_id: string, date: string) => ({
+    ...fixtures.c,
+    id: _id,
+    consultation_type: _id === "follow-up-draft" ? "follow_up" : fixtures.c.consultation_type,
+    consultation_date: `${date}T12:00:00.000Z`,
+  }));
   mocks.ensure.mockResolvedValue(fixtures.snapshot);
   vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
 });
@@ -262,6 +271,15 @@ describe("consultation save and review workflow", () => {
       expect(screen.queryByText("¿Qué te trae a consulta el día de hoy?")).not.toBeInTheDocument();
     } finally { Object.assign(question,previous); }
   });
+  it("reopens a cancelled consultation before loading it for editing", async () => {
+    fixtures.c.status = "cancelled";
+    mocks.reopen.mockResolvedValue({ ...fixtures.c, status: "draft" });
+    mount();
+    expect(
+      await screen.findByRole("heading", { name: "Apertura de prueba" }),
+    ).toBeInTheDocument();
+    expect(mocks.reopen).toHaveBeenCalledWith("draft");
+  });
   it("offers the longitudinal evolution module alongside interview, measurements and laboratories", async () => {
     mount();
     await screen.findByRole("heading", { name: "Apertura de prueba" });
@@ -294,33 +312,46 @@ describe("consultation save and review workflow", () => {
       "Respuesta todavía local",
     );
   });
-  it("shows every template and lets the professional cancel an open draft before starting another", async () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+  it("lets the professional start another type without cancelling an open draft", async () => {
+    mocks.begin.mockResolvedValue({
+      ...fixtures.c,
+      id: "follow-up-draft",
+      consultation_type: "follow_up",
+    });
+    mocks.getSnapshot.mockResolvedValue(null);
     mount("/app/patients/patient/consultations/new");
     await screen.findByRole("heading", {
       name: "Elige el diseño para esta consulta",
     });
     expect(screen.getByText("Tienes un borrador abierto")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Entrevista/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /^Seguimiento/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Seguimiento/ })).toBeEnabled();
     expect(
       screen.getByRole("button", { name: /Consulta inicial deportiva/ }),
     ).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar borrador" }));
-    await waitFor(() => expect(mocks.cancel).toHaveBeenCalledWith("draft"));
-    expect(confirm).toHaveBeenCalledOnce();
-    const initialInterview = screen.getByRole("button", {
-      name: /^Entrevista/,
-    });
-    expect(initialInterview).toBeEnabled();
-    expect(screen.getByRole("button", { name: /^Seguimiento/ })).toBeEnabled();
-    fireEvent.click(initialInterview);
+    expect(screen.queryByRole("button", { name: "Cancelar borrador" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Seguimiento/ }));
     expect(
       await screen.findByRole("heading", { name: "Apertura de prueba" }),
     ).toBeInTheDocument();
+    expect(mocks.begin).toHaveBeenCalledWith("patient", "follow_up");
+  });
+
+  it("resumes an existing draft without changing its consultation date", async () => {
+    mount("/app/patients/patient/consultations/new");
+    await screen.findByRole("heading", {
+      name: "Elige el diseño para esta consulta",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reanudar borrador" }));
+    expect(
+      await screen.findByRole("heading", { name: "Apertura de prueba" }),
+    ).toBeInTheDocument();
+    expect(mocks.begin).not.toHaveBeenCalled();
+    expect(mocks.updateDate).not.toHaveBeenCalled();
   });
   it("starts a consultation from a professional template id and renders its snapshot", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+    mocks.listConsultations.mockResolvedValueOnce([]);
+    mocks.getSnapshot.mockResolvedValue(null);
     mocks.ensure.mockImplementation(async (_consultation, loaded) => ({
       ...fixtures.snapshot,
       template_id: loaded.template.id,
@@ -350,8 +381,6 @@ describe("consultation save and review workflow", () => {
     await screen.findByRole("heading", {
       name: "Elige el diseño para esta consulta",
     });
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar borrador" }));
-    await waitFor(() => expect(mocks.cancel).toHaveBeenCalled());
     fireEvent.click(
       screen.getByRole("button", { name: /Consulta inicial deportiva/ }),
     );

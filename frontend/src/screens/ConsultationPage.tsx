@@ -42,7 +42,6 @@ import { getPatient, listConsultations } from "@/src/services/patients";
 import {
   adoptTemplate,
   beginConsultation,
-  cancelConsultationDraft,
   ensureSnapshot,
   finishConsultation,
   getSnapshot,
@@ -157,9 +156,16 @@ export function ConsultationPage() {
             "No encontramos esta consulta o no tienes autorización para verla.",
           );
         const drafts = history.filter((item) => item.status === "draft");
-        const existingDraft =
+        const existingConsultation =
           requestedConsultation ??
-          drafts.find((item) => item.id === resumeDraftId);
+          drafts.find((item) => item.id === resumeDraftId) ??
+          (chosenTemplate
+            ? drafts.find(
+                (item) =>
+                  item.consultation_type ===
+                  chosenTemplate.template.consultation_type,
+              )
+            : null);
         if (!consultationId && !chosenTemplate && !resumeDraftId) {
           const templates = (
             await Promise.all([
@@ -173,16 +179,18 @@ export function ConsultationPage() {
           setOpenDrafts(drafts);
           return;
         }
-        if (!existingDraft && !chosenTemplate)
+        if (!existingConsultation && !chosenTemplate)
           throw new Error("Elige un diseño para iniciar la consulta.");
         const type: Consultation["consultation_type"] =
-          existingDraft?.consultation_type ??
+          existingConsultation?.consultation_type ??
           chosenTemplate!.template.consultation_type;
         const started =
-          consultationId && existingDraft?.status === "completed"
-            ? await reopenConsultationForEdit(existingDraft.id)
-            : (existingDraft ?? (await beginConsultation(patientId, type)));
-        const consultationForLoad = existingDraft
+          consultationId &&
+          existingConsultation &&
+          existingConsultation.status !== "draft"
+            ? await reopenConsultationForEdit(existingConsultation.id)
+            : (existingConsultation ?? (await beginConsultation(patientId, type)));
+        const consultationForLoad = existingConsultation
           ? started
           : await updateConsultationDate(started.id, clinicalDateRef.current, loadedPatient.timezone);
         const existingSnapshot = await getSnapshot(consultationForLoad.id);
@@ -493,34 +501,6 @@ export function ConsultationPage() {
       setBusy(false);
     }
   };
-  const cancelOpenDraft = async (draft: Consultation) => {
-    if (
-      !window.confirm(
-        "¿Cancelar este borrador? Sus respuestas quedarán guardadas como una consulta cancelada y podrás iniciar otra entrevista.",
-      )
-    )
-      return;
-    setBusy(true);
-    setError("");
-    try {
-      await cancelConsultationDraft(draft.id);
-      setOpenDrafts((current) =>
-        current.filter((item) => item.id !== draft.id),
-      );
-      setNotice(
-        "Borrador cancelado. Ahora puedes elegir cualquier tipo de consulta.",
-      );
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "No se pudo cancelar el borrador.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const saveClinicalDate = async () => {
     if (!consultation) return;
     setBusy(true);
@@ -545,43 +525,57 @@ export function ConsultationPage() {
     const followUp = availableTemplates.filter(
       (item) => item.template.consultation_type === "follow_up",
     );
-    const hasOpenDraft = openDrafts.length > 0;
     const renderChoices = (items: LoadedTemplate[]) =>
-      items.map((item) => (
-        <button
-          type="button"
-          key={item.template.id}
-          disabled={hasOpenDraft || busy}
-          className="w-full rounded-2xl border border-[#dfe5e1] bg-white p-5 text-left transition hover:border-[#709883] hover:bg-[#f5faf5] disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={() => void load(item)}
-        >
-          <span className="block text-base font-semibold text-[#173d36]">
-            {item.template.name}
-          </span>
-          {item.template.description && (
-            <span className="mt-2 block text-sm leading-6 text-[#66766f]">
-              {item.template.description}
+      items.map((item) => {
+        const existingDraft = openDrafts.find(
+          (draft) =>
+            draft.consultation_type === item.template.consultation_type,
+        );
+        return (
+          <button
+            type="button"
+            key={item.template.id}
+            disabled={busy || Boolean(existingDraft)}
+            title={
+              existingDraft
+                ? "Ya existe un borrador de este tipo. Reanúdalo desde la lista superior."
+                : undefined
+            }
+            className="w-full rounded-2xl border border-[#dfe5e1] bg-white p-5 text-left transition hover:border-[#709883] hover:bg-[#f5faf5] disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => void load(item)}
+          >
+            <span className="block text-base font-semibold text-[#173d36]">
+              {item.template.name}
             </span>
-          )}
-          <span className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#74817d]">
-            {item.template.estimated_duration_minutes && (
-              <span>
-                Duración aproximada: {item.template.estimated_duration_minutes} min
+            {existingDraft ? (
+              <span className="mt-2 block text-sm leading-6 text-[#66766f]">
+                Ya hay un borrador de este tipo. Reanúdalo desde la lista superior.
               </span>
-            )}
-            {item.template.is_default && (
-              <span className="rounded-full bg-[#e5f1e8] px-2 py-1 font-semibold text-[#315e4f]">
-                Predeterminada
+            ) : item.template.description ? (
+              <span className="mt-2 block text-sm leading-6 text-[#66766f]">
+                {item.template.description}
               </span>
-            )}
-            {item.template.is_system && (
-              <span className="rounded-full bg-[#f5eddd] px-2 py-1 font-semibold text-[#785c32]">
-                Base Nuthrick
-              </span>
-            )}
-          </span>
-        </button>
-      ));
+            ) : null}
+            <span className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#74817d]">
+              {item.template.estimated_duration_minutes && (
+                <span>
+                  Duración aproximada: {item.template.estimated_duration_minutes} min
+                </span>
+              )}
+              {item.template.is_default && (
+                <span className="rounded-full bg-[#e5f1e8] px-2 py-1 font-semibold text-[#315e4f]">
+                  Predeterminada
+                </span>
+              )}
+              {item.template.is_system && (
+                <span className="rounded-full bg-[#f5eddd] px-2 py-1 font-semibold text-[#785c32]">
+                  Base Nuthrick
+                </span>
+              )}
+            </span>
+          </button>
+        );
+      });
     return (
       <div className="mx-auto max-w-4xl">
         <Link
@@ -624,8 +618,9 @@ export function ConsultationPage() {
                 : `${openDrafts.length} borradores abiertos`}
             </p>
             <p className="mt-1 text-sm leading-6 text-[#8e744c]">
-              Reanúdalo para continuar donde lo dejaste o cancélalo para poder
-              iniciar una entrevista con cualquiera de los diseños.
+              Tus respuestas se conservan. Puedes reanudar un borrador o elegir
+              una consulta de otro tipo. Para iniciar una del mismo tipo,
+              reanuda el borrador existente.
             </p>
             <div className="mt-4 space-y-3">
               {openDrafts.map((draft) => (
@@ -641,24 +636,14 @@ export function ConsultationPage() {
                       Iniciada el {formatPatientDate(draft.consultation_date)}
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="nuth-button-secondary !px-3 !py-2 !text-xs"
-                      disabled={busy}
-                      onClick={() => void load(undefined, draft.id)}
-                    >
-                      Reanudar borrador
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-xl px-3 py-2 text-xs font-semibold text-[#9b493a] hover:bg-[#fbe9e5] disabled:opacity-50"
-                      disabled={busy}
-                      onClick={() => void cancelOpenDraft(draft)}
-                    >
-                      Cancelar borrador
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="nuth-button-secondary !px-3 !py-2 !text-xs"
+                    disabled={busy}
+                    onClick={() => void load(undefined, draft.id)}
+                  >
+                    Reanudar borrador
+                  </button>
                 </div>
               ))}
             </div>

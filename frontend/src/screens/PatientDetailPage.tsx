@@ -378,7 +378,18 @@ function ConsultationHistoryOverview({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ConsultationStatus status={consultation.status} />
-          <button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => onEdit(consultation)}><Edit3 size={14} />Editar</button>
+          <button
+            type="button"
+            className="nuth-button-secondary !px-3 !py-2 !text-xs"
+            onClick={() => onEdit(consultation)}
+          >
+            {consultation.status === "cancelled" ? (
+              <RotateCcw size={14} />
+            ) : (
+              <Edit3 size={14} />
+            )}
+            {consultation.status === "cancelled" ? "Reabrir consulta" : "Editar"}
+          </button>
           <button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => onExport(consultation)}><FileText size={14} />Exportar .txt</button>
           <button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => onExportPdf(consultation)}><FileText size={14} />Exportar PDF</button>
           <button type="button" className="rounded-xl px-3 py-2 text-xs font-semibold text-[#9b493a] hover:bg-[#fbe9e5]" onClick={() => onDelete(consultation)}><Trash2 size={14} />Eliminar</button>
