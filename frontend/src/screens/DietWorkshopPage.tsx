@@ -702,7 +702,7 @@ export function DietWorkshopPage() {
       <WorkshopNavigation activeStep={activeStep} onSelect={(step) => { void selectStep(step); }} />
       {notice && <p role="status" className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]">{notice}</p>}
       {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{error}</p>}
-      <div className="mt-5 space-y-5" key={libraryEpoch}>
+      <div className="workshop-step-content mt-5 space-y-5" key={libraryEpoch}>
           {cardLayout ? <details className="energy-plan-tools"><summary>Nombre del plan y biblioteca</summary><div className="space-y-4">{planTools}</div></details> : planTools}
           {activeStep === "energy" && <DietEnergyStep
             key={`${plan.id}:${reference?.weight?.value ?? ""}:${reference?.height?.value ?? ""}`}
