@@ -1,0 +1,121 @@
+.consultation-design-workspace {
+  max-width: 1160px;
+  margin-inline: auto;
+}
+
+.consultation-design-workspace .design-hero {
+  background: radial-gradient(circle at 90% 10%, #2d5e5d 0, transparent 34%),
+    linear-gradient(125deg, #193a3d, #17283f);
+}
+
+.consultation-design-workspace .design-overview-card,
+.consultation-design-workspace .design-variants-card,
+.consultation-design-workspace .design-metadata-card,
+.consultation-design-workspace .design-question-card,
+.consultation-design-workspace .design-section-nav,
+.consultation-design-workspace .design-editor-toolbar {
+  background: #fff;
+  box-shadow: 0 14px 34px -27px #173d3659;
+}
+
+.consultation-design-workspace .design-overview-card {
+  border-top: 4px solid #6caabb;
+}
+
+.consultation-design-workspace .design-overview-card ol {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+}
+
+.consultation-design-workspace .design-section-choice {
+  min-height: 104px;
+  background: #f7faf9;
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.consultation-design-workspace .design-section-choice:hover,
+.consultation-design-workspace .design-section-choice:focus-visible {
+  transform: translateY(-2px);
+  border-color: #79ada9;
+  box-shadow: 0 12px 24px -20px #193a3d;
+}
+
+.consultation-design-workspace .design-section-choice > span:first-child {
+  background: #dceeed;
+  color: #285b62;
+}
+
+.consultation-design-workspace li:nth-child(3n + 2) .design-section-choice > span:first-child {
+  background: #eee5f5;
+  color: #664d81;
+}
+
+.consultation-design-workspace li:nth-child(3n) .design-section-choice > span:first-child {
+  background: #f7edda;
+  color: #8b6433;
+}
+
+.consultation-design-workspace .design-variants-card {
+  background: #f6f8f5;
+}
+
+.consultation-design-workspace .design-editor-toolbar {
+  border: 1px solid #dfe5e1;
+  border-radius: 20px;
+  padding: 18px;
+}
+
+.consultation-design-workspace .design-metadata-card {
+  background: #f4f8f7;
+}
+
+.consultation-design-workspace .design-section-nav {
+  align-self: start;
+  border: 1px solid #dfe5e1;
+  border-radius: 20px;
+  padding: 18px;
+}
+
+.consultation-design-workspace .design-section-nav nav button:hover {
+  background: #eef5f3;
+}
+
+.consultation-design-workspace .design-question-card {
+  border-top: 4px solid #a4c6c3;
+}
+
+.consultation-design-workspace .design-question-card details {
+  background: #fbfcfa;
+}
+
+@media (min-width: 1280px) {
+  .consultation-design-workspace .design-section-nav {
+    position: sticky;
+    top: 92px;
+    max-height: calc(100vh - 110px);
+    overflow: auto;
+  }
+}
+
+html[data-nuthrick-theme='night'] .consultation-design-workspace .design-overview-card,
+html[data-nuthrick-theme='night'] .consultation-design-workspace .design-editor-toolbar,
+html[data-nuthrick-theme='night'] .consultation-design-workspace .design-question-card,
+html[data-nuthrick-theme='night'] .consultation-design-workspace .design-section-nav {
+  background: #172d37;
+  border-color: #36525a;
+}
+
+html[data-nuthrick-theme='night'] .consultation-design-workspace .design-variants-card,
+html[data-nuthrick-theme='night'] .consultation-design-workspace .design-metadata-card {
+  background: #20323a;
+  border-color: #36525a;
+}
+
+html[data-nuthrick-theme='night'] .consultation-design-workspace .design-section-choice,
+html[data-nuthrick-theme='night'] .consultation-design-workspace .design-question-card details {
+  background: #203944;
+  border-color: #36525a;
+}
+
+html[data-nuthrick-theme='night'] .consultation-design-workspace .design-section-nav nav button:hover {
+  background: #294a51;
+}

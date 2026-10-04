@@ -140,6 +140,18 @@ beforeEach(() => {
 });
 
 describe("catálogo profesional de plantillas", () => {
+  it("guides the editor through sections and back to the complete design", async () => {
+    mount();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Personalizar consulta" }),
+    );
+    expect(screen.getByText("Sección 1 de 2")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente sección" }));
+    expect(screen.getByText("Sección 2 de 2")).toBeInTheDocument();
+    expect(screen.getByLabelText("Título de sección")).toHaveValue("Cierre");
+    fireEvent.click(screen.getByRole("button", { name: "Ver diseño completo" }));
+    expect(screen.getByRole("region", { name: "Tu consulta" })).toBeInTheDocument();
+  });
   it("starts with the real section flow and opens the same question component in preview", async () => {
     mount();
     expect(

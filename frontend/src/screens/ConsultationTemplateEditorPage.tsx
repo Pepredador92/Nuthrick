@@ -39,6 +39,7 @@ import type {
   ConsultationQuestionType,
   ConsultationTemplateQuestion,
 } from "@/src/types/domain";
+import "./ConsultationTemplateEditorPage.css";
 
 const types: Array<[ConsultationQuestionType, string]> = [
   ["select", "Una opción"],
@@ -498,8 +499,8 @@ export function ConsultationTemplateEditorPage() {
     return null;
   }
   return (
-    <div className="w-full min-w-0 pb-24 [overflow-wrap:anywhere]">
-      <header className="rounded-[24px] bg-[#173d36] p-5 text-white sm:p-7">
+    <div className="consultation-design-workspace w-full min-w-0 pb-24 [overflow-wrap:anywhere]">
+      <header className="design-hero rounded-[24px] bg-[#173d36] p-5 text-white sm:p-7">
         <p className="text-xs text-white/60">
           Guiones y cuestionarios de consulta
         </p>
@@ -528,7 +529,7 @@ export function ConsultationTemplateEditorPage() {
       {overview && error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] p-4 text-sm text-[#963f32]">{error}</p>}
       {overview && (
         <section
-          className="mt-5 rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-7"
+          className="design-overview-card mt-5 rounded-2xl border border-[#dfe5e1] p-5 sm:p-7"
           aria-label="Tu consulta"
         >
           <p className="nuth-eyebrow">Tu consulta</p>
@@ -584,7 +585,7 @@ export function ConsultationTemplateEditorPage() {
             {loaded.sections.map((s, index) => (
               <li key={s.id}>
                 <button
-                  className="flex w-full items-start gap-3 rounded-xl border border-[#e3e9e4] p-4 text-left hover:bg-[#f4f7f3]"
+                  className="design-section-choice flex w-full items-start gap-3 rounded-xl border border-[#e3e9e4] p-4 text-left"
                   onClick={() => {
                     setActive(index);
                     setPreview(readonly);
@@ -623,7 +624,7 @@ export function ConsultationTemplateEditorPage() {
           </p>
         </section>
       )}
-      <details className="mt-5 rounded-2xl border border-[#dfe5e1] bg-white p-4 sm:p-5">
+      <details className="design-variants-card mt-5 rounded-2xl border border-[#dfe5e1] p-4 sm:p-5">
         <summary className="cursor-pointer font-semibold">
           Otros diseños y variantes · {templates.length}
         </summary>
@@ -691,7 +692,7 @@ export function ConsultationTemplateEditorPage() {
           >
             Volver al diseño completo
           </button>
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="design-editor-toolbar mt-5 flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-lg font-semibold">{loaded.template.name}</h2>
               <p className="mt-1 text-xs text-[#74817d]">
@@ -821,7 +822,8 @@ export function ConsultationTemplateEditorPage() {
             </p>
           )}
           {!readonly && !preview && (
-            <section className="mt-5 rounded-2xl border border-[#dfe5e1] bg-white p-4 sm:p-6">
+            <section className="design-metadata-card mt-5 rounded-2xl border border-[#dfe5e1] p-4 sm:p-6">
+              <p className="nuth-eyebrow">01 · Datos del diseño</p>
               <h3 className="text-lg font-semibold">Información del diseño</h3>
               <div className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2">
                 <label className="block min-w-0 text-sm font-semibold">
@@ -886,8 +888,9 @@ export function ConsultationTemplateEditorPage() {
               </div>
             </section>
           )}
-          <div className="mt-6 grid min-w-0 gap-5 xl:grid-cols-[225px_minmax(0,1fr)]">
-            <aside className="min-w-0">
+          <div className="design-editor-grid mt-6 grid min-w-0 gap-5 xl:grid-cols-[225px_minmax(0,1fr)]">
+            <aside className="design-section-nav min-w-0">
+              <p className="nuth-eyebrow">02 · Recorrido</p>
               <label
                 htmlFor="template-section"
                 className="text-xs font-semibold"
@@ -941,7 +944,8 @@ export function ConsultationTemplateEditorPage() {
               )}
             </aside>
             {section && (
-              <section className="min-w-0 rounded-[24px] border border-[#dfe5e1] bg-white p-4 sm:p-6">
+              <section className="design-question-card min-w-0 rounded-[24px] border border-[#dfe5e1] p-4 sm:p-6">
+                <p className="nuth-eyebrow mb-3">03 · {preview ? "Vista de prueba" : "Contenido de la sección"}</p>
                 <fieldset disabled={saving} className="min-w-0 border-0 p-0">
                   {preview ? (
                     <>
@@ -1521,6 +1525,36 @@ export function ConsultationTemplateEditorPage() {
                     </>
                   )}
                 </fieldset>
+                <div className="design-section-actions mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-[#dfe5e1] pt-5">
+                  <button
+                    type="button"
+                    className="nuth-button-secondary"
+                    disabled={active === 0}
+                    onClick={() => setActive((current) => current - 1)}
+                  >
+                    Sección anterior
+                  </button>
+                  <span className="text-xs text-[#74817d]">
+                    Sección {active + 1} de {loaded.sections.length}
+                  </span>
+                  {active < loaded.sections.length - 1 ? (
+                    <button
+                      type="button"
+                      className="nuth-button"
+                      onClick={() => setActive((current) => current + 1)}
+                    >
+                      Siguiente sección
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="nuth-button"
+                      onClick={() => setOverview(true)}
+                    >
+                      Ver diseño completo
+                    </button>
+                  )}
+                </div>
               </section>
             )}
           </div>
