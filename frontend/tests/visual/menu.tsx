@@ -60,6 +60,8 @@ function Harness(){
   const [saves,setSaves]=useState(0);
   const [librarySaves,setLibrarySaves]=useState(0);
   const [weekly] = useState(() => weeklyFixture());
+  const [weeklyDraft,setWeeklyDraft] = useState(weekly.menu);
+  const [weeklyReview,setWeeklyReview] = useState(false);
   const confirmationMode = new URLSearchParams(window.location.search).get("confirmation");
   const [confirmationFixture] = useState(() => {
     const fixture = weeklyFixture([1, 1, 1]);
@@ -98,7 +100,8 @@ function Harness(){
     const foods:FoodItem[]=[{...papaya,id:"guava",name:"Guayaba",portion_unit:"piece",use_count:100},{...papaya,id:"apple",name:"Manzana",portion_unit:"piece",use_count:50},{...papaya,id:"pear",name:"Pera",portion_unit:"piece",use_count:0},...sampleFoods.filter(f=>f.id==="egg"||f.id==="tortilla"||f.id==="veg")];
     return <main className="mx-auto min-h-screen max-w-[1440px] bg-[#f7f8f4] p-3 sm:p-8"><p role="status">Caso ficticio · Guardados de menú: {saves}.</p><DietMenuStep plan={{...plan,id:"exploration-visual",diet_menu:null,meal_distribution:distribution}} catalog={{foods,recipes:[]}} onSave={async()=>setSaves(n=>n+1)} onGoToMeals={()=>undefined}/></main>;
   }
-  if (weeklyMode) return <main className="mx-auto min-h-screen max-w-[1440px] bg-[#f7f8f4] p-3 sm:p-8"><p className="mb-4 text-xs" role="status">Caso ficticio · distribución simplificada para probar la interfaz; no es una dieta. Guardados de menú: {saves}.</p><DietMenuStep plan={{...plan,id:"weekly-visual",diet_menu:weekly.menu,meal_distribution:weekly.distribution}} catalog={{foods:weekly.foods,recipes:[]}} onSave={async()=>setSaves(n=>n+1)} onGoToMeals={()=>undefined}/></main>;
+  if (weeklyMode && weeklyReview) return <main className="mx-auto min-h-screen max-w-[1160px] p-3 sm:p-8"><section className="menu-card"><p className="menu-card-step">PASO 06 / 06</p><h1 className="mt-2 text-2xl font-semibold">Revisión del plan</h1><p className="mt-2 text-sm">Vista de prueba: el botón inferior condujo al siguiente paso. La revisión completa está en el Taller de Dietas.</p><button className="nuth-button-secondary mt-5" onClick={()=>setWeeklyReview(false)}>Volver a Menú</button></section></main>;
+  if (weeklyMode) return <main className="mx-auto min-h-screen max-w-[1440px] bg-[#f7f8f4] p-3 sm:p-8"><p className="mb-4 text-xs" role="status">Caso ficticio · distribución simplificada para probar la interfaz; no es una dieta. Guardados de menú: {saves}.</p><DietMenuStep plan={{...plan,id:"weekly-visual",diet_menu:weeklyDraft,meal_distribution:weekly.distribution}} catalog={{foods:weekly.foods,recipes:[]}} onSave={async(next)=>{setWeeklyDraft(next);setSaves(n=>n+1);}} onGoToMeals={()=>undefined} onGoToReview={()=>setWeeklyReview(true)}/></main>;
   return <main className="mx-auto min-h-screen max-w-[1440px] bg-[#f7f8f4] p-3 sm:p-8"><p className="mb-4 text-xs" role="status">Caso ficticio · sin conexión de guardado. Guardados de menú: {saves}. Biblioteca: {librarySaves}.</p><DietMenuStep plan={plan} catalog={{foods:sampleFoods,recipes:[]}} recipeWriter={async input=>{setLibrarySaves(n=>n+1);return fakeRecipe(input);}} onSave={async()=>{setSaves(n=>n+1);}} onGoToMeals={()=>undefined}/></main>;
 }
 const visualTheme = new URLSearchParams(window.location.search).has("night") ? "night" : "day";

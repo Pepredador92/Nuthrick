@@ -797,6 +797,7 @@ export function DietWorkshopPage() {
             }}
             onDraftChange={(menu) => { pendingDietMenu.current = menu; }}
             onGoToMeals={() => setActiveStep("meals")}
+            onGoToReview={() => { void selectStep("review"); }}
           />}
           {activeStep === "review" && plan.text_diet && <TextDietReviewStep key={libraryEpoch} plan={{...plan,title}} patientName={patient?.full_name||"Paciente"} versions={versions} publishing={publishing}
             onSave={draft=>savePlanPatch({text_diet:draft})} onPublish={()=>void publishVersion([])}

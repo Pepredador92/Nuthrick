@@ -13,6 +13,22 @@ const fixturePlan = (menu: DietMenu, distribution: NutritionPlan["meal_distribut
 });
 beforeEach(clearProposalSession);
 describe("weekly preview and option editing", () => {
+  it("guides the bottom action from options through the calendar to review", () => {
+    const f = weeklyFixture();
+    const onGoToReview = vi.fn();
+    render(<DietMenuStep plan={fixturePlan(f.menu, f.distribution)} catalog={{ foods: f.foods, recipes: [] }} onSave={vi.fn().mockResolvedValue(undefined)} onGoToMeals={vi.fn()} onGoToReview={onGoToReview}/>);
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente: Plan por días" }));
+    expect(screen.getByRole("heading", { name: "¿Cuántos días tendrá el plan?" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Opciones disponibles" })).toBeInTheDocument();
+    const next = screen.getByRole("button", { name: "Siguiente: Revisión" });
+    expect(next).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Organizar días" }));
+    expect(next).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar calendario" }));
+    expect(next).toBeEnabled();
+    fireEvent.click(next);
+    expect(onGoToReview).toHaveBeenCalledOnce();
+  });
   it("explores, edits, locks, recovers, discards, applies and undoes without premature writes", () => {
     const f = weeklyFixture(); const onChange = vi.fn();
     function Harness() { const [menu, setMenu] = useState(f.menu); return <MenuWeekPlanner planId="test" menu={menu} distribution={f.distribution} onChange={next => { onChange(next); setMenu(next); }} onEditMeal={vi.fn()} onVariant={vi.fn()}/>; }
