@@ -1,4 +1,5 @@
 import { ScheduleAppointmentButton } from "@/src/components/agenda/ScheduleAppointmentButton";
+import "./PatientsPage.css";
 import { UpcomingAppointments } from "@/src/components/agenda/UpcomingAppointments";
 import { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
@@ -1111,7 +1112,7 @@ export function PatientDetailPage() {
             ? "Otro"
             : "No indicado";
   return (
-    <div>
+    <div className="patient-detail-workspace">
       <Link
         to="/app/patients"
         className="inline-flex items-center gap-2 text-sm font-semibold text-[#3d705d]"
@@ -1165,6 +1166,12 @@ export function PatientDetailPage() {
           )}
         </div>
       </header>
+      <nav className="patient-detail-navigation" aria-label="Recorrido del expediente">
+        <a href="#patient-actions">01 · Acciones</a>
+        <a href="#patient-consultations">02 · Consultas</a>
+        <a href="#patient-photos">03 · Fotos</a>
+        <a href="#patient-evolution">04 · Evolución</a>
+      </nav>
       <div className="mt-5"><UpcomingAppointments key={patient.id} patientId={patient.id} refreshKey={agendaRevision}/></div>
       {editing && (
         <form
@@ -1296,7 +1303,7 @@ export function PatientDetailPage() {
       )}
       <div className="mt-6 grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
         <aside className="space-y-5">
-          <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5">
+          <section className="patient-detail-card rounded-2xl border border-[#dfe5e1] p-5">
             <h2 className="text-lg font-semibold">Información del paciente</h2>
             <dl className="mt-4 space-y-3 text-sm">
               <div>
@@ -1325,7 +1332,8 @@ export function PatientDetailPage() {
               </div>
             </dl>
           </section>
-          <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5">
+          <section id="patient-actions" className="patient-detail-card patient-detail-card-actions rounded-2xl border border-[#dfe5e1] p-5">
+            <span className="patient-detail-step">01 · Continúa la atención</span>
             <h2 className="text-lg font-semibold">Acciones</h2>
             <p className="mt-1 text-sm text-[#74817d]">
               Lo esencial para continuar el seguimiento.
@@ -1409,8 +1417,9 @@ export function PatientDetailPage() {
           </section>
         </aside>
         <main className="min-w-0 space-y-5">
-          <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-6">
+          <section id="patient-consultations" className="patient-detail-card patient-detail-card-consultations rounded-2xl border border-[#dfe5e1] p-5 sm:p-6">
             <div>
+              <span className="patient-detail-step">02 · Revisa y retoma</span>
               <h2 className="text-xl font-semibold">Consultas recientes</h2>
               <p className="mt-1 text-sm text-[#74817d]">
                 Continúa donde te quedaste.
@@ -1425,9 +1434,10 @@ export function PatientDetailPage() {
               }}
             />
           </section>
-          <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-6">
+          <section id="patient-photos" className="patient-detail-card patient-detail-card-photos rounded-2xl border border-[#dfe5e1] p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
+                <span className="patient-detail-step">03 · Documenta</span>
                 <h2 className="text-xl font-semibold">Fotos de progreso</h2>
                 <p className="mt-1 text-sm text-[#74817d]">
                   Privadas y accesibles sólo desde tu espacio.
@@ -1461,9 +1471,10 @@ export function PatientDetailPage() {
               <p className="mt-4 text-sm text-[#74817d]">Aún no hay fotos.</p>
             )}
           </section>
-          <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-6">
+          <section id="patient-evolution" className="patient-detail-card patient-detail-card-evolution rounded-2xl border border-[#dfe5e1] p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
+                <span className="patient-detail-step">04 · Visualiza</span>
                 <h2 className="text-xl font-semibold">Evolución reciente</h2>
                 <p className="mt-1 text-sm text-[#74817d]">Una vista rápida de los indicadores con seguimiento.</p>
               </div>

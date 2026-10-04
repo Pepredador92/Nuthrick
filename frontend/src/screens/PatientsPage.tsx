@@ -3,6 +3,7 @@ import { getLimit } from "@/src/features/admin/api";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  ArrowRight,
   Check,
   Filter,
   LoaderCircle,
@@ -36,6 +37,7 @@ import {
   patientStatusLabel,
 } from "@/src/features/patients/patientUtils";
 import type { Patient, PatientGender } from "@/src/types/domain";
+import "./PatientsPage.css";
 
 const countries = [
   ["+52", "México (+52)"],
@@ -634,14 +636,14 @@ export function PatientsPage() {
     (portal !== "all" ? 1 : 0) +
     (sort !== "created_desc" ? 1 : 0);
   return (
-    <div>
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+    <div className="patients-workspace">
+      <div className="patients-heading">
         <div>
           <p className="nuth-eyebrow">Espacio profesional</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-[-.04em]">
+          <h1>
             Pacientes
           </h1>
-          <p className="mt-3 text-[#687672]">
+          <p>
             Un seguimiento claro, privado y centrado en cada persona.
           </p>
         </div>
@@ -649,7 +651,7 @@ export function PatientsPage() {
           type="button"
           disabled={accessData?.access.read_only || (patientLimit !== "unlimited" && activeTotal >= patientLimit)}
           onClick={() => setModal(true)}
-          className="nuth-button"
+          className="nuth-button patients-add-button"
         >
           <Plus size={17} />
           Agregar paciente
@@ -661,22 +663,23 @@ export function PatientsPage() {
           <SuccessNote>{notice}</SuccessNote>
         </div>
       )}
-      <section className="mt-6 grid grid-cols-3 gap-2 sm:gap-4">
-        <div className="rounded-2xl bg-[#173d36] p-3 text-white sm:p-4">
+      <section className="patients-metrics" aria-label="Resumen de pacientes">
+        <div className="patient-metric patient-metric-total">
           <UsersRound size={19} className="text-[#efbd6b]" />
           <p className="mt-2 text-2xl font-semibold">{addedTotal}</p>
           <p className="mt-1 text-sm text-white/60">Total</p>
         </div>
-        <div className="rounded-2xl border border-[#dfe5e1] bg-white p-3 sm:p-4">
+        <div className="patient-metric patient-metric-active">
           <p className="text-2xl font-semibold text-[#285647]">{activeTotal}</p>
           <p className="mt-1 text-sm text-[#718079]">Activos</p>
         </div>
-        <div className="rounded-2xl border border-[#dfe5e1] bg-white p-3 sm:p-4">
+        <div className="patient-metric patient-metric-results">
           <p className="text-2xl font-semibold text-[#285647]">{total}</p>
           <p className="mt-1 text-sm text-[#718079]">Resultados</p>
         </div>
       </section>
-      <section className="mt-8 rounded-[24px] border border-[#dfe5e1] bg-white p-4 sm:p-5">
+      <section className="patients-search-card" aria-label="Buscar y filtrar pacientes">
+        <div className="patients-card-heading"><span className="patients-step">01 · Encuentra a la persona</span><h2>Buscar pacientes</h2><p>Escribe su nombre o correo; usa los filtros para precisar la lista.</p></div>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative min-w-0 flex-1">
             <Search
@@ -693,7 +696,7 @@ export function PatientsPage() {
           </div>
           <button
             type="button"
-            className={`nuth-button-secondary shrink-0 2xl:hidden ${filtersOpen ? "!bg-[#edf4ef]" : ""}`}
+            className={`nuth-button-secondary shrink-0 ${filtersOpen ? "!bg-[#edf4ef]" : ""}`}
             onClick={() => setFiltersOpen((value) => !value)}
           >
             <Filter size={16} />
@@ -705,7 +708,7 @@ export function PatientsPage() {
             )}
           </button>
         </div>
-        <div className={filtersOpen ? "" : "hidden 2xl:block"}>
+        <div className={filtersOpen ? "" : "hidden"}>
           <FiltersPanel
             status={status}
             portal={portal}
@@ -729,7 +732,8 @@ export function PatientsPage() {
           )}
         </div>
       </section>
-      <div className="mt-5">
+      <section className="patients-results" aria-label="Resultados de pacientes">
+        <div className="patients-card-heading patients-results-heading"><span className="patients-step">02 · Abre el expediente</span><h2>Pacientes</h2><p>Selecciona una tarjeta para continuar la atención.</p></div>
         {loading ? (
           <LoadingState label="Cargando pacientes…" />
         ) : error ? (
@@ -762,94 +766,11 @@ export function PatientsPage() {
           />
         ) : (
           <>
-            <div className="hidden overflow-visible rounded-[24px] border border-[#dfe5e1] bg-white xl:block">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-[#f5f7f3] text-xs uppercase tracking-wide text-[#82908a]">
-                  <tr>
-                    <th className="px-5 py-4">Nombre</th>
-                    <th className="px-5 py-4">Estado</th>
-                    <th className="px-5 py-4">Portal</th>
-                    <th className="px-5 py-4">Última actividad</th>
-                    <th className="px-5 py-4" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#edf1ed]">
-                  {rows.map((patient) => (
-                    <tr key={patient.id} className="hover:bg-[#fbfcfa]">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e9f1ec] text-xs font-semibold text-[#356353]">
-                            {patientInitials(patient)}
-                          </span>
-                          <div className="min-w-0">
-                            <Link
-                              to={`/app/patients/${patient.id}`}
-                              className="font-semibold text-[#285647] hover:underline"
-                            >
-                              {patient.full_name}
-                            </Link>
-                            <p className="mt-1 max-w-[220px] truncate text-xs text-[#82908a]">
-                              {patient.email || "Sin correo"}
-                              {calculateAge(patient.birth_date) !== null
-                                ? ` · ${calculateAge(patient.birth_date)} años`
-                                : ""}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${patient.status === "active" ? "bg-[#eaf5ee] text-[#3e7355]" : "bg-[#f1f2ef] text-[#78847f]"}`}
-                        >
-                          {patientStatusLabel(patient.status)}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-xs">
-                        {patient.portal_access_enabled ? "Habilitado" : "—"}
-                      </td>
-                      <td className="px-5 py-4 text-xs text-[#73817b]">
-                        {formatPatientDate(patient.last_activity_at)}
-                      </td>
-                      <td className="px-5 py-4">
-                        <PatientActionMenu
-                          patient={patient}
-                          onArchive={() =>
-                            setConfirm({ type: "archive", patient })
-                          }
-                          onRestore={() => void restore(patient)}
-                          onDelete={() =>
-                            setConfirm({ type: "delete", patient })
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:hidden">
+            <div className="patients-card-grid">
               {rows.map((patient) => (
-                <article
-                  key={patient.id}
-                  className="rounded-2xl border border-[#dfe5e1] bg-white p-4 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#e9f1ec] font-semibold text-[#356353]">
-                        {patientInitials(patient)}
-                      </span>
-                      <div className="min-w-0">
-                        <Link
-                          to={`/app/patients/${patient.id}`}
-                          className="block truncate font-semibold text-[#23473c] hover:underline"
-                        >
-                          {patient.full_name}
-                        </Link>
-                        <p className="truncate text-sm text-[#75827d]">
-                          {patient.email || "Sin correo"}
-                        </p>
-                      </div>
-                    </div>
+                <article key={patient.id} className="patients-person-card">
+                  <div className="patients-person-head">
+                    <span className="patients-person-avatar">{patientInitials(patient)}</span>
                     <PatientActionMenu
                       patient={patient}
                       onArchive={() => setConfirm({ type: "archive", patient })}
@@ -857,28 +778,16 @@ export function PatientsPage() {
                       onDelete={() => setConfirm({ type: "delete", patient })}
                     />
                   </div>
-                  <dl className="mt-4 grid grid-cols-2 gap-3 text-xs text-[#76837e]">
-                    <div>
-                      <dt>Estado</dt>
-                      <dd className="mt-1 font-semibold text-[#385a4e]">
-                        {patientStatusLabel(patient.status)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Portal</dt>
-                      <dd className="mt-1 font-semibold text-[#385a4e]">
-                        {patient.portal_access_enabled
-                          ? "Habilitado"
-                          : "No habilitado"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Última actividad</dt>
-                      <dd className="mt-1 font-semibold text-[#385a4e]">
-                        {formatPatientDate(patient.last_activity_at)}
-                      </dd>
-                    </div>
-                  </dl>
+                  <Link to={`/app/patients/${patient.id}`} className="patients-person-name">{patient.full_name}</Link>
+                  <p className="patients-person-email">{patient.email || "Sin correo"}{calculateAge(patient.birth_date) !== null ? ` · ${calculateAge(patient.birth_date)} años` : ""}</p>
+                  <div className="patients-person-status">
+                    <span className={patient.status === "active" ? "is-active" : ""}>{patientStatusLabel(patient.status)}</span>
+                    <span>{patient.portal_access_enabled ? "Portal habilitado" : "Portal sin habilitar"}</span>
+                  </div>
+                  <div className="patients-person-footer">
+                    <span>Última actividad<br /><strong>{formatPatientDate(patient.last_activity_at)}</strong></span>
+                    <Link to={`/app/patients/${patient.id}`}>Abrir ficha <ArrowRight size={15} /></Link>
+                  </div>
                 </article>
               ))}
             </div>
@@ -907,7 +816,7 @@ export function PatientsPage() {
             </div>
           </>
         )}
-      </div>
+      </section>
       {modal && (
         <PatientModal
           onClose={() => setModal(false)}
