@@ -19,6 +19,7 @@ import { todayAppointments, unreadMessageCount, upcomingAppointments } from "@/s
 import { loadAgenda, type AgendaEntry, type AgendaRequest } from "@/src/services/agenda";
 import { listPatients } from "@/src/services/patients";
 import type { Patient } from "@/src/types/domain";
+import "./DashboardPage.css";
 
 type DashboardData = {
   entries: AgendaEntry[];
@@ -47,13 +48,13 @@ function profileCompletion(profile: ReturnType<typeof useAuth>["profile"]) {
 
 function AppointmentItem({ entry, timezone, inverse = false }: { entry: AgendaEntry; timezone: string; inverse?: boolean }) {
   return (
-    <Link to="/app/agenda" className={`flex items-center gap-3 rounded-2xl px-3 py-3 transition ${inverse ? 'hover:bg-white/10' : 'hover:bg-[#f4f8f4]'}`}>
-      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#eaf1e6] text-[#477363]"><Clock3 size={17} /></span>
+    <Link to="/app/agenda" className={`dashboard-appointment${inverse ? " is-primary" : ""}`}>
+      <span className="dashboard-appointment-icon"><Clock3 size={17} /></span>
       <span className="min-w-0 flex-1">
-        <span className={`block truncate text-sm font-semibold ${inverse ? 'text-white' : 'text-[#24463b]'}`}>{entry.contact_name || "Cita sin nombre"}</span>
-        <span className={`mt-1 block text-xs ${inverse ? 'text-white/80' : 'text-[#75837d]'}`}>{dateLabel(entry.starts_at, timezone)} · {entry.modality === "online" ? "En línea" : "En consultorio"}</span>
+        <span className="dashboard-appointment-name">{entry.contact_name || "Cita sin nombre"}</span>
+        <span className="dashboard-appointment-meta">{dateLabel(entry.starts_at, timezone)} · {entry.modality === "online" ? "En línea" : "En consultorio"}</span>
       </span>
-      <ChevronRight size={16} className="shrink-0 text-[#91a099]" />
+      <ChevronRight size={16} className="shrink-0" aria-hidden="true" />
     </Link>
   );
 }
@@ -92,66 +93,61 @@ export function DashboardPage() {
   const completion = profileCompletion(profile);
 
   return (
-    <div>
-      <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+    <div className="dashboard-workspace">
+      <header className="dashboard-heading">
         <div>
           <p className="nuth-eyebrow">Centro de trabajo</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-[-.04em]">Hola, {firstName}</h1>
-          <p className="mt-3 text-[#687672]">Esto es lo que necesita tu atención hoy.</p>
+          <h1>Hola, {firstName}</h1>
+          <p>Tu consulta de hoy, en orden.</p>
         </div>
-        <button type="button" className="nuth-button-secondary" disabled={loading} onClick={() => { setLoading(true); void refresh(); }}>
+        <button type="button" className="dashboard-refresh" disabled={loading} onClick={() => { setLoading(true); void refresh(); }}>
           <RefreshCw size={16} className={loading ? "animate-spin" : undefined} />
           Actualizar
         </button>
       </header>
 
-      {error && <p role="alert" className="mt-5 flex items-center gap-2 rounded-xl bg-[#fff0e9] p-4 text-sm text-[#963f34]"><AlertCircle size={16} />{error}</p>}
+      {error && <p role="alert" className="dashboard-error"><AlertCircle size={16} />{error}</p>}
 
-      <div className="mt-6 grid gap-5 min-[1800px]:grid-cols-2">
-      <section className="grid min-w-0 gap-5 md:grid-cols-2">
-        <div className="rounded-[28px] bg-[#173d36] p-7 text-white sm:p-8">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm text-white/60">Tu agenda de hoy</p>
-              <h2 className="mt-2 text-3xl font-semibold">{loading ? "…" : today.length} {today.length === 1 ? "cita" : "citas"}</h2>
-            </div>
-            <span className="grid size-12 place-items-center rounded-2xl bg-white/10 text-[#efbd6b]"><CalendarDays size={22} /></span>
+      <div className="dashboard-grid dashboard-grid-top">
+        <section className="dashboard-card dashboard-card-agenda" aria-labelledby="dashboard-today-title">
+          <div className="dashboard-card-header"><span className="dashboard-card-icon"><CalendarDays size={21} /></span><span className="dashboard-step">01 · Agenda de hoy</span></div>
+          <h2 id="dashboard-today-title">{loading ? "…" : today.length} {today.length === 1 ? "cita" : "citas"}</h2>
+          <p className="dashboard-card-description">Tu punto de partida para la jornada.</p>
+          {today.length ? <div className="dashboard-list">{today.slice(0, 3).map((entry) => <AppointmentItem key={entry.id} entry={entry} timezone={timezone} inverse />)}</div> : <p className="dashboard-empty dashboard-empty-primary">No tienes citas confirmadas para hoy. Revisa solicitudes o abre una nueva consulta.</p>}
+          <Link to="/app/agenda" className="dashboard-action dashboard-action-primary">Abrir agenda <ArrowRight size={16} /></Link>
+        </section>
+
+        <section className="dashboard-card dashboard-card-attention" aria-labelledby="dashboard-attention-title">
+          <div className="dashboard-card-header"><span className="dashboard-card-icon"><MessageCircle size={20} /></span><span className="dashboard-step">02 · Por atender</span></div>
+          <h2 id="dashboard-attention-title">Pendientes</h2>
+          <p className="dashboard-card-description">Mensajes y solicitudes que esperan respuesta.</p>
+          <div className="dashboard-attention-list">
+            <Link to="/app/messages" className="dashboard-attention-item"><span className="dashboard-mini-icon"><MessageCircle size={18} /></span><span className="dashboard-attention-copy"><strong>Mensajes sin leer</strong><small>Actividad del Super Link</small></span><strong className="dashboard-count">{notificationsLoading ? "—" : unreadMessages}</strong></Link>
+            <Link to="/app/agenda" className="dashboard-attention-item"><span className="dashboard-mini-icon"><CalendarDays size={18} /></span><span className="dashboard-attention-copy"><strong>Solicitudes de cita</strong><small>Esperando tu respuesta</small></span><strong className="dashboard-count">{loading ? "—" : data.requests.length}</strong></Link>
           </div>
-          {today.length ? <div className="mt-5 divide-y divide-white/10">{today.slice(0, 3).map((entry) => <AppointmentItem key={entry.id} entry={entry} timezone={timezone} inverse />)}</div> : <p className="mt-6 text-sm leading-6 text-white/65">No tienes citas confirmadas para hoy. Puedes revisar solicitudes o abrir un espacio para una nueva consulta.</p>}
-          <Link to="/app/agenda" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#f2c47a]">Abrir agenda <ArrowRight size={16} /></Link>
-        </div>
-
-        <div className="rounded-[28px] border border-[#dfe5e1] bg-white p-7 sm:p-8">
-          <p className="text-sm font-semibold text-[#4b7163]">Por atender</p>
-          <div className="mt-5 grid gap-3">
-            <Link to="/app/messages" className="flex items-center gap-3 rounded-2xl bg-[#f4f8f4] p-4 hover:bg-[#edf4ef]"><span className="grid size-10 place-items-center rounded-xl bg-white text-[#477363]"><MessageCircle size={18} /></span><span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-[#285647]">Mensajes sin leer</span><span className="mt-1 block text-xs text-[#75837d]">Actividad del Super Link</span></span><strong className="text-xl text-[#285647]">{notificationsLoading ? "—" : unreadMessages}</strong></Link>
-            <Link to="/app/agenda" className="flex items-center gap-3 rounded-2xl bg-[#fff8eb] p-4 hover:bg-[#fff2d8]"><span className="grid size-10 place-items-center rounded-xl bg-white text-[#a16c31]"><CalendarDays size={18} /></span><span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-[#6e512b]">Solicitudes de cita</span><span className="mt-1 block text-xs text-[#8c775a]">Esperando tu respuesta</span></span><strong className="text-xl text-[#8c632e]">{loading ? "—" : data.requests.length}</strong></Link>
-          </div>
-          <Link to="/app/patients" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#285647]">Nueva consulta <ArrowRight size={16} /></Link>
-        </div>
-      </section>
-
-      <section className="grid min-w-0 gap-5 md:grid-cols-2">
-        <div className="rounded-[24px] border border-[#dfe5e1] bg-white p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-3"><div><h2 className="text-xl font-semibold text-[#24463b]">Próximas citas</h2><p className="mt-1 text-xs text-[#7a8982]">Lo siguiente en tu agenda</p></div><Link to="/app/agenda" className="text-xs font-semibold text-[#477363]">Ver agenda</Link></div>
-          {upcoming.length ? <div className="mt-4 divide-y divide-[#edf1ed]">{upcoming.map((entry) => <AppointmentItem key={entry.id} entry={entry} timezone={timezone} />)}</div> : <p className="mt-6 rounded-2xl bg-[#f5f7f4] p-4 text-sm text-[#75837d]">No hay citas próximas.</p>}
-        </div>
-
-        <div className="rounded-[24px] border border-[#dfe5e1] bg-white p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-3"><div><h2 className="text-xl font-semibold text-[#24463b]">Actividad reciente</h2><p className="mt-1 text-xs text-[#7a8982]">Mensajes y agenda</p></div><Link to="/app/messages" className="text-xs font-semibold text-[#477363]">Mensajes</Link></div>
-          {notifications.length ? <div className="mt-4 divide-y divide-[#edf1ed]">{notifications.slice(0, 4).map((item) => <Link key={item.id} to={notificationPath(item)} className="flex items-start gap-3 px-3 py-3 hover:bg-[#f5f8f5]"><span className={`mt-1.5 size-2 shrink-0 rounded-full ${item.read_at ? "bg-[#d7e2da]" : "bg-[#c56c42]"}`} /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-[#315e4f]">{item.title}</span><span className="mt-1 block text-xs text-[#7b8982]">{relativeNotificationDate(item.created_at)}</span></span></Link>)}</div> : <p className="mt-6 rounded-2xl bg-[#f5f7f4] p-4 text-sm text-[#75837d]">No hay actividad nueva.</p>}
-        </div>
-      </section>
-
+          <Link to="/app/patients" className="dashboard-action">Nueva consulta <ArrowRight size={16} /></Link>
+        </section>
       </div>
-      <section className="mt-6 rounded-[24px] border border-[#dfe5e1] bg-white p-5 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-semibold text-[#24463b]">Pacientes recientes</h2><p className="mt-1 text-xs text-[#7a8982]">Ordenados por su última actividad registrada</p></div><Link to="/app/patients" className="inline-flex items-center gap-1 text-xs font-semibold text-[#477363]">Ver pacientes <ArrowRight size={14} /></Link></div>
-        {data.patients.length ? <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">{data.patients.map((patient) => <Link key={patient.id} to={`/app/patients/${patient.id}`} className="rounded-2xl border border-[#edf1ed] p-4 hover:border-[#bfd3c5] hover:bg-[#f7faf7]"><span className="grid size-9 place-items-center rounded-xl bg-[#eaf1e6] text-[#477363]"><UserRound size={16} /></span><span className="mt-3 block truncate text-sm font-semibold text-[#315e4f]">{patient.full_name}</span><span className="mt-1 block text-xs text-[#7b8982]">Abrir ficha</span></Link>)}</div> : <p className="mt-5 rounded-2xl bg-[#f5f7f4] p-4 text-sm text-[#75837d]">Aún no tienes pacientes activos. Agrega el primero para iniciar una consulta.</p>}
+
+      <div className="dashboard-grid dashboard-grid-middle">
+        <section className="dashboard-card" aria-labelledby="dashboard-upcoming-title">
+          <div className="dashboard-section-head"><div><span className="dashboard-step">03 · Planifica</span><h2 id="dashboard-upcoming-title">Próximas citas</h2><p>Lo siguiente en tu agenda</p></div><Link to="/app/agenda">Ver agenda <ArrowRight size={15} /></Link></div>
+          {upcoming.length ? <div className="dashboard-list">{upcoming.map((entry) => <AppointmentItem key={entry.id} entry={entry} timezone={timezone} />)}</div> : <p className="dashboard-empty">No hay citas próximas.</p>}
+        </section>
+        <section className="dashboard-card dashboard-card-activity" aria-labelledby="dashboard-activity-title">
+          <div className="dashboard-section-head"><div><span className="dashboard-step">04 · Mantente al día</span><h2 id="dashboard-activity-title">Actividad reciente</h2><p>Mensajes y agenda</p></div><Link to="/app/messages">Mensajes <ArrowRight size={15} /></Link></div>
+          {notifications.length ? <div className="dashboard-list">{notifications.slice(0, 4).map((item) => <Link key={item.id} to={notificationPath(item)} className="dashboard-notification"><span className={`dashboard-notification-dot${item.read_at ? " is-read" : ""}`} /><span><strong>{item.title}</strong><small>{relativeNotificationDate(item.created_at)}</small></span><ChevronRight size={16} /></Link>)}</div> : <p className="dashboard-empty">No hay actividad nueva.</p>}
+        </section>
+      </div>
+
+      <section className="dashboard-card dashboard-card-patients" aria-labelledby="dashboard-patients-title">
+        <div className="dashboard-section-head"><div><span className="dashboard-step">05 · Continúa la atención</span><h2 id="dashboard-patients-title">Pacientes recientes</h2><p>Ordenados por su última actividad registrada</p></div><Link to="/app/patients">Ver pacientes <ArrowRight size={15} /></Link></div>
+        {data.patients.length ? <div className="dashboard-patient-list">{data.patients.map((patient) => <Link key={patient.id} to={`/app/patients/${patient.id}`} className="dashboard-patient"><span className="dashboard-mini-icon"><UserRound size={17} /></span><span><strong>{patient.full_name}</strong><small>Abrir ficha</small></span><ChevronRight size={15} /></Link>)}</div> : <p className="dashboard-empty">Aún no tienes pacientes activos. Agrega el primero para iniciar una consulta.</p>}
       </section>
 
-      <section className="mt-6 flex flex-col gap-4 rounded-[24px] border border-[#dfe5e1] bg-white p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-        <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-[#eef4ee] text-[#477363]"><UsersRound size={18} /></span><div><p className="text-sm font-semibold text-[#315e4f]">Tu perfil profesional está {completion}% completo</p><p className="mt-1 text-xs text-[#7b8982]">Completarlo ayuda a que tu página pública represente mejor tu trabajo.</p></div></div>
-        <Link to="/app/profile" className="inline-flex items-center gap-2 text-sm font-semibold text-[#477363]">Revisar perfil <CheckCircle2 size={16} /></Link>
+      <section className="dashboard-card dashboard-card-profile" aria-label="Estado de tu perfil profesional">
+        <div className="dashboard-profile-copy"><span className="dashboard-card-icon"><UsersRound size={19} /></span><div><span className="dashboard-step">Tu presencia pública</span><h2>Tu perfil profesional está {completion}% completo</h2><p>Completarlo ayuda a que tu página pública represente mejor tu trabajo.</p></div></div>
+        <Link to="/app/profile" className="dashboard-action">Revisar perfil <CheckCircle2 size={16} /></Link>
       </section>
     </div>
   );
