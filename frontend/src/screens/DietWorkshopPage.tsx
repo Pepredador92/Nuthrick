@@ -644,7 +644,7 @@ export function DietWorkshopPage() {
   if (!dietPlanId && !requestedPatientId) return <div className="space-y-5"><WorkshopLanding busy={busy} onCreate={() => void create(null, null)} /><PlanOrganization plans={plans} onChange={setPlans} onCreate={() => void create(null, null)}/><div id="diet-library"><DietLibrary onEdit={editLibraryInWorkshop}/></div></div>;
   if (!plan) return <ErrorState message={error || "No pudimos abrir este plan."} onRetry={() => void load()} />;
 
-  const cardLayout = activeStep === "energy" || activeStep === "macros" || activeStep === "equivalents";
+  const cardLayout = activeStep === "energy" || activeStep === "macros" || activeStep === "equivalents" || (activeStep === "menu" && !plan.text_diet);
   const exitTarget = patient ? `/app/patients/${patient.id}` : "/app/diet-workshop";
   const saveAndExit = () => { void flushPendingDraft().then(() => navigate(exitTarget)).catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el plan.")); };
   const energyReference: EnergyReferenceContext = {

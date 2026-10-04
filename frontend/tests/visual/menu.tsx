@@ -5,6 +5,8 @@ import { addFoodToMenu, createDietMenu, createFoodSnapshot, exchangeContribution
 import type { FoodItem, MealDistribution, NutritionPlan, Recipe } from "@/src/types/domain";
 import type { CustomRecipeInput } from "@/src/services/foodCatalog";
 import "../../app/globals.css";
+import "../../src/components/diet/DietEnergyStep.css";
+import "../../src/components/diet/DietWorkshopDay.css";
 import { weeklyFixture } from "../fixtures/weeklyMenu";
 
 const meals = [
@@ -99,4 +101,5 @@ function Harness(){
   if (weeklyMode) return <main className="mx-auto min-h-screen max-w-[1440px] bg-[#f7f8f4] p-3 sm:p-8"><p className="mb-4 text-xs" role="status">Caso ficticio · distribución simplificada para probar la interfaz; no es una dieta. Guardados de menú: {saves}.</p><DietMenuStep plan={{...plan,id:"weekly-visual",diet_menu:weekly.menu,meal_distribution:weekly.distribution}} catalog={{foods:weekly.foods,recipes:[]}} onSave={async()=>setSaves(n=>n+1)} onGoToMeals={()=>undefined}/></main>;
   return <main className="mx-auto min-h-screen max-w-[1440px] bg-[#f7f8f4] p-3 sm:p-8"><p className="mb-4 text-xs" role="status">Caso ficticio · sin conexión de guardado. Guardados de menú: {saves}. Biblioteca: {librarySaves}.</p><DietMenuStep plan={plan} catalog={{foods:sampleFoods,recipes:[]}} recipeWriter={async input=>{setLibrarySaves(n=>n+1);return fakeRecipe(input);}} onSave={async()=>{setSaves(n=>n+1);}} onGoToMeals={()=>undefined}/></main>;
 }
-createRoot(document.getElementById("root")!).render(<Harness/>);
+const visualTheme = new URLSearchParams(window.location.search).has("night") ? "night" : "day";
+createRoot(document.getElementById("root")!).render(<div className="energy-workspace min-h-screen" data-workshop-theme={visualTheme}><div className="workshop-step-content mx-auto max-w-[1160px]"><Harness/></div></div>);
