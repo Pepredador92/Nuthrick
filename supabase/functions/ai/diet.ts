@@ -1,6 +1,6 @@
 import { AIError, featureAdapter, type AIProvider, type FeatureConfig, type ProviderInput, type ProviderResult } from './core.ts';
 import { redactClinicalText } from './clinical.ts';
-import { prepareDietGeneration, manualGenerationPolicy, hasDietMenuContent, validateDietSnapshotDraft } from './diet-generation-domain.js';
+import { prepareDietGeneration, prepareGuidedDiet, manualGenerationPolicy, hasDietMenuContent, validateDietSnapshotDraft } from './diet-generation-domain.js';
 
 // JSON crosses a service-only RPC; schema/eligibility is enforced by the shared
 // runtime boundary. Types here deliberately derive from that generated bundle.
@@ -9,7 +9,7 @@ type Prepared = NonNullable<ReturnType<typeof prepareDietGeneration>['prepared']
 export type DietSource = { source: Input['source']; identifiers: Array<string | null> };
 export type DietSnapshot = {
   version: 1; hash: string; sourceStamp: string; hasManualMenu: boolean;
-  excludedCandidateIds?: string[];
+  excludedCandidateIds?: string[]; guided?: boolean;
   prepared: Prepared;
   plan: Parameters<typeof validateDietSnapshotDraft>[2];
 };
@@ -26,6 +26,9 @@ function freeze<T>(value: T): T {
   return value;
 }
 export async function prepareDietSnapshot(loaded: DietSource): Promise<DietSnapshot> {
+  const guided = prepareGuidedDiet(loaded.source);
+  if (guided.issues.length) throw new AIError(guided.issues[0].code);
+  loaded = {...loaded,source:guided.source};
   const identifiers = loaded.identifiers.filter((v): v is string=>typeof v === 'string' && !!v);
   const input: Input = { source: loaded.source, policy: manualGenerationPolicy(), sanitizeText: (s: string)=>redactClinicalText(s,identifiers) };
   const result = prepareDietGeneration(input,{enabled:true,budgetAvailable:true,pending:false});
@@ -35,9 +38,10 @@ export async function prepareDietSnapshot(loaded: DietSource): Promise<DietSnaps
   prepared.manifest.fingerprint = await dietHash(prepared.manifest.fingerprint);
   const plan = loaded.source.plan;
   const snapshot = JSON.parse(JSON.stringify({version:1,sourceStamp:loaded.source.stamp,
-    hasManualMenu:hasDietMenuContent(plan.diet_menu),prepared,
+    hasManualMenu:hasDietMenuContent(plan.diet_menu),...(loaded.source.guidance?{guided:true}:{}),prepared,
     plan:{meal_distribution:plan.meal_distribution,exchange_prescription:plan.exchange_prescription,
       diet_menu:plan.diet_menu ? {food_preferences:plan.diet_menu.food_preferences} : null}}));
+  if(new TextEncoder().encode(JSON.stringify(snapshot)).length>450000)throw new AIError('input_too_large');
   return freeze({...snapshot,hash:await dietHash(snapshot)});
 }
 /** Temporary rejection only; never writes allergies/preferences. Previous rows

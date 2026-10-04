@@ -2,6 +2,12 @@ import type { Fact } from '@/src/features/diet-workshop/generationContext';
 import type { WorkshopContext } from '@/src/services/dietWorkshopAI';
 
 const messages:Record<string,string> = {
+  alternatives_unavailable:'El catálogo no ofrece suficientes alternativas diferentes para ese tiempo. Reduce la cantidad de opciones.',
+  context_review_required:'Revisa el contexto y confirma el objetivo de la propuesta.',
+  proposal_unavailable:'No encontramos una distribución compatible. Ajusta los tiempos o continúa manualmente.',
+  duplicate_alternative:'La IA repitió una alternativa. No se aplicó la propuesta; puedes ajustar la solicitud.',
+  input_count_unavailable:'No pudimos comprobar el tamaño del contexto. No se generó ni cobró esta solicitud.',
+  ai_consent_required:'Revisa y acepta el aviso de tratamiento de datos con IA antes de generar.',
   draft_required:'Abre un borrador para crear la propuesta.', consultation_required:'Selecciona la consulta del paciente.',
   context_mismatch:'Actualiza el contexto de la consulta.', context_unavailable:'No se pudo leer el contexto. Revisa la consulta seleccionada y vuelve a abrir el diálogo.',
   energy_required:'Falta definir la energía de la prescripción.', macros_required:'Falta definir los macronutrientes.',

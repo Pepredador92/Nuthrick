@@ -22,6 +22,7 @@ import { useChangeAutosave } from "./useChangeAutosave";
 
 type Props = {
   catalog?: PreparationCatalog;
+  headerActions?: React.ReactNode;
   plan: NutritionPlan;
   targets: ExchangeTargetSnapshot | null;
   onSave: (prescription: ExchangePrescription, immediate?: boolean) => Promise<void>;
@@ -129,7 +130,7 @@ function GroupPicker({ activeCodes, onAdd }: { activeCodes: ReadonlySet<Exchange
   </details>;
 }
 
-function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, onContinue, catalog: suppliedCatalog }: Omit<Props, "targets"> & { targets: ExchangeTargetSnapshot }) {
+function EquivalentEditor({ headerActions, plan, targets, onSave, onDraftChange, onGoToMacros, onContinue, catalog: suppliedCatalog }: Omit<Props, "targets"> & { targets: ExchangeTargetSnapshot }) {
   const initial = useMemo(() => plan.exchange_prescription ? reconcileExchangePrescription(plan.exchange_prescription, targets) : createExchangePrescription(targets), [plan.exchange_prescription, targets]);
   const [draft, setDraft] = useState(initial);
   const [startFromCurrent, setStartFromCurrent] = useProposalSetting(`${plan.id}:exchange-start`, false);
@@ -198,7 +199,7 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, 
   return <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-4 sm:p-7">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div><p className="nuth-eyebrow">Paso 3</p><h1 className="mt-2 text-2xl font-semibold text-[#173d36]">Equivalentes</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">Define las porciones del día.</p></div>
-      <span className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${statusTone}`}>{confirmed ? <Check size={14} /> : <CircleAlert size={14} />}{statusLabel}</span>
+      <div className="flex flex-wrap items-center gap-2">{headerActions}<span className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${statusTone}`}>{confirmed ? <Check size={14} /> : <CircleAlert size={14} />}{statusLabel}</span></div>
     </div>
     {objectivesChangedSinceConfirmation(draft) && <p role="status" className="mt-4 rounded-xl bg-[#fff6e6] px-4 py-3 text-sm text-[#765827]">Los objetivos nutricionales cambiaron desde la última confirmación. Las porciones se conservaron; revisa el cuadro y confírmalo de nuevo cuando esté listo.</p>}
 
@@ -272,7 +273,7 @@ function EquivalentEditor({ plan, targets, onSave, onDraftChange, onGoToMacros, 
   </section>;
 }
 
-export function DietEquivalentsStep({ plan, targets, onSave, onDraftChange, onGoToMacros, onContinue, catalog }: Props) {
+export function DietEquivalentsStep({ headerActions, plan, targets, onSave, onDraftChange, onGoToMacros, onContinue, catalog }: Props) {
   if (!targets) return <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-5 sm:p-7"><p className="nuth-eyebrow">Paso 3</p><h1 className="mt-2 text-2xl font-semibold text-[#173d36]">Equivalentes</h1><div className="mt-5 rounded-2xl bg-[#fff6e6] p-5 text-sm leading-6 text-[#765827]"><p className="font-semibold">Completa primero la distribución de macronutrientes.</p><p className="mt-1">El cuadro dietosintético compara los equivalentes con el objetivo energético y los gramos derivados en el paso anterior.</p><button type="button" className="nuth-button mt-4" onClick={onGoToMacros}>Ir a macronutrientes</button></div></section>;
-  return <EquivalentEditor key={`${plan.id}:${targets.energy_kcal}:${targets.carbohydrate_g}:${targets.protein_g}:${targets.fat_g}`} catalog={catalog} plan={plan} targets={targets} onSave={onSave} onDraftChange={onDraftChange} onGoToMacros={onGoToMacros} onContinue={onContinue} />;
+  return <EquivalentEditor headerActions={headerActions} key={`${plan.id}:${targets.energy_kcal}:${targets.carbohydrate_g}:${targets.protein_g}:${targets.fat_g}`} catalog={catalog} plan={plan} targets={targets} onSave={onSave} onDraftChange={onDraftChange} onGoToMacros={onGoToMacros} onContinue={onContinue} />;
 }

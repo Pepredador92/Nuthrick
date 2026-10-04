@@ -1,0 +1,30 @@
+import {createRequire} from 'node:module';
+import {mkdirSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const require=createRequire(import.meta.url),{chromium}=require(process.env.MESA_PLAYWRIGHT_MODULE||'playwright');
+const output=process.env.GUIDED_DIET_CAPTURES||'/tmp/nuthrick-guided-captures';mkdirSync(output,{recursive:true});
+const browser=await chromium.launch({channel:'chrome',headless:true});
+try{for(const width of [1440,390]){
+ const page=await browser.newPage({viewport:{width,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+ await page.goto('http://127.0.0.1:4197/tests/visual/guided-diet.html');
+ await page.getByRole('button',{name:'Generar con IA',exact:true}).click();
+ await page.getByLabel('Objetivo de esta dieta',{exact:true}).waitFor();
+ await page.screenshot({path:`${output}/${width}-context.png`,fullPage:true});
+ await page.getByRole('checkbox',{name:/Revisé el contexto/}).check();
+ await page.getByRole('button',{name:'Continuar',exact:true}).click();
+ await page.getByLabel('Alternativas para Desayuno').selectOption('2');
+ await page.getByRole('button',{name:'Agregar tiempo',exact:true}).click();
+ await page.getByLabel('Nombre del tiempo 4').fill('Colación vespertina');
+ await page.screenshot({path:`${output}/${width}-meals.png`,fullPage:true});
+ assert.ok(await page.locator('dialog').evaluate(d=>d.scrollWidth<=d.clientWidth+1),'dialog overflow');
+ await page.getByRole('button',{name:'Continuar',exact:true}).click();
+ await page.getByLabel('Presupuesto disponible').fill('Económico');
+ await page.getByRole('button',{name:'Continuar',exact:true}).click();
+ await page.getByRole('button',{name:'Confirmar y generar',exact:true}).click();
+ await page.getByRole('button',{name:'Guardar borrador y revisar en Menú',exact:true}).click();
+ await page.getByRole('heading',{name:'Nuthrick a la Mesa',exact:true}).waitFor();
+ await page.screenshot({path:`${output}/${width}-menu.png`,fullPage:true});
+ assert.equal(await page.getByRole('dialog').count(),0);assert.deepEqual(errors,[]);
+ console.log(`PASS ${width}px: Equivalentes → cuatro pantallas → cuatro tiempos/cinco opciones → Menú; sin errores de navegador`);await page.close();
+}}finally{await browser.close();}

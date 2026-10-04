@@ -14,7 +14,7 @@ Deno.test('preflight HTTP is authenticated, read-only, scoped and never calls a 
     calls.push(url);
     if(url.endsWith('/auth/v1/user'))return new Headers(init?.headers).get('authorization')==='Bearer valid'?json({id:owner,is_anonymous:false}):json({message:'unauthorized'},401);
     const body=JSON.parse(String(init?.body));
-    if(url.endsWith('ai_diet_source')){assert.equal(body.p_owner,owner);return mode==='foreign'?json({message:'context_unavailable'},403):json(fixtures.A);}
+    if(url.endsWith('ai_diet_source')){assert.equal(body.p_owner,owner);const source=structuredClone(fixtures.A);if(mode==='guided'){source.source.plan.updated_at='2026-10-03T12:00:00Z';source.source.plan.exchange_prescription=null as never;source.source.plan.meal_distribution=null as never;source.source.consultation.pes=null as never;source.source.consultation.objective=null as never;}return mode==='foreign'?json({message:'context_unavailable'},403):json(source);}
     if(url.endsWith('ai_server')){assert.equal(body.p_action,'config');assert.equal(body.p_data.feature,'diet_draft');return json({enabled:mode!=='disabled'});}
     if(url.endsWith('ai_balance')){assert.equal(new Headers(init?.headers).get('authorization'),'Bearer valid');return json({available_credits:mode==='budget'?0:100});}
     throw Error('Unexpected external request '+url);
@@ -29,6 +29,7 @@ Deno.test('preflight HTTP is authenticated, read-only, scoped and never calls a 
     assert.equal((await send({...request,owner:'other'})).status,400);
     const ok=await send(request);assert.equal(ok.status,200);assert.equal(ok.data.eligible,true);assert.equal(ok.data.context.professional_instructions.fact.value,'Desayuno para llevar');
     for(const hidden of [plan.id,plan.patient_id,'candidate_ref','manifest','fake-key','fake-service'])assert.ok(!JSON.stringify(ok.data).includes(hidden));
+    mode='guided';const guided=await send({...request,guidance:{version:1,objective:'Organizar las comidas',contextReviewed:true,reactionReview:'recorded',meals:[{name:'Desayuno',type:'BREAKFAST',time:'08:00',options:1},{name:'Comida',type:'MAIN_MEAL',time:null,options:1},{name:'Cena',type:'DINNER',time:'20:00',options:1}]}});assert.equal(guided.data.eligible,true);assert.equal(guided.data.context.clinical.objective.fact.value,'Organizar las comidas');
     mode='budget';assert.ok((await send(request)).data.reasons.some((r:{code:string})=>r.code==='insufficient_credits'));
     mode='disabled';assert.ok((await send(request)).data.reasons.some((r:{code:string})=>r.code==='feature_disabled'));
     mode='foreign';assert.equal((await send(request)).status,409);

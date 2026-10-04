@@ -55,6 +55,7 @@ Deno.serve(async request => {
       const {data: loaded, error} = await db.rpc('ai_diet_source',{p_owner:owner,p_plan:r.planId,p_revision:r.revision});
       if (error || !loaded || loaded.source.plan.patient_id !== (r.patientId ?? null) || loaded.source.plan.consultation_id !== (r.consultationId ?? null)) throw new AIError('context_unavailable');
       loaded.source.additionalInstructions = r.narrative ?? '';
+      if(r.guidance) loaded.source.guidance = r.guidance;
       // Read balance with the caller's JWT; never impersonate an owner in a browser.
       const caller = createClient(url, serviceKey, {global:{headers:{Authorization:`Bearer ${token}`}},auth:{persistSession:false,autoRefreshToken:false}});
       const balance = await caller.rpc('ai_balance');
@@ -65,6 +66,13 @@ Deno.serve(async request => {
       const {data,error}=await db.rpc('ai_diet_draft',{p_owner:owner,p_action:action,p_data:payload});
       if(error) throw new AIError(['context_changed','replacement_confirmation_required','difference_confirmation_required','invalid_request','invalid_output'].includes(error.message)?error.message:'context_unavailable');
       return data;
+    }
+    if (decision.action==='diet_result') {
+      const command=parseDietDecision({...body as Record<string,unknown>,action:'apply_diet_draft'});
+      const saved=await dietRpc('get',{generationId:command.generationId});
+      await verifyDietSnapshot(saved.snapshot);
+      if(saved.status!=='succeeded'||!saved.result?.validation)throw new AIError('provider_outcome_unknown');
+      return respond({generationId:command.generationId,validation:saved.result.validation,hasManualMenu:saved.snapshot.hasManualMenu});
     }
     if (decision.action==='apply_diet_draft' || decision.action==='discard_diet_draft') {
       const command=parseDietDecision(body as Record<string,unknown>);
@@ -98,6 +106,7 @@ Deno.serve(async request => {
           const {data:loaded,error}=await db.rpc('ai_diet_source',{p_owner:owner,p_plan:r.planId,p_revision:r.revision});
           if(error||!loaded||loaded.source.plan.patient_id!==(r.patientId??null)||loaded.source.plan.consultation_id!==(r.consultationId??null)) throw new AIError('context_unavailable');
           loaded.source.additionalInstructions = r.narrative ?? '';
+      if(r.guidance) loaded.source.guidance = r.guidance;
           if(r.previousProposalId){
             const previous=await dietRpc('get',{generationId:r.previousProposalId});
             if(previous.planId!==r.planId || previous.stamp!==loaded.source.stamp || previous.status!=='succeeded' || !previous.result?.validation?.draft)throw new AIError('context_changed');

@@ -1,3 +1,4 @@
+import type { DietGuidance } from '../../../supabase/functions/_shared/diet-guidance';
 import { supabase } from '@/src/lib/supabase';
 
 export type AIBalance = { available_credits: number; reserved_credits: number };
@@ -34,7 +35,7 @@ export async function getAIGenerationStatus(idempotencyKey: string) {
   return data as { generationId: string; status: string; chargedCredits: number; errorCode: string | null } | null;
 }
 // Reuse the same key when checking/retrying a logical request. Never supply owner/model/prompt/prices.
-export async function runAIRequest(request: { feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean }> {
+export async function runAIRequest(request: { guidance?: DietGuidance; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean }> {
   try {
     const consent = await supabase.rpc('my_ai_processing_consent');
     if (consent.error || !consent.data) throw new AIRequestError('ai_consent_unavailable');

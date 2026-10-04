@@ -548,9 +548,34 @@ function getExchangeGroup(code) {
 }
 
 // frontend/src/features/meal-distribution/model.ts
+var MEAL_DISTRIBUTION_SCHEMA_VERSION = 1;
 var EPSILON = 1e-7;
+var now = () => (/* @__PURE__ */ new Date()).toISOString();
 var round = (value) => Math.round((value + Number.EPSILON) * 1e6) / 1e6;
+var validPortions = (value) => Number.isFinite(value) && value >= 0;
 var zeroTotals = () => ({ energy_kcal: 0, carbohydrate_g: 0, protein_g: 0, fat_g: 0 });
+var makeId = () => globalThis.crypto?.randomUUID?.() ?? `meal-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+function inferMealType(name) {
+  const normalized = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (normalized.includes("desay")) return "BREAKFAST";
+  if (normalized.includes("colac") || normalized.includes("snack") || normalized.includes("preent") || normalized.includes("postent") || normalized.includes("merienda")) return "SNACK";
+  if (normalized.includes("comida") || normalized.includes("almuerzo")) return "MAIN_MEAL";
+  if (normalized.includes("cena")) return "DINNER";
+  return "CUSTOM";
+}
+function createMealTime(displayName, displayOrder, time2 = null, id = makeId()) {
+  return { id, meal_type: inferMealType(displayName), display_name: displayName, time: time2, display_order: displayOrder };
+}
+function createDefaultMealTimes(idFactory = makeId) {
+  return ["Desayuno", "Comida", "Cena"].map((name, index) => createMealTime(name, index, null, idFactory()));
+}
+function snapshotExchangeInventory(prescription) {
+  return {
+    exchange_system_code: prescription.exchange_system_code,
+    catalog_version: prescription.catalog_version,
+    groups: prescription.groups.map((group2) => ({ ...group2 }))
+  };
+}
 function sameExchangeInventory(snapshot, prescription) {
   if (!snapshot || snapshot.exchange_system_code !== prescription.exchange_system_code || snapshot.catalog_version !== prescription.catalog_version) return false;
   const current = new Map(prescription.groups.map((group2) => [group2.group_code, group2.portions]));
@@ -599,6 +624,43 @@ function calculateDistributionStatus(distribution, prescription) {
     remainingPortions: round(groups3.reduce((sum, group2) => sum + group2.remaining, 0))
   };
 }
+function rebuild(base, distribution = base.distribution, mealTimes = base.meal_times, status = base.status, confirmedAt = base.confirmed_at) {
+  return {
+    ...base,
+    meal_times: [...mealTimes].sort((a, b) => a.display_order - b.display_order).map((meal, index) => ({ ...meal, display_order: index })),
+    distribution: distribution.filter((entry) => entry.portions > EPSILON),
+    derived_meal_totals: calculateDerivedMealTotals(distribution, mealTimes),
+    status,
+    confirmed_at: confirmedAt,
+    updated_at: now()
+  };
+}
+function createMealDistribution(idFactory = makeId) {
+  const mealTimes = createDefaultMealTimes(idFactory);
+  return {
+    schema_version: MEAL_DISTRIBUTION_SCHEMA_VERSION,
+    source_exchange_snapshot: null,
+    meal_times: mealTimes,
+    distribution: [],
+    derived_meal_totals: calculateDerivedMealTotals([], mealTimes),
+    status: "not_started",
+    confirmed_at: null,
+    updated_at: now()
+  };
+}
+function confirmMealDistribution(current, prescription) {
+  if (!current.meal_times.length || current.meal_times.some((meal) => !meal.display_name.trim()) || current.distribution.some((entry) => !validPortions(entry.portions))) return current;
+  return {
+    ...rebuild(current, current.distribution, current.meal_times, "ready", now()),
+    source_exchange_snapshot: snapshotExchangeInventory(prescription)
+  };
+}
+function applyMealDistributionSuggestion(current, suggestion) {
+  return {
+    ...rebuild(current, suggestion.distribution, current.meal_times, suggestion.distribution.length ? "editing" : "not_started", null),
+    suggestion_metadata: { source: "automatic", ...suggestion.metadata }
+  };
+}
 
 // frontend/src/features/menu/units.ts
 var foodUnitLabels = {
@@ -623,6 +685,7 @@ function normalizeCatalogPortion(food) {
 
 // frontend/src/features/exchanges/model.ts
 var zeroTotals2 = () => ({ energy_kcal: 0, carbohydrate_g: 0, protein_g: 0, fat_g: 0 });
+var currentTime = () => (/* @__PURE__ */ new Date()).toISOString();
 function sameExchangeTargets(a, b) {
   return a.energy_kcal === b.energy_kcal && a.carbohydrate_g === b.carbohydrate_g && a.protein_g === b.protein_g && a.fat_g === b.fat_g;
 }
@@ -645,15 +708,86 @@ function calculateExchangeDifferences(actual, target) {
     fat_g: actual.fat_g - target.fat_g
   };
 }
+function createExchangePrescription(target) {
+  const groups3 = exchangeCatalog.map((group2) => ({ group_code: group2.groupCode, portions: 0 }));
+  const totals = calculateExchangeTotals(groups3);
+  return {
+    schema_version: 1,
+    exchange_system_code: EXCHANGE_SYSTEM_CODE,
+    catalog_version: EXCHANGE_CATALOG_VERSION,
+    target_snapshot: target,
+    confirmed_target_snapshot: null,
+    groups: groups3,
+    derived_totals: totals,
+    differences: calculateExchangeDifferences(totals, target),
+    status: "not_started",
+    confirmed_at: null,
+    updated_at: currentTime()
+  };
+}
+function buildPrescription(prescription, target, groups3 = prescription.groups, status = prescription.status, confirmedAt = prescription.confirmed_at) {
+  const totals = calculateExchangeTotals(groups3);
+  return {
+    ...prescription,
+    exchange_system_code: EXCHANGE_SYSTEM_CODE,
+    catalog_version: EXCHANGE_CATALOG_VERSION,
+    target_snapshot: target,
+    groups: groups3,
+    derived_totals: totals,
+    differences: calculateExchangeDifferences(totals, target),
+    status,
+    confirmed_at: confirmedAt,
+    updated_at: currentTime()
+  };
+}
+function reconcileExchangePrescription(prescription, target) {
+  if (sameExchangeTargets(prescription.target_snapshot, target)) return prescription;
+  const status = prescription.status === "ready" ? "editing" : prescription.status;
+  return buildPrescription(prescription, target, prescription.groups, status, status === "editing" ? null : prescription.confirmed_at);
+}
+function confirmExchangePrescription(prescription, target) {
+  const reconciled = reconcileExchangePrescription(prescription, target);
+  return {
+    ...buildPrescription(reconciled, target, reconciled.groups, "ready", currentTime()),
+    confirmed_target_snapshot: target
+  };
+}
+function applyExchangeSuggestion(prescription, target, suggestion) {
+  const suggestionByCode = new Map(suggestion.groups.map((group2) => [group2.groupCode, group2.portions]));
+  const groups3 = prescription.groups.map((group2) => ({
+    ...group2,
+    portions: suggestionByCode.get(group2.group_code) ?? group2.portions
+  }));
+  return {
+    ...buildPrescription(prescription, target, groups3, groups3.some((group2) => group2.portions > 0) ? "editing" : "not_started", null),
+    suggestion_source: "automatic",
+    suggestion_algorithm: suggestion.metadata.algorithmVersion,
+    suggestion_applied_at: currentTime()
+  };
+}
 
 // frontend/src/features/menu/model.ts
 var DIET_MENU_SCHEMA_VERSION = 1;
 var MENU_COMPARISON_TOLERANCE = 0.1;
 var MENU_NUMERIC_EPSILON = 1e-6;
-var now = () => (/* @__PURE__ */ new Date()).toISOString();
+var practicalSteps = {
+  g: 10,
+  ml: 10,
+  piece: 0.5,
+  half: 1,
+  cup: 0.25,
+  tablespoon: 0.5,
+  teaspoon: 0.5,
+  slice: 0.5,
+  tortilla: 0.5,
+  glass: 0.5,
+  serving: 0.5,
+  unit: 0.5
+};
+var now2 = () => (/* @__PURE__ */ new Date()).toISOString();
 var roundMenuNumber = (value) => Math.round((value + Number.EPSILON) * 1e6) / 1e6;
 var round2 = roundMenuNumber;
-var makeId = (prefix) => globalThis.crypto?.randomUUID?.() ?? `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+var makeId2 = (prefix) => globalThis.crypto?.randomUUID?.() ?? `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 function createFoodSnapshot(food) {
   return {
     id: food.id,
@@ -674,6 +808,12 @@ function exchangeContributionForFood(food, amount) {
   const portions = Number(food.portion_amount) > 0 ? round2(amount / Number(food.portion_amount)) : 0;
   return portions > MENU_NUMERIC_EPSILON ? [{ group_code: food.group_code, portions }] : [];
 }
+function practicalFoodQuantity(value, unit, minimum = practicalSteps[unit]) {
+  if (["piece", "cup", "slice", "tortilla"].includes(unit) && value > 0 && Math.abs(value * 3 - Math.round(value * 3)) < 5e-3 && Math.round(value * 3) > 0) return round2(Math.round(value * 3) / 3);
+  const step = practicalSteps[unit];
+  const quantized = Math.round(value / step) * step;
+  return round2(Math.max(minimum, quantized));
+}
 function aggregateContributions(contributions) {
   const totals = /* @__PURE__ */ new Map();
   for (const item of contributions) totals.set(item.group_code, round2((totals.get(item.group_code) ?? 0) + item.portions));
@@ -686,7 +826,7 @@ function recipeExchangeContributions(recipe, servings = 1) {
     portions: round2(value.portions * factor)
   }))));
 }
-function createDietMenu(mealDistribution, idFactory = makeId) {
+function createDietMenu(mealDistribution, idFactory = makeId2) {
   const activeMenuId = idFactory("menu");
   return {
     schema_version: DIET_MENU_SCHEMA_VERSION,
@@ -701,7 +841,7 @@ function createDietMenu(mealDistribution, idFactory = makeId) {
     derived_exchange_usage: [],
     status: "not_started",
     confirmed_at: null,
-    updated_at: now()
+    updated_at: now2()
   };
 }
 function activeMenu(menu) {
@@ -709,7 +849,7 @@ function activeMenu(menu) {
 }
 function withVariant(menu, variant) {
   const menus = menu.menus.map((item) => item.id === variant.id ? variant : item);
-  const next = { ...menu, menus, confirmed_at: null, updated_at: now() };
+  const next = { ...menu, menus, confirmed_at: null, updated_at: now2() };
   const usage = calculateMenuUsage(next);
   return {
     ...next,
@@ -725,7 +865,7 @@ function ensureMealMenus(variant, mealDistribution) {
   }
   return { ...variant, meal_menus: existing };
 }
-function addFoodToMenu(menu, mealDistribution, mealTimeId, food, quantity, id = makeId("entry")) {
+function addFoodToMenu(menu, mealDistribution, mealTimeId, food, quantity, id = makeId2("entry")) {
   if (!Number.isFinite(quantity) || quantity <= 0) return menu;
   const entry = {
     id,
@@ -740,7 +880,7 @@ function addFoodToMenu(menu, mealDistribution, mealTimeId, food, quantity, id = 
   const variant = ensureMealMenus(activeMenu(menu), mealDistribution);
   return withVariant(menu, { ...variant, meal_menus: variant.meal_menus.map((meal) => meal.meal_time_id === mealTimeId ? { ...meal, entries: [...meal.entries, entry] } : meal) });
 }
-function addRecipeToMenu(menu, mealDistribution, mealTimeId, recipe, servings = 1, id = makeId("entry")) {
+function addRecipeToMenu(menu, mealDistribution, mealTimeId, recipe, servings = 1, id = makeId2("entry")) {
   if (!Number.isFinite(servings) || servings <= 0) return menu;
   const verifiedWater = recipe.id === "nuthrick-water-v1" && recipe.source === "CDC_PLAIN_WATER" && recipe.tags?.includes("nuthrick:drink");
   if (!Number.isFinite(Number(recipe.servings)) || Number(recipe.servings) <= 0 || !recipe.items.length && !verifiedWater || recipe.items.some((item) => !Number.isFinite(Number(item.amount)) || Number(item.amount) <= 0 || !item.exchange_contribution.length)) return menu;
@@ -922,8 +1062,9 @@ function buildDietGenerationContext(source, sanitizeText) {
     blockers.push("prescription_inconsistent");
   const pesApproved = sameContext && c?.pes && date(c.pes.approved_at) && stringValue(c.pes.statement);
   const goalApproved = pesApproved && c?.objective && date(c.objective.approved_at) && stringValue(c.objective.content) && c.objective.revision === c.revision && c.objective.pes_approved_at === c.pes?.approved_at && c.objective.pes_statement === c.pes?.statement;
-  if (!pesApproved) blockers.push("pes_approval_required");
-  if (!goalApproved) blockers.push("objective_approval_required");
+  const reviewedGoal = source.guidance?.contextReviewed && source.guidance.objective.trim();
+  if (!pesApproved && !reviewedGoal) blockers.push("pes_approval_required");
+  if (!goalApproved && !reviewedGoal) blockers.push("objective_approval_required");
   const distribution = plan.meal_distribution;
   const meals = distribution?.meal_times;
   if (!meals?.length) blockers.push("meal_structure_required");
@@ -976,10 +1117,12 @@ function buildDietGenerationContext(source, sanitizeText) {
   const context = {
     schema_version: 1,
     clinical: {
+      ...source.objectiveSuggestion ? { objectiveSuggestion: clean(source.objectiveSuggestion).slice(0, 1200) } : {},
+      ...source.datedContext ? { history: source.datedContext.slice(0, 5).map((c2) => ({ date: c2.date, current: c2.current, facts: c2.facts.slice(0, 24).map((f) => ({ key: f.key, value: clean(typeof f.value === "string" ? f.value : JSON.stringify(f.value)).slice(0, 500) })) })) } : {},
       ...recall24h ? { recall24h } : {},
       ...anthropometry ? { anthropometry } : {},
       pes: { fact: pesApproved ? { state: "known", value: clean(c.pes.statement) } : unavailable(), origin: { source: "consultation_snapshots", path: "clinical_records.pes + pes_statement", kind: "approved_pes" } },
-      objective: { fact: goalApproved ? { state: "known", value: clean(c.objective.content) } : unavailable(), origin: { source: "consultation_snapshots", path: "clinical_records.objective", kind: "approved_objective" } }
+      objective: reviewedGoal ? { fact: { state: "known", value: clean(reviewedGoal) }, origin: { source: "request", path: "guidance.objective", kind: "professional_captured" } } : { fact: goalApproved ? { state: "known", value: clean(c.objective.content) } : unavailable(), origin: { source: "consultation_snapshots", path: "clinical_records.objective", kind: "approved_objective" } }
     },
     prescription: { energy_kcal: fromPlan("target_calories minus macro_distribution.supplements", energy), macros: fromPlan("macro_distribution.macros.input_value + input_mode minus supplements", macros, true) },
     meals: fromPlan("meal_distribution.meal_times", validMeals ? { state: "known", value: [...meals].sort((a, b) => a.display_order - b.display_order).map((v) => ({ id: v.id, meal_type: v.meal_type, display_name: clean(v.display_name), time: contextFact(v.time, time), display_order: v.display_order })) } : unavailable()),
@@ -1002,7 +1145,234 @@ function buildDietGenerationContext(source, sanitizeText) {
 }
 
 // frontend/src/features/exchanges/suggestion.ts
+var EXCHANGE_SUGGESTION_ALGORITHM_VERSION = "EXCHANGE_SUGGESTION_V3";
 var EXCHANGE_SUGGESTION_INCREMENT = 0.5;
+var EXCHANGE_SUGGESTION_WEIGHTS = {
+  energyKcal: 0.5,
+  carbohydrateG: 1,
+  proteinG: 1,
+  fatG: 1
+};
+var EXCHANGE_SUGGESTION_GROUP_TIERS = {
+  VEGETABLES: "priority",
+  FRUITS: "priority",
+  CEREALS_NO_FAT: "priority",
+  CEREALS_WITH_FAT: "secondary",
+  LEGUMES: "priority",
+  AOA_VERY_LOW_FAT: "priority",
+  AOA_LOW_FAT: "priority",
+  AOA_MODERATE_FAT: "priority",
+  AOA_HIGH_FAT: "secondary",
+  MILK_SKIM: "complementary",
+  MILK_SEMI_SKIM: "complementary",
+  MILK_WHOLE: "secondary",
+  MILK_WITH_SUGAR: "discretionary",
+  FATS_NO_PROTEIN: "complementary",
+  FATS_WITH_PROTEIN: "secondary",
+  SUGARS_NO_FAT: "discretionary",
+  SUGARS_WITH_FAT: "discretionary"
+};
+var EXCHANGE_SUGGESTION_LIMITS = {
+  VEGETABLES: 10,
+  FRUITS: 10,
+  CEREALS_NO_FAT: 16,
+  CEREALS_WITH_FAT: 8,
+  LEGUMES: 8,
+  AOA_VERY_LOW_FAT: 14,
+  AOA_LOW_FAT: 12,
+  AOA_MODERATE_FAT: 10,
+  AOA_HIGH_FAT: 8,
+  MILK_SKIM: 8,
+  MILK_SEMI_SKIM: 8,
+  MILK_WHOLE: 6,
+  MILK_WITH_SUGAR: 5,
+  FATS_NO_PROTEIN: 12,
+  FATS_WITH_PROTEIN: 8,
+  SUGARS_NO_FAT: 8,
+  SUGARS_WITH_FAT: 6
+};
+var EXCHANGE_SUGGESTION_SCORE_WEIGHTS = {
+  foodPriorityPerPortion: { priority: 2e-4, complementary: 3e-3, secondary: 0.18, discretionary: 0.24 },
+  avoidedGroupPerPortion: 0.18,
+  missingIncludedGroup: 0.09,
+  diversityShortfall: 0.08,
+  legumeOpportunity: 0.018,
+  activePriorityShortfall: 8e-3,
+  discretionaryUnlockNutritionError: 0.14,
+  discretionaryMinimumImprovement: 0.04,
+  concentrationStart: 0.4,
+  concentrationWeight: 0.35,
+  diversityWeight: 0.012,
+  highPortionWeight: 4e-3,
+  improvementEpsilon: 1e-9
+};
+var round3 = (value) => Math.round(value * 1e8) / 1e8;
+var normalizedError = (actual, target) => Math.abs(actual - target) / Math.max(Math.abs(target), 1);
+function totalsFor(portions, catalog) {
+  return portions.reduce((total, portion, index) => {
+    const group2 = catalog[index];
+    return {
+      energy_kcal: total.energy_kcal + portion * group2.energyKcal,
+      carbohydrate_g: total.carbohydrate_g + portion * group2.carbohydrateG,
+      protein_g: total.protein_g + portion * group2.proteinG,
+      fat_g: total.fat_g + portion * group2.fatG
+    };
+  }, { energy_kcal: 0, carbohydrate_g: 0, protein_g: 0, fat_g: 0 });
+}
+function scoreFor(portions, catalog, targets, weights, limits, preferences) {
+  const totals = totalsFor(portions, catalog);
+  const fit = normalizedError(totals.energy_kcal, targets.energy_kcal) * weights.energyKcal + normalizedError(totals.carbohydrate_g, targets.carbohydrate_g) * weights.carbohydrateG + normalizedError(totals.protein_g, targets.protein_g) * weights.proteinG + normalizedError(totals.fat_g, targets.fat_g) * weights.fatG;
+  const totalPortions = portions.reduce((sum, portion) => sum + portion, 0);
+  let practicalityPenalty = 0;
+  let foodPriorityPenalty = 0;
+  let preferencePenalty = 0;
+  let concentration = 0;
+  portions.forEach((portion, index) => {
+    const code = catalog[index].groupCode;
+    const preference2 = preferences[code];
+    if (preference2 === "include") {
+      if (portion <= 0) preferencePenalty += EXCHANGE_SUGGESTION_SCORE_WEIGHTS.missingIncludedGroup;
+    } else if (preference2 === "avoid") {
+      preferencePenalty += portion * EXCHANGE_SUGGESTION_SCORE_WEIGHTS.avoidedGroupPerPortion;
+    } else {
+      foodPriorityPenalty += portion * EXCHANGE_SUGGESTION_SCORE_WEIGHTS.foodPriorityPerPortion[EXCHANGE_SUGGESTION_GROUP_TIERS[code]];
+    }
+    const softCeiling = limits[code] * 0.65;
+    if (portion > softCeiling) practicalityPenalty += (portion - softCeiling) ** 2 * EXCHANGE_SUGGESTION_SCORE_WEIGHTS.highPortionWeight;
+    if (totalPortions >= 4 && portion > 0) {
+      const share = portion / totalPortions;
+      concentration += share ** 2 * EXCHANGE_SUGGESTION_SCORE_WEIGHTS.diversityWeight;
+      if (share > EXCHANGE_SUGGESTION_SCORE_WEIGHTS.concentrationStart)
+        concentration += (share - EXCHANGE_SUGGESTION_SCORE_WEIGHTS.concentrationStart) ** 2 * EXCHANGE_SUGGESTION_SCORE_WEIGHTS.concentrationWeight;
+    }
+  });
+  const portionFor = (code) => {
+    const index = catalog.findIndex((group2) => group2.groupCode === code);
+    return index >= 0 ? portions[index] : 0;
+  };
+  const catalogCodes = new Set(catalog.map((group2) => group2.groupCode));
+  const canUse = (codes) => codes.some((code) => catalogCodes.has(code) && preferences[code] !== "exclude");
+  const shortfall = (actual, minimum) => Math.max(0, minimum - actual) ** 2 * EXCHANGE_SUGGESTION_SCORE_WEIGHTS.diversityShortfall;
+  let diversityPenalty = 0;
+  if (canUse(["VEGETABLES"])) diversityPenalty += shortfall(portionFor("VEGETABLES"), 1);
+  if (canUse(["FRUITS"])) diversityPenalty += shortfall(portionFor("FRUITS"), 1);
+  if (canUse(["CEREALS_NO_FAT", "CEREALS_WITH_FAT"])) diversityPenalty += shortfall(portionFor("CEREALS_NO_FAT") + portionFor("CEREALS_WITH_FAT"), 1);
+  const proteinCodes = ["LEGUMES", "AOA_VERY_LOW_FAT", "AOA_LOW_FAT", "AOA_MODERATE_FAT", "AOA_HIGH_FAT"];
+  if (canUse(proteinCodes)) diversityPenalty += shortfall(proteinCodes.reduce((sum, code) => sum + portionFor(code), 0), 1);
+  if (preferences.LEGUMES === "auto" && targets.carbohydrate_g >= 80 && targets.protein_g >= 40 && portionFor("LEGUMES") === 0) {
+    diversityPenalty += EXCHANGE_SUGGESTION_SCORE_WEIGHTS.legumeOpportunity;
+  }
+  const activePriorityGroups = catalog.filter((group2, index) => EXCHANGE_SUGGESTION_GROUP_TIERS[group2.groupCode] === "priority" && preferences[group2.groupCode] !== "exclude" && portions[index] > 0).length;
+  diversityPenalty += Math.max(0, 4 - activePriorityGroups) ** 2 * EXCHANGE_SUGGESTION_SCORE_WEIGHTS.activePriorityShortfall;
+  return {
+    score: fit + diversityPenalty + practicalityPenalty + foodPriorityPenalty + preferencePenalty + concentration,
+    nutritionError: fit,
+    totals
+  };
+}
+function snap(value, increment, maximum) {
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  return Math.min(maximum, round3(Math.round(value / increment) * increment));
+}
+function suggestExchangePrescription({
+  targets,
+  exchangeCatalog: exchangeCatalog2 = exchangeCatalog,
+  currentPortions = [],
+  options = {}
+}) {
+  const increment = options.increment && options.increment > 0 ? options.increment : EXCHANGE_SUGGESTION_INCREMENT;
+  const maxIterations = options.maxIterations ?? 500;
+  const weights = { ...EXCHANGE_SUGGESTION_WEIGHTS, ...options.weights };
+  const configuredLimits = { ...EXCHANGE_SUGGESTION_LIMITS, ...options.limits };
+  const preferences = Object.fromEntries(exchangeCatalog.map((group2) => [group2.groupCode, options.groupPreferences?.[group2.groupCode] ?? "auto"]));
+  const current = new Map(currentPortions.map((item) => [item.groupCode ?? item.group_code, item.portions]));
+  const locked = new Map(Object.entries(options.lockedGroups ?? {}));
+  for (const group2 of exchangeCatalog2) if (preferences[group2.groupCode] === "exclude") locked.set(group2.groupCode, 0);
+  const conservativeLimits = { ...configuredLimits };
+  for (const group2 of exchangeCatalog2) {
+    const currentValue = current.get(group2.groupCode) ?? 0;
+    if (EXCHANGE_SUGGESTION_GROUP_TIERS[group2.groupCode] === "discretionary" && preferences[group2.groupCode] === "auto" && !(options.startFromCurrent && currentValue > 0)) {
+      conservativeLimits[group2.groupCode] = 0;
+    }
+  }
+  const initialPortions = exchangeCatalog2.map((group2) => {
+    const lockedValue = locked.get(group2.groupCode);
+    if (lockedValue !== void 0) return lockedValue;
+    return options.startFromCurrent ? snap(current.get(group2.groupCode) ?? 0, increment, conservativeLimits[group2.groupCode]) : 0;
+  });
+  const optimize = (startingPortions, limits, iterationLimit, searchPreferences = preferences) => {
+    let portions2 = [...startingPortions];
+    let evaluated2 = scoreFor(portions2, exchangeCatalog2, targets, weights, limits, searchPreferences);
+    let iterations2 = 0;
+    while (iterations2 < iterationLimit) {
+      let bestScore = evaluated2.score;
+      let bestPortions = null;
+      const consider = (candidate) => {
+        const result = scoreFor(candidate, exchangeCatalog2, targets, weights, limits, searchPreferences);
+        if (result.score < bestScore - EXCHANGE_SUGGESTION_SCORE_WEIGHTS.improvementEpsilon) {
+          bestScore = result.score;
+          bestPortions = candidate;
+        }
+      };
+      for (let index = 0; index < exchangeCatalog2.length; index += 1) {
+        const code = exchangeCatalog2[index].groupCode;
+        if (locked.has(code)) continue;
+        if (portions2[index] + increment <= limits[code]) {
+          const candidate = [...portions2];
+          candidate[index] = round3(candidate[index] + increment);
+          consider(candidate);
+        }
+        if (portions2[index] >= increment) {
+          const candidate = [...portions2];
+          candidate[index] = round3(candidate[index] - increment);
+          consider(candidate);
+        }
+      }
+      for (let from = 0; from < exchangeCatalog2.length; from += 1) {
+        if (locked.has(exchangeCatalog2[from].groupCode) || portions2[from] < increment) continue;
+        for (let to = 0; to < exchangeCatalog2.length; to += 1) {
+          const toCode = exchangeCatalog2[to].groupCode;
+          if (from === to || locked.has(toCode) || portions2[to] + increment > limits[toCode]) continue;
+          const candidate = [...portions2];
+          candidate[from] = round3(candidate[from] - increment);
+          candidate[to] = round3(candidate[to] + increment);
+          consider(candidate);
+        }
+      }
+      if (!bestPortions) break;
+      portions2 = bestPortions;
+      evaluated2 = scoreFor(portions2, exchangeCatalog2, targets, weights, limits, searchPreferences);
+      iterations2 += 1;
+    }
+    return { portions: portions2, evaluated: evaluated2, iterations: iterations2 };
+  };
+  let optimized = optimize(initialPortions, conservativeLimits, maxIterations);
+  const hasLockedAutoDiscretionary = exchangeCatalog2.some((group2) => conservativeLimits[group2.groupCode] === 0 && configuredLimits[group2.groupCode] > 0);
+  if (hasLockedAutoDiscretionary && optimized.evaluated.nutritionError > EXCHANGE_SUGGESTION_SCORE_WEIGHTS.discretionaryUnlockNutritionError) {
+    const unlockedPreferences = { ...preferences };
+    for (const group2 of exchangeCatalog2) if (EXCHANGE_SUGGESTION_GROUP_TIERS[group2.groupCode] === "discretionary" && preferences[group2.groupCode] === "auto") unlockedPreferences[group2.groupCode] = "include";
+    const unlocked = optimize(optimized.portions, configuredLimits, Math.max(1, maxIterations - optimized.iterations), unlockedPreferences);
+    const relevantImprovement = optimized.evaluated.nutritionError - unlocked.evaluated.nutritionError >= EXCHANGE_SUGGESTION_SCORE_WEIGHTS.discretionaryMinimumImprovement;
+    if (relevantImprovement) {
+      optimized = { portions: unlocked.portions, evaluated: scoreFor(unlocked.portions, exchangeCatalog2, targets, weights, configuredLimits, preferences), iterations: optimized.iterations + unlocked.iterations };
+    }
+  }
+  const { portions, evaluated, iterations } = optimized;
+  const totals = Object.fromEntries(Object.entries(evaluated.totals).map(([key, value]) => [key, round3(value)]));
+  const differences = {
+    energy_kcal: round3(totals.energy_kcal - targets.energy_kcal),
+    carbohydrate_g: round3(totals.carbohydrate_g - targets.carbohydrate_g),
+    protein_g: round3(totals.protein_g - targets.protein_g),
+    fat_g: round3(totals.fat_g - targets.fat_g)
+  };
+  return {
+    groups: exchangeCatalog2.map((group2, index) => ({ groupCode: group2.groupCode, portions: portions[index] })),
+    totals,
+    differences,
+    score: evaluated.score,
+    metadata: { algorithmVersion: EXCHANGE_SUGGESTION_ALGORITHM_VERSION, increment, iterations }
+  };
+}
 
 // frontend/src/features/menu/composition.ts
 function ingredientsKey(items, factor, ratios = false) {
@@ -1207,6 +1577,215 @@ function calculateRecall(items) {
   return { total, meals, groups: groups3, macros };
 }
 
+// supabase/functions/_shared/diet-guidance.ts
+var GUIDED_DIET_LIMITS = { maxMeals: 6, maxOptionsPerMeal: 3, maxOptions: 12 };
+function isDietGuidance(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const v = value;
+  const exact = (x, keys) => Object.keys(x).length === keys.length && Object.keys(x).every((k) => keys.includes(k));
+  return exact(v, ["version", "objective", "contextReviewed", "reactionReview", "meals"]) && v.version === 1 && typeof v.objective === "string" && v.objective.trim().length > 0 && v.objective.length <= 1200 && typeof v.contextReviewed === "boolean" && ["recorded", "none_confirmed"].includes(v.reactionReview) && Array.isArray(v.meals) && v.meals.length > 0 && v.meals.length <= GUIDED_DIET_LIMITS.maxMeals && v.meals.every((m) => m && typeof m === "object" && exact(m, ["name", "type", "time", "options"]) && typeof m.name === "string" && m.name.trim().length > 0 && m.name.length <= 60 && ["BREAKFAST", "SNACK", "MAIN_MEAL", "DINNER", "CUSTOM"].includes(m.type) && (m.time === null || typeof m.time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(m.time)) && Number.isInteger(m.options) && m.options >= 1 && m.options <= GUIDED_DIET_LIMITS.maxOptionsPerMeal) && new Set(v.meals.map((m) => m.name.trim().toLocaleLowerCase())).size === v.meals.length && v.meals.reduce((n, m) => n + m.options, 0) <= GUIDED_DIET_LIMITS.maxOptions;
+}
+
+// frontend/src/features/menu/planner.ts
+var practicalQuantity = practicalFoodQuantity;
+
+// frontend/src/features/diet-workshop/proposals.ts
+var PROPOSAL_POLICY = { comparableError: 0.035, maximumError: 0.15, inventoryEpsilon: 1e-7, candidates: 18 };
+var family = (code) => code.startsWith("AOA_") ? "AOA" : code.startsWith("MILK_") ? "MILK" : code.startsWith("CEREALS_") ? "CEREALS" : code;
+var priority = (code) => family(code) === "AOA" ? 0 : family(code) === "CEREALS" ? 1 : code === "LEGUMES" ? 2 : code === "FRUITS" ? 3 : 4;
+var round4 = (n) => Math.round(n * 1e8) / 1e8;
+var exchangeKey = (p) => JSON.stringify(p.groups.map((g) => [g.groupCode, g.portions]).sort());
+var mealKey = (p) => JSON.stringify(p.distribution.filter((e) => e.portions > 0).map((e) => [e.meal_time_id, e.group_code, e.portions]).sort());
+var maxError = (p, targets) => Math.max(...Object.entries(p.differences).map(([key, value]) => Math.abs(value) / Math.max(1, targets[key])));
+function everydayRecipePriority(recipe, meal) {
+  const groups3 = new Set(recipeExchangeContributions(recipe).map((item) => item.group_code));
+  const has = (code) => groups3.has(code);
+  const hasAoa = [...groups3].some((code) => code.startsWith("AOA_"));
+  const hasMilk = [...groups3].some((code) => code.startsWith("MILK_"));
+  let score = recipe.source === "NUTHRICK_EDITORIAL_PREPARATIONS" ? 8 : recipe.source === "NUTHRICK_STARTER_RECIPES" ? 5 : 0;
+  score += recipe.meal_types.includes(meal.meal_type) ? 6 : -20;
+  if (meal.meal_type === "BREAKFAST") score += (has("CEREALS_NO_FAT") ? 3 : 0) + (hasAoa ? 3 : 0) + (has("FRUITS") ? 2 : 0) + (hasMilk ? 1 : 0);
+  if (meal.meal_type === "MAIN_MEAL") score += (hasAoa ? 3 : 0) + (has("VEGETABLES") ? 3 : 0) + (has("CEREALS_NO_FAT") || has("LEGUMES") ? 2 : 0);
+  if (meal.meal_type === "DINNER") score += (hasAoa ? 3 : 0) + (has("CEREALS_NO_FAT") || has("LEGUMES") ? 2 : 0) + (has("VEGETABLES") ? 2 : 0);
+  return score;
+}
+function preparationQuality(groups3, catalog) {
+  const active = groups3.filter((g) => g.portions > 0);
+  const milk = active.filter((g) => family(g.groupCode) === "MILK").length;
+  const families = new Set(active.map((g) => family(g.groupCode)));
+  let penalty = active.length * 0.1 + Math.max(0, milk - 1) * 3;
+  for (const g of active) {
+    const comfortable = family(g.groupCode) === "CEREALS" || family(g.groupCode) === "AOA" ? 8 : 4;
+    penalty += Math.max(0, g.portions - comfortable) ** 2 * 0.15;
+  }
+  penalty += active.filter((g) => g.portions < 0.5).length;
+  penalty += Math.max(0, active.filter((g) => family(g.groupCode) === "AOA").length - 2) * 0.8;
+  if (catalog?.foods.length) penalty += active.filter((g) => !catalog.foods.some((f) => f.active && f.group_code === g.groupCode)).length * 4;
+  if (catalog?.foods.length) for (const g of active) {
+    const foods = catalog.foods.filter((f) => f.active && f.group_code === g.groupCode && f.portion_amount > 0);
+    if (foods.length && !foods.some((f) => Math.abs(practicalQuantity(g.portions * f.portion_amount, f.portion_unit) / f.portion_amount - g.portions) <= 0.1)) penalty += 0.5;
+  }
+  if (families.has("AOA") && families.has("CEREALS")) penalty -= 0.2;
+  if (families.has("LEGUMES") && families.has("CEREALS")) penalty -= 0.2;
+  if (catalog?.recipes.some((recipe) => recipe.active && recipeExchangeContributions(recipe).every((c) => (active.find((g) => g.groupCode === c.group_code)?.portions ?? 0) >= c.portions))) penalty -= 0.5;
+  return penalty;
+}
+function exchangeAlternatives(input, catalog, configuredMeals) {
+  const options = input.options ?? {};
+  for (const [code, value] of Object.entries(options.lockedGroups ?? {})) {
+    if (!Number.isFinite(value) || value < 0) throw new Error(`Revisa la cantidad fijada de ${getExchangeGroup(code).shortName}.`);
+    if (value > 0 && options.groupPreferences?.[code] === "exclude") throw new Error(`${getExchangeGroup(code).shortName} est\xE1 fijado y excluido. Libera su cantidad o cambia la exclusi\xF3n.`);
+  }
+  const found = /* @__PURE__ */ new Map();
+  const codes = [...exchangeCatalog].sort((a, b) => priority(a.groupCode) - priority(b.groupCode));
+  const base = suggestExchangePrescription(input);
+  found.set(exchangeKey(base), base);
+  for (let i = 0; i < PROPOSAL_POLICY.candidates; i++) {
+    const seed = codes[i % codes.length].groupCode;
+    const preferences = { ...options.groupPreferences };
+    if (i < 4) for (const g of codes.filter((g2) => family(g2.groupCode) === "MILK")) {
+      if (!preferences[g.groupCode] && options.lockedGroups?.[g.groupCode] === void 0 && (i === 0 || g.groupCode !== ["MILK_SKIM", "MILK_SEMI_SKIM", "MILK_WHOLE"][i - 1])) preferences[g.groupCode] = "exclude";
+    }
+    const limits = { ...options.limits };
+    if (i >= 4 && i < 10 && options.lockedGroups?.LEGUMES === void 0 && preferences.LEGUMES !== "include") limits.LEGUMES = Math.min(limits.LEGUMES ?? Infinity, i % 2 ? 4 : 3);
+    if (i >= 4 && i < 10) for (const g of codes.filter((g2) => family(g2.groupCode) === "MILK")) {
+      if (options.lockedGroups?.[g.groupCode] === void 0 && preferences[g.groupCode] !== "include") limits[g.groupCode] = Math.min(limits[g.groupCode] ?? Infinity, i % 3);
+    }
+    if (i >= 10) {
+      for (const [code, cap] of [["FRUITS", 3 + i % 3], ["LEGUMES", 2 + i % 3], ["MILK_SKIM", i % 3], ["MILK_SEMI_SKIM", i % 3], ["MILK_WHOLE", i % 3]]) {
+        if (options.lockedGroups?.[code] === void 0 && preferences[code] !== "include") limits[code] = Math.min(limits[code] ?? Infinity, cap);
+      }
+    }
+    const p = suggestExchangePrescription({ ...input, currentPortions: options.startFromCurrent ? input.currentPortions : [{ groupCode: seed, portions: 2 }], options: { ...options, limits, startFromCurrent: true, groupPreferences: preferences } });
+    found.set(exchangeKey(p), p);
+  }
+  const all = [...found.values()];
+  const best = Math.min(...all.map((p) => maxError(p, input.targets)));
+  if (best > PROPOSAL_POLICY.maximumError) throw new Error("No encontramos una propuesta cercana a los objetivos con estas condiciones. Revisa las cantidades fijadas, las exclusiones o ajusta manualmente el cuadro.");
+  const meals = configuredMeals ?? createMealDistribution();
+  const candidates = all.filter((p) => maxError(p, input.targets) <= Math.min(PROPOSAL_POLICY.maximumError, best + PROPOSAL_POLICY.comparableError));
+  const quality = new Map(candidates.map((p) => {
+    const prescription = applyExchangeSuggestion(createExchangePrescription(input.targets), input.targets, p);
+    const distribution = mealAlternatives(meals, prescription, [], false, catalog)[0];
+    return [p, preparationQuality(p.groups, catalog) + (distribution ? distributionQuality(distribution, meals, catalog) * 0.2 : 10)];
+  }));
+  return candidates.sort((a, b) => quality.get(a) - quality.get(b) || maxError(a, input.targets) - maxError(b, input.targets));
+}
+function mealAlternatives(current, prescription, lockedIds, startFromCurrent, catalog) {
+  const meals = [...current.meal_times].sort((a, b) => a.display_order - b.display_order);
+  const fixed = current.distribution.filter((e) => lockedIds.includes(e.meal_time_id));
+  const free = meals.filter((m) => !lockedIds.includes(m.id));
+  for (const entry of fixed) {
+    if (!Number.isFinite(entry.portions) || entry.portions < 0) throw new Error("Revisa las cantidades del tiempo conservado.");
+    const available = prescription.groups.find((g) => g.group_code === entry.group_code)?.portions ?? 0;
+    const used = fixed.filter((e) => e.group_code === entry.group_code).reduce((s, e) => s + e.portions, 0);
+    if (used > available + PROPOSAL_POLICY.inventoryEpsilon) throw new Error(`${getExchangeGroup(entry.group_code).shortName} excede el inventario en los tiempos conservados. Libera uno de esos tiempos o revisa Equivalentes.`);
+  }
+  const found = /* @__PURE__ */ new Map();
+  for (let variant = 0; variant < PROPOSAL_POLICY.candidates; variant++) {
+    const entries = fixed.map((e) => ({ ...e }));
+    const put = (code, id, n) => {
+      if (n <= 0) return;
+      const e = entries.find((e2) => e2.group_code === code && e2.meal_time_id === id);
+      if (e) e.portions = round4(e.portions + n);
+      else entries.push({ group_code: code, meal_time_id: id, portions: n });
+    };
+    const inventory = new Map(prescription.groups.map((g) => [g.group_code, round4(g.portions - fixed.filter((e) => e.group_code === g.group_code).reduce((s, e) => s + e.portions, 0))]));
+    if (!free.length && [...inventory.values()].some((n) => n > PROPOSAL_POLICY.inventoryEpsilon)) throw new Error("Todos los tiempos est\xE1n conservados y quedan porciones pendientes. Libera un tiempo para distribuirlas.");
+    const recipeCandidates = (catalog?.recipes ?? []).filter((recipe) => recipe.active && !recipe.tags.includes("nuthrick:drink") && recipeExchangeContributions(recipe).length > 1 && recipeExchangeContributions(recipe).every((c) => (inventory.get(c.group_code) ?? 0) >= c.portions)).flatMap((recipe) => free.filter((meal) => recipe.meal_types.includes(meal.meal_type)).map((meal) => ({ recipe, meal, score: everydayRecipePriority(recipe, meal) }))).sort((a, b) => b.score - a.score || a.recipe.name.localeCompare(b.recipe.name, "es-MX") || a.meal.display_order - b.meal.display_order);
+    if (recipeCandidates.length) {
+      const selected = recipeCandidates[variant % recipeCandidates.length];
+      for (const contribution of recipeExchangeContributions(selected.recipe)) {
+        put(contribution.group_code, selected.meal.id, contribution.portions);
+        inventory.set(contribution.group_code, round4((inventory.get(contribution.group_code) ?? 0) - contribution.portions));
+      }
+    }
+    for (const [code, total] of [...inventory].sort(([a], [b]) => priority(a) - priority(b))) {
+      if (total <= PROPOSAL_POLICY.inventoryEpsilon || !free.length) continue;
+      const ranked = [...free].sort((a, b) => {
+        const score = (m) => {
+          const present = entries.filter((e) => e.meal_time_id === m.id && e.portions > 0);
+          const has = (f) => present.some((e) => family(e.group_code) === f);
+          let s = m.meal_type === "SNACK" ? -3 : 0;
+          if (code === "FRUITS" || family(code) === "MILK") s += m.meal_type === "SNACK" || m.meal_type === "BREAKFAST" ? 3 : 0;
+          if (code === "AOA_MODERATE_FAT" && m.meal_type === "BREAKFAST") s += 3;
+          if ((code === "LEGUMES" || family(code) === "CEREALS") && has("AOA")) s += 3;
+          if (code === "LEGUMES" && has("CEREALS")) s += 2;
+          if (family(code) === "MILK" && present.some((e) => family(e.group_code) === "MILK" && e.group_code !== code)) s -= 10;
+          if (startFromCurrent && current.distribution.some((e) => e.meal_time_id === m.id && e.group_code === code && e.portions > 0)) s += 1;
+          s += (m.display_order + variant) % Math.max(free.length, 1) * 1.2;
+          s -= present.reduce((sum, e) => sum + e.portions, 0) * 0.4;
+          return s;
+        };
+        return score(b) - score(a) || a.display_order - b.display_order;
+      });
+      const count = Math.min(ranked.length, Math.max(1, Math.ceil(total / (variant % 2 ? 4 : 3))));
+      let remaining = total;
+      for (let i = 0; i < count; i++) {
+        const n = i === count - 1 ? remaining : Math.floor(remaining / (count - i) * 2) / 2;
+        put(code, ranked[i].id, n);
+        remaining = round4(remaining - n);
+      }
+    }
+    const p = { distribution: entries, derived_meal_totals: calculateDerivedMealTotals(entries, meals), metadata: { algorithm: "MEAL_PREPARATION_V2", generated_at: (/* @__PURE__ */ new Date()).toISOString(), base: startFromCurrent ? "current" : "zero" } };
+    found.set(mealKey(p), p);
+  }
+  return [...found.values()].sort((a, b) => distributionQuality(a, current, catalog) - distributionQuality(b, current, catalog));
+}
+function distributionQuality(p, current, catalog) {
+  const total = p.distribution.reduce((s, e) => s + e.portions, 0);
+  return current.meal_times.reduce((sum, m) => {
+    const entries = p.distribution.filter((e) => e.meal_time_id === m.id);
+    const amount = entries.reduce((s, e) => s + e.portions, 0);
+    const emptyMeal = m.meal_type !== "SNACK" && !entries.length && total >= current.meal_times.length ? 5 : 0;
+    const concentration = Math.max(0, amount / Math.max(total, 1) - 0.5) * 15;
+    return sum + preparationQuality(entries.map((e) => ({ groupCode: e.group_code, portions: e.portions })), catalog) + emptyMeal + concentration;
+  }, 0);
+}
+
+// frontend/src/features/diet-workshop/guidedPreparation.ts
+function prepareGuidedDiet(source) {
+  if (!source.guidance) return { source, issues: [] };
+  const g = source.guidance;
+  const fail = (code) => ({ source, issues: [{ code, path: "guidance" }] });
+  if (!isDietGuidance(g) || !g.contextReviewed) return fail("context_review_required");
+  const copy = structuredClone(source);
+  const reactions = copy.answers.food_reactions_v2?.value;
+  if (g.reactionReview === "none_confirmed" && copy.answers.food_reactions_status?.value !== "S\xED" && (reactions == null || Array.isArray(reactions) && !reactions.length) && !copy.historyRequiresReview) {
+    copy.answers.food_reactions_status = { value: "No", response_area: "professional_assessment" };
+  }
+  const check = buildDietGenerationContext({ ...copy, catalog: void 0 }, (s) => s);
+  const critical = check.blockers.filter((c) => !["catalog_required", "meal_structure_required", "meal_structure_invalid", "distribution_invalid"].includes(c));
+  if (critical.length) return { source: copy, issues: critical.map((code) => ({ code, path: "context" })) };
+  if (copy.historyRequiresReview) return fail("restrictions_need_review");
+  const targets = foodTargetsFor(copy.plan);
+  if (Object.values(targets).some((v) => !Number.isFinite(v) || v <= 0)) return fail("prescription_inconsistent");
+  const excluded = Object.entries(copy.plan.diet_menu?.food_preferences ?? {}).filter(([, v]) => v === "exclude").map(([id]) => id);
+  const foods = copy.catalog?.foods.filter((f) => hardFoodAllowed(f, copy.plan.professional_id, { excludedFoodIds: excluded })) ?? [];
+  const recipes = copy.catalog?.recipes.filter((r) => r.active && (r.owner_id === null || r.owner_id === copy.plan.professional_id) && r.items.length > 0 && r.items.every((i) => i.amount > 0 && foods.some((f) => f.id === i.food_item_id && f.portion_unit === i.unit))).map((r) => ({ ...r, items: r.items.map((i) => {
+    const f = foods.find((f2) => f2.id === i.food_item_id);
+    return { ...i, food_snapshot: createFoodSnapshot(f), exchange_contribution: exchangeContributionForFood(f, i.amount) };
+  }) })) ?? [];
+  if (!foods.length) return fail("catalog_required");
+  let distribution = createMealDistribution(() => "guided-initial");
+  distribution.meal_times = g.meals.map((m, i) => ({ ...createMealTime(m.name.trim(), i, m.time, `guided-meal-${i + 1}`), meal_type: m.type }));
+  const preferences = Object.fromEntries(exchangeCatalog.filter((c) => !foods.some((f) => f.group_code === c.groupCode)).map((c) => [c.groupCode, "exclude"]));
+  try {
+    const exchanges = exchangeAlternatives({ targets, options: { groupPreferences: preferences } }, { foods, recipes }, distribution)[0];
+    let prescription = confirmExchangePrescription(applyExchangeSuggestion(createExchangePrescription(targets), targets, exchanges), targets);
+    const stamp = source.plan.updated_at;
+    prescription = { ...prescription, confirmed_at: stamp, updated_at: stamp, suggestion_applied_at: stamp };
+    const meal = mealAlternatives(distribution, prescription, [], false, { foods, recipes }).find((m) => distribution.meal_times.every((t) => m.distribution.some((c) => c.meal_time_id === t.id && c.portions > 0)));
+    if (!meal) return fail("invalid_distribution");
+    distribution = confirmMealDistribution(applyMealDistributionSuggestion(distribution, meal), prescription);
+    distribution = { ...distribution, confirmed_at: stamp, updated_at: stamp, suggestion_metadata: distribution.suggestion_metadata ? { ...distribution.suggestion_metadata, generated_at: stamp } : void 0 };
+    copy.plan = { ...copy.plan, exchange_prescription: prescription, meal_distribution: distribution };
+    return { source: copy, issues: [] };
+  } catch {
+    return fail("proposal_unavailable");
+  }
+}
+
 // frontend/src/features/diet-workshop/generationBoundary.ts
 var defaultPolicy = { restrictions: {}, unresolved: [] };
 var manualGenerationPolicy = () => structuredClone(defaultPolicy);
@@ -1248,12 +1827,22 @@ function prepareDietGeneration(input, availability, limits = DIET_GENERATION_LIM
   const context = eligibility.context, meals = input.source.plan.meal_distribution.meal_times;
   const issues = [];
   let nextCandidate = 0;
-  const manifestMeals = [...meals].sort((a, b) => a.display_order - b.display_order).map((meal, i) => {
+  const baseMeals = [...meals].sort((a, b) => a.display_order - b.display_order).map((meal, i) => {
     const pool = selectDietCandidates(context, meal.id, input.source.catalog, input.source.plan.professional_id, input.policy.restrictions, limits);
     const required = input.source.plan.meal_distribution.distribution.filter((c) => c.meal_time_id === meal.id && c.portions > 0);
     if (required.some((r) => !pool.candidates.some((c) => c.exchanges.some((e) => e.group_code === r.group_code)))) issues.push({ code: "candidate_coverage_missing", path: `meals[${i}]` });
+    if (input.source.guidance) {
+      const combinations = required.reduce((n, r) => n * Math.max(1, pool.candidates.filter((c) => c.type === "food" && c.exchanges.some((e) => e.group_code === r.group_code)).length), 1);
+      if (combinations + pool.candidates.filter((c) => c.type === "recipe").length < input.source.guidance.meals[i].options)
+        issues.push({ code: "alternatives_unavailable", path: `meals[${i}]` });
+    }
     return { ref: `m${i + 1}`, id: meal.id, candidates: pool.candidates.map((candidate) => ({ ref: `c${++nextCandidate}`, candidate })) };
   });
+  const manifestMeals = baseMeals.flatMap((meal, i) => Array.from({ length: input.source.guidance?.meals[i]?.options ?? 1 }, (_, optionIndex) => ({
+    ...meal,
+    ref: input.source.guidance ? `${meal.ref}o${optionIndex + 1}` : meal.ref,
+    ...input.source.guidance ? { optionIndex } : {}
+  })));
   if (issues.length) return { issues };
   const rules = contextRestrictions(context, input.policy.restrictions);
   const payload = {
@@ -1268,6 +1857,7 @@ function prepareDietGeneration(input, availability, limits = DIET_GENERATION_LIM
     rules: { hard_filtered: true, excluded_groups: rules.excludedGroupCodes ?? [], excluded_attributes: rules.excludedAttributes ?? [] },
     meals: manifestMeals.map((m) => ({
       meal_ref: m.ref,
+      ...m.optionIndex !== void 0 ? { alternative: m.optionIndex + 1, meal_group: `t${meals.findIndex((t) => t.id === m.id) + 1}` } : {},
       name: input.sanitizeText(meals.find((t) => t.id === m.id).display_name),
       distribution: input.source.plan.meal_distribution.distribution.filter((c) => c.meal_time_id === m.id && c.portions > 0).map((c) => ({ group_code: c.group_code, portions: c.portions })),
       candidates: m.candidates.map(({ ref: ref2, candidate: c }) => ({
@@ -1283,7 +1873,7 @@ function prepareDietGeneration(input, availability, limits = DIET_GENERATION_LIM
     }))
   };
   const size = estimateDietPayload(payload);
-  if (size.bytes > DIET_GENERATION_LIMITS.maxPayloadBytes) return { issues: [{ code: "input_too_large", path: "payload" }] };
+  if (size.bytes > (input.source.guidance ? 48e3 : DIET_GENERATION_LIMITS.maxPayloadBytes)) return { issues: [{ code: "input_too_large", path: "payload" }] };
   return { issues: [], prepared: { payload, size, manifest: { fingerprint: fingerprint(input), limits: { foodsPerMeal: limits.foodsPerMeal, recipesPerMeal: limits.recipesPerMeal }, meals: manifestMeals } } };
 }
 function getDietGenerationEligibility(input, availability) {
@@ -1307,6 +1897,9 @@ function validateDietSnapshotDraft(raw, prepared, plan) {
   const distribution = plan.meal_distribution;
   let draft = createDietMenu(distribution, (p) => `ai-${p}`);
   const seenMeals = /* @__PURE__ */ new Set();
+  const options = [];
+  const signatures = /* @__PURE__ */ new Set();
+  const optionIssues = [];
   for (const [i, meal] of parsed.data.meal_options.entries()) {
     const path = `meal_options[${i}]`, allowed = manifest.meals.find((m) => m.ref === meal.meal_ref);
     if (!allowed || seenMeals.has(meal.meal_ref)) {
@@ -1314,6 +1907,7 @@ function validateDietSnapshotDraft(raw, prepared, plan) {
       continue;
     }
     seenMeals.add(meal.meal_ref);
+    let optionDraft = createDietMenu(distribution, (p) => `ai-${p}`);
     const seenCandidates = /* @__PURE__ */ new Set();
     for (const [j, entry] of meal.entries.entries()) {
       const c = allowed.candidates.find((c2) => c2.ref === entry.candidate_ref)?.candidate;
@@ -1331,22 +1925,23 @@ function validateDietSnapshotDraft(raw, prepared, plan) {
         issues.push({ code: "portion_not_authorized", path: `${path}.entries[${j}]` });
         continue;
       }
-      if (c.type === "food") draft = addFoodToMenu(draft, distribution, allowed.id, c.food, quantity, id);
-      else draft = addRecipeToMenu(draft, distribution, allowed.id, c.recipe, quantity, id);
+      if (c.type === "food") optionDraft = addFoodToMenu(optionDraft, distribution, allowed.id, c.food, quantity, id);
+      else optionDraft = addRecipeToMenu(optionDraft, distribution, allowed.id, c.recipe, quantity, id);
+      if (!allowed.optionIndex) {
+        if (c.type === "food") draft = addFoodToMenu(draft, distribution, allowed.id, c.food, quantity, id);
+        else draft = addRecipeToMenu(draft, distribution, allowed.id, c.recipe, quantity, id);
+      }
     }
+    const entries = activeMenu(optionDraft).meal_menus.find((m) => m.meal_time_id === allowed.id).entries;
+    const signature = allowed.id + JSON.stringify(entries.map((e) => e.source_id).sort());
+    if (signatures.has(signature)) issues.push({ code: "duplicate_alternative", path });
+    signatures.add(signature);
+    options.push({ id: `ai-option-${i}`, meal_time_id: allowed.id, name: `${distribution.meal_times.find((t) => t.id === allowed.id).display_name}${allowed.optionIndex !== void 0 ? ` \xB7 Opci\xF3n ${allowed.optionIndex + 1}` : ""}`, entries: structuredClone(entries), status: "draft", confirmed_at: null, prescription_key: null, revision: 1 });
+    optionIssues.push(...calculateMenuStatus(optionDraft, distribution).rows.filter((r) => r.meal_time_id === allowed.id && r.state !== "complete").map((r) => ({ code: "portion_difference", path: `${allowed.ref}.${r.group_code}` })));
   }
   if (seenMeals.size !== manifest.meals.length) issues.push({ code: "meal_missing", path: "meal_options" });
   if (issues.length) return { status: "invalid", issues };
-  draft.meal_options = activeMenu(draft).meal_menus.map((m, i) => ({
-    id: `ai-option-${i}`,
-    meal_time_id: m.meal_time_id,
-    name: distribution.meal_times.find((t) => t.id === m.meal_time_id).display_name,
-    entries: structuredClone(m.entries),
-    status: "draft",
-    confirmed_at: null,
-    prescription_key: null,
-    revision: 1
-  }));
+  draft.meal_options = options;
   draft.food_preferences = structuredClone(plan.diet_menu?.food_preferences ?? {});
   draft.status = "editing";
   draft.confirmed_at = null;
@@ -1356,8 +1951,8 @@ function validateDietSnapshotDraft(raw, prepared, plan) {
   if (Object.values(totals).some((v) => !Number.isFinite(v) || v < 0)) return { status: "invalid", issues: [{ code: "invalid_nutrition", path: "totals" }] };
   const differences = calculateExchangeDifferences(totals, plan.exchange_prescription.target_snapshot);
   return {
-    status: menuStatus.canConfirm ? "valid" : "needs_adjustment",
-    issues: menuStatus.rows.filter((r) => r.state !== "complete").map((r) => ({ code: "portion_difference", path: `${r.meal_time_id}.${r.group_code}` })),
+    status: menuStatus.canConfirm && !optionIssues.length ? "valid" : "needs_adjustment",
+    issues: optionIssues,
     draft,
     totals,
     differences,
@@ -1395,6 +1990,7 @@ export {
   manualGenerationPolicy,
   parseDietModelOutput,
   prepareDietGeneration,
+  prepareGuidedDiet,
   validateDietGenerationDraft,
   validateDietSnapshotDraft
 };

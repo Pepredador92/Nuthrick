@@ -1,3 +1,4 @@
+import type { DietGuidance } from '../../../../supabase/functions/_shared/diet-guidance';
 import { foodTargetsFor } from '../supplements/targets';
 import { isSupplementList } from '../../../../supabase/functions/_shared/supplements';
 /** Phase 1 specification/prototype only. Not imported by any screen or AI handler.
@@ -51,6 +52,10 @@ export type DietContextSource = {
   /** Already scoped to that consultation/revision by the future server loader. */
   answers: Record<string, { value: unknown; response_area: 'patient_reported' | 'professional_assessment' }>;
   additionalInstructions?: string | null;
+  guidance?: DietGuidance;
+  objectiveSuggestion?: string;
+  datedContext?: Array<{date:string;current:boolean;facts:Array<{key:string;value:unknown}>}>;
+  historyRequiresReview?: boolean;
   /** Service-only RPC: confirmed record and current consultation measurements. */
   confirmedRecall?: unknown;
   anthropometry?: unknown;
@@ -75,6 +80,8 @@ type ContextCatalog = {
 export type DietGenerationContext = {
   schema_version: 1;
   clinical: { pes: Sourced<string>; objective: Sourced<string>;
+    history?: Array<{date:string;current:boolean;facts:Array<{key:string;value:string}>}>;
+    objectiveSuggestion?: string;
     recall24h?: NonNullable<ReturnType<typeof summarizeConfirmedRecall>>;
     anthropometry?: NonNullable<ReturnType<typeof summarizeAnthropometry>> };
   prescription: {
@@ -196,8 +203,9 @@ export function buildDietGenerationContext(source: DietContextSource, sanitizeTe
   const pesApproved = sameContext && c?.pes && date(c.pes.approved_at) && stringValue(c.pes.statement);
   const goalApproved = pesApproved && c?.objective && date(c.objective.approved_at) && stringValue(c.objective.content)
     && c.objective.revision === c.revision && c.objective.pes_approved_at === c.pes?.approved_at && c.objective.pes_statement === c.pes?.statement;
-  if (!pesApproved) blockers.push('pes_approval_required');
-  if (!goalApproved) blockers.push('objective_approval_required');
+  const reviewedGoal = source.guidance?.contextReviewed && source.guidance.objective.trim();
+  if (!pesApproved && !reviewedGoal) blockers.push('pes_approval_required');
+  if (!goalApproved && !reviewedGoal) blockers.push('objective_approval_required');
 
   const distribution = plan.meal_distribution;
   const meals = distribution?.meal_times;
@@ -249,10 +257,12 @@ export function buildDietGenerationContext(source: DietContextSource, sanitizeTe
   const context: DietGenerationContext = {
     schema_version: 1,
     clinical: {
+      ...(source.objectiveSuggestion ? {objectiveSuggestion:clean(source.objectiveSuggestion).slice(0,1200)} : {}),
+      ...(source.datedContext ? {history:source.datedContext.slice(0,5).map(c=>({date:c.date,current:c.current,facts:c.facts.slice(0,24).map(f=>({key:f.key,value:clean(typeof f.value==='string'?f.value:JSON.stringify(f.value)).slice(0,500)}))}))} : {}),
       ...(recall24h ? { recall24h } : {}),
       ...(anthropometry ? { anthropometry } : {}),
       pes: { fact: pesApproved ? { state: 'known', value: clean(c!.pes!.statement) } : unavailable(), origin: { source: 'consultation_snapshots', path: 'clinical_records.pes + pes_statement', kind: 'approved_pes' } },
-      objective: { fact: goalApproved ? { state: 'known', value: clean(c!.objective!.content) } : unavailable(), origin: { source: 'consultation_snapshots', path: 'clinical_records.objective', kind: 'approved_objective' } },
+      objective: reviewedGoal ? {fact:{state:'known',value:clean(reviewedGoal)},origin:{source:'request',path:'guidance.objective',kind:'professional_captured'}} : { fact: goalApproved ? { state: 'known', value: clean(c!.objective!.content) } : unavailable(), origin: { source: 'consultation_snapshots', path: 'clinical_records.objective', kind: 'approved_objective' } },
     },
     prescription: { energy_kcal: fromPlan('target_calories minus macro_distribution.supplements', energy), macros: fromPlan('macro_distribution.macros.input_value + input_mode minus supplements', macros, true) },
     meals: fromPlan('meal_distribution.meal_times', validMeals ? { state: 'known', value: [...meals!].sort((a,b) => a.display_order - b.display_order).map(v => ({ id: v.id, meal_type: v.meal_type, display_name: clean(v.display_name), time: contextFact(v.time, time), display_order: v.display_order })) } : unavailable()),

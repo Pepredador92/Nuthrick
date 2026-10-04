@@ -20,7 +20,7 @@ import { DietMealDistributionStep } from "@/src/components/diet/DietMealDistribu
 import { DietMenuStep } from "@/src/components/diet/DietMenuStep";
 import { DietPlanReviewStep } from "@/src/components/diet/DietPlanReviewStep";
 import { DietLibrary } from "@/src/components/diet/DietLibrary";
-import { DietWorkshopAI } from "@/src/components/diet/DietWorkshopAI";
+import { GuidedDietAI } from "@/src/components/diet/GuidedDietAI";
 import { PlanOrganization } from "@/src/components/diet/PlanOrganization";
 import { applyDietLibrary, createDietLibraryEditingDraft, restoreDietLibrary } from "@/src/services/dietLibrary";
 import { libraryKind, type DietLibraryItem } from "@/src/features/diet-library/model";
@@ -717,6 +717,17 @@ export function DietWorkshopPage() {
           {activeStep === "equivalents" && <DietEquivalentsStep
             plan={plan}
             targets={exchangeTargets}
+            headerActions={<GuidedDietAI key={plan.id} plan={plan} before={flushPendingDraft} onApplied={updated => {
+              pendingExchangePrescription.current = null;
+              pendingMealDistribution.current = null;
+              pendingDietMenu.current = null;
+              planRef.current = updated;
+              setPlan(updated);
+              setLibraryEpoch(value => value + 1);
+              setNotice("Propuesta aplicada como borrador. Revisa las alternativas y sus porciones antes de confirmar el plan.");
+              setActiveStep("menu");
+              requestAnimationFrame(() => { const heading = document.querySelector<HTMLElement>('main h1'); heading?.setAttribute('tabindex','-1'); heading?.focus(); });
+            }}/>}
             onSave={async (prescription) => {
               const current = planRef.current ?? plan;
               const mealSource = pendingMealDistribution.current ?? current.meal_distribution;
@@ -745,13 +756,6 @@ export function DietWorkshopPage() {
           />}
           {activeStep === "menu" && <DietMenuStep
             plan={plan}
-            headerActions={<DietWorkshopAI key={plan.id} plan={plan} before={flushPendingDraft} onApplied={updated => {
-              planRef.current = updated;
-              setPlan(updated);
-              setLibraryEpoch(value => value + 1);
-              setNotice("Propuesta aplicada al borrador. Continúa editando en el Taller.");
-              requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('[data-diet-ai-entry]')?.focus());
-            }}/>}
             onSave={async (menu) => {
               await savePlanPatch({ diet_menu: menu });
               clearPendingIfSaved(pendingDietMenu, menu);

@@ -1,6 +1,5 @@
 import {fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {beforeEach,describe,expect,it,vi} from 'vitest';
-import {readFileSync} from 'node:fs';
 import {DietWorkshopAI} from './DietWorkshopAI';
 import {DietMenuStep} from './DietMenuStep';
 import {uxFixture} from '../../../tests/fixtures/dietCopilotUX';
@@ -21,8 +20,6 @@ describe('Copilot mínimo Fase 4B',()=>{
   it('is a single secondary action in Mesa, preserving classic/manual actions',()=>{
     const f=uxFixture();render(<DietMenuStep plan={f.input.source.plan} catalog={f.input.source.catalog} onSave={vi.fn()} onGoToMeals={vi.fn()} headerActions={<DietWorkshopAI plan={f.input.source.plan} before={async()=>f.input.source.plan} onApplied={vi.fn()} transport={f.transport}/>}/>);
     expect(screen.getAllByRole('button',{name:'Crear propuesta con IA'})).toHaveLength(1);fireEvent.click(screen.getByRole('button',{name:'Vista clásica'}));expect(screen.getByRole('button',{name:'Volver a la mesa'})).toBeInTheDocument();
-    const page=readFileSync('src/screens/DietWorkshopPage.tsx','utf8');expect(page.match(/<DietWorkshopAI/g)).toHaveLength(1);expect(page.indexOf('<DietWorkshopAI')).toBeGreaterThan(page.indexOf('activeStep === "menu" && <DietMenuStep'));
-    expect(readFileSync('src/screens/ConsultationPage.tsx','utf8')).not.toContain('DietWorkshopAI');
   });
   it('eligible enables generation and presents real safe context only on demand',async()=>{
     const f=mount();await open();expect(screen.getByRole('button',{name:'Generar propuesta'})).toBeEnabled();expect(screen.queryByText('PES aprobado sintético')).not.toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Revisar contexto'}));

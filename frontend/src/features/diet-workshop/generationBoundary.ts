@@ -47,7 +47,7 @@ function contextEligibility(input: GenerationInput, availability: GenerationAvai
 
 export type CandidateView = { candidate_ref: string; type: Candidate['type']; name: string; portion_ref: 'base'; unit: Candidate['unit'];
   base_quantity: number; exchanges: Candidate['exchanges']; nutrition: ExchangeDerivedTotals };
-type MealView = { meal_ref: string; name: string; distribution: Candidate['exchanges']; candidates: CandidateView[] };
+type MealView = { meal_ref: string; alternative?: number; meal_group?: string; name: string; distribution: Candidate['exchanges']; candidates: CandidateView[] };
 export type DietGenerationPayload = {
   schema_version: 2;
   portion_policy: { portion_ref: 'base'; allowed_multipliers: number[] };
@@ -63,7 +63,7 @@ export type DietGenerationPayload = {
 export type PreparedDietGeneration = {
   payload: DietGenerationPayload;
   /** Server-private manifest; contains catalog references and original snapshots. */
-  manifest: { fingerprint: string; limits: CandidateLimits; meals: Array<{ ref: string; id: string; candidates: Array<{ ref: string; candidate: Candidate }> }> };
+  manifest: { fingerprint: string; limits: CandidateLimits; meals: Array<{ ref: string; id: string; optionIndex?: number; candidates: Array<{ ref: string; candidate: Candidate }> }> };
   size: ReturnType<typeof estimateDietPayload>;
 };
 const fingerprint = (input: GenerationInput) => JSON.stringify({ source: input.source, policy: input.policy });
@@ -81,12 +81,19 @@ export function prepareDietGeneration(input: GenerationInput, availability: Gene
   const context = eligibility.context, meals = input.source.plan.meal_distribution!.meal_times;
   const issues: GenerationIssue[] = [];
   let nextCandidate = 0;
-  const manifestMeals = [...meals].sort((a,b) => a.display_order - b.display_order).map((meal,i) => {
+  const baseMeals = [...meals].sort((a,b) => a.display_order - b.display_order).map((meal,i) => {
     const pool = selectDietCandidates(context, meal.id, input.source.catalog!, input.source.plan.professional_id, input.policy.restrictions, limits);
     const required = input.source.plan.meal_distribution!.distribution.filter(c => c.meal_time_id === meal.id && c.portions > 0);
     if (required.some(r => !pool.candidates.some(c => c.exchanges.some(e => e.group_code === r.group_code)))) issues.push({ code: 'candidate_coverage_missing', path: `meals[${i}]` });
+    if (input.source.guidance) {
+      const combinations = required.reduce((n,r)=>n*Math.max(1,pool.candidates.filter(c=>c.type==='food'&&c.exchanges.some(e=>e.group_code===r.group_code)).length),1);
+      if (combinations + pool.candidates.filter(c=>c.type==='recipe').length < input.source.guidance.meals[i].options)
+        issues.push({code:'alternatives_unavailable',path:`meals[${i}]`});
+    }
     return { ref: `m${i+1}`, id: meal.id, candidates: pool.candidates.map(candidate => ({ ref: `c${++nextCandidate}`, candidate })) };
   });
+  const manifestMeals = baseMeals.flatMap((meal,i) => Array.from({length:input.source.guidance?.meals[i]?.options ?? 1},(_,optionIndex)=>({...meal,
+    ref:input.source.guidance ? `${meal.ref}o${optionIndex+1}`:meal.ref, ...(input.source.guidance?{optionIndex}:{})})));
   if (issues.length) return { issues };
   const rules = contextRestrictions(context, input.policy.restrictions);
   const payload: DietGenerationPayload = {
@@ -95,13 +102,13 @@ export function prepareDietGeneration(input: GenerationInput, availability: Gene
     preferences: { eating_pattern: context.preferences.eating_pattern, foods: context.preferences.foods },
     routine: context.routine, professional_instructions: context.professional_instructions,
     rules: { hard_filtered: true, excluded_groups: rules.excludedGroupCodes ?? [], excluded_attributes: rules.excludedAttributes ?? [] },
-    meals: manifestMeals.map(m => ({ meal_ref: m.ref, name: input.sanitizeText(meals.find(t => t.id === m.id)!.display_name),
+    meals: manifestMeals.map(m => ({ meal_ref: m.ref, ...(m.optionIndex !== undefined ? {alternative:m.optionIndex+1,meal_group:`t${meals.findIndex(t=>t.id===m.id)+1}`} : {}), name: input.sanitizeText(meals.find(t => t.id === m.id)!.display_name),
       distribution: input.source.plan.meal_distribution!.distribution.filter(c => c.meal_time_id === m.id && c.portions > 0).map(c => ({ group_code: c.group_code, portions: c.portions })),
       candidates: m.candidates.map(({ ref, candidate: c }) => ({ candidate_ref: ref, type: c.type, name: input.sanitizeText(c.name), portion_ref: 'base', unit: c.unit,
         base_quantity: c.baseQuantity, exchanges: c.exchanges.map(e => ({ ...e })), nutrition: { ...c.nutrition } })) })),
   };
   const size = estimateDietPayload(payload);
-  if (size.bytes > DIET_GENERATION_LIMITS.maxPayloadBytes) return { issues: [{ code: 'input_too_large', path: 'payload' }] };
+  if (size.bytes > (input.source.guidance ? 48000 : DIET_GENERATION_LIMITS.maxPayloadBytes)) return { issues: [{ code: 'input_too_large', path: 'payload' }] };
   return { issues: [], prepared: { payload, size, manifest: { fingerprint: fingerprint(input), limits: { foodsPerMeal: limits.foodsPerMeal, recipesPerMeal: limits.recipesPerMeal }, meals: manifestMeals } } };
 }
 /** Single UI eligibility entry point, including pool coverage and payload caps. */
@@ -134,10 +141,14 @@ export function validateDietSnapshotDraft(raw: unknown, prepared: PreparedDietGe
   const distribution = plan.meal_distribution!;
   let draft = createDietMenu(distribution, p => `ai-${p}`);
   const seenMeals = new Set<string>();
+  const options: NonNullable<DietMenu['meal_options']> = [];
+  const signatures = new Set<string>();
+  const optionIssues: GenerationIssue[] = [];
   for (const [i, meal] of parsed.data.meal_options.entries()) {
     const path = `meal_options[${i}]`, allowed = manifest.meals.find(m => m.ref === meal.meal_ref);
     if (!allowed || seenMeals.has(meal.meal_ref)) { issues.push({ code: 'meal_not_authorized', path }); continue; }
     seenMeals.add(meal.meal_ref);
+    let optionDraft = createDietMenu(distribution, p=>`ai-${p}`);
     const seenCandidates = new Set<string>();
     for (const [j, entry] of meal.entries.entries()) {
       const c = allowed.candidates.find(c => c.ref === entry.candidate_ref)?.candidate;
@@ -146,23 +157,31 @@ export function validateDietSnapshotDraft(raw: unknown, prepared: PreparedDietGe
       if (!c.multipliers.includes(entry.multiplier)) { issues.push({ code: 'portion_not_authorized', path: `${path}.entries[${j}]` }); continue; }
       const id = `ai-entry-${i}-${j}`, quantity = c.baseQuantity * entry.multiplier;
       if (!Number.isFinite(quantity) || quantity <= 0) { issues.push({ code: 'portion_not_authorized', path: `${path}.entries[${j}]` }); continue; }
-      if (c.type === 'food') draft = addFoodToMenu(draft, distribution, allowed.id, c.food!, quantity, id);
-      else draft = addRecipeToMenu(draft, distribution, allowed.id, c.recipe!, quantity, id);
+      if (c.type === 'food') optionDraft = addFoodToMenu(optionDraft, distribution, allowed.id, c.food!, quantity, id);
+      else optionDraft = addRecipeToMenu(optionDraft, distribution, allowed.id, c.recipe!, quantity, id);
+      if (!allowed.optionIndex) {
+        if (c.type === 'food') draft = addFoodToMenu(draft,distribution,allowed.id,c.food!,quantity,id);
+        else draft = addRecipeToMenu(draft,distribution,allowed.id,c.recipe!,quantity,id);
+      }
     }
+    const entries = activeMenu(optionDraft).meal_menus.find(m=>m.meal_time_id===allowed.id)!.entries;
+    const signature = allowed.id+JSON.stringify(entries.map(e=>e.source_id).sort());
+    if (signatures.has(signature)) issues.push({code:'duplicate_alternative',path});
+    signatures.add(signature);
+    options.push({id:`ai-option-${i}`,meal_time_id:allowed.id,name:`${distribution.meal_times.find(t=>t.id===allowed.id)!.display_name}${allowed.optionIndex!==undefined?` · Opción ${allowed.optionIndex+1}`:''}`,entries:structuredClone(entries),status:'draft',confirmed_at:null,prescription_key:null,revision:1});
+    optionIssues.push(...calculateMenuStatus(optionDraft,distribution).rows.filter(r=>r.meal_time_id===allowed.id&&r.state!=='complete').map(r=>({code:'portion_difference',path:`${allowed.ref}.${r.group_code}`})));
   }
   if (seenMeals.size !== manifest.meals.length) issues.push({ code: 'meal_missing', path: 'meal_options' });
   if (issues.length) return { status: 'invalid', issues };
-  draft.meal_options = activeMenu(draft).meal_menus.map((m,i) => ({ id: `ai-option-${i}`, meal_time_id: m.meal_time_id,
-    name: distribution.meal_times.find(t => t.id === m.meal_time_id)!.display_name, entries: structuredClone(m.entries),
-    status: 'draft', confirmed_at: null, prescription_key: null, revision: 1 }));
+  draft.meal_options = options;
   draft.food_preferences = structuredClone(plan.diet_menu?.food_preferences ?? {});
   draft.status = 'editing'; draft.confirmed_at = null; draft.week_plan = null;
   const menuStatus = calculateMenuStatus(draft, distribution);
   const totals = calculateExchangeTotals(draft.derived_exchange_usage);
   if (Object.values(totals).some(v => !Number.isFinite(v) || v < 0)) return { status: 'invalid', issues: [{ code: 'invalid_nutrition', path: 'totals' }] };
   const differences = calculateExchangeDifferences(totals, plan.exchange_prescription!.target_snapshot);
-  return { status: menuStatus.canConfirm ? 'valid' : 'needs_adjustment',
-    issues: menuStatus.rows.filter(r => r.state !== 'complete').map(r => ({ code: 'portion_difference', path: `${r.meal_time_id}.${r.group_code}` })),
+  return { status: menuStatus.canConfirm && !optionIssues.length ? 'valid' : 'needs_adjustment',
+    issues: optionIssues,
     draft, totals, differences,
     // No clinical kcal/macro acceptance tolerance exists. Any difference is
     // disclosed and requires acknowledgment, not labeled clinically adequate.
@@ -197,3 +216,5 @@ export class FakeDietGenerator implements DietGenerator {
 export { dietGenerationOutputSchema, parseDietModelOutput } from './generationSchema';
 
 export { calculateRecall } from "../consultations/recallNutrition";
+
+export { prepareGuidedDiet } from "./guidedPreparation";
