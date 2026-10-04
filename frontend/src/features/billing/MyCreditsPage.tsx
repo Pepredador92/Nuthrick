@@ -10,6 +10,7 @@ import {
 } from "./credits-api";
 import "../admin/admin.css";
 import "./billing.css";
+import "./billingWorkspace.css";
 export function MyCreditsPage() {
   const [data, setData] = useState<MyCredits | null>(null),
     [error, setError] = useState(""),
@@ -84,8 +85,8 @@ export function MyCreditsPage() {
   };
   const canBuy = data?.enabled && data.eligible && (data.mode === "live" || data.test_eligible);
   return (
-    <div>
-      <header className="admin-heading">
+    <div className="credits-workspace billing-workspace">
+      <header className="admin-heading billing-workspace-hero">
         <div>
           <p className="admin-eyebrow">CUENTA</p>
           <h1>Créditos IA</h1>
@@ -119,7 +120,8 @@ export function MyCreditsPage() {
       {!data && !error && <p>Cargando tus créditos…</p>}
       {data && (
         <>
-          <section className="admin-card billing-section">
+          <section className="admin-card billing-section credits-balance-card">
+            <p className="billing-step">01 · Saldo disponible</p>
             <p className="admin-note">Disponibles</p>
             <p className="credits-total">
               {n(data.balances.available)} <span>créditos</span>
@@ -189,7 +191,8 @@ export function MyCreditsPage() {
             </p>
           </section>
           {data.pending && (
-            <section className="admin-card billing-section">
+            <section className="admin-card billing-section credits-pending-card">
+              <p className="billing-step">02 · Termina tu recarga</p>
               <h2>Recarga pendiente</h2>
               <p>
                 Puedes continuar el pago o cancelar esta sesión antes de elegir
@@ -216,7 +219,8 @@ export function MyCreditsPage() {
             </section>
           )}
           {showPackages && canBuy && !data.pending && (
-            <section className="admin-card billing-section">
+            <section className="admin-card billing-section credits-packages-card">
+              <p className="billing-step">02 · Elige un paquete</p>
               <h2>Elige tu recarga{data.mode === "test" ? " TEST" : ""}</h2>
               <div className="credits-packages">
                 {data.packages.map((p) => (
@@ -300,7 +304,8 @@ export function MyCreditsPage() {
               )}
             </section>
           )}
-          <section className="admin-card billing-section">
+          <section id="credits-history" className="admin-card billing-section credits-history-card">
+            <p className="billing-step">03 · Consulta tus movimientos</p>
             <h2>Recargas</h2>
             {!data.purchases.length
               ? <p className="admin-note">Aún no tienes recargas.</p>
@@ -349,7 +354,7 @@ export function MyCreditsPage() {
                 </div>
               )}
           </section>
-          <section className="admin-card billing-section">
+          <section className="admin-card billing-section credits-other-card">
             <h2>Otros movimientos</h2>
             {data.history.filter((h) => !h.credit_purchase_id).length === 0
               ? <p className="admin-note">Sin otros movimientos.</p>
