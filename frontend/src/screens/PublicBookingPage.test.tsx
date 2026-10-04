@@ -53,7 +53,8 @@ describe('public booking',()=>{
   it('opens schedules for the first modality with availability without another click',async()=>{
     api.mockResolvedValue({...availability,locations:[{id:'clinic',name:'Consultorio de prueba',address:'Dirección sintética'}],options:[...availability.options,{modality:'in_person',location_id:'clinic'}],slots:[{...availability.slots[0],modality:'in_person',locationId:'clinic'}]});
     mount(); await screen.findByRole('button',{name:'10:00'});
-    expect(screen.getByLabelText('Consultorio de prueba')).toBeChecked();
+    expect(screen.getByRole('radio',{name:'Presencial · Consultorio de prueba'})).toBeChecked();
+    expect(screen.getByText('Presencial')).toBeInTheDocument();
     expect(screen.getByRole('button',{name:'Reservar'})).toBeDisabled();
   });
   it('keeps the embedded panel compact and preserves contact when changing the day',async()=>{
@@ -89,7 +90,7 @@ describe('public booking',()=>{
     expect(screen.getByRole('button',{name:'10:00'})).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('En línea'));
     fireEvent.click(screen.getByRole('button',{name:'10:00'}));
-    fireEvent.click(screen.getByLabelText('Consultorio de prueba'));
+    fireEvent.click(screen.getByRole('radio',{name:'Presencial · Consultorio de prueba'}));
     expect(screen.queryByRole('button',{name:'10:00'})).not.toBeInTheDocument();
     expect(screen.getByRole('button',{name:'12:00'})).toHaveAttribute('aria-pressed','false');
     expect(screen.getByRole('button',{name:'Reservar'})).toBeDisabled();

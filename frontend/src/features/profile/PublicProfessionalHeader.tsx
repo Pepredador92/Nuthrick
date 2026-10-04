@@ -1,6 +1,7 @@
 import { BadgeCheck, Globe, Mail, MapPin, MessageCircle, Music2 } from 'lucide-react';
 import type { ComponentType, SVGProps } from 'react';
 import type { PublicProfileContent } from '@/src/types/domain';
+import './PublicProfessionalHeader.css';
 
 type HeaderProfile = Pick<PublicProfileContent, 'name' | 'avatarUrl' | 'professionalTitle' | 'licenseNumber' | 'country' | 'careModalities' | 'contacts' | 'links'>;
 type IconProps = Pick<SVGProps<SVGSVGElement>, 'className' | 'aria-hidden'> & { size?: number };
@@ -38,25 +39,24 @@ function contactLinks(profile: HeaderProfile): ContactLink[] {
 
 export function PublicProfessionalHeader({ profile }: { profile: HeaderProfile }) {
   const links = contactLinks(profile);
-  return <section aria-label="Presentación profesional" className="min-w-0 overflow-hidden rounded-[32px] border border-[#dce5de] bg-white shadow-[0_10px_35px_-24px_rgba(23,61,54,0.35)]">
-    <div className="relative isolate overflow-hidden bg-[linear-gradient(135deg,#214e43_0%,#173d36_65%,#12332e_100%)] px-5 py-8 text-center text-white sm:px-8 sm:py-9">
-      <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-32 -z-10 size-80 rounded-full border-[48px] border-white/[0.035]"/>
-      <div aria-hidden="true" className="pointer-events-none absolute -bottom-36 -left-24 -z-10 size-72 rounded-full border-[40px] border-[#efbd6b]/[0.035]"/>
-      <p className="text-[10px] font-bold uppercase tracking-[.22em] text-[#efc583]">Perfil profesional</p>
-      <div className="mx-auto mt-5 grid size-40 shrink-0 place-items-center overflow-hidden rounded-full bg-[#e4b272] text-3xl font-semibold text-[#17312c] shadow-lg ring-4 ring-white/15 ring-offset-4 ring-offset-[#21483e] sm:size-48">
-        {profile.avatarUrl ? <img src={profile.avatarUrl} alt={`Foto de ${profile.name}`} className="size-full object-cover"/> : profile.name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('')}
+  return <section aria-label="Presentación profesional" className="public-professional-card">
+    <div className="public-professional-identity">
+      <div aria-hidden="true" className="public-professional-orbit"/>
+      <p className="public-professional-eyebrow">Perfil profesional</p>
+      <div className="public-professional-portrait">
+        {profile.avatarUrl ? <img src={profile.avatarUrl} alt={`Foto de ${profile.name}`} className="size-full object-cover"/> : <span className="public-professional-initials">{profile.name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('')}</span>}
       </div>
-      <h1 className="mx-auto mt-5 max-w-lg break-words text-3xl font-semibold leading-tight tracking-[-.035em] sm:text-4xl">{profile.name}</h1>
-      {profile.professionalTitle && <p className="mx-auto mt-2 max-w-lg break-words text-base text-white/80">{profile.professionalTitle}</p>}
-      {profile.licenseNumber && <p className="mt-3 flex min-w-0 items-center justify-center gap-1.5 text-xs text-white/65"><BadgeCheck size={14} className="shrink-0" aria-hidden="true"/><span className="min-w-0 break-words">Cédula profesional: {profile.licenseNumber}</span></p>}
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-        {profile.careModalities.map(item => <span key={item} className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-1.5 text-xs text-white/85">{modalities[item]}</span>)}
-        {profile.country && <span className="inline-flex max-w-full items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/[0.08] px-3 py-1.5 text-xs text-white/85"><MapPin size={12} className="shrink-0" aria-hidden="true"/><span className="min-w-0 break-words">{profile.country}</span></span>}
+      <h1>{profile.name}</h1>
+      {profile.professionalTitle && <p className="public-professional-title">{profile.professionalTitle}</p>}
+      {profile.licenseNumber && <p className="public-professional-license"><BadgeCheck size={14} aria-hidden="true"/><span>Cédula profesional: {profile.licenseNumber}</span></p>}
+      <div className="public-professional-badges">
+        {profile.careModalities.map(item => <span key={item}>{modalities[item]}</span>)}
+        {profile.country && <span><MapPin size={12} aria-hidden="true"/>{profile.country}</span>}
       </div>
     </div>
-    {links.length > 0 && <nav aria-label="Contacto y redes sociales" className="flex flex-wrap items-center justify-center gap-2.5 px-4 py-5 sm:px-6">
+    {links.length > 0 && <nav aria-label="Contacto y redes sociales" className="public-professional-contacts">
       {links.map(({ href, label, icon: Icon, whatsapp }) => <a key={href} href={href} target={href.startsWith('mailto:') ? undefined : '_blank'} rel={href.startsWith('mailto:') ? undefined : 'noopener noreferrer'}
-        className={`inline-flex min-h-11 min-w-0 max-w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-center text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#356454] ${whatsapp ? 'bg-[#16834c] text-white shadow-sm hover:bg-[#116b3d]' : 'border border-[#dce5de] bg-[#f8faf7] text-[#356454] hover:border-[#9cb9aa] hover:bg-[#edf4ef]'}`}>
+        className={`public-professional-contact${whatsapp ? ' is-whatsapp' : ''}`}>
         <Icon size={18} className="shrink-0" aria-hidden="true"/><span className="min-w-0 break-words [overflow-wrap:anywhere]">{label}</span>
       </a>)}
     </nav>}

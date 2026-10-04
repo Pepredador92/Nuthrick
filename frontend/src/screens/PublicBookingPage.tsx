@@ -125,7 +125,7 @@ export function PublicBookingPanel({ slug, compact = false, fee, initialSelectio
     "mt-2 w-full min-w-0 rounded-xl border border-[#dce4df] bg-white px-4 py-3 text-base";
 
   return (
-    <div className={compact ? "min-w-0 text-[#173d36] [overflow-wrap:anywhere]" : "min-h-screen bg-[#f6f7f3] p-4 text-[#173d36] [overflow-wrap:anywhere] sm:p-8"}>
+    <div className={compact ? "public-booking-panel min-w-0 [overflow-wrap:anywhere]" : "min-h-screen bg-[#f6f7f3] p-4 text-[#173d36] [overflow-wrap:anywhere] sm:p-8"}>
       <div className={compact ? 'mx-auto max-w-4xl' : 'mx-auto max-w-2xl'}>
         {!compact && <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <Logo />
@@ -171,7 +171,7 @@ export function PublicBookingPanel({ slug, compact = false, fee, initialSelectio
             <Heading className={compact ? "text-xl font-semibold tracking-tight" : "max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl"}>
               {data ? `Agenda una cita con ${data.name}` : "Agenda una cita"}
             </Heading>
-            {fee && <div className="mt-4 rounded-xl bg-[#edf4ef] px-4 py-3"><p className="text-xs text-[#64786e]">Costo aproximado de la consulta</p><p className="mt-1 text-xl font-semibold tabular-nums text-[#173d36]">{fee}</p></div>}
+            {fee && <div className="booking-fee mt-4 rounded-xl bg-[#edf4ef] px-4 py-3"><p className="text-xs text-[#64786e]">Costo aproximado de la consulta</p><p className="mt-1 text-xl font-semibold tabular-nums text-[#173d36]">{fee}</p></div>}
             {data && (
               <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[#64786e]">
                 <span className="inline-flex items-center gap-2"><Clock size={16} />{data.duration} minutos</span>
@@ -213,12 +213,14 @@ export function PublicBookingPanel({ slug, compact = false, fee, initialSelectio
                           {options.map(o => {
                             const value = `${o.modality}|${o.location_id || ''}`;
                             const Icon = o.modality === 'online' ? Video : Building2;
+                            const locationName = data.locations.find(l => l.id === o.location_id)?.name;
                             return <label key={value} className="relative min-w-0 cursor-pointer">
-                              <input type="radio" name={`booking-option-${slug}`} className="peer sr-only" checked={option === value}
+                              <input type="radio" name={`booking-option-${slug}`} aria-label={o.modality === 'online' ? 'En línea' : `Presencial${locationName ? ` · ${locationName}` : ''}`} className="peer sr-only" checked={option === value}
                                 onChange={() => { setOption(value); setSelected(null); }}/>
-                              <span className="flex min-h-20 min-w-0 flex-col gap-2 rounded-2xl border border-[#dce4df] p-3 text-sm peer-checked:border-[#356454] peer-checked:bg-[#eaf3ed] peer-checked:ring-1 peer-checked:ring-[#356454] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">
+                              <span className="booking-modality flex min-h-20 min-w-0 flex-col gap-2 rounded-2xl border border-[#dce4df] p-3 text-sm peer-checked:border-[#356454] peer-checked:bg-[#eaf3ed] peer-checked:ring-1 peer-checked:ring-[#356454] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">
                                 <Icon size={18} aria-hidden="true"/>
-                                <span className="break-words font-medium">{o.modality === 'online' ? 'En línea' : data.locations.find(l => l.id === o.location_id)?.name || 'Presencial'}</span>
+                                <span className="break-words font-medium">{o.modality === 'online' ? 'En línea' : 'Presencial'}</span>
+                                {o.modality !== 'online' && locationName && <span className="booking-modality-location text-xs">{locationName}</span>}
                               </span>
                             </label>;
                           })}
