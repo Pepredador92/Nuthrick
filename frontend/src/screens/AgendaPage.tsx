@@ -238,8 +238,8 @@ export function AgendaPage() {
         <section className="agenda-card-grid mt-6 grid items-start gap-4 md:grid-cols-2">
           <div className="agenda-section-intro md:col-span-2">
             <p className="nuth-eyebrow">01 · Citas programadas</p>
-            <h2>Próximas citas <span>{activeEntries.length}</span></h2>
-            <p>Revisa cada cita, su confirmación y el estado de calendario.</p>
+            <h2>Citas y bloques <span>{activeEntries.length}</span></h2>
+            <p>Revisa cada horario, sus confirmaciones y el estado de calendario.</p>
           </div>
           {!activeEntries.length && (
             <div className="rounded-3xl border border-[#dce4df] bg-white p-8">
