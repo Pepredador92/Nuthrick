@@ -12,12 +12,14 @@ select professional_id,id,patient_id,1,'{}' from consultations;
 insert into consultation_answers(professional_id,consultation_id,patient_id,revision,question_key,value)
 select professional_id,id,patient_id,1,'treatment_objective',to_jsonb('Goal '||sequence_number) from consultations;
 insert into nutrition_plans(id,professional_id,patient_id,consultation_id,status,target_calories,macro_distribution,updated_at)
-select '30000000-0000-0000-0000-000000000001',professional_id,patient_id,id,'draft',2000,'{"supplements":[{"preserved":true}]}',now() from consultations where sequence_number=5;
+select '30000000-0000-0000-0000-000000000001',professional_id,patient_id,id,'draft',2000,'{"supplements":[{"id":"synthetic","quantity":1,"unit":"serving","instructions":"Fixture","product":{"id":"synthetic","name":"Synthetic supplement","serving_label":"1 serving","brand":"","presentation":"","source_url":null,"label_url":null,"verified_at":null,"energy_kcal":100,"carbohydrate_g":0,"protein_g":25,"fat_g":0,"serving_grams":null,"scoops_per_serving":null}}]}',now() from consultations where sequence_number=5;
 do $$
 declare src jsonb; oldstamp text; prior jsonb; owner uuid:='00000000-0000-0000-0000-000000000001'; pid uuid:='30000000-0000-0000-0000-000000000001'; gid uuid:=gen_random_uuid();
 begin
  perform pg_temp.assert(not has_function_privilege('authenticated','public.ai_diet_source(uuid,uuid,integer)','execute'),'source exposed');
  perform pg_temp.assert(not has_function_privilege('anon','public.ai_diet_draft(uuid,text,jsonb)','execute'),'apply exposed');
+ perform pg_temp.assert(not has_function_privilege('anon','private.valid_diet_supplements(jsonb)','execute'),'validator exposed to anonymous');
+ perform pg_temp.assert(has_function_privilege('service_role','private.valid_diet_supplements(jsonb)','execute'),'AI server cannot validate supplements');
  perform pg_temp.reject(format('select ai_diet_source(%L,%L,1)','00000000-0000-0000-0000-000000000002',pid),'context_unavailable');
  src:=ai_diet_source(owner,pid,1)->'source';
  perform pg_temp.assert(jsonb_array_length(src->'datedContext')=4,'wrong history selection');
@@ -30,6 +32,9 @@ begin
  insert into private.ai_accounts(professional_id) values(owner);
  insert into private.ai_generations(id,professional_id,patient_id,consultation_id,idempotency_key,request_hash,feature,provider,model,prompt_version,config_snapshot,status,reserved_included,reserved_purchased,estimated_cost)
  values(gid,owner,'10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000005',gen_random_uuid(),repeat('a',64),'diet_draft','openai','mock','diet_draft@3','{}','reserved',0,0,0);
+ -- Match the Edge database role: testing as the schema owner hides missing
+ -- EXECUTE permissions on CHECK constraint functions.
+ set local role service_role;
  perform ai_diet_draft(owner,'bind',jsonb_build_object('generationId',gid,'planId',pid,'revision',1,'stamp',src->>'stamp','snapshot','{"guided":true,"hasManualMenu":true,"plan":{"exchange_prescription":{"fixture":1},"meal_distribution":{"fixture":2}}}'::jsonb));
  update private.ai_generations set status='running' where id=gid;
  perform ai_diet_draft(owner,'result',jsonb_build_object('generationId',gid,'result','{"validation":{"status":"needs_adjustment","draft":{"fixture":3},"requiresTargetReview":true}}'::jsonb));
@@ -41,6 +46,11 @@ begin
  perform ai_diet_draft(owner,'apply',jsonb_build_object('generationId',gid,'replaceExisting',true,'acceptDifferences',true));
  perform pg_temp.assert((select diet_menu->>'fixture'='3' and meal_distribution->>'fixture'='2' and exchange_prescription->>'fixture'='1' and target_calories=2000 and macro_distribution=prior->'macro_distribution' and status='draft' from nutrition_plans where id=pid),'non-atomic apply or supplement overwrite');
  perform pg_temp.assert((ai_diet_draft(owner,'apply',jsonb_build_object('generationId',gid))->>'replay')::boolean,'apply not idempotent');
+ perform pg_temp.assert(not private.valid_diet_supplements('[{"invalid":true}]'),'invalid supplement accepted');
+ update nutrition_plans set macro_distribution=macro_distribution-'supplements' where id=pid;
+ update nutrition_plans set target_calories=2100 where id=pid;
+ perform pg_temp.assert((select target_calories=2100 from nutrition_plans where id=pid),'server cannot save plans without supplements');
+ reset role;
  raise notice 'PASS guided context, isolation, history freshness, atomic apply, differences, replacement, supplements and replay';
 end $$;
 rollback;

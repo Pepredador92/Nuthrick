@@ -44,14 +44,14 @@ export function GuidedDietAI({plan,before,onApplied,transport=workshopTransport}
     else setStep(s=>s+1);
   }
   async function apply(p:WorkshopProposal,accept=false){const updated=await transport.decide(p,true,replace,accept);if(!updated)throw new AIRequestError('service_unavailable');remember(null);setProposal(null);setOpen(false);onApplied(updated);}
-  async function generate(){if(lock.current||pending||!checked?.eligible||(hasContent&&!replace))return;lock.current=true;setBusy('Generando el menú y sus alternativas…');setError('');let key:string|null=null;
+  async function generate(){if(lock.current||pending||!checked?.eligible||(hasContent&&!replace))return;lock.current=true;setBusy('Generando el menú y sus alternativas…');setError('');let key:string|null=null,generated=false;
     try{const saved=await before(),fresh=await transport.preflight(saved,instructions,guidance);if(fresh.contextToken!==checked.contextToken){setChecked(fresh);throw new AIRequestError('context_changed');}
       key=crypto.randomUUID();remember(key);const p=await transport.generate(saved,instructions,key,guidance);
       if(p.validation.status==='invalid'){remember(null);throw new AIRequestError(p.validation.issues[0]?.code??'invalid_output');}
-      setProposal(p);
+      generated=true;setProposal(p);
       if(p.validation.status==='needs_adjustment'||p.validation.requiresTargetReview){setBusy('');return;}
       setBusy('Guardando el borrador…');await apply(p);
-    }catch(e){if(!key||e instanceof AIRequestError&&!['provider_outcome_unknown','service_unavailable'].includes(e.code))remember(null);fail(e);}finally{lock.current=false;setBusy('');}}
+    }catch(e){if(!generated&&(!key||e instanceof AIRequestError&&!['provider_outcome_unknown','service_unavailable'].includes(e.code)))remember(null);fail(e);}finally{lock.current=false;setBusy('');}}
   async function accept(){if(lock.current||!proposal)return;lock.current=true;setBusy('Guardando el borrador…');setError('');try{await apply(proposal,true);}catch(e){fail(e);}finally{lock.current=false;setBusy('');}}
   async function recover(){if(lock.current||!pending)return;lock.current=true;setBusy('Consultando la solicitud existente…');setError('');try{const r=await transport.status(pending);
     if(r?.status==='succeeded'&&transport.recover){setProposal(await transport.recover(r.generationId));setStep(3);}

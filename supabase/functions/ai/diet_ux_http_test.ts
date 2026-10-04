@@ -1,5 +1,6 @@
 import {strict as assert} from 'node:assert';
 import fixtures from './fixtures/diet-phase3.json' with {type:'json'};
+import {prepareDietSnapshot} from './diet.ts';
 
 Deno.test('preflight HTTP is authenticated, read-only, scoped and never calls a provider',async()=>{
   const nativeFetch=fetch,nativeServe=Deno.serve;
@@ -8,12 +9,21 @@ Deno.test('preflight HTTP is authenticated, read-only, scoped and never calls a 
   for(const [k,v]of Object.entries(env))Deno.env.set(k,v);
   let server:Deno.HttpServer|undefined,port=0,mode='ok';
   const owner=fixtures.A.source.plan.professional_id,calls:string[]=[];
+  const savedSnapshot=await prepareDietSnapshot(fixtures.A);
   const json=(v:unknown,status=200)=>new Response(JSON.stringify(v),{status,headers:{'content-type':'application/json'}});
   globalThis.fetch=async(input,init)=>{
     const url=String(input);if(url.startsWith('http://127.0.0.1:'))return nativeFetch(input,init);
     calls.push(url);
     if(url.endsWith('/auth/v1/user'))return new Headers(init?.headers).get('authorization')==='Bearer valid'?json({id:owner,is_anonymous:false}):json({message:'unauthorized'},401);
     const body=JSON.parse(String(init?.body));
+    if(url.endsWith('ai_diet_draft')){
+      assert.equal(body.p_owner,owner);
+      if(body.p_action==='get')return json({snapshot:savedSnapshot,status:'succeeded',result:{validation:{status:'valid',issues:[]}}});
+      assert.equal(body.p_action,'apply');
+      if(mode==='apply-permission')return json({code:'42501',message:'permission denied for function valid_diet_supplements'},403);
+      if(mode==='apply-stale')return json({code:'P0001',message:'context_changed'},400);
+      return json({ok:true,plan:fixtures.A.source.plan});
+    }
     if(url.endsWith('ai_diet_source')){assert.equal(body.p_owner,owner);const source=structuredClone(fixtures.A);if(mode==='guided'){source.source.plan.updated_at='2026-10-03T12:00:00Z';source.source.plan.exchange_prescription=null as never;source.source.plan.meal_distribution=null as never;source.source.consultation.pes=null as never;source.source.consultation.objective=null as never;}return mode==='foreign'?json({message:'context_unavailable'},403):json(source);}
     if(url.endsWith('ai_server')){assert.equal(body.p_action,'config');assert.equal(body.p_data.feature,'diet_draft');return json({enabled:mode!=='disabled'});}
     if(url.endsWith('ai_balance')){assert.equal(new Headers(init?.headers).get('authorization'),'Bearer valid');return json({available_credits:mode==='budget'?0:100});}
@@ -33,6 +43,11 @@ Deno.test('preflight HTTP is authenticated, read-only, scoped and never calls a 
     mode='budget';assert.ok((await send(request)).data.reasons.some((r:{code:string})=>r.code==='insufficient_credits'));
     mode='disabled';assert.ok((await send(request)).data.reasons.some((r:{code:string})=>r.code==='feature_disabled'));
     mode='foreign';assert.equal((await send(request)).status,409);
+    const apply={action:'apply_diet_draft',generationId:crypto.randomUUID(),acceptDifferences:true};
+    mode='apply-permission';const failed=await send(apply);assert.equal(failed.status,503);assert.deepEqual(failed.data,{error:'draft_save_failed'});
+    mode='apply-stale';const stale=await send(apply);assert.equal(stale.status,409);assert.deepEqual(stale.data,{error:'context_changed'});
+    const beforeRetry=calls.length;mode='apply-ok';const retry=await send(apply);assert.equal(retry.status,200);assert.equal(retry.data.ok,true);
+    assert.deepEqual(calls.slice(beforeRetry).map(u=>u.split('/').pop()),['user','ai_diet_draft','ai_diet_draft'],'retry only retrieves/applies the saved proposal, with no reservation or generation');
     assert.ok(calls.every(url=>url.startsWith('http://mock.invalid/')));
   } finally {await server?.shutdown();globalThis.fetch=nativeFetch;Deno.serve=nativeServe;for(const [k,v]of Object.entries(previous))if(v===undefined)Deno.env.delete(k);else Deno.env.set(k,v);}
 });

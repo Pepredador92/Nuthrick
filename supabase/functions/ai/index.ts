@@ -64,7 +64,7 @@ Deno.serve(async request => {
     }
     async function dietRpc(action: string, payload: Record<string,unknown>) {
       const {data,error}=await db.rpc('ai_diet_draft',{p_owner:owner,p_action:action,p_data:payload});
-      if(error) throw new AIError(['context_changed','replacement_confirmation_required','difference_confirmation_required','invalid_request','invalid_output'].includes(error.message)?error.message:'context_unavailable');
+      if(error) throw new AIError(['context_unavailable','context_changed','replacement_confirmation_required','difference_confirmation_required','invalid_request','invalid_output'].includes(error.message)?error.message:action==='apply'?'draft_save_failed':'service_unavailable');
       return data;
     }
     if (decision.action==='diet_result') {
@@ -179,6 +179,6 @@ Deno.serve(async request => {
   } catch (error) {
     // Never log/request-echo raw exceptions, provider body, key, prompt or clinical output.
     const code = error instanceof AIError ? error.code : 'service_unavailable';
-    return respond({ error: code }, code === 'unauthorized' ? 401 : code === 'invalid_request' ? 400 : code === 'insufficient_credits' ? 402 : 409);
+    return respond({ error: code }, code === 'unauthorized' ? 401 : code === 'invalid_request' ? 400 : code === 'insufficient_credits' ? 402 : ['draft_save_failed','service_unavailable'].includes(code) ? 503 : 409);
   }
 });

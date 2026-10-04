@@ -23,6 +23,7 @@ const messages:Record<string,string> = {
   provider_credit_exhausted:'El servicio de IA no tiene presupuesto disponible actualmente.',
   provider_outcome_unknown:'Hay una solicitud pendiente. Consulta su estado antes de generar otra.',
   service_unavailable:'No pudimos verificar el resultado. Tu borrador permanece sin cambios.',
+  draft_save_failed:'La propuesta está conservada, pero no pudimos guardar el borrador. Vuelve a pulsar «Guardar borrador y revisar en Menú». No necesitas generar otra propuesta ni consumir más créditos.',
   context_changed:'El contexto del plan cambió desde que se generó esta propuesta. Revisa los datos antes de continuar.',
   candidate_not_authorized:'La propuesta contiene una referencia no permitida por el catálogo o las restricciones.',
   portion_not_authorized:'La propuesta contiene una cantidad o unidad no compatible.',
