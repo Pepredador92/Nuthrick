@@ -20,6 +20,7 @@ import {
 } from "./api";
 import "../admin/admin.css";
 import "./billing.css";
+import "./billingWorkspace.css";
 import { RetentionOffer, RetentionStatus, type RetentionOfferData } from "./RetentionOffer";
 export function MyPlanPage() {
   const [data, setData] = useState<MyBilling | null>(null);
@@ -104,8 +105,8 @@ export function MyPlanPage() {
       : [];
   });
   return (
-    <div>
-      <header className="admin-heading">
+    <div className="plan-workspace billing-workspace">
+      <header className="admin-heading billing-workspace-hero">
         <div>
           <p className="admin-eyebrow">CUENTA</p>
           <h1>Mi plan</h1>
@@ -136,7 +137,8 @@ export function MyPlanPage() {
       {!data && !error && <p className="mt-6">Cargando tu plan…</p>}
       {data && (
         <>
-          <section className="admin-card billing-section">
+          <section className="admin-card billing-section plan-summary-card">
+            <p className="billing-step">01 · Tu suscripción</p>
             <h2>
               {s?.plan_name ?? data.access.plan_name ?? "Sin plan contratado"}
             </h2>
@@ -261,6 +263,10 @@ export function MyPlanPage() {
                 </p>
               </div>
             )}
+            <div id="plan-actions" className="plan-actions-card">
+            <p className="billing-step">02 · Gestiona tu plan</p>
+            <h3>Acciones disponibles</h3>
+            <p className="admin-note">Consulta tus créditos, administra pagos o solicita un cambio cuando lo necesites.</p>
             <div className="billing-controls">
               <Link className="admin-button secondary" to="/app/credits">Ver créditos y recargar</Link>
               {s && (
@@ -443,8 +449,10 @@ export function MyPlanPage() {
                 </div>
               </div>
             )}
+            </div>
           </section>
-          <section className="admin-card billing-section">
+          <section id="plan-payments" className="admin-card billing-section plan-payments-card">
+            <p className="billing-step">03 · Comprobantes</p>
             <h2>Historial de pagos</h2>
             {!data.payments.length
               ? <p className="admin-note">Aún no hay pagos registrados.</p>

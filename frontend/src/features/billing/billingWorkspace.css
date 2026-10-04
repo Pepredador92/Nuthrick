@@ -72,6 +72,29 @@
 
 .billing-workspace .credits-package { min-height: 170px; }
 
+.billing-workspace .plan-actions-card {
+  margin-top: 26px;
+  padding: clamp(18px, 3vw, 26px);
+  border-radius: 20px;
+  border: 1px solid #dbe8e9;
+  background: linear-gradient(115deg, #f0f8f7, #f3f2f8);
+}
+
+.billing-workspace .plan-actions-card h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 650;
+}
+
+.billing-workspace .plan-actions-card .billing-controls {
+  margin-top: 16px;
+}
+
+.billing-workspace .plan-actions-card .billing-confirm {
+  background: #fff;
+  border-radius: 16px;
+}
+
 html[data-nuthrick-theme='night'] .billing-workspace .billing-workspace-hero {
   background: linear-gradient(120deg, #1b3d41, #27334b 72%, #3d3d35);
   border-color: #38545d;
@@ -91,4 +114,13 @@ html[data-nuthrick-theme='night'] .billing-workspace .plan-summary-card .billing
 
 html[data-nuthrick-theme='night'] .billing-workspace .billing-step {
   color: #93d9cf;
+}
+
+html[data-nuthrick-theme='night'] .billing-workspace .plan-actions-card {
+  background: linear-gradient(120deg, #244348, #2b3448);
+  border-color: #42636a;
+}
+
+html[data-nuthrick-theme='night'] .billing-workspace .plan-actions-card .billing-confirm {
+  background: #1b303a;
 }
