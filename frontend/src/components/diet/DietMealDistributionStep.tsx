@@ -27,6 +27,7 @@ import { useChangeAutosave } from "./useChangeAutosave";
 import { mealAlternatives, mealKey, describeMeals, preparationLimitations, type PreparationCatalog } from "@/src/features/diet-workshop/proposals";
 import { ProposalNavigation, useProposalExplorer, useProposalSetting } from "./useProposalExplorer";
 import { usePreparationCatalog } from "./usePreparationCatalog";
+import "./DietMealDistributionStep.css";
 
 type Props = {
   catalog?: PreparationCatalog;
@@ -269,8 +270,8 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
     await autosave.saveNow(next);
   };
 
-  return <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-4 sm:p-7">
-    <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+  return <section className="meal-workspace">
+    <header className="meal-heading flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div><p className="nuth-eyebrow">Paso 4</p><h1 aria-label="Tiempos de comida" className="mt-2 text-2xl font-semibold text-[#173d36]">Tiempos</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">La propuesta inicial parte de desayuno, comida y cena. Puedes agregar colaciones o tiempos personalizados cuando lo necesites.</p></div>
       <span className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${draft.status === "ready" ? "bg-[#eaf3ec] text-[#315e4f]" : draft.status === "editing" ? "bg-[#fff4df] text-[#7a5a28]" : "bg-[#f2f5f3] text-[#65756d]"}`}>{draft.status === "ready" ? <Check size={14} /> : <CircleAlert size={14} />}{draft.status === "ready" ? "Distribución lista" : draft.status === "editing" ? "En edición" : "Sin iniciar"}</span>
     </header>
@@ -278,8 +279,8 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
     {prescription.status !== "ready" && <p className="mt-4 rounded-xl bg-[#f7f3e9] px-4 py-3 text-sm text-[#725f35]">El cuadro de equivalentes todavía está en edición.</p>}
     {exchangeInventoryChangedSinceConfirmation(draft, prescription) && <p role="status" className="mt-3 rounded-xl bg-[#fff0e8] px-4 py-3 text-sm text-[#8a513b]">El inventario diario cambió. Conservamos tu distribución; revisa los pendientes o excesos y confirma nuevamente.</p>}
 
-    <section className="mt-6">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold text-[#24463b]">Tu día</h2><p className="mt-1 text-xs text-[#718078]">Nombre y hora se editan aquí.</p></div><button type="button" aria-label="Agregar tiempo" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => setAdding((value) => !value)}><Plus size={14} /> Agregar</button></div>
+    <section className="meal-times-card mt-6">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><span className="meal-step">01 · Organiza el día</span><h2 className="font-semibold text-[#24463b]">Tu día</h2><p className="mt-1 text-xs text-[#718078]">Nombre y hora se editan aquí.</p></div><button type="button" aria-label="Agregar tiempo" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => setAdding((value) => !value)}><Plus size={14} /> Agregar</button></div>
       {adding && <div className="mt-3 flex flex-col gap-2 rounded-2xl border border-[#cfdcd4] bg-[#f8fbf9] p-3 sm:flex-row sm:items-end">
         <label className="flex-1 text-xs font-semibold text-[#52675e]">Nombre<input autoFocus aria-label="Nombre del nuevo tiempo" className="nuth-input mt-1" maxLength={40} placeholder="Ej. Preentreno" value={newName} onChange={(event) => setNewName(event.target.value)} /></label>
         <label className="text-xs font-semibold text-[#52675e]">Hora opcional<input aria-label="Hora del nuevo tiempo" className="nuth-input mt-1" type="time" value={newTime} onChange={(event) => setNewTime(event.target.value)} /></label>
@@ -291,9 +292,9 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
       <details className="mt-2 text-xs text-[#52675e]"><summary className="cursor-pointer font-semibold">Conservar tiempos</summary><p className="my-2">Fija todas las cantidades de un tiempo al generar alternativas.</p><div className="flex flex-wrap gap-3">{mealTimes.map(meal => <label key={meal.id} className="flex items-center gap-2"><input type="checkbox" checked={locked.includes(meal.id)} onChange={() => setLocked(locked.includes(meal.id) ? locked.filter(id => id !== meal.id) : [...locked, meal.id])} />{meal.display_name}</label>)}</div></details>
     </section>
 
-    <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_290px] xl:items-start">
-      <div className="order-2 min-w-0 xl:order-1">
-        <div className="flex items-center justify-between gap-3"><div><h2 className="font-semibold text-[#24463b]">Distribución del día</h2><p className="mt-1 text-xs text-[#718078]">Asigna porciones, sin cambiar el total disponible.</p></div><label className="flex items-center gap-2 text-xs text-[#65756d]"><input type="checkbox" checked={showZeros} onChange={(event) => setShowZeros(event.target.checked)} /> Mostrar ceros</label></div>
+    <div className="meal-distribution-grid mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_290px] xl:items-start">
+      <div className="meal-matrix-card order-2 min-w-0 xl:order-1">
+        <div className="flex items-center justify-between gap-3"><div><span className="meal-step">02 · Asigna porciones</span><h2 className="font-semibold text-[#24463b]">Distribución del día</h2><p className="mt-1 text-xs text-[#718078]">Asigna porciones, sin cambiar el total disponible.</p></div><label className="flex items-center gap-2 text-xs text-[#65756d]"><input type="checkbox" checked={showZeros} onChange={(event) => setShowZeros(event.target.checked)} /> Mostrar ceros</label></div>
 
         <div className="mt-4 hidden overflow-x-auto rounded-2xl border border-[#dfe6e1] lg:block">
           <table className="w-full min-w-[760px] border-collapse text-sm">
@@ -319,8 +320,8 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
         <MealNutritionSummary mealTimes={mealTimes} totals={displayedTotals} />
       </div>
 
-      <aside className="order-1 h-fit rounded-2xl border border-[#d8e3dc] bg-[#f9fbf8] p-4 shadow-[0_12px_35px_rgba(23,61,54,.06)] xl:sticky xl:top-28 xl:order-2">
-        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.12em] text-[#477363]">{proposal ? "Vista previa" : "Pendientes"}</p><p className="mt-1 text-xs text-[#718078]">{proposal ? "La propuesta aún no modifica tu distribución." : `${mealTimes.length} tiempos configurados`}</p></div>{proposal && <span className="rounded-full bg-[#e8f0f8] px-2 py-1 text-[10px] font-semibold text-[#3b627c]">Sin aplicar</span>}</div>
+      <aside className="meal-summary-card order-1 h-fit rounded-2xl border border-[#d8e3dc] bg-[#f9fbf8] p-4 shadow-[0_12px_35px_rgba(23,61,54,.06)] xl:sticky xl:top-28 xl:order-2">
+        <div className="flex items-start justify-between gap-3"><div><span className="meal-step">03 · Revisa y confirma</span><p className="text-xs font-bold uppercase tracking-[.12em] text-[#477363]">{proposal ? "Vista previa" : "Pendientes"}</p><p className="mt-1 text-xs text-[#718078]">{proposal ? "La propuesta aún no modifica tu distribución." : `${mealTimes.length} tiempos configurados`}</p></div>{proposal && <span className="rounded-full bg-[#e8f0f8] px-2 py-1 text-[10px] font-semibold text-[#3b627c]">Sin aplicar</span>}</div>
         <div className="mt-4 grid grid-cols-3 gap-2 text-center"><div className="rounded-xl bg-white p-2"><p className="text-lg font-bold text-[#24463b]">{displayedSummary.complete}</p><p className="text-[10px] text-[#718078]">Completos</p></div><div className="rounded-xl bg-white p-2"><p className="text-lg font-bold text-[#725f35]">{displayedSummary.pending}</p><p className="text-[10px] text-[#718078]">Pendientes</p></div><div className="rounded-xl bg-white p-2"><p className="text-lg font-bold text-[#8a513b]">{displayedSummary.excess}</p><p className="text-[10px] text-[#718078]">Con exceso</p></div></div>
         <dl className="mt-4 space-y-2 border-t border-[#dfe6e1] pt-4 text-sm"><div className="flex justify-between gap-3"><dt className="text-[#718078]">Distribuidos</dt><dd className="font-semibold tabular-nums text-[#24463b]">{format(displayedSummary.assignedPortions)} / {format(displayedSummary.availablePortions)} eq.</dd></div></dl>
         {!proposal && <RemainingExchanges entries={displayedEntries} prescription={prescription} />}
@@ -339,7 +340,7 @@ function MealDistributionEditor({ plan, prescription, onSave, onDraftChange, onG
 
     {validationMessage && <p role="alert" className="mt-4 rounded-xl bg-[#fff0e8] px-4 py-3 text-sm text-[#8a513b]">{validationMessage}</p>}
     <div className="mt-4 flex min-h-5 items-center gap-2">{saveState === "saving" && <LoaderCircle size={14} className="animate-spin text-[#3d705d]" />}<AutosaveFeedback status={saveState} savingLabel="Guardando distribución…" /></div>
-    <WorkshopStepFooter onPrevious={onGoToEquivalents} onNext={() => { onDraftChange(draft); onContinue?.(); }} nextDisabled={saveState === "saving"} />
+    <WorkshopStepFooter onPrevious={onGoToEquivalents} onNext={() => { onDraftChange(draft); onContinue?.(); }} nextDisabled={saveState === "saving"} nextHint="Después: crea opciones del menú" />
   </section>;
 }
 

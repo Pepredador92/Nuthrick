@@ -1,0 +1,29 @@
+.meal-workspace { --meal-ink:#203e3a; --meal-muted:#6a7d76; --meal-line:#dce7df; --meal-surface:#fbfdfb; width:min(100%,1160px); margin-inline:auto; color:var(--meal-ink); }
+.meal-heading { padding:21px 25px; border:1px solid var(--meal-line); border-radius:20px; background:linear-gradient(110deg,#eaf5f1,#f4f1fa); }
+.meal-heading h1 { font-size:clamp(25px,2.5vw,32px); letter-spacing:-.035em; }
+.meal-heading p:last-child { color:var(--meal-muted); }
+.meal-times-card,.meal-matrix-card,.meal-summary-card { min-width:0; padding:20px; border:1px solid var(--meal-line); border-radius:19px; background:var(--meal-surface); box-shadow:0 9px 24px #1d473609; }
+.meal-times-card { background:linear-gradient(125deg,#f4f8f5,#f7f7fc); }
+.meal-matrix-card { background:linear-gradient(125deg,#fbfdfb,#f6f9f7); }
+.meal-summary-card { background:linear-gradient(145deg,#f4f6fc,#f8faf6); }
+.meal-step { display:block; margin-bottom:5px; color:#477367; font-size:10px; font-weight:800; letter-spacing:.11em; text-transform:uppercase; }
+.meal-times-card h2,.meal-matrix-card h2 { font-size:18px; font-weight:750; }
+.meal-workspace .meal-times-card article { min-width:220px; flex:0 0 230px; border-color:var(--meal-line); border-radius:14px; background:#ffffffb8; }
+.meal-workspace .meal-matrix-card table { max-width:100%; }
+.meal-workspace .meal-summary-card > div:first-child { margin-bottom:3px; }
+.meal-workspace .meal-summary-card .meal-step { color:#706099; }
+.meal-workspace > footer { width:100%; }
+[data-workshop-theme='night'] .meal-workspace { --meal-ink:#eef6f0; --meal-muted:#abc9be; --meal-line:#38565b; --meal-surface:#142a33; }
+[data-workshop-theme='night'] .meal-heading { background:linear-gradient(110deg,#173d3c,#272e49); }
+[data-workshop-theme='night'] .meal-times-card { background:linear-gradient(125deg,#1b3b3d,#292d48); }
+[data-workshop-theme='night'] .meal-matrix-card { background:linear-gradient(125deg,#162f38,#142a33); }
+[data-workshop-theme='night'] .meal-summary-card { background:linear-gradient(145deg,#2b2e4a,#1b363a); }
+[data-workshop-theme='night'] .meal-step { color:#9de0d2; }
+[data-workshop-theme='night'] .meal-workspace .meal-times-card article { background:#213942; }
+[data-workshop-theme='night'] .meal-workspace :is(input,select,details,table,th,td) { color:var(--meal-ink); border-color:var(--meal-line); }
+[data-workshop-theme='night'] .meal-workspace :is(input,select,details) { background-color:#213942; }
+[data-workshop-theme='night'] .meal-workspace :is(th,td) { background-color:#182f38; }
+[data-workshop-theme='night'] .meal-workspace > footer { background:#142a33e8; border-color:var(--meal-line); }
+[data-workshop-theme='night'] .meal-workspace > footer > div { background:#1b363d; border-color:var(--meal-line); }
+[data-workshop-theme='night'] .meal-workspace :is(.text-\[\#24463b\],.text-\[\#315e4f\],.text-\[\#52675e\],.text-\[\#718078\],.text-\[\#65756d\]) { color:var(--meal-ink); }
+@media(max-width:640px) { .meal-heading,.meal-times-card,.meal-matrix-card,.meal-summary-card { padding:15px; } .meal-workspace .meal-times-card article { flex-basis:220px; } }
