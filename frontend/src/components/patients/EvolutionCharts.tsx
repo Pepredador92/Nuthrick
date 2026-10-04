@@ -75,7 +75,7 @@ function ChartFrame({
 }) {
   const style = evolutionCategoryStyles[series.category];
   return (
-    <figure className="rounded-2xl border border-[#e1e9e4] bg-[#fbfdfb] p-4">
+    <figure className="nuth-evolution-chart rounded-2xl border border-[#e1e9e4] bg-[#fbfdfb] p-4">
       <figcaption className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">

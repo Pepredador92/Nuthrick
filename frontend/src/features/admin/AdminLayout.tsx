@@ -19,6 +19,7 @@ import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/src/features/auth/AuthProvider";
 import "./admin.css";
 import { SupportProvider, SupportUnread } from '@/src/features/support/SupportProvider';
+import { ThemeSwitcher } from '@/src/features/theme/ThemeSwitcher';
 const nav = [
   ["", "Inicio", LayoutDashboard],
   ["professionals", "Profesionales", Users],
@@ -72,9 +73,7 @@ export function AdminLayout() {
       <main className="admin-main">
         <div className="admin-topline">
           <span>CONTROL DE NUTHRICK</span>
-          <span>
-            <span className="admin-dot" /> Administración privada
-          </span>
+          <span className="admin-topline-actions"><span><span className="admin-dot" /> Administración privada</span><ThemeSwitcher compact /></span>
         </div>
         <Outlet />
       </main>

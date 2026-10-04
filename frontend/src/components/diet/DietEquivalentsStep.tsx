@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Calculator, Check, CircleAlert, Info, ListPlus, LoaderCircle, Minus, Plus, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calculator, Check, CircleAlert, Info, Leaf, ListPlus, LoaderCircle, Minus, Pin, Plus, RotateCcw, Save, SlidersHorizontal, Target } from "lucide-react";
 import { exchangeCatalog, exchangeCatalogCategories, type ExchangeCatalogGroup } from "@/src/features/exchanges/catalog";
 import {
   applyExchangeSuggestion,
@@ -16,9 +16,9 @@ import { exchangeAlternatives, exchangeKey, describeExchanges, preparationLimita
 import { ProposalNavigation, useProposalExplorer, useProposalSetting } from "./useProposalExplorer";
 import { usePreparationCatalog } from "./usePreparationCatalog";
 import type { ExchangeDerivedTotals, ExchangeGroupCode, ExchangePrescription, ExchangeTargetSnapshot, NutritionPlan } from "@/src/types/domain";
-import { WorkshopStepFooter } from "./WorkshopStepFooter";
-import { AutosaveFeedback } from "./AutosaveFeedback";
 import { useChangeAutosave } from "./useChangeAutosave";
+import "./DietEnergyStep.css";
+import "./DietEquivalentsStep.css";
 
 type Props = {
   catalog?: PreparationCatalog;
@@ -29,6 +29,7 @@ type Props = {
   onDraftChange: (prescription: ExchangePrescription) => void;
   onGoToMacros: () => void;
   onContinue?: () => void;
+  onSaveAndExit?: () => void;
 };
 
 const ENERGY_MARGIN_KCAL = 100;
@@ -43,47 +44,34 @@ const signed = (value: number, maximumFractionDigits = 1) => `${value > 0 ? "+" 
 const portionsByCode = (prescription: ExchangePrescription) => new Map(prescription.groups.map((group) => [group.group_code, group.portions]));
 
 function GroupContribution({ group, portions }: { group: ExchangeCatalogGroup; portions: number }) {
-  return <details className="group min-w-0 text-xs text-[#718078]">
-    <summary className="flex w-fit max-w-full cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-[#24463b] hover:text-[#315e4f]">
-      <span className="truncate">{group.shortName}</span><Info size={13} className="shrink-0 text-[#789087]" aria-label={`Consultar aporte de ${group.groupName}`} />
-    </summary>
-    <div className="mt-2 max-w-xl rounded-lg bg-[#f7faf8] px-3 py-2 leading-5">
-      <p><span className="font-semibold text-[#52675e]">1 equivalente:</span> {group.energyKcal} kcal · {group.carbohydrateG} g CHO · {group.proteinG} g proteína · {group.fatG} g grasa</p>
-      {portions > 0 && <p><span className="font-semibold text-[#52675e]">Total:</span> {format(portions * group.energyKcal)} kcal · {format(portions * group.carbohydrateG)} g CHO · {format(portions * group.proteinG)} g proteína · {format(portions * group.fatG)} g grasa</p>}
+  return <details className="equivalents-contribution">
+    <summary><span>{group.shortName}</span><Info size={13} aria-label={`Consultar aporte de ${group.groupName}`} /></summary>
+    <div>
+      <p><span className="equivalents-contribution-label">1 equivalente:</span> {group.energyKcal} kcal · {group.carbohydrateG} g CHO · {group.proteinG} g proteína · {group.fatG} g grasa</p>
+      {portions > 0 && <p><strong>Total:</strong> {format(portions * group.energyKcal)} kcal · {format(portions * group.carbohydrateG)} g CHO · {format(portions * group.proteinG)} g proteína · {format(portions * group.fatG)} g grasa</p>}
     </div>
   </details>;
 }
 
 function PortionInput({ group, portions, onChange, disabled = false }: { group: ExchangeCatalogGroup; portions: number; onChange: (value: number) => void; disabled?: boolean }) {
   const adjust = (amount: number) => onChange(Math.max(0, portions + amount));
-  return <div className="flex shrink-0 items-center justify-end gap-1.5">
-    <button type="button" disabled={disabled} aria-label={`Restar media porción de ${group.groupName}`} className="grid h-9 w-9 place-items-center rounded-xl border border-[#d8e3dc] text-[#315e4f] transition hover:bg-[#edf5ef] disabled:cursor-default disabled:opacity-35" onClick={() => adjust(-0.5)}><Minus size={15} /></button>
+  return <div className="equivalents-portion-input">
+    <button type="button" disabled={disabled} aria-label={`Restar media porción de ${group.groupName}`} onClick={() => adjust(-0.5)}><Minus size={15} /></button>
     <label className="sr-only" htmlFor={`exchange-${group.groupCode}`}>Porciones de {group.groupName}</label>
-    <input id={`exchange-${group.groupCode}`} disabled={disabled} aria-label={`Porciones de ${group.groupName}`} className="nuth-input h-10 w-[4.5rem] !px-2 !py-1 text-center text-base font-bold tabular-nums text-[#173d36] disabled:bg-[#f2f5f3] disabled:text-[#52675e]" inputMode="decimal" type="number" min="0" step="0.5" value={portions || ""} placeholder="0" onChange={(event) => { const value = number(event.target.value); if (value !== null) onChange(value); }} />
-    <button type="button" disabled={disabled} aria-label={`Sumar media porción de ${group.groupName}`} className="grid h-9 w-9 place-items-center rounded-xl border border-[#d8e3dc] text-[#315e4f] transition hover:bg-[#edf5ef] disabled:cursor-default disabled:opacity-35" onClick={() => adjust(0.5)}><Plus size={15} /></button>
+    <input id={`exchange-${group.groupCode}`} disabled={disabled} aria-label={`Porciones de ${group.groupName}`} inputMode="decimal" type="number" min="0" step="0.5" value={portions || ""} placeholder="0" onChange={(event) => { const value = number(event.target.value); if (value !== null) onChange(value); }} />
+    <button type="button" disabled={disabled} aria-label={`Sumar media porción de ${group.groupName}`} onClick={() => adjust(0.5)}><Plus size={15} /></button>
   </div>;
 }
 
-function DifferenceMetric({ label, target, actual, difference, unit, precision = 1, closeWithin }: { label: string; target: number; actual: number; difference: number; unit: string; precision?: number; closeWithin?: number }) {
+function DifferenceMetric({ label, target, actual, difference, unit, precision = 1, closeWithin, tone }: { label: string; target: number; actual: number; difference: number; unit: string; precision?: number; closeWithin?: number; tone: string }) {
   const relativeDifference = Math.abs(difference) / Math.max(target, 1);
   const proximity = (closeWithin === undefined ? relativeDifference <= 0.03 : Math.abs(difference) <= closeWithin) ? "Cerca" : difference < 0 ? "Por debajo" : "Por encima";
   const progress = Math.min(100, Math.max(0, (actual / Math.max(target, 1)) * 100));
-  return <div className="min-w-0 border-b border-[#e1e8e3] py-3.5 first:pt-0">
-    <p className="text-xs font-bold uppercase tracking-[.08em] text-[#597068]">{label}</p>
-    <p className="mt-1 text-lg font-semibold tabular-nums text-[#173d36]"><span>{format(actual, precision)}</span><span className="text-sm font-normal text-[#7b8983]"> / {format(target, precision)} {unit}</span></p>
-    <p className="mt-1 text-xs font-semibold text-[#52675e]">{proximity} · {signed(difference, precision)} {unit}</p>
-    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e7ede9]" role="progressbar" aria-label={`Proximidad de ${label} al objetivo`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)}><div className="h-full rounded-full bg-[#6f9f8d] transition-[width]" style={{ width: `${progress}%` }} /></div>
-  </div>;
-}
-
-function CompactSummary({ targets, totals, differences }: { targets: ExchangeTargetSnapshot; totals: ExchangeDerivedTotals; differences: ExchangeDerivedTotals }) {
-  return <div className="mt-4 xl:hidden">
-    <p className="text-xl font-semibold tabular-nums text-[#173d36]">{format(totals.energy_kcal, 0)} <span className="text-sm font-normal text-[#7b8983]">/ {format(targets.energy_kcal, 0)} kcal</span></p>
-    <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs font-semibold text-[#52675e]">
-      <span className="rounded-lg bg-white px-2 py-2">CHO {signed(differences.carbohydrate_g)} g</span>
-      <span className="rounded-lg bg-white px-2 py-2">Prot {signed(differences.protein_g)} g</span>
-      <span className="rounded-lg bg-white px-2 py-2">Grasa {signed(differences.fat_g)} g</span>
-    </div>
+  return <div className={`equivalents-metric equivalents-metric-${tone}`}>
+    <p className="equivalents-metric-label"><span aria-hidden="true" />{label}</p>
+    <p className="equivalents-metric-value"><strong>{format(actual, precision)}</strong><span> / {format(target, precision)} {unit}</span></p>
+    <div className="equivalents-progress" role="progressbar" aria-label={`Proximidad de ${label} al objetivo`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)}><div style={{ width: `${progress}%` }} /></div>
+    <p className="equivalents-metric-difference">{proximity} · {signed(difference, precision)} {unit}</p>
   </div>;
 }
 
@@ -96,41 +84,39 @@ const preferenceLabels: Record<ExchangeGroupPreference, string> = {
 
 function PreferencesPanel({ preferences, onChange }: { preferences: Partial<Record<ExchangeGroupCode, ExchangeGroupPreference>>; onChange: (code: ExchangeGroupCode, value: ExchangeGroupPreference) => void }) {
   const configured = Object.values(preferences).filter((value) => value && value !== "auto").length;
-  return <details className="mt-4 border-t border-[#dfe6e1] pt-4 text-sm text-[#52675e]">
-    <summary className="flex cursor-pointer list-none items-center justify-between font-semibold text-[#315e4f]">
-      <span>Preferencias</span>{configured > 0 && <span className="rounded-full bg-[#eaf3ec] px-2 py-0.5 text-[11px]">{configured}</span>}
-    </summary>
-    <p className="mt-2 text-xs leading-5 text-[#718078]">Tu criterio tiene prioridad sobre el perfil automático.</p>
-    <div className="mt-3 max-h-72 space-y-3 overflow-y-auto pr-1">
+  return <details className="equivalents-preferences">
+    <summary><SlidersHorizontal size={15} /><span>Preferencias</span>{configured > 0 && <span className="equivalents-count">{configured}</span>}</summary>
+    <p className="equivalents-note">Tu criterio tiene prioridad sobre el perfil automático.</p>
+    <div className="equivalents-preference-list">
       {exchangeCatalogCategories.map((category) => <section key={category.category}>
-        <h3 className="mb-1.5 text-[10px] font-bold uppercase tracking-[.1em] text-[#789087]">{category.category === "animal" ? "AOA" : category.label}</h3>
-        <div className="space-y-1.5">{exchangeCatalog.filter((group) => group.category === category.category).map((group) => <label key={group.groupCode} className="flex items-center justify-between gap-3 rounded-lg bg-white px-2.5 py-2">
-          <span className="min-w-0 truncate text-xs font-medium text-[#315449]">{group.shortName}</span>
-          <select aria-label={`Preferencia de ${group.groupName}`} className="rounded-lg border border-[#d8e3dc] bg-white px-2 py-1 text-xs text-[#315449]" value={preferences[group.groupCode] ?? "auto"} onChange={(event) => onChange(group.groupCode, event.target.value as ExchangeGroupPreference)}>
+        <h3>{category.label}</h3>
+        {exchangeCatalog.filter((group) => group.category === category.category).map((group) => <label key={group.groupCode}>
+          <span>{group.shortName}</span>
+          <select aria-label={`Preferencia de ${group.groupName}`} value={preferences[group.groupCode] ?? "auto"} onChange={(event) => onChange(group.groupCode, event.target.value as ExchangeGroupPreference)}>
             {(Object.keys(preferenceLabels) as ExchangeGroupPreference[]).map((value) => <option key={value} value={value}>{preferenceLabels[value]}</option>)}
           </select>
-        </label>)}</div>
+        </label>)}
       </section>)}
     </div>
   </details>;
 }
 
 function GroupPicker({ activeCodes, onAdd }: { activeCodes: ReadonlySet<ExchangeGroupCode>; onAdd: (code: ExchangeGroupCode) => void }) {
-  return <details className="mt-4 rounded-xl border border-dashed border-[#cbd8d1] bg-[#fbfcfa]">
-    <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-[#315e4f]"><ListPlus size={16} /> Agregar grupo</summary>
-    <div className="border-t border-[#e3e9e5] px-3 py-3">
-      {exchangeCatalogCategories.map((category) => <section key={category.category} className="mt-3 first:mt-0">
-        <h3 className="px-1 text-[10px] font-bold uppercase tracking-[.1em] text-[#789087]">{category.category === "animal" ? "AOA" : category.label}</h3>
-        <div className="mt-1 grid gap-1 sm:grid-cols-2">{exchangeCatalog.filter((group) => group.category === category.category).map((group) => {
+  return <details className="equivalents-picker">
+    <summary><ListPlus size={17} /> Agregar grupo <Plus size={15} /></summary>
+    <div className="equivalents-picker-list">
+      {exchangeCatalogCategories.map((category) => <section key={category.category}>
+        <h3>{category.label}</h3>
+        <div>{exchangeCatalog.filter((group) => group.category === category.category).map((group) => {
           const active = activeCodes.has(group.groupCode);
-          return <button key={group.groupCode} type="button" disabled={active} className="flex items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs font-medium text-[#315449] hover:bg-[#edf5ef] disabled:cursor-default disabled:text-[#91a098]" onClick={() => onAdd(group.groupCode)}><span>{group.shortName}</span><span className="ml-2 text-[10px] font-semibold">{active ? "En uso" : "Agregar"}</span></button>;
+          return <button key={group.groupCode} type="button" disabled={active} onClick={() => onAdd(group.groupCode)}><span>{group.shortName}</span><span>{active ? "En uso" : "Agregar"}</span></button>;
         })}</div>
       </section>)}
     </div>
   </details>;
 }
 
-function EquivalentEditor({ headerActions, plan, targets, onSave, onDraftChange, onGoToMacros, onContinue, catalog: suppliedCatalog }: Omit<Props, "targets"> & { targets: ExchangeTargetSnapshot }) {
+function EquivalentEditor({ headerActions, plan, targets, onSave, onDraftChange, onGoToMacros, onContinue, onSaveAndExit, catalog: suppliedCatalog }: Omit<Props, "targets"> & { targets: ExchangeTargetSnapshot }) {
   const initial = useMemo(() => plan.exchange_prescription ? reconcileExchangePrescription(plan.exchange_prescription, targets) : createExchangePrescription(targets), [plan.exchange_prescription, targets]);
   const [draft, setDraft] = useState(initial);
   const [startFromCurrent, setStartFromCurrent] = useProposalSetting(`${plan.id}:exchange-start`, false);
@@ -156,7 +142,7 @@ function EquivalentEditor({ headerActions, plan, targets, onSave, onDraftChange,
     (saveState === "clean" || saveState === "saved");
   const withinEnergyMargin = Math.abs(draft.differences.energy_kcal) <= ENERGY_MARGIN_KCAL;
   const statusLabel = confirmed ? "Cuadro confirmado" : saveState === "error" ? "No guardado" : draft.status === "ready" ? "Guardando cuadro…" : draft.status === "editing" ? "En edición" : "Sin iniciar";
-  const statusTone = confirmed ? "bg-[#eaf3ec] text-[#315e4f]" : saveState === "error" ? "bg-[#fbe9e5] text-[#963f32]" : draft.status === "editing" || draft.status === "ready" ? "bg-[#fff4df] text-[#7a5a28]" : "bg-[#f2f5f3] text-[#65756d]";
+  const statusTone = confirmed ? "is-ready" : saveState === "error" ? "is-error" : "";
   const change = (code: ExchangeCatalogGroup["groupCode"], value: number) => {
     if (locked[code] !== undefined) setLocked({ ...locked, [code]: value });
     update(setExchangePortions(draft, targets, code, value));
@@ -196,84 +182,114 @@ function EquivalentEditor({ headerActions, plan, targets, onSave, onDraftChange,
     explorer.discard();
   };
 
-  return <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-4 sm:p-7">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div><p className="nuth-eyebrow">Paso 3</p><h1 className="mt-2 text-2xl font-semibold text-[#173d36]">Equivalentes</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">Define las porciones del día.</p></div>
-      <div className="flex flex-wrap items-center gap-2">{headerActions}<span className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${statusTone}`}>{confirmed ? <Check size={14} /> : <CircleAlert size={14} />}{statusLabel}</span></div>
-    </div>
-    {objectivesChangedSinceConfirmation(draft) && <p role="status" className="mt-4 rounded-xl bg-[#fff6e6] px-4 py-3 text-sm text-[#765827]">Los objetivos nutricionales cambiaron desde la última confirmación. Las porciones se conservaron; revisa el cuadro y confírmalo de nuevo cuando esté listo.</p>}
+  return <section className="diet-equivalents-step">
+    <header className="energy-intro">
+      <div><p className="energy-eyebrow">PASO 03 / 06</p><h1>Equivalentes</h1><p>Convierte la meta de alimentos en porciones para el día.</p></div>
+      <span className={`energy-status ${statusTone}`}>{confirmed ? <Check size={14} /> : <CircleAlert size={14} />}{statusLabel}</span>
+    </header>
+    {objectivesChangedSinceConfirmation(draft) && <p role="status" className="energy-warning equivalents-context-warning">Los objetivos nutricionales cambiaron desde la última confirmación. Las porciones se conservaron; revisa el cuadro y confírmalo de nuevo cuando esté listo.</p>}
 
-    <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,2.25fr)_minmax(320px,1fr)] xl:items-start">
-      <div className="order-2 min-w-0 xl:order-1">
-        <div className="flex items-end justify-between gap-3 border-b border-[#dfe6e1] pb-3">
-          <div><h2 className="text-lg font-semibold text-[#24463b]">Equivalentes del día</h2><p className="mt-1 text-xs text-[#718078]">Grupos utilizados y porciones.</p></div>
-          {proposal && <span className="rounded-full bg-[#e8f0f8] px-2.5 py-1 text-[11px] font-semibold text-[#3b627c]">Propuesta</span>}
+    <div className="equivalents-grid">
+      <section className="energy-card equivalents-portions" aria-labelledby="equivalents-portions-heading">
+        <header className="energy-card-heading">
+          <span className="energy-icon energy-icon-activity"><Leaf size={21} /></span>
+          <div><p className="equivalents-card-step">01 · DISTRIBUYE</p><h2 id="equivalents-portions-heading">Equivalentes del día</h2></div>
+          <span className="equivalents-count">{activeCodes.size} grupos</span>
+        </header>
+        <div className="energy-card-body">
+          <div className="equivalents-list-intro"><p>Elige los grupos y ajusta sus porciones.</p>{proposal && <span className="equivalents-preview-badge">Propuesta</span>}</div>
+          {activeSections.length ? <div className="equivalents-groups">
+            {activeSections.map((category) => <section key={category.category} className={`equivalents-category equivalents-category-${category.category}`}>
+              <h3><span aria-hidden="true" />{category.label}</h3>
+              <div>{category.groups.map((group) => {
+                const portions = displayedPortions.get(group.groupCode) ?? 0;
+                return <div key={group.groupCode} className="equivalents-row">
+                  <GroupContribution group={group} portions={portions} />
+                  <PortionInput group={group} portions={portions} disabled={Boolean(proposal)} onChange={(value) => change(group.groupCode, value)} />
+                  {!proposal && <button type="button" aria-label={`Fijar ${group.groupName}`} aria-pressed={locked[group.groupCode] !== undefined} className="equivalents-lock" title="Conservar estas porciones al proponer" onClick={() => { const next = { ...locked }; if (next[group.groupCode] !== undefined) delete next[group.groupCode]; else next[group.groupCode] = byCode.get(group.groupCode) ?? 0; setLocked(next); }}><Pin size={13} /><span>{locked[group.groupCode] !== undefined ? "Fijado" : "Fijar"}</span></button>}
+                </div>;
+              })}</div>
+            </section>)}
+          </div> : <div className="equivalents-empty">
+            <span className="energy-icon energy-icon-activity"><Leaf size={24} /></span>
+            <p>Aún no has definido equivalentes.</p>
+            <p>Puedes proponer una distribución o agregar grupos manualmente.</p>
+          </div>}
+          {!proposal && <GroupPicker activeCodes={activeCodes} onAdd={(code) => setManualGroups((current) => new Set([...current, code]))} />}
+          {(hasPortions || manualGroups.size > 0) && !proposal && <div className="equivalents-list-footer"><p>Total: <strong>{format(totalExchangePortions(draft), 2)} equivalentes</strong></p><button type="button" onClick={reset}><RotateCcw size={14} /> Restablecer</button></div>}
+          <p className="equivalents-note equivalents-list-help"><Info size={13} /> Abre el nombre de un grupo para consultar su aporte. Fijar conserva sus porciones al proponer.</p>
         </div>
+      </section>
 
-        {activeSections.length ? <div>
-          {activeSections.map((category) => <section key={category.category} className="mt-5">
-            <h3 className="border-b border-[#e8ede9] pb-2 text-xs font-bold uppercase tracking-[.1em] text-[#477363]">{category.category === "animal" ? "AOA" : category.label}</h3>
-            <div>{category.groups.map((group) => {
-              const portions = displayedPortions.get(group.groupCode) ?? 0;
-              return <div key={group.groupCode} className="flex items-center justify-between gap-3 border-b border-[#edf1ee] py-3">
-                <div className="min-w-0 flex-1"><GroupContribution group={group} portions={portions} /></div>
-                <PortionInput group={group} portions={portions} disabled={Boolean(proposal)} onChange={(value) => change(group.groupCode, value)} />
-                {!proposal && <button type="button" aria-label={`Fijar ${group.groupName}`} aria-pressed={locked[group.groupCode] !== undefined} className="rounded-lg px-2 py-2 text-xs text-[#315e4f] hover:bg-[#edf5ef]" onClick={() => { const next = { ...locked }; if (next[group.groupCode] !== undefined) delete next[group.groupCode]; else next[group.groupCode] = byCode.get(group.groupCode) ?? 0; setLocked(next); }}>{locked[group.groupCode] !== undefined ? "Fijado" : "Fijar"}</button>}
-              </div>;
-            })}</div>
-          </section>)}
-        </div> : <div className="rounded-xl bg-[#f7faf8] px-4 py-7 text-center">
-          <p className="font-semibold text-[#315449]">Aún no has definido equivalentes.</p>
-          <p className="mt-1 text-sm text-[#718078]">Puedes proponer una distribución o agregar grupos manualmente.</p>
-        </div>}
+      <div className="equivalents-side">
+        <section className="energy-card equivalents-summary" aria-labelledby="equivalents-summary-heading">
+          <header className="energy-card-heading">
+            <span className="energy-icon energy-icon-target"><Target size={21} /></span>
+            <div><p className="equivalents-card-step">02 · COMPARA</p><h2 id="equivalents-summary-heading">Cuadro dietosintético</h2></div>
+          </header>
+          <div className="energy-card-body">
+            <div className="equivalents-summary-intro"><p>{proposal ? "Propuesta lista · aún sin aplicar." : "Actual frente al objetivo de alimentos."}</p>{proposal && <span className="equivalents-preview-badge">Sin aplicar</span>}</div>
+            <div className="equivalents-metrics">
+              <DifferenceMetric label="Energía" tone="energy" target={targets.energy_kcal} actual={displayedTotals.energy_kcal} difference={displayedDifferences.energy_kcal} unit="kcal" precision={0} closeWithin={ENERGY_MARGIN_KCAL} />
+              <DifferenceMetric label="Carbohidratos" tone="carbohydrate" target={targets.carbohydrate_g} actual={displayedTotals.carbohydrate_g} difference={displayedDifferences.carbohydrate_g} unit="g" />
+              <DifferenceMetric label="Proteína" tone="protein" target={targets.protein_g} actual={displayedTotals.protein_g} difference={displayedDifferences.protein_g} unit="g" />
+              <DifferenceMetric label="Grasas" tone="fat" target={targets.fat_g} actual={displayedTotals.fat_g} difference={displayedDifferences.fat_g} unit="g" />
+            </div>
+            <p className="equivalents-note">Los suplementos ya se descontaron en Macros. Aquí distribuyes únicamente alimentos.</p>
+            {!proposal && hasPortions && <p className={`equivalents-margin ${withinEnergyMargin ? "is-close" : ""}`}>
+              {withinEnergyMargin
+                ? `La diferencia de energía está dentro de ±${ENERGY_MARGIN_KCAL} kcal. No necesitas un ajuste exacto para confirmar.`
+                : `La diferencia de energía supera ±${ENERGY_MARGIN_KCAL} kcal. Revísala antes de confirmar; puedes continuar según tu criterio clínico.`}
+            </p>}
+            {confirmed && !proposal && <p role="status" className="equivalents-confirmed"><Check size={14} />Equivalentes confirmados.</p>}
+          </div>
+        </section>
 
-        {!proposal && <GroupPicker activeCodes={activeCodes} onAdd={(code) => setManualGroups((current) => new Set([...current, code]))} />}
-        {(hasPortions || manualGroups.size > 0) && !proposal && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#dfe6e1] pt-4"><p className="text-sm text-[#65756d]">Total: <strong className="text-[#24463b]">{format(totalExchangePortions(draft), 2)} equivalentes</strong></p><button type="button" className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#52675e] hover:text-[#24463b]" onClick={reset}><RotateCcw size={14} /> Restablecer</button></div>}
+        <section className="energy-card equivalents-assistant" aria-labelledby="equivalents-assistant-heading">
+          <header className="energy-card-heading">
+            <span className="energy-icon energy-icon-method"><Calculator size={20} /></span>
+            <div><h2 id="equivalents-assistant-heading">Un punto de partida</h2><p>Propón, revisa y ajusta a tu criterio.</p></div>
+          </header>
+          <div className="energy-card-body">
+            <button type="button" disabled={preparation.loading} aria-label={proposal ? "Volver a proponer porciones" : "Proponer porciones"} className="equivalents-propose" onClick={propose}><Calculator size={16} />{preparation.loading ? "Preparando propuesta…" : explorer.count ? "Otra propuesta" : "Proponer porciones"}</button>
+            <p className="equivalents-note equivalents-auto-note">Cálculo automático · sin créditos de IA.</p>
+            {hasPortions && !proposal && <label className="equivalents-start-current"><input type="checkbox" checked={startFromCurrent} onChange={(event) => setStartFromCurrent(event.target.checked)} />Partir de mis porciones actuales</label>}
+            <div className="equivalents-proposal-navigation"><ProposalNavigation count={explorer.count} index={explorer.index} onNavigate={explorer.navigate} /></div>
+            {proposal && <p className="equivalents-note">{describeExchanges(proposal)}</p>}
+            {proposal && <p className="equivalents-note equivalents-caution">{preparationLimitations(proposal.groups.filter(g => g.portions > 0).map(g => g.groupCode), preparation.catalog)}</p>}
+            {(explorer.message || preparation.error) && <p role="status" className="equivalents-note equivalents-caution">{explorer.message || preparation.error}</p>}
+            {explorer.canUndo && <button type="button" className="equivalents-undo" onClick={() => explorer.undo(previous => update(reconcileExchangePrescription(previous, targets), true, true))}><RotateCcw size={13} />Deshacer aplicación</button>}
+            {preparation.loading && <p className="equivalents-note">La propuesta automática se prepara por separado; puedes confirmar tus porciones actuales.</p>}
+            <PreferencesPanel preferences={preferences} onChange={setPreference} />
+            {headerActions && <div className="equivalents-ai">{headerActions}</div>}
+          </div>
+        </section>
       </div>
-
-      <aside className="order-1 h-fit min-w-0 rounded-2xl border border-[#d8e3dc] bg-[#f9fbf8] p-4 shadow-[0_12px_35px_rgba(23,61,54,.06)] sm:p-5 xl:sticky xl:top-28 xl:order-2">
-        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.12em] text-[#477363]">Cuadro dietosintético</p><p className="mt-1 text-xs leading-5 text-[#718078]">{proposal ? "Propuesta lista · aún sin aplicar." : "Actual frente a objetivo."}</p></div>{proposal && <span className="rounded-full bg-[#e8f0f8] px-2.5 py-1 text-[11px] font-semibold text-[#3b627c]">Sin aplicar</span>}</div>
-        <CompactSummary targets={targets} totals={displayedTotals} differences={displayedDifferences} />
-        <div className="mt-4 hidden xl:block">
-          <DifferenceMetric label="Energía" target={targets.energy_kcal} actual={displayedTotals.energy_kcal} difference={displayedDifferences.energy_kcal} unit="kcal" precision={0} closeWithin={ENERGY_MARGIN_KCAL} />
-          <DifferenceMetric label="Carbohidratos" target={targets.carbohydrate_g} actual={displayedTotals.carbohydrate_g} difference={displayedDifferences.carbohydrate_g} unit="g" />
-          <DifferenceMetric label="Proteína" target={targets.protein_g} actual={displayedTotals.protein_g} difference={displayedDifferences.protein_g} unit="g" />
-          <DifferenceMetric label="Grasas" target={targets.fat_g} actual={displayedTotals.fat_g} difference={displayedDifferences.fat_g} unit="g" />
-        </div>
-
-        <ProposalNavigation count={explorer.count} index={explorer.index} onNavigate={explorer.navigate} />
-        {proposal && <p className="my-3 text-xs leading-5 text-[#52675e]">{describeExchanges(proposal)}</p>}
-        {proposal && <p className="my-2 text-xs leading-5 text-[#8a642b]">{preparationLimitations(proposal.groups.filter(g => g.portions > 0).map(g => g.groupCode), preparation.catalog)}</p>}
-        {(explorer.message || preparation.error) && <p role="status" className="my-3 text-xs leading-5 text-[#8a642b]">{explorer.message || preparation.error}</p>}
-        {explorer.canUndo && <button type="button" className="my-2 text-xs font-semibold text-[#315e4f]" onClick={() => explorer.undo(previous => update(reconcileExchangePrescription(previous, targets), true, true))}>Deshacer aplicación</button>}
-        {proposal ? <div className="mt-4 border-t border-[#dfe6e1] pt-4">
-          <div className="grid grid-cols-2 gap-2"><button type="button" aria-label="Aplicar propuesta" className="nuth-button justify-center" onClick={applyProposal}>Aplicar</button><button type="button" aria-label="Conservar mis porciones" className="nuth-button-secondary justify-center" onClick={explorer.discard}>Descartar</button></div>
-          <button type="button" aria-label="Volver a proponer porciones" className="mt-3 w-full text-center text-xs font-semibold text-[#477363] hover:text-[#24463b]" onClick={propose}>Otra propuesta</button>
-        </div> : <div className="mt-4 border-t border-[#dfe6e1] pt-4">
-          <button type="button" disabled={preparation.loading} aria-label="Proponer porciones" className="nuth-button w-full justify-center" onClick={propose}><Calculator size={16} /> {preparation.loading ? "Preparando propuesta…" : explorer.count ? "Otra propuesta" : "Proponer"}</button>
-          {hasPortions && <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 text-xs text-[#52675e]"><input type="checkbox" checked={startFromCurrent} onChange={(event) => setStartFromCurrent(event.target.checked)} /> Partir de mis porciones actuales</label>}
-          {hasPortions && <p className={`mt-3 text-center text-xs leading-5 ${withinEnergyMargin ? "text-[#52675e]" : "text-[#8a642b]"}`}>
-            {withinEnergyMargin
-              ? `La diferencia de energía está dentro de ±${ENERGY_MARGIN_KCAL} kcal. No necesitas un ajuste exacto para confirmar.`
-              : `La diferencia de energía supera ±${ENERGY_MARGIN_KCAL} kcal. Revísala antes de confirmar; puedes continuar según tu criterio clínico.`}
-          </p>}
-          {confirmed ? <div role="status" className="mt-3 text-center text-xs leading-5 text-[#315e4f]">
-            <p className="font-semibold">Equivalentes confirmados.</p>
-            {onContinue && <button type="button" className="nuth-button-secondary mt-2 w-full justify-center" onClick={onContinue}>Continuar a Tiempos</button>}
-          </div> : <button type="button" aria-label="Confirmar equivalentes" disabled={saveState === "saving"} className="nuth-button-secondary mt-3 w-full justify-center disabled:opacity-50" onClick={() => void confirm()}><Check size={16} /> Confirmar</button>}
-          {saveState === "error" && <p role="alert" className="mt-2 text-center text-xs leading-5 text-[#a64a3d]">No se pudo guardar el cuadro. Pulsa Confirmar para intentarlo de nuevo.</p>}
-          {saveState === "saving" && <p role="status" className="mt-2 text-center text-xs leading-5 text-[#52675e]">Guardando cambios… podrás confirmar en un momento.</p>}
-          {preparation.loading && <p className="mt-2 text-center text-xs leading-5 text-[#718078]">La propuesta automática se prepara por separado; puedes confirmar tus porciones actuales.</p>}
-        </div>}
-        <PreferencesPanel preferences={preferences} onChange={setPreference} />
-      </aside>
     </div>
-    <div className="mt-4 flex min-h-5 items-center gap-2">{saveState === "saving" && <LoaderCircle size={14} className="animate-spin text-[#3d705d]" />}<AutosaveFeedback status={saveState} savingLabel="Guardando cuadro…" /></div>
-    <WorkshopStepFooter onPrevious={onGoToMacros} onNext={onContinue} />
+
+    {saveState === "error" && <p role="alert" className="energy-alert equivalents-save-alert">No se pudo guardar el cuadro. Pulsa Confirmar para intentarlo de nuevo.</p>}
+    <footer className="energy-actions equivalents-actions">
+      <button type="button" className="equivalents-back" onClick={onGoToMacros}><ArrowLeft size={15} /> Macros</button>
+      <div className="energy-save-status" role="status">
+        {saveState === "saving" ? <LoaderCircle size={14} className="animate-spin" /> : saveState === "error" ? <CircleAlert size={14} /> : <Check size={14} />}
+        <span>{proposal ? "Vista previa · sin aplicar" : saveState === "saving" ? "Guardando cuadro…" : saveState === "dirty" ? "Cambios pendientes" : saveState === "error" ? "No se pudo guardar" : saveState === "saved" ? "Guardado" : "Guardado automático"}</span>
+      </div>
+      {proposal ? <>
+        <button type="button" aria-label="Conservar mis porciones" className="energy-save-exit" onClick={explorer.discard}>Descartar</button>
+        <button type="button" aria-label="Aplicar propuesta" className="energy-continue" onClick={applyProposal}>Aplicar propuesta <Check size={16} /></button>
+      </> : <>
+        {onSaveAndExit && <button type="button" className="energy-save-exit equivalents-save-exit" onClick={onSaveAndExit}><Save size={15} />Guardar y salir</button>}
+        {!confirmed && <button type="button" aria-label="Confirmar equivalentes" disabled={saveState === "saving"} className="energy-continue equivalents-confirm" onClick={() => void confirm()}><Check size={16} />Confirmar</button>}
+        {onContinue && <button type="button" className={confirmed ? "energy-continue" : "energy-save-exit"} onClick={onContinue}>Continuar a Tiempos <ArrowRight size={16} /></button>}
+      </>}
+    </footer>
   </section>;
 }
 
-export function DietEquivalentsStep({ headerActions, plan, targets, onSave, onDraftChange, onGoToMacros, onContinue, catalog }: Props) {
-  if (!targets) return <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-5 sm:p-7"><p className="nuth-eyebrow">Paso 3</p><h1 className="mt-2 text-2xl font-semibold text-[#173d36]">Equivalentes</h1><div className="mt-5 rounded-2xl bg-[#fff6e6] p-5 text-sm leading-6 text-[#765827]"><p className="font-semibold">Completa primero la distribución de macronutrientes.</p><p className="mt-1">El cuadro dietosintético compara los equivalentes con el objetivo energético y los gramos derivados en el paso anterior.</p><button type="button" className="nuth-button mt-4" onClick={onGoToMacros}>Ir a macronutrientes</button></div></section>;
-  return <EquivalentEditor headerActions={headerActions} key={`${plan.id}:${targets.energy_kcal}:${targets.carbohydrate_g}:${targets.protein_g}:${targets.fat_g}`} catalog={catalog} plan={plan} targets={targets} onSave={onSave} onDraftChange={onDraftChange} onGoToMacros={onGoToMacros} onContinue={onContinue} />;
+export function DietEquivalentsStep({ headerActions, plan, targets, onSave, onDraftChange, onGoToMacros, onContinue, onSaveAndExit, catalog }: Props) {
+  if (!targets) return <section className="diet-equivalents-step">
+    <header className="energy-intro"><div><p className="energy-eyebrow">PASO 03 / 06</p><h1>Equivalentes</h1><p>Convierte la meta de alimentos en porciones para el día.</p></div></header>
+    <div className="energy-card equivalents-missing"><span className="energy-icon energy-icon-method"><Calculator size={22} /></span><h2>Completa primero la distribución de macronutrientes.</h2><p>El cuadro dietosintético compara los equivalentes con el objetivo energético y los gramos derivados en el paso anterior.</p><button type="button" className="energy-continue" onClick={onGoToMacros}><ArrowLeft size={15} />Ir a macronutrientes</button></div>
+  </section>;
+  return <EquivalentEditor headerActions={headerActions} key={`${plan.id}:${targets.energy_kcal}:${targets.carbohydrate_g}:${targets.protein_g}:${targets.fat_g}`} catalog={catalog} plan={plan} targets={targets} onSave={onSave} onDraftChange={onDraftChange} onGoToMacros={onGoToMacros} onContinue={onContinue} onSaveAndExit={onSaveAndExit} />;
 }

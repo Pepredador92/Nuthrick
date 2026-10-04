@@ -1,7 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DietMacrosStep } from "./DietMacrosStep";
 import type { NutritionPlan } from "@/src/types/domain";
+import { createMacroDistribution, patchMacroInput } from "@/src/features/macros/model";
+import { supplementItem } from "../../../tests/fixtures/supplements";
 
 const plan: NutritionPlan = {
   id: "plan",
@@ -67,5 +69,26 @@ describe("DietMacrosStep", () => {
     expect(screen.getAllByRole("option", { name: "g/kg" })[0]).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Peso de referencia"), { target: { value: "70" } });
     expect(screen.getAllByRole("option", { name: "g/kg" })[0]).not.toBeDisabled();
+  });
+
+  it("keeps mixed capture modes and shows food targets after subtracting supplements", () => {
+    let distribution = createMacroDistribution(2000, 80);
+    distribution = patchMacroInput(distribution, "CARBOHYDRATE", "percentage", 50);
+    distribution = patchMacroInput(distribution, "PROTEIN", "grams_per_kg", 2);
+    distribution = patchMacroInput(distribution, "FAT", "grams", 60);
+    distribution.supplements = [supplementItem];
+    const onDraftChange = vi.fn();
+    render(<DietMacrosStep plan={{ ...plan, macro_distribution: distribution }} targetEnergyKcal={2000} energyReferenceWeightKg={80} onSave={async () => undefined} onDraftChange={onDraftChange} onGoToEnergy={vi.fn()} onContinue={vi.fn()} />);
+    const table = screen.getByRole("table", { name: "Distribución de la meta diaria" });
+    expect(within(table).getByRole("row", { name: "Proteína 135 g 25 g" })).toBeInTheDocument();
+    expect(within(table).getByRole("row", { name: "Energía 1,880 kcal 120 kcal" })).toBeInTheDocument();
+    expect(screen.getByText("Por encima del objetivo")).toHaveTextContent("180 kcal");
+    expect(screen.getByRole("button", { name: "Continuar a equivalentes" })).toBeEnabled();
+    fireEvent.change(screen.getByLabelText("Peso de referencia"), { target: { value: "70" } });
+    expect(within(table).getByRole("row", { name: "Proteína 115 g 25 g" })).toBeInTheDocument();
+    expect(onDraftChange).toHaveBeenLastCalledWith(expect.objectContaining({ reference_weight_source: "manual", supplements: [supplementItem] }));
+    fireEvent.click(screen.getByRole("button", { name: "Restaurar" }));
+    expect(screen.getByLabelText("Peso de referencia")).toHaveValue(80);
+    expect(within(table).getByRole("row", { name: "Proteína 135 g 25 g" })).toBeInTheDocument();
   });
 });

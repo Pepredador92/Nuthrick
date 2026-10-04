@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DietWorkshopPage } from "./DietWorkshopPage";
 import type { NutritionPlan } from "@/src/types/domain";
+import { createMacroDistribution, patchMacroInput } from "@/src/features/macros/model";
 
 const api = vi.hoisted(() => ({
   getPatient: vi.fn(),
@@ -145,7 +146,8 @@ describe("DietWorkshopPage", () => {
     mount("/app/diet-workshop");
     fireEvent.click(await screen.findByRole("button", { name: "Nuevo plan libre" }));
     await waitFor(() => expect(api.createPlan).toHaveBeenCalledWith({ patientId: null, consultationId: null }));
-    expect((await screen.findAllByText("Sin asignar")).length).toBeGreaterThanOrEqual(2);
+    expect(await screen.findByRole("heading", { name: "Sin asignar" })).toBeInTheDocument();
+    expect(screen.getByText("Consulta fuente", { selector: "span" }).parentElement).toHaveTextContent("Sin asignar");
   });
 
   it("opens Tiempos de comida even when the exchange inventory is empty", async () => {
@@ -182,10 +184,28 @@ describe("DietWorkshopPage", () => {
     expect(screen.getByText("Falta 1")).toBeInTheDocument();
   });
 
+  it("saves the latest energy target before continuing, even before the autosave delay", async () => {
+    let finishSave: ((value: NutritionPlan) => void) | undefined;
+    api.updatePlan.mockImplementationOnce(() => new Promise<NutritionPlan>((resolve) => { finishSave = resolve; }));
+    mount("/app/diet-workshop/plan");
+    await waitFor(() => expect(screen.getByLabelText("Peso")).toHaveValue(72));
+    fireEvent.change(screen.getByLabelText("Objetivo prescrito (kcal/día)"), { target: { value: "1800" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continuar a macronutrientes" }));
+    await waitFor(() => expect(api.updatePlan).toHaveBeenCalledWith("plan", expect.objectContaining({
+      target_calories: 1800,
+      energy_calculation: expect.objectContaining({ prescribed_target_kcal: 1800 }),
+    }), 1));
+    expect(screen.getByRole("heading", { name: "Objetivo energético" })).toBeInTheDocument();
+    finishSave?.({ ...plan, ...api.updatePlan.mock.calls[0][1] });
+    expect(await screen.findByRole("heading", { name: "Kilocalorías y macronutrientes" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Objetivo energético" })).not.toBeInTheDocument();
+  });
+
   it("keeps Guardar y salir stable while a real save is in flight", async () => {
     let finishSave: ((value: NutritionPlan) => void) | undefined;
     api.updatePlan.mockImplementationOnce(() => new Promise<NutritionPlan>((resolve) => { finishSave = resolve; }));
     mount("/app/diet-workshop/plan");
+    fireEvent.click(await screen.findByText("Nombre del plan y biblioteca"));
     const title = await screen.findByLabelText("Nombre del borrador");
     const saveAndExit = screen.getByRole("button", { name: "Guardar y salir" });
     fireEvent.change(title, { target: { value: "Plan actualizado" } });
@@ -195,4 +215,52 @@ describe("DietWorkshopPage", () => {
     expect(saveAndExit).toHaveTextContent("Guardar y salir");
     finishSave?.({ ...plan, title: "Plan actualizado" });
   });
+
+  it.each([
+    ["Continuar a equivalentes", "Equivalentes"],
+    ["Energía", "Objetivo energético"],
+    ["Guardar y salir", "Ficha del paciente"],
+  ])("saves pending macros before %s", async (action, destination) => {
+    const saved = { ...plan, target_calories: 2000 };
+    api.getPlan.mockResolvedValue(saved);
+    let finishSave: ((value: NutritionPlan) => void) | undefined;
+    api.updatePlan.mockImplementationOnce(() => new Promise<NutritionPlan>(resolve => { finishSave = resolve; }));
+    mount("/app/diet-workshop/plan");
+    fireEvent.click(await screen.findByRole("button", { name: "Macronutrientes" }));
+    fireEvent.change(await screen.findByLabelText("Valor de Proteína"), { target: { value: "20" } });
+    fireEvent.click(screen.getByRole("button", { name: action }));
+    await waitFor(() => expect(api.updatePlan).toHaveBeenCalledWith("plan", expect.objectContaining({
+      macro_distribution: expect.objectContaining({ macros: expect.objectContaining({ PROTEIN: expect.objectContaining({ input_value: 20, grams: 100 }) }) }),
+    }), 1));
+    expect(screen.getByRole("heading", { name: "Kilocalorías y macronutrientes" })).toBeInTheDocument();
+    finishSave?.({ ...saved, ...api.updatePlan.mock.calls[0][1] });
+    expect(await screen.findByRole("heading", { name: destination })).toBeInTheDocument();
+  });
+  it.each([
+    ["Macros", "Kilocalorías y macronutrientes"],
+    ["Continuar a Tiempos", "Tiempos de comida"],
+    ["Guardar y salir", "Ficha del paciente"],
+  ])("saves pending portions before %s", async (action, destination) => {
+    let macros = createMacroDistribution(2000, 72);
+    macros = patchMacroInput(macros, "CARBOHYDRATE", "percentage", 50);
+    macros = patchMacroInput(macros, "PROTEIN", "percentage", 20);
+    macros = patchMacroInput(macros, "FAT", "percentage", 30);
+    const saved = { ...plan, target_calories: 2000, macro_distribution: macros };
+    api.getPlan.mockResolvedValue(saved);
+    let finishSave: ((value: NutritionPlan) => void) | undefined;
+    api.updatePlan.mockImplementationOnce(() => new Promise<NutritionPlan>(resolve => { finishSave = resolve; }));
+    mount("/app/diet-workshop/plan");
+    fireEvent.click(await screen.findByRole("button", { name: "Equivalentes" }));
+    fireEvent.click(await screen.findByText("Agregar grupo"));
+    fireEvent.click(screen.getByRole("button", { name: /Verduras.*Agregar/ }));
+    fireEvent.change(screen.getByLabelText("Porciones de Verduras"), { target: { value: "1.5" } });
+    fireEvent.click(screen.getByRole("button", { name: action }));
+    await waitFor(() => expect(api.updatePlan).toHaveBeenCalledWith("plan", expect.objectContaining({
+      exchange_prescription: expect.objectContaining({ groups: expect.arrayContaining([expect.objectContaining({ group_code: "VEGETABLES", portions: 1.5 })]) }),
+    }), 1));
+    expect(screen.getByRole("heading", { name: "Equivalentes" })).toBeInTheDocument();
+    finishSave?.({ ...saved, ...api.updatePlan.mock.calls[0][1] });
+    expect(await screen.findByRole("heading", { name: destination })).toBeInTheDocument();
+  });
+
 });

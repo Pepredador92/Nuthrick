@@ -51,6 +51,6 @@ describe('SupplementEditor',()=>{
   await waitFor(()=>expect(save).toHaveBeenCalled(),{timeout:2000});
   view.unmount();render(<DietMacrosStep {...props} plan={{...plan,macro_distribution:save.mock.calls[0][0]}}/>);
   expect(screen.getByLabelText(`Indicaciones de ${supplementProduct.name}`)).toHaveValue('Con la comida.');
-  expect(within(screen.getByRole('table')).getByText('75 g')).toBeInTheDocument();
+  expect(within(screen.getByRole('table',{name:'Distribución de la meta diaria'})).getByRole('cell',{name:'75 g'})).toBeInTheDocument();
  });
 });

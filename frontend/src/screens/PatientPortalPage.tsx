@@ -22,6 +22,7 @@ import {
   type PortalView,
 } from "@/src/services/patientPortal";
 import { playNotificationSound } from "@/src/features/notifications/sound";
+import { ThemeSwitcher } from "@/src/features/theme/ThemeSwitcher";
 import { PortalContentView } from "@/src/components/patients/PortalContentView";
 import { PortalChat } from "@/src/components/patients/PortalChat";
 import { PortalNotes } from "@/src/components/patients/PortalNotes";
@@ -208,7 +209,7 @@ function PatientPortalContent() {
               Mi espacio
             </span>
           </p>
-          {session && (
+          <div className="flex items-center gap-3"><ThemeSwitcher compact />{session && (
             <button
               className="flex min-h-11 items-center gap-2 text-sm"
               onClick={() => void logout()}
@@ -216,7 +217,7 @@ function PatientPortalContent() {
               <LogOut size={16} />
               Salir
             </button>
-          )}
+          )}</div>
         </div>
         {!sessionReady ? (
           <p role="status" className="portal-card mx-auto mt-12 max-w-md !p-8">

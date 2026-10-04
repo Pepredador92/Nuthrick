@@ -17,7 +17,7 @@ export const metadata = productMetadata;
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#f7f8f4',
+  themeColor: '#eef3ef',
 };
 
 export default function RootLayout({
@@ -26,7 +26,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem('nuthrick.theme');document.documentElement.dataset.nuthrickTheme=t==='night'?'night':'day';if(t==='night'){var m=document.querySelector('meta[name="theme-color"]');if(m)m.content='#081520'}}catch(e){document.documentElement.dataset.nuthrickTheme='day'}` }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

@@ -50,6 +50,7 @@ import { OperationsPage } from '@/src/features/billing/OperationsPage';
 import { CodesPage } from '@/src/features/admin/CodesPage';
 import { LegalAcceptanceGate } from '@/src/features/legal/LegalAcceptanceGate';
 import { trackSiteVisit } from '@/src/services/siteAnalytics';
+import { ThemeSwitcher } from '@/src/features/theme/ThemeSwitcher';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -67,6 +68,13 @@ function SiteVisitTracker() {
   return null;
 }
 
+function PublicThemeControl() {
+  const { pathname } = useLocation();
+  if (pathname.startsWith('/app') || pathname.startsWith('/admin') || pathname === '/mi-espacio') return null;
+  return <div className={`nuth-public-theme-control${/^\/(login|register|forgot-password|reset-password)$/.test(pathname) ? ' is-auth' : ''}`}><ThemeSwitcher compact /></div>;
+}
+
+
 export function ClientApplication() {
   const isBrowser = useSyncExternalStore(
     () => () => undefined,
@@ -82,6 +90,7 @@ export function ClientApplication() {
         <AccessProvider>
         <ScrollToTop />
         <SiteVisitTracker />
+        <PublicThemeControl />
         <Routes>
           <Route path="/" element={<PublicLandingClient />} />
           <Route path="/planes" element={<CommercialPlansPage />} />

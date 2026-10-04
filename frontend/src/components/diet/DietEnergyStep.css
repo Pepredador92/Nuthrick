@@ -1,0 +1,173 @@
+/* Shared card styling for the Energy, Macros and Equivalents visual pilot. */
+.energy-workspace {
+  --energy-muted: #bbcdc2;
+  --energy-border: rgba(173, 214, 188, .2);
+  --energy-accent: #e8f578;
+  --energy-accent-hover: #f3ff9c;
+  --energy-leaf-fill: linear-gradient(145deg, #96e5d3, #52b9a1);
+  --energy-ink: #18251b;
+  position: relative;
+  isolation: isolate;
+  container-type: inline-size;
+  padding: 24px;
+  border-radius: 26px;
+  color: #f5f5e9;
+  background:
+    radial-gradient(circle at 14% 34%, #f2ffacb3 0 1px, #ddeb6822 3px, transparent 24px),
+    radial-gradient(circle at 88% 19%, #efff9366 0 1px, #cfef6420 3px, transparent 20px),
+    radial-gradient(circle at 69% 84%, #eeff9580 0 1px, #c7e6621c 3px, transparent 24px),
+    radial-gradient(ellipse at 90% 0, #45457c80, transparent 45%),
+    radial-gradient(ellipse at 14% 78%, #365b384d, transparent 52%),
+    linear-gradient(138deg, #060d1c, #102a30 62%, #0a201a);
+  background-attachment: fixed;
+  background-color: #0c1e27;
+}
+.energy-workspace .energy-context {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 20px;
+  border: 1px solid var(--energy-border);
+  border-radius: 18px;
+  background: #0b1c27e8;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 10px 32px #020d0820;
+}
+.energy-context-copy { min-width: 0; }
+.energy-context-copy > p:first-child { color: #e2ed9e; font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+.energy-context-copy h2 { margin: 3px 0; font-size: 18px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.energy-context-meta { color: #bbcdc2; font-size: 11px; }
+.energy-context-actions { display: flex; flex-shrink: 0; gap: 8px; }
+.energy-context-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 9px 12px; border: 1px solid #b9d8bc40; border-radius: 10px; color: #f5f5e9; font-size: 12px; font-weight: 600; }
+.energy-context-actions button:last-child { background: #ffffff15; }
+.energy-context-actions button:hover { background: #ffffff25; }
+.energy-workspace > nav { scrollbar-width: thin; scrollbar-color: #688f7a #102d26; border-color: #b8dfc122; background: #09182199; }
+.energy-workspace > nav button { color: #bdd5c6; background: transparent; }
+.energy-workspace > nav button:hover { background: #ffffff12; }
+.energy-workspace > nav button[aria-current="step"] { color: #29253d; background: #c6b8e9; box-shadow: 0 3px 12px #07261633; }
+.energy-workspace > nav button > span { background: #ffffff17; color: #bdd5c6; }
+.energy-workspace > nav button[aria-current="step"] > span { color: var(--energy-ink); background: #ffffff38; }
+.energy-plan-tools { border: 1px solid var(--energy-border); border-radius: 13px; background: #0b251f66; }
+.energy-plan-tools > summary { cursor: pointer; padding: 12px 16px; color: #c6d8ca; font-size: 12px; font-weight: 500; }
+.energy-plan-tools[open] > summary { border-bottom: 1px solid var(--energy-border); }
+.energy-plan-tools > div { padding: 14px; color: #173d36; }
+:is(.diet-energy-step, .diet-macros-step, .diet-equivalents-step) { color: #f5f5e9; min-width: 0; }
+:is(.diet-energy-step, .diet-macros-step, .diet-equivalents-step) button, .energy-workspace .energy-context button { cursor: pointer; }
+:is(.diet-energy-step, .diet-macros-step, .diet-equivalents-step) :is(input,select,button,summary):focus-visible,
+.energy-workspace :is(.energy-context button,nav button,.energy-plan-tools > summary):focus-visible { outline: 2px solid #e3f5b2; outline-offset: 4px; }
+.diet-energy-step input, .diet-energy-step select { color-scheme: dark; scroll-margin-block: 180px; }
+.diet-energy-step select option, .diet-energy-step select optgroup { background: #173a2e; color: white; }
+.energy-intro { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin: 26px 0 22px; }
+.energy-eyebrow { color: #e2ed9e; font-size: 10px; font-weight: 700; letter-spacing: .19em; }
+.energy-intro h1 { font-size: clamp(28px, 3vw, 38px); font-weight: 600; line-height: 1.1; letter-spacing: -.035em; margin: 8px 0; }
+.energy-intro > div > p:last-child { font-size: 13px; line-height: 1.6; color: #c8d3c9; }
+.energy-status { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; border: 1px solid #b6e0bd30; background: #08241b66; padding: 7px 11px; border-radius: 30px; font-size: 11px; color: #c5dec7; }
+.energy-status.is-ready { color: #b3f4e1; border-color: #9af1d733; }
+.energy-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.3fr); align-items: stretch; gap: 20px; }
+.energy-grid-manual .energy-target { grid-column: 1 / -1; }
+.energy-card { min-width: 0; border: 1px solid var(--energy-border, #add6bc33); border-radius: 18px; background: linear-gradient(120deg, #1a40338f, #081b148f), #0d251eb8; box-shadow: 0 12px 30px #020e0833; backdrop-filter: blur(20px); overflow: clip; }
+.energy-reference { background: linear-gradient(135deg,#173340e8,#0d222beb); }
+.energy-method { background: linear-gradient(135deg,#282e48e8,#171f30ed); }
+.energy-card-heading { display: flex; align-items: center; gap: 12px; padding: 16px 20px; background: #bde2bf12; border-bottom: 1px solid #c7e9cb12; }
+.energy-card-heading h2 { font-weight: 600; font-size: 16px; line-height: 1.3; letter-spacing: -.01em; }
+.energy-card-heading p { font-size: 11px; line-height: 1.5; color: #bcd0c0; margin-top: 3px; }
+.energy-icon { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border: 1px solid #e5f5d566; border-radius: 11px; color: var(--energy-ink); box-shadow: inset 0 1px 0 #ffffff40, 0 3px 12px #020e0833; }
+.energy-icon-reference { background: linear-gradient(145deg,#b3dffc,#7ab5df); }
+.energy-icon-method { background: linear-gradient(145deg,#dfd0ff,#b8a1e2); }
+.energy-icon-activity { background: var(--energy-leaf-fill, linear-gradient(145deg,#96e5d3,#52b9a1)); }
+.energy-icon-target { color: #253125; border-color: #e4edc366; background: linear-gradient(145deg,#dbe9a0,#bbc97c); }
+.energy-card-body { padding: 20px; }
+.energy-data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 20px; }
+.energy-data-field { min-width: 0; border-bottom: 1px solid #b9dfc526; padding-bottom: 10px; }
+.energy-data-label { display: flex; align-items: start; justify-content: space-between; gap: 4px; font-size: 11px; color: #c4d6c8; line-height: 1.4; min-height: 30px; }
+.energy-data-label button { display: grid; place-items: center; min-width: 24px; min-height: 24px; margin-top: -4px; color: #d5ec94; }
+.energy-data-value { display: flex; align-items: baseline; gap: 4px; }
+.energy-data-field input, .energy-data-field select { min-width: 0; width: 100%; background: transparent; border: 0; border-radius: 3px; color: #f5f5e9; font-size: 26px; font-weight: 550; line-height: 1.5; }
+.energy-data-field select { font-size: 17px; height: 39px; }
+.energy-data-value input { flex: 1; width: 0; }
+.energy-data-value > span { flex-shrink: 0; white-space: nowrap; color: #b2c7b9; font-size: 12px; }
+.energy-data-field small { display: block; color: #aec4b5; margin-top: 3px; font-size: 10px; line-height: 1.5; }
+.energy-field { display: block; min-width: 0; font-size: 12px; font-weight: 500; color: #d0dfd2; }
+.energy-input { display: block; width: 100%; min-width: 0; min-height: 43px; padding: 10px 12px; margin-top: 8px; border: 1px solid #b6d7bd38; border-radius: 10px; background: #051a1299; color: #f5f5e9; font-size: 13px; font-weight: 400; }
+.energy-input::placeholder { color: #a4bfae; }
+.energy-method-details { margin-top: 12px; font-size: 11px; color: #b9d2be; }
+.energy-method-details summary { padding: 6px 0; font-weight: 400; }
+.energy-estimate { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 22px; }
+.energy-estimate p { font-size: 11px; color: #bbd2c0; }
+.energy-estimate strong { display: block; margin-top: 3px; font-size: clamp(28px,3vw,40px); font-weight: 500; line-height: 1.3; letter-spacing: -.04em; }
+.energy-estimate strong span { font-size: 13px; letter-spacing: 0; font-weight: 400; color: #bdd3c3; }
+.energy-estimate-label { color: #d5ec94; border: 1px solid #d5ec9440; border-radius: 9px; font-size: 10px; letter-spacing: .08em; padding: 8px; }
+.energy-breakdown { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); border-top: 1px solid #bfdfc522; margin-top: 16px; padding-top: 14px; gap: 8px; }
+.energy-breakdown dt { color: #afc9b8; font-size: 10px; }
+.energy-breakdown dd { font-size: 16px; margin-top: 5px; font-weight: 500; }
+.energy-breakdown dd span { color: #afc9b8; font-size: 10px; font-weight: 400; }
+.energy-note { margin-top: 16px; color: #b9cebf; font-size: 11px; line-height: 1.7; }
+.energy-activity-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.energy-activity-fields > label:first-child { grid-column: 1 / -1; }
+.energy-measured-grid { display: grid; gap: 14px; margin-top: 18px; }
+.energy-eta { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding-top: 16px; margin-top: 18px; border-top: 1px solid #bfdfc522; font-size: 12px; color: #d0dfd2; }
+.energy-eta label { display: flex; align-items: center; gap: 8px; }
+.energy-eta input[type="checkbox"] { width: 16px; height: 16px; accent-color: #d5ec94; }
+.energy-eta input[type="number"] { width: 58px; border: 1px solid #b6d7bd38; padding: 6px 8px; background: #051a1299; border-radius: 7px; color: #fff; }
+.energy-target { color: #f1f4e9; border-color: #bbcca94d; background: linear-gradient(135deg,#283b35f2,#1a2d2bf2); }
+.energy-target .energy-card-heading { background: #d3dac908; border-bottom-color: #c4d5c01a; }
+.energy-target .energy-card-heading h2 { font-size: 18px; font-weight: 600; }
+.energy-target :is(.energy-card-heading p, .energy-field, .energy-note) { color: #c9d6c5; }
+.energy-target input { color-scheme: dark; }
+.energy-target :is(input,button):focus-visible { outline-color: #f0ffac; }
+.energy-target .energy-card-body { padding: 24px; }
+.energy-target-input { display: flex; align-items: baseline; gap: 14px; margin-top: 14px; border-bottom: 1px solid #c4d5c033; padding-bottom: 10px; }
+.energy-target-input input { width: 100%; min-width: 0; color: #eef4db; background: transparent; border: 0; border-radius: 4px; font-size: clamp(42px,5vw,56px); font-weight: 600; letter-spacing: -.04em; line-height: 1.3; }
+.energy-target-input input::placeholder { color: #b8c6b3; }
+.energy-target-input > span { flex-shrink: 0; color: #c9d6c5; font-size: 12px; }
+.energy-use-get { margin-top: 20px; }
+.energy-use-get span { color: inherit; }
+.energy-notices { display: grid; gap: 8px; margin-top: 20px; }
+.energy-alert, .energy-warning { border: 1px solid #e8b27b55; background: #382b24f2; color: #ffddb7; padding: 12px 16px; border-radius: 12px; font-size: 12px; }
+.energy-alert { border-color: #fbb4ab55; background: #392530f2; color: #ffd9d4; }
+.energy-actions { position: sticky; bottom: 16px; z-index: 15; display: flex; align-items: center; gap: 16px; padding: 14px 18px; margin-top: 24px; background: #0b2026eb; backdrop-filter: blur(24px); border: 1px solid #c5e2b840; border-radius: 16px; box-shadow: 0 8px 32px #020f0955; }
+.energy-actions-summary { flex-shrink: 0; }
+.energy-actions-label { display: block; color: #b6d0bc; font-size: 10px; }
+.energy-actions-summary strong { font-weight: 600; font-size: 19px; }
+.energy-actions-summary strong span { font-size: 11px; font-weight: 400; color: #c4d8c6; }
+.energy-save-status { display: flex; align-items: center; gap: 6px; color: #b8d1bf; font-size: 11px; margin-right: auto; }
+.energy-save-exit { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 8px; min-height: 44px; padding: 12px 14px; color: #d7e5d6; border: 1px solid #bfd8bf40; border-radius: 11px; font-size: 12px; font-weight: 500; }
+.energy-save-exit:hover { background: #ffffff15; }
+.energy-continue, .energy-use-get { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 12px; min-height: 44px; padding: 12px 18px; border: 1px solid #f3ffad99; border-radius: 11px; color: var(--energy-ink); background: var(--energy-accent); box-shadow: 0 0 22px #dcee6a26; font-size: 13px; font-weight: 600; }
+.energy-continue:hover, .energy-use-get:hover { background: var(--energy-accent-hover); }
+.energy-continue:disabled { cursor: not-allowed; background: #3d5846; color: #d2dfd4; box-shadow: none; border-color: #a9c5ad33; }
+@media (max-width: 850px) {
+  .energy-workspace { padding: 18px; }
+}
+@container (max-width: 760px) {
+  .energy-workspace .energy-context { position: static; flex-wrap: wrap; padding: 16px; }
+  .energy-context-actions { flex-wrap: wrap; }
+  .energy-grid { grid-template-columns: 1fr; gap: 16px; }
+  .energy-intro { align-items: start; }
+  .energy-intro > div > p:last-child { max-width: 34ch; }
+  .energy-save-status { margin-left: auto; margin-right: 0; }
+  .energy-actions { flex-wrap: wrap; gap: 10px 16px; bottom: 8px; }
+  .energy-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .energy-save-status { justify-self: end; }
+  .energy-continue { width: 100%; padding: 10px; font-size: 12px; gap: 6px; }
+  .energy-save-exit { padding: 10px; align-self: stretch; }
+  .energy-continue:only-of-type { grid-column: 1 / -1; }
+}
+@media (max-width: 480px) {
+  .energy-workspace { padding: 12px; border-radius: 18px; }
+  .energy-intro { flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+  .energy-card-heading { padding: 15px 16px; }
+  .energy-card-body, .energy-target .energy-card-body { padding: 18px 16px; }
+  .energy-data-grid { gap: 16px; }
+  .energy-actions { padding: 12px; }
+  .energy-breakdown dd { font-size: 15px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .energy-card { background: #102c22; }
+  .energy-reference { background: #1a303d; }
+  .energy-method { background: #2d2e40; }
+  .energy-target { background: #263832; }
+}

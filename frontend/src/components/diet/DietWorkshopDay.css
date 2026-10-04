@@ -1,0 +1,190 @@
+/* Appearance changes only: both palettes share the same controls and clinical state. */
+.energy-context-actions { align-items: center; }
+.energy-context-actions .workshop-appearance { display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid #b9d8bc33; border-radius: 12px; background: #09161c66; }
+.energy-context-actions .workshop-appearance button { min-height: 32px; padding: 6px 9px; gap: 5px; border: 0; border-radius: 8px; background: transparent; color: #b9cec4; font-size: 11px; font-weight: 500; }
+.energy-context-actions .workshop-appearance button[aria-pressed="true"] { background: #c5d6c21f; color: #edf4de; box-shadow: 0 1px 5px #0002; }
+.energy-context-actions .workshop-appearance button:hover { background: #ffffff12; }
+.energy-workspace[data-workshop-theme="night"] .equivalents-confirm:not(:disabled) { background: var(--energy-leaf-fill); border-color: #59ad9a; color: #173d36; box-shadow: 0 3px 12px #58c3ae24; }
+.energy-workspace[data-workshop-theme="night"] .equivalents-confirm:hover:not(:disabled) { background: linear-gradient(145deg, #8cdfcd, #43aa97); }
+
+.energy-workspace[data-workshop-theme="day"] {
+  --day-ink: #243d3b;
+  --day-muted: #566c65;
+  --day-line: #627f702b;
+  --energy-muted: var(--day-muted);
+  --energy-border: #68847733;
+  --energy-accent: #dcec79;
+  --energy-accent-hover: #d2e363;
+  --energy-ink: #253824;
+  color: var(--day-ink);
+  background:
+    radial-gradient(ellipse at 90% 0, #dcd7f280, transparent 48%),
+    radial-gradient(ellipse at 8% 76%, #c4ddd080, transparent 50%),
+    radial-gradient(circle at 65% 38%, #f2ebbc66, transparent 42%),
+    linear-gradient(135deg, #eef3ef, #eaf1ed 55%, #e4eee8);
+  background-attachment: fixed;
+  background-color: #eef3ef;
+
+  & :is(.diet-energy-step, .diet-macros-step, .diet-equivalents-step) { color: var(--day-ink); }
+  & :is(.diet-energy-step, .diet-macros-step, .diet-equivalents-step) :is(input, select, textarea) { color-scheme: light; }
+  & :is(.diet-energy-step, .diet-macros-step, .diet-equivalents-step) :is(input, select, button, summary, textarea):focus-visible,
+  & :is(.energy-context button, nav button, .energy-plan-tools > summary):focus-visible { outline-color: #3c7969; }
+  & :is(select option, select optgroup) { color: var(--day-ink); background: #f8faf6; }
+  & .energy-context { background: #fffffff0; box-shadow: 0 7px 25px #364e4010; }
+  & .energy-context-copy > p:first-child, & .energy-eyebrow { color: #587043; }
+  & .energy-context-meta, & .energy-intro > div > p:last-child { color: var(--day-muted); }
+  & .energy-context-actions > button { color: #3f5f52; border-color: var(--day-line); background: #f1f5ef; }
+  & .energy-context-actions > button:hover { background: #e5eee5; }
+  & .workshop-appearance { background: #eef2ed; border-color: #65836c26; }
+  & .workshop-appearance button { color: #5a6b60; background: transparent; }
+  & .workshop-appearance button[aria-pressed="true"] { color: #38492d; background: #fff; box-shadow: 0 1px 5px #1d3c1f15; }
+  & .workshop-appearance button:hover { background: #e0e9d7; }
+  & > nav { border-color: var(--day-line); background: #ffffffb3; scrollbar-color: #a2b8aa #e7eee8; }
+  & > nav button { color: #536b60; }
+  & > nav button:hover { background: #d9e3d747; }
+  & > nav button[aria-current="step"] { background: #e5def4; color: #534471; box-shadow: 0 3px 10px #5f4d7910; }
+  & > nav button > span { background: #e4ece4; color: #5d7565; }
+  & > nav button[aria-current="step"] > span { background: #ffffff70; color: #574970; }
+  & .energy-plan-tools { background: #ffffff80; }
+  & .energy-plan-tools > summary { color: #506959; }
+  & .energy-status { color: #506845; border-color: #7e995a40; background: #f7f9eacc; }
+  & .energy-status.is-ready { color: #2c6c55; border-color: #82b49855; background: #ebf5ed; }
+  & .energy-status.is-error { color: #984b40; border-color: #c68a7655; background: #fff0eb; }
+  & .energy-card { color: var(--day-ink); background: #ffffffe6; box-shadow: 0 9px 28px #3b5b4510; }
+  & .energy-card-heading { background: #edf3ee80; border-bottom-color: var(--day-line); }
+  & .energy-card-heading p { color: var(--day-muted); }
+  & .energy-icon { border-color: #fff9; box-shadow: inset 0 1px 0 #fff9, 0 3px 9px #37534412; }
+  & .energy-reference { background: linear-gradient(135deg,#f9fdff,#eef5f5); }
+  & :is(.energy-method, .macros-weight) { background: linear-gradient(135deg,#faf9ff,#f0eff6); }
+  & .energy-activity { background: linear-gradient(135deg,#f7fcf8,#eff6ee); }
+  & :is(.energy-target, .macros-summary, .equivalents-summary) { background: linear-gradient(135deg,#f4f6e9,#eaf0e3); border-color: #8c9d6c55; color: var(--day-ink); }
+  & .energy-target .energy-card-heading { background: #d9e2bd25; border-bottom-color: var(--day-line); }
+  & :is(.energy-input, .energy-eta input[type="number"]) { background: #ffffffd9; color: var(--day-ink); border-color: #6a837247; }
+  & :is(.energy-input, .energy-target-input input)::placeholder { color: #69806d; }
+  & :is(.energy-data-field, .energy-breakdown, .energy-eta, .energy-target-input) { border-color: var(--day-line); }
+  & :is(.energy-data-field input, .energy-data-field select, .energy-target-input input) { color: #2c493c; }
+  & :is(.energy-data-label, .energy-data-value > span, .energy-data-field small, .energy-field, .energy-method-details, .energy-estimate p, .energy-estimate strong span, .energy-breakdown dt, .energy-breakdown dd span, .energy-note, .energy-eta, .energy-target-input > span) { color: var(--day-muted); }
+  & .energy-data-label button { color: #58712f; }
+  & .energy-estimate-label { color: #58712f; border-color: #7b96544d; background: #eff4d5; }
+  & .energy-target :is(.energy-card-heading p, .energy-field, .energy-note) { color: #586e50; }
+  & .energy-alert { color: #934337; background: #fff0e9; border-color: #e3a19080; }
+  & .energy-warning { color: #806029; background: #fff7e4; border-color: #d6b26680; }
+  & .energy-actions { background: #fbfdf8ed; border-color: #8fa57e66; box-shadow: 0 8px 26px #2c4e3720; }
+  & :is(.energy-actions-label, .energy-actions-summary strong span, .energy-save-status) { color: #566f5e; }
+  & :is(.energy-save-exit, .macros-secondary) { color: #395746; border-color: #6e8d7247; background: #ffffff99; }
+  & :is(.energy-save-exit, .macros-secondary):hover { background: #eaf0e5; }
+  & :is(.energy-continue, .energy-use-get) { border-color: #a9be53; box-shadow: 0 3px 9px #7c902316; }
+  & :is(.energy-continue, .energy-use-get):disabled { background: #e3e9d9; color: #67745e; border-color: #acb89a66; }
+  & .equivalents-confirm:not(:disabled) { background: var(--energy-leaf-fill); border-color: #58a997; color: #173d36; box-shadow: none; }
+  & .equivalents-confirm:hover:not(:disabled) { background: linear-gradient(145deg, #86dbc6, #47a991); }
+
+  /* Macro inputs and supplementation retain their existing table layout. */
+  & :is(.macros-reference-value span, .macros-weight-input > span:last-child, .macros-caption, .macros-section-heading > div > p:last-child) { color: var(--day-muted); }
+  & :is(.macros-text-button, .macros-back, .equivalents-back) { color: #466541; }
+  & :is(.macros-text-button, .macros-back, .equivalents-back):hover { background: #79965a12; }
+  & .macros-weight-input input { color: var(--day-ink); border-color: var(--day-line); }
+  & .macros-table-scroll { background: #ffffffeb; scrollbar-color: #9fbbab #edf2ec; }
+  & .macros-table thead { background: #edf4f0; }
+  & .macros-table thead th { color: #566e62; border-color: var(--day-line); }
+  & .macros-table tbody th, & .macros-table td { border-color: #68847726; color: var(--day-ink); }
+  & .macros-table td.macro-table-kcal { color: #36523c; }
+  & .macros-table :is(input, select) { background: #f8fbf7; color: var(--day-ink); border-color: #7a958752; }
+  & .macros-table input::placeholder, & .macros-weight-input input::placeholder { color: #6e8273; }
+  & .macro-table-value > span { color: #627868; }
+  & :is(.macros-assigned p, .macros-assigned > span, .macros-assigned strong span, .macros-legend, .macros-difference, .macros-split-table tbody th) { color: var(--day-muted); }
+  & :is(.macros-difference strong, .macros-split-table caption) { color: #3e573b; }
+  & :is(.macros-difference, .macros-split-table tbody tr, .macros-actions .energy-actions-summary) { border-color: var(--day-line); }
+  & .macros-distribution-bar { background: #d7e2d5; }
+  & .macros-split-table thead th { color: #5c735c; }
+  & .macros-split-table td:last-child { color: #286d52; }
+  & .macros-supplements.supplement-editor { background: linear-gradient(135deg,#edf8ef,#e4f2e7); border-color: #89b59966; color: var(--day-ink); box-shadow: 0 9px 28px #3b5b4510; }
+  & .macros-supplements .supplement-eyebrow { color: #547957; }
+  & .macros-supplements :is(h2, h3) { color: #2e5840; }
+  & .macros-supplements h2 svg { color: #468560; }
+  & .macros-supplements p { color: #58735f; }
+  & .macros-supplements .supplement-item { background: #ffffffab; border-color: #8ab69a4d; }
+  & .macros-supplements .nuth-button-secondary { color: #2f6547; background: #ffffff80; border-color: #669c7780; }
+  & .macros-supplements .nuth-button-secondary:hover { background: #d7ebdb; }
+  & .macros-supplements .nuth-input { background: #fcfefb; border-color: #87ad8b66; color: #304d38; }
+  & .macros-supplements .nuth-input::placeholder { color: #6d836f; }
+  & .macros-supplements .supplement-remove { color: #a65c4d; }
+  & .macros-supplements .supplement-warning { color: #805d28; background: #fff5db; }
+  & .macros-supplements [role="alert"] { color: #aa453b; }
+  & .macros-supplement-library { color-scheme: light; color: var(--day-ink); background: #f7faf4; border-color: #74947550; }
+  & .macros-supplement-library::backdrop { background: #263c3970; }
+  & .macros-supplement-library p { color: var(--day-muted); }
+  & .macros-supplement-library .nuth-eyebrow { color: #546f3b; }
+  & .macros-supplement-library .nuth-input { color: var(--day-ink); background: #fff; border-color: #73957750; }
+  & .macros-supplement-library input::placeholder { color: #69806b; }
+  & .macros-supplement-library article { background: #fff; border-color: #74947540; }
+  & .macros-supplement-library :is(article span, article button:not(.nuth-button)) { color: #587150; }
+  & .macros-supplement-library label { border-color: #74947540; }
+  & .macros-supplement-library .nuth-button-secondary { color: #3f653f; border-color: #73957770; background: #eaf3e4; }
+  & .macros-supplement-library :is(button, input):focus-visible { outline-color: #3c7969; }
+  & .macros-supplement-library [role="alert"] { color: #aa453b; }
+
+  /* Equivalents: subtle category colors, clear input surfaces and a sage summary. */
+  & .equivalents-portions { background: linear-gradient(135deg,#ffffffed,#f5faf6f2); }
+  & .equivalents-assistant { background: linear-gradient(135deg,#faf9ff,#f0eff7); }
+  & .energy-card-heading .equivalents-card-step { color: #547458; }
+  & .equivalents-count { color: #4e6c54; background: #dce9db8c; }
+  & :is(.equivalents-list-intro, .equivalents-summary-intro, .equivalents-note, .equivalents-missing p) { color: var(--day-muted); }
+  & .equivalents-preview-badge { color: #3c677e; border-color: #a0bfce80; background: #e7f2f7; }
+  & .equivalents-category { --group-tone: #36856c; }
+  & .equivalents-category-grains { --group-tone: #97712e; }
+  & .equivalents-category-animal { --group-tone: #8060a0; }
+  & .equivalents-category-milk { --group-tone: #3d7f9a; }
+  & .equivalents-category-fats { --group-tone: #7a8333; }
+  & .equivalents-category-sugars { --group-tone: #a4606b; }
+  & :is(.equivalents-category h3, .equivalents-list-footer, .equivalents-metric-energy, .equivalents-preferences, .equivalents-ai) { border-color: var(--day-line); }
+  & .equivalents-row { border-color: #6f8e731f; }
+  & .equivalents-contribution > summary { color: #2e5143; }
+  & .equivalents-contribution summary svg { color: #6b8d78; }
+  & .equivalents-contribution > div { color: #617364; background: #eaf2e8; }
+  & .equivalents-contribution :is(strong, .equivalents-contribution-label) { color: #3c6549; }
+  & .equivalents-portion-input button { color: #4c7858; background: #f5f9f1; border-color: #8eab9180; }
+  & .equivalents-portion-input button:hover:not(:disabled) { background: #e4eeda; }
+  & .equivalents-portion-input input { color: #314c32; background: #fff; border-color: #8eab9199; }
+  & .equivalents-portion-input input::placeholder { color: #6c856b; }
+  & .equivalents-lock { color: #678161; }
+  & .equivalents-lock:hover { background: #e8efd9; }
+  & .equivalents-lock[aria-pressed="true"] { color: #587022; background: #eaf1c9; border-color: #99af5066; }
+  & .equivalents-empty { background: #f1f7ee; border-color: var(--day-line); }
+  & .equivalents-empty p:first-of-type { color: #385c43; }
+  & .equivalents-empty p:last-child { color: #627761; }
+  & .equivalents-picker { background: #eef5ea; border-color: #8baa7b80; }
+  & .equivalents-picker summary { color: #4a6e3e; }
+  & .equivalents-picker-list { border-color: var(--day-line); }
+  & :is(.equivalents-picker-list h3, .equivalents-preference-list h3) { color: #5b754d; }
+  & .equivalents-picker-list button { color: #42613c; background: #ffffff85; }
+  & .equivalents-picker-list button > span:last-child { color: #57733e; }
+  & .equivalents-picker-list button:not(:disabled):hover { background: #dfebd7; }
+  & :is(.equivalents-list-footer, .equivalents-list-footer button, .equivalents-undo) { color: #5b7155; }
+  & .equivalents-list-footer strong { color: #3d5d36; }
+  & .equivalents-metric { --metric-tone: #95a951; }
+  & .equivalents-metric-carbohydrate { --metric-tone: #70aaca; }
+  & .equivalents-metric-protein { --metric-tone: #ac8ccb; }
+  & .equivalents-metric-fat { --metric-tone: #cba455; }
+  & :is(.equivalents-metric-label, .equivalents-metric-value > span, .equivalents-metric-difference) { color: #5b7055; }
+  & .equivalents-progress { background: #8ea07126; }
+  & .equivalents-margin { color: #7a602e; background: #fff6df; border-color: #d8b87166; }
+  & .equivalents-margin.is-close { color: #537141; background: #f9fcef9c; border-color: #9db97540; }
+  & .equivalents-confirmed { color: #2e7856; }
+  & .equivalents-propose { background: #f3e2a1; border-color: #cbb57099; color: #59461e; }
+  & .equivalents-propose:hover:not(:disabled) { background: #eed887; }
+  & .equivalents-auto-note { color: #706b7b; }
+  & .equivalents-start-current { color: #5a6b60; }
+  & input[type="checkbox"] { accent-color: #7c934c; }
+  & .equivalents-proposal-navigation > div { color: #676078; }
+  & .equivalents-proposal-navigation button { border-color: #b8adc973; background: #fff7; }
+  & .equivalents-caution { color: #816431; }
+  & .equivalents-preferences > summary { color: #605775; }
+  & .equivalents-preference-list label { color: #5d5870; }
+  & .equivalents-preference-list select { background: #fff; color: #5f5874; border-color: #aba0c466; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .energy-workspace[data-workshop-theme="day"] :is(.energy-card, .energy-context, .energy-actions) { backdrop-filter: none; background: #fbfdf8; }
+  .energy-workspace[data-workshop-theme="day"] :is(.energy-target, .macros-summary, .equivalents-summary) { background: #edf2e5; }
+  .energy-workspace[data-workshop-theme="day"] :is(.energy-method, .macros-weight, .equivalents-assistant) { background: #f1eff8; }
+}

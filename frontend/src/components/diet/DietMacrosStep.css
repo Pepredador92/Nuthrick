@@ -1,0 +1,138 @@
+/* Macros uses the approved night palette; inputs and formulas remain unchanged. */
+.diet-macros-step { --macro-carbohydrate: #8cc8ee; --macro-protein: #c5adef; --macro-fat: #e6c082; }
+.diet-macros-step :is(input, select, textarea) { color-scheme: dark; scroll-margin-block: 180px; }
+.diet-macros-step select option { color: #f1f4e9; background: #182d2b; }
+.macros-reference-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.macros-weight { background: linear-gradient(135deg, #292f42ed, #1b2934eb); }
+.macros-reference-body { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.macros-reference-value, .macros-weight-input { flex-shrink: 0; font-size: 30px; font-weight: 550; letter-spacing: -.03em; }
+.macros-reference-value span, .macros-weight-input > span:last-child { color: #bfd0c9; font-size: 12px; font-weight: 400; letter-spacing: 0; }
+.macros-weight-input { display: flex; align-items: baseline; gap: 8px; }
+.macros-weight-input input { width: 100px; max-width: 100%; border: 0; border-bottom: 1px solid #c1d6cc38; background: transparent; color: #f1f4e9; font: inherit; border-radius: 3px; }
+.macros-caption { max-width: 25ch; font-size: 11px; line-height: 1.6; color: #bbcdc2; }
+.macros-text-button { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; flex-shrink: 0; padding: 7px; border-radius: 8px; color: #d9e5c5; font-size: 11px; }
+.macros-text-button:hover, .macros-back:hover { background: #ffffff10; }
+.macros-distribution { margin-top: 28px; }
+.macros-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-bottom: 16px; }
+.macros-section-heading h2 { margin-top: 6px; font-size: 19px; font-weight: 600; letter-spacing: -.02em; }
+.macros-section-heading > div > p:last-child { color: #bbcdc2; font-size: 12px; line-height: 1.6; margin-top: 4px; }
+.macros-secondary { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 7px; padding: 10px 13px; min-height: 40px; border: 1px solid #b9d8bc40; border-radius: 10px; font-size: 12px; color: #dce6d8; background: #14262c80; }
+.macros-secondary:hover { background: #ffffff12; }
+.macros-table-scroll { overflow-x: auto; background: linear-gradient(135deg,#19313aed,#16282dec); scrollbar-width: thin; scrollbar-color: #688c80 #10242b; }
+.macros-table-scroll:focus-visible { outline: 2px solid #e3f5b2; outline-offset: 4px; }
+.macros-table { width: 100%; min-width: 720px; table-layout: fixed; border-collapse: collapse; text-align: left; font-size: 13px; }
+.macros-table .macro-name-col { width: 24%; }
+.macros-table .macro-mode-col { width: 16%; }
+.macros-table .macro-value-col { width: 21%; }
+.macros-table thead { background: #c6d9d00c; }
+.macros-table thead th { padding: 13px 16px; color: #bdcec6; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid #c1d6cc26; }
+.macros-table tbody th, .macros-table td { padding: 12px 16px; border-bottom: 1px solid #c1d6cc1c; overflow-wrap: anywhere; }
+.macros-table tbody tr:last-child > * { border-bottom: 0; }
+.macros-table tbody th { color: #edf4ee; font-weight: 600; }
+.macros-table td { color: #c4d4cd; font-variant-numeric: tabular-nums; }
+.macros-table td.macro-table-kcal { color: #e5efdd; font-weight: 600; }
+.macro-table-name { display: flex; align-items: center; gap: 9px; }
+.macro-table-name > span { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; }
+.macros-table :is(input, select) { display: block; width: 100%; min-width: 0; height: 40px; padding: 8px 10px; color: #eef4ec; border: 1px solid #c1d6cc38; border-radius: 10px; background: #091b2480; font-size: 13px; font-weight: 400; }
+.macros-table input::placeholder, .macros-weight-input input::placeholder { color: #a7b9af; }
+.macro-table-value { position: relative; }
+.macro-table-value input { padding-right: 45px; }
+.macro-table-value > span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #baccc0; font-size: 11px; pointer-events: none; }
+.macros-bottom-grid { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1fr); gap: 20px; align-items: start; margin-top: 24px; }
+.macros-summary { background: linear-gradient(135deg,#283b35f2,#1a2d2bf2); border-color: #bbcca94d; }
+.macros-assigned { display: flex; align-items: end; justify-content: space-between; gap: 12px; }
+.macros-assigned p, .macros-assigned > span { font-size: 11px; color: #bbcdc2; }
+.macros-assigned strong { display: block; font-size: 28px; line-height: 1.4; margin-top: 3px; font-weight: 550; letter-spacing: -.025em; }
+.macros-assigned strong span { font-size: 12px; font-weight: 400; color: #c9d6c5; }
+.macros-assigned > span { padding-bottom: 6px; text-align: right; }
+.macros-distribution-bar { display: flex; overflow: hidden; height: 8px; border-radius: 8px; background: #b3c7bf1f; margin-top: 18px; }
+.macros-distribution-bar > span { height: 100%; flex-shrink: 0; }
+.macro-segment-carbohydrate { background: var(--macro-carbohydrate); }
+.macro-segment-protein { background: var(--macro-protein); }
+.macro-segment-fat { background: var(--macro-fat); }
+.macros-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 10px; font-size: 10px; color: #c5d1cc; }
+.macros-legend li { display: inline-flex; align-items: center; gap: 5px; }
+.macros-legend li > span { width: 6px; height: 6px; border-radius: 50%; }
+.macros-difference { display: flex; justify-content: space-between; gap: 12px; margin-top: 20px; padding-bottom: 18px; border-bottom: 1px solid #c1d6cc26; color: #becdc3; font-size: 12px; }
+.macros-difference strong { color: #e0e8ca; font-weight: 500; white-space: nowrap; }
+.macros-split-wrap { margin-top: 18px; }
+.macros-split-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
+.macros-split-table caption { text-align: left; padding-bottom: 12px; color: #e1e9df; font-size: 12px; font-weight: 600; }
+.macros-split-table th { text-align: left; font-weight: 400; }
+.macros-split-table thead th { color: #b9cbbf; font-size: 10px; padding-bottom: 8px; }
+.macros-split-table th:first-child { width: 34%; }
+.macros-split-table th:not(:first-child), .macros-split-table td { text-align: right; }
+.macros-split-table tbody tr { border-top: 1px solid #b4d5bd15; }
+.macros-split-table tbody th, .macros-split-table td { padding-block: 10px; overflow-wrap: anywhere; }
+.macros-split-table tbody th { font-size: 11px; color: #c5d4ca; padding-right: 4px; }
+.macros-split-table td { font-weight: 500; }
+.macros-split-table td:last-child { color: #b3e7d0; }
+.macros-split-table td span { font-size: 10px; font-weight: 400; }
+.macros-back { display: inline-flex; align-items: center; gap: 6px; padding: 10px 5px; min-height: 40px; color: #d7e5d6; border-radius: 8px; font-size: 12px; }
+.macros-actions { gap: 12px; }
+.macros-actions .energy-actions-summary { padding-left: 12px; border-left: 1px solid #c1d6cc26; }
+.macros-actions .energy-continue { font-size: 12px; padding-inline: 14px; gap: 7px; }
+
+/* Keep supplementation green and separate from the food prescription. */
+.macros-supplements.supplement-editor { margin-top: 0; min-width: 0; border: 1px solid #9fd5b840; border-radius: 18px; background: linear-gradient(135deg,#193f33ed,#102d29ed); color: #e4f1e9; padding: 20px; box-shadow: 0 12px 30px #020e0833; }
+.macros-supplements .supplement-heading { align-items: start; gap: 16px; }
+.macros-supplements .supplement-heading > div { flex: 1 1 220px; }
+.macros-supplements .supplement-eyebrow { margin: 0 0 10px; font-size: 10px; font-weight: 700; letter-spacing: .16em; color: #aed9c2; }
+.macros-supplements h2 { font-size: 17px; color: #edf5ef; }
+.macros-supplements h2 svg { color: #8ed9b8; }
+.macros-supplements p { color: #b6d0c2; }
+.macros-supplements .supplement-item { background: #0c2726b3; border-color: #a7d3bc2e; }
+.macros-supplements h3 { color: #e5f2e8; }
+.macros-supplements .supplement-remove { color: #eabaae; }
+.macros-supplements .supplement-remove:hover { background: #ffffff10; }
+.macros-supplements .nuth-button-secondary { border: 1px solid #b9dac355; color: #d3f2de; background: #9cd3b51a; box-shadow: none; padding: 10px 12px; min-height: 40px; font-size: 12px; }
+.macros-supplements .nuth-button-secondary:hover { background: #9cd3b529; }
+.macros-supplements .nuth-input { background: #091f1dcc; border-color: #a7d3bc38; color: #e4f1e9; font-size: 13px; }
+.macros-supplements .nuth-input::placeholder { color: #9eb9ac; }
+.macros-supplements .supplement-warning { color: #f1d9b0; background: #55452466; }
+.macros-supplements [role="alert"] { color: #f4b5ab; }
+
+/* The existing search/manual-entry dialog follows the same palette. */
+.macros-supplement-library { color-scheme: dark; background: #112b2b; color: #e4f1e9; border: 1px solid #a7d3bc40; }
+.macros-supplement-library::backdrop { background: #030d14ba; backdrop-filter: blur(6px); }
+.macros-supplement-library p { color: #bbcdc2; }
+.macros-supplement-library .nuth-eyebrow { color: #d5e6a3; }
+.macros-supplement-library .nuth-button { color: #18251b; background: #e8f578; border-color: #e8f578; }
+.macros-supplement-library .nuth-button-secondary { color: #d3f2de; border-color: #b9dac355; background: #9cd3b51a; }
+.macros-supplement-library .nuth-input { color: #e4f1e9; background: #091f1dcc; border-color: #a7d3bc38; }
+.macros-supplement-library input::placeholder { color: #a9beb3; }
+.macros-supplement-library article { background: #183733; border-color: #a7d3bc38; }
+.macros-supplement-library :is(article span, article button:not(.nuth-button)) { color: #c2d9c8; }
+.macros-supplement-library label { border-color: #a7d3bc38; }
+.macros-supplement-library :is(button, input):focus-visible { outline: 2px solid #e3f5b2; outline-offset: 3px; }
+.macros-supplement-library [role="alert"] { color: #f4b5ab; }
+
+@container (max-width: 1000px) {
+  .macros-reference-body { flex-wrap: wrap; gap: 8px; }
+  .macros-caption { max-width: none; flex-basis: 100%; }
+  .macros-actions { flex-wrap: wrap; }
+  .macros-actions .energy-save-status { flex: 1; }
+  .macros-actions .energy-save-exit { margin-left: auto; }
+}
+@container (max-width: 760px) {
+  .macros-reference-grid, .macros-bottom-grid { grid-template-columns: 1fr; gap: 16px; }
+  .macros-reference-body { flex-wrap: nowrap; }
+  .macros-caption { max-width: 30ch; flex-basis: auto; }
+  .macros-actions { grid-template-columns: auto 1fr; }
+  .macros-actions .energy-actions-summary { text-align: right; border: 0; padding: 0; }
+  .macros-actions .energy-save-status { grid-row: 2; grid-column: 1/-1; justify-self: start; margin: 0; }
+  .macros-actions .energy-save-exit { margin: 0; }
+  .macros-actions .energy-continue:last-child { grid-column: 2; }
+}
+@container (max-width: 440px) {
+  .macros-reference-body { flex-wrap: wrap; }
+  .macros-caption { flex-basis: 100%; }
+  .macros-section-heading { flex-wrap: wrap; gap: 12px; }
+  .macros-supplements.supplement-editor { padding: 18px 16px; }
+  .macros-actions .energy-continue { font-size: 11px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .diet-macros-step .macros-table-scroll { background: #19313a; }
+  .diet-macros-step .macros-summary { background: #263832; }
+  .macros-supplements.supplement-editor { background: #193f33; }
+}

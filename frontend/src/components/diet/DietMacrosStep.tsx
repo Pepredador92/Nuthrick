@@ -1,8 +1,7 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, Check, CircleAlert, LoaderCircle, PieChart, RotateCcw, Save, Scale, Target } from "lucide-react";
 import { SupplementEditor } from "./SupplementEditor";
 import { dietNutritionSplit } from "@/src/features/supplements/targets";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, CircleAlert, LoaderCircle, RotateCcw } from "lucide-react";
-import { WorkshopStepFooter } from "./WorkshopStepFooter";
 import { macroCatalog } from "@/src/features/macros/catalog";
 import {
   createMacroDistribution,
@@ -11,8 +10,9 @@ import {
   setMacroReferenceWeight,
 } from "@/src/features/macros/model";
 import type { MacroDistribution, MacroInputMode, NutritionPlan } from "@/src/types/domain";
-import { AutosaveFeedback } from "./AutosaveFeedback";
 import { useChangeAutosave } from "./useChangeAutosave";
+import "./DietEnergyStep.css";
+import "./DietMacrosStep.css";
 
 type Props = {
   plan: NutritionPlan;
@@ -22,6 +22,7 @@ type Props = {
   onDraftChange: (distribution: MacroDistribution) => void;
   onGoToEnergy: () => void;
   onContinue: () => void;
+  onSaveAndExit?: () => void;
 };
 
 const numeric = (value: string) => {
@@ -30,24 +31,20 @@ const numeric = (value: string) => {
   return Number.isFinite(result) && result >= 0 ? result : null;
 };
 
-const display = (value: number | null, maximumFractionDigits: number) =>
+const display = (value: number | null, maximumFractionDigits = 1) =>
   value === null ? "—" : value.toLocaleString("es-MX", { maximumFractionDigits, minimumFractionDigits: 0 });
 
-function MacroModeSelect({ value, disabled, onChange }: { value: MacroInputMode; disabled: boolean; onChange: (mode: MacroInputMode) => void }) {
-  return (
-    <select aria-label="Modo de captura" className="nuth-input !h-10 !px-2 !py-1 text-xs" value={value} onChange={(event) => onChange(event.target.value as MacroInputMode)}>
-      <option value="percentage">%</option>
-      <option value="grams">g</option>
-      <option value="grams_per_kg" disabled={disabled}>g/kg</option>
-    </select>
-  );
+const macroPresentation = {
+  CARBOHYDRATE: { tone: "carbohydrate", nutritionKey: "carbohydrate_g" },
+  PROTEIN: { tone: "protein", nutritionKey: "protein_g" },
+  FAT: { tone: "fat", nutritionKey: "fat_g" },
+} as const;
+
+export function DietMacrosStep(props: Props) {
+  return <MacroEditor key={`${props.plan.id}:${props.targetEnergyKcal}`} {...props} targetEnergyKcal={props.targetEnergyKcal ?? 0} />;
 }
 
-export function DietMacrosStep({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, onDraftChange, onGoToEnergy, onContinue }: Props) {
-  return <MacroEditor key={`${plan.id}:${targetEnergyKcal}`} plan={plan} targetEnergyKcal={targetEnergyKcal ?? 0} energyReferenceWeightKg={energyReferenceWeightKg} onSave={onSave} onDraftChange={onDraftChange} onGoToEnergy={onGoToEnergy} onContinue={onContinue} />;
-}
-
-function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, onDraftChange, onGoToEnergy, onContinue }: Omit<Props, "targetEnergyKcal"> & { targetEnergyKcal: number }) {
+function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, onDraftChange, onGoToEnergy, onContinue, onSaveAndExit }: Omit<Props, "targetEnergyKcal"> & { targetEnergyKcal: number }) {
   const initial = useMemo(
     () => plan.macro_distribution ?? createMacroDistribution(targetEnergyKcal, energyReferenceWeightKg),
     [energyReferenceWeightKg, plan.macro_distribution, targetEnergyKcal],
@@ -71,91 +68,131 @@ function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, 
 
   const hasReferenceWeight = draft.reference_weight_kg !== null && draft.reference_weight_kg > 0;
   const hasData = Object.values(draft.macros).some((macro) => macro.input_value !== null);
+  const split = dietNutritionSplit({ target_calories: targetEnergyKcal, macro_distribution: draft });
+  const barTotal = Math.max(targetEnergyKcal, draft.totals.kcal, 1);
+  const differenceLabel = draft.totals.difference_kcal > 0 ? "Por distribuir" : draft.totals.difference_kcal < 0 ? "Por encima del objetivo" : "Diferencia";
   const reset = () => {
     if (hasData && !window.confirm("¿Restablecer la distribución? Se eliminarán únicamente los valores de macronutrientes de este plan.")) return;
     update({ ...createMacroDistribution(targetEnergyKcal, energyReferenceWeightKg), supplements: draft.supplements });
   };
 
   return (
-    <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-5 sm:p-7">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <section className="diet-macros-step" aria-labelledby="macros-heading">
+      <header className="energy-intro">
         <div>
-          <p className="nuth-eyebrow">Paso 2</p>
-          <h1 aria-label="Kilocalorías y macronutrientes" className="mt-2 text-2xl font-semibold text-[#173d36]">Macros</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">Define la distribución del día.</p>
+          <p className="energy-eyebrow">PASO 02 / 06</p>
+          <h1 id="macros-heading" aria-label="Kilocalorías y macronutrientes">Macros</h1>
+          <p>Distribuye la energía del día y revisa cuánto cubrirán los alimentos y los suplementos.</p>
         </div>
-        <span className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${draft.complete ? "bg-[#eaf3ec] text-[#315e4f]" : "bg-[#fff4df] text-[#7a5a28]"}`}>
+        <span className={`energy-status ${draft.complete ? "is-ready" : "is-pending"}`}>
           {draft.complete ? <Check size={14} /> : <CircleAlert size={14} />}
-          {draft.complete ? "Distribución lista" : "Revisa la distribución"}
+          {draft.complete ? "Distribución lista" : "Por completar"}
         </span>
-      </div>
+      </header>
 
-      <div className="mt-5 grid gap-4 rounded-2xl border border-[#dfe6e1] bg-[#f9fbf8] p-4 lg:grid-cols-[1fr_auto] lg:items-end">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.12em] text-[#718078]">Objetivo energético guardado</p>
-          <p className="mt-1 text-2xl font-semibold text-[#173d36]">{display(targetEnergyKcal, 0)} <span className="text-sm font-normal">kcal/día</span></p>
-          <p className="mt-2 text-xs text-[#718078]">Se usa como referencia; este paso no recalcula el gasto energético.</p>
-        </div>
-        <button type="button" className="nuth-button-secondary !px-3 !py-2 text-xs" onClick={reset}><RotateCcw size={14} /> Restablecer</button>
-      </div>
-
-      <div className="mt-4 rounded-2xl border border-[#e1e8e3] p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="font-semibold text-[#24463b]">Peso de referencia para g/kg</p>
-            <p className="mt-1 text-xs text-[#718078]">{draft.reference_weight_source === "manual" ? "Ajuste local de este plan" : draft.reference_weight_source === "energy_calculation" ? "Valor utilizado en el objetivo energético" : "Sin un peso disponible"}</p>
+      <div className="macros-reference-grid">
+        <section className="energy-card energy-reference" aria-labelledby="macros-energy-heading">
+          <header className="energy-card-heading">
+            <span className="energy-icon energy-icon-reference"><Target size={20} /></span>
+            <div><h2 id="macros-energy-heading">Energía del día</h2><p>Tu punto de partida</p></div>
+            <button type="button" className="macros-text-button" onClick={onGoToEnergy}>Editar <ArrowRight size={14} /></button>
+          </header>
+          <div className="energy-card-body macros-reference-body">
+            <p className="macros-reference-value">{display(targetEnergyKcal || null, 0)} <span>kcal / día</span></p>
+            <p className="macros-caption">{targetEnergyKcal > 0 ? "Objetivo guardado en Energía." : "Puedes definir el objetivo en Energía."}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="text-xs font-semibold text-[#52675e]">Peso (kg)
-              <input aria-label="Peso de referencia" className="nuth-input mt-1 w-32 !py-2" inputMode="decimal" type="number" min="0" step="any" value={draft.reference_weight_source === "manual" ? draft.reference_weight_kg ?? "" : ""} placeholder={hasReferenceWeight ? display(draft.reference_weight_kg, 1) : "Registrar"} onChange={(event) => {
+        </section>
+        <section className="energy-card macros-weight" aria-labelledby="macros-weight-heading">
+          <header className="energy-card-heading">
+            <span className="energy-icon energy-icon-method"><Scale size={20} /></span>
+            <div><h2 id="macros-weight-heading">Peso para g/kg</h2><p>Referencia para esta distribución</p></div>
+            {draft.reference_weight_source === "manual" && <button type="button" className="macros-text-button" onClick={() => update(restoreEnergyReferenceWeight(draft, energyReferenceWeightKg))}><RotateCcw size={13} /> Restaurar</button>}
+          </header>
+          <div className="energy-card-body macros-reference-body">
+            <label className="macros-weight-input"><span className="sr-only">Peso de referencia</span>
+              <input aria-label="Peso de referencia" inputMode="decimal" type="number" min="0" step="any" value={draft.reference_weight_kg ?? ""} placeholder="—" onChange={(event) => {
                 const value = numeric(event.target.value);
                 update(value === null && draft.reference_weight_source === "manual"
                   ? restoreEnergyReferenceWeight(draft, energyReferenceWeightKg)
                   : setMacroReferenceWeight(draft, value));
-              }} />
+              }} /><span>kg</span>
             </label>
-            {draft.reference_weight_source === "manual" && <button type="button" className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-[#3d705d]" onClick={() => update(restoreEnergyReferenceWeight(draft, energyReferenceWeightKg))}><RotateCcw size={13} /> Restaurar</button>}
+            <p className="macros-caption">{draft.reference_weight_source === "manual" ? "Ajuste de este plan. No modifica al paciente." : draft.reference_weight_source === "energy_calculation" ? "Peso utilizado en Energía. Puedes ajustarlo aquí." : "Registra un peso para utilizar g/kg."}</p>
           </div>
-        </div>
+        </section>
       </div>
 
-      <div className="mt-5 overflow-x-auto rounded-2xl border border-[#dfe6e1]">
-        <div className="min-w-[720px]">
-          <div className="grid grid-cols-[1.25fr_.7fr_.85fr_.8fr_.8fr_.8fr] gap-3 border-b border-[#dfe6e1] bg-[#f7faf8] px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-[#718078]">
-            <span>Macronutriente</span><span>Modo</span><span>Valor</span><span>kcal</span><span>g</span><span>g/kg</span>
-          </div>
-          {macroCatalog.map((entry) => {
-            const macro = draft.macros[entry.code];
-            const unit = macro.input_mode === "percentage" ? "%" : macro.input_mode === "grams" ? "g" : "g/kg";
-            return (
-              <div key={entry.code} className="grid grid-cols-[1.25fr_.7fr_.85fr_.8fr_.8fr_.8fr] items-center gap-3 border-b border-[#edf1ee] px-4 py-3 last:border-b-0">
-                <div className="flex min-w-0 items-center gap-2"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} /><span className="font-semibold text-[#24463b]">{entry.label}</span></div>
-                <MacroModeSelect value={macro.input_mode} disabled={!hasReferenceWeight} onChange={(mode) => update(patchMacroInput(draft, entry.code, mode, macro.input_value))} />
-                <label className="relative"><span className="sr-only">Valor de {entry.label}</span><input aria-label={`Valor de ${entry.label}`} className="nuth-input !h-10 !py-1 pr-9 text-sm" inputMode="decimal" type="number" min="0" step="any" value={macro.input_value ?? ""} onChange={(event) => update(patchMacroInput(draft, entry.code, macro.input_mode, numeric(event.target.value)))} /><span className="pointer-events-none absolute right-3 top-3 text-[11px] text-[#718078]">{unit}</span></label>
-                <span className="text-sm font-semibold text-[#315e4f]">{display(macro.kcal, 1)}</span>
-                <span className="text-sm text-[#52675e]">{display(macro.grams, 1)}</span>
-                <span className="text-sm text-[#52675e]">{display(macro.grams_per_kg, 2)}</span>
-              </div>
-            );
-          })}
+      <section className="macros-distribution" aria-labelledby="macros-distribution-heading">
+        <header className="macros-section-heading">
+          <div><p className="energy-eyebrow">01 · DISTRIBUYE</p><h2 id="macros-distribution-heading">Macronutrientes del día</h2><p>Define el total diario, incluido lo que aportarán tus suplementos.</p></div>
+          <button type="button" className="macros-secondary" onClick={reset}><RotateCcw size={14} /> Restablecer</button>
+        </header>
+        <div className="energy-card macros-table-scroll" role="region" aria-label="Tabla de macronutrientes, desplazable horizontalmente" tabIndex={0}>
+          <table className="macros-table">
+            <caption className="sr-only">Distribución de macronutrientes</caption>
+            <colgroup><col className="macro-name-col" /><col className="macro-mode-col" /><col className="macro-value-col" /><col /><col /><col /></colgroup>
+            <thead><tr><th scope="col">Macronutriente</th><th scope="col">Modo</th><th scope="col">Valor</th><th scope="col">kcal</th><th scope="col">g</th><th scope="col">g/kg</th></tr></thead>
+            <tbody>{macroCatalog.map((entry) => {
+              const macro = draft.macros[entry.code];
+              const unit = macro.input_mode === "percentage" ? "%" : macro.input_mode === "grams" ? "g" : "g/kg";
+              return (
+                <tr key={entry.code}>
+                  <th scope="row"><span className="macro-table-name"><span aria-hidden="true" className={`macro-segment-${macroPresentation[entry.code].tone}`} />{entry.label}</span></th>
+                  <td><select aria-label={`Modo de ${entry.label}`} value={macro.input_mode} onChange={(event) => update(patchMacroInput(draft, entry.code, event.target.value as MacroInputMode, macro.input_value))}>
+                    <option value="percentage">%</option><option value="grams">g</option><option value="grams_per_kg" disabled={!hasReferenceWeight}>g/kg</option>
+                  </select></td>
+                  <td><div className="macro-table-value"><input aria-label={`Valor de ${entry.label}`} inputMode="decimal" type="number" min="0" step="any" placeholder="—" value={macro.input_value ?? ""} onChange={(event) => update(patchMacroInput(draft, entry.code, macro.input_mode, numeric(event.target.value)))} /><span aria-hidden="true">{unit}</span></div></td>
+                  <td className="macro-table-kcal">{display(macro.kcal)}</td>
+                  <td>{display(macro.grams)}</td>
+                  <td>{display(macro.grams_per_kg, 2)}</td>
+                </tr>
+              );
+            })}</tbody>
+          </table>
         </div>
-      </div>
-      {!hasReferenceWeight && <p className="mt-3 text-xs leading-5 text-[#7a5a28]">Registra un peso de referencia para habilitar el modo g/kg. Esto no modifica los datos del paciente.</p>}
-
-      <SupplementEditor items={draft.supplements ?? []} daily={dietNutritionSplit({target_calories:targetEnergyKcal,macro_distribution:draft}).daily} onChange={supplements=>update({...draft,supplements,updated_at:new Date().toISOString()})} />
-
-      <section className="mt-5 rounded-2xl bg-[#173d36] p-5 text-white">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div><p className="text-xs text-white/65">Energía asignada</p><p className="mt-1 text-xl font-semibold">{display(draft.totals.kcal, 1)} kcal</p></div>
-          <div><p className="text-xs text-white/65">Distribución</p><p className="mt-1 text-xl font-semibold">{display(draft.totals.percentage, 1)}%</p></div>
-          <div><p className="text-xs text-white/65">Diferencia</p><p className="mt-1 text-xl font-semibold">{draft.totals.difference_kcal > 0 ? "+" : ""}{display(draft.totals.difference_kcal, 1)} kcal</p></div>
-        </div>
-        <div className="mt-5 border-t border-white/15 pt-5">
-          <p className="text-xs leading-5 text-white/70">Puedes continuar con diferencias o datos pendientes. Los valores registrados se conservan.</p>
-        </div>
+        {!hasReferenceWeight && <p className="energy-note">Registra un peso de referencia para habilitar el modo g/kg. Esto no modifica los datos del paciente.</p>}
       </section>
-      <div className="mt-4 flex min-h-5 items-center gap-2">{saveState === "saving" && <LoaderCircle size={14} className="animate-spin text-[#3d705d]" />}<AutosaveFeedback status={saveState} savingLabel="Guardando trazabilidad…" /></div>
-      <WorkshopStepFooter onPrevious={onGoToEnergy} onNext={onContinue} nextDisabled={saveState === "saving"} nextAriaLabel="Continuar a equivalentes" nextHint={!draft.complete ? "Puedes continuar y completar la distribución después." : undefined} />
+
+      <div className="macros-bottom-grid">
+        <SupplementEditor appearance="night" showSummary={false} items={draft.supplements ?? []} daily={split.daily} onChange={supplements => update({ ...draft, supplements, updated_at: new Date().toISOString() })} />
+        <section className="energy-card macros-summary" aria-labelledby="macros-summary-heading">
+          <header className="energy-card-heading">
+            <span className="energy-icon energy-icon-target"><PieChart size={20} /></span>
+            <div><h2 id="macros-summary-heading">Así queda tu día</h2><p>03 · Revisa antes de continuar</p></div>
+          </header>
+          <div className="energy-card-body">
+            <div className="macros-assigned"><div><p>Energía asignada</p><strong>{hasData ? display(draft.totals.kcal) : "—"} <span>kcal</span></strong></div><span>{display(draft.totals.percentage)}% del objetivo</span></div>
+            <div className="macros-distribution-bar" aria-hidden="true">{macroCatalog.map(entry => <span key={entry.code} className={`macro-segment-${macroPresentation[entry.code].tone}`} style={{ width: `${(draft.macros[entry.code].kcal ?? 0) / barTotal * 100}%` }} />)}</div>
+            <ul className="macros-legend">{macroCatalog.map(entry => <li key={entry.code}><span className={`macro-segment-${macroPresentation[entry.code].tone}`} />{entry.label}</li>)}</ul>
+            <p className="macros-difference">{differenceLabel}<strong>{display(Math.abs(draft.totals.difference_kcal))} kcal</strong></p>
+            <div className="macros-split-wrap">
+              <table className="macros-split-table">
+                <caption>Distribución de la meta diaria</caption>
+                <thead><tr><th scope="col">Aporte</th><th scope="col">Alimentos</th><th scope="col">Suplementos</th></tr></thead>
+                <tbody>
+                  <tr><th scope="row">Energía</th><td>{display(split.food.energy_kcal)} <span>kcal</span></td><td>{display(split.supplements.energy_kcal)} <span>kcal</span></td></tr>
+                  {macroCatalog.map(entry => {
+                    const key = macroPresentation[entry.code].nutritionKey;
+                    return <tr key={key}><th scope="row">{entry.label}</th><td>{draft.macros[entry.code].grams === null ? "—" : <>{display(split.food[key])} <span>g</span></>}</td><td>{display(split.supplements[key])} <span>g</span></td></tr>;
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="energy-note">Equivalentes se calcula con el aporte de alimentos. Puedes continuar con diferencias o datos pendientes.</p>
+          </div>
+        </section>
+      </div>
+
+      <footer className="energy-actions macros-actions">
+        <button type="button" className="macros-back" onClick={onGoToEnergy}><ArrowLeft size={15} /> Energía</button>
+        <div className="energy-actions-summary"><span className="energy-actions-label">Distribución del día</span><strong>{display(draft.totals.percentage)} <span>%</span></strong></div>
+        <div className="energy-save-status" role="status">
+          {saveState === "saving" ? <LoaderCircle size={14} className="animate-spin" /> : saveState === "error" ? <CircleAlert size={14} /> : <Check size={14} />}
+          <span>{saveState === "saving" ? "Guardando…" : saveState === "dirty" ? "Cambios pendientes" : saveState === "error" ? "No se pudo guardar" : saveState === "saved" ? "Guardado" : "Guardado automático"}</span>
+        </div>
+        {onSaveAndExit && <button type="button" className="energy-save-exit" onClick={onSaveAndExit}><Save size={15} /> Guardar y salir</button>}
+        <button type="button" className="energy-continue" disabled={saveState === "saving"} aria-label="Continuar a equivalentes" onClick={onContinue}>Continuar a Equivalentes <ArrowRight size={17} /></button>
+      </footer>
     </section>
   );
 }

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, CircleAlert, LoaderCircle, RotateCcw } from "lucide-react";
-import { WorkshopStepFooter } from "./WorkshopStepFooter";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Activity, ArrowRight, Calculator, Check, CircleAlert, LoaderCircle, RotateCcw, Save, Target, UserRound } from "lucide-react";
+import "./DietEnergyStep.css";
 import {
   activityLevelCatalog,
   energyMethodCatalog,
@@ -17,7 +17,6 @@ import {
   type EnergyReferenceContext,
 } from "@/src/features/diet-energy/model";
 import type { NutritionPlan, PlanEnergyCalculation } from "@/src/types/domain";
-import { AutosaveFeedback } from "./AutosaveFeedback";
 import { useChangeAutosave } from "./useChangeAutosave";
 
 type Props = {
@@ -27,6 +26,7 @@ type Props = {
   onSave: (calculation: PlanEnergyCalculation) => Promise<void>;
   onDraftChange: (calculation: PlanEnergyCalculation) => void;
   onContinue: () => void;
+  onSaveAndExit?: () => void;
 };
 
 const number = (value: string) => {
@@ -41,8 +41,8 @@ function MethodDetails({ methodCode }: { methodCode: string }) {
   const method = getEnergyMethod(methodCode);
   if (!method) return null;
   return (
-    <details className="mt-3 rounded-xl bg-[#f7faf8] px-4 py-3 text-sm text-[#52675e]">
-      <summary className="cursor-pointer font-semibold text-[#315e4f]">Ver método y aplicabilidad</summary>
+    <details className="energy-method-details">
+      <summary className="cursor-pointer font-semibold">Ver método y aplicabilidad</summary>
       <p className="mt-2 leading-6">{method.applicability.population}</p>
       {method.notes.map((note) => <p key={note} className="mt-1 leading-6">{note}</p>)}
       {method.relatedMethodCode === "FAO_WHO_UNU_FRAMEWORK" && <p className="mt-2 text-xs font-medium">Marco de referencia: FAO/WHO/UNU.</p>}
@@ -68,30 +68,31 @@ function DataInput({
   onRestore: () => void;
 }) {
   const adjusted = source.source === "plan_override";
+  const id = useId();
   return (
-    <label className="block rounded-2xl border border-[#e1e8e3] bg-[#fbfcfa] p-3">
-      <span className="flex items-center justify-between gap-2 text-xs font-semibold text-[#52675e]">
-        {label}
-        {adjusted && <button type="button" className="inline-flex items-center gap-1 text-[#3d705d]" onClick={onRestore}><RotateCcw size={12} /> Restaurar</button>}
-      </span>
+    <div className="energy-data-field">
+      <div className="energy-data-label">
+        <label htmlFor={id}>{label}</label>
+        {adjusted && <button type="button" aria-label={`Restaurar ${label.toLocaleLowerCase()}`} title="Restaurar dato de referencia" onClick={onRestore}><RotateCcw size={13} /></button>}
+      </div>
       {type === "select" ? (
-        <select aria-label={label} className="mt-2 w-full bg-transparent text-lg font-semibold text-[#1f483a] outline-none" value={value ?? ""} onChange={(event) => onChange(event.target.value)}>
+        <select id={id} value={value ?? ""} onChange={(event) => onChange(event.target.value)}>
           <option value="">Sin registrar</option>
           <option value="male">Hombre</option>
           <option value="female">Mujer</option>
         </select>
       ) : (
-        <div className="mt-2 flex items-baseline gap-2">
-          <input aria-label={label} inputMode="decimal" type="number" min="0" step="any" className="min-w-0 flex-1 bg-transparent text-lg font-semibold text-[#1f483a] outline-none" value={value ?? ""} onChange={(event) => onChange(event.target.value)} />
-          {unit && <span className="text-xs text-[#74817d]">{unit}</span>}
+        <div className="energy-data-value">
+          <input id={id} inputMode="decimal" type="number" min="0" step="any" value={value ?? ""} onChange={(event) => onChange(event.target.value)} />
+          {unit && <span>{unit}</span>}
         </div>
       )}
-      <span className="mt-1 block text-[11px] text-[#7a8b82]">{adjusted ? "Ajuste de este plan" : source.source_label}</span>
-    </label>
+      <small>{adjusted ? "Ajuste de este plan" : source.source_label}</small>
+    </div>
   );
 }
 
-export function DietEnergyStep({ plan, reference, referenceLoading, onSave, onDraftChange, onContinue }: Props) {
+export function DietEnergyStep({ plan, reference, referenceLoading, onSave, onDraftChange, onContinue, onSaveAndExit }: Props) {
   const initial = useMemo(() => plan.energy_calculation ?? calculatePlanEnergy({ ...createPlanEnergyCalculation(reference), ...(plan.target_calories ? { mode: "manual" as const, method_code: "MANUAL_ENERGY_TARGET", prescribed_target_kcal: plan.target_calories } : {}) }), [plan.energy_calculation, plan.target_calories, reference]);
   const [draft, setDraft] = useState(initial);
   const lastPlanId = useRef(plan.id);
@@ -125,103 +126,138 @@ export function DietEnergyStep({ plan, reference, referenceLoading, onSave, onDr
   };
 
   return (
-    <section className="rounded-[24px] border border-[#dfe6e1] bg-white p-5 sm:p-7">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <section className="diet-energy-step" aria-labelledby="energy-heading">
+      <header className="energy-intro">
         <div>
-          <p className="nuth-eyebrow">Paso 1</p>
-          <h1 aria-label="Objetivo energético" className="mt-2 text-2xl font-semibold text-[#173d36]">Energía</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">Define el objetivo energético del día.</p>
+          <p className="energy-eyebrow">PASO 01 / 06</p>
+          <h1 id="energy-heading" aria-label="Objetivo energético">Energía</h1>
+          <p>El punto de partida de tu plan. Revisa, calcula y define el objetivo del día.</p>
         </div>
-        <span className={`inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${validTarget ? "bg-[#eaf3ec] text-[#315e4f]" : "bg-[#fff4df] text-[#7a5a28]"}`}>
+        <span className={`energy-status ${validTarget ? "is-ready" : "is-pending"}`}>
           {validTarget ? <Check size={14} /> : <CircleAlert size={14} />}
-          {validTarget ? "Objetivo listo" : "Falta objetivo"}
+          {validTarget ? "Objetivo listo" : "Por definir"}
         </span>
+      </header>
+
+      <div className={`energy-grid ${draft.mode === "manual" ? "energy-grid-manual" : ""}`}>
+        <section className="energy-card energy-reference" aria-labelledby="energy-reference-heading">
+          <header className="energy-card-heading">
+            <span className="energy-icon energy-icon-reference"><UserRound size={20} /></span>
+            <div><h2 id="energy-reference-heading">Datos de referencia</h2><p>01 · Revisa la información del paciente</p></div>
+            {referenceLoading && <LoaderCircle aria-label="Cargando datos" size={16} className="animate-spin" />}
+          </header>
+          <div className="energy-card-body">
+            <div className="energy-data-grid">
+              <DataInput label="Peso" value={draft.inputs.weight_kg.value} unit="kg" source={draft.inputs.weight_kg} onChange={(value) => update(patchEnergyInput(draft, "weight_kg", number(value)))} onRestore={() => update(restoreEnergyInput(draft, "weight_kg"))} />
+              <DataInput label="Talla" value={draft.inputs.height_cm.value} unit="cm" source={draft.inputs.height_cm} onChange={(value) => update(patchEnergyInput(draft, "height_cm", number(value)))} onRestore={() => update(restoreEnergyInput(draft, "height_cm"))} />
+              <DataInput label="Edad" value={draft.inputs.age_years.value} unit="años" source={draft.inputs.age_years} onChange={(value) => update(patchEnergyInput(draft, "age_years", number(value)))} onRestore={() => update(restoreEnergyInput(draft, "age_years"))} />
+              <DataInput label="Sexo utilizado por la ecuación" value={draft.inputs.equation_sex.value} type="select" source={draft.inputs.equation_sex} onChange={(value) => update(patchEnergyInput(draft, "equation_sex", value === "male" || value === "female" ? value as EnergySex : null))} onRestore={() => update(restoreEnergyInput(draft, "equation_sex"))} />
+            </div>
+            <p className="energy-note">Los ajustes aquí se aplican sólo a este plan.</p>
+          </div>
+        </section>
+
+        <section className="energy-card energy-method" aria-labelledby="energy-method-heading">
+          <header className="energy-card-heading">
+            <span className="energy-icon energy-icon-method"><Calculator size={20} /></span>
+            <div><h2 id="energy-method-heading">Método de energía</h2><p>02 · Elige cómo definir la energía</p></div>
+          </header>
+          <div className="energy-card-body">
+            <label className="energy-field">Método
+              <select className="energy-input" value={draft.method_code} onChange={(event) => changeMode(event.target.value)}>
+                <optgroup label="Ecuaciones predictivas">
+                  {energyMethodCatalog.filter((item) => item.kind === "predictive_equation" && item.active).map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}
+                </optgroup>
+                <optgroup label="Otros criterios">
+                  {energyMethodCatalog.filter((item) => item.kind === "measured" || item.kind === "manual_target").map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}
+                </optgroup>
+              </select>
+            </label>
+            {method && <MethodDetails methodCode={method.code} />}
+            {draft.mode === "measured" && <div className="energy-measured-grid">
+              <label className="energy-field">Gasto medido (kcal/día)<input className="energy-input" type="number" min="0" value={draft.measured.kcal_per_day ?? ""} onChange={(event) => update(calculatePlanEnergy({ ...draft, measured: { ...draft.measured, kcal_per_day: number(event.target.value) } }))} /></label>
+              <label className="energy-field">Fecha de la medición<input className="energy-input" type="date" value={draft.measured.measured_at ?? ""} onChange={(event) => update(calculatePlanEnergy({ ...draft, measured: { ...draft.measured, measured_at: event.target.value || null } }))} /></label>
+              <label className="energy-field">Equipo (opcional)<input className="energy-input" maxLength={120} value={draft.measured.equipment ?? ""} onChange={(event) => update(calculatePlanEnergy({ ...draft, measured: { ...draft.measured, equipment: event.target.value || null } }))} /></label>
+            </div>}
+            {draft.mode === "manual" ? <p className="energy-note">Introduce tu prescripción en la tarjeta de objetivo. La captura manual no estima gasto basal ni GET.</p> : <div className="energy-estimate">
+              <div><p>Gasto energético total estimado</p><strong>{format(draft.results.total_kcal)} <span>kcal/día</span></strong></div>
+              <span className="energy-estimate-label">GET</span>
+            </div>}
+            {draft.mode !== "manual" && <dl className="energy-breakdown">
+              <div><dt>Gasto basal</dt><dd>{format(draft.results.basal_kcal)} <span>kcal</span></dd></div>
+              <div><dt>Actividad</dt><dd>{format(draft.results.activity_kcal)} <span>kcal</span></dd></div>
+              <div><dt>ETA</dt><dd>{draft.results.eta_integrated ? "Incluido" : <>{format(draft.results.eta_kcal)} <span>kcal</span></>}</dd></div>
+            </dl>}
+          </div>
+        </section>
+
+        {draft.mode !== "manual" && <section className="energy-card energy-activity" aria-labelledby="energy-activity-heading">
+          <header className="energy-card-heading">
+            <span className="energy-icon energy-icon-activity"><Activity size={20} /></span>
+            <div><h2 id="energy-activity-heading">Actividad y ETA</h2><p>03 · Ajusta los factores del cálculo</p></div>
+          </header>
+          <div className="energy-card-body">
+            <div className="energy-activity-fields">
+              <label className="energy-field">Método de actividad
+                <select className="energy-input" value={draft.activity.method_code} onChange={(event) => {
+                  const methodCode = event.target.value as PlanEnergyCalculation["activity"]["method_code"];
+                  update(calculatePlanEnergy({ ...draft, activity: { method_code: methodCode, level_code: null, factor: null, pal: null }, eta: methodCode === "PAL_FAO_WHO_UNU" ? { ...draft.eta, enabled: false } : draft.eta }));
+                }}>
+                  <option value="CLINICAL_ACTIVITY_FACTOR">Factor clínico</option><option value="PAL_FAO_WHO_UNU">PAL · FAO/WHO/UNU</option>
+                </select>
+              </label>
+              <label className="energy-field">Nivel
+                <select className="energy-input" value={draft.activity.level_code ?? ""} onChange={(event) => update(calculatePlanEnergy({ ...draft, activity: { ...draft.activity, level_code: event.target.value || null } }))}>
+                  <option value="">Seleccionar</option>{levels.map((level) => <option key={level.code} value={level.code}>{level.label}{pal && level.minFactor !== undefined ? ` · ${level.minFactor.toFixed(2)}–${level.maxFactor?.toFixed(2)}` : ""}</option>)}
+                </select>
+              </label>
+              <label className="energy-field">{pal ? "PAL utilizado" : "Factor utilizado"}
+                <input className="energy-input" type="number" min="1" step="0.01" placeholder={pal ? "Ej. 1.70" : "Sugerido por nivel"} value={pal ? draft.activity.pal ?? "" : draft.activity.factor ?? ""} onChange={(event) => update(calculatePlanEnergy({ ...draft, activity: { ...draft.activity, ...(pal ? { pal: number(event.target.value) } : { factor: number(event.target.value) }) } }))} />
+              </label>
+            </div>
+            {pal ? <p className="energy-note">El PAL ya integra el ETA; Nuthrick no lo sumará de nuevo.</p> : <div className="energy-eta">
+              <label><input type="checkbox" checked={draft.eta.enabled} onChange={(event) => update(calculatePlanEnergy({ ...draft, eta: { ...draft.eta, enabled: event.target.checked } }))} /> Incluir ETA</label>
+              <label><input aria-label="Porcentaje de ETA" type="number" min="0" max="100" step="1" value={draft.eta.rate === null ? etaMethodCatalog[0].defaultRate * 100 : draft.eta.rate * 100} onChange={(event) => update(calculatePlanEnergy({ ...draft, eta: { ...draft.eta, rate: number(event.target.value) === null ? null : Number(event.target.value) / 100 } }))} /> % del basal</label>
+            </div>}
+            <p className="energy-note">ETA: efecto térmico de los alimentos.</p>
+          </div>
+        </section>}
+
+        <section className="energy-card energy-target" aria-labelledby="energy-target-heading">
+          <header className="energy-card-heading">
+            <span className="energy-icon energy-icon-target"><Target size={20} /></span>
+            <div><h2 id="energy-target-heading">Tu objetivo del día</h2><p>{draft.mode === "manual" ? "03" : "04"} · Define la energía que vas a prescribir</p></div>
+          </header>
+          <div className="energy-card-body">
+            <label className="energy-field" htmlFor="energy-prescribed-target">Objetivo prescrito (kcal/día)</label>
+            <div className="energy-target-input">
+              <input id="energy-prescribed-target" inputMode="decimal" type="number" min="1" max="10000" placeholder="—" value={draft.prescribed_target_kcal ?? ""} onChange={(event) => update(calculatePlanEnergy({ ...draft, prescribed_target_kcal: number(event.target.value) }))} />
+              <span>kcal / día</span>
+            </div>
+            {draft.results.total_kcal !== null && <button type="button" className="energy-use-get" onClick={() => update(calculatePlanEnergy({ ...draft, prescribed_target_kcal: Math.round(draft.results.total_kcal!) }))}>Usar GET <ArrowRight size={14} /> <span>{format(Math.round(draft.results.total_kcal))} kcal</span></button>}
+            {targetDifference !== null && <p className="energy-note">{targetDifference > 0 ? "+" : ""}{format(targetDifference)} kcal frente al GET estimado. Ajusta según tu criterio clínico.</p>}
+            {!validTarget && <p className="energy-note">Registra un objetivo entre 1 y 10,000 kcal/día.</p>}
+          </div>
+        </section>
       </div>
 
-      <div className="mt-6 grid gap-5 xl:grid-cols-2">
-        <div className="rounded-2xl border border-[#e1e8e3] p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-3">
-            <div><h2 className="font-semibold text-[#24463b]">Datos utilizados</h2><p className="mt-1 text-xs text-[#74817d]">Modificar aquí no cambia el expediente.</p></div>
-            {referenceLoading && <LoaderCircle size={16} className="animate-spin text-[#3d705d]" />}
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <DataInput label="Peso" value={draft.inputs.weight_kg.value} unit="kg" source={draft.inputs.weight_kg} onChange={(value) => update(patchEnergyInput(draft, "weight_kg", number(value)))} onRestore={() => update(restoreEnergyInput(draft, "weight_kg"))} />
-            <DataInput label="Talla" value={draft.inputs.height_cm.value} unit="cm" source={draft.inputs.height_cm} onChange={(value) => update(patchEnergyInput(draft, "height_cm", number(value)))} onRestore={() => update(restoreEnergyInput(draft, "height_cm"))} />
-            <DataInput label="Edad" value={draft.inputs.age_years.value} unit="años" source={draft.inputs.age_years} onChange={(value) => update(patchEnergyInput(draft, "age_years", number(value)))} onRestore={() => update(restoreEnergyInput(draft, "age_years"))} />
-            <DataInput label="Sexo utilizado por la ecuación" value={draft.inputs.equation_sex.value} type="select" source={draft.inputs.equation_sex} onChange={(value) => update(patchEnergyInput(draft, "equation_sex", value === "male" || value === "female" ? value as EnergySex : null))} onRestore={() => update(restoreEnergyInput(draft, "equation_sex"))} />
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-[#e1e8e3] p-4 sm:p-5">
-          <h2 className="font-semibold text-[#24463b]">Método de energía</h2>
-          <label className="mt-3 block text-xs font-semibold text-[#52675e]">Método
-            <select className="nuth-input mt-2" value={draft.method_code} onChange={(event) => changeMode(event.target.value)}>
-              <optgroup label="Ecuaciones predictivas">
-                {energyMethodCatalog.filter((item) => item.kind === "predictive_equation" && item.active).map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}
-              </optgroup>
-              <optgroup label="Otros criterios">
-                {energyMethodCatalog.filter((item) => item.kind === "measured" || item.kind === "manual_target").map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}
-              </optgroup>
-            </select>
-          </label>
-          {method && <MethodDetails methodCode={method.code} />}
-          {draft.mode === "measured" && <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <label className="text-xs font-semibold text-[#52675e]">Gasto medido (kcal/día)<input className="nuth-input mt-2" type="number" min="0" value={draft.measured.kcal_per_day ?? ""} onChange={(event) => update(calculatePlanEnergy({ ...draft, measured: { ...draft.measured, kcal_per_day: number(event.target.value) } }))} /></label>
-            <label className="text-xs font-semibold text-[#52675e]">Fecha de la medición<input className="nuth-input mt-2" type="date" value={draft.measured.measured_at ?? ""} onChange={(event) => update(calculatePlanEnergy({ ...draft, measured: { ...draft.measured, measured_at: event.target.value || null } }))} /></label>
-            <label className="text-xs font-semibold text-[#52675e] sm:col-span-2">Equipo (opcional)<input className="nuth-input mt-2" maxLength={120} value={draft.measured.equipment ?? ""} onChange={(event) => update(calculatePlanEnergy({ ...draft, measured: { ...draft.measured, equipment: event.target.value || null } }))} /></label>
-          </div>}
-          {draft.mode === "manual" && <p className="mt-4 rounded-xl bg-[#f7faf8] p-3 text-sm leading-6 text-[#5e7168]">El objetivo manual no calcula gasto basal ni GET. Puedes registrar directamente la prescripción al final.</p>}
-        </div>
-      </div>
-
-      {draft.mode !== "manual" && <section className="mt-5 rounded-2xl border border-[#e1e8e3] p-4 sm:p-5">
-        <h2 className="font-semibold text-[#24463b]">Actividad y efecto térmico de los alimentos</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <label className="text-xs font-semibold text-[#52675e]">Método de actividad
-            <select className="nuth-input mt-2" value={draft.activity.method_code} onChange={(event) => {
-              const methodCode = event.target.value as PlanEnergyCalculation["activity"]["method_code"];
-              update(calculatePlanEnergy({ ...draft, activity: { method_code: methodCode, level_code: null, factor: null, pal: null }, eta: methodCode === "PAL_FAO_WHO_UNU" ? { ...draft.eta, enabled: false } : draft.eta }));
-            }}>
-              <option value="CLINICAL_ACTIVITY_FACTOR">Factor clínico</option><option value="PAL_FAO_WHO_UNU">PAL · FAO/WHO/UNU</option>
-            </select>
-          </label>
-          <label className="text-xs font-semibold text-[#52675e]">Nivel
-            <select className="nuth-input mt-2" value={draft.activity.level_code ?? ""} onChange={(event) => update(calculatePlanEnergy({ ...draft, activity: { ...draft.activity, level_code: event.target.value || null } }))}>
-              <option value="">Seleccionar</option>{levels.map((level) => <option key={level.code} value={level.code}>{level.label}{pal && level.minFactor !== undefined ? ` · ${level.minFactor.toFixed(2)}–${level.maxFactor?.toFixed(2)}` : ""}</option>)}
-            </select>
-          </label>
-          <label className="text-xs font-semibold text-[#52675e]">{pal ? "PAL utilizado" : "Factor utilizado"}
-            <input className="nuth-input mt-2" type="number" min="1" step="0.01" placeholder={pal ? "Ej. 1.70" : "Sugerido por nivel"} value={pal ? draft.activity.pal ?? "" : draft.activity.factor ?? ""} onChange={(event) => update(calculatePlanEnergy({ ...draft, activity: { ...draft.activity, ...(pal ? { pal: number(event.target.value) } : { factor: number(event.target.value) }) } }))} />
-          </label>
-        </div>
-        {pal ? <p className="mt-3 rounded-xl bg-[#edf5ef] px-3 py-2 text-xs leading-5 text-[#315e4f]">El PAL ya integra el ETA; Nuthrick no lo sumará de nuevo.</p> : <label className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-[#f7faf8] px-3 py-3 text-sm text-[#435c52]"><input type="checkbox" checked={draft.eta.enabled} onChange={(event) => update(calculatePlanEnergy({ ...draft, eta: { ...draft.eta, enabled: event.target.checked } }))} /> Incluir ETA <input aria-label="Porcentaje de ETA" className="w-20 rounded-lg border border-[#cfdcd4] bg-white px-2 py-1 text-sm" type="number" min="0" max="100" step="1" value={draft.eta.rate === null ? etaMethodCatalog[0].defaultRate * 100 : draft.eta.rate * 100} onChange={(event) => update(calculatePlanEnergy({ ...draft, eta: { ...draft.eta, rate: number(event.target.value) === null ? null : Number(event.target.value) / 100 } }))} /> % del basal</label>}
-      </section>}
-
-      {(errors.length > 0 || warnings.length > 0) && <div className="mt-5 space-y-2">
-        {errors.map((message) => <p key={`${message.code}-${message.message}`} role="alert" className="rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{message.message}</p>)}
-        {warnings.map((message) => <p key={`${message.code}-${message.message}`} className="rounded-xl bg-[#fff6e6] px-4 py-3 text-sm text-[#7a5a28]">{message.message}</p>)}
+      {(errors.length > 0 || warnings.length > 0) && <div className="energy-notices">
+        {errors.map((message) => <p key={`${message.code}-${message.message}`} role="alert" className="energy-alert">{message.message}</p>)}
+        {warnings.map((message) => <p key={`${message.code}-${message.message}`} className="energy-warning">{message.message}</p>)}
       </div>}
 
-      <section className="mt-5 rounded-2xl bg-[#173d36] p-5 text-white sm:p-6">
-        <p className="text-xs font-bold uppercase tracking-[.14em] text-[#efbd6b]">Resultado y prescripción</p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-4">
-          <div><p className="text-xs text-white/60">Gasto basal</p><p className="mt-1 text-xl font-semibold">{format(draft.results.basal_kcal)} <span className="text-sm font-normal">kcal</span></p></div>
-          <div><p className="text-xs text-white/60">Actividad</p><p className="mt-1 text-xl font-semibold">{format(draft.results.activity_kcal)} <span className="text-sm font-normal">kcal</span></p></div>
-          <div><p className="text-xs text-white/60">ETA</p><p className="mt-1 text-xl font-semibold">{draft.results.eta_integrated ? "Incluida" : `${format(draft.results.eta_kcal)} kcal`}</p></div>
-          <div><p className="text-xs text-white/60">GET estimado</p><p className="mt-1 text-xl font-semibold">{format(draft.results.total_kcal)} <span className="text-sm font-normal">kcal</span></p></div>
+      <footer className="energy-actions">
+        <div className="energy-actions-summary">
+          <span className="energy-actions-label">Objetivo del día</span>
+          <strong>{format(draft.prescribed_target_kcal)} <span>kcal</span></strong>
         </div>
-        <div className="mt-5 flex flex-col gap-3 border-t border-white/15 pt-5 sm:flex-row sm:items-end">
-          <label className="min-w-0 flex-1 text-sm font-semibold">Objetivo prescrito (kcal/día)
-            <input aria-label="Objetivo prescrito (kcal/día)" className="mt-2 w-full rounded-xl border border-white/20 bg-white px-3 py-2.5 text-lg font-semibold text-[#173d36]" type="number" min="1" max="10000" value={draft.prescribed_target_kcal ?? ""} onChange={(event) => update(calculatePlanEnergy({ ...draft, prescribed_target_kcal: number(event.target.value) }))} />
-          </label>
-          {draft.results.total_kcal !== null && <button type="button" className="rounded-xl border border-white/30 px-4 py-3 text-sm font-semibold" onClick={() => update(calculatePlanEnergy({ ...draft, prescribed_target_kcal: Math.round(draft.results.total_kcal!) }))}>Usar GET</button>}
+        <div className="energy-save-status" role="status">
+          {saveState === "saving" ? <LoaderCircle size={14} className="animate-spin" /> : saveState === "error" ? <CircleAlert size={14} /> : <Check size={14} />}
+          <span>{saveState === "saving" ? "Guardando…" : saveState === "dirty" ? "Cambios pendientes" : saveState === "error" ? "No se pudo guardar" : saveState === "saved" ? "Guardado" : "Guardado automático"}</span>
         </div>
-        {targetDifference !== null && <p className="mt-3 text-xs text-white/70">Diferencia frente al GET: {targetDifference > 0 ? "+" : ""}{format(targetDifference)} kcal/día. Es una comparación matemática; el criterio clínico es del profesional.</p>}
-        {!validTarget && <p className="mt-3 text-xs text-white/70">Para continuar, registra un objetivo entre 1 y 10,000 kcal/día.</p>}
-      </section>
-
-      <div className="mt-4 flex min-h-5 items-center gap-2">{saveState === "saving" && <LoaderCircle size={14} className="animate-spin text-[#3d705d]" />}<AutosaveFeedback status={saveState} savingLabel="Guardando trazabilidad…" /></div>
-      <WorkshopStepFooter onNext={onContinue} nextDisabled={!canContinue} nextAriaLabel="Continuar a macronutrientes" nextHint={!validTarget ? "Registra un objetivo para continuar." : undefined} />
+        {onSaveAndExit && <button type="button" className="energy-save-exit" onClick={onSaveAndExit}><Save size={15} />Guardar y salir</button>}
+        <button type="button" className="energy-continue" disabled={!canContinue} aria-label="Continuar a macronutrientes" onClick={onContinue}>Continuar a Macros <ArrowRight size={17} /></button>
+      </footer>
     </section>
   );
 }

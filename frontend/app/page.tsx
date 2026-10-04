@@ -6,6 +6,7 @@ import { publicUrl } from '@/src/lib/site';
 import { PublicVisitTracker } from '@/src/components/marketing/PublicVisitTracker';
 import { loadPublicCommercialData } from '@/src/lib/publicCommercial';
 import { AuthReturnRedirect } from '@/src/features/auth/AuthReturnRedirect';
+import { ThemeSwitcher } from '@/src/features/theme/ThemeSwitcher';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +22,7 @@ export default async function PublicLanding() {
   return <>
     <AuthReturnRedirect />
     <PublicVisitTracker path="/" />
+    <div className="nuth-public-theme-control"><ThemeSwitcher compact /></div>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(landingStructuredData).replace(/</g, '\\u003c') }} />
     <LandingPage plans={commercial.plans} supportEmail={commercial.supportEmail} />
   </>;

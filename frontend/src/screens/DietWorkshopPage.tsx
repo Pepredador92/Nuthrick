@@ -1,4 +1,5 @@
 import { foodTargetsFor } from "@/src/features/supplements/targets";
+import { useNuthrickTheme } from "@/src/features/theme/theme";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -7,6 +8,8 @@ import {
   ClipboardPenLine,
   LoaderCircle,
   LockKeyhole,
+  Moon,
+  Sun,
   Plus,
   Save,
   UserPlus,
@@ -22,6 +25,7 @@ import { DietPlanReviewStep } from "@/src/components/diet/DietPlanReviewStep";
 import { DietLibrary } from "@/src/components/diet/DietLibrary";
 import { TextDietAI } from "@/src/components/diet/TextDietAI";
 import { TextDietReviewStep } from "@/src/components/diet/TextDietReview";
+import "@/src/components/diet/DietWorkshopDay.css";
 import { PlanOrganization } from "@/src/components/diet/PlanOrganization";
 import { applyDietLibrary, createDietLibraryEditingDraft, restoreDietLibrary } from "@/src/services/dietLibrary";
 import { libraryKind, type DietLibraryItem } from "@/src/features/diet-library/model";
@@ -165,13 +169,30 @@ function PlanContextHeader({
   consultation,
   onChangeContext,
   onSaveAndExit,
+  compact = false,
+  appearanceControl,
 }: {
   plan: NutritionPlan;
   patient: Patient | null;
   consultation: Consultation | null;
   onChangeContext: () => void;
   onSaveAndExit: () => void;
+  compact?: boolean;
+  appearanceControl?: React.ReactNode;
 }) {
+  if (compact) return (
+    <header className="energy-context">
+      <div className="energy-context-copy">
+        <p>Taller de dietas</p>
+        <h2>{patient?.full_name || "Sin asignar"}</h2>
+        <p className="energy-context-meta"><span>Consulta fuente</span>: {consultation ? formatPatientDate(consultation.consultation_date) : "Sin asignar"} · {planStatus(plan)}</p>
+      </div>
+      <div className="energy-context-actions">
+        {appearanceControl}
+        <button type="button" onClick={onChangeContext}>{patient ? <CalendarRange size={15} /> : <UserPlus size={15} />}{patient ? "Cambiar consulta" : "Asignar paciente"}</button>
+      </div>
+    </header>
+  );
   return (
     <header className="sticky top-20 z-10 rounded-[22px] border border-[#d7e1da] bg-white/95 p-4 shadow-[0_12px_35px_rgba(23,61,54,.08)] backdrop-blur sm:p-5">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -345,6 +366,7 @@ export function DietWorkshopPage() {
   const planRef = useRef<NutritionPlan | null>(null);
   const planSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
   const publishIdempotencyKey = useRef<string | null>(null);
+  const [appearance, setAppearance] = useNuthrickTheme();
   const [activeStep, setActiveStep] = useState<WorkshopStep>("energy");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -622,7 +644,9 @@ export function DietWorkshopPage() {
   if (!dietPlanId && !requestedPatientId) return <div className="space-y-5"><WorkshopLanding busy={busy} onCreate={() => void create(null, null)} /><PlanOrganization plans={plans} onChange={setPlans} onCreate={() => void create(null, null)}/><div id="diet-library"><DietLibrary onEdit={editLibraryInWorkshop}/></div></div>;
   if (!plan) return <ErrorState message={error || "No pudimos abrir este plan."} onRetry={() => void load()} />;
 
+  const cardLayout = activeStep === "energy" || activeStep === "macros" || activeStep === "equivalents";
   const exitTarget = patient ? `/app/patients/${patient.id}` : "/app/diet-workshop";
+  const saveAndExit = () => { void flushPendingDraft().then(() => navigate(exitTarget)).catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el plan.")); };
   const energyReference: EnergyReferenceContext = {
     weightKg: reference?.weight?.value ?? patient?.weight_kg ?? null,
     heightCm: reference?.height?.value ?? patient?.height_cm ?? null,
@@ -657,14 +681,7 @@ export function DietWorkshopPage() {
     await planSaveQueue.current;
     acceptLibraryUpdate(await restoreDietLibrary(planRef.current ?? saved, token));
   };
-  return (
-    <div className="min-w-0 w-full pb-16 [overflow-wrap:anywhere]">
-      <PlanContextHeader plan={{ ...plan, title }} patient={patient} consultation={consultation} onChangeContext={() => void openContextEditor()} onSaveAndExit={() => void flushPendingDraft().then(() => navigate(exitTarget)).catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el plan."))} />
-      {contextEditor && <ContextEditor currentPatient={patient} patients={patients} consultations={consultations} selectedPatientId={contextPatientId} selectedConsultationId={contextConsultationId} busy={busy} onPatient={(id) => void chooseContextPatient(id)} onConsultation={setContextConsultationId} onCancel={() => setContextEditor(false)} onSave={() => void saveContext()} />}
-      <WorkshopNavigation activeStep={activeStep} onSelect={(step) => { void selectStep(step); }} />
-      {notice && <p role="status" className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]">{notice}</p>}
-      {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{error}</p>}
-      <div className="mt-5 space-y-5" key={libraryEpoch}>
+  const planTools = <>
           <section className="rounded-2xl border border-[#dfe6e1] bg-white px-4 py-3 sm:px-5">
             <label className="block text-sm font-semibold text-[#315e4f]" htmlFor="diet-plan-title">{plan.diet_menu?.week_plan?.days.length ? `Nombre de ${libraryKind(plan.diet_menu.week_plan.days.length).toLocaleLowerCase()}` : "Nombre del borrador"}
               <input id="diet-plan-title" className="nuth-input mt-1 !py-2" maxLength={120} required value={title} onChange={(event) => { setTitle(event.target.value); setNotice(""); }} onBlur={() => void saveTitle().catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el título."))} />
@@ -674,6 +691,19 @@ export function DietWorkshopPage() {
           {!plan.text_diet && <DietLibrary plan={plan} capture={flushPendingDraft} suggestions={activeStep === "equivalents" || activeStep === "macros"} onApply={applyLibrary} onRestore={restoreLibrary} onEdit={editLibraryInWorkshop}
             editingSource={libraryEditId && libraryEditRevision>0 ? {id:libraryEditId,revision:libraryEditRevision} : undefined}
             onSaved={saved=>{if(libraryEditId===saved.id){const params=new URLSearchParams(searchParams);params.set('libraryRevision',String(saved.revision));navigate(`/app/diet-workshop/${plan.id}?${params}`,{replace:true});}}}/>}
+  </>;
+  return (
+    <div data-workshop-theme={appearance} className={`min-w-0 w-full pb-16 [overflow-wrap:anywhere] ${cardLayout ? "energy-workspace" : ""}`}>
+      <PlanContextHeader appearanceControl={<div className="workshop-appearance" role="group" aria-label="Apariencia del taller">
+        <button type="button" aria-pressed={appearance === "day"} onClick={() => setAppearance("day")}><Sun size={14} />Día</button>
+        <button type="button" aria-pressed={appearance === "night"} onClick={() => setAppearance("night")}><Moon size={14} />Noche</button>
+      </div>} compact={cardLayout} plan={{ ...plan, title }} patient={patient} consultation={consultation} onChangeContext={() => void openContextEditor()} onSaveAndExit={saveAndExit} />
+      {contextEditor && <ContextEditor currentPatient={patient} patients={patients} consultations={consultations} selectedPatientId={contextPatientId} selectedConsultationId={contextConsultationId} busy={busy} onPatient={(id) => void chooseContextPatient(id)} onConsultation={setContextConsultationId} onCancel={() => setContextEditor(false)} onSave={() => void saveContext()} />}
+      <WorkshopNavigation activeStep={activeStep} onSelect={(step) => { void selectStep(step); }} />
+      {notice && <p role="status" className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]">{notice}</p>}
+      {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{error}</p>}
+      <div className="mt-5 space-y-5" key={libraryEpoch}>
+          {cardLayout ? <details className="energy-plan-tools"><summary>Nombre del plan y biblioteca</summary><div className="space-y-4">{planTools}</div></details> : planTools}
           {activeStep === "energy" && <DietEnergyStep
             key={`${plan.id}:${reference?.weight?.value ?? ""}:${reference?.height?.value ?? ""}`}
             plan={plan}
@@ -695,7 +725,8 @@ export function DietWorkshopPage() {
               if (meal) clearPendingIfSaved(pendingMealDistribution, meal);
             }}
             onDraftChange={(energy) => { pendingEnergyCalculation.current = energy; }}
-            onContinue={() => { setNotice(""); setActiveStep("macros"); }}
+            onSaveAndExit={saveAndExit}
+            onContinue={() => { setNotice(""); void selectStep("macros"); }}
           />}
           {activeStep === "macros" && <DietMacrosStep
             plan={plan}
@@ -712,8 +743,9 @@ export function DietWorkshopPage() {
               if (meal) clearPendingIfSaved(pendingMealDistribution, meal);
             }}
             onDraftChange={(distribution) => { pendingMacroDistribution.current = distribution; }}
-            onGoToEnergy={() => setActiveStep("energy")}
-            onContinue={() => { setNotice(""); setActiveStep("equivalents"); }}
+            onSaveAndExit={saveAndExit}
+            onGoToEnergy={() => { void selectStep("energy"); }}
+            onContinue={() => { setNotice(""); void selectStep("equivalents"); }}
           />}
           {activeStep === "equivalents" && <DietEquivalentsStep
             plan={plan}
@@ -738,7 +770,8 @@ export function DietWorkshopPage() {
               if (meal) clearPendingIfSaved(pendingMealDistribution, meal);
             }}
             onDraftChange={(prescription) => { pendingExchangePrescription.current = prescription; }}
-            onGoToMacros={() => setActiveStep("macros")}
+            onSaveAndExit={saveAndExit}
+            onGoToMacros={() => { void selectStep("macros"); }}
             onContinue={() => { void selectStep("meals"); }}
           />}
           {activeStep === "meals" && <DietMealDistributionStep
