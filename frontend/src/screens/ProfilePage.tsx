@@ -1,5 +1,5 @@
 import { publicUrl as productUrl } from '@/src/lib/site';
-import { Camera, CheckCircle2, Clipboard, ExternalLink, LoaderCircle } from 'lucide-react';
+import { ArrowRight, Building2, CalendarDays, Camera, CheckCircle2, Clipboard, CreditCard, ExternalLink, GraduationCap, Link2, LoaderCircle, MonitorCog, Sparkles, UserRound } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ErrorState, LoadingState } from '@/src/components/ui/Status';
@@ -21,9 +21,19 @@ import { updateProfile } from '@/src/services/profile';
 import { useAuth } from '@/src/features/auth/AuthProvider';
 import { validateImage } from '@/src/lib/validation';
 import { BioimpedanceDevicesSection } from '@/src/features/bioimpedance/BioimpedanceDevicesSection';
+import './ProfilePage.css';
 
-const tabs = ['Sobre mí', 'Extras', 'Negocio', 'Educación', 'Enlaces', 'Disponibilidad', 'Equipos', 'Pagos'] as const;
-type Tab = (typeof tabs)[number];
+const profileSections = [
+  { label: 'Sobre mí', detail: 'Datos, presentación y contacto', icon: UserRound },
+  { label: 'Negocio', detail: 'Servicios y consultorios', icon: Building2 },
+  { label: 'Disponibilidad', detail: 'Horarios y reservas', icon: CalendarDays },
+  { label: 'Extras', detail: 'Imágenes y contenido', icon: Sparkles },
+  { label: 'Educación', detail: 'Formación profesional', icon: GraduationCap },
+  { label: 'Enlaces', detail: 'Página pública y redes', icon: Link2 },
+  { label: 'Equipos', detail: 'Bioimpedancia', icon: MonitorCog },
+  { label: 'Pagos', detail: 'Próximamente', icon: CreditCard },
+] as const;
+type Tab = (typeof profileSections)[number]['label'];
 
 export function ProfilePage() {
   const { user } = useAuth();
@@ -73,5 +83,60 @@ export function ProfilePage() {
     Pagos: <PaymentsSection />,
   }[activeTab];
 
-  return <div><div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"><div><p className="nuth-eyebrow">Perfil profesional</p><h1 className="mt-3 text-4xl font-semibold tracking-[-.04em]">Haz que tu perfil hable por ti</h1><p className="mt-3 text-[#687672]">Administra tus datos privados y lo que deseas mostrar públicamente.</p></div><div className="flex flex-wrap gap-3">{p.public_slug && p.is_public && <Link to={`/p/${p.public_slug}`} target="_blank" className="nuth-button-secondary">Ver mi página <ExternalLink size={16} /></Link>}<button type="button" disabled={!publicUrl} onClick={() => { void navigator.clipboard.writeText(publicUrl); setNotice('Enlace copiado.'); }} className="nuth-button-secondary"><Clipboard size={16} />Copiar enlace</button></div></div>{notice && <div role="status" className="fixed right-5 top-24 z-50 flex max-w-sm items-center gap-2 rounded-2xl bg-[#173d36] px-4 py-3 text-sm text-white shadow-2xl"><CheckCircle2 size={17} />{notice}</div>}<section className="mt-9 rounded-[28px] border border-[#dfe5e1] bg-white p-6 shadow-sm sm:p-8"><div className="flex flex-col gap-6 sm:flex-row sm:items-center"><button type="button" onClick={() => avatarInput.current?.click()} className="group relative h-24 w-24 shrink-0 overflow-hidden rounded-[26px] bg-[#e9b676]" aria-label="Cambiar foto de perfil">{avatarUrl ? <img src={avatarUrl} alt={`Foto de ${p.full_name}`} className="h-full w-full object-cover object-center" /> : <span className="grid h-full place-items-center text-2xl font-semibold">{p.full_name.split(/\s+/).map((part) => part[0]).slice(0,2).join('')}</span>}<span className="absolute inset-0 grid place-items-center bg-[#173d36]/70 text-white opacity-0 transition group-hover:opacity-100">{uploading ? <LoaderCircle className="animate-spin" /> : <Camera size={20} />}</span></button><input ref={avatarInput} type="file" className="sr-only" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) { const validationError = validateImage(file); if (validationError) setNotice(validationError); else setCropFile(file); } }} /><div className="min-w-0 flex-1"><p className="truncate text-2xl font-semibold">{p.full_name}</p><p className="mt-1 text-[#74817d]">{p.professional_title || 'Añade tu título profesional'}</p><div className="mt-3 flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-[#f1f4f0] px-3 py-1">{p.language.toUpperCase()}</span><span className="rounded-full bg-[#f1f4f0] px-3 py-1">{p.country || 'Sin país'}</span><span className={`rounded-full px-3 py-1 ${p.is_public ? 'bg-[#e8f2ec] text-[#39705d]' : 'bg-[#f2f3f1] text-[#7a8782]'}`}>{p.is_public ? 'Perfil público' : 'Perfil privado'}</span></div></div></div><p className="mt-4 text-xs text-[#74817d]">La foto se encuadra en un formato cuadrado para que coincida en todo tu perfil.</p></section><div className="mt-7 overflow-x-auto"><div className="flex min-w-max gap-2 border-b border-[#dce3de]">{tabs.map((tab) => <button key={tab} type="button" onClick={() => setActiveTab(tab)} className={`border-b-2 px-4 py-3 text-sm font-semibold transition ${activeTab === tab ? 'border-[#c77d3c] text-[#173d36]' : 'border-transparent text-[#7a8782] hover:text-[#42554e]'}`}>{tab}{tab === 'Pagos' && <span className="ml-2 rounded-full bg-[#f2eadb] px-2 py-0.5 text-[9px] text-[#8e692f]">Pronto</span>}</button>)}</div></div><section className="mt-7 rounded-[28px] border border-[#dfe5e1] bg-white p-6 shadow-sm sm:p-8 lg:p-10">{section}</section>{cropFile && <ImageCropper key={`${cropFile.name}-${cropFile.lastModified}`} file={cropFile} onCancel={() => setCropFile(null)} onConfirm={async (cropped) => { const success = await uploadAvatar(cropped); if (success) setCropFile(null); return success; }} />}</div>;
+  const activeIndex = profileSections.findIndex((item) => item.label === activeTab);
+  const nextSection = profileSections[activeIndex + 1];
+
+  return (
+    <div className="profile-workspace">
+      <header className="profile-heading">
+        <div>
+          <p className="nuth-eyebrow">Perfil profesional</p>
+          <h1>Haz que tu perfil hable por ti</h1>
+          <p>Completa tu presencia pública y configura cómo pueden encontrarte y reservar.</p>
+        </div>
+        <div className="profile-heading-actions">
+          {p.public_slug && p.is_public && <Link to={`/p/${p.public_slug}`} target="_blank" className="profile-button"><ExternalLink size={16} />Ver mi página</Link>}
+          <button type="button" disabled={!publicUrl} onClick={() => { void navigator.clipboard.writeText(publicUrl); setNotice('Enlace copiado.'); }} className="profile-button"><Clipboard size={16} />Copiar enlace</button>
+        </div>
+      </header>
+
+      {notice && <div role="status" className="fixed right-5 top-24 z-50 flex max-w-sm items-center gap-2 rounded-2xl bg-[#173d36] px-4 py-3 text-sm text-white shadow-2xl"><CheckCircle2 size={17} />{notice}</div>}
+
+      <section className="profile-identity-card" aria-label="Identidad profesional">
+        <div className="profile-avatar-wrap">
+          <button type="button" onClick={() => avatarInput.current?.click()} className="profile-avatar group" aria-label="Cambiar foto de perfil">
+            {avatarUrl ? <img src={avatarUrl} alt={`Foto de ${p.full_name}`} className="h-full w-full object-cover object-center" /> : <span className="grid h-full place-items-center text-2xl font-semibold">{p.full_name.split(/\s+/).map((part) => part[0]).slice(0,2).join('')}</span>}
+            <span className="absolute inset-0 grid place-items-center bg-[#173d36]/70 text-white opacity-0 transition group-hover:opacity-100">{uploading ? <LoaderCircle className="animate-spin" /> : <Camera size={20} />}</span>
+          </button>
+          <input ref={avatarInput} type="file" className="sr-only" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) { const validationError = validateImage(file); if (validationError) setNotice(validationError); else setCropFile(file); } }} />
+        </div>
+        <div className="profile-identity-details">
+          <span className="profile-eyebrow">Tu presentación</span>
+          <h2>{p.full_name}</h2>
+          <p>{p.professional_title || 'Añade tu título profesional'}</p>
+          <div className="profile-badges"><span>{p.language.toUpperCase()}</span><span>{p.country || 'Sin país'}</span><span className={p.is_public ? 'is-public' : ''}>{p.is_public ? 'Perfil público' : 'Perfil privado'}</span></div>
+        </div>
+        <div className="profile-identity-hint">Toca tu foto para actualizarla. El encuadre cuadrado se usa en todo tu perfil.</div>
+      </section>
+
+      <div className="profile-section-intro"><div><span className="profile-eyebrow">Configura tu consulta</span><h2>Elige qué quieres actualizar</h2></div><p>Trabaja una sección a la vez. Tus acciones de guardado están dentro de cada tarjeta.</p></div>
+      <nav className="profile-section-nav" aria-label="Secciones del perfil">
+        {profileSections.map(({ label, detail, icon: Icon }, index) => (
+          <button key={label} type="button" aria-current={activeTab === label ? 'step' : undefined} onClick={() => setActiveTab(label)} className={`profile-section-choice${activeTab === label ? ' is-active' : ''}`}>
+            <span className="profile-section-icon"><Icon size={18} /></span>
+            <span className="profile-section-choice-copy"><small>{String(index + 1).padStart(2, '0')}</small><strong>{label}</strong><em>{detail}</em></span>
+            <ArrowRight size={15} className="profile-section-arrow" />
+          </button>
+        ))}
+      </nav>
+
+      <section className="profile-content-card" aria-labelledby="profile-active-title">
+        <header className="profile-content-heading"><div><span className="profile-eyebrow">Sección {activeIndex + 1} de {profileSections.length}</span><h2 id="profile-active-title">{activeTab}</h2><p>{profileSections[activeIndex].detail}</p></div>{nextSection && <button type="button" className="profile-next profile-next-top" onClick={() => setActiveTab(nextSection.label)}>Siguiente: {nextSection.label}<ArrowRight size={16} /></button>}</header>
+        <div className="profile-content-body">{section}</div>
+        {nextSection && <footer className="profile-content-footer"><span>Al terminar esta sección, continúa con {nextSection.label}.</span><button type="button" className="profile-next" onClick={() => setActiveTab(nextSection.label)}>Siguiente: {nextSection.label}<ArrowRight size={16} /></button></footer>}
+      </section>
+
+      {cropFile && <ImageCropper key={`${cropFile.name}-${cropFile.lastModified}`} file={cropFile} onCancel={() => setCropFile(null)} onConfirm={async (cropped) => { const success = await uploadAvatar(cropped); if (success) setCropFile(null); return success; }} />}
+    </div>
+  );
 }
