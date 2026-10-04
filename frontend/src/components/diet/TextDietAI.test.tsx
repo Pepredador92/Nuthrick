@@ -30,3 +30,25 @@ describe('text diet workflow',()=>{
  fireEvent.click(screen.getByRole('button',{name:'Siguiente dieta'}));await waitFor(()=>expect(screen.getByLabelText('Contenido editable')).toHaveValue('Desayuno 2\n• 2 tortillas\n• Ingrediente que quitar'));fireEvent.click(screen.getByRole('checkbox',{name:/Revisé esta dieta/}));fireEvent.click(screen.getByRole('button',{name:'Siguiente dieta'}));await waitFor(()=>expect(screen.getByLabelText('Contenido editable')).toHaveValue('Desayuno 3\n• 2 tortillas\n• Ingrediente que quitar'));fireEvent.click(screen.getByRole('checkbox',{name:/Revisé esta dieta/}));fireEvent.click(screen.getByRole('button',{name:'Aprobar 3 dietas'}));await waitFor(()=>expect(close).toHaveBeenCalled());const approved=save.mock.calls.at(-1)![0];expect(approved.reviewed_at).toBeTruthy();expect(approved.diets[0].text).toBe('Desayuno revisado\n• 2 tortillas');
  });
 });
+it('prefills the recorded goal and dated restrictions, keeps review explicit, and can advance with optional preferences absent',async()=>{
+ const f=mount(),fixture=uxFixture();const c=(await fixture.transport.preflight(fixture.input.source.plan,'')).context!;
+ c.clinical.objective.fact={state:'unavailable',reason:'missing'};c.clinical.objectiveSuggestion='Organizar comidas para llevar.';c.clinical.objectiveSuggestionOrigin={date:'2026-10-03',historical:false};
+ c.restrictions.reaction_status.fact={state:'known',value:'No'};Object.assign(c.restrictions.reaction_status.origin,{date:'2026-07-18',historical:true});
+ c.restrictions.reactions.fact={state:'unavailable',reason:'missing'};c.preferences.foods.fact={state:'unavailable',reason:'missing'};c.preferences.eating_pattern.fact={state:'known',value:['Omnívoro']};
+ vi.mocked(f.transport.preflight).mockResolvedValue({eligible:false,contextToken:'fixture',reasons:[{code:'context_review_required'},{code:'text_restrictions_required'}],context:c});
+ fireEvent.click(screen.getByRole('button',{name:'Generar con IA'}));await waitFor(()=>expect(screen.getByLabelText('Objetivo de las dietas')).toHaveValue('Organizar comidas para llevar.'));
+ expect((screen.getByLabelText('Alergias y restricciones revisadas') as HTMLTextAreaElement).value).toContain('Antecedente del 18/07/2026');
+ expect(screen.getByRole('checkbox',{name:/Revisé alergias/})).not.toBeChecked();expect(screen.getByText('Sin preferencias específicas registradas',{exact:false})).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('checkbox',{name:/Revisé alergias/}));fireEvent.click(screen.getByRole('checkbox',{name:/Revisé el contexto/}));fireEvent.click(screen.getByRole('button',{name:'Continuar'}));expect(screen.getByLabelText('Dietas completas diferentes')).toBeInTheDocument();expect(f.transport.generate).not.toHaveBeenCalled();
+});
+it('identifies empty required text even when both checkboxes are selected; never invents negative allergy data',async()=>{
+ const f=mount(),fixture=uxFixture(),c=(await fixture.transport.preflight(fixture.input.source.plan,'')).context!;
+ c.clinical.objective.fact={state:'unavailable',reason:'missing'};delete c.clinical.objectiveSuggestion;
+ c.restrictions.reaction_status.fact={state:'unavailable',reason:'missing'};c.restrictions.reactions.fact={state:'unavailable',reason:'missing'};
+ vi.mocked(f.transport.preflight).mockResolvedValue({eligible:false,contextToken:'fixture',reasons:[],context:c});
+ fireEvent.click(screen.getByRole('button',{name:'Generar con IA'}));await screen.findByLabelText('Objetivo de las dietas');
+ expect(screen.getByLabelText('Alergias y restricciones revisadas')).toHaveValue('');
+ fireEvent.click(screen.getByRole('checkbox',{name:/Revisé alergias/}));fireEvent.click(screen.getByRole('checkbox',{name:/Revisé el contexto/}));fireEvent.click(screen.getByRole('button',{name:'Continuar'}));
+ expect(screen.getByRole('alert')).toHaveTextContent('Escribe el objetivo de las dietas. Completa el resumen de alergias y restricciones revisadas.');
+ expect(screen.getByLabelText('Objetivo de las dietas')).toHaveFocus();expect(screen.getByLabelText('Objetivo de las dietas')).toHaveAttribute('aria-invalid','true');expect(f.transport.generate).not.toHaveBeenCalled();
+});

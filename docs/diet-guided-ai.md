@@ -49,3 +49,9 @@ El editor no calcula nutrientes a partir del texto. Las metas son orientación, 
 Primero desplegar Edge `ai` y `agenda` compatibles. Después aplicar la migración `narrative_diet_drafts` y publicar el frontend. Mantener JWT de `ai`; `agenda` conserva su autenticación propia existente para rutas públicas/portal. La migración no modifica planes existentes.
 
 Despliegue de servidor verificado: `ai` v28, `agenda` v28, migración `20261004084428_narrative_diet_drafts`, prompt @4. RPC de contexto/aplicación accesibles únicamente a service_role; permiso de validación verificado también bajo ese rol.
+
+### Corrección del contexto de revisión (4 de octubre de 2026)
+
+El resumen del asistente usa la respuesta de la consulta actual y, cuando falta, el antecedente autorizado más reciente, mostrando su fecha. Una respuesta actual explícita de desconocimiento o rechazo no se reemplaza por un «No» antiguo. Los objetivos admiten tanto texto como listas de filas `objetivo`, con prioridad para la consulta actual. Restricciones y objetivos tienen prioridad dentro del historial acotado enviado al proveedor.
+
+El modal precarga el objetivo y el resumen de restricciones disponibles para revisión, sin marcar confirmaciones automáticamente. Las preferencias opcionales sin registrar no bloquean el avance. Si faltan textos obligatorios o confirmaciones, el mensaje enumera los pendientes y enfoca el primer campo vacío. Ninguna ausencia se interpreta como ausencia de alergias. Pruebas de regresión con una consulta de seguimiento sin respuestas alimentarias, un objetivo estructurado y antecedentes de entrevista; datos sintéticos, sin consumo de créditos IA.

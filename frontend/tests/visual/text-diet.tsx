@@ -4,14 +4,15 @@ import {TextDietAI} from '../../src/components/diet/TextDietAI';
 import {TextDietReviewStep} from '../../src/components/diet/TextDietReview';
 import {PortalPlanContent} from '../../src/components/patients/PortalPlan';
 import {uxFixture} from '../fixtures/dietCopilotUX';
+import {buildDietGenerationContext,textDietReviewSource} from '../../src/features/diet-workshop/generationBoundary';
 import type {TextDietTransport} from '../../src/services/textDietAI';
 import type {NutritionPlan} from '../../src/types/domain';
 import type {TextDiet} from '../../../supabase/functions/_shared/text-diet';
 import '../../app/globals.css';
 function Harness(){
- const f=useMemo(()=>uxFixture(),[]),[plan,setPlan]=useState<NutritionPlan>(()=>({...f.input.source.plan,diet_menu:null})),[published,setPublished]=useState(false);
+ const f=useMemo(()=>{const f=uxFixture();f.input.source.answers={};f.input.source.consultation!.objective=null;f.input.source.datedContext=[{date:'2026-10-03',current:true,facts:[{key:'next_objectives',value:[{objetivo:'Organizar comidas para llevar.'}]}]},{date:'2026-07-18',current:false,facts:[{key:'food_reactions_status',value:'No'},{key:'eating_preferences',value:['Omnívoro']}]}];return f;},[]),[plan,setPlan]=useState<NutritionPlan>(()=>({...f.input.source.plan,diet_menu:null})),[published,setPublished]=useState(false);
  const transport:TextDietTransport=useMemo(()=>{let generated=plan;return{
- preflight:async(p,g,n)=>{const r=await f.transport.preflight(p,n);return{...r,context:r.context!,eligible:true,reasons:[],contextToken:JSON.stringify([g,n])};},
+ preflight:async(p,g,n)=>{const source=textDietReviewSource({...f.input.source,plan:p});const c=buildDietGenerationContext(source.source,s=>s).context;return{context:{...c,clinical:{...c.clinical,objectiveSuggestionOrigin:source.suggestionOrigin}},eligible:true,reasons:[],contextToken:JSON.stringify([g,n])};},
  generate:async(p,g)=>{const textDraft:TextDiet={schema_version:1,requested_count:g.dietCount,meals:g.meals,reviewed_at:null,prescription:{target_calories:p.target_calories,macro_distribution:p.macro_distribution},diets:Array.from({length:g.dietCount},(_,i)=>({id:`diet-${i}`,title:`Dieta ${i+1}`,text:`Desayuno · 08:00\nHuevos a la mexicana con tortilla y papaya\n• 2 huevos\n• 2 tortillas de maíz\n• ½ taza de jitomate y cebolla\n• 1 cucharadita de aceite\n• 1 taza de papaya\nPreparación: cocinar el huevo con las verduras y el aceite; acompañar con tortilla y papaya.\n\nComida · 14:00\nPollo con arroz y calabacitas\n• 120 g de pollo cocido\n• ¾ taza de arroz cocido\n• 1 taza de calabacitas\nPreparación: servir el pollo con el arroz y las verduras.\n\nCena · 20:00\nTostadas de frijol con panela\n• 2 tostadas horneadas\n• ½ taza de frijoles cocidos\n• 40 g de queso panela\nPreparación: untar los frijoles sobre las tostadas y añadir el queso.\n\nEjemplo sintético ${i+1}, no es una dieta generada por IA.`}))};generated={...p,text_diet:textDraft};return{generationId:'synthetic',textDraft};},
  apply:async()=>generated,recover:async()=>({generationId:'synthetic',textDraft:generated.text_diet!}),status:async()=>null,discard:async()=>{}
  };},[f,plan]);

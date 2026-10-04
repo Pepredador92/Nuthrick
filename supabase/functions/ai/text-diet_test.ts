@@ -1,6 +1,6 @@
 import {strict as assert} from 'node:assert';
 import fixtures from './fixtures/diet-phase3.json' with {type:'json'};
-import {prepareTextDietSnapshot,textDietPreflight,validateTextDietOutput,verifyTextDietSnapshot} from './text-diet.ts';
+import {prepareTextDietSnapshot,textDietPreflight,validateTextDietOutput,verifyTextDietSnapshot,type TextDietSource} from './text-diet.ts';
 import {textDietAdapter} from './text-diet-contract.ts';
 import {DietRoutingProvider} from './diet.ts';
 import {runAIRequest,parseRequest,validOutput,featureAdapter,type AIStore,type FeatureConfig,type ProviderInput} from './core.ts';
@@ -44,4 +44,21 @@ Deno.test('new format uses strict real adapter path; retry does not dispatch or 
  const provider=new DietRoutingProvider({run:async(i:ProviderInput)=>{dispatches++;assert.deepEqual(i.schema,textDietAdapter.schema);assert.equal((i.context as {format:string}).format,'text_diet');assert.ok(!JSON.stringify(i.context).includes('candidate_ref'));return{status:'completed',output:output(7),usage,responseId:'synthetic'};}});
  const request={feature:'diet_draft',idempotencyKey:crypto.randomUUID(),planId:fixtures.A.source.plan.id,revision:1,textGuidance:g};
  await runAIRequest(request,store,provider);await runAIRequest(request,store,provider);assert.equal(dispatches,1);assert.equal(settles,1);
+});
+Deno.test('review preflight resolves dated interview facts and structured current objectives',async()=>{
+ const f:TextDietSource=structuredClone(fixtures.A);f.source.answers={};f.source.consultation.objective=null as never;f.source.objectiveSuggestion=undefined;
+ f.source.datedContext=[{date:'2026-10-03',current:true,facts:[{key:'next_objectives',value:[{objetivo:'Organizar comidas para llevar.',prioridad:'PRIVADO_NO_ENVIAR'}]}]},{date:'2026-08-01',current:false,facts:[]},{date:'2026-07-18',current:false,facts:[{key:'food_reactions_status',value:'No'},{key:'eating_preferences',value:['Omnívoro']},{key:'treatment_objective',value:'Objetivo anterior.'}]}];
+ const g={...guidance(3),objective:'',contextReviewed:false,restrictions:'',restrictionsReviewed:false};
+ const p=await textDietPreflight(f,g,'');
+ assert.deepEqual(p.context.restrictions.reaction_status.fact,{state:'known',value:'No'});
+ assert.equal(p.context.restrictions.reaction_status.origin.date,'2026-07-18');assert.equal(p.context.restrictions.reaction_status.origin.historical,true);
+ assert.deepEqual(p.context.preferences.eating_pattern.fact,{state:'known',value:['Omnívoro']});
+ assert.equal(p.context.clinical.objectiveSuggestion,'Organizar comidas para llevar.');
+ assert.deepEqual(p.context.clinical.objectiveSuggestionOrigin,{date:'2026-10-03',historical:false});
+ assert.ok(!p.eligible,'autofill does not grant professional confirmation');
+ assert.deepEqual(f.source.answers,{},'source is not mutated');
+ f.source.answers={food_reactions_status:{value:'Prefiere no responder',response_area:'patient_reported'}};
+ assert.equal((await textDietPreflight(f,g,'')).context.restrictions.reaction_status.fact.state,'unknown','a current explicit unknown must not become a historical No');
+ f.source.datedContext=[{date:'2026-10-03',current:true,facts:[]}];f.source.answers={};
+ assert.equal((await textDietPreflight(f,g,'')).context.restrictions.reaction_status.fact.state,'unavailable','missing does not mean no allergies');
 });

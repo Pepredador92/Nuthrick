@@ -50,7 +50,7 @@ export type DietContextSource = {
     } | null;
   } | null;
   /** Already scoped to that consultation/revision by the future server loader. */
-  answers: Record<string, { value: unknown; response_area: 'patient_reported' | 'professional_assessment' }>;
+  answers: Record<string, { value: unknown; response_area: 'patient_reported' | 'professional_assessment'; recordedAt?: string; historical?: boolean }>;
   additionalInstructions?: string | null;
   guidance?: DietGuidance;
   objectiveSuggestion?: string;
@@ -64,6 +64,8 @@ export type DietContextSource = {
 };
 
 type Origin = {
+  date?: string;
+  historical?: boolean;
   source: 'nutrition_plans' | 'consultation_answers' | 'consultation_snapshots' | 'catalog' | 'request';
   path: string;
   kind: 'professional_captured' | 'patient_declared' | 'system_calculated' | 'approved_pes' | 'approved_objective' | 'catalog_record';
@@ -82,6 +84,7 @@ export type DietGenerationContext = {
   clinical: { pes: Sourced<string>; objective: Sourced<string>;
     history?: Array<{date:string;current:boolean;facts:Array<{key:string;value:string}>}>;
     objectiveSuggestion?: string;
+    objectiveSuggestionOrigin?: {date:string;historical:boolean};
     recall24h?: NonNullable<ReturnType<typeof summarizeConfirmedRecall>>;
     anthropometry?: NonNullable<ReturnType<typeof summarizeAnthropometry>> };
   prescription: {
@@ -162,7 +165,8 @@ export function buildDietGenerationContext(source: DietContextSource, sanitizeTe
   const answer = <A, B>(key: string, guard: (v: unknown) => v is A, project: (a: A) => B): Sourced<B> => ({
     fact: mapFact(contextFact(source.answers[key]?.value, guard), project),
     origin: { source: 'consultation_answers', path: key,
-      kind: source.answers[key]?.response_area === 'professional_assessment' ? 'professional_captured' : 'patient_declared' },
+      kind: source.answers[key]?.response_area === 'professional_assessment' ? 'professional_captured' : 'patient_declared',
+      ...(source.answers[key]?.recordedAt ? {date:source.answers[key].recordedAt,historical:source.answers[key].historical===true} : {}) },
   });
   const multiple = (key: string) => answer(key, stringList, v => v.map(clean));
   if (plan.status !== 'draft') blockers.push('draft_required');

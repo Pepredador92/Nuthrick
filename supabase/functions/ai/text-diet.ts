@@ -1,14 +1,15 @@
 import {AIError} from './core.ts';
 import {dietHash,type DietSource} from './diet.ts';
 import {redactClinicalText} from './clinical.ts';
-import {buildDietGenerationContext} from './diet-generation-domain.js';
+import {buildDietGenerationContext,textDietReviewSource} from './diet-generation-domain.js';
 import {isTextDietGuidance,isTextDiet,type TextDietGuidance,type TextDiet} from '../_shared/text-diet.ts';
 
 export type TextDietSource=DietSource;
 export function textDietContext(loaded:TextDietSource,guidance:TextDietGuidance,instructions='') {
   if(!isTextDietGuidance(guidance))throw new AIError('invalid_request');
   const clean=(s:string)=>redactClinicalText(s,loaded.identifiers.filter((v):v is string=>typeof v==='string'&&!!v));
-  const {context,blockers}=buildDietGenerationContext({...loaded.source,catalog:undefined,additionalInstructions:instructions,
+  const reviewedSource=textDietReviewSource(loaded.source);
+  const {context,blockers}=buildDietGenerationContext({...reviewedSource.source,catalog:undefined,additionalInstructions:instructions,
     guidance:{version:1,objective:guidance.objective,contextReviewed:guidance.contextReviewed,reactionReview:'recorded',
       meals:guidance.meals.map(m=>({...m,type:'CUSTOM' as const,options:1}))}},clean);
   const reasons=blockers.filter(b=>['draft_required','consultation_required','context_mismatch','energy_required','macros_required','prescription_inconsistent','instructions_too_long'].includes(b)).map(code=>({code}));
@@ -16,7 +17,7 @@ export function textDietContext(loaded:TextDietSource,guidance:TextDietGuidance,
   if(!guidance.restrictionsReviewed||!guidance.restrictions.trim())reasons.push({code:'text_restrictions_required'});
   const payload={format:'text_diet' as const,diet_count:guidance.dietCount,
     meal_schedule:guidance.meals.map(m=>({name:clean(m.name),time:m.time})),
-    clinical:context.clinical,prescription:context.prescription,
+    clinical:{...context.clinical,...(reviewedSource.suggestionOrigin&&context.clinical.objective.fact.state!=='known'?{objectiveSuggestionOrigin:reviewedSource.suggestionOrigin}:{})},prescription:context.prescription,
     restrictions:{reaction_status:context.restrictions.reaction_status,reactions:context.restrictions.reactions,professional_review:clean(guidance.restrictions)},
     preferences:{eating_pattern:context.preferences.eating_pattern,foods:context.preferences.foods},routine:context.routine,
     professional_instructions:clean(instructions)};

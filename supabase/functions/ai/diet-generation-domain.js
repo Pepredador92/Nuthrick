@@ -1026,7 +1026,8 @@ function buildDietGenerationContext(source, sanitizeText) {
     origin: {
       source: "consultation_answers",
       path: key,
-      kind: source.answers[key]?.response_area === "professional_assessment" ? "professional_captured" : "patient_declared"
+      kind: source.answers[key]?.response_area === "professional_assessment" ? "professional_captured" : "patient_declared",
+      ...source.answers[key]?.recordedAt ? { date: source.answers[key].recordedAt, historical: source.answers[key].historical === true } : {}
     }
   });
   const multiple = (key) => answer(key, stringList, (v) => v.map(clean));
@@ -1704,17 +1705,17 @@ function mealAlternatives(current, prescription, lockedIds, startFromCurrent, ca
       if (total <= PROPOSAL_POLICY.inventoryEpsilon || !free.length) continue;
       const ranked = [...free].sort((a, b) => {
         const score = (m) => {
-          const present = entries.filter((e) => e.meal_time_id === m.id && e.portions > 0);
-          const has = (f) => present.some((e) => family(e.group_code) === f);
+          const present2 = entries.filter((e) => e.meal_time_id === m.id && e.portions > 0);
+          const has = (f) => present2.some((e) => family(e.group_code) === f);
           let s = m.meal_type === "SNACK" ? -3 : 0;
           if (code === "FRUITS" || family(code) === "MILK") s += m.meal_type === "SNACK" || m.meal_type === "BREAKFAST" ? 3 : 0;
           if (code === "AOA_MODERATE_FAT" && m.meal_type === "BREAKFAST") s += 3;
           if ((code === "LEGUMES" || family(code) === "CEREALS") && has("AOA")) s += 3;
           if (code === "LEGUMES" && has("CEREALS")) s += 2;
-          if (family(code) === "MILK" && present.some((e) => family(e.group_code) === "MILK" && e.group_code !== code)) s -= 10;
+          if (family(code) === "MILK" && present2.some((e) => family(e.group_code) === "MILK" && e.group_code !== code)) s -= 10;
           if (startFromCurrent && current.distribution.some((e) => e.meal_time_id === m.id && e.group_code === code && e.portions > 0)) s += 1;
           s += (m.display_order + variant) % Math.max(free.length, 1) * 1.2;
-          s -= present.reduce((sum, e) => sum + e.portions, 0) * 0.4;
+          s -= present2.reduce((sum, e) => sum + e.portions, 0) * 0.4;
           return s;
         };
         return score(b) - score(a) || a.display_order - b.display_order;
@@ -1784,6 +1785,50 @@ function prepareGuidedDiet(source) {
   } catch {
     return fail("proposal_unavailable");
   }
+}
+
+// frontend/src/features/diet-workshop/textReviewContext.ts
+var answerKeys = ["food_reactions_status", "food_reactions_v2", "food_preferences", "eating_preferences", "usual_pattern", "daily_schedule", "cooking_time", "food_equipment"];
+var goalKeys = ["treatment_objective", "objectives", "next_objectives"];
+var present = (v) => v !== null && v !== void 0 && (typeof v !== "string" || !!v.trim()) && (!Array.isArray(v) || v.length > 0);
+var goalText = (v) => typeof v === "string" ? v.trim() : Array.isArray(v) ? v.map(goalText).filter(Boolean).join("\n") : v && typeof v === "object" && "objetivo" in v ? goalText(v.objetivo) : "";
+function textDietReviewSource(source) {
+  const visits = [...source.datedContext ?? []].filter((v) => Number.isFinite(Date.parse(v.date))).sort((a, b) => Number(b.current) - Number(a.current) || b.date.localeCompare(a.date));
+  const current = visits.find((v) => v.current);
+  const answers = { ...source.answers };
+  for (const key of answerKeys) {
+    if (present(answers[key]?.value)) {
+      if (current) answers[key] = { ...answers[key], recordedAt: current.date, historical: false };
+      continue;
+    }
+    for (const visit of visits) {
+      const fact = visit.facts.find((f) => f.key === key && present(f.value));
+      if (fact) {
+        answers[key] = { value: fact.value, response_area: "patient_reported", recordedAt: visit.date, historical: !visit.current };
+        break;
+      }
+    }
+  }
+  let suggestion = source.objectiveSuggestion?.trim() ?? "";
+  let suggestionOrigin = suggestion && current ? { date: current.date, historical: false } : void 0;
+  if (!suggestion) outer: for (const visit of visits) {
+    for (const key of goalKeys) {
+      const candidate = goalText(visit.facts.find((f) => f.key === key)?.value);
+      if (candidate) {
+        suggestion = candidate.slice(0, 1200);
+        suggestionOrigin = { date: visit.date, historical: !visit.current };
+        break outer;
+      }
+    }
+  }
+  const priority2 = /* @__PURE__ */ new Set([...answerKeys, ...goalKeys]);
+  return { source: {
+    ...source,
+    answers,
+    objectiveSuggestion: suggestion,
+    // Keep restrictions and objectives inside the bounded history projection.
+    datedContext: source.datedContext?.map((v) => ({ ...v, facts: [...v.facts].sort((a, b) => Number(priority2.has(b.key)) - Number(priority2.has(a.key))) }))
+  }, suggestionOrigin };
 }
 
 // frontend/src/features/diet-workshop/generationBoundary.ts
@@ -1992,6 +2037,7 @@ export {
   parseDietModelOutput,
   prepareDietGeneration,
   prepareGuidedDiet,
+  textDietReviewSource,
   validateDietGenerationDraft,
   validateDietSnapshotDraft
 };

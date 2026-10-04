@@ -8,13 +8,14 @@ import {isTextDietGuidance,type TextDietGuidance} from '../../../../supabase/fun
 import type {NutritionPlan} from '@/src/types/domain';
 import {copilotMessage,factText,numberText} from './dietCopilotPresentation';
 import {dietClinicalLabel,dietClinicalValue} from './dietClinicalLabels';
+import {dietFactDate,dietRestrictionsSuggestion} from './textDietFormContext';
 
 const pages=['Contexto','Dietas y horarios','Preferencias','Confirmar'];
 const critical=new Set(['draft_required','consultation_required','context_mismatch','energy_required','macros_required','prescription_inconsistent','feature_disabled','insufficient_credits']);
 export function TextDietAI({plan,before,onApplied,transport=textDietTransport}:{plan:NutritionPlan;before:()=>Promise<NutritionPlan>;onApplied:(plan:NutritionPlan)=>void;transport?:TextDietTransport}) {
   const {data:access}=useAccess(),available=!access||canUseFeature(access.access,'ai.diet_draft');
   const id=useId(),dialog=useRef<HTMLDialogElement>(null),opener=useRef<HTMLButtonElement>(null),lock=useRef(false);
-  const [open,setOpen]=useState(false),[step,setStep]=useState(0),[busy,setBusy]=useState(''),[error,setError]=useState('');
+  const [open,setOpen]=useState(false),[step,setStep]=useState(0),[busy,setBusy]=useState(''),[error,setError]=useState(''),[attempted,setAttempted]=useState(false);
   const [context,setContext]=useState<TextDietPreflight|null>(null),[checked,setChecked]=useState<TextDietPreflight|null>(null);
   const [guidance,setGuidance]=useState<TextDietGuidance>({version:1,dietCount:3,objective:'',contextReviewed:false,restrictionsReviewed:false,restrictions:'',
     meals:plan.text_diet?.meals??(plan.meal_distribution?.meal_times.length?plan.meal_distribution.meal_times.map(m=>({name:m.display_name,time:m.time})):[{name:'Desayuno',time:null},{name:'Comida',time:null},{name:'Cena',time:null}])});
@@ -29,10 +30,14 @@ export function TextDietAI({plan,before,onApplied,transport=textDietTransport}:{
   function fail(e:unknown){setError(e instanceof AIRequestError?e.code==='text_restrictions_required'?'Escribe y confirma las alergias o restricciones revisadas con el paciente.':e.code==='invalid_output'?'La IA no entregó todas las dietas y tiempos requeridos o repitió una propuesta. No se guardó un plan incompleto.':copilotMessage(e.code):'No se pudo completar la operación. Conserva la solicitud para consultar su estado.');}
   async function show(){if(lock.current||!available)return;lock.current=true;setOpen(true);setBusy('Leyendo consulta e historial…');setError('');
     try{const r=await transport.preflight(await before(),guidance,instructions);setContext(r);
-      if(!initialized.current&&r.context){const goal=r.context.clinical.objective.fact;setGuidance(g=>({...g,objective:goal.state==='known'?goal.value:r.context.clinical.objectiveSuggestion??''}));initialized.current=true;}
+      if(!initialized.current&&r.context){const goal=r.context.clinical.objective.fact;setGuidance(g=>({...g,objective:g.objective||(goal.state==='known'?goal.value:r.context.clinical.objectiveSuggestion??''),restrictions:g.restrictions||dietRestrictionsSuggestion(r.context)}));initialized.current=true;}
     }catch(e){fail(e);}finally{lock.current=false;setBusy('');}}
   async function next(){if(lock.current)return;setError('');
-    if(step===0&&(!guidance.contextReviewed||!guidance.objective.trim()||!guidance.restrictionsReviewed||!guidance.restrictions.trim())){setError('Revisa el contexto, el objetivo y las restricciones antes de continuar.');return;}
+    if(step===0){
+      setAttempted(true);
+      const missing=[!guidance.objective.trim()&&'Escribe el objetivo de las dietas.',!guidance.restrictions.trim()&&'Completa el resumen de alergias y restricciones revisadas.',!guidance.restrictionsReviewed&&'Confirma la revisión de alergias y restricciones.',!guidance.contextReviewed&&'Confirma la revisión del contexto y la prescripción.'].filter(Boolean);
+      if(missing.length){setError(missing.join(' '));const field=!guidance.objective.trim()?'objective':!guidance.restrictions.trim()?'restrictions':null;if(field)document.getElementById(`${id}-${field}`)?.focus();return;}
+    }
     if(!isTextDietGuidance(guidance)){setError('Revisa los nombres y horarios; admite de 1 a 7 dietas y de 1 a 6 tiempos distintos.');return;}
     if(step<2){setStep(s=>s+1);return;}lock.current=true;setBusy('Comprobando la solicitud…');
     try{setChecked(await transport.preflight(await before(),guidance,instructions));setStep(3);}catch(e){fail(e);}finally{lock.current=false;setBusy('');}}
@@ -44,7 +49,7 @@ export function TextDietAI({plan,before,onApplied,transport=textDietTransport}:{
   async function recover(){if(lock.current||!pending)return;lock.current=true;setBusy('Recuperando la solicitud existente…');setError('');try{const r=await transport.status(pending);if(r?.status==='succeeded'){const p=await transport.recover(r.generationId);setProposal(p);setStep(3);}else if(r&&['failed','invalid_output'].includes(r.status)){remember(null);throw new AIRequestError(r.errorCode??'invalid_output');}else throw new AIRequestError('provider_outcome_unknown');}catch(e){fail(e);}finally{lock.current=false;setBusy('');}}
   async function saveProposal(){if(lock.current||!proposal)return;lock.current=true;setBusy('Guardando borrador…');try{await apply(proposal);}catch(e){fail(e);}finally{lock.current=false;setBusy('');}}
   async function discard(){if(lock.current||!proposal)return;lock.current=true;setBusy('Descartando propuesta…');try{await transport.discard(proposal.generationId);setProposal(null);remember(null);setStep(0);}catch(e){fail(e);}finally{lock.current=false;setBusy('');}}
-  function edit(patch:Partial<TextDietGuidance>){setGuidance(g=>({...g,...patch}));setChecked(null);}
+  function edit(patch:Partial<TextDietGuidance>){setGuidance(g=>({...g,...patch}));setChecked(null);setError('');}
   const close=()=>{setOpen(false);opener.current?.focus();},c=context?.context;
   return <>
     <button ref={opener} type="button" data-diet-ai-entry className="nuth-button !px-4 !py-2" disabled={!available} onClick={()=>void show()}><Sparkles size={16}/>Generar con IA</button>
@@ -57,10 +62,18 @@ export function TextDietAI({plan,before,onApplied,transport=textDietTransport}:{
       <fieldset disabled={!!busy||!!pending} className="min-w-0 space-y-4 disabled:opacity-70">
         {step===0&&c&&<>
           <section className="rounded-xl bg-[#edf5f0] p-3 text-sm"><h3 className="font-semibold">Metas prescritas para alimentos</h3><p>Energía: {factText(c.prescription.energy_kcal.fact,v=>`${numberText(v)} kcal`)}</p><p>{factText(c.prescription.macros.fact,v=>`Proteína: ${numberText(v.PROTEIN.grams)} g · Carbohidratos: ${numberText(v.CARBOHYDRATE.grams)} g · Grasa: ${numberText(v.FAT.grams)} g`)}</p><p className="mt-1 text-xs">Ya se descontaron los suplementos. Son objetivos para orientar la propuesta; sus aportes requieren revisión profesional.</p></section>
-          <label className="block text-sm font-semibold">Objetivo de las dietas<textarea className="nuth-input mt-1 min-h-20" maxLength={1200} value={guidance.objective} onChange={e=>edit({objective:e.target.value})}/></label>
+          <label className="block text-sm font-semibold">Objetivo de las dietas <span className="font-normal text-[#687870]">· Obligatorio</span><textarea id={`${id}-objective`} aria-label="Objetivo de las dietas" aria-required="true" aria-invalid={attempted&&!guidance.objective.trim()} aria-describedby={`${id}-objective-help`} className="nuth-input mt-1 min-h-20" maxLength={1200} value={guidance.objective} onChange={e=>edit({objective:e.target.value,contextReviewed:false})}/></label>
+          <p id={`${id}-objective-help`} className="!mt-1 text-xs text-[#687870]">{c.clinical.objectiveSuggestionOrigin?`${dietFactDate(c.clinical.objectiveSuggestionOrigin)}. `:''}Revisa o adapta el objetivo registrado. Si no hay uno, escribe el objetivo que acordaste con el paciente.</p>
           <details className="rounded-xl border border-[#dfe6e1] p-3 text-sm"><summary className="font-semibold">Consulta e historial utilizado</summary>{c.clinical.history?.map((h,i)=><section key={i} className="mt-3"><h4>{h.current?'Consulta seleccionada':'Antecedente'} · {h.date}</h4><ul className="mt-1 space-y-1 text-xs">{h.facts.map((f,j)=><li key={j}><strong>{dietClinicalLabel(f.key)}:</strong> {dietClinicalValue(f.value)}</li>)}</ul></section>)}</details>
-          <section className="rounded-xl bg-amber-50 p-3 text-sm"><p>Reacciones registradas: {factText(c.restrictions.reaction_status.fact)}</p><p>{factText(c.restrictions.reactions.fact,rows=>rows.map(r=>`${r.food}: ${r.classification}`).join('; '))}</p><p>Patrón alimentario: {factText(c.preferences.eating_pattern.fact,v=>v.join(', '))}</p><p>Preferencias registradas: {factText(c.preferences.foods.fact,v=>v.map(f=>`${f.food}: ${f.category}`).join('; '))}</p></section>
-          <label className="block text-sm">Alergias y restricciones revisadas<textarea className="nuth-input mt-1" maxLength={1500} placeholder="Resume lo confirmado con el paciente. Si no hay restricciones, indícalo expresamente." value={guidance.restrictions} onChange={e=>edit({restrictions:e.target.value,restrictionsReviewed:false})}/></label>
+          <section aria-label="Datos alimentarios del expediente" className="rounded-xl bg-[#edf5f0] p-3 text-sm">
+            <h3 className="mb-2 font-semibold">Datos de la consulta y antecedentes</h3>
+            <p>Reacciones alimentarias: {c.restrictions.reaction_status.fact.state==='unavailable'?'Sin respuesta registrada':factText(c.restrictions.reaction_status.fact)}{dietFactDate(c.restrictions.reaction_status.origin)&&<span className="block text-xs text-[#687870]">{dietFactDate(c.restrictions.reaction_status.origin)}</span>}</p>
+            {c.restrictions.reactions.fact.state==='known'&&<p className="mt-2">Detalle: {c.restrictions.reactions.fact.value.map(r=>`${r.food}: ${r.classification}${r.management?` · ${r.management}`:''}`).join('; ')}<span className="block text-xs text-[#687870]">{dietFactDate(c.restrictions.reactions.origin)}</span></p>}
+            <p className="mt-2">Patrón alimentario: {c.preferences.eating_pattern.fact.state==='unavailable'?'Sin registro':factText(c.preferences.eating_pattern.fact,v=>v.join(', '))}<span className="block text-xs text-[#687870]">{dietFactDate(c.preferences.eating_pattern.origin)}</span></p>
+            <p className="mt-2">Preferencias registradas: {c.preferences.foods.fact.state==='unavailable'?'Sin preferencias específicas registradas':factText(c.preferences.foods.fact,v=>v.map(f=>`${f.food}: ${f.category}`).join('; '))}<span className="block text-xs text-[#687870]">{dietFactDate(c.preferences.foods.origin)}</span></p>
+            <p className="mt-2 text-xs text-[#687870]">Las preferencias sin registrar no impiden continuar. Confirma si los antecedentes siguen vigentes y completa los dos campos obligatorios.</p>
+          </section>
+          <label className="block text-sm">Alergias y restricciones revisadas <span className="text-[#687870]">· Obligatorio</span><textarea id={`${id}-restrictions`} aria-label="Alergias y restricciones revisadas" aria-required="true" aria-invalid={attempted&&!guidance.restrictions.trim()} className="nuth-input mt-1" maxLength={1500} placeholder="Resume lo confirmado con el paciente. Si no hay restricciones, indícalo expresamente." value={guidance.restrictions} onChange={e=>edit({restrictions:e.target.value,restrictionsReviewed:false})}/></label>
           <label className="flex gap-2 text-sm"><input type="checkbox" checked={guidance.restrictionsReviewed} onChange={e=>edit({restrictionsReviewed:e.target.checked})}/>Revisé alergias, intolerancias, restricciones y preferencias con el paciente.</label>
           <label className="flex gap-2 text-sm"><input type="checkbox" checked={guidance.contextReviewed} onChange={e=>edit({contextReviewed:e.target.checked})}/>Revisé el contexto, el objetivo y la prescripción.</label>
           {!!context?.reasons.some(r=>critical.has(r.code))&&<p role="alert" className="text-sm text-amber-900">{context.reasons.filter(r=>critical.has(r.code)).map(r=>copilotMessage(r.code)).join(' ')}</p>}

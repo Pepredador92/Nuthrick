@@ -7,9 +7,11 @@ const browser=await chromium.launch({channel:'chrome',headless:true});
 try{for(const width of [1440,390]){
  const page=await browser.newPage({viewport:{width,height:950}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
- await page.goto('http://127.0.0.1:4198/tests/visual/text-diet.html');
+ await page.goto(process.env.TEXT_DIET_URL||'http://127.0.0.1:4198/tests/visual/text-diet.html');
  await page.getByRole('button',{name:'Generar con IA',exact:true}).click();
- await page.getByLabel('Alergias y restricciones revisadas',{exact:true}).fill('Sin alergias confirmadas en esta prueba.');
+ assert.equal(await page.getByLabel('Objetivo de las dietas',{exact:true}).inputValue(),'Organizar comidas para llevar.');
+ assert.ok((await page.getByLabel('Alergias y restricciones revisadas',{exact:true}).inputValue()).includes('Antecedente del 18/07/2026'));
+ await page.getByText('Sin preferencias específicas registradas',{exact:false}).waitFor();
  await page.getByRole('checkbox',{name:/Revisé alergias/}).check();await page.getByRole('checkbox',{name:/Revisé el contexto/}).check();
  await page.screenshot({path:`${output}/${width}-context.png`,fullPage:false});
  await page.getByRole('button',{name:'Continuar',exact:true}).click();await page.getByLabel('Dietas completas diferentes').selectOption('7');

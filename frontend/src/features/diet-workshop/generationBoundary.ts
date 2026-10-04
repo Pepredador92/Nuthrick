@@ -219,3 +219,5 @@ export { dietGenerationOutputSchema, parseDietModelOutput } from './generationSc
 export { calculateRecall } from "../consultations/recallNutrition";
 
 export { prepareGuidedDiet } from "./guidedPreparation";
+
+export { textDietReviewSource } from './textReviewContext';
