@@ -13,6 +13,7 @@ import {
   type AgendaEntry,
   type AgendaRequest,
 } from "@/src/services/agenda";
+import "./AgendaPage.css";
 
 type Connection = {
   calendarConnected: boolean;
@@ -172,8 +173,8 @@ export function AgendaPage() {
   const activeEntries = entries.filter((e) => e.status === "confirmed");
 
   return (
-    <div className="min-w-0">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+    <div className="agenda-workspace min-w-0">
+      <header className="agenda-hero flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="nuth-eyebrow">Tu tiempo, organizado</p>
           <h1 className="mt-2 text-3xl font-semibold">Agenda</h1>
@@ -192,7 +193,7 @@ export function AgendaPage() {
         </button>
       </header>
       <nav
-        className="mt-7 flex flex-wrap gap-2"
+        className="agenda-navigation mt-5 grid gap-3 sm:grid-cols-3"
         aria-label="Secciones de agenda"
       >
         {(
@@ -209,9 +210,12 @@ export function AgendaPage() {
             key={id}
             onClick={() => setSection(id)}
             aria-current={section === id ? "page" : undefined}
-            className={`rounded-full px-5 py-3 text-sm font-semibold ${section === id ? "bg-[#173d36] text-white" : "bg-white text-[#64786e]"}`}
+            className={`agenda-nav-card rounded-2xl px-5 py-4 text-left text-sm font-semibold ${section === id ? "is-current" : ""}`}
           >
-            {label}
+            <span className="block">{label}</span>
+            <span className="mt-1 block text-xs font-normal opacity-75" aria-hidden="true">
+              {id === "appointments" ? "Revisa tus próximas citas" : id === "requests" ? "Responde horarios solicitados" : "Ajusta horarios y conexiones"}
+            </span>
           </button>
         ))}
       </nav>
@@ -231,7 +235,12 @@ export function AgendaPage() {
       {loading ? (
         <p className="mt-8">Cargando agenda…</p>
       ) : section === "appointments" ? (
-        <section className="mt-6 grid items-start gap-4 xl:grid-cols-2 min-[1800px]:grid-cols-3">
+        <section className="agenda-card-grid mt-6 grid items-start gap-4 md:grid-cols-2">
+          <div className="agenda-section-intro md:col-span-2">
+            <p className="nuth-eyebrow">01 · Citas programadas</p>
+            <h2>Próximas citas <span>{activeEntries.length}</span></h2>
+            <p>Revisa cada cita, su confirmación y el estado de calendario.</p>
+          </div>
           {!activeEntries.length && (
             <div className="rounded-3xl border border-[#dce4df] bg-white p-8">
               <CalendarDays size={28} />
@@ -249,7 +258,7 @@ export function AgendaPage() {
           {activeEntries.map((e) => (
             <article
               key={e.id}
-              className="rounded-2xl border border-[#dce4df] bg-white p-5"
+              className="agenda-entry-card rounded-2xl border border-[#dce4df] p-5"
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -385,7 +394,12 @@ export function AgendaPage() {
           )}
         </section>
       ) : section === "requests" ? (
-        <section className="mt-6 grid items-start gap-4 xl:grid-cols-2 min-[1800px]:grid-cols-3">
+        <section className="agenda-card-grid mt-6 grid items-start gap-4 md:grid-cols-2">
+          <div className="agenda-section-intro md:col-span-2">
+            <p className="nuth-eyebrow">02 · Solicitudes</p>
+            <h2>Horarios por responder <span>{requests.length}</span></h2>
+            <p>Revisa la propuesta antes de aceptar o sugerir otro horario.</p>
+          </div>
           {!requests.length && (
             <div className="rounded-3xl bg-white p-8">
               <Check size={26} />
@@ -397,7 +411,7 @@ export function AgendaPage() {
           {requests.map((r) => (
             <article
               key={r.id}
-              className="rounded-2xl border border-[#dce4df] bg-white p-5"
+              className="agenda-request-card rounded-2xl border border-[#dce4df] p-5"
             >
               <p className="text-xs text-[#64786e]">
                 {r.status === "pending_requester"
@@ -427,8 +441,14 @@ export function AgendaPage() {
           ))}
         </section>
       ) : (
-        <section className="mt-6 grid min-w-0 gap-5 xl:grid-cols-2">
-          <div className="rounded-3xl border border-[#dce4df] bg-white p-6">
+        <section className="agenda-settings-grid mt-6 grid min-w-0 gap-5 lg:grid-cols-2">
+          <div className="agenda-section-intro lg:col-span-2">
+            <p className="nuth-eyebrow">03 · Configuración</p>
+            <h2>Prepara tu disponibilidad</h2>
+            <p>Primero define cómo se reservan citas; después conecta tus calendarios.</p>
+          </div>
+          <div className="agenda-settings-card rounded-3xl border border-[#dce4df] p-6">
+            <p className="nuth-eyebrow">Reservas y bloqueos</p>
             <h2 className="text-lg font-semibold">Reservas públicas</h2>
             <Link
               className="mt-3 inline-block text-sm underline"
@@ -488,7 +508,8 @@ export function AgendaPage() {
             >
               Guardar preferencias
             </button>
-            <h3 className="mt-8 font-semibold">Bloquear tiempo</h3>
+            <div className="agenda-block-card mt-8">
+            <h3 className="font-semibold">Bloquear tiempo</h3>
             <p className="mt-2 text-xs text-[#64786e]">
               Zona horaria de tu disponibilidad. No puede superponerse con una
               cita confirmada.
@@ -527,8 +548,10 @@ export function AgendaPage() {
             >
               Bloquear horario
             </button>
+            </div>
           </div>
-          <div className="rounded-3xl border border-[#dce4df] bg-white p-6">
+          <div className="agenda-settings-card agenda-calendar-card rounded-3xl border border-[#dce4df] p-6">
+            <p className="nuth-eyebrow">Conexiones</p>
             <h2 className="text-lg font-semibold">Google Calendar</h2>
             <p className="mt-2 text-sm text-[#64786e]">
               Consulta la ocupación de tus calendarios y crea las citas en el
