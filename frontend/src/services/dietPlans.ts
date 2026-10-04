@@ -2,6 +2,7 @@ import { supabase } from "@/src/lib/supabase";
 import type { DietMenu, ExchangePrescription, MacroDistribution, MealDistribution, NutritionPlan, NutritionPlanVersion, PlanEnergyCalculation } from "@/src/types/domain";
 
 export type DietPlanPatch = {
+  text_diet?: NutritionPlan["text_diet"];
   title?: string;
   patient_id?: string | null;
   consultation_id?: string | null;

@@ -1,4 +1,6 @@
 import { isDietGuidance, type DietGuidance } from '../_shared/diet-guidance.ts';
+import {isTextDietGuidance,type TextDietGuidance} from '../_shared/text-diet.ts';
+import {textDietAdapter} from './text-diet-contract.ts';
 import { Ajv } from 'ajv';
 import { clinicalAdapter, clinicalEvidenceValid, conservativeRecallQuantities } from './clinical.ts';
 import { dietDraftAdapter, dietDraftAdapterV1, dietDraftAdapterV3 } from './diet-contract.ts';
@@ -23,7 +25,9 @@ export class AIError extends Error {
 const checkSchema = {
   type: 'object', properties: { ok: { type: 'boolean', enum: [true] } }, required: ['ok'], additionalProperties: false,
 };
-export function featureAdapter(feature: string, promptVersion: string) {
+export function featureAdapter(feature: string, promptVersion: string, textMode=false) {
+  if(feature==='diet_draft'&&promptVersion==='diet_draft@4')return {...(textMode?textDietAdapter:dietDraftAdapterV3)};
+  if(textMode)throw new AIError('feature_not_implemented');
   if (feature === 'diet_draft' && promptVersion === 'diet_draft@1') return { ...dietDraftAdapterV1 };
   if (feature === 'diet_draft' && promptVersion === 'diet_draft@2') return { ...dietDraftAdapter };
   if (feature === 'diet_draft' && promptVersion === 'diet_draft@3') return { ...dietDraftAdapterV3 };
@@ -144,18 +148,19 @@ export interface AIStore {
   validateOutput?(output: unknown): boolean;
   recordResult?(id: string, result: ProviderResult, valid: boolean): Promise<void>;
 }
-export type AIRequest = { guidance?: DietGuidance; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
+export type AIRequest = { textGuidance?: TextDietGuidance; guidance?: DietGuidance; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function parseRequest(value: unknown): AIRequest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new AIError('invalid_request');
   const v = value as Record<string, unknown>;
-  if (Object.keys(v).some(k => !['feature','idempotencyKey','patientId','consultationId','revision','narrative','planId','previousProposalId','rejectedItems','guidance'].includes(k))
+  if (Object.keys(v).some(k => !['feature','idempotencyKey','patientId','consultationId','revision','narrative','planId','previousProposalId','rejectedItems','guidance','textGuidance'].includes(k))
     || typeof v.feature !== 'string' || !/^[a-z][a-z0-9_]{1,63}$/.test(v.feature)
     || typeof v.idempotencyKey !== 'string' || !uuid.test(v.idempotencyKey)
     || [v.patientId,v.consultationId].some(id => id !== undefined && (typeof id !== 'string' || !uuid.test(id)))
     || (v.consultationId && !v.patientId)) throw new AIError('invalid_request');
   if(v.feature==='diet_workshop')throw new AIError('feature_disabled'); // Retired; historical ledger remains immutable.
   const workshop = v.feature === 'diet_draft';
+  if(v.textGuidance!==undefined && (!workshop || !isTextDietGuidance(v.textGuidance) || v.guidance!==undefined || v.previousProposalId!==undefined))throw new AIError('invalid_request');
   if(v.guidance!==undefined && (!workshop || !isDietGuidance(v.guidance)))throw new AIError('invalid_request');
   if(v.previousProposalId!==undefined && (!workshop || typeof v.previousProposalId!=='string' || !uuid.test(v.previousProposalId)))throw new AIError('invalid_request');
   if(v.rejectedItems!==undefined && (!v.previousProposalId || !Array.isArray(v.rejectedItems) || v.rejectedItems.length>30 || v.rejectedItems.some(v=>typeof v!=='string'||!/^c[1-9][0-9]{0,3}$/.test(v))))throw new AIError('invalid_request');
@@ -177,12 +182,12 @@ export function parseRequest(value: unknown): AIRequest {
 export async function runAIRequest(request: AIRequest, store: AIStore, provider: AIProvider) {
   const config = await store.config(request.feature);
   if (!config.enabled || config.provider !== 'openai') throw new AIError('feature_disabled');
-  const adapter = featureAdapter(request.feature, config.prompt_version);
+  const adapter = featureAdapter(request.feature, config.prompt_version,!!request.textGuidance);
   const clinical = ['pes_diagnosis','recall_24h','consultation_support','patient_instructions','diet_draft'].includes(request.feature);
   if (clinical && (!store.context || !store.bindContext)) throw new AIError('context_unavailable');
   const hydrated = clinical ? await store.context!(request) : null;
   if (hydrated) adapter.context = hydrated.context;
-  const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : [])]);
+  const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : [])]);
   const fingerprint = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical))), b => b.toString(16).padStart(2,'0')).join('');
   const { generation, created } = await store.reserve(config,request,fingerprint);
   if (!created) return { generationId: generation.id, status: generation.status, replay: true };

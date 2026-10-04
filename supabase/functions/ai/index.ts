@@ -4,6 +4,8 @@ import { AIError, type AIStore, type FeatureConfig, type Generation, OpenAIRespo
 import { buildConsultationSupportContext, buildPesClinicalContext, instructionAgreement, redactClinicalText, type ClinicalSource, type ConsultationSupportFact } from './clinical.ts';
 import { withConfirmedRecall } from './recall-context.ts';
 import { prepareDietSnapshot, prepareDietAlternative, verifyDietSnapshot, validateSnapshot, parseDietDecision, DietRoutingProvider, type DietSnapshot } from './diet.ts';
+import {prepareTextDietSnapshot,verifyTextDietSnapshot,validateTextDietOutput,textDietPreflight,type TextDietSnapshot} from './text-diet.ts';
+import type {TextDiet} from '../_shared/text-diet.ts';
 import { dietPreflight } from './diet-ux.ts';
 import { localDietTestMode, SimulatedDietProvider } from './diet-provider-test.ts';
 
@@ -45,27 +47,36 @@ Deno.serve(async request => {
     try { body = JSON.parse(new TextDecoder().decode(bytes)); } catch { throw new AIError('invalid_request'); }
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new AIError('invalid_request');
     const decision = body as {action?:string;payload?:string;signature?:string};
-    if (decision.action === 'diet_preflight') {
+    if (decision.action === 'diet_preflight' || decision.action === 'text_diet_preflight') {
       const {action: _action, ...fields} = body as Record<string, unknown>;
       const r = parseRequest(fields);
-      if (r.feature !== 'diet_draft') throw new AIError('invalid_request');
+      if (r.feature !== 'diet_draft' || (decision.action==='text_diet_preflight')!==!!r.textGuidance) throw new AIError('invalid_request');
       if (!dietEnabled || !Deno.env.get('OPENAI_API_KEY')) return respond({eligible:false,reasons:[{code:'feature_disabled'}]});
       const config = await db.rpc('ai_server',{p_action:'config',p_owner:owner,p_data:{feature:'diet_draft'}});
       if (config.error || config.data?.enabled !== true) return respond({eligible:false,reasons:[{code:'feature_disabled'}]});
-      const {data: loaded, error} = await db.rpc('ai_diet_source',{p_owner:owner,p_plan:r.planId,p_revision:r.revision});
+      const {data: loaded, error} = await db.rpc(r.textGuidance?'ai_text_diet_source':'ai_diet_source',{p_owner:owner,p_plan:r.planId,p_revision:r.revision});
       if (error || !loaded || loaded.source.plan.patient_id !== (r.patientId ?? null) || loaded.source.plan.consultation_id !== (r.consultationId ?? null)) throw new AIError('context_unavailable');
       loaded.source.additionalInstructions = r.narrative ?? '';
       if(r.guidance) loaded.source.guidance = r.guidance;
       // Read balance with the caller's JWT; never impersonate an owner in a browser.
       const caller = createClient(url, serviceKey, {global:{headers:{Authorization:`Bearer ${token}`}},auth:{persistSession:false,autoRefreshToken:false}});
       const balance = await caller.rpc('ai_balance');
+      if(r.textGuidance)return respond(await textDietPreflight(loaded,r.textGuidance,r.narrative??'',config.data?.prompt_version==='diet_draft@4',!balance.error&&Number(balance.data?.available_credits)>0));
       return respond(await dietPreflight(loaded, !config.error && config.data?.enabled === true && dietEnabled && (testMode || !!Deno.env.get('OPENAI_API_KEY')),
         !balance.error && (testMode || Number(balance.data?.available_credits) > 0)));
     }
-    async function dietRpc(action: string, payload: Record<string,unknown>) {
-      const {data,error}=await db.rpc('ai_diet_draft',{p_owner:owner,p_action:action,p_data:payload});
+    async function dietRpc(action: string, payload: Record<string,unknown>, textMode=false) {
+      const {data,error}=await db.rpc(textMode?'ai_text_diet_draft':'ai_diet_draft',{p_owner:owner,p_action:action,p_data:payload});
       if(error) throw new AIError(['context_unavailable','context_changed','replacement_confirmation_required','difference_confirmation_required','invalid_request','invalid_output'].includes(error.message)?error.message:action==='apply'?'draft_save_failed':'service_unavailable');
       return data;
+    }
+    if(['text_diet_result','apply_text_diet','discard_text_diet'].includes(decision.action??'')) {
+      const command=parseDietDecision({...body as Record<string,unknown>,action:'apply_diet_draft'});
+      const saved=await dietRpc('get',{generationId:command.generationId},true);
+      await verifyTextDietSnapshot(saved.snapshot);
+      if(saved.status!=='succeeded'||!saved.result?.textDraft)throw new AIError('provider_outcome_unknown');
+      if(decision.action==='text_diet_result')return respond({generationId:command.generationId,textDraft:saved.result.textDraft});
+      return respond(await dietRpc(decision.action==='apply_text_diet'?'apply':'discard',command,true));
     }
     if (decision.action==='diet_result') {
       const command=parseDietDecision({...body as Record<string,unknown>,action:'apply_diet_draft'});
@@ -98,13 +109,15 @@ Deno.serve(async request => {
       throw new AIError('service_unavailable',true);
     }
     let consultationSupportFacts: ConsultationSupportFact[] | null = null;
+    let textSnapshot:TextDietSnapshot|null=null,textDraft:TextDiet|null=null;
     let dietSnapshot: DietSnapshot | null=null;
     let dietValidation: ReturnType<typeof validateSnapshot> | null=null;
     const store: AIStore = {
       context: async r => {
         if(r.feature==='diet_draft') {
-          const {data:loaded,error}=await db.rpc('ai_diet_source',{p_owner:owner,p_plan:r.planId,p_revision:r.revision});
+          const {data:loaded,error}=await db.rpc(r.textGuidance?'ai_text_diet_source':'ai_diet_source',{p_owner:owner,p_plan:r.planId,p_revision:r.revision});
           if(error||!loaded||loaded.source.plan.patient_id!==(r.patientId??null)||loaded.source.plan.consultation_id!==(r.consultationId??null)) throw new AIError('context_unavailable');
+          if(r.textGuidance){textSnapshot=await prepareTextDietSnapshot(loaded,r.textGuidance,r.narrative??'');return {stamp:textSnapshot.sourceStamp,context:textSnapshot.payload};}
           loaded.source.additionalInstructions = r.narrative ?? '';
       if(r.guidance) loaded.source.guidance = r.guidance;
           if(r.previousProposalId){
@@ -126,6 +139,7 @@ Deno.serve(async request => {
         return {stamp:clinical.stamp,context};
       },
       bindContext: async (id,r,stamp) => {
+        if(r.textGuidance){await dietRpc('bind',{generationId:id,planId:r.planId,revision:r.revision,stamp,snapshot:textSnapshot},true);return;}
         if(r.feature==='diet_draft') {
           await dietRpc('bind',{generationId:id,planId:r.planId,revision:r.revision,stamp,snapshot:dietSnapshot});
           return;
@@ -143,12 +157,14 @@ Deno.serve(async request => {
       settle: (id,status,usage,responseId) => rpc<Generation>('settle',{ generation_id: id,status,...usage,provider_response_id: responseId }),
       uncertain: async id => { await rpc('uncertain',{ generation_id: id }); },
       validateOutput: output => {
+        if(textSnapshot){textDraft=validateTextDietOutput(output,textSnapshot);return !!textDraft;}
         if(dietSnapshot) { dietValidation=validateSnapshot(output,dietSnapshot); return dietValidation.status!=='invalid'; }
         return true;
       },
       recordResult: async (id,result,valid) => {
         const metadata=await db.rpc('ai_provider_metadata',{p_owner:owner,p_generation:id,p_request_id:result.requestId??null,p_model:result.model??null,p_latency:result.latencyMs??null});
         if(metadata.error)throw new AIError('result_unavailable');
+        if(textSnapshot){await dietRpc('result',{generationId:id,result:{textDraft:valid?textDraft:null,model:result.model??null,latencyMs:result.latencyMs??null,usage:result.usage}},true);return;}
         if(!dietSnapshot) return;
         // No raw malformed output is retained. All values below are scoped,
         // redacted snapshot-derived data or safe provider accounting metadata.
@@ -157,7 +173,8 @@ Deno.serve(async request => {
       },
     };
     const result=await runAIRequest(input,store,new DietRoutingProvider(simulated ? new SimulatedDietProvider() : new OpenAIResponsesProvider(apiKey!)));
-    if(input.feature==='diet_draft' && ['succeeded','invalid_output'].includes(result.status)) {
+    if(input.textGuidance&&result.status==='succeeded'){const saved=await dietRpc('get',{generationId:result.generationId},true);await verifyTextDietSnapshot(saved.snapshot);return respond({...result,output:{textDraft:saved.result.textDraft},decision:saved.decision});}
+    if(input.feature==='diet_draft' && !input.textGuidance && ['succeeded','invalid_output'].includes(result.status)) {
       const saved=await dietRpc('get',{generationId:result.generationId});
       await verifyDietSnapshot(saved.snapshot);
       return respond({...result,output:{validation:saved.result.validation,hasManualMenu:saved.snapshot.hasManualMenu,snapshotHash:saved.snapshot.hash},decision:saved.decision});

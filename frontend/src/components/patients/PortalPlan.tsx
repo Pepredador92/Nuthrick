@@ -32,9 +32,10 @@ export function PortalPlanContent({ plan }: { plan: PortalPlan | null }) {
       </p>
       <PatientSupplements items={plan.supplements} />
       <div className="mt-6 space-y-7">
-        {plan.days.map((day) => (
-          <section key={day.name} className="border-t border-[#e0e7de] pt-4">
+        {plan.days.map((day,dayIndex) => (
+          <section key={dayIndex} className="border-t border-[#e0e7de] pt-4">
             <h3 className="font-semibold">{day.name}</h3>
+            {day.text!==undefined&&<p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-[#52685d]">{day.text}</p>}
             <div className="mt-4 space-y-6">
               {day.meals.map((meal, index) => (
                 <article

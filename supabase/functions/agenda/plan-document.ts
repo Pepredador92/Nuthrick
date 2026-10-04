@@ -42,6 +42,7 @@ export function planDocumentBlocks(model:PublishedNutritionPlanDocumentModel):Pl
  }
  for(const day of model.plan.days){
   blocks.push({kind:'day',text:day.name});
+  if(day.text!==undefined){for(const line of day.text.split('\n'))blocks.push({kind:'text',text:line||' '});continue;}
   for(const meal of day.meals){
    blocks.push({kind:'meal',text:[meal.name,meal.time].filter(Boolean).join(' · ')},{kind:'title',text:meal.title});
    for(const i of meal.ingredients)blocks.push({kind:'text',text:`${i.name} - ${amount(i.amount)} ${i.unit}`});

@@ -1,3 +1,4 @@
+import type {TextDiet} from '../../../supabase/functions/_shared/text-diet';
 export type CareModality = "online" | "in_person" | "hybrid";
 export type MediaCategory = "avatar" | "logo" | "services";
 export type LinkType =
@@ -352,6 +353,7 @@ export interface QuestionnaireResponse {
   updated_at: string;
 }
 export interface NutritionPlan {
+  text_diet?: TextDiet | null;
   patient_name?: string | null;
   published_version_number?: number | null;
   has_published_versions?: boolean;
@@ -380,6 +382,7 @@ export interface NutritionPlan {
 }
 
 export type NutritionPlanVersionSnapshot = {
+  text_diet?: TextDiet | null;
   snapshot_schema_version: 1;
   plan: {
     id: string;

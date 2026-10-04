@@ -1,46 +1,51 @@
-# Asistente de dieta desde Equivalentes
+# Asistente de dietas desde Equivalentes
 
-Implementado el 4 de octubre de 2026. Entrada única en el paso 3: **Generar con IA**.
+Actualizado el 4 de octubre de 2026. Entrada: paso 3, **Generar con IA**.
 
-## Flujo profesional
+## Flujo vigente: dietas completas en texto
 
-1. Revisar datos de la consulta, antecedentes fechados, PES disponible y energía/macros para alimentos (ya descontados los suplementos). Confirmar o editar el objetivo de esta propuesta. No se reescribe la entrevista ni se aprueba un PES.
-2. Elegir entre 1 y 6 tiempos, sus nombres/tipos/horarios y 1–3 alternativas por tiempo, hasta 12 alternativas en total. Una alternativa se consume en lugar de las demás.
-3. Indicar preferencias de preparación, presupuesto, tiempo para cocinar e indicaciones adicionales.
-4. Revisar la solicitud y confirmar. Si ya hay contenido se pide reemplazar los tres pasos del borrador.
-5. El servidor prepara equivalentes y distribución con los motores existentes; la IA compone las opciones usando referencias del catálogo autorizado. Si hay diferencias respecto a las porciones/objetivos, se muestran antes de guardar.
-6. Se guardan Equivalentes, Tiempos y Menú en una sola operación y se abre Menú. Todas las alternativas y el plan siguen pendientes de revisión/confirmación profesional. No se publica ni comparte automáticamente.
+1. Revisar consulta seleccionada, antecedentes fechados, objetivo y prescripción de energía/macros para alimentos (descontados los suplementos). Confirmar contexto y escribir las restricciones revisadas con el paciente.
+2. Elegir **1–7 dietas completas distintas** y 1–6 tiempos por dieta, con nombres y horarios opcionales. Tres dietas significa tres jornadas completas, cada una con todos los tiempos solicitados.
+3. Indicar preferencias, presupuesto, disponibilidad y tiempo para cocinar. Se priorizan alimentos básicos mexicanos accesibles en abarrotes y mercados, platillos coherentes y cantidades prácticas.
+4. Confirmar la solicitud. Si hay un borrador anterior, confirmar que se usará la nueva propuesta de texto. La IA no consulta el catálogo de alimentos/recetas ni rellena el menú estructurado.
+5. Guardar el resultado como borrador y abrir **Revisión**, con un modal por páginas: una dieta a la vez. Editar/eliminar libremente ingredientes, cantidades y preparación; Anterior/Siguiente conserva los cambios. Guardar o cerrar también persiste el borrador.
+6. Marcar cada dieta como revisada y aprobar el conjunto. Publicar requiere una confirmación adicional. Portal, vista profesional, PDF y TEX utilizan el texto aprobado de la versión publicada.
 
-## Contexto y límites
+El editor no calcula nutrientes a partir del texto. Las metas son orientación, no totales comprobados de la propuesta; el profesional revisa adecuación, porciones y restricciones antes de publicar. No se generan equivalentes ficticios ni sustituciones desde la biblioteca. Los suplementos prescritos conservan su sección separada.
 
-- Se obtiene la consulta seleccionada y, del mismo paciente/profesional, la consulta inicial y hasta las tres consultas previas completadas. Se usa la última revisión de cada una; se excluyen retiradas, canceladas, borradores y consultas futuras.
-- La consulta actual conserva sus mediciones y cálculos previamente registrados. El historial añade entrevista, objetivos, PES previamente aprobado y mediciones pertinentes con fecha. Texto seleccionado/redactado y límites por consulta mantienen acotado el contexto.
-- Una revisión explícita puede completar la ausencia de una respuesta sobre alergias; nunca elimina una alergia/intolerancia registrada. Se conserva el bloqueo de generación automática para restricciones sin resolver. El taller manual sigue disponible.
-- Las alternativas usan alimentos/recetas del catálogo, no recetas inventadas. Una solicitud puede requerir reducir alternativas si no hay variedad suficiente. Presupuesto y tiempo son preferencias, no precios ni tiempos certificados.
-- Los modelos, precios y créditos siguen configurados por el administrador. No se cambian límites de gasto ni se hacen llamadas reales durante las pruebas sintéticas.
+## Contexto y prompt
 
-## Arquitectura
+- Consulta actual y, del mismo paciente/profesional, consulta inicial y hasta tres consultas previas completadas. Última revisión por consulta; se excluyen retiradas, canceladas, borradores históricos y consultas futuras.
+- Mediciones y cálculos vigentes de la consulta actual; antecedentes pertinentes con fecha. No se atribuyen mediciones antiguas al presente. Identificadores personales eliminados antes de la llamada al proveedor.
+- Objetivo revisado, restricciones registradas y resumen profesional; ante conflicto, el prompt conserva la restricción más protectora. Nunca inventa diagnósticos ni duplica suplementos.
+- Prompt `diet_draft@4`, JSON estricto y validación adicional de cantidad exacta de dietas/tiempos. Rechaza jornadas repetidas aunque cambien títulos, orden o cantidades comunes. Esto detecta duplicación; la variedad y coherencia culinaria todavía requieren revisión profesional.
+- Una proteína animal principal por comida como regla, acompañamientos compatibles, alimentos económicos/de temporada, unidades enteras/medias/cuartos prácticas. No fuerza pescado, res y huevo para completar grupos.
+- Modelo, precio por función, ledger, consentimiento, idempotencia y límites de gasto existentes. Máximo de salida de 16,000 tokens y 90 segundos para admitir siete dietas; no se reintenta automáticamente una llamada con resultado incierto.
+- Basado en [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs). El esquema verifica estructura; no certifica adecuación clínica.
 
-- Contrato acotado `DietGuidance`, validado en servidor; sin parámetros libres de modelo, sistema, nutrientes o propietario.
-- Prompt `diet_draft@3`: tarea/jerarquía explícita, datos clínicos y preferencias separados de instrucciones del sistema, salida JSON estricta. Referencias autorizadas por tiempo y por alternativa; cantidades y nutrientes recalculados con SMAE.
-- Basado en [Prompt engineering](https://developers.openai.com/api/docs/guides/prompt-engineering) y [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs). La estructura JSON no sustituye la validación nutricional ni la revisión profesional.
-- Equivalentes y distribución se preparan en memoria, con marcas estables para reintentos. El snapshot privado congela prescripción, catálogo autorizado, contexto, opciones solicitadas y validación.
-- Cada alternativa se valida por separado; el total diario solo suma la primera opción por tiempo. Las opciones duplicadas se rechazan.
-- `ai_diet_draft` aplica los tres campos en una transacción, verifica propietario, revisión y sello del contexto actual, y conserva energía/macros/suplementos/versiones publicadas. Aplicar otra vez es idempotente.
-- `diet_result` recupera una propuesta ya ejecutada del mismo propietario. La UI conserva únicamente la clave opaca de solicitud en sessionStorage; la consulta de estado no dispara otra generación.
-- Se mantienen adaptadores @1/@2 para compatibilidad histórica. El despliegue de Edge precede la migración que activa @3.
+## Persistencia y compatibilidad
 
-## Verificación
+- `nutrition_plans.text_diet`: contrato compartido versionado, dietas, horarios, estado de revisión y prescripción de referencia. El texto generado siempre nace sin aprobar.
+- `ai_text_diet_source`: consulta/historial autorizado, sin consultar tablas de alimentos ni recetas.
+- `ai_text_diet_draft`: bind/result/get/apply/discard, solo servidor. Reutiliza snapshots privados, ownership, entitlement, revisión y sello de contexto; apply es idempotente y solo cambia `text_diet`.
+- `text_diet_result` recupera resultados existentes; el navegador conserva únicamente la clave opaca de solicitud. Recuperar/guardar/publicar no hace otra llamada a IA ni cobra más créditos.
+- Publicación usa la RPC existente: revisión esperada, idempotencia e historial inmutable. Cambiar texto sin nueva aprobación o cambiar prescripción/paciente/consulta invalida la aprobación. La versión publicada no cambia al editar el borrador.
+- La proyección del portal omite contexto clínico privado y prescripción interna. Texto React escapado; TEX escapa comandos. PDF y TEX comparten los mismos bloques de contenido.
+- Planes manuales existentes mantienen Menú, calendario, catálogo y sustituciones. Sesiones antiguas conservan el adaptador guiado anterior; `diet_draft@4` selecciona el nuevo contrato solo cuando se recibe `textGuidance`.
+- En un borrador de texto, la biblioteca no se ofrece como aplicación sobre el plan: no puede reemplazar silenciosamente un menú que no es el contenido vigente.
 
-- Tests de preparación: cero mutaciones previas, repetibilidad, historial, alergias, opciones independientes, duplicados, límites, suplementos.
-- Tests del modal: navegación conservando elecciones, aplicación, revisión de diferencias, recuperación sin generación duplicada, validación antes del consumo.
-- Tests existentes de menú, contexto, créditos y servidor; HTTP autenticado.
-- `scripts/test-guided-diet-db.mjs`: PostgreSQL local desechable, transacción revertida; aislamiento, selección de historial, invalidación por cambios históricos, aplicación atómica, reemplazo, diferencias, preservación de suplementos y replay.
-- Prueba SQL de la función de contexto con el esquema real, dentro de una transacción revertida, sin guardar planes.
-- Navegador con datos ficticios a 1440 y 390 px: Equivalentes → asistente → cuatro tiempos/cinco opciones → Menú, sin errores ni desbordamiento del modal.
-- No se generó, reemplazó ni publicó una dieta de un paciente real como parte de las pruebas.
+## Pruebas
 
-## Publicación
+- Dominio/Edge: 1/3/7 dietas, exactitud de tiempos, duplicados, contexto privado, restricciones revisadas, schema estricto, sesiones anteriores, uso confirmado e idempotencia.
+- HTTP autenticado: preflight sin llamadas al proveedor, ownership, recuperación/aplicación, errores controlados y reintento de guardado sin generación nueva.
+- React: cantidad solicitada, recuperación tras recarga/error de guardado, eliminación de ingredientes, navegación y aprobación del conjunto.
+- PostgreSQL local desechable (`scripts/test-text-diet-db.mjs`): sin permisos de catálogo, ownership, revisiones obsoletas, suplementos, publicación no aprobada rechazada, texto exacto inmutable, invalidación al cambiar prescripción, replay y cero cargos adicionales. Transacción revertida.
+- Portal/PDF/TEX: texto aprobado preservado, sin contexto privado y con escape de TEX.
+- Navegador (`text-diet-check.mjs`): 1440/390 px, siete dietas, edición, navegación, aprobación y publicación en fixture local.
+- Las pruebas utilizan datos ficticios y respuestas sintéticas; no evalúan la calidad de una generación real de OpenAI ni alteran dietas de pacientes reales.
 
-Edge `ai` v26 con JWT habilitado. Migración `20261004064933_guided_diet_context_and_atomic_apply` aplicada; configuración `diet_draft@3`. Acceso directo del cliente a las RPC de contexto y aplicación continúa denegado; recuperación anónima rechazada con HTTP 401.
-Las verificaciones de seguridad informaron las advertencias previas de otras funciones/biblioteca y de protección de contraseñas; las dos RPC modificadas siguen como invoker, solo accesibles al servidor.
+## Despliegue
+
+Primero desplegar Edge `ai` y `agenda` compatibles. Después aplicar la migración `narrative_diet_drafts` y publicar el frontend. Mantener JWT de `ai`; `agenda` conserva su autenticación propia existente para rutas públicas/portal. La migración no modifica planes existentes.
+
+Despliegue de servidor verificado: `ai` v28, `agenda` v28, migración `20261004084428_narrative_diet_drafts`, prompt @4. RPC de contexto/aplicación accesibles únicamente a service_role; permiso de validación verificado también bajo ese rol.

@@ -20,7 +20,8 @@ import { DietMealDistributionStep } from "@/src/components/diet/DietMealDistribu
 import { DietMenuStep } from "@/src/components/diet/DietMenuStep";
 import { DietPlanReviewStep } from "@/src/components/diet/DietPlanReviewStep";
 import { DietLibrary } from "@/src/components/diet/DietLibrary";
-import { GuidedDietAI } from "@/src/components/diet/GuidedDietAI";
+import { TextDietAI } from "@/src/components/diet/TextDietAI";
+import { TextDietReviewStep } from "@/src/components/diet/TextDietReview";
 import { PlanOrganization } from "@/src/components/diet/PlanOrganization";
 import { applyDietLibrary, createDietLibraryEditingDraft, restoreDietLibrary } from "@/src/services/dietLibrary";
 import { libraryKind, type DietLibraryItem } from "@/src/features/diet-library/model";
@@ -589,7 +590,7 @@ export function DietWorkshopPage() {
     setError("");
     try {
       let saved = await flushPendingDraft();
-      if (saved.diet_menu) {
+      if (saved.diet_menu && !saved.text_diet) {
         saved = await savePlanPatch({ diet_menu: withPatientSubstitutions(saved.diet_menu, foods) });
       }
       const idempotencyKey = publishIdempotencyKey.current ?? crypto.randomUUID();
@@ -670,9 +671,9 @@ export function DietWorkshopPage() {
             </label>
           </section>
           {libraryEditId && <p className="text-sm text-[#52705c]">Editas una copia de trabajo. Para actualizar la base, usa Guardar en biblioteca. La publicación clínica no es necesaria.</p>}
-          <DietLibrary plan={plan} capture={flushPendingDraft} suggestions={activeStep === "equivalents" || activeStep === "macros"} onApply={applyLibrary} onRestore={restoreLibrary} onEdit={editLibraryInWorkshop}
+          {!plan.text_diet && <DietLibrary plan={plan} capture={flushPendingDraft} suggestions={activeStep === "equivalents" || activeStep === "macros"} onApply={applyLibrary} onRestore={restoreLibrary} onEdit={editLibraryInWorkshop}
             editingSource={libraryEditId && libraryEditRevision>0 ? {id:libraryEditId,revision:libraryEditRevision} : undefined}
-            onSaved={saved=>{if(libraryEditId===saved.id){const params=new URLSearchParams(searchParams);params.set('libraryRevision',String(saved.revision));navigate(`/app/diet-workshop/${plan.id}?${params}`,{replace:true});}}}/>
+            onSaved={saved=>{if(libraryEditId===saved.id){const params=new URLSearchParams(searchParams);params.set('libraryRevision',String(saved.revision));navigate(`/app/diet-workshop/${plan.id}?${params}`,{replace:true});}}}/>}
           {activeStep === "energy" && <DietEnergyStep
             key={`${plan.id}:${reference?.weight?.value ?? ""}:${reference?.height?.value ?? ""}`}
             plan={plan}
@@ -717,15 +718,15 @@ export function DietWorkshopPage() {
           {activeStep === "equivalents" && <DietEquivalentsStep
             plan={plan}
             targets={exchangeTargets}
-            headerActions={<GuidedDietAI key={plan.id} plan={plan} before={flushPendingDraft} onApplied={updated => {
+            headerActions={<TextDietAI key={plan.id} plan={plan} before={flushPendingDraft} onApplied={updated => {
               pendingExchangePrescription.current = null;
               pendingMealDistribution.current = null;
               pendingDietMenu.current = null;
               planRef.current = updated;
               setPlan(updated);
               setLibraryEpoch(value => value + 1);
-              setNotice("Propuesta aplicada como borrador. Revisa las alternativas y sus porciones antes de confirmar el plan.");
-              setActiveStep("menu");
+              setNotice("Dietas guardadas como borrador. Revisa y edita cada propuesta antes de aprobarla y publicarla.");
+              setActiveStep("review");
               requestAnimationFrame(() => { const heading = document.querySelector<HTMLElement>('main h1'); heading?.setAttribute('tabindex','-1'); heading?.focus(); });
             }}/>}
             onSave={async (prescription) => {
@@ -754,7 +755,8 @@ export function DietWorkshopPage() {
             onGoToEquivalents={() => setActiveStep("equivalents")}
             onContinue={() => { void selectStep("menu"); }}
           />}
-          {activeStep === "menu" && <DietMenuStep
+          {activeStep === "menu" && plan.text_diet && <section className="rounded-2xl bg-white p-6"><h2 className="text-xl font-semibold">Este borrador contiene dietas en texto</h2><p className="my-3">Edita los platillos y sus cantidades desde la revisión.</p><button className="nuth-button" onClick={()=>setActiveStep("review")}>Revisar dietas</button></section>}
+          {activeStep === "menu" && !plan.text_diet && <DietMenuStep
             plan={plan}
             onSave={async (menu) => {
               await savePlanPatch({ diet_menu: menu });
@@ -763,7 +765,10 @@ export function DietWorkshopPage() {
             onDraftChange={(menu) => { pendingDietMenu.current = menu; }}
             onGoToMeals={() => setActiveStep("meals")}
           />}
-          {activeStep === "review" && <DietPlanReviewStep
+          {activeStep === "review" && plan.text_diet && <TextDietReviewStep key={libraryEpoch} plan={{...plan,title}} patientName={patient?.full_name||"Paciente"} versions={versions} publishing={publishing}
+            onSave={draft=>savePlanPatch({text_diet:draft})} onPublish={()=>void publishVersion([])}
+            generateAction={<TextDietAI plan={plan} before={flushPendingDraft} onApplied={updated=>{planRef.current=updated;setPlan(updated);setActiveStep("review");setLibraryEpoch(v=>v+1);}}/>}/>}
+          {activeStep === "review" && !plan.text_diet && <DietPlanReviewStep
             plan={{ ...plan, title }}
             patient={patient}
             consultation={consultation}

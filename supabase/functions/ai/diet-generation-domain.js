@@ -1982,6 +1982,7 @@ var FakeDietGenerator = class {
 export {
   FakeDietGenerator,
   applyDietGenerationDraft,
+  buildDietGenerationContext,
   calculateRecall,
   dietGenerationOutputSchema,
   estimateDietPayload,

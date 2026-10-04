@@ -2,6 +2,7 @@
  * saves a row, approves a meal or publishes a plan here. Trusted server manifests
  * must never be accepted from a browser as authorization. */
 import { buildDietGenerationContext, type DietContextSource } from './generationContext';
+export { buildDietGenerationContext } from './generationContext';
 import { DIET_GENERATION_LIMITS, selectDietCandidates, contextRestrictions, dietServingMultipliers, type Candidate, type CandidateLimits } from './generationCandidates';
 import { parseDietModelOutput, dietGenerationOutputSchema, type GenerationIssue } from './generationSchema';
 import { calculateDistributionStatus, sameExchangeInventory } from '../meal-distribution/model';
