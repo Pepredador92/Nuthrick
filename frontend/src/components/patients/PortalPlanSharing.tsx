@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { portalAction, type PortalPlan } from "@/src/services/patientPortal";
 import { PortalPlanContent } from "./PortalPlan";
+import { Eye, Utensils } from "lucide-react";
 type Options = {
   plans: {
     id: string;
@@ -91,16 +92,17 @@ export function PortalPlanSharing({ patientId, suggestedPlanId }: { patientId: s
   return (
     <section
       id="portal-plan-sharing"
-      className="portal-card mt-5"
+      className="portal-card owner-plan-card"
       aria-label="Compartir plan del Taller"
     >
-      <h2 className="font-semibold">Plan del Taller de dietas</h2>
+      <div className="owner-card-heading"><span className="owner-card-icon"><Utensils size={21}/></span><div><p>Plan alimenticio</p><h2 className="font-semibold">Plan del Taller de dietas</h2><small>Selecciona → revisa el contenido → comparte el plan.</small></div></div>
       <p className="mt-2 text-sm text-[#63796d]">
         Elige un plan publicado de este paciente. Sus próximas publicaciones se
         actualizarán aquí; los cambios en borrador nunca se muestran.
       </p>
       {options && (
         <>
+          <p className="owner-plan-state mt-3 text-xs">{selection ? options.selectedPlanId === selection ? "Este plan ya está visible para el paciente." : "Esta selección aún no se ha compartido." : options.selectedPlanId ? "El plan se retirará cuando confirmes la acción." : "No hay un plan compartido en este espacio."}</p>
           <label
             htmlFor="portal-plan-selection"
             className="mt-4 block text-sm font-semibold"
@@ -136,9 +138,12 @@ export function PortalPlanSharing({ patientId, suggestedPlanId }: { patientId: s
               </p>
             ) : (
               plan && (
-                <div className="mt-4">
+                <details key={selection} className="owner-details mt-4" open={selection === suggestedPlanId}>
+                  <summary><Eye size={16}/>Revisar el contenido de {plan.title}</summary>
+                  <div className="mt-4">
                   <PortalPlanContent plan={plan} />
-                </div>
+                  </div>
+                </details>
               )
             ))}
           <label className="mt-4 flex items-start gap-2 text-sm">

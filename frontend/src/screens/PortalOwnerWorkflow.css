@@ -1,0 +1,65 @@
+.portal-owner-workspace [hidden] { display: none !important; }
+.owner-topline { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px; }
+.owner-topline > a, .owner-chat-shortcut { display:inline-flex; align-items:center; gap:8px; min-height:40px; padding:9px 13px; border:1px solid var(--owner-line); border-radius:12px; background:var(--owner-surface); color:var(--owner-ink); font-size:12px; }
+.owner-chat-shortcut[aria-pressed=true] { box-shadow:inset 0 0 0 1px #6786aa; }
+.portal-owner-workspace .owner-hero { display:flex; flex-direction:row; justify-content:space-between; align-items:center; gap:24px; min-height:160px; }
+.owner-eyebrow { font-size:10px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--owner-muted); }
+.owner-hero .owner-eyebrow { color:#bddbcc; }
+.owner-hero-copy { margin-top:10px; color:#bdd4d1; font-size:13px; line-height:1.6; }
+.owner-overview { display:flex; flex-direction:column; align-items:flex-start; gap:10px; font-size:11px; color:#dbeae5; flex-shrink:0; }
+.owner-overview span { display:inline-flex; align-items:center; gap:7px; border:1px solid #b6dcd333; background:#c4deda0d; border-radius:10px; padding:8px 10px; }
+.owner-workflow { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; padding:8px; margin:20px 0 26px; border:1px solid var(--owner-line); border-radius:18px; background:var(--owner-surface); box-shadow:0 12px 25px -22px #183c4666; }
+.owner-workflow button { display:flex; align-items:center; justify-content:center; gap:8px; padding:12px 8px; min-height:45px; color:var(--owner-muted); border-radius:12px; font-size:12px; }
+.owner-workflow button[aria-current=step] { background:#dcece7; color:#254e49; box-shadow:inset 0 1px 0 #fff; }
+.owner-step-number { display:grid; place-items:center; flex-shrink:0; width:22px; height:22px; border-radius:50%; background:#6e958318; font-size:10px; }
+.owner-stage-intro { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:20px; }
+.owner-stage-intro h2 { margin-top:5px; font-size:26px; font-weight:650; letter-spacing:-.035em; scroll-margin-top:90px; }
+.owner-stage-intro > div > p:last-child { margin-top:6px; font-size:12px; line-height:1.6; color:var(--owner-muted); }
+.owner-draft-status { padding:7px 11px; border:1px solid #beab7870; border-radius:50px; font-size:10px; white-space:nowrap; color:#796038; background:#fff2d866; }
+.owner-access-grid, .owner-delivery-grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(250px,.8fr); align-items:start; gap:18px; }
+.owner-content-grid { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr); align-items:start; gap:18px; }
+.owner-guide-card { grid-row:span 2; }
+.owner-content-tip { display:flex; align-items:flex-start; gap:10px; padding:12px 15px; margin-bottom:16px; border:1px solid var(--owner-line); border-radius:13px; font-size:12px; line-height:1.6; color:var(--owner-muted); background:var(--owner-surface); }
+.owner-content-tip svg { flex:none; margin-top:2px; color:#5a8f82; }
+.owner-content-stage .owner-plan-card { margin:0 0 18px; }
+.owner-card-heading { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+.owner-card-heading > div { min-width:0; }
+.owner-card-heading p { margin-bottom:4px; font-size:10px; font-weight:650; letter-spacing:.06em; color:var(--owner-muted); }
+.owner-card-heading h2 { font-size:16px; letter-spacing:-.02em; }
+.owner-card-heading small { display:block; margin-top:4px; font-size:11px; line-height:1.5; color:var(--owner-muted); }
+.owner-card-icon { display:grid; place-items:center; flex:none; width:42px; height:42px; border:1px solid #ffffffa0; border-radius:13px; color:#285b58; background:linear-gradient(145deg,#b2e4d8,#8dc4c4); box-shadow:0 6px 10px -7px #173d3680,inset 0 1px 0 #ffffffb0; }
+.owner-card-icon.is-violet { color:#61517c; background:linear-gradient(145deg,#e3d7f3,#b7a8d4); }
+.owner-card-icon.is-blue { color:#325a7a; background:linear-gradient(145deg,#c6e5f5,#92bddf); }
+.owner-card-icon.is-amber { color:#886034; background:linear-gradient(145deg,#f5e3bd,#dfbf87); }
+.owner-next-card h2 { margin-top:18px; font-size:18px; font-weight:600; letter-spacing:-.025em; }
+.owner-next-card p { margin-top:12px; font-size:13px; line-height:1.7; color:var(--owner-muted); }
+.owner-next-card button { margin-top:18px; }
+.owner-details { border:1px solid var(--owner-line); border-radius:13px; padding:12px 14px; }
+.owner-details > summary { display:flex; align-items:center; gap:7px; cursor:pointer; font-size:12px; font-weight:550; list-style:none; }
+.owner-details > summary::after { content:'+'; margin-left:auto; font-size:18px; color:var(--owner-muted); }
+.owner-details[open] > summary::after { content:'−'; }
+.owner-feedback, .owner-preview-notice { padding:14px 16px; margin:0 0 18px; border:1px solid var(--owner-line); border-radius:14px; font-size:12px; line-height:1.7; background:var(--owner-surface); color:var(--owner-ink); }
+.owner-preview-notice { display:flex; align-items:flex-start; gap:10px; }
+.owner-preview-notice svg { flex:none; margin-top:2px; }
+.owner-preview-notice span { display:block; margin-top:4px; color:var(--owner-muted); font-size:11px; }
+.owner-preview-stage > .portal-card { margin-bottom:18px; }
+.owner-link-label { display:block; margin:20px 0 8px; font-size:12px; font-weight:600; }
+.owner-delivery-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+.owner-flow-actions { position:sticky; bottom:14px; z-index:20; display:flex; align-items:center; gap:16px; padding:14px 16px; margin-top:24px; border:1px solid var(--owner-line); border-radius:17px; background:var(--owner-surface); backdrop-filter:blur(18px); box-shadow:0 16px 35px -18px #0e34355c; }
+.owner-action-copy { flex:1; min-width:0; }
+.owner-action-copy strong { display:block; font-size:11px; font-weight:550; }
+.owner-action-copy span { display:block; margin-top:4px; color:var(--owner-muted); font-size:10px; line-height:1.5; }
+.owner-flow-actions > button { flex-shrink:0; font-size:12px; }
+.owner-history-card > .mt-5 { max-height:460px; overflow:auto; scrollbar-width:thin; }
+.owner-workflow button:focus-visible, .owner-topline :is(a,button):focus-visible, .owner-details summary:focus-visible { outline:2px solid #339683; outline-offset:3px; }
+html[data-nuthrick-theme=night] .owner-workflow button[aria-current=step] { background:#2d4b50; color:#ddecdf; box-shadow:inset 0 1px 0 #ffffff13; }
+html[data-nuthrick-theme=night] .owner-draft-status { color:#e6d4a7; background:#6a542429; }
+html[data-nuthrick-theme=night] .owner-flow-actions { background:#132e3bea; }
+@media(max-width:900px) { .owner-access-grid,.owner-delivery-grid,.owner-content-grid { grid-template-columns:minmax(0,1fr); } .owner-guide-card { grid-row:auto; } .owner-history-card > .mt-5 { max-height:none; } .portal-owner-workspace .owner-hero { align-items:flex-start; flex-direction:column; gap:18px; } .owner-overview { flex-direction:row; flex-wrap:wrap; } }
+@media(max-width:640px) { .owner-workflow { grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; } .owner-workflow button { justify-content:flex-start; padding:9px; font-size:11px; } .owner-stage-intro { align-items:flex-start; flex-direction:column; gap:8px; } .owner-stage-intro h2 { font-size:23px; } .owner-flow-actions { display:grid; grid-template-columns:auto minmax(0,1fr); gap:10px; padding:12px; bottom:8px; } .owner-action-copy { grid-column:1/-1; grid-row:1; } .owner-flow-actions > button:last-child { justify-content:center; white-space:normal; } .owner-content-grid .portal-card { padding:19px 15px; } }
+.portal-owner-workspace { --portal-ink:var(--owner-ink); --portal-muted:var(--owner-muted); --portal-line:var(--owner-line); --portal-surface:var(--owner-surface); --portal-soft:#eef4f2; --portal-action:#296e6c; }
+.portal-owner-workspace .portal-count { color:#32584f; background:#e2eee7; }
+.owner-plan-state { display:inline-block; padding:6px 9px; border:1px solid var(--owner-line); border-radius:9px; color:var(--owner-muted); }
+html[data-nuthrick-theme=night] .portal-owner-workspace { --portal-soft:#19343f; --portal-action:#9cd9d0; }
+html[data-nuthrick-theme=night] .portal-owner-workspace .portal-count { color:#ddf0e4; background:#35554f; }
+html[data-nuthrick-theme=night] .owner-guide-card button[class~="text-blue-700"] { color:#afc7fa; background:#263e674d; border-color:#677fba; }

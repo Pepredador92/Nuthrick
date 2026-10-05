@@ -9,6 +9,7 @@ it('requires selection, patient preview and acknowledgement before sharing a pla
   vi.mocked(portalAction).mockImplementation(async(_access,action)=>action==='plan_options'?{plans:[{id:'published',title:'Publicado',version_number:1,published_at:'2026-09-21'}],selectedPlanId:null}:action==='plan_preview'?{plan:{title:'Publicado',versionNumber:1,publishedAt:'2026-09-21',days:[]}}:{ok:true});
   render(<MemoryRouter><PortalPlanSharing patientId="patient"/></MemoryRouter>);
   fireEvent.change(await screen.findByLabelText('Plan visible en Mi plan'),{target:{value:'published'}});
+  fireEvent.click(await screen.findByText('Revisar el contenido de Publicado'));
   await screen.findByRole('region',{name:'Plan alimenticio publicado'});
   expect(screen.getByRole('button',{name:'Compartir plan'})).toBeDisabled();
   expect(vi.mocked(portalAction).mock.calls.some(c=>c[1]==='share_plan')).toBe(false);
@@ -27,6 +28,7 @@ it('allows re-confirming the currently shared plan after reviewing it', async ()
         : { ok: true },
   );
   render(<MemoryRouter><PortalPlanSharing patientId="patient" /></MemoryRouter>);
+  fireEvent.click(await screen.findByText('Revisar el contenido de Publicado'));
   await screen.findByRole('region', { name: 'Plan alimenticio publicado' });
   const button = screen.getByRole('button', { name: 'Compartir plan' });
   expect(button).toBeDisabled();

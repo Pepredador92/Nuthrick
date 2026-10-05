@@ -2,6 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
+  ArrowRight,
+  Check,
+  ClipboardList,
+  BarChart3,
+  Send,
   Copy,
   Eye,
   History,
@@ -30,6 +35,7 @@ import {
   PortalContentView,
   portalDate,
 } from "@/src/components/patients/PortalContentView";
+import { PortalPatientPlan } from "@/src/components/patients/PortalPlan";
 import { PortalChat } from "@/src/components/patients/PortalChat";
 import { PortalAccessCode } from "@/src/components/patients/PortalAccessCode";
 import { PortalPlanSharing } from "@/src/components/patients/PortalPlanSharing";
@@ -39,6 +45,15 @@ import { PortalQrDialog } from "@/src/components/patients/PortalQrDialog";
 import { appendComposedText, composePatientInstructions } from "@/src/features/consultations/composeClinicalText";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
 import "./PatientPortal.css";
+import "./PortalOwnerWorkflow.css";
+
+const workflow = [
+  { id: "access", title: "Acceso", description: "Configura cómo entrará el paciente a su espacio.", Icon: ShieldCheck },
+  { id: "share", title: "Contenido", description: "Elige el plan y prepara su guía, gráficas e historial.", Icon: ClipboardList },
+  { id: "preview", title: "Revisión", description: "Revisa la información tal como la verá el paciente y publica los cambios.", Icon: Eye },
+  { id: "deliver", title: "Compartir enlace", description: "Entrega el enlace o muestra el QR al paciente.", Icon: Send },
+] as const;
+type OwnerStep = (typeof workflow)[number]["id"] | "chat";
 
 const empty: PortalContent = {
   goal: "",
@@ -95,9 +110,10 @@ function OwnerPortal({ patientId }: { patientId: string }) {
     alternative: "",
     review: "",
   });
-  const [tab, setTab] = useState(
-    searchParams.get("tab") === "chat" ? "chat" : "share",
-  );
+  const [tab, setTab] = useState<OwnerStep>(() => {
+    const requested = searchParams.get("tab");
+    return requested === "chat" || workflow.some(step => step.id === requested) ? requested as OwnerStep : "share";
+  });
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -115,6 +131,7 @@ function OwnerPortal({ patientId }: { patientId: string }) {
       .then(([data, patient, history]) => {
         if (!active) return;
         setView(data);
+        if (!searchParams.get("tab") && !searchParams.get("planId")) setTab(data.enabled ? "share" : "access");
         setDraft(data.shared);
         setSelected(data.shared.results.map((r) => r.id));
         setEmail(patient?.email || "");
@@ -130,7 +147,7 @@ function OwnerPortal({ patientId }: { patientId: string }) {
     return () => {
       active = false;
     };
-  }, [access, patientId, retry]);
+  }, [access, patientId, retry, searchParams]);
   // Only finalized records are offered, never draft/private interview answers.
   const consultations = useMemo(
     () =>
@@ -220,7 +237,7 @@ function OwnerPortal({ patientId }: { patientId: string }) {
       setConfirm(null);
       setNotice(
         action === "link"
-          ? "Enlace listo. Puedes copiarlo y compartirlo con este paciente."
+          ? "Acceso listo. Continúa a Contenido para preparar lo que verá el paciente."
           : "Acceso revocado. Las sesiones anteriores ya no funcionan.",
       );
     } catch (e) {
@@ -241,9 +258,8 @@ function OwnerPortal({ patientId }: { patientId: string }) {
       });
       const next = await refresh();
       setDraft(next.shared);
-      setNotice(
-        "Información publicada. El paciente verá únicamente esta selección.",
-      );
+      setNotice("Información publicada. Ahora puedes entregar el enlace al paciente.");
+      goTo("deliver");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -263,6 +279,14 @@ function OwnerPortal({ patientId }: { patientId: string }) {
       );
     }
   }
+  function goTo(step: OwnerStep) {
+    setTab(step);
+    requestAnimationFrame(() => {
+      const heading = document.getElementById("portal-owner-stage");
+      heading?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+      heading?.focus({ preventScroll: true });
+    });
+  }
   if (loading)
     return <LoadingState label="Preparando el espacio del paciente…" />;
   if (!view)
@@ -275,25 +299,25 @@ function OwnerPortal({ patientId }: { patientId: string }) {
         }}
       />
     );
+  const stepIndex = workflow.findIndex(step => step.id === tab);
+  const currentStep = workflow.find(step => step.id === tab);
   return (
-    <div className="portal-owner-workspace w-full min-w-0 py-3">
-      <Link
-        to={`/app/patients/${patientId}`}
-        className="mb-5 inline-flex items-center gap-2 text-sm"
-      >
-        <ArrowLeft size={16} />
-        Volver a la ficha
-      </Link>
-      <header className="portal-hero">
-        <p className="text-xs uppercase tracking-[.18em] text-[#e8c58b]">
-          Superlink del paciente
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold">{view.patientName}</h1>
-        <p className="mt-3 max-w-xl text-sm leading-6 text-[#c4d9cc]">
-          Decide qué compartir y mantén la conversación en un espacio privado.
-        </p>
+    <div className="portal-owner-workspace w-full min-w-0">
+      <div className="owner-topline"><Link to={`/app/patients/${patientId}`} className="inline-flex items-center gap-2 text-sm"><ArrowLeft size={16}/>Volver a la ficha</Link>
+        <button type="button" className="owner-chat-shortcut" aria-pressed={tab === "chat"} onClick={() => goTo("chat")}><MessageCircle size={17}/>Chat {view.unread > 0 && <span className="portal-count">{view.unread}</span>}</button>
+      </div>
+      <header className="portal-hero owner-hero">
+        <div><p className="owner-eyebrow">Superlink del paciente</p><h1>{view.patientName}</h1><p className="owner-hero-copy">Prepara su espacio, revisa lo que verá y entrega su enlace.</p></div>
+        <div className="owner-overview"><span><ShieldCheck size={16}/>{view.enabled ? "Acceso habilitado" : "Acceso pendiente"}</span><span><Check size={16}/>{view.publishedAt ? `Publicado: ${portalDate(view.publishedAt)}` : "Contenido por publicar"}</span></div>
       </header>
-      <section className="portal-card mt-5">
+      <nav className="owner-workflow" aria-label="Administrar superlink">
+        {workflow.map(({ id, title, Icon }, index) => <button key={id} type="button" aria-label={title} aria-current={tab === id ? "step" : undefined} aria-pressed={tab === id} onClick={() => goTo(id)}><span className="owner-step-number">{index + 1}</span><Icon size={17}/><span>{title}</span></button>)}
+      </nav>
+      <div className="owner-stage-intro"><div><p className="owner-eyebrow">{tab === "chat" ? "Conversación privada" : `Paso ${stepIndex + 1} de 4`}</p><h2 id="portal-owner-stage" tabIndex={-1}>{tab === "chat" ? "Chat con el paciente" : currentStep?.title}</h2><p>{tab === "chat" ? "Acompaña al paciente desde este espacio." : currentStep?.description}</p></div>{dirty && <span className="owner-draft-status">Cambios por publicar</span>}</div>
+      {notice && <p role="status" className="owner-feedback">{notice}</p>}
+      {error && <ErrorState message={error}/>}
+      <div hidden={tab !== "access"} className="owner-access-grid">
+      <section className="portal-card owner-access-card">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="flex items-center gap-2 font-semibold">
@@ -312,18 +336,6 @@ function OwnerPortal({ patientId }: { patientId: string }) {
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            {view.enabled && (
-              <button className="nuth-button" onClick={() => void copy()}>
-                <Copy size={16} />
-                Copiar superlink
-              </button>
-            )}
-            {view.enabled && view.link && (
-              <button className="nuth-button-secondary" onClick={() => setQrOpen(true)}>
-                <QrCode size={16} />
-                Mostrar QR
-              </button>
-            )}
             <button
               disabled={busy}
               className="nuth-button-secondary"
@@ -343,22 +355,6 @@ function OwnerPortal({ patientId }: { patientId: string }) {
             )}
           </div>
         </div>
-        {view.enabled && view.link && (
-          <input
-            className="nuth-input mt-4 !text-xs"
-            aria-label="Enlace privado del paciente"
-            readOnly
-            value={portalLink(view.link)}
-            onFocus={(e) => e.target.select()}
-          />
-        )}
-        {qrOpen && view.enabled && view.link && (
-          <PortalQrDialog
-            url={portalLink(view.link)}
-            patientName={view.patientName}
-            onClose={() => setQrOpen(false)}
-          />
-        )}
         {confirm && (
           <div
             role="alert"
@@ -383,78 +379,17 @@ function OwnerPortal({ patientId }: { patientId: string }) {
             </div>
           </div>
         )}
-        {view.enabled && (
-          <PortalAccessCode key={view.link} patientId={patientId} />
-        )}
+        {view.enabled && <details className="owner-details mt-5"><summary>Generar un código de acceso sin correo</summary><PortalAccessCode key={view.link} patientId={patientId} /></details>}
       </section>
-      {tab === "share" && <PortalPlanSharing patientId={patientId} suggestedPlanId={searchParams.get("planId")} />}
-      {notice && (
-        <p role="status" className="mt-4 rounded-xl bg-[#edf5e9] p-4 text-sm">
-          {notice}
-        </p>
-      )}
-      {error && (
-        <div className="mt-4">
-          <ErrorState message={error} />
-        </div>
-      )}
-      <nav className="portal-tabs" aria-label="Administrar superlink">
-        {[
-          { id: "share", text: "Qué compartir", Icon: ShieldCheck },
-          { id: "preview", text: "Vista del paciente", Icon: Eye },
-          { id: "chat", text: "Chat", Icon: MessageCircle },
-        ].map(({ id, text, Icon }) => (
-          <button
-            key={id}
-            aria-pressed={tab === id}
-            onClick={() => {
-              setTab(id);
-              setNotice("");
-            }}
-          >
-            <Icon size={17} />
-            {text}
-            {id === "chat" && view.unread > 0 && (
-              <span className="portal-count">{view.unread}</span>
-            )}
-          </button>
-        ))}
-      </nav>
-      {tab === "chat" ? (
-        view.enabled ? (
-          <PortalChat
-            key={patientId}
-            access={access}
-            counterpart={view.patientName}
-          />
-        ) : (
-          <div className="portal-card">
-            Crea un enlace protegido para iniciar la conversación. Cualquiera de
-            los dos puede escribir primero.
-          </div>
-        )
-      ) : tab === "preview" ? (
-        <>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#fff7e5] p-4">
-            <p className="text-sm">
-              {dirty
-                ? "Vista previa de los cambios, todavía sin publicar."
-                : "Esta es la información compartida."}
-            </p>
-            <button
-              className="nuth-button"
-              disabled={busy || !dirty || content.results.length > 60}
-              onClick={() => void publish()}
-            >
-              {busy ? "Publicando…" : "Publicar para el paciente"}
-            </button>
-          </div>
-          <PortalContentView content={content} />
-        </>
-      ) : (
-        <div className="space-y-5">
-          <section className="portal-card">
-            <h2 className="font-semibold">Su guía nutricional</h2>
+
+        <aside className="portal-card owner-next-card"><span className="owner-card-icon"><ArrowRight size={21}/></span><h2>Después, prepara su contenido</h2><p>En el siguiente paso podrás elegir un plan publicado, sus indicaciones y las gráficas que verá.</p><p className="owner-muted">El paciente entrará con el enlace y el código de acceso. Puedes generar un código sin correo si verificaste su identidad.</p></aside>
+      </div>
+      <div hidden={tab !== "share"} className="owner-content-stage">
+        <div className="owner-content-tip"><ClipboardList size={18}/><p>Prepara las tarjetas que necesite este paciente. Puedes compartir solo algunas y completar las demás después.</p></div>
+        <PortalPlanSharing patientId={patientId} suggestedPlanId={searchParams.get("planId")}/>
+        <div className="owner-content-grid">
+          <section className="portal-card owner-guide-card">
+            <div className="owner-card-heading"><span className="owner-card-icon is-violet"><ClipboardList size={21}/></span><div><p>01 · Guía</p><h2 className="font-semibold">Su guía nutricional</h2><small>El objetivo y las indicaciones que acordaste con el paciente.</small></div></div>
             <PortalGoal patientId={patientId} content={draft} onChange={setDraft}/>
             <label
               htmlFor="share-instructions"
@@ -474,7 +409,7 @@ function OwnerPortal({ patientId }: { patientId: string }) {
             />
             <PortalInstructionAI key={patientId} patientId={patientId} consultations={consultations} disabled={busy}
               onApply={(text) => setDraft((current) => ({ ...current, instructions: appendComposedText(current.instructions, text) }))} />
-            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+            <details className="owner-details owner-writing-tools mt-4"><summary>Ayuda para redactar indicaciones acordadas</summary><div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
               <div className="flex items-start gap-2">
                 <ListChecks size={17} className="mt-0.5 text-amber-800" aria-hidden="true" />
                 <div>
@@ -515,13 +450,10 @@ function OwnerPortal({ patientId }: { patientId: string }) {
                 <ListChecks size={14} className="mr-1.5 inline" aria-hidden="true" />
                 Agregar texto ordenado
               </button>
-            </div>
+            </div></details>
           </section>
-          <section className="portal-card">
-            <h2 className="font-semibold">
-              Resultados que puede ver{" "}
-              <span className="portal-count">{selected.length}/60</span>
-            </h2>
+          <section className="portal-card owner-results-card">
+            <div className="owner-card-heading"><span className="owner-card-icon is-blue"><BarChart3 size={21}/></span><div><p>02 · Evolución</p><h2 className="font-semibold">Resultados que puede ver <span className="portal-count">{selected.length}/60</span></h2><small>Selecciona las gráficas que le ayudarán a ver su progreso.</small></div></div>
             <p className="mt-2 text-sm text-[#74817d]">
               Solo datos de consultas finalizadas. Cada método se conserva por
               separado.
@@ -583,8 +515,8 @@ function OwnerPortal({ patientId }: { patientId: string }) {
               </fieldset>
             ))}
           </section>
-          <section className="portal-card">
-            <h2 className="font-semibold">Historial visible</h2>
+          <section className="portal-card owner-history-card">
+            <div className="owner-card-heading"><span className="owner-card-icon is-amber"><History size={21}/></span><div><p>03 · Seguimiento</p><h2 className="font-semibold">Historial visible</h2><small>Comparte un resumen de las consultas que elijas.</small></div></div>
             <p className="mt-2 text-sm leading-6 text-[#74817d]">
               Selecciona consultas finalizadas y redacta un resumen para el
               paciente. Las entrevistas, valoraciones y notas clínicas privadas
@@ -653,14 +585,27 @@ function OwnerPortal({ patientId }: { patientId: string }) {
               )}
             </div>
           </section>
-          <div className="flex justify-end">
-            <button className="nuth-button" onClick={() => setTab("preview")}>
-              <Eye size={17} />
-              Revisar antes de publicar
-            </button>
-          </div>
         </div>
-      )}
+      </div>
+      {tab === "preview" && <section className="owner-preview-stage" aria-label="Vista previa del paciente">
+        <div className="owner-preview-notice"><Eye size={19}/><p>{dirty ? "Vista previa de los cambios, todavía sin publicar." : "Esta es la información compartida."}<span>El plan se comparte desde su propia tarjeta; aquí se muestra el que ya está visible para el paciente.</span></p></div>
+        <PortalPatientPlan access={access}/>
+        <PortalContentView content={content}/>
+      </section>}
+      {tab === "deliver" && <div className="owner-delivery-grid">
+        <section className="portal-card owner-delivery-card"><div className="owner-card-heading"><span className="owner-card-icon"><Send size={21}/></span><div><p>Último paso</p><h2>Entrega su Super Link</h2><small>{view.enabled ? "El paciente encontrará aquí el contenido publicado." : "Configura el acceso para poder entregar su enlace."}</small></div></div>
+          {dirty && <p className="owner-feedback">Hay cambios pendientes. Vuelve a Revisión para publicarlos antes de compartir el enlace.</p>}
+          {view.enabled && view.link ? <><label htmlFor="owner-private-link" className="owner-link-label">Enlace privado del paciente</label><input id="owner-private-link" className="nuth-input" readOnly value={portalLink(view.link)} onFocus={event => event.target.select()}/><div className="owner-delivery-actions"><button className="nuth-button-secondary" onClick={() => void copy()}><Copy size={16}/>Copiar superlink</button><button className="nuth-button-secondary" onClick={() => setQrOpen(true)}><QrCode size={16}/>Mostrar QR</button></div></> : <button className="nuth-button mt-4" onClick={() => goTo("access")}>Configurar acceso <ArrowRight size={16}/></button>}
+        </section>
+        <aside className="portal-card owner-next-card"><span className="owner-card-icon is-violet"><MessageCircle size={21}/></span><h2>Continúa acompañándolo</h2><p>Una vez dentro, el paciente podrá consultar su plan, revisar sus indicaciones y escribirte desde el chat.</p><button className="nuth-button-secondary" onClick={() => goTo("chat")}>Abrir chat <ArrowRight size={16}/></button></aside>
+      </div>}
+      {tab === "chat" && (view.enabled ? <PortalChat key={patientId} access={access} counterpart={view.patientName}/> : <section className="portal-card"><p>Crea un enlace protegido para iniciar la conversación.</p><button className="nuth-button mt-4" onClick={() => goTo("access")}>Configurar acceso</button></section>)}
+      {qrOpen && view.enabled && view.link && <PortalQrDialog url={portalLink(view.link)} patientName={view.patientName} onClose={() => setQrOpen(false)}/>}
+      {tab !== "chat" && <footer className="owner-flow-actions">
+        {stepIndex > 0 ? <button className="nuth-button-secondary" disabled={busy} onClick={() => goTo(workflow[stepIndex - 1].id)}><ArrowLeft size={16}/>Atrás</button> : <span/>}
+        <div className="owner-action-copy"><strong>{tab === "access" ? view.enabled ? "Acceso listo" : "Configura el acceso cuando esté listo" : tab === "share" ? "Siguiente: revisar lo que verá el paciente" : tab === "preview" ? dirty ? "Publica la selección para que el paciente la vea" : "El contenido publicado está al día" : "Enlace privado · entrégalo al paciente"}</strong><span>{tab === "share" ? "El plan usa su propio botón Compartir plan." : dirty ? "Tus cambios de contenido aún no están publicados." : "Puedes volver a cualquier paso para ajustar la selección."}</span></div>
+        <button className="nuth-button" disabled={busy || (tab === "preview" && content.results.length > 60)} onClick={() => { if (tab === "preview" && dirty) void publish(); else if (tab === "deliver") { if (view.enabled) void copy(); else goTo("access"); } else goTo(workflow[stepIndex + 1].id); }}>{busy ? "Publicando…" : tab === "access" ? "Continuar a Contenido" : tab === "share" ? "Revisar antes de publicar" : tab === "preview" ? dirty ? "Publicar para el paciente" : "Continuar a Compartir enlace" : view.enabled ? "Copiar enlace del paciente" : "Configurar acceso"}<ArrowRight size={16}/></button>
+      </footer>}
     </div>
   );
 }

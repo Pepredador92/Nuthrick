@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
 import { PatientPortalOwnerPage } from "./PatientPortalOwnerPage";
@@ -62,7 +62,7 @@ beforeEach(() => {
 });
 it("requires deliberate preview/publication and never imports the private consultation summary", async () => {
   render(
-    <MemoryRouter initialEntries={["/app/patients/p1/portal"]}>
+    <MemoryRouter initialEntries={["/app/patients/p1/portal?tab=share"]}>
       <Routes>
         <Route
           path="/app/patients/:patientId/portal"
@@ -85,7 +85,7 @@ it("requires deliberate preview/publication and never imports the private consul
   fireEvent.click(
     screen.getByRole("button", { name: "Revisar antes de publicar" }),
   );
-  expect(screen.getByText("Objetivo autorizado")).toBeVisible();
+  expect(within(screen.getByRole("region", {name:"Vista previa del paciente"})).getByText("Objetivo autorizado")).toBeVisible();
   fireEvent.click(
     screen.getByRole("button", { name: "Publicar para el paciente" }),
   );
@@ -115,7 +115,7 @@ it.each([0, 1, 2])("guides sharing with %s pending consultations and a direct hi
       { consultation_id: "cancelled", consultation_date: "2026-09-15", display_value: "67" },
     ] }],
   } as never);
-  render(<MemoryRouter initialEntries={["/app/patients/p1/portal"]}><Routes><Route path="/app/patients/:patientId/portal" element={<PatientPortalOwnerPage />} /><Route path="/app/patients/:patientId" element={<p>Historial de consultas del paciente</p>} /></Routes></MemoryRouter>);
+  render(<MemoryRouter initialEntries={["/app/patients/p1/portal?tab=share"]}><Routes><Route path="/app/patients/:patientId/portal" element={<PatientPortalOwnerPage />} /><Route path="/app/patients/:patientId" element={<p>Historial de consultas del paciente</p>} /></Routes></MemoryRouter>);
   const historyLink = await screen.findByRole("link", { name: "Ir al historial de consultas" });
   expect(historyLink).toHaveAttribute("href", "/app/patients/p1?view=history");
   expect(screen.getByText(/Para mostrar gráficas en el Superlink/)).toHaveTextContent("En la vista previa, confirma con Publicar para el paciente");
@@ -135,10 +135,10 @@ it("publishes the safe weight presentation used by the portal progress card", as
       { id: "height", label: "Talla", conceptCode: "height", category: "measurements", unit: "cm", points: [{ consultation_id: "c1", consultation_date: "2026-09-10", raw_value: 165, display_value: "165" }] },
     ],
   } as never);
-  render(<MemoryRouter initialEntries={["/app/patients/p1/portal"]}><Routes><Route path="/app/patients/:patientId/portal" element={<PatientPortalOwnerPage />} /></Routes></MemoryRouter>);
+  render(<MemoryRouter initialEntries={["/app/patients/p1/portal?tab=share"]}><Routes><Route path="/app/patients/:patientId/portal" element={<PatientPortalOwnerPage />} /></Routes></MemoryRouter>);
   await screen.findByText("Su guía nutricional");
   fireEvent.click(screen.getByRole("checkbox", { name: /Peso/ }));
-  fireEvent.click(screen.getByRole("button", { name: "Vista del paciente" }));
+  fireEvent.click(screen.getByRole("button", { name: "Revisión" }));
   expect(await screen.findByText(/Intervalo por IMC adulto/)).toBeVisible();
   expect(screen.queryByText(/Edad|pregnant|context/)).not.toBeInTheDocument();
 });
@@ -156,7 +156,7 @@ it("publishes both saved somatochart coordinates only after selecting the comple
       { consultation_id: "deleted", consultation_date: "2026-09-15", display_value: "DELETED", coordinates: { x: 98, y: 98 } },
     ] }],
   } as never);
-  render(<MemoryRouter initialEntries={["/app/patients/p1/portal"]}><Routes><Route path="/app/patients/:patientId/portal" element={<PatientPortalOwnerPage />} /></Routes></MemoryRouter>);
+  render(<MemoryRouter initialEntries={["/app/patients/p1/portal?tab=share"]}><Routes><Route path="/app/patients/:patientId/portal" element={<PatientPortalOwnerPage />} /></Routes></MemoryRouter>);
   const checkbox = await screen.findByRole("checkbox", { name: /Coordenadas de somatocarta/ });
   expect(checkbox).not.toBeChecked();
   expect(screen.getByText("Muestra la somatocarta con los puntos de cada consulta.")).toBeVisible();
@@ -187,12 +187,13 @@ it("muestra el QR del enlace protegido cuando el acceso está habilitado", async
           : {},
   );
   render(
-    <MemoryRouter initialEntries={["/app/patients/p1/portal"]}>
+    <MemoryRouter initialEntries={["/app/patients/p1/portal?tab=share"]}>
       <Routes>
         <Route path="/app/patients/:patientId/portal" element={<PatientPortalOwnerPage />} />
       </Routes>
     </MemoryRouter>,
   );
+  fireEvent.click(await screen.findByRole("button", { name: /Compartir enlace/ }));
   fireEvent.click(await screen.findByRole("button", { name: "Mostrar QR" }));
   expect(await screen.findByRole("dialog", { name: "Código QR" })).toBeVisible();
   expect(screen.getByRole("img", { name: /Código QR del Super Link/ })).toBeVisible();
@@ -203,7 +204,7 @@ it("uses the selected completed consultation and appends reviewed instructions w
   vi.mocked(runAIRequest).mockResolvedValue({ generationId: "g", status: "succeeded", replay: false, output: {
     instructions: [{ text: "Prepara la colación que acordamos.", evidence: [{ source: "Entrevista · first actions", finding: "Preparar colación" }] }],
   } });
-  render(<MemoryRouter initialEntries={["/app/patients/p1/portal"]}><Routes><Route path="/app/patients/:patientId/portal" element={<PatientPortalOwnerPage />} /></Routes></MemoryRouter>);
+  render(<MemoryRouter initialEntries={["/app/patients/p1/portal?tab=share"]}><Routes><Route path="/app/patients/:patientId/portal" element={<PatientPortalOwnerPage />} /></Routes></MemoryRouter>);
   await screen.findByText("Su guía nutricional");
   expect(getClinicalRevision).not.toHaveBeenCalled();
   fireEvent.change(screen.getByLabelText("Indicaciones nutricionales"), { target: { value: "Acuerdo previo." } });
@@ -216,4 +217,36 @@ it("uses the selected completed consultation and appends reviewed instructions w
   fireEvent.click(screen.getByRole("button", { name: "Agregar a indicaciones" }));
   expect(screen.getByLabelText("Indicaciones nutricionales")).toHaveValue("Acuerdo previo.\n\nPrepara la colación que acordamos.");
   expect(vi.mocked(portalAction).mock.calls.some(call => call[1] === "publish")).toBe(false);
+});
+
+
+it("starts with access for a patient without a link and guides the next step", async () => {
+  render(<MemoryRouter initialEntries={["/app/patients/p1/portal"]}><Routes><Route path="/app/patients/:patientId/portal" element={<PatientPortalOwnerPage/>}/></Routes></MemoryRouter>);
+  expect(await screen.findByRole("button", {name:"Crear enlace"})).toBeVisible();
+  expect(screen.getByRole("button", {name:/Continuar a Contenido/})).toBeVisible();
+  fireEvent.click(screen.getByRole("button", {name:/Continuar a Contenido/}));
+  expect(screen.getByLabelText("Indicaciones nutricionales")).toBeVisible();
+  expect(screen.getByRole("button", {name:/Revisar antes de publicar/})).toBeVisible();
+  expect(vi.mocked(portalAction).mock.calls.some(call => call[1] === "link" || call[1] === "publish")).toBe(false);
+});
+
+it("keeps draft instructions when returning from review and offers delivery only after publication", async () => {
+  const original = vi.mocked(portalAction).getMockImplementation()!;
+  let published = false;
+  vi.mocked(portalAction).mockImplementation(async (access, action, args) => {
+    if (action === "publish") { published = true; return {}; }
+    const result = await original(access, action, args);
+    if (action === "view" && published) return {...result as object,shared:{goal:"",instructions:"Acuerdo de prueba",results:[],consultations:[]}};
+    return result;
+  });
+  render(<MemoryRouter initialEntries={["/app/patients/p1/portal?tab=share"]}><Routes><Route path="/app/patients/:patientId/portal" element={<PatientPortalOwnerPage/>}/></Routes></MemoryRouter>);
+  fireEvent.change(await screen.findByLabelText("Indicaciones nutricionales"),{target:{value:"Acuerdo de prueba"}});
+  fireEvent.click(screen.getByRole("button",{name:"Revisar antes de publicar"}));
+  expect(screen.getByRole("button",{name:"Publicar para el paciente"})).toBeEnabled();
+  fireEvent.click(screen.getByRole("button",{name:"Atrás"}));
+  expect(screen.getByLabelText("Indicaciones nutricionales")).toHaveValue("Acuerdo de prueba");
+  fireEvent.click(screen.getByRole("button",{name:"Revisar antes de publicar"}));
+  fireEvent.click(screen.getByRole("button",{name:"Publicar para el paciente"}));
+  expect(await screen.findByRole("heading",{name:"Entrega su Super Link"})).toBeVisible();
+  expect(screen.getAllByRole("button",{name:/^Configurar acceso$/})[0]).toBeVisible();
 });
