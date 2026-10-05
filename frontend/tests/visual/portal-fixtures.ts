@@ -1,5 +1,16 @@
 // In-memory visual fixtures. No Supabase, Gmail, patient records or network writes.
 import type { PortalView, PortalContent, PortalMessage, PortalNote } from '../../src/services/patientPortal';
+export * from '../../src/services/appointments';
+let previewSession: string | null = 'fixture-session';
+export async function getStoredPortalSession() { return previewSession; }
+export async function storePortalSession(_link: string, session: string) { previewSession = session; }
+export async function clearStoredPortalSession() { previewSession = null; }
+export async function subscribePortalNotifications() { return () => {}; }
+export async function patientAppointments() { return { appointments: [] }; }
+export async function listAppointments() { return { appointments: [] }; }
+export async function patientConfirmAppointment() { return { ok: true }; }
+export const supabase = { auth: { getSession: async () => ({ data: { session: null } }) } };
+export const hasSupabaseConfig = false;
 const cid = '20000000-0000-0000-0000-000000000001';
 const plan = {title:'Mi semana de alimentación',versionNumber:2,publishedAt:'2026-09-21',days:[{name:'Lunes',meals:[{name:'Desayuno',time:'08:00',title:'Huevos con frijoles y tortilla',ingredients:[{name:'Huevo entero',amount:2,unit:'pieza',alternatives:[{name:'Pollo cocido',amount:60,unit:'g'},{name:'Pescado cocido',amount:60,unit:'g'}]},{name:'Tortilla de maíz',amount:2,unit:'tortilla',alternatives:[]},{name:'Frijoles cocidos',amount:0.5,unit:'taza',alternatives:[]},{name:'Plátano',amount:0.5,unit:'pieza',alternatives:[]},{name:'Agua natural',amount:240,unit:'ml',alternatives:[]}],instructions:['Cocina los huevos y acompaña con frijoles y tortillas. Sirve la fruta y el agua al lado.']}]}]};
 let selectedPlanId: string|null = 'plan-fixture';
