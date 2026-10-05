@@ -50,13 +50,22 @@ export function LandingPage({ plans = [], supportEmail = null }: { plans?: Publi
         </div>
       </section>
 
-      <section id="creador" className="landing-founder landing-shell" aria-label="Creado por un nutriólogo"><BrandMark size={48} /><div><p className="landing-eyebrow">Del consultorio al código</p><p>Creado por <strong>José Olmedo</strong>, nutriólogo con más de 8 años de experiencia en consulta privada. Nuthrick nace de los pendientes que también conocemos.</p></div></section>
-
       <section id="precios" className="landing-shell landing-section landing-pricing" aria-labelledby="pricing-title">
         <div className="landing-section-intro"><div><p className="landing-eyebrow">Tu siguiente paso</p><h2 id="pricing-title">Dale espacio a lo<br /><em>que mejor haces: atender.</em></h2></div><a href="/planes" className="landing-cta">Ver planes <ArrowRight size={17} aria-hidden="true" /></a></div>
         {plans.length > 0 ? <div className="landing-plans">{plans.map((plan) => <article key={plan.id} className="landing-plan"><div><h3>{plan.name}</h3><p className="landing-price">{publicPrice(plan.monthly_price, plan.currency)}<span> {plan.currency} / mes</span></p>{plan.annual_price !== null && <p className="landing-annual">{publicPrice(plan.annual_price, plan.currency)} {plan.currency} / año · pago anual</p>}</div><p className="landing-plan-capacity"><Check size={16} aria-hidden="true" />{plan.values['patients.limit'] === 'unlimited' ? 'Pacientes activos ilimitados.' : typeof plan.values['patients.limit'] === 'number' ? `Hasta ${plan.values['patients.limit']} pacientes activos.` : 'Consulta las capacidades incluidas en este plan.'}</p><a href={`/planes?plan=${encodeURIComponent(plan.id)}`} className="landing-text-link" aria-label={`Consultar plan ${plan.name}`}>Consultar plan <ArrowRight size={17} aria-hidden="true" /></a></article>)}</div> : <p className="landing-plan-fallback">Consulta la disponibilidad y los precios en la página de planes vigentes.</p>}
         <p className="landing-pricing-note">Revisa el importe y la periodicidad antes de confirmar tu contratación. <a href="/register" data-cta="hero-register">Crear mi cuenta →</a></p>
         <div id="preguntas" className="landing-faq" aria-label="Antes de empezar">{questions.map(([question, answer]) => <details key={question}><summary>{question}<span aria-hidden="true">+</span></summary><p>{answer}</p></details>)}</div>
+      </section>
+      <section id="creador" className="landing-founder landing-shell" aria-labelledby="founder-title">
+        <div className="landing-founder-card">
+          <img className="landing-founder-photo" src="/images/jose-olmedo-nuthrick-1280.webp" srcSet="/images/jose-olmedo-nuthrick-640.webp 640w, /images/jose-olmedo-nuthrick-1280.webp 1280w" sizes="(max-width: 760px) 100vw, 600px" width="1280" height="907" loading="lazy" decoding="async" alt="El nutriólogo que creó Nuthrick en su espacio de trabajo, con tres monitores y su perro." />
+          <div className="landing-founder-copy">
+            <p className="landing-eyebrow">Del consultorio al código</p>
+            <h2 id="founder-title">Creado por un nutriólogo.<br /><em>Para nutriólogos.</em></h2>
+            <p>Hay muchos programas de nutrición que hacen de todo. Pero quien mejor entiende lo que necesitas en consulta es alguien que también la vive.</p>
+            <p className="landing-founder-signature"><BrandMark size={24} /> Así nace Nuthrick.</p>
+          </div>
+        </div>
       </section>
     </main>
     <footer className="landing-footer"><div className="landing-shell"><div><a href="/" aria-label="Nuthrick, inicio"><Brand /></a><p>Más presente en consulta.<br />Más tiempo para ti.</p><small>© 2026 Nuthrick</small></div><nav aria-label="Enlaces del pie"><a href="/login">Iniciar sesión</a><a href="/planes">Ver planes</a><a href="/register">Crear mi cuenta</a><a href="/privacy">Privacidad</a><a href="/terms">Términos</a><a href="/refunds">Reembolsos</a>{supportEmail && <a href={`mailto:${supportEmail}`}>Contacto</a>}</nav></div></footer>

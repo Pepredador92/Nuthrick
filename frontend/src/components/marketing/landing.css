@@ -66,10 +66,15 @@
 .landing-ai-note { display:flex; align-items:center; gap:15px; border-top:1px solid #ced9c7; margin-top:28px; padding-top:24px; font-size:12px; line-height:1.7; color:var(--muted); }
 .landing-ai-note svg { flex-shrink:0; color:#536480; }
 .landing-ai-note strong { color:var(--ink); }
-.landing-founder { display:flex; align-items:center; gap:24px; padding-block:34px; border-bottom:1px solid var(--line); }
-.landing-founder > svg { flex-shrink:0; }
-.landing-founder .landing-eyebrow { margin-bottom:8px; }
-.landing-founder p:last-child { font-size:13px; line-height:1.7; max-width:770px; color:var(--muted); }
+.landing-founder { padding-bottom:72px; }
+.landing-founder-card { display:grid; grid-template-columns:1.15fr 1fr; align-items:center; gap:clamp(24px,4vw,48px); padding:20px; border:1px solid var(--line); border-radius:28px; background:#e9eee3; box-shadow:0 24px 42px -30px #173f3960; overflow:hidden; }
+.landing-founder-photo { width:100%; height:auto; border-radius:18px; box-shadow:0 14px 22px -18px #102c2890; }
+.landing-founder-copy { padding:15px 15px 15px 0; min-width:0; }
+.landing-founder-copy .landing-eyebrow { margin-bottom:16px; }
+.landing-founder-copy h2 { font-size:clamp(29px,3vw,40px); }
+.landing-founder-copy > p:not(.landing-eyebrow) { font-size:15px; line-height:1.75; color:var(--muted); margin-top:20px; max-width:42ch; }
+.landing-founder-copy .landing-founder-signature { display:flex; align-items:center; gap:10px; color:var(--ink)!important; font-size:13px!important; font-weight:600; }
+.landing-founder-signature svg { flex-shrink:0; }
 .landing-plans { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:16px; }
 .landing-plan { padding:25px; border:1px solid var(--line); border-radius:20px; background:#fffdfa; box-shadow:0 12px 24px -19px #173f3940; }
 .landing-plan h3 { font-size:19px; font-weight:600; }
@@ -108,6 +113,9 @@ html[data-nuthrick-theme='night'] .landing-discovery .nuth-brand { color:inherit
  .landing-patient-figure { max-width:490px; justify-self:center; }
  .landing-chat p { font-size:15px; }
  .landing-section { padding-block:48px; }
+ .landing-founder { padding-bottom:48px; }
+ .landing-founder-card { grid-template-columns:1fr; padding:14px; gap:12px; }
+ .landing-founder-copy { padding:15px 10px; }
  .landing-section-intro { flex-direction:column; align-items:flex-start; gap:22px; }
  .landing-tour { grid-template-columns:1fr; }
  .landing-tour-tabs { grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; }
@@ -134,8 +142,6 @@ html[data-nuthrick-theme='night'] .landing-discovery .nuth-brand { color:inherit
  .landing-trust { padding:16px; gap:12px; }
  .landing-trust p { font-size:14px; }
  .landing-footer > div { flex-direction:column; }
- .landing-founder { gap:16px; }
- .landing-founder > svg { width:34px; }
 }
 @media(prefers-reduced-motion:reduce) { .landing-discovery * { transition:none!important; scroll-behavior:auto!important; } }
 html[data-nuthrick-theme='night'] .landing-discovery { --ink:#f8f5ed; --paper:#102c28; --muted:#bfd0c4; --line:#35554c; }
@@ -150,3 +156,4 @@ html[data-nuthrick-theme='night'] .landing-discovery .landing-ai-note { border-c
 html[data-nuthrick-theme='night'] .landing-discovery .landing-ai-note svg { color:#c1c5ee; }
 
 html[data-nuthrick-theme='night'] .landing-discovery .landing-trust { background:#193830; }
+html[data-nuthrick-theme='night'] .landing-discovery .landing-founder-card { background:#193830; }

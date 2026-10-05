@@ -60,7 +60,7 @@ try {
   const plain=await noJs.newPage();
   await plain.goto(origin);
   assert.equal(await plain.locator('h1').count(),1);
-  assert.ok((await plain.locator('#creador').innerText()).includes('más de 8 años'));
+  assert.ok((await plain.locator('#creador').innerText()).includes('Creado por un nutriólogo.'));
   await noJs.close();
   // Public CTA and private route still reach authentication without a session.
   await page.goto(origin);

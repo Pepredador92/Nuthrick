@@ -14,14 +14,16 @@ describe('LandingPage', () => {
     expect(html).toContain('Software para nutriólogos');
     expect(html).toContain('¿Terminó tu consulta…');
     expect(html).toContain('o apenas empezó');
-    expect(html).toContain('José Olmedo');
+    expect(html).toContain('Creado por un nutriólogo.');
     expect(html.match(/<h1\b/g)).toHaveLength(1);
   });
 
   it('keeps a concise creator introduction and social proof without invented counts', () => {
     render(<LandingPage />);
-    const founder = screen.getByRole('region', { name: 'Creado por un nutriólogo' });
-    expect(founder).toHaveTextContent('más de 8 años de experiencia en consulta privada');
+    const founder = screen.getByRole('region', { name: /Creado por un nutriólogo\.\s*Para nutriólogos\./ });
+    expect(founder).toHaveTextContent('quien mejor entiende lo que necesitas en consulta');
+    expect(founder).not.toHaveTextContent('José Olmedo');
+    expect(within(founder).getByRole('img')).toHaveAttribute('src', '/images/jose-olmedo-nuthrick-1280.webp');
     expect(screen.getByText('Nutriólogos ya utilizan Nuthrick para organizar su consulta.')).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/50 nutriólogos|NFC|código QR/);
     const banner = screen.getByRole('banner');

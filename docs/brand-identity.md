@@ -18,8 +18,9 @@ No se incorporan nuevos flujos, permisos, PWA, pagos ni cambios de datos con est
 
 ## Landing breve
 
-La portada pasa a cuatro momentos: gancho de pendientes tras consulta, recorrido visual existente del producto, origen de Nuthrick y planes/registro. La portada utiliza la fotografía facilitada por el propietario, guardada sin alterar en `frontend/public/images/landing/paciente-conversacion.png`; las fotografías editoriales anteriores quedan disponibles para referencias existentes.
+La portada pasa a cuatro momentos: gancho de pendientes tras consulta, recorrido visual existente del producto, planes/registro y origen de Nuthrick. La portada utiliza la fotografía facilitada por el propietario, guardada sin alterar en `frontend/public/images/landing/paciente-conversacion.png`; las fotografías editoriales anteriores quedan disponibles para referencias existentes.
 
+- El cierre muestra la fotografía del creador con sus tres monitores y destaca «Creado por un nutriólogo. Para nutriólogos.», sin nombre ni datos personales en el texto.
 - «Ver planes» visible en la cabecera sticky, incluso en móvil, hacia `/planes`.
 - Catálogo y precios siguen usando `loadPublicCommercialData`; no se inventan importes si la consulta no está disponible.
 - Prueba social textual solicitada por el propietario, destacada sin cantidades. La conversación superpuesta a la fotografía es ficticia y se identifica con la nota «Conversación de ejemplo» debajo de la fotografía; no se presenta como testimonio real. Las burbujas son texto HTML accesible, independiente de la imagen.

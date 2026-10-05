@@ -51,7 +51,7 @@ if (process.env.VERCEL === "1" || process.env.NITRO_PRESET === "vercel") {
       if (path === '/') {
         assert.equal((html.match(/<h1\b/g) || []).length, 1, 'Exactly one server-rendered H1');
         assert.ok(html.includes('¿Terminó tu consulta…'), 'Positioning must be in initial HTML');
-        assert.ok(html.includes('nutriólogo con más de 8 años de experiencia en consulta privada'), 'Clinician introduction must be in initial HTML');
+        assert.ok(html.includes('Creado por un nutriólogo.'), 'Clinician introduction must be in initial HTML');
         assert.ok(html.includes('application/ld+json'), 'Structured data missing');
         assert.ok(!/<meta[^>]*name="robots"[^>]*content="[^"]*noindex/.test(html), 'Landing must be indexable');
       } else if (path !== '/planes') {
