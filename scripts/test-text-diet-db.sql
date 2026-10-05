@@ -1,6 +1,10 @@
 do $$
-declare owner uuid:='00000000-0000-0000-0000-000000000001'; pid uuid:='30000000-0000-0000-0000-000000000001'; gid uuid; n int; src jsonb; draft jsonb; rev int; applied jsonb; before_plan jsonb; edited text; publication jsonb; key uuid; old_review text;
+declare owner uuid:='00000000-0000-0000-0000-000000000001'; pid uuid:='30000000-0000-0000-0000-000000000001'; gid uuid; n int; src jsonb; draft jsonb; rev int; applied jsonb; before_plan jsonb; edited text; publication jsonb; key uuid; old_review text; changed_rows int;
 begin
+ perform pg_temp.assert(has_column_privilege('authenticated','nutrition_plans','text_diet','UPDATE'),'owner cannot save reviewed text diets');
+ perform pg_temp.assert(not has_column_privilege('authenticated','nutrition_plans','professional_id','UPDATE'),'plan owner writable');
+ perform pg_temp.assert(not has_column_privilege('authenticated','nutrition_plans','draft_revision','UPDATE'),'draft revision writable');
+ perform pg_temp.assert(not has_column_privilege('authenticated','nutrition_plans','current_version_id','UPDATE'),'published version pointer writable');
  perform pg_temp.assert(not has_function_privilege('authenticated','public.ai_text_diet_source(uuid,uuid,integer)','execute'),'text source exposed');
  perform pg_temp.assert(not has_function_privilege('anon','public.ai_text_diet_draft(uuid,text,jsonb)','execute'),'text apply exposed');
  insert into private.ai_accounts(professional_id) values(owner);
@@ -59,7 +63,16 @@ begin
  perform set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',true);
  set local role authenticated;
  perform pg_temp.assert(not exists(select 1 from nutrition_plans where id=pid),'other owner can read draft');
+ update nutrition_plans set text_diet=draft where id=pid;
+ get diagnostics changed_rows = row_count;
+ perform pg_temp.assert(changed_rows=0,'other owner can update text diet');
  perform pg_temp.reject(format('select publish_nutrition_plan_version(%L,1,%L)',pid,gen_random_uuid()),'Plan not found or not authorized');
+ reset role;
+ set local role anon;
+ perform pg_temp.assert(not exists(select 1 from nutrition_plans where id=pid),'anonymous can read draft');
+ update nutrition_plans set text_diet=draft where id=pid;
+ get diagnostics changed_rows = row_count;
+ perform pg_temp.assert(changed_rows=0,'anonymous can update text diet');
  reset role;
  raise notice 'PASS: 1/3/7 complete diets, no catalog, ownership, reviewed publication, immutable history, supplements, retry and zero extra credits';
 end $$;

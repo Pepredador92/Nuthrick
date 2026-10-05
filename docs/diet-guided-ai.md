@@ -2,6 +2,13 @@
 
 Actualizado el 4 de octubre de 2026. Entrada: paso 3, **Generar con IA**.
 
+La revisión en texto requiere `UPDATE(text_diet)` para el rol autenticado, además
+de las políticas de propietario existentes. El permiso se añade con la migración
+`allow_owned_text_diet_review_updates`: permite guardar y aprobar las dietas propias
+sin exponer propietario, revisión ni referencia de versión publicada. La prueba
+SQL reproduce los permisos por columna de producción y comprueba que otro
+profesional no puede modificar el texto.
+
 ## Flujo vigente: dietas completas en texto
 
 1. Revisar consulta seleccionada, antecedentes fechados, objetivo y prescripción de energía/macros para alimentos (descontados los suplementos). Confirmar contexto y escribir las restricciones revisadas con el paciente.

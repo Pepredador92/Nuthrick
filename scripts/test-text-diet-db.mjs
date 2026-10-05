@@ -18,17 +18,23 @@ create function private.require_entitlement(uuid,text) returns void language plp
 sql+=migration('diet_draft_snapshot')+'\n'+migration('guided_diet_context_and_atomic_apply')+'\n'
  +migration('diet_supplement_snapshot_validation')+'\n'+migration('diet_ai_supplement_validation_permission')+'\n';
 sql+=`alter table professional_profiles add column full_name text,add column professional_title text;
-alter table nutrition_plans add column title text default 'Synthetic text plan',add column assigned_at date default current_date,add column energy_calculation jsonb,add column current_version_id uuid;
+alter table nutrition_plans add column title text default 'Synthetic text plan',add column assigned_at date default current_date,add column energy_calculation jsonb,add column current_version_id uuid,
+ add column review_date date,add column plan_type text,add column category text;
 create schema extensions;create extension pgcrypto with schema extensions;
 create function private.require_my_entitlement(text) returns void language plpgsql as $$begin end$$;
 create table nutrition_plan_versions(id uuid primary key default gen_random_uuid(),plan_id uuid,professional_id uuid,patient_id uuid,consultation_id uuid,version_number int,draft_revision bigint,snapshot_schema_version int,validation_rules_version text,content_hash text,idempotency_key uuid,snapshot jsonb,published_by uuid,published_at timestamptz default now());
 alter table nutrition_plans enable row level security;
 create policy owner_plan on nutrition_plans to authenticated using(professional_id=auth.uid()) with check(professional_id=auth.uid());
-grant select,update on nutrition_plans to authenticated;grant select on nutrition_plan_versions to authenticated;
+grant select on nutrition_plans to authenticated;grant select on nutrition_plan_versions to authenticated;
+-- Production has legacy anon table grants, but no RLS policy authorizes anon rows.
+grant select,update on nutrition_plans to anon;
 `;
 const publication=migration('nutrition_plan_versions');
+// Match production's column grants: a table-wide UPDATE hid the missing text_diet grant.
+sql+=publication.slice(publication.indexOf('revoke update on table public.nutrition_plans'),publication.indexOf('revoke all on function public.publish_nutrition_plan_version'));
 sql+=publication.slice(publication.indexOf('create or replace function private.bump_nutrition_plan_draft_revision'),publication.indexOf('create or replace function private.nutrition_plan_publication_errors'));
 sql+=publication.slice(publication.indexOf('create or replace function private.nutrition_plan_version_snapshot'),publication.indexOf('create or replace function public.publish_nutrition_plan_version'));
 sql+=migration('allow_manual_diet_confirmation')+'\n'+migration('narrative_diet_drafts')+'\n';
+sql+=migration('allow_owned_text_diet_review_updates')+'\n';
 sql+=read('./test-guided-diet-db.sql').split('do $$')[0]+'\n'+read('./test-text-diet-db.sql');
 const r=spawnSync('psql',['-X','-v','ON_ERROR_STOP=1'],{input:sql,encoding:'utf8'});process.stdout.write(r.stdout);process.stderr.write(r.stderr);process.exit(r.status??1);
