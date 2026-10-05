@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-html-link-for-pages -- Public links cross the SSR marketing / React Router product boundary. */
-import { ArrowDown, ArrowRight, Check, MessageCircle, Sparkles } from 'lucide-react';
+import { ArrowDown, ArrowRight, Check, Sparkles } from 'lucide-react';
 import { LandingHeader } from '@/src/components/marketing/LandingHeader';
 import { LandingProductTour } from '@/src/components/marketing/LandingProductTour';
 import { Brand, BrandMark } from '@/src/components/ui/Brand';
@@ -27,16 +27,18 @@ export function LandingPage({ plans = [], supportEmail = null }: { plans?: Publi
           </div>
           <div className="landing-trust"><span className="landing-trust-mark" aria-hidden="true"><BrandMark size={30} /></span><div><span className="landing-trust-label">Ya es parte de otras consultas</span><p>Nutriólogos ya utilizan Nuthrick para organizar su consulta.</p></div></div>
         </div>
-        <figure className="landing-patient-scene" aria-label="Ejemplo de conversación entre paciente y nutriólogo">
+        <figure className="landing-patient-figure" aria-label="Ejemplo de conversación entre paciente y nutriólogo">
+          <div className="landing-patient-scene">
           <img className="landing-patient-photo" src="/images/landing/paciente-conversacion.png" width="736" height="1104" fetchPriority="high" alt="Una mujer sonríe mientras consulta su teléfono en casa." />
-          <figcaption className="landing-scene-caption"><MessageCircle size={14} aria-hidden="true" /> Ejemplo ilustrativo</figcaption>
           <div className="landing-conversation">
             <div className="landing-chat landing-chat-patient"><span>Paciente</span><p>¡Ya tengo mi plan! Gracias por enviarlo tan rápido.</p></div>
             <div className="landing-chat-bottom">
-              <div className="landing-chat landing-chat-professional"><span>Nutriólogo</span><p>Ahí tienes tu plan y las indicaciones que revisamos juntos.</p></div>
-              <div className="landing-chat landing-chat-patient"><span>Paciente</span><p>Todo muy claro y organizado. ¡Qué atención tan profesional!</p></div>
+              <div className="landing-chat landing-chat-professional"><span>Nutriólogo</span><p>Por nada, si tienes alguna duda con respecto a tu plan, házmelo saber para apoyarte.</p></div>
+              <div className="landing-chat landing-chat-patient"><span>Paciente</span><p>Todo está muy claro y organizado. ¡Qué atención tan profesional, nutri!</p></div>
             </div>
           </div>
+          </div>
+          <figcaption className="landing-scene-caption">Conversación de ejemplo.</figcaption>
         </figure>
       </section>
 

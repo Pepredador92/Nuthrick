@@ -33,17 +33,18 @@
 .landing-trust-mark { flex-shrink:0; display:grid; place-items:center; color:#173f39; background:#d2e89f; width:48px; height:48px; border-radius:50%; }
 .landing-trust-label { display:block; margin-bottom:5px; color:var(--muted); font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; }
 .landing-trust p { font-size:16px; line-height:1.45; font-weight:600; text-wrap:pretty; }
+.landing-patient-figure { min-width:0; width:100%; }
 .landing-patient-scene { position:relative; isolation:isolate; min-width:0; width:100%; aspect-ratio:2/3; max-height:670px; border-radius:30px; overflow:hidden; background:#365144; box-shadow:0 28px 55px -28px #173f3970; }
 .landing-patient-photo { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
 .landing-patient-scene::after { content:""; position:absolute; inset:0; z-index:0; pointer-events:none; background:linear-gradient(180deg,#102c282e,transparent 32%,transparent 55%,#102c2840); }
-.landing-scene-caption { position:absolute; z-index:2; top:18px; left:22px; display:flex; align-items:center; gap:7px; padding:7px 10px; border:1px solid #ffffff45; border-radius:99px; background:#193830d9; color:#fffdf7; font-size:10px; letter-spacing:.02em; }
-.landing-conversation { position:absolute; z-index:1; inset:62px 22px 24px; display:flex; flex-direction:column; justify-content:space-between; gap:20px; }
-.landing-chat { width:fit-content; max-width:88%; padding:13px 16px; border:1px solid #fff9; box-shadow:0 8px 24px -10px #071c2870; }
-.landing-chat > span { display:block; margin-bottom:5px; font-size:9px; text-transform:uppercase; letter-spacing:.09em; font-weight:700; opacity:.75; }
-.landing-chat p { font-size:clamp(12px,1.1vw,15px); line-height:1.45; text-wrap:pretty; }
+.landing-scene-caption { margin-top:10px; text-align:right; color:var(--muted); font-size:10px; letter-spacing:.02em; }
+.landing-conversation { position:absolute; z-index:1; inset:22px 22px 22px; display:flex; flex-direction:column; justify-content:space-between; gap:20px; }
+.landing-chat { width:fit-content; max-width:86%; padding:9px 12px; border:1px solid #fff9; box-shadow:0 8px 24px -10px #071c2870; }
+.landing-chat > span { display:block; margin-bottom:3px; font-size:8px; text-transform:uppercase; letter-spacing:.09em; font-weight:700; opacity:.75; }
+.landing-chat p { font-size:clamp(14px,1.2vw,16px); line-height:1.4; text-wrap:pretty; }
 .landing-chat-patient { border-radius:17px 17px 17px 5px; background:#fffdf6f5; color:#173f39; }
 .landing-chat-professional { align-self:flex-end; border-radius:17px 17px 5px 17px; background:#d2e89ff5; color:#173f39; border-color:#e7f4c5; }
-.landing-chat-bottom { display:flex; flex-direction:column; gap:12px; }
+.landing-chat-bottom { display:flex; flex-direction:column; gap:9px; }
 .landing-section-intro { display:flex; justify-content:space-between; align-items:center; gap:35px; margin-bottom:35px; }
 .landing-section-intro > p { font-size:14px; line-height:1.9; color:var(--muted); max-width:310px; }
 .landing-section-intro strong { display:block; margin-top:8px; font-weight:500; color:var(--ink); }
@@ -104,8 +105,8 @@ html[data-nuthrick-theme='night'] .landing-discovery .nuth-brand { color:inherit
  .landing-hero { grid-template-columns:1fr; padding-block:42px; gap:35px; }
  .landing-hero-copy { max-width:520px; }
  .landing-discovery h1 { font-size:clamp(40px,8vw,59px); }
- .landing-patient-scene { max-width:490px; justify-self:center; }
- .landing-chat p { font-size:14px; }
+ .landing-patient-figure { max-width:490px; justify-self:center; }
+ .landing-chat p { font-size:15px; }
  .landing-section { padding-block:48px; }
  .landing-section-intro { flex-direction:column; align-items:flex-start; gap:22px; }
  .landing-tour { grid-template-columns:1fr; }
@@ -126,10 +127,9 @@ html[data-nuthrick-theme='night'] .landing-discovery .nuth-brand { color:inherit
  .landing-header-plans { padding:10px 12px; }
  .landing-header .nuth-brand-name { font-size:19px; }
  .landing-menu-toggle { width:34px; height:34px; }
- .landing-conversation { inset:54px 14px 16px; }
- .landing-scene-caption { top:14px; left:14px; }
- .landing-chat { padding:10px 12px; max-width:94%; }
- .landing-chat p { font-size:12px; }
+ .landing-conversation { inset:16px 14px 16px; }
+ .landing-chat { padding:8px 10px; max-width:90%; }
+ .landing-chat p { font-size:13.5px; }
  .landing-chat-bottom { gap:9px; }
  .landing-trust { padding:16px; gap:12px; }
  .landing-trust p { font-size:14px; }

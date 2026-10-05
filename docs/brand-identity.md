@@ -22,7 +22,7 @@ La portada pasa a cuatro momentos: gancho de pendientes tras consulta, recorrido
 
 - «Ver planes» visible en la cabecera sticky, incluso en móvil, hacia `/planes`.
 - Catálogo y precios siguen usando `loadPublicCommercialData`; no se inventan importes si la consulta no está disponible.
-- Prueba social textual solicitada por el propietario, destacada sin cantidades. La conversación superpuesta a la fotografía es ficticia y se identifica como «Ejemplo ilustrativo»; no se presenta como testimonio real. Las burbujas son texto HTML accesible, independiente de la imagen.
+- Prueba social textual solicitada por el propietario, destacada sin cantidades. La conversación superpuesta a la fotografía es ficticia y se identifica con la nota «Conversación de ejemplo» debajo de la fotografía; no se presenta como testimonio real. Las burbujas son texto HTML accesible, independiente de la imagen.
 - Conserva el tour de pantallas, su manejo por teclado, registro, acceso, preguntas desplegables y temas día/noche.
 - Sin NFC ni QR. Sin modificaciones a funciones clínicas, permisos o reglas comerciales.
 - Verificación: typecheck, ESLint, pruebas de landing/SEO, render PDF, revisión visual y build `NITRO_PRESET=vercel` con smoke SSR aislado de todas las rutas críticas.
