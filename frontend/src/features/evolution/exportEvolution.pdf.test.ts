@@ -73,7 +73,7 @@ describe("evolution PDF export", () => {
     expect(text).toContain("NUTHRICK");
     expect(text).toContain("Reporte de progreso del paciente");
     expect(text).toContain("Evolución nutricional");
-    expect(text).toContain("Indicadores clave");
+    expect(text).toContain("Tus indicadores");
     expect(text).toContain("Lic. Andrea Nutri");
     expect(text).toContain("Av. Salud 12");
     expect(text).toContain("WhatsApp: +52 555");
@@ -106,7 +106,7 @@ describe("evolution PDF export", () => {
     vi.stubGlobal("fetch", fetchLogo);
     await downloadEvolutionPdf("logo.pdf", { full_name: "Ana Paciente", birth_date: "1992-09-27" } as never, { consultations: [], series: [] }, { seriesIds: [] }, { fullName: "Nutrióloga", logoUrl: "https://example.com/logo.png" });
     expect(fetchLogo).toHaveBeenCalledWith("https://example.com/logo.png");
-    expect(mocks.addImage).toHaveBeenCalledWith(bytes, "PNG", 171, 29, 23, 11.5, undefined, "FAST");
+    expect(mocks.addImage).toHaveBeenCalledWith(bytes, "PNG", 171, 12, 23, 11.5, undefined, "FAST");
     const rendered = mocks.text.mock.calls.flatMap(([value]) => Array.isArray(value) ? value : [value]).join("\n");
     expect(rendered).toContain("DATOS DEL PACIENTE");
     expect(rendered).toContain("Ana Paciente");

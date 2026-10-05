@@ -1,6 +1,7 @@
 import {projectPortalPlan,type PortalPlan} from './portal-plan.ts';
-import {drawProfessionalHeader,drawPrivateFooters,type ProfessionalDocumentInfo} from './document-letterhead.ts';
+import {drawPrivateFooters,type ProfessionalDocumentInfo} from './document-letterhead.ts';
 import {jsPDF} from 'jspdf';
+import {DocumentLayout,type DocumentField} from './document-layout.ts';
 
 export type PublishedNutritionPlanDocumentModel = {
   templateVersion:'clinical-letterhead-v1'; patientName:string; professional:ProfessionalDocumentInfo; plan:PortalPlan;
@@ -54,31 +55,36 @@ export function planDocumentBlocks(model:PublishedNutritionPlanDocumentModel):Pl
  return blocks;
 }
 export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:string|null=null):Uint8Array {
- const pdf=new jsPDF({unit:'mm',format:'a4'}),width=pdf.internal.pageSize.getWidth(),bottom=pdf.internal.pageSize.getHeight()-19;
- let y=drawProfessionalHeader(pdf,model.professional,logo,false,'NONE');
- const page=()=>{pdf.addPage();y=drawProfessionalHeader(pdf,model.professional,logo,true,'NONE');};
- const write=(text:string,size=10,bold=false,gap=5,green=false)=>{
-  pdf.setFont('helvetica',bold?'bold':'normal');pdf.setFontSize(size);
-  const lines=pdf.splitTextToSize(text,width-32) as string[];
-  for(const line of lines){if(y+gap>bottom)page();if(green){pdf.setFillColor(237,246,238);pdf.rect(14,y-4,width-28,gap+2,'F');}pdf.setTextColor(...(green?[40,95,64]:[55,77,69]) as [number,number,number]);pdf.setFont('helvetica',bold?'bold':'normal');pdf.setFontSize(size);pdf.text(line,16,y);y+=gap;}
-  y+=2;
- };
- write('PLAN DE ALIMENTACIÓN',17,true,7);
- write(model.plan.title,12,true,6);
- write(`Paciente: ${model.patientName}`);
- write(`Versión ${model.plan.versionNumber} · Publicado: ${planDate(model.plan.publishedAt)}`,9);
- for(const block of planDocumentBlocks(model)){
-  if(block.kind.startsWith('supplement-')){
-   if(block.kind!=='supplement-text'&&y+24>bottom)page();
-   write(block.text,block.kind==='supplement-heading'?12:10,block.kind!=='supplement-text',5,true);
-  }else if(block.kind==='day'||block.kind==='meal'){
-   if(y+28>bottom)page();y+=4;
-   if(block.kind==='day'){pdf.setFillColor(237,243,239);pdf.setDrawColor(220,232,224);pdf.setLineWidth(.25);pdf.roundedRect(15,y-4,width-30,10,2.5,2.5,'FD');pdf.setFillColor(120,181,153);pdf.roundedRect(15,y-4,1.2,10,.5,.5,'F');}
-   write(block.text,block.kind==='day'?12:11,true,6);
-  }else {if((block.kind==='title'||block.kind==='label')&&y+16>bottom)page();write(block.text,block.kind==='text'?9.5:10,block.kind!=='text');}
-  if(pdf.getNumberOfPages()>120)throw new Error('document_too_large');
+ const pdf=new jsPDF({unit:'mm',format:'a4'}),layout=new DocumentLayout(pdf,model.professional,logo);
+ layout.section('Tu plan de alimentación','Porciones, preparación y alternativas, paso a paso.');
+ layout.card(model.patientName,[{label:'Plan',value:model.plan.title},{label:'Publicación',value:`Versión ${model.plan.versionNumber} · ${planDate(model.plan.publishedAt)}`}],{tone:'blue',columns:2});
+ layout.contacts();
+ if(model.plan.supplements?.length){
+  layout.section('Tu suplementación','Cantidades diarias indicadas por tu nutriólogo.');
+  for(const item of model.plan.supplements){
+   const fields:DocumentField[]=[{label:'Porción diaria',value:item.quantity}];
+   const brand=[item.brand,item.presentation].filter(Boolean).join(' · ');
+   if(brand)fields.push({label:'Producto',value:brand});
+   if(item.instructions)fields.push({label:'Cómo tomarlo',value:item.instructions});
+   layout.card(item.name,fields,{tone:'mint',eyebrow:'SUPLEMENTO'});
+  }
  }
- drawPrivateFooters(pdf);return new Uint8Array(pdf.output('arraybuffer'));
+ for(const day of model.plan.days){
+  layout.section(day.name);
+  if(day.text!==undefined){
+   // Preserve the reviewed text exactly. Paragraphs make even free-text diets readable.
+   layout.card('Indicaciones del día',day.text.split(/\n\s*\n/).map(value=>({value})),{eyebrow:day.name});
+   continue;
+  }
+  for(const meal of day.meals){
+   const fields:DocumentField[]=[{label:'Ingredientes y porciones',value:meal.ingredients.map(i=>`${amount(i.amount)} ${i.unit} - ${i.name}`).join('\n')}];
+   if(meal.instructions.length)fields.push({label:'Preparación',value:meal.instructions.join('\n\n')});
+   const alternatives=meal.ingredients.filter(i=>i.alternatives.length);
+   if(alternatives.length)fields.push({label:'Puedes sustituir',value:'Elige una alternativa; no la agregues a la porción.\n'+alternatives.map(i=>`${i.name}: ${i.alternatives.map(a=>`${amount(a.amount)} ${a.unit} de ${a.name}`).join(' o ')}.`).join('\n')});
+   layout.card(meal.title,fields,{eyebrow:[day.name,meal.name,meal.time].filter(Boolean).join(' · ')});
+  }
+ }
+ layout.flushSection();drawPrivateFooters(pdf);return new Uint8Array(pdf.output('arraybuffer'));
 }
 export function escapeLatex(text:string):string {
  const escapes:Record<string,string>={'\\':'\\textbackslash{}','{':'\\{','}':'\\}','#':'\\#','$':'\\$','%':'\\%','&':'\\&','_':'\\_','~':'\\textasciitilde{}','^':'\\textasciicircum{}'};
@@ -88,42 +94,62 @@ export function escapeLatex(text:string):string {
 export function renderPlanTex(model:PublishedNutritionPlanDocumentModel,logo:string|null=null):string {
  const e=escapeLatex,p=model.professional,brand=p.businessName||p.fullName;
  const contact=[p.businessAddress,...(p.contactLines||[])].filter(Boolean).map(x=>e(x!)).join('\\par\n');
- const blocks=planDocumentBlocks(model).map(b=>b.kind.startsWith('supplement-')?`\\noindent\\colorbox{nuthmint}{\\parbox{\\dimexpr\\linewidth-2\\fboxsep\\relax}{\\color{nuthgreen}${b.kind==='supplement-text'?'':'\\bfseries '}${e(b.text)}}}\\par`:b.kind==='day'?`\\section*{${e(b.text)}}`:b.kind==='meal'?`\\subsection*{${e(b.text)}}`:b.kind==='title'||b.kind==='label'?`\\noindent\\textbf{${e(b.text)}}\\par\\nopagebreak[3]`:`\\noindent ${e(b.text)}\\par`).join('\n');
+ const card=(title:string,body:string,mint=false)=>`\\begin{nuthcard}{${e(title)}}{${mint?'nuthmint':'white'}}\n${body}\n\\end{nuthcard}`;
+ const field=(label:string,value:string)=>`{\\small\\bfseries\\color{nuthmuted} ${e(label)}}\\par\\nopagebreak[3]\n${e(value)}\\par\\medskip`;
+ const blocks:string[]=[];
+ if(model.plan.supplements?.length){
+  blocks.push('\\section*{Tu suplementación}', 'Cantidades diarias indicadas por tu nutriólogo.');
+  for(const item of model.plan.supplements)blocks.push(card(item.name,[field('Porción diaria',item.quantity),[item.brand,item.presentation].filter(Boolean).length?field('Producto',[item.brand,item.presentation].filter(Boolean).join(' · ')):'',item.instructions?field('Cómo tomarlo',item.instructions):''].join('\n'),true));
+ }
+ for(const day of model.plan.days){
+  blocks.push(`\\section*{${e(day.name)}}`);
+  if(day.text!==undefined){blocks.push(card('Indicaciones del día',e(day.text)));continue;}
+  for(const meal of day.meals){
+   const alternatives=meal.ingredients.filter(i=>i.alternatives.length);
+   const content=[`{\\small\\color{nuthteal} ${e([meal.name,meal.time].filter(Boolean).join(' · '))}}\\par\\medskip`,field('Ingredientes y porciones',meal.ingredients.map(i=>`${amount(i.amount)} ${i.unit} - ${i.name}`).join('\n')),meal.instructions.length?field('Preparación',meal.instructions.join('\n\n')):'',alternatives.length?field('Puedes sustituir','Elige una alternativa; no la agregues a la porción.\n'+alternatives.map(i=>`${i.name}: ${i.alternatives.map(a=>`${amount(a.amount)} ${a.unit} de ${a.name}`).join(' o ')}.`).join('\n')):''];
+   blocks.push(card(meal.title,content.join('\n')));
+  }
+ }
  // Embed the optional verified raster image as hexadecimal, never TeX commands
  // or external URLs. LuaLaTeX uses a unique temporary file and removes it after
  // embedding; no shell escape, persistent asset or user-controlled path.
  const logoHex=logo&&/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(logo)?Array.from(atob(logo.split(',')[1]),c=>c.charCodeAt(0).toString(16).padStart(2,'0')).join(''):null;
  const logoTex=logoHex?`\\directlua{local temp=os.tmpname(); os.remove(temp); local path="nuthrick-logo-"..temp:match("([^/]+)$")..".png"; local f=assert(io.open(path,"wb")); local bytes=("${logoHex}"):gsub("..",function(h) return string.char(tonumber(h,16)) end); f:write(bytes); f:close(); local picture=img.scan{filename=path,width=tex.sp("25mm")}; img.immediatewrite(picture); node.write(img.node(picture)); os.remove(path)}\\par`:'';
- return `%% Nuthrick clinical-letterhead-v1. UTF-8. Compile with LuaLaTeX; no shell escape required.
+ return `%% Nuthrick card layout. UTF-8. Compile with LuaLaTeX; no shell escape required.
 \\documentclass[10pt,a4paper]{article}
-\\usepackage[margin=16mm,bottom=22mm,headheight=14pt]{geometry}
+\\usepackage[margin=16mm,bottom=23mm,headheight=14pt]{geometry}
 \\usepackage{fontspec}
-\\IfFontExistsTF{TeX Gyre Heros}{\\setmainfont{TeX Gyre Heros}}{\\setmainfont{Latin Modern Sans}}
+\\IfFontExistsTF{TeX Gyre Heros}{\\setmainfont{TeX Gyre Heros}}{\\IfFontExistsTF{Latin Modern Sans}{\\setmainfont{Latin Modern Sans}}{\\setmainfont{lmroman10-regular.otf}[BoldFont=lmroman10-bold.otf]}}
 \\IfFileExists{spanish.ldf}{\\usepackage[spanish]{babel}}{}
 \\usepackage{xcolor,fancyhdr}
-\\definecolor{nuthgreen}{RGB}{23,61,54}
-\\definecolor{nuthmint}{RGB}{237,246,238}
-\\definecolor{nuthgold}{RGB}{205,161,96}
+
+\\definecolor{nuthgreen}{HTML}{203D48}
+\\definecolor{nuthmint}{HTML}{EDF6F0}
+\\definecolor{nuthblue}{HTML}{EDF5FA}
+\\definecolor{nuthline}{HTML}{DCE6E8}
+\\definecolor{nuthmuted}{HTML}{627681}
+\\definecolor{nuthteal}{HTML}{147E86}
+\\definecolor{nuthpaper}{HTML}{F7FAFB}
+\\pagecolor{nuthpaper}\\color{nuthgreen}
+\\newenvironment{nuthcard}[2]{\\par\\medskip\\noindent\\fcolorbox{nuthline}{#2}{\\parbox{\\dimexpr\\linewidth-2\\fboxsep-2\\fboxrule\\relax}{\\large\\bfseries #1}}\\par\\nopagebreak[4]\\smallskip}{\\par\\bigskip}
 \\pagestyle{fancy}\\fancyhf{}
 \\fancyhead[L]{\\small\\textcolor{nuthgreen}{${e(brand)}}}
 \\fancyfoot[L]{\\scriptsize Documento privado · Información clínica confidencial}
-\\fancyfoot[R]{\\scriptsize Página \\thepage}
-\\setlength{\\parindent}{0pt}\\setlength{\\parskip}{5pt}
+\\fancyfoot[R]{\\scriptsize Página \\thepage{} de \\pageref{LastPage}}
+\\setlength{\\parindent}{0pt}\\setlength{\\parskip}{4pt}
 \\emergencystretch=3em
 \\begin{document}
-\\thispagestyle{fancy}
 ${logoTex}
-{\\color{nuthgreen}\\rule{\\linewidth}{2pt}}\\par
-{\\color{nuthgold}\\small NUTRICIÓN Y BIENESTAR}\\par
-{\\color{nuthgreen}\\LARGE\\bfseries ${e(brand)}}\\par
-\\textbf{${e(p.fullName)}}\\par
-${[p.professionalTitle,p.licenseNumber?`Cédula profesional ${p.licenseNumber}`:null].filter(Boolean).map(x=>e(x!)).join(' · ')}\\par
-{\\small ${contact}}\\par
-{\\Large\\bfseries PLAN DE ALIMENTACIÓN}\\par
+{\\large\\bfseries ${e(brand)}}\\par
+${[p.businessName?p.fullName:null,p.professionalTitle,p.licenseNumber?`Cédula profesional ${p.licenseNumber}`:null].filter(Boolean).map(x=>e(x!)).join(' · ')}\\par\\bigskip
+{\\LARGE\\bfseries Tu plan de alimentación}\\par
+Porciones, preparación y alternativas, paso a paso.\\par
+\\begin{nuthcard}{${e(model.patientName)}}{nuthblue}
 \\textbf{${e(model.plan.title)}}\\par
-Paciente: ${e(model.patientName)}\\par
-Versión ${model.plan.versionNumber} · Publicado: ${e(planDate(model.plan.publishedAt))}\\par
-${blocks}
-\\end{document}
+Versión ${model.plan.versionNumber} · Publicado: ${e(planDate(model.plan.publishedAt))}
+\\end{nuthcard}
+${blocks.join('\n')}
+${contact?`\\begin{nuthcard}{Tu profesional}{nuthblue}\n${contact}\n\\end{nuthcard}`:''}
+\\label{LastPage}\\end{document}
 `;
 }

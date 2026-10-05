@@ -26,6 +26,7 @@ vi.mock("jspdf", () => ({
     }
     setPage() {}
     setDrawColor() {}
+    setLineWidth() {}
     line() {}
     output = mocks.output;
   },

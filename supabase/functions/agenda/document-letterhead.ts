@@ -2,130 +2,46 @@ import type { jsPDF } from "jspdf";
 export interface ProfessionalDocumentInfo {
  fullName:string; professionalTitle?:string|null;licenseNumber?:string|null;businessName?:string|null;businessAddress?:string|null;contactLines?:string[];logoUrl?:string|null;
 }
-/** Shared letterhead used by consultation and published-plan documents. */
-export function drawProfessionalHeader(pdf:jsPDF,professional:ProfessionalDocumentInfo,logo:string|null,compact=false,compression:'FAST'|'NONE'='FAST'):number {
- const margin=16,pageWidth=pdf.internal.pageSize.getWidth(),pageHeight=pdf.internal.pageSize.getHeight(); let cursor=18;
-
-    // Soft page canvas and a raised paper surface, shared by consultation and
-    // published-plan PDFs. Redraw on every page before placing document text.
-    pdf.setFillColor(239,244,241); pdf.rect(0,0,pageWidth,pageHeight,'F');
-    pdf.setFillColor(255,255,255); pdf.roundedRect(7,6,pageWidth-14,pageHeight-12,3,3,'F');
-    pdf.setDrawColor(224,232,227); pdf.setLineWidth(.25); pdf.roundedRect(7,6,pageWidth-14,pageHeight-12,3,3,'S');
-
-    const brand =
-      professional.businessName?.trim() ||
-      professional.fullName.trim() ||
-      "Nuthrick";
-    const width = pageWidth - margin * 2;
-    pdf.setFillColor(23, 61, 54);
-    pdf.rect(0, 0, pageWidth, 2, "F");
-    pdf.setFillColor(205, 161, 96);
-    pdf.rect(margin, 2, 28, 1.2, "F");
-
-    if (compact) {
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(10);
-      const lines = pdf.splitTextToSize(brand, width) as string[];
-      pdf.setTextColor(23, 61, 54);
-      pdf.text(lines, margin, 12);
-      cursor = 14 + lines.length * 4;
-      pdf.setDrawColor(220, 229, 223);
-      pdf.line(margin, cursor, pageWidth - margin, cursor);
-      cursor += 10;
-      return cursor;
-    }
-
-    const textWidth = width - (logo ? 38 : 0);
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(7.5);
-    pdf.setTextColor(140, 103, 53);
-    pdf.text("NUTRICIÓN Y BIENESTAR", margin, 13);
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(21);
-    const brandLines = pdf.splitTextToSize(brand, textWidth) as string[];
-    pdf.setTextColor(23, 61, 54);
-    pdf.text(brandLines, margin, 23, { lineHeightFactor: 1.12 });
-    let identityY = 23 + brandLines.length * 8.3 + 2;
-
-    if (logo) {
-      try {
-        // PNG dimensions live in IHDR. Avoid decoding a large PNG twice
-        // (getImageProperties and addImage), especially in the Edge runtime.
-        const pngHeader=logo.startsWith('data:image/png;base64,')?atob(logo.split(',')[1].slice(0,44)):null;
-        const dimension=(at:number)=>pngHeader!.charCodeAt(at)*16777216+pngHeader!.charCodeAt(at+1)*65536+pngHeader!.charCodeAt(at+2)*256+pngHeader!.charCodeAt(at+3);
-        const properties=pngHeader&&pngHeader.length>=24?{width:dimension(16),height:dimension(20),fileType:'PNG'}:pdf.getImageProperties(logo);
-        const scale = Math.min(28 / properties.width, 28 / properties.height);
-        const width = properties.width * scale;
-        const height = properties.height * scale;
-        pdf.addImage(
-          logo,
-          properties.fileType,
-          pageWidth - margin - 28 + (28 - width) / 2,
-          12 + (28 - height) / 2,
-          width,
-          height,
-          undefined,
-          compression,
-        );
-      } catch {
-        // The professional identity remains readable if an optional image is unavailable.
-      }
-    }
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(10.5);
-    const nameLines = pdf.splitTextToSize(
-      professional.fullName,
-      textWidth,
-    ) as string[];
-    pdf.text(nameLines, margin, identityY);
-    identityY += nameLines.length * 4.6 + 1;
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(8.5);
-    pdf.setTextColor(93, 112, 103);
-    const credentials = [
-      professional.professionalTitle?.trim(),
-      professional.licenseNumber
-        ? `Cédula profesional ${professional.licenseNumber}`
-        : null,
-    ]
-      .filter(Boolean)
-      .join("  ·  ");
-    if (credentials) {
-      const lines = pdf.splitTextToSize(credentials, textWidth) as string[];
-      pdf.text(lines, margin, identityY);
-      identityY += lines.length * 4 + 2;
-    }
-
-    const contactLines = [
-      professional.businessAddress,
-      ...(professional.contactLines ?? []),
-    ]
-      .filter((line): line is string => Boolean(line?.trim()))
-      .flatMap((line) => pdf.splitTextToSize(line, width - 10) as string[]);
-    cursor = Math.max(logo ? 46 : 0, identityY + 3);
-    if (contactLines.length) {
-      const height = contactLines.length * 3.8 + 8;
-      pdf.setFillColor(243, 247, 244);
-      pdf.roundedRect(margin, cursor, width, height, 2, 2, "F");
-      pdf.setTextColor(81, 105, 94);
-      pdf.setFontSize(8);
-      pdf.text(contactLines, margin + 5, cursor + 5.5, {
-        lineHeightFactor: 1.34,
-      });
-      cursor += height + 10;
-    } else {
-      pdf.setDrawColor(220, 229, 223);
-      pdf.line(margin, cursor, pageWidth - margin, cursor);
-      cursor += 10;
-    }
- return cursor;
+/** Light, printable canvas with subtle depth and the day theme's teal/blue accents. */
+export function drawDocumentCanvas(pdf: jsPDF) {
+ const width=pdf.internal.pageSize.getWidth(),height=pdf.internal.pageSize.getHeight();
+ pdf.setFillColor(238,244,245);pdf.rect(0,0,width,height,'F');
+ pdf.setFillColor(226,235,240);pdf.roundedRect(8,8,width-14,height-13,4,4,'F');
+ pdf.setFillColor(252,253,253);pdf.roundedRect(6,5,width-12,height-12,4,4,'F');
+ pdf.setFillColor(228,241,238);pdf.rect(6,5,55,2,'F');
+ pdf.setFillColor(231,228,244);pdf.rect(61,5,width-67,2,'F');
 }
-export function drawPrivateFooters(pdf:jsPDF) {
+/** Compact identity. Contacts have a dedicated card, leaving the reader room for content. */
+export function drawProfessionalHeader(pdf:jsPDF,professional:ProfessionalDocumentInfo,logo:string|null,compact=false,compression:'FAST'|'NONE'='FAST'):number {
+ drawDocumentCanvas(pdf);
+ const width=pdf.internal.pageSize.getWidth(),margin=16;
+ const brand=professional.businessName?.trim()||professional.fullName.trim()||'Nuthrick';
+ const textWidth=width-32-((logo||professional.logoUrl)&&!compact?30:0);
+ pdf.setFont('helvetica','bold');pdf.setFontSize(compact?9:12);pdf.setTextColor(32,61,72);
+ const brandLines=pdf.splitTextToSize(brand,textWidth) as string[];
+ pdf.text(brandLines,margin,compact?15:18,{lineHeightFactor:1.3});
+ let y=(compact?15:18)+brandLines.length*(compact?4.2:5.5);
+ if(!compact){
+  pdf.setFont('helvetica','normal');pdf.setFontSize(8);pdf.setTextColor(98,118,129);
+  const identity=[professional.businessName?professional.fullName:null,professional.professionalTitle,professional.licenseNumber?`Cédula profesional ${professional.licenseNumber}`:null].filter(Boolean).join(' · ');
+  if(identity){const lines=pdf.splitTextToSize(identity,textWidth) as string[];pdf.text(lines,margin,y);y+=lines.length*3.8;}
+ }
+ if(logo&&!compact){try{
+  const pngHeader=logo.startsWith('data:image/png;base64,')?atob(logo.split(',')[1].slice(0,44)):null;
+  const dimension=(at:number)=>pngHeader!.charCodeAt(at)*16777216+pngHeader!.charCodeAt(at+1)*65536+pngHeader!.charCodeAt(at+2)*256+pngHeader!.charCodeAt(at+3);
+  const properties=pngHeader&&pngHeader.length>=24?{width:dimension(16),height:dimension(20),fileType:'PNG'}:pdf.getImageProperties(logo);
+  const scale=Math.min(23/properties.width,18/properties.height);
+  pdf.addImage(logo,properties.fileType,width-margin-23,12,properties.width*scale,properties.height*scale,undefined,compression);
+  y=Math.max(y,31);
+ }catch{/* Optional branding never hides clinical content. */}}
+ pdf.setDrawColor(218,230,232);pdf.setLineWidth(.2);pdf.line(margin,y+2,width-margin,y+2);
+ return y+10;
+}
+export function drawDocumentFooters(pdf:jsPDF,label='Documento privado · Información clínica confidencial') {
  const count=pdf.getNumberOfPages(),width=pdf.internal.pageSize.getWidth(),height=pdf.internal.pageSize.getHeight();
  for(let page=1;page<=count;page++){
-  pdf.setPage(page);pdf.setDrawColor(218,228,221);pdf.line(16,height-12,width-16,height-12);pdf.setFont("helvetica","normal");pdf.setFontSize(7.5);pdf.setTextColor(111,128,120);
-  pdf.text("Documento privado · Información clínica confidencial",16,height-7);
-  pdf.text(`Página ${page} de ${count}`,width-16,height-7,{align:"right"});
+  pdf.setPage(page);pdf.setDrawColor(218,230,232);pdf.setLineWidth(.2);pdf.line(16,height-15,width-16,height-15);pdf.setFont('helvetica','normal');pdf.setFontSize(7);pdf.setTextColor(98,118,129);
+  pdf.text(label,16,height-10);pdf.text(`Página ${page} de ${count}`,width-16,height-10,{align:'right'});
  }
 }
+export const drawPrivateFooters=(pdf:jsPDF)=>drawDocumentFooters(pdf);

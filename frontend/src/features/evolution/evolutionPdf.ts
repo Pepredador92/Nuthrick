@@ -1,4 +1,6 @@
 import { jsPDF } from "jspdf";
+import { DocumentLayout, documentColors, documentRgb } from "../../../../supabase/functions/agenda/document-layout";
+import { drawProfessionalHeader, drawDocumentFooters } from "../../../../supabase/functions/agenda/document-letterhead";
 import type { Patient } from "@/src/types/domain";
 import type { ProfessionalDocumentInfo } from "@/src/features/consultations/exportText";
 import { calculateAge, formatPatientDate } from "@/src/features/patients/patientUtils";
@@ -9,7 +11,7 @@ import { evolutionCategoryStyles, hexToRgb } from "./presentation";
 import { somatoBoundary, somatoColors, somatoProjection, somatoRegions } from "./somatochart";
 import type { LongitudinalHistory, LongitudinalSeries } from "./longitudinal";
 
-const ink = "#173d36", muted = "#60766a";
+const ink = documentColors.ink, muted = documentColors.muted;
 const plain = (text: string) => text.replace(/[−–—]/g, "-").replace(/→/g, ">").replace(/×/g, "x").replace(/≤/g, "<=").replace(/≥/g, ">=");
 const shortDate = (value: string) => new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "short", year: "2-digit" }).format(new Date(value)).replace(/\./g, "");
 
@@ -35,16 +37,10 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
     font(size, bold); color(hex); pdf.text(Array.isArray(value) ? value.map(plain) : plain(value), x, y, { align, lineHeightFactor: 1.3 });
   };
   const compactHeader = () => {
-    pdf.setFillColor(239, 244, 241); pdf.rect(0, 0, 210, 297, "F");
-    pdf.setFillColor(255, 255, 255); pdf.roundedRect(7, 6, 196, 285, 3, 3, "F");
-    pdf.setDrawColor(224, 232, 227); pdf.setLineWidth(.25); pdf.roundedRect(7, 6, 196, 285, 3, 3, "S");
-    pdf.setFillColor(...hexToRgb(ink)); pdf.rect(0, 0, 210, 2, "F");
-    text("NUTHRICK / Evolución nutricional", margin, 12, 9, true);
-    text(lines(patient.full_name, 78, 7), 194, 12, 7, false, muted, "right");
-    cursor = 24;
+    cursor = drawProfessionalHeader(pdf, professional, null, true);
   };
   const ensureSpace = (height: number) => {
-    if (cursor + height > pageHeight - 19) { pdf.addPage(); compactHeader(); }
+    if (cursor + height > pageHeight - 21) { pdf.addPage(); compactHeader(); }
   };
   const flowText = (value: string, size = 8, hex = muted, bold = false) => {
     for (const line of lines(value, width, size)) {
@@ -52,7 +48,8 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
     }
   };
   const card = (height: number) => {
-    ensureSpace(height); pdf.setFillColor(249, 251, 249); pdf.setDrawColor(221, 232, 225); pdf.setLineWidth(0.25);
+    ensureSpace(height); pdf.setFillColor(222, 232, 235); pdf.roundedRect(margin + .6, cursor + 1.2, width, height, 3, 3, "F");
+    pdf.setFillColor(255, 255, 255); pdf.setDrawColor(...documentRgb(documentColors.line)); pdf.setLineWidth(0.2);
     pdf.roundedRect(margin, cursor, width, height, 3, 3, "FD");
   };
   const polygon = (points: Array<{ x: number; y: number }>, fill: string | null, project: { x: (value: number) => number; y: (value: number) => number }) => {
@@ -62,48 +59,31 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
     pdf.lines(projected.slice(1).map((point, index) => [point.x - projected[index].x, point.y - projected[index].y]), first.x, first.y, [1, 1], fill ? "F" : "S", true);
   };
 
-  pdf.setFillColor(239, 244, 241); pdf.rect(0, 0, 210, 297, "F");
-  pdf.setFillColor(255, 255, 255); pdf.roundedRect(7, 6, 196, 285, 3, 3, "F");
-  pdf.setDrawColor(224, 232, 227); pdf.setLineWidth(.25); pdf.roundedRect(7, 6, 196, 285, 3, 3, "S");
-  pdf.setFillColor(...hexToRgb(ink)); pdf.rect(0, 0, 210, 2, "F");
-  pdf.setFillColor(205, 161, 96); pdf.rect(margin, 2, 28, 1.2, "F");
-  text("NUTHRICK", margin, 13, 8, true, "#986e36");
-  text("Reporte de progreso del paciente", margin, 23, 17, true);
-  cursor = 33;
-  const identityWidth = professional.logoUrl ? 142 : width;
-  const identity = lines(professional.fullName.trim() || "Profesional Nuthrick", identityWidth, 10);
-  text(identity, margin, cursor, 10, true); cursor += identity.length * 4.6;
-  const credentials = [professional.professionalTitle, professional.licenseNumber ? `Cédula profesional ${professional.licenseNumber}` : null].filter(Boolean).join(" · ");
-  if (credentials) { const wrapped = lines(credentials, identityWidth, 8); text(wrapped, margin, cursor, 8, false, muted); cursor += wrapped.length * 3.8; }
+  const layout = new DocumentLayout(pdf, professional);
   if (professional.logoUrl) {
     const logo = await imageData(professional.logoUrl);
     try {
       const props = pdf.getImageProperties(logo), scale = Math.min(23 / props.width, 18 / props.height);
-      pdf.addImage(logo, props.fileType, 171, 29, props.width * scale, props.height * scale, undefined, "FAST");
+      pdf.addImage(logo, props.fileType, 171, 12, props.width * scale, props.height * scale, undefined, "FAST");
     } catch { throw new Error("No pudimos incorporar el logo al PDF. Revisa la imagen guardada en Perfil y vuelve a exportar."); }
-    cursor = Math.max(cursor, 49);
+    layout.y = Math.max(layout.y, 38);
   }
-  for (const contact of [professional.businessName, professional.businessAddress, ...(professional.contactLines ?? [])]) if (contact?.trim()) flowText(contact, 7);
-  cursor += 4;
+  layout.section("Reporte de progreso del paciente", "Tu evolución, consulta a consulta. Revisa los cambios con tu nutriólogo.");
   const dates = [...new Set(series.flatMap((item) => item.points.map((point) => point.consultation_date)))].sort();
   const visitCount = new Set(series.flatMap((item) => item.points.map((point) => point.consultation_id))).size;
   const generatedAt = new Date();
   const age = calculateAge(patient.birth_date, generatedAt);
-  const patientName = lines(patient.full_name, width - 12, 12);
   const birthDate = patient.birth_date && age !== null ? formatPatientDate(`${patient.birth_date}T12:00:00`) : "Sin registrar";
-  const patientDetails = [
-    `Edad al emitir: ${age === null ? "Sin registrar" : `${age} ${age === 1 ? "año" : "años"}`} · Nacimiento: ${birthDate}`,
-    dates.length ? `Periodo del seguimiento: ${formatPatientDate(dates[0])} - ${formatPatientDate(dates.at(-1)!)}` : "Sin fechas clínicas disponibles",
-    `${visitCount} ${visitCount === 1 ? "consulta incluida" : "consultas incluidas"} · ${series.length} gráficas seleccionadas · Emitido: ${formatPatientDate(generatedAt.toISOString())}`,
-  ].flatMap((detail) => lines(detail, width - 12, 7.5));
-  const patientCardHeight = 18 + patientName.length * 5.5 + patientDetails.length * 4;
-  card(patientCardHeight);
-  text("DATOS DEL PACIENTE", margin + 6, cursor + 7, 7, true, muted);
-  text(patientName, margin + 6, cursor + 14, 12, true);
-  text(patientDetails, margin + 6, cursor + 16 + patientName.length * 5.5, 7.5, false, muted);
-  cursor += patientCardHeight + 7;
-  flowText("Evolución nutricional · Indicadores clave", 10, ink, true);
-  cursor += 3;
+  layout.card(patient.full_name, [
+    { label: "Edad y nacimiento", value: `Edad al emitir: ${age === null ? "Sin registrar" : `${age} ${age === 1 ? "año" : "años"}`} · Nacimiento: ${birthDate}` },
+    { label: "Periodo del seguimiento", value: dates.length ? `${formatPatientDate(dates[0])} - ${formatPatientDate(dates.at(-1)!)}` : "Sin fechas clínicas disponibles" },
+    { label: "Incluido en este reporte", value: `${visitCount} ${visitCount === 1 ? "consulta incluida" : "consultas incluidas"} · ${series.length} gráficas seleccionadas` },
+    { label: "Emitido", value: formatPatientDate(generatedAt.toISOString()) },
+  ], { tone: "blue", eyebrow: "DATOS DEL PACIENTE" });
+  layout.section("Tus indicadores", "El valor destacado corresponde a tu registro más reciente.");
+  layout.flushSection(90);
+  cursor = layout.y;
+  const appendix: Array<{ title: string; details: string[] }> = [];
 
   const drawLineChart = (item: LongitudinalSeries) => {
     const points = numericPoints(item), latest = points.at(-1)!;
@@ -112,7 +92,7 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
     const classifiedPoint = classifications.displayed?.point;
     const weight = item.conceptCode === "weight" ? weightReference(latest, history.series, references) : null;
     const title = lines(item.label, width - 52, 10);
-    const provenance = lines([item.unit, item.provenance].filter(Boolean).join(" · ") || "Medición registrada", width - 12, 7);
+    const provenance = lines(`${points.length} registros · ${item.unit || "Medición registrada"}`, width - 12, 8);
     const headerHeight = Math.max(14, title.length * 4.7 + 5) + provenance.length * 3.3;
     const notes: string[] = [];
     if (weight?.interval) notes.push(`Intervalo por IMC adulto: ${formatReferenceNumber(weight.interval.lower)} a <${formatReferenceNumber(weight.interval.upper)} kg · talla ${weight.interval.heightCm} cm · OMS`);
@@ -121,10 +101,11 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
     if (classifications.current?.reason) notes.push(`Sin clasificación en esta consulta: ${classifications.current.reason}`);
     if (classifications.isHistorical && classifiedPoint) notes.push(`${classifications.historicalLabel} · ${formatPatientDate(classifiedPoint.consultation_date)} · ${classifiedPoint.display_value} ${classifiedPoint.unit ?? ""}`);
     if (classification) notes.push(`${classification.origin}: ${classification.label} · ${classification.source}`);
-    const noteLines = notes.flatMap((note) => lines(note, width - 12, 7));
+    if (item.provenance) notes.unshift(`Método: ${item.provenance}`);
     const bandHeight = classification?.bands.length ? 11 : 0;
     const weightBarHeight = weight && (weight.recorded || weight.interval || weight.target) ? 11 : 0;
-    const detailHeight = noteLines.length * 3.6 + bandHeight + weightBarHeight;
+    const classificationLines = classification ? lines(`${classifications.isHistorical ? "Última clasificación registrada" : "Clasificación registrada"}: ${classification.label}`, width - 12, 8) : [];
+    const detailHeight = classificationLines.length * 4 + bandHeight + weightBarHeight;
     const height = headerHeight + detailHeight + 53;
     card(height);
     text(title, margin + 6, cursor + 7, 10, true);
@@ -132,7 +113,7 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
     text(shortDate(latest.consultation_date), 188, cursor + 13, 6.5, false, muted, "right");
     text(provenance, margin + 6, cursor + headerHeight - provenance.length * 3.3, 7, false, muted);
     let detailY = cursor + headerHeight + 1;
-    if (noteLines.length) { text(noteLines, margin + 6, detailY, 7, false, muted); detailY += noteLines.length * 3.6; }
+    if (classificationLines.length) { text(classificationLines, margin + 6, detailY, 8, true, muted); detailY += classificationLines.length * 4; }
     if (classification?.bands.length) {
       const barX = margin + 6, barW = width - 12;
       for (const band of classification.bands) {
@@ -168,10 +149,10 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
       text(formatReferenceNumber(high - (high - low) * step / 3), left - 3, lineY + 1, 6.5, false, muted, "right");
     }
     const stroke = hexToRgb(evolutionCategoryStyles[item.category].line);
-    pdf.setDrawColor(...stroke); pdf.setLineWidth(0.7);
+    pdf.setDrawColor(...stroke); pdf.setLineWidth(0.4);
     for (let index = 1; index < points.length; index++) pdf.line(x(index - 1), y(points[index - 1].value), x(index), y(points[index].value));
     points.forEach((point, index) => {
-      pdf.setFillColor(...stroke); pdf.circle(x(index), y(point.value), index === points.length - 1 ? 1.3 : 0.85, "F");
+      pdf.setFillColor(...stroke); pdf.circle(x(index), y(point.value), index === points.length - 1 ? .9 : .65, "F");
       if (index === 0 || index === points.length - 1) {
         text(point.display_value, x(index), y(point.value) - 2.5, 7, true, ink, index === 0 && points.length > 1 ? "left" : "right");
         text(shortDate(point.consultation_date), x(index), top + graphH + 5, 6.5, false, muted, index === 0 && points.length > 1 ? "left" : "right");
@@ -183,11 +164,7 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
       const detail = saved ? `${saved.label} · ${saved.source}` : reason ? `Sin clasificación: ${reason}` : null;
       return detail ? [`${shortDate(point.consultation_date)} · ${point.display_value} ${point.unit ?? ""} · ${detail}`] : [];
     });
-    if (points.length > 1 && classifiedHistory.length > 0) {
-      ensureSpace(15); flowText(`Historial de referencias · ${item.label}`, 7, ink, true);
-      for (const entry of classifiedHistory) flowText(entry, 6.5);
-      cursor += 4;
-    }
+    if (notes.length || classifiedHistory.length) appendix.push({title: `Historial de referencias · ${item.label}`, details: [...notes, ...classifiedHistory]});
   };
 
   const drawSomatochart = (item: LongitudinalSeries) => {
@@ -241,19 +218,20 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
     if (item.visualization === "somatochart") drawSomatochart(item); else drawLineChart(item);
   }
   if (!series.length) flowText("No se seleccionaron indicadores numéricos para graficar.");
+  layout.y = cursor;
+  layout.contacts();
+  if (appendix.length) {
+    layout.newPage();
+    layout.section("Métodos e historial de referencias", "Detalle de las mediciones y clasificaciones registradas por tu profesional.");
+    for (const entry of appendix) layout.card(entry.title, entry.details.map(value => ({value})), {tone: "blue"});
+  }
   const usesWeight = series.some((item) => item.conceptCode === "weight" && item.points.some((point) => weightReference(point, history.series, references).interval));
   const usesGallagher = series.some((item) => references.gallagherSeriesIds.includes(item.id));
-  if (usesWeight || usesGallagher || series.some((item) => item.visualization === "somatochart")) {
-    ensureSpace(24); cursor += 2; flowText("Referencias de la comparación", 8, ink, true); cursor += 1;
-    if (usesWeight) flowText("Peso por IMC: OMS, intervalo adulto 18.5 a <25. El objetivo individual es elegido por el profesional. who.int/data/nutrition/nlis/info/malnutrition-in-women", 6.5);
-    if (usesGallagher) flowText("Gallagher et al. (2000), tabla 4. doi:10.1093/ajcn/72.3.694. Comparación orientativa seleccionada por el profesional según población, edad, sexo y método; conserva la clasificación histórica registrada. No constituye diagnóstico.", 6.5);
-    if (series.some((item) => item.visualization === "somatochart")) flowText("Somatocarta: Carter (2002), manual Heath-Carter, figura 5. Coordenadas conservadas; contorno orientativo.", 6.5);
-  }
-  const pages = pdf.getNumberOfPages();
-  for (let page = 1; page <= pages; page++) {
-    pdf.setPage(page); pdf.setDrawColor(218, 228, 221); pdf.setLineWidth(0.25); pdf.line(margin, 285, 194, 285);
-    text("NUTHRICK · Progreso del paciente", margin, 290, 7, false, muted);
-    text(`Página ${page} de ${pages}`, 194, 290, 7, false, muted, "right");
-  }
+  const sources: string[] = [];
+  if (usesWeight) sources.push("Peso por IMC: OMS, intervalo adulto 18.5 a <25. El objetivo individual es elegido por el profesional. who.int/data/nutrition/nlis/info/malnutrition-in-women");
+  if (usesGallagher) sources.push("Gallagher et al. (2000), tabla 4. doi:10.1093/ajcn/72.3.694. Comparación orientativa seleccionada por el profesional según población, edad, sexo y método; conserva la clasificación histórica registrada. No constituye diagnóstico.");
+  if (series.some((item) => item.visualization === "somatochart")) sources.push("Somatocarta: Carter (2002), manual Heath-Carter, figura 5. Coordenadas conservadas; contorno orientativo.");
+  if (sources.length) layout.card("Fuentes de comparación", sources.map(value => ({value})));
+  drawDocumentFooters(pdf, "NUTHRICK · Evolución nutricional · Documento privado");
   return pdf;
 }

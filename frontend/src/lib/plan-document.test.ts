@@ -24,7 +24,7 @@ it('includes green supplementation in both documents, using the immutable patien
  const model=buildPlanDocument({...source,snapshot:{...source.snapshot,prescription:{...source.snapshot.prescription,macro_distribution:{supplements:[supplementItem]}}}},{});
  expect(planDocumentBlocks(model)[0]).toEqual({kind:'supplement-heading',text:'TU SUPLEMENTACIÓN'});
  expect(planDocumentBlocks(model).map(b=>b.text)).toContain('Con tu desayuno.');
- expect(renderPlanTex(model)).toContain('\\colorbox{nuthmint}');
+ expect(renderPlanTex(model)).toContain('}{nuthmint}');
  expect(renderPlanTex(model)).toContain('Proteína de ejemplo');
- expect(new TextDecoder().decode(renderPlanPdf(model))).toContain('TU SUPLEMENTACI');
+ expect(new TextDecoder().decode(renderPlanPdf(model))).toContain('Tu suplementaci');
 });

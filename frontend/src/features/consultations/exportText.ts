@@ -10,8 +10,10 @@ import type {
   Patient,
 } from "@/src/types/domain";
 
+import {DocumentLayout} from "../../../../supabase/functions/agenda/document-layout";
+
 export type { ProfessionalDocumentInfo } from "../../../../supabase/functions/agenda/document-letterhead";
-import {drawProfessionalHeader,drawPrivateFooters,type ProfessionalDocumentInfo} from "../../../../supabase/functions/agenda/document-letterhead";
+import {drawPrivateFooters,type ProfessionalDocumentInfo} from "../../../../supabase/functions/agenda/document-letterhead";
 
 export function consultationTextExport(
   patient: Patient,
@@ -120,6 +122,53 @@ async function imageData(url: string): Promise<string | null> {
   }
 }
 
+export async function buildConsultationPdf(
+  patient: Patient,
+  consultation: Consultation,
+  snapshot: ConsultationSnapshot,
+  values: Record<string, unknown>,
+  professional: ProfessionalDocumentInfo,
+) {
+  const { jsPDF } = await import("jspdf");
+  const pdf = new jsPDF({ unit: "mm", format: "a4" });
+  const logo = professional.logoUrl ? await imageData(professional.logoUrl) : null;
+  const layout = new DocumentLayout(pdf, professional, logo);
+  layout.section("Informe de consulta nutricional", "Registro clínico para revisión del profesional.");
+  layout.card(patient.full_name, [
+    { label: "Consulta", value: consultationLabel(consultation) },
+    { label: "Fecha y tipo", value: `${formatPatientDate(consultation.consultation_date)} · ${consultation.consultation_type === "initial" ? "Consulta inicial" : "Consulta de seguimiento"}` },
+    ...patientBasics(patient).slice(1).map(value => ({ value })),
+  ], { tone: "blue", columns: 2 });
+  // The closing summary gives the reader an orientation before the complete record.
+  if (consultation.summary) layout.card("Resumen de cierre", [{ value: consultation.summary }], { tone: "mint", eyebrow: "VISTA GENERAL" });
+  let sectionNumber = 0;
+  for (const section of snapshot.structure.sections) {
+    const entries = section.questions
+      .filter(question => matchesCondition(question.visibility_condition, values) && !emptyValue(values[question.question_key]))
+      .map(question => ({ label: question.label, value: formatAnswer(question, values[question.question_key]) }))
+      .filter(entry => entry.value.trim());
+    if (!entries.length) continue;
+    sectionNumber++;
+    layout.section(`${String(sectionNumber).padStart(2, "0")} · ${section.title}`);
+    // Pair short answers, while giving narratives the full width of their own card.
+    let shortAnswers: typeof entries = [];
+    const flush = () => {
+      if (shortAnswers.length) layout.card("Datos registrados", shortAnswers, { columns: 2 });
+      shortAnswers = [];
+    };
+    for (const entry of entries) {
+      if (entry.value.length <= 100 && !entry.value.includes("\n")) {
+        shortAnswers.push(entry);
+        if (shortAnswers.length === 4) flush();
+      } else { flush(); layout.card(entry.label, [{ value: entry.value }]); }
+    }
+    flush();
+  }
+  layout.contacts();
+  drawPrivateFooters(pdf);
+  return pdf;
+}
+
 export async function downloadConsultationPdf(
   filename: string,
   patient: Patient,
@@ -128,134 +177,6 @@ export async function downloadConsultationPdf(
   values: Record<string, unknown>,
   professional: ProfessionalDocumentInfo,
 ): Promise<void> {
-  const { jsPDF } = await import("jspdf");
-  const pdf = new jsPDF({ unit: "mm", format: "a4" });
-  const margin = 16;
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const logo = professional.logoUrl
-    ? await imageData(professional.logoUrl)
-    : null;
-  let cursor = 18;
-
-  const header = (compact = false) => { cursor = drawProfessionalHeader(pdf,professional,logo,compact); };
-
-  const pageBreak = () => {
-    pdf.addPage();
-    header(true);
-  };
-  const write = (
-    text: string,
-    size = 9.5,
-    color: [number, number, number] = [55, 77, 69],
-    gap = 4.8,
-  ) => {
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(size);
-    pdf.setTextColor(...color);
-    const lines = pdf.splitTextToSize(text, pageWidth - margin * 2) as string[];
-    for (const line of lines) {
-      if (cursor + gap > pageHeight - 18) pageBreak();
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(size);
-      pdf.setTextColor(...color);
-      pdf.text(line, margin, cursor);
-      cursor += gap;
-    }
-    cursor += 1.2;
-  };
-  const heading = (text: string) => {
-    if (cursor + 13 > pageHeight - 18) pageBreak();
-    pdf.setFillColor(237, 243, 239);
-    pdf.roundedRect(margin, cursor - 5, pageWidth - margin * 2, 9, 2, 2, "F");
-    pdf.setTextColor(31, 78, 67);
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(10.5);
-    pdf.text(text, margin + 3, cursor + 1);
-    cursor += 11;
-  };
-
-  header();
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(7.5);
-  pdf.setTextColor(140, 103, 53);
-  pdf.text("REGISTRO CLÍNICO", margin, cursor);
-  cursor += 8;
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(18);
-  pdf.setTextColor(23, 61, 54);
-  pdf.text("Informe de consulta nutricional", margin, cursor);
-  cursor += 7;
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(8.5);
-  pdf.setTextColor(93, 112, 103);
-  pdf.text(
-    `${formatPatientDate(consultation.consultation_date)}  ·  ${consultation.consultation_type === "initial" ? "Consulta inicial" : "Consulta de seguimiento"}`,
-    margin,
-    cursor,
-  );
-  cursor += 7;
-  write(`Consulta: ${consultationLabel(consultation)}`);
-  const basics = patientBasics(patient).flatMap(
-    (line) =>
-      pdf.splitTextToSize(line, pageWidth - margin * 2 - 10) as string[],
-  );
-  const patientHeight = basics.length * 4.2 + 10;
-  pdf.setFillColor(248, 250, 248);
-  pdf.roundedRect(
-    margin,
-    cursor,
-    pageWidth - margin * 2,
-    patientHeight,
-    2,
-    2,
-    "F",
-  );
-  pdf.setFillColor(205, 161, 96);
-  pdf.rect(margin, cursor + 3, 0.8, patientHeight - 6, "F");
-  pdf.setTextColor(55, 77, 69);
-  pdf.text(basics, margin + 5, cursor + 6, { lineHeightFactor: 1.4 });
-  cursor += patientHeight + 11;
-
-  for (const section of snapshot.structure.sections) {
-    const entries = section.questions
-      .filter(
-        (question) =>
-          matchesCondition(question.visibility_condition, values) &&
-          !emptyValue(values[question.question_key]),
-      )
-      .map(
-        (question) =>
-          [
-            question.label,
-            formatAnswer(question, values[question.question_key]),
-          ] as const,
-      )
-      .filter(([, answer]) => answer.trim());
-    if (!entries.length) continue;
-    heading(section.title);
-    for (const [label, answer] of entries) {
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(9.5);
-      pdf.setTextColor(38, 63, 55);
-      const labelLines = pdf.splitTextToSize(
-        label,
-        pageWidth - margin * 2,
-      ) as string[];
-      if (cursor + labelLines.length * 4.8 + 8 > pageHeight - 18) pageBreak();
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(9.5);
-      pdf.setTextColor(38, 63, 55);
-      pdf.text(labelLines, margin, cursor);
-      cursor += labelLines.length * 4.8;
-      write(answer, 9.2, [95, 112, 104], 4.6);
-      cursor += 2;
-    }
-  }
-  if (consultation.summary) {
-    heading("Resumen de cierre");
-    write(consultation.summary);
-  }
-  drawPrivateFooters(pdf);
+  const pdf = await buildConsultationPdf(patient, consultation, snapshot, values, professional);
   downloadBlob(filename, pdf.output("blob"));
 }
