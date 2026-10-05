@@ -358,6 +358,7 @@ function ConsultationDetail({
 
 function ConsultationHistoryOverview({
   consultation,
+  onView,
   onEdit,
   onRename,
   onExport,
@@ -365,6 +366,7 @@ function ConsultationHistoryOverview({
   onDelete,
 }: {
   consultation: Consultation | null;
+  onView: (consultation: Consultation) => void;
   onEdit: (consultation: Consultation) => void;
   onRename: (consultation: Consultation) => void;
   onExport: (consultation: Consultation) => void;
@@ -386,6 +388,7 @@ function ConsultationHistoryOverview({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ConsultationStatus status={consultation.status} />
+          <button type="button" className="nuth-button !px-3 !py-2 !text-xs" onClick={() => onView(consultation)}><FileText size={14} />Ver consulta</button>
           <button
             type="button"
             className="nuth-button-secondary !px-3 !py-2 !text-xs"
@@ -396,7 +399,7 @@ function ConsultationHistoryOverview({
             ) : (
               <Edit3 size={14} />
             )}
-            {consultation.status === "cancelled" ? "Reabrir consulta" : "Editar"}
+            {consultation.status === "draft" ? "Editar" : "Reabrir y editar"}
           </button>
           <button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => onExport(consultation)}><FileText size={14} />Exportar .txt</button>
           <button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => onExportPdf(consultation)}><FileText size={14} />Exportar PDF</button>
@@ -421,6 +424,7 @@ function HistoryModal({
   onClose,
   consultations,
   selectedConsultationId,
+  initialViewingConsultationId,
   onSelectConsultation,
   patientId,
   notes,
@@ -440,6 +444,7 @@ function HistoryModal({
   onClose: () => void;
   consultations: Consultation[];
   selectedConsultationId: string | null;
+  initialViewingConsultationId: string | null;
   onSelectConsultation: (id: string) => void;
   patientId: string;
   notes: PatientNote[];
@@ -458,6 +463,7 @@ function HistoryModal({
     null;
   const [noteDraft, setNoteDraft] = useState("");
   const [editingNote, setEditingNote] = useState<PatientNote | null>(null);
+  const [viewingConsultationId, setViewingConsultationId] = useState<string | null>(initialViewingConsultationId);
   const beginEdit = (note: PatientNote) => {
     setEditingNote(note);
     setNoteDraft(note.content);
@@ -569,14 +575,35 @@ function HistoryModal({
                   )}
                 </div>
               </div>
-              <ConsultationHistoryOverview
-                consultation={selectedConsultation}
-                onEdit={onEditConsultation}
-                onRename={onRenameConsultation}
-                onExport={onExportConsultation}
-                onExportPdf={onExportConsultationPdf}
-                onDelete={onDeleteConsultation}
-              />
+              <div className="min-w-0">
+                {selectedConsultation && viewingConsultationId === selectedConsultation.id ? (
+                  <div className="space-y-4">
+                    <button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => setViewingConsultationId(null)}><ArrowLeft size={14} />Volver al resumen</button>
+                    <section aria-label="Consulta en lectura" className="rounded-2xl border border-[#dfe5e1] bg-[#fbfcfa] p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-[#60726a]">{consultationLabel(selectedConsultation)}</p>
+                          <h3 className="mt-2 text-2xl font-semibold">{formatPatientDate(selectedConsultation.consultation_date)}</h3>
+                        </div>
+                        <ConsultationStatus status={selectedConsultation.status} />
+                      </div>
+                      <p className="mt-3 text-xs text-[#60726a]">Vista de solo lectura. Consultar esta información no cambia el estado de la consulta.</p>
+                      {selectedConsultation.summary && <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-[#42564d]">{selectedConsultation.summary}</p>}
+                    </section>
+                    <SnapshotHistory key={selectedConsultation.id} consultation={selectedConsultation} />
+                  </div>
+                ) : (
+                  <ConsultationHistoryOverview
+                    consultation={selectedConsultation}
+                    onView={(consultation) => setViewingConsultationId(consultation.id)}
+                    onEdit={onEditConsultation}
+                    onRename={onRenameConsultation}
+                    onExport={onExportConsultation}
+                    onExportPdf={onExportConsultationPdf}
+                    onDelete={onDeleteConsultation}
+                  />
+                )}
+              </div>
             </div>
           )}
           {(tab === "plans" || tab === "timeline") && <PublishedPlanHistory key={tab} patientId={patientId} consultations={tab === "timeline" ? consultations : []} onConsultation={id=>{onSelectConsultation(id);onTab("consultations");}}/>}
@@ -810,6 +837,7 @@ export function PatientDetailPage() {
   const [selectedConsultationId, setSelectedConsultationId] = useState<
     string | null
   >(null);
+  const [initialViewingConsultationId, setInitialViewingConsultationId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{
     action: ConfirmAction;
     note?: PatientNote;
@@ -884,6 +912,7 @@ export function PatientDetailPage() {
   const age = calculateAge(patient.birth_date);
   const openHistory = (tab: HistoryTab = "consultations") => {
     setHistoryTab(tab);
+    setInitialViewingConsultationId(null);
     setSelectedConsultationId(
       (current) => current ?? consultations[0]?.id ?? null,
     );
@@ -1429,8 +1458,10 @@ export function PatientDetailPage() {
               consultations={consultations}
               onRename={setRenamingConsultation}
               onOpen={(id) => {
-                const consultation = consultations.find((item) => item.id === id);
-                if (consultation) editConsultation(consultation);
+                setSelectedConsultationId(id);
+                setInitialViewingConsultationId(id);
+                setHistoryTab("consultations");
+                setHistoryOpen(true);
               }}
             />
           </section>
@@ -1495,6 +1526,7 @@ export function PatientDetailPage() {
           onClose={() => setHistoryOpen(false)}
           consultations={consultations}
           selectedConsultationId={selectedConsultationId}
+          initialViewingConsultationId={initialViewingConsultationId}
           onSelectConsultation={setSelectedConsultationId}
           patientId={patient.id}
           notes={notes}

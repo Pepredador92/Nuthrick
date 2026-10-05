@@ -14,7 +14,7 @@ vi.mock('@/src/components/patients/PatientEvolutionTable',()=>({PatientEvolution
 vi.mock('@/src/components/patients/EvolutionExportDialog',()=>({EvolutionExportDialog:vi.fn(()=>null)}));
 vi.mock('@/src/services/profile',()=>({loadProfessionalDocumentProfile:vi.fn()}));
 vi.mock('@/src/services/media',()=>({getSignedMediaUrl:vi.fn(),getSignedPatientPhotoUrl:vi.fn(),uploadPatientProgressPhoto:vi.fn()}));
-vi.mock('@/src/components/consultations/SnapshotHistory',()=>({SnapshotHistory:()=>null}));
+vi.mock('@/src/components/consultations/SnapshotHistory',()=>({SnapshotHistory:()=> <p>Cuestionario conservado de solo lectura</p>}));
 vi.mock('@/src/services/consultations',()=>({deleteConsultationRecord:vi.fn(),renameConsultation:vi.fn(),getSnapshot:vi.fn(),listAnswers:vi.fn()}));
 vi.mock('@/src/services/patients',()=>({
  getPatient:async()=>({id:'patient',full_name:'Paciente de prueba',status:'active',birth_date:null,email:null,phone:null,gender:null,timezone:'America/Mexico_City'}),
@@ -104,7 +104,7 @@ describe('consultation status and history navigation',()=>{
  it('opens history from the Superlink URL and keeps other parameters when closed',async()=>{
   render(<MemoryRouter initialEntries={['/app/patients/patient?view=history&from=portal']}><CurrentLocation/><Routes><Route path="/app/patients/:patientId" element={<PatientDetailPage/>}/></Routes></MemoryRouter>);
   const history=within(await screen.findByRole('dialog',{name:'Historial del paciente'}));
-  expect(history.getByRole('button',{name:'Editar'})).toBeVisible();
+  expect(history.getByRole('button',{name:'Reabrir y editar'})).toBeVisible();
   expect(history.getByRole('link',{name:'Configurar gráficas en Superlink'})).toHaveAttribute('href','/app/patients/patient/portal');
   fireEvent.click(history.getByRole('button',{name:'Cerrar historial'}));
   expect(screen.queryByRole('dialog',{name:'Historial del paciente'})).not.toBeInTheDocument();
@@ -116,7 +116,7 @@ describe('consultation status and history navigation',()=>{
   vi.mocked(listConsultations).mockResolvedValueOnce(['draft','completed','cancelled'].map((status,index)=>({id:status,patient_id:'patient',professional_id:'owner',consultation_date:'2026-09-15T12:00:00Z',consultation_type:'follow_up',sequence_number:index+1,status,summary:null})) as never);
   render(<MemoryRouter initialEntries={['/app/patients/patient?view=history']}><Routes><Route path="/app/patients/:patientId" element={<PatientDetailPage/>}/><Route path="/app/patients/:patientId/consultations/:id" element={<p>Editor de consulta</p>}/></Routes></MemoryRouter>);
   const history=within(await screen.findByRole('dialog',{name:'Historial del paciente'}));
-  const overview=()=>within(history.getByRole('button',{name:/^(Editar|Reabrir consulta)$/}).closest('article')!);
+  const overview=()=>within(history.getByRole('button',{name:/^(Editar|Reabrir y editar)$/}).closest('article')!);
   expect(overview().getByText('Pendiente de cerrar')).toHaveClass('bg-amber-50');
   expect(overview().getByText(/entra en Editar y usa Revisar cierre de consulta/)).toBeVisible();
   expect(history.getByRole('option',{name:/Pendiente de cerrar/})).toBeInTheDocument();
@@ -127,10 +127,24 @@ describe('consultation status and history navigation',()=>{
   expect(overview().getByText(/selecciona los resultados en Superlink y pulsa Publicar/)).toBeVisible();
   fireEvent.change(history.getByLabelText('Seleccionar consulta'),{target:{value:'cancelled'}});
   expect(overview().getByText('Consulta cancelada')).toHaveClass('bg-slate-100');
-  expect(history.getByRole('button',{name:'Reabrir consulta'})).toBeVisible();
+  expect(history.getByRole('button',{name:'Reabrir y editar'})).toBeVisible();
   expect(overview().queryByText('Pendiente de cerrar')).not.toBeInTheDocument();
   fireEvent.change(history.getByLabelText('Seleccionar consulta'),{target:{value:'draft'}});
   fireEvent.click(history.getByRole('button',{name:'Editar'}));
   expect(await screen.findByText('Editor de consulta')).toBeVisible();
+ });
+ it('opens a completed consultation from recent visits in read-only mode without entering the editor',async()=>{
+  render(<MemoryRouter initialEntries={['/app/patients/patient']}><CurrentLocation/><Routes><Route path="/app/patients/:patientId" element={<PatientDetailPage/>}/><Route path="/app/patients/:patientId/consultations/:id" element={<p>Editor de consulta</p>}/></Routes></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button',{name:/Consulta de inicio.*Ver/}));
+  const history=within(await screen.findByRole('dialog',{name:'Historial del paciente'}));
+  expect(history.getByRole('region',{name:'Consulta en lectura'})).toHaveTextContent('Consulta cerrada');
+  expect(history.getByText('Cuestionario conservado de solo lectura')).toBeVisible();
+  expect(screen.queryByText('Editor de consulta')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Ruta actual')).toHaveTextContent('/app/patients/patient?view=history');
+  fireEvent.click(history.getByRole('button',{name:'Volver al resumen'}));
+  expect(history.getByRole('button',{name:'Ver consulta'})).toBeVisible();
+  fireEvent.click(history.getByRole('button',{name:'Ver consulta'}));
+  expect(history.getByRole('region',{name:'Consulta en lectura'})).toBeVisible();
+  expect(screen.queryByText('Editor de consulta')).not.toBeInTheDocument();
  });
 });
