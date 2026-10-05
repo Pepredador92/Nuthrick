@@ -1,5 +1,26 @@
 # IA-1 — Núcleo central y créditos de Nuthrick
 
+## Configuración productiva — 4 de octubre de 2026
+
+Las cinco funciones activas (`recall_24h`, `pes_diagnosis`, `diet_draft`,
+`consultation_support` y `patient_instructions`) usan `gpt-5.6-luna`, por decisión
+del operador. La migración `20261005002151_use_luna_for_active_ai_features.sql`
+actualiza el modelo y sus tarifas en la configuración central del servidor.
+Cada solicitud nueva lee esa configuración; no requiere desplegar otra versión
+de la función Edge ni cambiar el frontend.
+
+Tarifas estándar verificadas en la [documentación oficial de Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna):
+USD 0.20 por millón de tokens de entrada, 0.02 de entrada en caché y 1.20 de salida.
+Con la conversión vigente de 100 créditos/USD y multiplicador 1, dietas reserva
+como máximo 2.4 créditos (24,000 tokens de entrada y 16,000 de salida); PES reserva
+0.656 créditos. El cargo final se calcula con el uso real del proveedor.
+
+Se mantienen prompts, contratos JSON, revisión profesional y controles de saldo.
+Las generaciones anteriores conservan su modelo y sus tarifas en `config_snapshot`.
+Las pruebas y calibraciones históricas con Terra siguen documentando el modelo
+real utilizado entonces. El cambio de configuración no constituye una nueva
+calibración clínica de Luna para PES o dietas.
+
 ## Alcance
 
 Infraestructura reusable; no PES, R24h, dietas, resúmenes ni agentes clínicos. `core_check@1` es una prueba técnica con contexto fijo y sintético. Todas las funciones se crean **deshabilitadas**, sin modelo/tarifa por defecto y sin asignar créditos a profesionales. No hay checkout ni panel administrador.
