@@ -2,9 +2,16 @@ import {projectPortalPlan,type PortalPlan} from './portal-plan.ts';
 import {drawPrivateFooters,type ProfessionalDocumentInfo} from './document-letterhead.ts';
 import {jsPDF} from 'jspdf';
 import {DocumentLayout,type DocumentField} from './document-layout.ts';
+export type PlanDocumentContext = {
+ birthDate?:string;sex?:string;recordReference?:string;
+ consultationLabel?:string;consultationDate?:string;
+ pes?:string;objective?:string;instructions?:string;sharedAt?:string;
+};
 
 export type PublishedNutritionPlanDocumentModel = {
   templateVersion:'clinical-letterhead-v1'; patientName:string; professional:ProfessionalDocumentInfo; plan:PortalPlan;
+  context?:PlanDocumentContext;
+  nutrition?: {energy?:number;carbohydrate?:number;protein?:number;fat?:number};
 };
 const safeText=(v:unknown,max=12000):string=>{
   if(typeof v!=='string'||v.length>max) throw new Error('invalid_plan');
@@ -13,12 +20,18 @@ const safeText=(v:unknown,max=12000):string=>{
 };
 const obj=(v:unknown):Record<string,unknown>=>{if(!v||typeof v!=='object'||Array.isArray(v))throw new Error('invalid_plan');return v as Record<string,unknown>;};
 /** One patient-safe document model. Neither renderer reads editable plans. */
-export function buildPlanDocument(raw:unknown,profile:unknown):PublishedNutritionPlanDocumentModel {
+export function buildPlanDocument(raw:unknown,profile:unknown,context:PlanDocumentContext={}):PublishedNutritionPlanDocumentModel {
  const source=obj(raw),snapshot=obj(source.snapshot),identity=obj(snapshot.professional),p=obj(profile);
  const plan=projectPortalPlan(raw);
  if(!plan||!Number.isInteger(plan.versionNumber)||!Number.isFinite(Date.parse(plan.publishedAt)))throw new Error('invalid_plan');
  const optional=(v:unknown)=>v==null?null:safeText(v,1000);
- return {templateVersion:'clinical-letterhead-v1',patientName:safeText(obj(snapshot.patient).full_name,200),plan,
+ const prescription=obj(snapshot.prescription),distribution=prescription.macro_distribution as Record<string,unknown>|null;
+ const macros=distribution?.macros as Record<string,{grams?:unknown}>|undefined;
+ const nutrient=(value:unknown)=>typeof value==='number'&&Number.isFinite(value)&&value>=0?value:undefined;
+ const patient=obj(snapshot.patient),consultation=snapshot.consultation?obj(snapshot.consultation):{};
+ const identityContext:PlanDocumentContext={recordReference:optional(patient.id)??undefined,consultationDate:optional(consultation.date)??undefined,...context};
+ return {templateVersion:'clinical-letterhead-v1',patientName:safeText(patient.full_name,200),plan,context:identityContext,
+  nutrition:{energy:nutrient(prescription.target_calories),carbohydrate:nutrient(macros?.CARBOHYDRATE?.grams),protein:nutrient(macros?.PROTEIN?.grams),fat:nutrient(macros?.FAT?.grams)},
   professional:{fullName:safeText(identity.full_name,200),professionalTitle:optional(identity.professional_title),licenseNumber:optional(p.licenseNumber),businessName:optional(p.businessName),businessAddress:optional(p.businessAddress),contactLines:Array.isArray(p.contactLines)?p.contactLines.map(v=>safeText(v,1000)):[]}};
 }
 export const planFileName=(model:PublishedNutritionPlanDocumentModel,format:'pdf'|'tex')=>{
@@ -27,6 +40,7 @@ export const planFileName=(model:PublishedNutritionPlanDocumentModel,format:'pdf
 };
 export const planDate=(value:string)=>new Date(value).toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric',timeZone:'America/Mexico_City'});
 const amount=(value:number)=>new Intl.NumberFormat('es-MX',{maximumFractionDigits:3}).format(value);
+const macroAmount=(value:number)=>new Intl.NumberFormat('es-MX',{maximumFractionDigits:1}).format(value);
 export type PlanDocumentBlock={kind:'day'|'meal'|'title'|'text'|'label'|'supplement-heading'|'supplement-title'|'supplement-text';text:string};
 /** Shared clinical ordering and wording for PDF and TEX. */
 export function planDocumentBlocks(model:PublishedNutritionPlanDocumentModel):PlanDocumentBlock[] {
@@ -54,26 +68,56 @@ export function planDocumentBlocks(model:PublishedNutritionPlanDocumentModel):Pl
  }
  return blocks;
 }
+/** Date-only birth dates must never move to the previous day in Mexico. */
+export function birthDateDetails(birthDate:string|undefined,reference:string):string|undefined {
+ if(!birthDate||!/^\d{4}-\d{2}-\d{2}$/.test(birthDate))return;
+ const birth=new Date(`${birthDate}T12:00:00Z`);
+ if(!Number.isFinite(birth.valueOf())||birth.toISOString().slice(0,10)!==birthDate)return;
+ const ref=new Date(reference.length===10?`${reference}T12:00:00Z`:reference);
+ if(!Number.isFinite(ref.valueOf()))return;
+ const parts=new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'America/Mexico_City'}).formatToParts(ref);
+ const part=(name:string)=>Number(parts.find(p=>p.type===name)?.value);
+ const [year,month,day]=birthDate.split('-').map(Number);
+ const age=part('year')-year-(part('month')<month||(part('month')===month&&part('day')<day)?1:0);
+ if(age<0||age>130)return;
+ return `${birth.toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'})} · ${age} años`;
+}
+export function planIdentityFields(model:PublishedNutritionPlanDocumentModel):DocumentField[] {
+ const c=model.context??{},birth=birthDateDetails(c.birthDate,c.consultationDate??model.plan.publishedAt);
+ return [
+  ...(birth?[{label:c.consultationDate?'Nacimiento · edad en la consulta':'Nacimiento · edad al publicar',value:birth}]:[]),
+  ...(c.sex?[{label:'Sexo registrado',value:c.sex}]:[]),
+  ...(c.recordReference?[{label:'Referencia de expediente Nuthrick',value:c.recordReference}]:[]),
+  {label:'Consulta de origen',value:[c.consultationLabel,c.consultationDate?planDate(c.consultationDate):null].filter(Boolean).join(' · ')||'Sin consulta asociada'},
+  {label:'Plan de alimentación',value:model.plan.title},
+  {label:'Versión y publicación',value:`Versión ${model.plan.versionNumber} · ${planDate(model.plan.publishedAt)}`},
+ ];
+}
+export function planClinicalFields(model:PublishedNutritionPlanDocumentModel):DocumentField[] {
+ const c=model.context??{};
+ return [
+  ...(c.pes?[{label:'Diagnóstico nutricional PES · aprobado',value:c.pes}]:[]),
+  ...(c.objective?[{label:'Objetivo acordado',value:c.objective}]:[]),
+  ...(c.instructions?[{label:'Indicaciones para ti',value:c.instructions}]:[]),
+  ...(c.sharedAt?[{label:'Objetivo e indicaciones compartidos',value:planDate(c.sharedAt)}]:[]),
+ ];
+}
 export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:string|null=null):Uint8Array {
- const pdf=new jsPDF({unit:'mm',format:'a4'}),layout=new DocumentLayout(pdf,model.professional,logo);
- layout.section('Tu plan de alimentación','Porciones, preparación y alternativas, paso a paso.');
- layout.card(model.patientName,[{label:'Plan',value:model.plan.title},{label:'Publicación',value:`Versión ${model.plan.versionNumber} · ${planDate(model.plan.publishedAt)}`}],{tone:'blue',columns:2});
- layout.contacts();
- if(model.plan.supplements?.length){
-  layout.section('Tu suplementación','Cantidades diarias indicadas por tu nutriólogo.');
-  for(const item of model.plan.supplements){
-   const fields:DocumentField[]=[{label:'Porción diaria',value:item.quantity}];
-   const brand=[item.brand,item.presentation].filter(Boolean).join(' · ');
-   if(brand)fields.push({label:'Producto',value:brand});
-   if(item.instructions)fields.push({label:'Cómo tomarlo',value:item.instructions});
-   layout.card(item.name,fields,{tone:'mint',eyebrow:'SUPLEMENTO'});
-  }
+ const pdf=new jsPDF({unit:'mm',format:'a4'}),layout=new DocumentLayout(pdf,model.professional,logo,{contacts:true,continuation:`${model.patientName} · Plan de alimentación · Versión ${model.plan.versionNumber}`});
+ layout.section('Plan de alimentación','Documento nutricional personalizado');
+ layout.card(model.patientName,planIdentityFields(model),{tone:'blue',columns:2,eyebrow:'IDENTIFICACIÓN DEL PACIENTE Y DEL DOCUMENTO'});
+ const clinical=planClinicalFields(model);
+ if(clinical.length)layout.card('Objetivo y cuidados acordados',clinical,{tone:'violet',eyebrow:'GUÍA DE TU ATENCIÓN',flow:true});
+ const n=model.nutrition;
+ if(n?.energy&&n.energy>0){
+  const macros=[['Carbohidratos',n.carbohydrate],['Proteínas',n.protein],['Grasas',n.fat]].filter(([,value])=>value!==undefined).map(([label,value])=>`${label}: ${macroAmount(value as number)} g`).join(' · ');
+  layout.card('Prescripción diaria',[{label:'Energía total',value:`${amount(n.energy)} kcal / día`},...(macros?[{label:'Macronutrientes totales · alimentos y suplementos',value:macros}]:[])],{columns:2});
  }
  for(const day of model.plan.days){
   layout.section(day.name);
   if(day.text!==undefined){
    // Preserve the reviewed text exactly. Paragraphs make even free-text diets readable.
-   layout.card('Indicaciones del día',day.text.split(/\n\s*\n/).map(value=>({value})),{eyebrow:day.name});
+   layout.card('Indicaciones del día',day.text.split(/\n\s*\n/).map(value=>({value})),{eyebrow:day.name,flow:true});
    continue;
   }
   for(const meal of day.meals){
@@ -82,6 +126,16 @@ export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:str
    const alternatives=meal.ingredients.filter(i=>i.alternatives.length);
    if(alternatives.length)fields.push({label:'Puedes sustituir',value:'Elige una alternativa; no la agregues a la porción.\n'+alternatives.map(i=>`${i.name}: ${i.alternatives.map(a=>`${amount(a.amount)} ${a.unit} de ${a.name}`).join(' o ')}.`).join('\n')});
    layout.card(meal.title,fields,{eyebrow:[day.name,meal.name,meal.time].filter(Boolean).join(' · ')});
+  }
+ }
+ if(model.plan.supplements?.length){
+  layout.section('Tu suplementación','Cantidades e indicaciones registradas por tu nutriólogo.');
+  for(const item of model.plan.supplements){
+   const fields:DocumentField[]=[{label:'Porción diaria',value:item.quantity}];
+   const brand=[item.brand,item.presentation].filter(Boolean).join(' · ');
+   if(brand)fields.push({label:'Producto',value:brand});
+   if(item.instructions)fields.push({label:'Cómo tomarlo',value:item.instructions});
+   layout.card(item.name,fields,{tone:'mint',eyebrow:'SUPLEMENTO',flow:true});
   }
  }
  layout.flushSection();drawPrivateFooters(pdf);return new Uint8Array(pdf.output('arraybuffer'));
@@ -97,10 +151,6 @@ export function renderPlanTex(model:PublishedNutritionPlanDocumentModel,logo:str
  const card=(title:string,body:string,mint=false)=>`\\begin{nuthcard}{${e(title)}}{${mint?'nuthmint':'white'}}\n${body}\n\\end{nuthcard}`;
  const field=(label:string,value:string)=>`{\\small\\bfseries\\color{nuthmuted} ${e(label)}}\\par\\nopagebreak[3]\n${e(value)}\\par\\medskip`;
  const blocks:string[]=[];
- if(model.plan.supplements?.length){
-  blocks.push('\\section*{Tu suplementación}', 'Cantidades diarias indicadas por tu nutriólogo.');
-  for(const item of model.plan.supplements)blocks.push(card(item.name,[field('Porción diaria',item.quantity),[item.brand,item.presentation].filter(Boolean).length?field('Producto',[item.brand,item.presentation].filter(Boolean).join(' · ')):'',item.instructions?field('Cómo tomarlo',item.instructions):''].join('\n'),true));
- }
  for(const day of model.plan.days){
   blocks.push(`\\section*{${e(day.name)}}`);
   if(day.text!==undefined){blocks.push(card('Indicaciones del día',e(day.text)));continue;}
@@ -109,6 +159,10 @@ export function renderPlanTex(model:PublishedNutritionPlanDocumentModel,logo:str
    const content=[`{\\small\\color{nuthteal} ${e([meal.name,meal.time].filter(Boolean).join(' · '))}}\\par\\medskip`,field('Ingredientes y porciones',meal.ingredients.map(i=>`${amount(i.amount)} ${i.unit} - ${i.name}`).join('\n')),meal.instructions.length?field('Preparación',meal.instructions.join('\n\n')):'',alternatives.length?field('Puedes sustituir','Elige una alternativa; no la agregues a la porción.\n'+alternatives.map(i=>`${i.name}: ${i.alternatives.map(a=>`${amount(a.amount)} ${a.unit} de ${a.name}`).join(' o ')}.`).join('\n')):''];
    blocks.push(card(meal.title,content.join('\n')));
   }
+ }
+ if(model.plan.supplements?.length){
+  blocks.push('\\section*{Tu suplementación}', 'Cantidades diarias indicadas por tu nutriólogo.');
+  for(const item of model.plan.supplements)blocks.push(card(item.name,[field('Porción diaria',item.quantity),[item.brand,item.presentation].filter(Boolean).length?field('Producto',[item.brand,item.presentation].filter(Boolean).join(' · ')):'',item.instructions?field('Cómo tomarlo',item.instructions):''].join('\n'),true));
  }
  // Embed the optional verified raster image as hexadecimal, never TeX commands
  // or external URLs. LuaLaTeX uses a unique temporary file and removes it after
@@ -142,14 +196,15 @@ export function renderPlanTex(model:PublishedNutritionPlanDocumentModel,logo:str
 ${logoTex}
 {\\large\\bfseries ${e(brand)}}\\par
 ${[p.businessName?p.fullName:null,p.professionalTitle,p.licenseNumber?`Cédula profesional ${p.licenseNumber}`:null].filter(Boolean).map(x=>e(x!)).join(' · ')}\\par\\bigskip
+${contact?`{\\small ${contact}}\\par\\bigskip`:''}
 {\\LARGE\\bfseries Tu plan de alimentación}\\par
-Porciones, preparación y alternativas, paso a paso.\\par
+Documento nutricional personalizado\\par
 \\begin{nuthcard}{${e(model.patientName)}}{nuthblue}
-\\textbf{${e(model.plan.title)}}\\par
-Versión ${model.plan.versionNumber} · Publicado: ${e(planDate(model.plan.publishedAt))}
+${planIdentityFields(model).map(f=>field(f.label!,f.value)).join('\n')}
 \\end{nuthcard}
+${planClinicalFields(model).length?card('Objetivo y cuidados acordados',planClinicalFields(model).map(f=>field(f.label!,f.value)).join('\n')):''}
+${model.nutrition?.energy?card('Prescripción diaria',field('Energía total',`${amount(model.nutrition.energy)} kcal / día`)+field('Macronutrientes totales · alimentos y suplementos',[['Carbohidratos',model.nutrition.carbohydrate],['Proteínas',model.nutrition.protein],['Grasas',model.nutrition.fat]].filter(([,v])=>v!==undefined).map(([k,v])=>`${k}: ${macroAmount(v as number)} g`).join(' · '))):''}
 ${blocks.join('\n')}
-${contact?`\\begin{nuthcard}{Tu profesional}{nuthblue}\n${contact}\n\\end{nuthcard}`:''}
 \\label{LastPage}\\end{document}
 `;
 }

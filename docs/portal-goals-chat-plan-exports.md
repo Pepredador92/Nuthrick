@@ -40,6 +40,16 @@
 
 ## Revisión visual y operativa
 
+### Estructura del plan nutricional · 5 de octubre de 2026
+
+El PDF y el TEX ordenan la información como documento nutricional: membrete compacto con logotipo, profesional, cédula, domicilio y contacto; identificación del paciente y referencia interna de expediente; fecha y tipo de consulta; título y versión del plan; guía clínica disponible; prescripción diaria; menú; suplementación en verde. Las páginas siguientes repiten paciente y versión para identificar hojas separadas.
+
+`plan-document-context.ts` complementa la versión ya autorizada por `patient_portal`. Las lecturas se acotan por profesional, paciente y consulta tomados del snapshot de publicación. La fecha de nacimiento y el sexo para ecuaciones proceden de la ficha vigente; la edad se calcula a la fecha de consulta y las fechas de nacimiento se tratan como fechas de calendario. La referencia de expediente es el UUID interno completo, sin inventar documentos de identidad o números de seguridad social.
+
+El PES y el objetivo clínico se incluyen solo con aprobación registrada antes de publicar la versión, en la revisión correspondiente. Las respuestas modificadas después quedan fuera. Las primeras acciones requieren consulta cerrada a esa fecha. Para la versión actualmente compartida, el objetivo y las indicaciones publicados en Super Link pueden complementar el documento únicamente si la versión y la consulta de origen coinciden; se muestra su propia fecha de publicación. No se copian notas privadas, incertidumbres, evidencia de IA ni respuestas completas del expediente. Los datos ausentes se omiten. El menú, porciones y suplementos siguen procediendo de la versión inmutable.
+
+Este ajuste no escribe datos clínicos ni requiere migración. Sí requiere desplegar `agenda`, además del commit/push del código. Se verifican pertenencia, fechas, revisiones y publicación compartida con pruebas focales, y se revisa visualmente el PDF real de Diana v3 en archivos locales excluidos del commit.
+
 La habilidad PDF se utilizó para renderizar e inspeccionar primera página, páginas intermedias, planes de tres y seis tiempos, instrucciones y sustituciones largas, acentos y membrete real. La habilidad Supabase guio la revisión de permisos, funciones y pruebas de aislamiento.
 
 El logotipo de producción original excedía el presupuesto de CPU al reprocesarlo. Ahora los PNG se acotan a 384 px para el membrete de 28 mm, conservando transparencia y dejando intacto el original privado. La exportación de prueba quedó en aproximadamente 550 KB. Imágenes malformadas o fuera del límite se omiten, sin ocultar identidad ni contenido clínico.

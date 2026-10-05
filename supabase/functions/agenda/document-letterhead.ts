@@ -12,7 +12,7 @@ export function drawDocumentCanvas(pdf: jsPDF) {
  pdf.setFillColor(231,228,244);pdf.rect(61,5,width-67,2,'F');
 }
 /** Compact identity. Contacts have a dedicated card, leaving the reader room for content. */
-export function drawProfessionalHeader(pdf:jsPDF,professional:ProfessionalDocumentInfo,logo:string|null,compact=false,compression:'FAST'|'NONE'='FAST'):number {
+export function drawProfessionalHeader(pdf:jsPDF,professional:ProfessionalDocumentInfo,logo:string|null,compact=false,compression:'FAST'|'NONE'='FAST',includeContacts=false):number {
  drawDocumentCanvas(pdf);
  const width=pdf.internal.pageSize.getWidth(),margin=16;
  const brand=professional.businessName?.trim()||professional.fullName.trim()||'Nuthrick';
@@ -34,6 +34,10 @@ export function drawProfessionalHeader(pdf:jsPDF,professional:ProfessionalDocume
   pdf.addImage(logo,properties.fileType,width-margin-23,12,properties.width*scale,properties.height*scale,undefined,compression);
   y=Math.max(y,31);
  }catch{/* Optional branding never hides clinical content. */}}
+ if(includeContacts&&!compact){
+  const contacts=[professional.businessAddress,...(professional.contactLines??[])].filter((v):v is string=>Boolean(v?.trim())).join(' · ');
+  if(contacts){pdf.setFont('helvetica','normal');pdf.setFontSize(8);pdf.setTextColor(98,118,129);const lines=pdf.splitTextToSize(contacts,width-32) as string[];pdf.text(lines,margin,y+3,{lineHeightFactor:1.3});y+=lines.length*3.8+4;}
+ }
  pdf.setDrawColor(218,230,232);pdf.setLineWidth(.2);pdf.line(margin,y+2,width-margin,y+2);
  return y+10;
 }

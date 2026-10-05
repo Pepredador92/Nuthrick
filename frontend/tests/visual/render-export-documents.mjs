@@ -17,7 +17,9 @@ try {
  const professional = { fullName: 'Andrea Ríos', professionalTitle: 'Licenciada en Nutrición', licenseNumber: '0000000 (demostración)', businessName: 'Consulta de nutrición · Demostración', businessAddress: 'Consultorio de demostración · Ciudad de México', contactLines: ['Contacto: consulta@example.invalid', 'Estos datos son ficticios y solo muestran el diseño.'] };
  const patient = { full_name: 'Valeria Torres · Demostración', birth_date: '1992-06-10', email: 'valeria@example.invalid', phone: '5550000000', country_code: '+52' };
  const ingredient = (name, amount, unit, alternatives=[]) => ({ name, amount, unit, alternatives });
- const model = { templateVersion: 'clinical-letterhead-v1', patientName: patient.full_name, professional, plan: {
+ const model = { templateVersion: 'clinical-letterhead-v1', patientName: patient.full_name, professional,
+  context: {birthDate:patient.birth_date,sex:'Femenino',recordReference:'EXP-DEMO-001',consultationDate:'2026-10-05T18:00:00Z',consultationLabel:'Consulta de seguimiento · 2',objective:'Llevar una colación preparada durante tres días de trabajo por semana hasta la próxima consulta.',instructions:'Deja tu colación preparada desde la noche anterior. Llévala contigo los días de trabajo y anota cuáles opciones te resultaron más fáciles.'},
+  nutrition:{energy:2000,carbohydrate:250,protein:100,fat:66.7},plan: {
   title: 'Mi semana de alimentación', versionNumber: 2, publishedAt: '2026-10-05T18:00:00Z',
   supplements: [{name:'Proteína de ejemplo',brand:'Marca de demostración',presentation:'Vainilla',quantity:'1 porción · 30 g (1 medida)',instructions:'Con tu desayuno. Porción ficticia para revisar el formato.'}],
   days: [{name:'Lunes',meals:[

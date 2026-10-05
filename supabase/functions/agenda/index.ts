@@ -30,7 +30,8 @@ const key = () => env('AGENDA_ENCRYPTION_KEY');
 const base64Bytes=(bytes:Uint8Array)=>{let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(text);};
 async function planDocument(plan:unknown,professional:unknown,format:'pdf'|'tex'):Promise<Json> {
   const {buildPlanDocument,renderPlanPdf,renderPlanTex,planFileName}=await import('./plan-document.ts');
-  const model=buildPlanDocument(plan,professional);
+  const {loadPlanDocumentContext}=await import('./plan-document-context.ts');
+  const model=buildPlanDocument(plan,professional,await loadPlanDocumentContext(plan,db));
   let logo:string|null=null;
   const path=(professional as Json).logoPath;
   // Only an owner-bound storage path from the authorized SQL lookup, never a URL from the request.

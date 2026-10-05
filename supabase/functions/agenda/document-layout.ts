@@ -5,7 +5,7 @@ export const documentColors = { ink: "#203d48", muted: "#627681", teal: "#147e86
 export const documentRgb = (hex: string): [number, number, number] => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
 export const documentText = (value: string) => value.replace(/[−–—]/g, "-").replace(/→/g, ">").replace(/×/g, "x").replace(/≤/g, "<=").replace(/≥/g, ">=");
 export type DocumentField = { label?: string; value: string };
-type CardOptions = { eyebrow?: string; tone?: "mint" | "violet" | "blue"; columns?: 1 | 2 };
+type CardOptions = { eyebrow?: string; tone?: "mint" | "violet" | "blue"; columns?: 1 | 2; flow?: boolean };
 
 /** Measured cards split at row/line boundaries; every answer remains in the PDF. */
 export class DocumentLayout {
@@ -14,15 +14,16 @@ export class DocumentLayout {
   readonly x = 16;
   readonly width: number;
   readonly bottom: number;
-  constructor(readonly pdf: jsPDF, readonly professional: ProfessionalDocumentInfo, readonly logo: string | null = null) {
+  constructor(readonly pdf: jsPDF, readonly professional: ProfessionalDocumentInfo, readonly logo: string | null = null, readonly headerDetails: {contacts?: boolean; continuation?: string} = {}) {
     this.width = pdf.internal.pageSize.getWidth() - 32;
     this.bottom = pdf.internal.pageSize.getHeight() - 21;
-    this.y = drawProfessionalHeader(pdf, professional, logo);
+    this.y = drawProfessionalHeader(pdf, professional, logo, false, 'FAST', headerDetails.contacts);
   }
   newPage() {
     if (this.pdf.getNumberOfPages() >= 120) throw new Error("document_too_large");
     this.pdf.addPage();
     this.y = drawProfessionalHeader(this.pdf, this.professional, this.logo, true);
+    if(this.headerDetails.continuation){const lines=this.lines(this.headerDetails.continuation,this.width,8);this.text(lines,this.x,this.y,8,false,documentColors.muted);this.y+=lines.length*4+5;}
   }
   ensure(height: number) { if (this.y + height > this.bottom) this.newPage(); }
   lines(value: string, width: number, size = 10, bold = false) {
@@ -67,13 +68,13 @@ export class DocumentLayout {
     if (!rows.length) rows.push([{ label: [], body: [] }]);
     const attachedToHeading = Boolean(this.pendingSection);
     const totalHeight = rows.reduce((sum, row) => sum + Math.max(...row.map(cell => cell.label.length * 4 + cell.body.length * 4.95)) + rowGap, 0) + headerHeight + padding;
-    this.flushSection(totalHeight);
+    this.flushSection(options.flow ? Math.min(totalHeight, 70) : totalHeight);
     let rowIndex = 0, continuation = false;
     while (rowIndex < rows.length) {
       // Move a normal card as a whole when it fits a fresh page.
       const remainingHeight = rows.slice(rowIndex).reduce((sum, row) => sum + Math.max(...row.map(cell => cell.label.length * 4 + cell.body.length * 4.95)) + rowGap, 0) + headerHeight + padding;
       const newPageCapacity = this.bottom - 30;
-      if ((!attachedToHeading || continuation) && remainingHeight <= newPageCapacity && this.y + remainingHeight > this.bottom) this.newPage();
+      if (!options.flow && (!attachedToHeading || continuation) && remainingHeight <= newPageCapacity && this.y + remainingHeight > this.bottom) this.newPage();
       this.ensure(headerHeight + 22);
       const available = this.bottom - this.y - headerHeight - padding;
       const chunks: typeof rows = [];
