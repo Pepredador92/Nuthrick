@@ -455,9 +455,9 @@ function EntitlementInputs({
   onChange: (key: string, value: EntitlementValue) => void;
 }) {
   return (
-    <>
+    <div className="admin-capability-grid">
       {groups.map((group) => (
-        <section key={group}>
+        <section className="admin-capability-card" key={group}>
           <h3 className="admin-section-title">{group}</h3>
           {catalog
             .filter((e) => e.category === group)
@@ -508,7 +508,7 @@ function EntitlementInputs({
             )}
         </section>
       ))}
-    </>
+    </div>
   );
 }
 function PlanEditor({

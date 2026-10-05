@@ -151,7 +151,11 @@ export const supabase = {
   rpc: async (name: string, args?: { p_action: string }) => ({
     error: null,
     data:
-      name === "plan_catalog"
+      name === "admin_site_analytics"
+        ? { total: 124, days: 30, pageviews: 124, visitors: 87, daily: [{ day: "2026-10-05", pageviews: 18, visitors: 12 }] }
+        : name === "admin_commercial_costs"
+          ? { checked_at: "2026-10-05", features: [{ feature: "ai.pes", usd_per_credit: 0.01, pricing_version: "demo" }] }
+        : name === "plan_catalog"
         ? catalog.plans.filter((plan) => !plan.internal_only)
         : name === "my_access"
           ? { is_admin: true, access: p.access }

@@ -71,11 +71,13 @@ export function AdminLayout() {
         </div>
       </aside>
       <main className="admin-main">
-        <div className="admin-topline">
-          <span>CONTROL DE NUTHRICK</span>
-          <span className="admin-topline-actions"><span><span className="admin-dot" /> Administración privada</span><ThemeSwitcher compact /></span>
+        <div className="admin-workspace">
+          <div className="admin-topline">
+            <span>CONTROL DE NUTHRICK</span>
+            <span className="admin-topline-actions"><span><span className="admin-dot" /> Administración privada</span><ThemeSwitcher compact /></span>
+          </div>
+          <Outlet />
         </div>
-        <Outlet />
       </main>
     </div></SupportProvider>
   );
