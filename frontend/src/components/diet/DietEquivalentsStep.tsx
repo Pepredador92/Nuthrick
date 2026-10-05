@@ -261,7 +261,6 @@ function EquivalentEditor({ headerActions, plan, targets, onSave, onDraftChange,
             {explorer.canUndo && <button type="button" className="equivalents-undo" onClick={() => explorer.undo(previous => update(reconcileExchangePrescription(previous, targets), true, true))}><RotateCcw size={13} />Deshacer aplicación</button>}
             {preparation.loading && <p className="equivalents-note">La propuesta automática se prepara por separado; puedes confirmar tus porciones actuales.</p>}
             <PreferencesPanel preferences={preferences} onChange={setPreference} />
-            {headerActions && <div className="equivalents-ai">{headerActions}</div>}
           </div>
         </section>
       </div>
@@ -274,6 +273,7 @@ function EquivalentEditor({ headerActions, plan, targets, onSave, onDraftChange,
         {saveState === "saving" ? <LoaderCircle size={14} className="animate-spin" /> : saveState === "error" ? <CircleAlert size={14} /> : <Check size={14} />}
         <span>{proposal ? "Vista previa · sin aplicar" : saveState === "saving" ? "Guardando cuadro…" : saveState === "dirty" ? "Cambios pendientes" : saveState === "error" ? "No se pudo guardar" : saveState === "saved" ? "Guardado" : "Guardado automático"}</span>
       </div>
+      {headerActions && <div className="equivalents-ai">{headerActions}</div>}
       {proposal ? <>
         <button type="button" aria-label="Conservar mis porciones" className="energy-save-exit" onClick={explorer.discard}>Descartar</button>
         <button type="button" aria-label="Aplicar propuesta" className="energy-continue" onClick={applyProposal}>Aplicar propuesta <Check size={16} /></button>

@@ -10,6 +10,8 @@ import {copilotMessage,factText,numberText} from './dietCopilotPresentation';
 import {dietClinicalLabel,dietClinicalValue} from './dietClinicalLabels';
 import {dietFactDate,dietRestrictionsSuggestion} from './textDietFormContext';
 
+import './TextDietAI.css';
+
 const pages=['Contexto','Dietas y horarios','Preferencias','Confirmar'];
 const critical=new Set(['draft_required','consultation_required','context_mismatch','energy_required','macros_required','prescription_inconsistent','feature_disabled','insufficient_credits']);
 export function TextDietAI({plan,before,onApplied,transport=textDietTransport}:{plan:NutritionPlan;before:()=>Promise<NutritionPlan>;onApplied:(plan:NutritionPlan)=>void;transport?:TextDietTransport}) {
@@ -53,13 +55,13 @@ export function TextDietAI({plan,before,onApplied,transport=textDietTransport}:{
   const close=()=>{setOpen(false);opener.current?.focus();},c=context?.context;
   return <>
     <button ref={opener} type="button" data-diet-ai-entry className="nuth-button !px-4 !py-2" disabled={!available} onClick={()=>void show()}><Sparkles size={16}/>Generar con IA</button>
-    {open&&<dialog ref={dialog} open={typeof HTMLDialogElement==='undefined'||!HTMLDialogElement.prototype.showModal} aria-labelledby={`${id}-title`} onCancel={e=>{e.preventDefault();if(!busy)close();}} className="m-auto max-h-[92dvh] w-[min(800px,calc(100vw-24px))] overflow-auto rounded-2xl border border-[#d4e2d8] bg-white p-4 text-[#173d36] shadow-xl backdrop:bg-[#173d36]/40 sm:p-6">
+    {open&&<dialog ref={dialog} open={typeof HTMLDialogElement==='undefined'||!HTMLDialogElement.prototype.showModal} aria-labelledby={`${id}-title`} onCancel={e=>{e.preventDefault();if(!busy)close();}} className="text-diet-assistant m-auto max-h-[92dvh] w-[min(800px,calc(100vw-24px))] overflow-auto rounded-2xl border border-[#d4e2d8] bg-white p-4 text-[#173d36] shadow-xl backdrop:bg-[#173d36]/40 sm:p-6">
       <header className="flex items-start justify-between gap-3"><div><p className="nuth-eyebrow">Dietas con IA · {step+1} de 4</p><h2 tabIndex={-1} id={`${id}-title`} className="mt-1 text-xl font-semibold">{pages[step]}</h2></div><button aria-label="Cerrar asistente" disabled={!!busy} onClick={close}><X size={22}/></button></header>
       <p className="my-3 text-sm text-[#687870]">Dietas completas con alimentos accesibles en México. Después revisarás y editarás cada propuesta en texto libre.</p>
       <ol aria-label="Pasos del asistente" className="mb-4 grid grid-cols-4 gap-2">{pages.map((p,i)=><li key={p} aria-current={step===i?'step':undefined} className={`rounded-lg px-2 py-2 text-xs ${i===step?'bg-[#173d36] text-white':'bg-[#eef4f0]'}`}>{i+1}. {p}</li>)}</ol>
       {error&&<p role="alert" className="my-3 rounded-xl bg-amber-50 p-3 text-sm">{error}</p>}
       {busy&&<p role="status" className="my-3 flex gap-2 text-sm"><LoaderCircle size={18} className="animate-spin"/>{busy}</p>}
-      <fieldset disabled={!!busy||!!pending} className="min-w-0 space-y-4 disabled:opacity-70">
+      <fieldset disabled={!!busy||!!pending} className="text-diet-assistant-cards min-w-0 space-y-4 disabled:opacity-70">
         {step===0&&c&&<>
           <section className="rounded-xl bg-[#edf5f0] p-3 text-sm"><h3 className="font-semibold">Metas prescritas para alimentos</h3><p>Energía: {factText(c.prescription.energy_kcal.fact,v=>`${numberText(v)} kcal`)}</p><p>{factText(c.prescription.macros.fact,v=>`Proteína: ${numberText(v.PROTEIN.grams)} g · Carbohidratos: ${numberText(v.CARBOHYDRATE.grams)} g · Grasa: ${numberText(v.FAT.grams)} g`)}</p><p className="mt-1 text-xs">Ya se descontaron los suplementos. Son objetivos para orientar la propuesta; sus aportes requieren revisión profesional.</p></section>
           <label className="block text-sm font-semibold">Objetivo de las dietas <span className="font-normal text-[#687870]">· Obligatorio</span><textarea id={`${id}-objective`} aria-label="Objetivo de las dietas" aria-required="true" aria-invalid={attempted&&!guidance.objective.trim()} aria-describedby={`${id}-objective-help`} className="nuth-input mt-1 min-h-20" maxLength={1200} value={guidance.objective} onChange={e=>edit({objective:e.target.value,contextReviewed:false})}/></label>

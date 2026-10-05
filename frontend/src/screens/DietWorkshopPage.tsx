@@ -882,8 +882,7 @@ export function DietWorkshopPage() {
             onGoToReview={() => { void selectStep("review"); }}
           />}
           {activeStep === "review" && plan.text_diet && <TextDietReviewStep key={libraryEpoch} plan={{...plan,title}} patientName={patient?.full_name||"Paciente"} versions={versions} publishing={publishing}
-            onSave={draft=>savePlanPatch({text_diet:draft})} onPublish={()=>void publishVersion([])}
-            generateAction={<TextDietAI plan={plan} before={flushPendingDraft} onApplied={updated=>{planRef.current=updated;setPlan(updated);void selectStep("review");setLibraryEpoch(v=>v+1);}}/>}/>}
+            onSave={draft=>savePlanPatch({text_diet:draft})} onPublish={()=>void publishVersion([])}/>}
           {activeStep === "review" && !plan.text_diet && <DietPlanReviewStep
             plan={{ ...plan, title }}
             patient={patient}
