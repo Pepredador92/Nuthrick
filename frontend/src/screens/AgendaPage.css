@@ -79,6 +79,11 @@
 }
 
 .agenda-entry-card { border-top: 4px solid #72b0ac; }
+.agenda-entries { border: 1px solid #dce4df; border-radius: 20px; background: #fff; box-shadow: 0 18px 34px -30px #1d3a3b; }
+.agenda-entries:empty { display: none; }
+.agenda-entry-row + .agenda-entry-row { border-top: 1px solid #e1eae6; }
+.agenda-clinical-status { padding: 5px 10px; border-radius: 100px; background: #eef1f6; color: #495c70; font-size: .75rem; font-weight: 650; }
+.agenda-clinical-status.is-closed { background: #e5f2eb; color: #32644e; }
 .agenda-request-card { border-top: 4px solid #b29acb; }
 .agenda-settings-card { border-top: 4px solid #91b6ae; }
 .agenda-calendar-card { border-top-color: #e3bf83; }
@@ -96,6 +101,7 @@ html[data-nuthrick-theme='night'] .agenda-hero {
 }
 
 html[data-nuthrick-theme='night'] .agenda-nav-card,
+html[data-nuthrick-theme='night'] .agenda-entries,
 html[data-nuthrick-theme='night'] .agenda-entry-card,
 html[data-nuthrick-theme='night'] .agenda-request-card,
 html[data-nuthrick-theme='night'] .agenda-settings-card {
@@ -103,6 +109,9 @@ html[data-nuthrick-theme='night'] .agenda-settings-card {
   color: #e9f5f0;
   border-color: #38565c;
 }
+html[data-nuthrick-theme='night'] .agenda-entry-row + .agenda-entry-row { border-color: #38565c; }
+html[data-nuthrick-theme='night'] .agenda-clinical-status { background: #304451; color: #cadbe5; }
+html[data-nuthrick-theme='night'] .agenda-clinical-status.is-closed { background: #294c40; color: #b3dfcb; }
 
 html[data-nuthrick-theme='night'] .agenda-nav-card.is-current { background: #28566a; }
 html[data-nuthrick-theme='night'] .agenda-nav-card:nth-child(2).is-current { background: #554a70; }

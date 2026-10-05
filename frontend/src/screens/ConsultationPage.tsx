@@ -11,7 +11,7 @@ import {
   Salad,
   SlidersHorizontal,
 } from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
 import { Field, Input } from "@/src/components/ui/FormField";
 import { QuestionField } from "@/src/components/consultations/QuestionField";
@@ -43,6 +43,7 @@ import { getPatient, listConsultations } from "@/src/services/patients";
 import {
   adoptTemplate,
   beginConsultation,
+  linkConsultationToAppointment,
   ensureSnapshot,
   finishConsultation,
   getSnapshot,
@@ -95,6 +96,8 @@ function readWorkspace(id: string): ConsultationWorkspace | null {
 
 export function ConsultationPage() {
   const { patientId, consultationId } = useParams();
+  const [searchParams] = useSearchParams();
+  const appointmentId = searchParams.get("appointmentId");
   const navigate = useNavigate();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [consultation, setConsultation] = useState<Consultation | null>(null);
@@ -193,9 +196,12 @@ export function ConsultationPage() {
           existingConsultation.status !== "draft"
             ? await reopenConsultationForEdit(existingConsultation.id)
             : (existingConsultation ?? (await beginConsultation(patientId, type)));
-        const consultationForLoad = existingConsultation
+        const datedConsultation = existingConsultation
           ? started
           : await updateConsultationDate(started.id, clinicalDateRef.current, loadedPatient.timezone);
+        const consultationForLoad = appointmentId && datedConsultation.agenda_entry_id !== appointmentId
+          ? await linkConsultationToAppointment(datedConsultation.id, appointmentId)
+          : datedConsultation;
         const existingSnapshot = await getSnapshot(consultationForLoad.id);
         const loadedTemplate =
           chosenTemplate ??
@@ -252,7 +258,7 @@ export function ConsultationPage() {
         setLoading(false);
       }
     },
-    [consultationId, patientId],
+    [appointmentId, consultationId, patientId],
   );
   useEffect(() => {
     const timer = window.setTimeout(() => {

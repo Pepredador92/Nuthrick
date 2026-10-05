@@ -6,6 +6,10 @@ import { CalendarDays, Check, RefreshCw } from "lucide-react";
 import { useAuth } from "@/src/features/auth/AuthProvider";
 import { supabase } from "@/src/lib/supabase";
 import { PatientModal } from "./PatientsPage";
+import { listConsultations } from "@/src/services/patients";
+import { linkConsultationToAppointment } from "@/src/services/consultations";
+import { consultationLabel, formatPatientDate } from "@/src/features/patients/patientUtils";
+import type { Consultation } from "@/src/types/domain";
 import {
   agendaApi,
   agendaDate,
@@ -93,9 +97,15 @@ export function AgendaPage() {
   const [blockStart, setBlockStart] = useState("");
   const [blockEnd, setBlockEnd] = useState("");
   const [exception, setException] = useState(false);
+  const [period, setPeriod] = useState<"upcoming" | "recent" | "all">("upcoming");
+  const [consultationEntry, setConsultationEntry] = useState<AgendaEntry | null>(null);
+  const [consultationOptions, setConsultationOptions] = useState<Consultation[]>([]);
+  const [selectedConsultation, setSelectedConsultation] = useState("");
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const pendingOperation = useRef({ fingerprint: "", key: "" });
   const refresh = async () => {
     const loaded = await loadAgenda();
+    setCurrentTime(Date.now());
     setEntries(loaded.entries);
     setRequests(loaded.requests);
   };
@@ -121,7 +131,8 @@ export function AgendaPage() {
     ])
       .then(([loaded, c, settings]) => {
         if (!active) return;
-        setEntries(loaded.entries);
+        setCurrentTime(Date.now());
+    setEntries(loaded.entries);
         setRequests(loaded.requests);
         setConnection(c);
         setBusyCalendars(c.busyCalendars);
@@ -170,7 +181,9 @@ export function AgendaPage() {
   };
   const input =
     "mt-2 w-full min-w-0 rounded-xl border border-[#dce4df] bg-white p-3 text-sm";
-  const activeEntries = entries.filter((e) => e.status === "confirmed");
+  const activeEntries = entries.filter((e) => period === "all" || (period === "upcoming"
+    ? e.status === "confirmed" && Date.parse(e.ends_at) >= currentTime
+    : Date.parse(e.ends_at) < currentTime || e.status === "cancelled"));
 
   return (
     <div className="agenda-workspace min-w-0">
@@ -235,17 +248,22 @@ export function AgendaPage() {
       {loading ? (
         <p className="mt-8">Cargando agenda…</p>
       ) : section === "appointments" ? (
-        <section className="agenda-card-grid mt-6 grid items-start gap-4 md:grid-cols-2">
-          <div className="agenda-section-intro md:col-span-2">
+        <section className="agenda-list mt-6 space-y-4">
+          <div className="agenda-section-intro">
             <p className="nuth-eyebrow">01 · Citas programadas</p>
             <h2>Citas y bloques <span>{activeEntries.length}</span></h2>
-            <p>Revisa cada horario, sus confirmaciones y el estado de calendario.</p>
+            <p>Revisa el avance de cada consulta y las confirmaciones de asistencia. El historial incluye los últimos 90 días.</p>
+          </div>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Periodo de citas">
+            {([["upcoming", "Próximas"], ["recent", "Anteriores y canceladas"], ["all", "Todas"]] as const).map(([value,label]) => (
+              <button key={value} type="button" aria-pressed={period === value} onClick={() => setPeriod(value)} className={`rounded-full border px-4 py-2 text-sm ${period === value ? "border-[#39767c] bg-[#e3f1ee] font-semibold text-[#205a61]" : "border-[#d5e1dc] bg-white text-[#64786e]"}`}>{label}</button>
+            ))}
           </div>
           {!activeEntries.length && (
             <div className="rounded-3xl border border-[#dce4df] bg-white p-8">
               <CalendarDays size={28} />
               <h2 className="mt-4 text-lg font-semibold">
-                Tu próxima cita aparecerá aquí
+                {period === "upcoming" ? "Tu próxima cita aparecerá aquí" : "No hay citas en este periodo"}
               </h2>
               <p className="mt-2 text-sm text-[#64786e]">
                 Configura tu disponibilidad para recibir citas desde tu perfil.
@@ -255,14 +273,20 @@ export function AgendaPage() {
               </Link>
             </div>
           )}
+          <ul className="agenda-entries" aria-label="Lista de citas y bloques">
           {activeEntries.map((e) => (
-            <article
+            <li
               key={e.id}
-              className="agenda-entry-card rounded-2xl border border-[#dce4df] p-5"
+              className="agenda-entry-row p-5"
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
-                  {e.kind === "appointment" && <div className="mb-3"><AppointmentStatus appointment={e}/></div>}
+                  {e.kind === "appointment" && <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <span className={`agenda-clinical-status ${e.consultation_status === "completed" ? "is-closed" : ""}`}>
+                      {e.status === "cancelled" ? "Cita cancelada" : e.consultation_status === "completed" ? "Consulta cerrada" : e.consultation_status === "draft" ? "Consulta en borrador" : e.consultation_status === "cancelled" ? "Consulta cancelada" : "Consulta no iniciada"}
+                    </span>
+                    <AppointmentStatus appointment={e}/>
+                  </div>}
                   {e.requires_confirmation && <p className="mb-3 inline-block rounded-full bg-[#fff1d5] px-3 py-1 text-xs font-semibold text-[#795620]">Reserva pendiente de aceptación</p>}
                   <p className="text-xs font-semibold text-[#64786e]">
                     {e.kind === "block"
@@ -323,15 +347,28 @@ export function AgendaPage() {
                       Ver paciente
                     </Link>
                   )}
-                  <button
+                  {e.kind === "appointment" && e.patient_id && e.status === "confirmed" && (
+                    e.consultation_id ? <Link className="nuth-button-secondary" to={e.consultation_status !== "draft"
+                      ? `/app/patients/${e.patient_id}?view=history&consultationId=${e.consultation_id}`
+                      : `/app/patients/${e.patient_id}/consultations/${e.consultation_id}`}>{e.consultation_status !== "draft" ? "Ver consulta" : "Continuar consulta"}</Link> : <>
+                      <Link className="nuth-button-secondary" to={`/app/patients/${e.patient_id}/consultations/new?appointmentId=${e.id}`}>Iniciar consulta</Link>
+                      <button className="rounded-xl px-3 py-2 text-sm font-semibold text-[#39767c]" disabled={working} onClick={() => run(async () => {
+                        const available = await listConsultations(e.patient_id!);
+                        setConsultationOptions(available.filter((c) => c.status !== "cancelled" && !c.agenda_entry_id));
+                        setSelectedConsultation("");
+                        setConsultationEntry(e);
+                      })}>Vincular consulta existente</button>
+                    </>
+                  )}
+                  {e.status === "confirmed" && e.consultation_status !== "completed" && <button
                     className="rounded-xl px-3 py-2 text-sm text-[#963f34]"
                     onClick={() => setCancelEntry(e)}
                   >
                     Cancelar
-                  </button>
+                  </button>}
                 </div>
               </div>
-              {e.kind === "appointment" && <AppointmentActions appointment={{...e, professional_name: "tu nutriólogo"}} onChanged={() => void refresh()}/>}
+              {e.kind === "appointment" && e.consultation_status !== "completed" && <AppointmentActions appointment={{...e, professional_name: "tu nutriólogo"}} onChanged={() => void refresh()}/>}
               {e.kind === "appointment" && (
                 <div className="mt-4 flex flex-wrap gap-3 border-t border-[#edf1ed] pt-3 text-xs text-[#64786e]">
                   <span>
@@ -385,11 +422,12 @@ export function AgendaPage() {
                   )}
                 </div>
               )}
-            </article>
+            </li>
           ))}
+          </ul>
           {entries.length >= 500 && (
             <p className="text-sm">
-              Se muestran las primeras 500 citas del periodo.
+              Se muestran hasta 500 citas próximas y 500 citas del historial reciente.
             </p>
           )}
         </section>
@@ -698,6 +736,25 @@ export function AgendaPage() {
           }}
         />
       )}
+      {consultationEntry && <AgendaDialog busy={working} close={() => setConsultationEntry(null)}>
+        <h2 className="pr-16 text-xl font-semibold">Vincular consulta con esta cita</h2>
+        <p className="mt-3 text-sm">{consultationEntry.contact_name} · {agendaDate(consultationEntry.starts_at, consultationEntry.timezone)}</p>
+        <p className="mt-3 text-sm text-[#64786e]">Elige la consulta que corresponde a este horario. Su estado se mostrará en Agenda.</p>
+        <label className="mt-4 block text-sm font-semibold">Consulta
+          <select className={input} value={selectedConsultation} onChange={(event) => setSelectedConsultation(event.target.value)}>
+            <option value="">Selecciona una consulta</option>
+            {consultationOptions.map((c) => <option key={c.id} value={c.id}>{consultationLabel(c)} · {formatPatientDate(c.consultation_date)} · {c.status === "completed" ? "Cerrada" : "Borrador"}</option>)}
+          </select>
+        </label>
+        {!consultationOptions.length && <p className="mt-3 text-sm">No hay consultas disponibles para vincular. Puedes iniciar una desde esta cita.</p>}
+        <button className="nuth-button mt-4" disabled={working || !selectedConsultation} onClick={() => run(async () => {
+          await linkConsultationToAppointment(selectedConsultation, consultationEntry.id);
+          await refresh();
+          setConsultationEntry(null);
+          setNotice("Consulta vinculada. Agenda mostrará su estado actualizado.");
+        })}>Vincular consulta</button>
+        {error && <p className="mt-4 text-sm text-[#963f34]" role="alert">{error}</p>}
+      </AgendaDialog>}
       {!creatingPatient && (activeRequest || linkEntry || cancelEntry) && (
         <AgendaDialog
           busy={working}

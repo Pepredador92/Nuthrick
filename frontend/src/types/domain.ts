@@ -188,6 +188,7 @@ export interface Consultation {
   id: string;
   professional_id: string;
   patient_id: string;
+  agenda_entry_id?: string | null;
   consultation_type: "initial" | "follow_up";
   sequence_number: number;
   display_name?: string | null;

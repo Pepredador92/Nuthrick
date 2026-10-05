@@ -184,6 +184,20 @@ export async function beginConsultation(
   return data as Consultation;
 }
 
+export async function linkConsultationToAppointment(
+  consultationId: string,
+  appointmentId: string,
+): Promise<Consultation> {
+  const { data, error } = await supabase.rpc("link_consultation_to_appointment", {
+    p_consultation_id: consultationId,
+    p_appointment_id: appointmentId,
+  });
+  if (error?.code === "23505") throw new Error("Esta cita ya está vinculada a otra consulta.");
+  if (error?.code === "23514") throw new Error("La cita y la consulta no corresponden al mismo paciente, o ya están vinculadas a otro registro.");
+  fail(error, "No pudimos vincular la consulta con la cita.");
+  return data as Consultation;
+}
+
 export async function updateConsultationDate(
   consultationId: string,
   date: string,

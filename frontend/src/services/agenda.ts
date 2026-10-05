@@ -39,6 +39,8 @@ export type AgendaEntry = {
   contact_name: string | null;
   contact_email: string | null;
   patient_id: string | null;
+  consultation_id?: string | null;
+  consultation_status?: "draft" | "completed" | "cancelled" | null;
   requires_confirmation?: boolean;
   registration_consented_at?: string | null;
   patient_confirmed_at?: string | null;
@@ -145,13 +147,18 @@ export async function agendaApi<T>(
   return result as T;
 }
 export async function loadAgenda() {
-  const [entries, requests] = await Promise.all([
+  const now = new Date().toISOString();
+  const [future, recent, requests] = await Promise.all([
     supabase
       .from("agenda_entries")
       .select("*")
-      .gte("starts_at", new Date(Date.now() - 7 * 86400000).toISOString())
+      .gte("ends_at", now)
       .order("starts_at")
       .limit(500),
+    supabase.from("agenda_entries").select("*")
+      .gte("starts_at", new Date(Date.now() - 90 * 86400000).toISOString())
+      .lt("ends_at", now)
+      .order("starts_at", { ascending: false }).limit(500),
     supabase
       .from("agenda_requests")
       .select("*")
@@ -159,10 +166,31 @@ export async function loadAgenda() {
       .order("starts_at")
       .limit(500),
   ]);
-  if (entries.error || requests.error)
+  if (future.error || recent.error || requests.error)
     throw new Error("No pudimos cargar la agenda. Intenta de nuevo.");
+  const entries = { data: [...(future.data ?? []), ...(recent.data ?? [])].sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at)) };
+  const appointmentIds = (entries.data ?? [])
+    .filter((entry) => entry.kind === "appointment" && entry.patient_id)
+    .map((entry) => entry.id);
+  const consultations = appointmentIds.length
+    ? await supabase.from("consultations")
+      .select("id,agenda_entry_id,status")
+      .in("agenda_entry_id", appointmentIds)
+      .is("deleted_at", null)
+    : { data: [], error: null };
+  if (consultations.error) throw new Error("No pudimos cargar el estado de las consultas de esta agenda.");
+  const consultationByAppointment = new Map(
+    (consultations.data ?? []).map((consultation) => [consultation.agenda_entry_id, consultation]),
+  );
   return {
-    entries: entries.data as AgendaEntry[],
+    entries: (entries.data ?? []).map((entry) => {
+      const related = consultationByAppointment.get(entry.id);
+      return {
+        ...entry,
+        consultation_id: related?.id ?? null,
+        consultation_status: related?.status ?? null,
+      } as AgendaEntry;
+    }),
     requests: (requests.data as AgendaRequest[]).filter(
       (r) => Date.parse(r.expires_at) > Date.now(),
     ),

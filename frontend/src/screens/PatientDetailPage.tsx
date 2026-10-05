@@ -825,7 +825,7 @@ export function PatientDetailPage() {
   const historyOpen = searchParams.get("view") === "history";
   const setHistoryOpen = (open: boolean) => setSearchParams((current) => {
     const next = new URLSearchParams(current);
-    if (open) next.set("view", "history"); else next.delete("view");
+    if (open) next.set("view", "history"); else { next.delete("view"); next.delete("consultationId"); }
     return next;
   }, { replace: !open });
   const [evolutionOpen, setEvolutionOpen] = useState(false);
@@ -836,8 +836,10 @@ export function PatientDetailPage() {
   const [historyTab, setHistoryTab] = useState<HistoryTab>("consultations");
   const [selectedConsultationId, setSelectedConsultationId] = useState<
     string | null
-  >(null);
-  const [initialViewingConsultationId, setInitialViewingConsultationId] = useState<string | null>(null);
+  >(searchParams.get("view") === "history" ? searchParams.get("consultationId") : null);
+  const [initialViewingConsultationId, setInitialViewingConsultationId] = useState<string | null>(
+    searchParams.get("view") === "history" ? searchParams.get("consultationId") : null,
+  );
   const [confirm, setConfirm] = useState<{
     action: ConfirmAction;
     note?: PatientNote;

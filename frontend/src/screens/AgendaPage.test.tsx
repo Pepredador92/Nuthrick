@@ -246,3 +246,12 @@ describe("private agenda", () => {
     );
   });
 });
+
+ it("opens a completed consultation in history without reopening it", async () => {
+  vi.mocked(loadAgenda).mockResolvedValue({entries:[{...entry,patient_id:"patient",consultation_id:"closed",consultation_status:"completed"}],requests:[]});
+  mount();
+  await screen.findByText("Consulta cerrada");
+  expect(screen.getByRole("list",{name:"Lista de citas y bloques"})).toBeTruthy();
+  expect(screen.getByRole("link",{name:"Ver consulta"}).getAttribute("href")).toBe("/app/patients/patient?view=history&consultationId=closed");
+  expect(screen.queryByRole("button",{name:/^Cancelar$/})).toBeNull();
+ });
