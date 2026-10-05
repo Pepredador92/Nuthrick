@@ -167,8 +167,8 @@ export function PortalChat({
       className="portal-chat"
       aria-label={`Conversación con ${counterpart}`}
     >
-      <header className="flex items-center gap-3 border-b border-[#e5ece6] p-5">
-        <MessageCircle size={22} />
+      <header className="portal-card-heading is-violet">
+        <span className="portal-card-icon"><MessageCircle size={20} aria-hidden="true" /></span>
         <div>
           <h2 className="font-semibold">{counterpart}</h2>
           <p className="text-xs text-[#74817d]">

@@ -17,7 +17,20 @@
 .portal-result-change { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-top: 16px; font-size: 12px; color: #526c5d; }
 .portal-result-change strong { font-weight: 600; }
 .portal-result-change span { color: #61776c; }
-.portal-result-chart { display: block; width: 100%; margin-top: 18px; overflow: visible; }
+.portal-chart-scroll { overflow-x: auto; scrollbar-width: thin; scrollbar-color: #6da5ae73 transparent; padding-block: 4px; }
+.portal-result-chart { display: block; width: 100%; max-width: 520px; margin: 18px auto 0; overflow: visible; }
+.portal-chart-axis { fill: #617a86; font-size: 11px; }
+.portal-chart-grid { stroke: #cddce3; stroke-width: 1; }
+.portal-chart-path { stroke: #387e89; }
+.portal-chart-selection { stroke: #87b1ba; stroke-width: .7; opacity: .65; }
+.portal-chart-point { fill: #387e89; stroke: #fff; }
+.portal-chart-point.is-selected { fill: #1b6476; }
+.portal-chart-label line { stroke: #83adb5; stroke-width: .7; }
+.portal-chart-label rect { fill: #edf6f7; stroke: #bed8df; stroke-width: .8; }
+.portal-chart-label text { fill: #356372; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.portal-chart-label.is-selected rect { fill: #dceef1; stroke: #8abac3; }
+.portal-chart-label.is-selected text { fill: #214f5f; }
+.portal-chart-scroll:focus-visible { outline: 2px solid #5b99a5; outline-offset: 2px; border-radius: 10px; }
 .portal-result-explore { margin-top: 10px; padding: 12px; border: 1px solid #e4eadd; border-radius: 12px; background: #fbfaf4; }
 .portal-result-selected { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: #61776c; }
 .portal-result-selected strong { color: #365644; font-size: 18px; overflow-wrap: anywhere; }
@@ -43,5 +56,15 @@
   .portal-result { padding: 16px 12px; border-radius: 16px; }
   .portal-result-count { font-size: 10px; padding: 4px 6px; }
   .portal-result-value { font-size: 30px; }
-  .portal-result-chart text { font-size: 16px; }
 }
+html[data-nuthrick-theme='night'] .portal-result .portal-chart-axis { fill: #acc4d4; }
+html[data-nuthrick-theme='night'] .portal-result .portal-chart-grid { stroke: #7b9bac30; }
+html[data-nuthrick-theme='night'] .portal-result .portal-chart-path { stroke: #8ccccd; }
+html[data-nuthrick-theme='night'] .portal-result .portal-chart-point { fill: #9bd9da; stroke: #10243e; }
+html[data-nuthrick-theme='night'] .portal-result .portal-chart-point.is-selected { fill: #c7f2ec; }
+html[data-nuthrick-theme='night'] .portal-result .portal-chart-label line { stroke: #7bb1b8; }
+html[data-nuthrick-theme='night'] .portal-result .portal-chart-label rect { fill: #1c3c51; stroke: #6897a34d; }
+html[data-nuthrick-theme='night'] .portal-result .portal-chart-label text { fill: #c9e6e9; }
+html[data-nuthrick-theme='night'] .portal-result .portal-chart-label.is-selected rect { fill: #285163; stroke: #9bcccd73; }
+.patient-portal .portal-result { border-color: var(--portal-line); background: var(--portal-surface); color: var(--portal-ink); border-radius: 18px; }
+html[data-nuthrick-theme='night'] .patient-portal .portal-result { background: #142d46; border-color: var(--portal-line); }

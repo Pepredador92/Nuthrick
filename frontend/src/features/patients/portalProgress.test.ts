@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SharedResult } from "@/src/services/patientPortal";
-import { portalChart, portalProgress } from "./portalProgress";
+import { portalChart, portalLabeledChart, portalProgress } from "./portalProgress";
 
 const result = (values: string[]): SharedResult => ({ id: "weight", label: "Peso", unit: "kg", method: "", points: values.map((value, index) => ({ consultationId: `c${index}`, date: `2026-09-${String(index + 1).padStart(2, "0")}`, value })) });
 
@@ -54,5 +54,21 @@ describe("published patient progress", () => {
     expect(progress.points).toHaveLength(2);
     expect(progress.numeric).toHaveLength(1);
     expect(progress.change).toBeNull();
+  });
+  it.each([260, 400, 520])("keeps all value badges separate and inside the chart when dates cluster at width %i", (availableWidth) => {
+    const input = result(["87,4 kg", "87.2", "86.9", "86.8", "86.7", "86.5"]);
+    input.points.forEach((point, index) => { point.date = index < 5 ? "2026-09-01" : "2026-10-01"; });
+    const before = structuredClone(input);
+    const progress = portalProgress(input);
+    const chart = portalLabeledChart(progress, availableWidth)!;
+    expect(chart.labels.map((label) => label.value)).toEqual(input.points.map((point) => point.value));
+    expect(chart.dots.slice(0, 5).every((point) => point.x === chart.left)).toBe(true);
+    for (const [index, label] of chart.labels.entries()) {
+      expect(label.x - label.width / 2).toBeGreaterThanOrEqual(chart.left);
+      expect(label.x + label.width / 2).toBeLessThanOrEqual(chart.width - chart.right);
+      expect(label.y).toBeGreaterThanOrEqual(0);
+      if (index) expect(label.x - label.width / 2).toBeGreaterThan(chart.labels[index - 1].x + chart.labels[index - 1].width / 2);
+    }
+    expect(input).toEqual(before);
   });
 });

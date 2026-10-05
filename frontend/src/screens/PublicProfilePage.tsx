@@ -6,6 +6,7 @@ import { PublicProfessionalHeader } from '@/src/features/profile/PublicProfessio
 import { Logo } from '@/src/components/ui/Logo';
 import { getPublicProfile } from '@/src/services/profile';
 import type { PublicProfileContent } from '@/src/types/domain';
+import { ShowcaseBackdrop } from '@/src/components/ui/ShowcaseBackdrop';
 import './PublicProfilePage.css';
 
 const educationTypeLabels = { degree: 'Grado académico', course: 'Curso', training: 'Capacitación', diploma: 'Diplomado', specialty: 'Especialidad', masters: 'Maestría', doctorate: 'Doctorado' };
@@ -65,11 +66,7 @@ export function PublicProfilePage() {
   const hasBusinessDetails = Boolean(business && Object.values(business).some(Boolean));
 
   return <main className="public-profile-page">
-    <div className="public-profile-backdrop" aria-hidden="true">
-      <span className="public-backdrop-arc" />
-      <span className="public-backdrop-orbit" />
-      <span className="public-backdrop-light" />
-    </div>
+    <ShowcaseBackdrop />
     <header className="public-profile-topbar">
       <div className="public-profile-topbar-inner">
         <div className="public-profile-brand"><Logo /><span>Perfil público</span></div>

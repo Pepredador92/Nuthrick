@@ -5,6 +5,7 @@ import {
   Activity,
   CalendarDays,
   ClipboardList,
+  Leaf,
   LockKeyhole,
   LogOut,
   MessageCircle,
@@ -23,6 +24,8 @@ import {
 } from "@/src/services/patientPortal";
 import { playNotificationSound } from "@/src/features/notifications/sound";
 import { ThemeSwitcher } from "@/src/features/theme/ThemeSwitcher";
+import { ShowcaseBackdrop } from "@/src/components/ui/ShowcaseBackdrop";
+import { PortalCardHeading } from "@/src/components/patients/PortalCardHeading";
 import { PortalContentView } from "@/src/components/patients/PortalContentView";
 import { PortalChat } from "@/src/components/patients/PortalChat";
 import { PortalNotes } from "@/src/components/patients/PortalNotes";
@@ -201,17 +204,13 @@ function PatientPortalContent() {
   }
   return (
     <main className="patient-portal">
+      <ShowcaseBackdrop />
       <div className="portal-shell">
-        <div className="mb-6 flex items-center justify-between">
-          <p className="text-sm font-semibold tracking-[.18em]">
-            NUTHRICK{" "}
-            <span className="ml-2 text-xs font-normal tracking-normal text-[#74817d]">
-              Mi espacio
-            </span>
-          </p>
-          <div className="flex items-center gap-3"><ThemeSwitcher compact />{session && (
+        <div className="portal-topbar">
+          <div className="portal-brand"><span><Leaf size={21} aria-hidden="true" /></span><strong>Nuthrick</strong><span className="portal-brand-caption">Mi espacio</span></div>
+          <div className="portal-topbar-actions"><ThemeSwitcher compact />{session && (
             <button
-              className="flex min-h-11 items-center gap-2 text-sm"
+              className="portal-logout"
               onClick={() => void logout()}
             >
               <LogOut size={16} />
@@ -376,24 +375,22 @@ function PatientPortalContent() {
             ) : (
               <>
                 <header className="portal-hero">
-                  <p className="text-xs font-semibold uppercase tracking-[.18em] text-[#e8c58b]">
-                    Tu bienestar, paso a paso
-                  </p>
-                  <h1 className="mt-3 text-3xl font-semibold">
-                    Hola, {view.patientName}
-                  </h1>
-                  <p className="mt-3 text-sm text-[#c4d9cc]">
-                    Te acompaña {view.professional.name}
-                  </p>
-                  {view.professional.title && (
-                    <p className="mt-1 text-xs text-[#a7c1b2]">
-                      {view.professional.title}
-                    </p>
-                  )}
-                  <span className={`mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${professionalOnline ? "bg-[#e6f5e9] text-[#28633d]" : "bg-white/10 text-[#c4d9cc]"}`} aria-label={professionalOnline ? "Tu nutriólogo está en línea" : "Tu nutriólogo no está en línea"}>
-                    <span aria-hidden="true">{professionalOnline ? "●" : "○"}</span>
-                    {professionalOnline ? "Nutriólogo en línea" : "Nutriólogo desconectado"}
-                  </span>
+                  <div className="portal-hero-identity">
+                    <span className="portal-patient-avatar" aria-hidden="true">{view.patientName.trim().split(/\s+/).slice(0, 2).map((name) => name[0]).join("")}</span>
+                    <div>
+                      <p className="portal-hero-eyebrow">Tu bienestar, paso a paso</p>
+                      <h1>Hola, {view.patientName}</h1>
+                      <p className="portal-hero-description">Tu plan, tus avances y tu nutriólogo, en un mismo lugar.</p>
+                    </div>
+                  </div>
+                  <div className="portal-professional">
+                    <p>Te acompaña {view.professional.name}</p>
+                    {view.professional.title && <p className="portal-professional-title">{view.professional.title}</p>}
+                    <span className={`portal-presence${professionalOnline ? " is-online" : ""}`} aria-label={professionalOnline ? "Tu nutriólogo está en línea" : "Tu nutriólogo no está en línea"}>
+                      <span aria-hidden="true">{professionalOnline ? "●" : "○"}</span>
+                      {professionalOnline ? "Nutriólogo en línea" : "Nutriólogo desconectado"}
+                    </span>
+                  </div>
                 </header>
                 <div
                   role="tablist"
@@ -417,8 +414,8 @@ function PatientPortalContent() {
                       aria-controls="portal-panel"
                       onClick={() => setTab(id)}
                     >
-                      <Icon size={17} />
-                      {label}
+                      <span className={`portal-tab-icon is-${id}`}><Icon size={18} aria-hidden="true" /></span>
+                      <span>{label}</span>
                       {id === "chat" && view.unread > 0 && (
                         <span className="portal-count">{view.unread}</span>
                       )}
@@ -430,7 +427,12 @@ function PatientPortalContent() {
                   role="tabpanel"
                   aria-labelledby={`tab-${tab}`}
                 >
-                  {tab === "appointments" ? (<UpcomingAppointments key={session} session={session}/>) : tab === "plan" ? (
+                  {tab === "appointments" ? (
+                    <section className="portal-card portal-panel-card">
+                      <PortalCardHeading icon={CalendarDays} title="Mis citas" subtitle="Tus próximos encuentros" tone="blue" />
+                      <div className="portal-card-body"><UpcomingAppointments key={session} session={session}/></div>
+                    </section>
+                  ) : tab === "plan" ? (
                     <PortalPatientPlan access={access} />
                   ) : tab === "today" ? (
                     <PortalHomeSummary access={access} view={view} onOpenTab={(nextTab) => {
@@ -463,8 +465,8 @@ function PatientPortalContent() {
             )}
           </>
         )}
-        <footer className="mt-10 text-center text-xs text-[#74817d]">
-          Tu espacio privado de acompañamiento nutricional.
+        <footer className="portal-footer">
+          <LockKeyhole size={13} aria-hidden="true" /> Tu espacio privado de acompañamiento nutricional.
         </footer>
       </div>
     </main>

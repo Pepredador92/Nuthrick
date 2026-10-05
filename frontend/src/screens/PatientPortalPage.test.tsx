@@ -77,7 +77,7 @@ function open() {
 }
 async function login() {
   fireEvent.change(
-    screen.getByLabelText("Correo registrado con tu nutriólogo"),
+    await screen.findByLabelText("Correo registrado con tu nutriólogo"),
     { target: { value: "patient@example.invalid" } },
   );
   fireEvent.click(
@@ -105,7 +105,7 @@ describe("patient space", () => {
   it("accepts a professional code without requesting an email", async () => {
     open();
     fireEvent.click(
-      screen.getByRole("button", { name: "Tengo un código de mi nutriólogo" }),
+      await screen.findByRole("button", { name: "Tengo un código de mi nutriólogo" }),
     );
     expect(
       screen.queryByLabelText("Correo registrado con tu nutriólogo"),

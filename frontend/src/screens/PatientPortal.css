@@ -1,8 +1,20 @@
 .patient-portal {
+  --portal-ink: #183c46;
+  --portal-muted: #536c78;
+  --portal-line: #bdcfd680;
+  --portal-surface: #fbfdfded;
+  --portal-soft: #eaf2f5;
+  --portal-heading: #edf4f6bd;
+  --portal-action: #1b6c79;
+  --portal-shadow: 0 24px 42px -27px #143b4e66, 0 7px 14px -8px #143b4e29;
+  position: relative;
+  isolation: isolate;
   min-height: 100dvh;
-  background: #f6f8f3;
-  color: #233f35;
+  background: transparent;
+  color: var(--portal-ink);
 }
+
+
 .portal-shell {
   max-width: 1040px;
   margin: 0 auto;
@@ -181,3 +193,141 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* The patient space shares the public showcase's scenery and card depth. */
+.patient-portal .portal-shell { max-width: 1100px; padding-top: 20px; }
+.portal-topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+.portal-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.portal-brand > span:first-child { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 14px; background: #173e39; color: white; box-shadow: 0 5px 9px -7px #143b4e80; }
+.portal-brand strong { font-size: 1.15rem; letter-spacing: -.04em; }
+.portal-brand-caption { border-left: 1px solid var(--portal-line); padding-left: 12px; margin-left: 2px; font-size: .75rem; color: var(--portal-muted); }
+.portal-topbar-actions { display: flex; align-items: center; gap: 12px; }
+.portal-logout { display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 6px 12px; border: 1px solid var(--portal-line); border-radius: 12px; background: var(--portal-surface); font-size: .75rem; color: var(--portal-muted); }
+.portal-logout:hover { background: var(--portal-soft); }
+html:not([data-nuthrick-theme='night']) .patient-portal .portal-hero {
+  background: radial-gradient(ellipse at 32% 0, #ddf3ed, transparent 65%), linear-gradient(125deg, #f5faf8, #e7eef9);
+  color: var(--portal-ink);
+}
+.patient-portal .portal-hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 28px; border: 1px solid #ffffffc9; box-shadow: var(--portal-shadow), inset 0 1px 0 #ffffff9c; }
+.patient-portal .portal-hero::after { border-color: #87aabd0c; width: 340px; height: 340px; right: -70px; top: -110px; }
+.portal-hero-identity { display: flex; align-items: center; gap: 20px; min-width: 0; position: relative; z-index: 1; }
+.portal-hero-identity > div { min-width: 0; }
+.portal-patient-avatar { display: grid; place-items: center; width: 82px; height: 82px; flex: none; border-radius: 26px; border: 1px solid #fffc; background: linear-gradient(145deg, #b4e7df, #84bfd0); box-shadow: 0 10px 20px -10px #1a4e6659, inset 0 1px 0 #fffb; color: #174c5b; font-size: 1.65rem; font-weight: 650; letter-spacing: -.06em; }
+.portal-hero-eyebrow { font-size: .62rem; font-weight: 750; letter-spacing: .16em; text-transform: uppercase; color: #397681; }
+.portal-hero h1 { margin-top: 8px; font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.25; font-weight: 650; letter-spacing: -.04em; overflow-wrap: anywhere; }
+.portal-hero-description { margin-top: 9px; font-size: .8rem; line-height: 1.6; color: var(--portal-muted); }
+.portal-professional { position: relative; z-index: 1; padding-top: 18px; border-top: 1px solid var(--portal-line); font-size: .85rem; font-weight: 550; }
+.portal-professional-title { margin-top: 4px; font-size: .75rem; font-weight: 400; color: var(--portal-muted); }
+.portal-presence { display: inline-flex; align-items: center; gap: 7px; margin-top: 12px; padding: 6px 10px; border: 1px solid var(--portal-line); border-radius: 100px; background: #ffffff61; color: var(--portal-muted); font-size: .68rem; font-weight: 500; }
+.portal-presence.is-online { background: #e7f6ef; border-color: #99c6b5; color: #236750; }
+.patient-portal .portal-tabs { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; overflow: visible; margin: 20px 0 24px; padding: 8px; border-color: #ffffffc9; background: var(--portal-surface); box-shadow: var(--portal-shadow), inset 0 1px 0 #fff; backdrop-filter: blur(18px); }
+.patient-portal .portal-tabs button { position: relative; flex-direction: column; gap: 6px; padding: 10px 4px; font-size: .72rem; font-weight: 550; color: var(--portal-muted); }
+.patient-portal .portal-tabs button:hover { background: var(--portal-soft); }
+.patient-portal .portal-tabs button[aria-selected='true'] { background: #e0eeef; color: #205460; box-shadow: inset 0 1px 0 #fff8; }
+.portal-tab-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; background: #d8efeb; color: #33747a; }
+.portal-tab-icon:is(.is-results, .is-appointments) { background: #dfeafb; color: #477aa4; }
+.portal-tab-icon:is(.is-chat, .is-history) { background: #e9e3f6; color: #79649e; }
+.portal-tab-icon.is-notes { background: #f6ebd3; color: #977542; }
+.patient-portal .portal-tabs .portal-count { position: absolute; right: 5px; top: 5px; background: #79649e; color: white; padding: 2px 6px; font-size: .6rem; }
+.patient-portal :is(.portal-card, .portal-chat) { border-color: #ffffffc9; background: var(--portal-surface); color: var(--portal-ink); box-shadow: var(--portal-shadow), inset 0 1px 0 #fff; backdrop-filter: blur(18px); }
+.portal-panel-card { padding: 0; overflow: hidden; }
+.patient-portal .portal-home .portal-card { padding: 0; overflow: hidden; }
+.portal-card-heading { display: flex; align-items: center; gap: 12px; padding: 16px 22px; border-bottom: 1px solid #bdcfd680; background: #edf4f6bd; }
+.portal-card-heading > div { min-width: 0; flex: 1; }
+.portal-card-heading h2 { font-size: 1rem; font-weight: 650; letter-spacing: -.02em; line-height: 1.35; overflow-wrap: anywhere; }
+.portal-card-heading p { margin-top: 3px; font-size: .7rem; line-height: 1.5; color: #536c78; }
+.portal-card-icon { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border: 1px solid #ffffffb3; border-radius: 11px; background: linear-gradient(145deg, #a5e5dc, #79bec9); color: #174c5b; box-shadow: 0 5px 8px -6px #174c5b80, inset 0 1px 0 #fffb; }
+.is-blue .portal-card-icon { background: linear-gradient(145deg, #badcef, #83b7df); color: #244c70; }
+.is-violet .portal-card-icon { background: linear-gradient(145deg, #e0d5f7, #b0a0df); color: #554574; }
+.is-amber .portal-card-icon { background: linear-gradient(145deg, #f5dfb2, #e1bd87); color: #76542e; }
+.portal-card-body { padding: 22px; min-width: 0; }
+.portal-card-body > p:first-child { margin-top: 0; }
+html[data-nuthrick-theme='night'] .portal-card-heading { background: var(--nuth-surface-soft); border-color: var(--nuth-line); }
+html[data-nuthrick-theme='night'] .portal-card-heading p { color: var(--nuth-muted); }
+.portal-muted { color: var(--portal-muted, #536c78); }
+.portal-card-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--portal-line, #bdcfd680); border-radius: 12px; font-size: .8rem; font-weight: 600; color: var(--portal-action, #1b6c79); background: var(--portal-soft, #eaf2f5); }
+.portal-card-action:hover { filter: brightness(.96); }
+.portal-card-action.is-primary { background: var(--portal-action, #1b6c79); border-color: transparent; color: #fff; box-shadow: 0 6px 12px -7px #1b6c798c, inset 0 1px 0 #fff3; }
+.patient-portal .portal-home { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+.patient-portal :is(.portal-home-primary, .portal-home-grid) { display: contents; }
+.patient-portal .portal-home-meal { background: var(--portal-soft); border-color: var(--portal-line); box-shadow: inset 0 1px 0 #ffffff73; }
+.patient-portal .portal-home-meals { grid-template-columns: minmax(0, 1fr); }
+.patient-portal .portal-home-progress .portal-result { border-color: var(--portal-line); background: transparent; box-shadow: none; }
+.portal-consultation, .portal-note-item, .portal-plan-meal { padding: 18px; border: 1px solid var(--portal-line, #bdcfd680); border-radius: 16px; background: var(--portal-soft, #eaf2f5); }
+.portal-plan-day + .portal-plan-day { border-top: 1px solid var(--portal-line, #bdcfd680); padding-top: 22px; }
+.portal-plan-day > h3 { display: inline-flex; padding: 6px 12px; border-radius: 9px; background: var(--portal-soft, #eaf2f5); font-size: .8rem; color: var(--portal-action, #1b6c79); }
+.portal-plan-meals { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.portal-plan-meal { border-top: 3px solid #8cbfc5; }
+.patient-portal .portal-chat-log { background: linear-gradient(160deg, #edf3f280, #e7edf52b); }
+.patient-portal .portal-message { border: 1px solid var(--portal-line); background: var(--portal-soft); color: var(--portal-ink); box-shadow: 0 7px 12px -11px #143b4e66; }
+.patient-portal .portal-message.is-mine { background: #1b6c79; color: #fff; border-color: #1b6c79; }
+.patient-portal .portal-footer { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 36px; text-align: center; font-size: .7rem; line-height: 1.6; color: var(--portal-muted); }
+.patient-portal #portal-panel { scroll-margin-top: 20px; }
+.patient-portal .portal-home-today { order: 1; }
+.patient-portal .portal-home-goal { order: 2; }
+.patient-portal .portal-home-progress { order: 3; }
+.patient-portal .portal-home-messages { order: 4; }
+.patient-portal .portal-home-history { order: 5; }
+
+@media (min-width: 860px) {
+  .patient-portal .portal-hero { grid-template-columns: minmax(0, 1fr) minmax(220px, .46fr); align-items: center; gap: 28px; }
+  .patient-portal .portal-professional { padding-top: 0; padding-left: 26px; border-top: 0; border-left: 1px solid var(--portal-line); }
+  .patient-portal .portal-home { grid-template-columns: minmax(0, 1.14fr) minmax(0, 1fr); align-items: start; }
+  .patient-portal :is(.portal-home-primary, .portal-home-grid) { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+  .patient-portal .portal-home .portal-card { order: 0; }
+  .portal-plan-meals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 639px) {
+  .patient-portal .portal-shell { padding: 16px 14px 36px; }
+  .portal-topbar { margin-bottom: 18px; }
+  .portal-brand-caption { display: none; }
+  .portal-topbar-actions { gap: 6px; }
+  .portal-logout { padding-inline: 8px; }
+  .patient-portal .portal-hero { padding: 22px 20px; gap: 18px; }
+  .portal-hero-identity { align-items: start; gap: 14px; }
+  .portal-patient-avatar { width: 58px; height: 58px; border-radius: 20px; font-size: 1.15rem; }
+  .portal-hero-eyebrow { font-size: .55rem; }
+  .portal-hero h1 { font-size: 1.4rem; }
+  .patient-portal .portal-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .patient-portal .portal-tabs button { padding: 9px 3px; font-size: .66rem; }
+  .patient-portal .portal-tabs button svg { display: block; }
+  .portal-card-heading { padding: 14px 18px; }
+  .portal-card-body { padding: 18px; }
+}
+html[data-nuthrick-theme='night'] .patient-portal {
+  --portal-ink: #edf6f8;
+  --portal-muted: #b2c9d9;
+  --portal-line: #97b9d126;
+  --portal-surface: #10243ee8;
+  --portal-soft: #1c3552;
+  --portal-heading: #263952e0;
+  --portal-action: #147883;
+  --portal-shadow: 0 26px 44px -24px #020617b8, 0 8px 15px -7px #02061775;
+  --nuth-surface: #10243e;
+  --nuth-surface-soft: #1c3552;
+  --nuth-ink: #edf6f8;
+  --nuth-muted: #b2c9d9;
+  --nuth-line: #97b9d140;
+  --nuth-accent: #98d3d5;
+}
+html[data-nuthrick-theme='night'] .patient-portal .portal-hero { background: radial-gradient(ellipse at 35% 0, #265566, transparent 70%), linear-gradient(130deg, #103a48, #15223d); color: var(--portal-ink); border-color: #9dc5da2b; box-shadow: var(--portal-shadow), inset 0 1px 0 #cdeef114; }
+html[data-nuthrick-theme='night'] .patient-portal .portal-hero-eyebrow { color: #99d9d5; }
+html[data-nuthrick-theme='night'] .patient-portal .portal-presence { background: #ffffff08; }
+html[data-nuthrick-theme='night'] .patient-portal .portal-presence.is-online { background: #1a4b46; color: #b6f0da; border-color: #85b9b14d; }
+html[data-nuthrick-theme='night'] .patient-portal :is(.portal-card, .portal-chat, .portal-tabs) { background: var(--portal-surface); border-color: #9dc5da2b; box-shadow: var(--portal-shadow), inset 0 1px 0 #cdeef114; }
+html[data-nuthrick-theme='night'] .patient-portal .portal-card-heading { background: var(--portal-heading); border-color: var(--portal-line); }
+html[data-nuthrick-theme='night'] .patient-portal .portal-card-heading p { color: var(--portal-muted) !important; }
+html[data-nuthrick-theme='night'] .patient-portal .portal-card-heading .portal-count { background: #3e3c5d; color: #ddd5f4; }
+html[data-nuthrick-theme='night'] .patient-portal .portal-card-action { color: #c7e8e7; }
+html[data-nuthrick-theme='night'] .patient-portal .portal-card-action.is-primary { color: #fff; }
+html[data-nuthrick-theme='night'] .patient-portal .portal-tabs button { color: var(--portal-muted); }
+html[data-nuthrick-theme='night'] .patient-portal .portal-tabs button[aria-selected='true'] { background: #254957; color: #d3f4f1; }
+html[data-nuthrick-theme='night'] .patient-portal .portal-tab-icon { background: #224b55; color: #99d9d5; }
+html[data-nuthrick-theme='night'] .patient-portal .portal-tab-icon:is(.is-results, .is-appointments) { background: #2b435e; color: #b5d8f6; }
+html[data-nuthrick-theme='night'] .patient-portal .portal-tab-icon:is(.is-chat, .is-history) { background: #3e3c5d; color: #d8c9f6; }
+html[data-nuthrick-theme='night'] .patient-portal .portal-tab-icon.is-notes { background: #4c4539; color: #ebd29c; }
+html[data-nuthrick-theme='night'] .patient-portal .portal-home-meal { background: var(--portal-soft); border-color: var(--portal-line); }
+html[data-nuthrick-theme='night'] .patient-portal .portal-home-progress .portal-result { background: transparent; box-shadow: none; }
+html[data-nuthrick-theme='night'] .patient-portal .portal-chat-log { background: linear-gradient(150deg, #1b314980, #10223c); }
+html[data-nuthrick-theme='night'] .patient-portal .portal-message { background: var(--portal-soft); }
+html[data-nuthrick-theme='night'] .patient-portal .portal-message.is-mine { background: #147883; }

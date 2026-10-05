@@ -12,51 +12,6 @@
   color: var(--public-ink);
 }
 
-.public-profile-backdrop {
-  position: fixed;
-  z-index: -1;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  background: radial-gradient(ellipse at 6% 0, #e6f7ef, transparent 56%),
-    radial-gradient(ellipse at 100% 6%, #d9e3f5, transparent 58%),
-    linear-gradient(145deg, #d7e9eb, #edf1ee 65%, #dfdfef);
-}
-
-.public-backdrop-arc {
-  position: absolute;
-  width: 1400px;
-  height: 1500px;
-  left: -800px;
-  top: 10vh;
-  border-radius: 44% 56% 54% 46%;
-  transform: rotate(-36deg);
-  background: linear-gradient(110deg, #65c1c63d, #b4dbd537);
-  box-shadow: inset -1px 0 0 #ffffff6b;
-}
-
-.public-backdrop-orbit {
-  position: absolute;
-  width: 1400px;
-  height: 1300px;
-  right: -940px;
-  top: -640px;
-  border-radius: 50%;
-  border: 100px solid #9eafd322;
-  box-shadow: 0 0 0 130px #b7c7e111, inset 1px 1px 0 #ffffff73;
-}
-
-.public-backdrop-light {
-  position: absolute;
-  left: 30%;
-  bottom: -300px;
-  width: 700px;
-  height: 500px;
-  border-radius: 50%;
-  background: #f3e8c74d;
-  filter: blur(80px);
-}
-
 .public-profile-topbar {
   border-bottom: 1px solid #ffffff85;
   background: #f8fcfa8c;
@@ -263,14 +218,6 @@ html[data-nuthrick-theme='night'] .public-profile-page {
   --public-card-header: #263952e0;
   --public-shadow: 0 26px 44px -24px #020617b8, 0 8px 15px -7px #02061775;
 }
-html[data-nuthrick-theme='night'] .public-profile-backdrop {
-  background: radial-gradient(ellipse at 0 0, #155266, transparent 60%),
-    radial-gradient(ellipse at 100% 10%, #252954, transparent 58%),
-    linear-gradient(135deg, #10324e, #0b1a33 68%, #091329);
-}
-html[data-nuthrick-theme='night'] .public-backdrop-arc { background: linear-gradient(110deg, #2878944d, #1b435d2b); box-shadow: inset -1px 0 0 #74bbd526; }
-html[data-nuthrick-theme='night'] .public-backdrop-orbit { border-color: #678ac319; box-shadow: 0 0 0 130px #3e577815, inset 1px 1px 0 #ffffff0c; }
-html[data-nuthrick-theme='night'] .public-backdrop-light { background: #6a81792b; }
 html[data-nuthrick-theme='night'] .public-profile-topbar { background: #10253994; border-color: #b4d9ed12; }
 html[data-nuthrick-theme='night'] .public-profile-card,
 html[data-nuthrick-theme='night'] .public-profile-navigation { border-color: #9dc5da2b; box-shadow: var(--public-shadow), inset 0 1px 0 #cdeef114; }

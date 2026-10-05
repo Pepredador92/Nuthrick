@@ -62,7 +62,7 @@ html[data-nuthrick-theme='night'] .nuth-theme-switch button[aria-pressed='true']
   .nuth-public-theme-control.is-auth { left: auto; right: 12px; }
 }
 
-html:not([data-nuthrick-theme='night']) :is(.professional-shell, .admin-shell, .patient-portal) {
+html:not([data-nuthrick-theme='night']) :is(.professional-shell, .admin-shell) {
   background: #eef3ef radial-gradient(circle at 88% 8%, #dcd7f26b, transparent 39%) fixed;
 }
 html:not([data-nuthrick-theme='night']) .professional-header { background: #f5f9f5e8; }

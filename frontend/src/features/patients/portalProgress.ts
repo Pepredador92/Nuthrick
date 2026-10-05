@@ -46,10 +46,10 @@ export function portalProgress(result: SharedResult) {
 
 export type PortalProgress = ReturnType<typeof portalProgress>;
 
-export function portalChart(progress: PortalProgress) {
+export function portalChart(progress: PortalProgress, dimensions: { width?: number; height?: number; top?: number } = {}) {
   const { points, numeric } = progress;
   if (!numeric.length) return null;
-  const width = 400, height = 208, left = 50, right = 22, top = 24, bottom = 34;
+  const width = dimensions.width ?? 400, height = dimensions.height ?? 208, left = 50, right = 22, top = dimensions.top ?? 24, bottom = 34;
   const values = numeric.map((point) => point.number);
   const min = Math.min(...values), max = Math.max(...values);
   const padding = max === min ? Math.max(Math.abs(min) * 0.05, 1) : (max - min) * 0.2;
@@ -69,4 +69,31 @@ export function portalChart(progress: PortalProgress) {
   if (segment.length) segments.push(segment);
   return { width, height, left, right, top, baseline: height - bottom, dots, segments,
     ticks: [high, (high + low) / 2, low].map((value) => ({ value, y: y(value) })) };
+}
+
+/** Keep the time scale intact; only move the value badges when dates cluster.
+ * Extra records get horizontal room rather than smaller text or hidden values.
+ */
+export function portalLabeledChart(progress: PortalProgress, availableWidth = 400) {
+  const gap = 8;
+  const sizes = progress.numeric.map((point) => Math.max(42, point.value.trim().length * 7 + 20));
+  const width = Math.max(availableWidth, 72 + sizes.reduce((sum, size) => sum + size, 0) + gap * Math.max(0, sizes.length - 1));
+  const chart = portalChart(progress, { width, height: 240, top: 44 });
+  if (!chart) return null;
+  const labels = chart.dots.map((point, index) => ({
+    key: point.key,
+    x: Math.max(chart.left + sizes[index] / 2, Math.min(point.x, width - chart.right - sizes[index] / 2)),
+    y: point.y - 34,
+    width: sizes[index],
+    height: 24,
+    value: point.value.trim(),
+  }));
+  for (let i = 1; i < labels.length; i++) {
+    labels[i].x = Math.max(labels[i].x, labels[i - 1].x + (labels[i - 1].width + labels[i].width) / 2 + gap);
+  }
+  labels.at(-1)!.x = Math.min(labels.at(-1)!.x, width - chart.right - labels.at(-1)!.width / 2);
+  for (let i = labels.length - 2; i >= 0; i--) {
+    labels[i].x = Math.min(labels[i].x, labels[i + 1].x - (labels[i + 1].width + labels[i].width) / 2 - gap);
+  }
+  return { ...chart, labels };
 }

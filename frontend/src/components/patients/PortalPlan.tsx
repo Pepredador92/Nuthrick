@@ -8,6 +8,8 @@ import {
 import { formatFoodQuantity } from "@/src/features/menu/units";
 import { portalDate } from "./PortalContentView";
 import {PlanExport} from './PlanExport';
+import { Utensils } from "lucide-react";
+import { PortalCardHeading } from "./PortalCardHeading";
 
 export function PortalPlanContent({ plan }: { plan: PortalPlan | null }) {
   if (!plan)
@@ -21,90 +23,92 @@ export function PortalPlanContent({ plan }: { plan: PortalPlan | null }) {
     );
   return (
     <section
-      className="portal-card min-w-0"
+      className="portal-card portal-panel-card min-w-0"
       aria-label="Plan alimenticio publicado"
     >
-      <p className="nuth-eyebrow">Mi plan alimenticio</p>
-      <h2 className="mt-2 text-xl font-semibold break-words">{plan.title}</h2>
-      <p className="mt-2 text-xs text-[#63796d]">
-        Versión {plan.versionNumber} · Publicado el{" "}
-        {portalDate(plan.publishedAt)}
-      </p>
-      <PatientSupplements items={plan.supplements} />
-      <div className="mt-6 space-y-7">
-        {plan.days.map((day,dayIndex) => (
-          <section key={dayIndex} className="border-t border-[#e0e7de] pt-4">
-            <h3 className="font-semibold">{day.name}</h3>
-            {day.text!==undefined&&<p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-[#52685d]">{day.text}</p>}
-            <div className="mt-4 space-y-6">
-              {day.meals.map((meal, index) => (
-                <article
-                  key={index}
-                  className="border-l-2 border-[#a5beae] pl-3 break-words"
-                >
-                  <p className="text-sm font-semibold">
-                    {meal.name}
-                    {meal.time && (
-                      <span className="ml-2 font-normal text-[#63796d]">
-                        {meal.time}
-                      </span>
-                    )}
-                  </p>
-                  <h4 className="mt-2 text-sm font-medium">{meal.title}</h4>
-                  <ul
-                    className="mt-2 list-disc pl-4 space-y-1 text-sm text-[#52685d]"
-                    aria-label={`Ingredientes de ${meal.name}`}
+      <PortalCardHeading icon={Utensils} title="Mi plan alimenticio" subtitle="Tu alimentación, paso a paso" />
+      <div className="portal-card-body">
+        <h2 className="mt-2 text-xl font-semibold break-words">{plan.title}</h2>
+        <p className="mt-2 text-xs text-[#63796d]">
+          Versión {plan.versionNumber} · Publicado el{" "}
+          {portalDate(plan.publishedAt)}
+        </p>
+        <PatientSupplements items={plan.supplements} />
+        <div className="mt-6 space-y-7">
+          {plan.days.map((day,dayIndex) => (
+            <section key={dayIndex} className="portal-plan-day">
+              <h3 className="font-semibold">{day.name}</h3>
+              {day.text!==undefined&&<p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-[#52685d]">{day.text}</p>}
+              <div className="portal-plan-meals mt-4">
+                {day.meals.map((meal, index) => (
+                  <article
+                    key={index}
+                    className="portal-plan-meal break-words"
                   >
-                    {meal.ingredients.map((item, i) => (
-                      <li key={i}>
-                        {formatFoodQuantity(item.amount)} {item.unit} ·{" "}
-                        {item.name}
-                      </li>
-                    ))}
-                  </ul>
-                  {meal.instructions.length > 0 && (
-                    <div
-                      className="mt-3 space-y-2 text-sm text-[#52685d]"
-                      aria-label="Preparación"
+                    <p className="text-sm font-semibold">
+                      {meal.name}
+                      {meal.time && (
+                        <span className="ml-2 font-normal text-[#63796d]">
+                          {meal.time}
+                        </span>
+                      )}
+                    </p>
+                    <h4 className="mt-2 text-sm font-medium">{meal.title}</h4>
+                    <ul
+                      className="mt-2 list-disc pl-4 space-y-1 text-sm text-[#52685d]"
+                      aria-label={`Ingredientes de ${meal.name}`}
                     >
-                      <p className="font-semibold">Preparación</p>
-                      {meal.instructions.map((line, i) => (
-                        <p className="whitespace-pre-line" key={i}>
-                          {line}
-                        </p>
+                      {meal.ingredients.map((item, i) => (
+                        <li key={i}>
+                          {formatFoodQuantity(item.amount)} {item.unit} ·{" "}
+                          {item.name}
+                        </li>
                       ))}
-                    </div>
-                  )}
-                  {meal.ingredients.some((i) => i.alternatives.length > 0) && (
-                    <div
-                      className="mt-3 text-xs leading-5 text-[#52685d]"
-                      aria-label="Sustituciones"
-                    >
-                      <p className="font-semibold">
-                        Puedes sustituir · Elige una alternativa, no la agregues
-                        a la porción.
-                      </p>
-                      {meal.ingredients
-                        .filter((i) => i.alternatives.length > 0)
-                        .map((item, i) => (
-                          <p key={i}>
-                            <strong>{item.name}:</strong>{" "}
-                            {item.alternatives
-                              .map(
-                                (alt) =>
-                                  `${formatFoodQuantity(alt.amount)} ${alt.unit} de ${alt.name}`,
-                              )
-                              .join(" o ")}
-                            .
+                    </ul>
+                    {meal.instructions.length > 0 && (
+                      <div
+                        className="mt-3 space-y-2 text-sm text-[#52685d]"
+                        aria-label="Preparación"
+                      >
+                        <p className="font-semibold">Preparación</p>
+                        {meal.instructions.map((line, i) => (
+                          <p className="whitespace-pre-line" key={i}>
+                            {line}
                           </p>
                         ))}
-                    </div>
-                  )}
-                </article>
-              ))}
+                      </div>
+                    )}
+                    {meal.ingredients.some((i) => i.alternatives.length > 0) && (
+                      <div
+                        className="mt-3 text-xs leading-5 text-[#52685d]"
+                        aria-label="Sustituciones"
+                      >
+                        <p className="font-semibold">
+                          Puedes sustituir · Elige una alternativa, no la agregues
+                          a la porción.
+                        </p>
+                        {meal.ingredients
+                          .filter((i) => i.alternatives.length > 0)
+                          .map((item, i) => (
+                            <p key={i}>
+                              <strong>{item.name}:</strong>{" "}
+                              {item.alternatives
+                                .map(
+                                  (alt) =>
+                                    `${formatFoodQuantity(alt.amount)} ${alt.unit} de ${alt.name}`,
+                                )
+                                .join(" o ")}
+                              .
+                            </p>
+                          ))}
+                      </div>
+                    )}
+                  </article>
+                ))}
             </div>
           </section>
         ))}
+      </div>
       </div>
     </section>
   );
