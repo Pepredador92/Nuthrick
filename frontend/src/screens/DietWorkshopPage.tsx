@@ -37,6 +37,7 @@ import { createMealDistribution, reconcileMealDistribution } from "@/src/feature
 import { reconcileDietMenu } from "@/src/features/menu/model";
 import { reconcileMacroDistribution } from "@/src/features/macros/model";
 import { changedDietPlanPatch, encodePersistedValue } from "@/src/features/diet-workshop/autosave";
+import { workshopStage } from "@/src/features/diet-workshop/stage";
 import { calculateAge, consultationLabel, formatPatientDate } from "@/src/features/patients/patientUtils";
 import {
   createDietPlan,
@@ -427,6 +428,7 @@ export function DietWorkshopPage() {
         const nextPlan = await getDietPlan(dietPlanId);
         if (!nextPlan) throw new Error("No encontramos este plan o no tienes autorización para verlo.");
         setPlan(nextPlan);
+        setActiveStep(workshopStage(nextPlan));
         setTitle(nextPlan.title);
         setSavedTitle(nextPlan.title);
         if (nextPlan.patient_id) await loadPatientContext(nextPlan.patient_id, nextPlan.consultation_id);
@@ -710,11 +712,13 @@ export function DietWorkshopPage() {
     heightSource: reference?.height ? "consultation" : patient?.height_cm !== null && patient?.height_cm !== undefined ? "patient" : undefined,
   };
   const selectStep = async (step: WorkshopStep) => {
+    const previousStep = activeStep;
     try {
       const current = await flushPendingDraft();
       if (step === "menu" && !current.meal_distribution) await savePlanPatch({ meal_distribution: createMealDistribution() });
       setActiveStep(step);
-    } catch (cause) { setError((cause as Error).message); }
+      await savePlanPatch({ last_workshop_step: step });
+    } catch (cause) { setActiveStep(previousStep); setError((cause as Error).message); }
   };
   const energyReferenceWeightKg = plan.energy_calculation?.inputs.weight_kg.value ?? null;
   const exchangeTargets = exchangeTargetsFor(plan);
@@ -722,7 +726,7 @@ export function DietWorkshopPage() {
     planRef.current = updated;
     setPlan(updated);
     setLibraryEpoch(value => value + 1);
-    setActiveStep("equivalents");
+    void selectStep("equivalents");
     setNotice("Borrador actualizado. Revisa equivalentes, tiempos, opciones y sustituciones antes de publicar.");
   };
   const applyLibrary = async (item: DietLibraryItem, token: string, targetMode: "preserve" | "reference") => {
@@ -836,7 +840,7 @@ export function DietWorkshopPage() {
               setPlan(updated);
               setLibraryEpoch(value => value + 1);
               setNotice("Dietas guardadas como borrador. Revisa y edita cada propuesta antes de aprobarla y publicarla.");
-              setActiveStep("review");
+              void selectStep("review");
               requestAnimationFrame(() => { const heading = document.querySelector<HTMLElement>('main h1'); heading?.setAttribute('tabindex','-1'); heading?.focus(); });
             }}/>}
             onSave={async (prescription) => {
@@ -863,10 +867,10 @@ export function DietWorkshopPage() {
               if (menu) clearPendingIfSaved(pendingDietMenu, menu);
             }}
             onDraftChange={(distribution) => { pendingMealDistribution.current = distribution; }}
-            onGoToEquivalents={() => setActiveStep("equivalents")}
+            onGoToEquivalents={() => { void selectStep("equivalents"); }}
             onContinue={() => { void selectStep("menu"); }}
           />}
-          {activeStep === "menu" && plan.text_diet && <section className="rounded-2xl bg-white p-6"><h2 className="text-xl font-semibold">Este borrador contiene dietas en texto</h2><p className="my-3">Edita los platillos y sus cantidades desde la revisión.</p><button className="nuth-button" onClick={()=>setActiveStep("review")}>Revisar dietas</button></section>}
+          {activeStep === "menu" && plan.text_diet && <section className="rounded-2xl bg-white p-6"><h2 className="text-xl font-semibold">Este borrador contiene dietas en texto</h2><p className="my-3">Edita los platillos y sus cantidades desde la revisión.</p><button className="nuth-button" onClick={() => { void selectStep("review"); }}>Revisar dietas</button></section>}
           {activeStep === "menu" && !plan.text_diet && <DietMenuStep
             plan={plan}
             onSave={async (menu) => {
@@ -874,19 +878,19 @@ export function DietWorkshopPage() {
               clearPendingIfSaved(pendingDietMenu, menu);
             }}
             onDraftChange={(menu) => { pendingDietMenu.current = menu; }}
-            onGoToMeals={() => setActiveStep("meals")}
+            onGoToMeals={() => { void selectStep("meals"); }}
             onGoToReview={() => { void selectStep("review"); }}
           />}
           {activeStep === "review" && plan.text_diet && <TextDietReviewStep key={libraryEpoch} plan={{...plan,title}} patientName={patient?.full_name||"Paciente"} versions={versions} publishing={publishing}
             onSave={draft=>savePlanPatch({text_diet:draft})} onPublish={()=>void publishVersion([])}
-            generateAction={<TextDietAI plan={plan} before={flushPendingDraft} onApplied={updated=>{planRef.current=updated;setPlan(updated);setActiveStep("review");setLibraryEpoch(v=>v+1);}}/>}/>}
+            generateAction={<TextDietAI plan={plan} before={flushPendingDraft} onApplied={updated=>{planRef.current=updated;setPlan(updated);void selectStep("review");setLibraryEpoch(v=>v+1);}}/>}/>}
           {activeStep === "review" && !plan.text_diet && <DietPlanReviewStep
             plan={{ ...plan, title }}
             patient={patient}
             consultation={consultation}
             versions={versions}
             publishing={publishing}
-            onCorrect={(step) => setActiveStep(step)}
+            onCorrect={(step) => { void selectStep(step); }}
             onPrepareSingleDay={(menu) => void savePlanPatch({ diet_menu: menu })
               .then(() => setNotice("Día único preparado para revisión."))
               .catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos preparar el calendario."))}

@@ -47,6 +47,7 @@ const plan: NutritionPlan = {
   consultation_id: "consultation",
   title: "Plan nutricional",
   status: "draft",
+  last_workshop_step: "energy",
   assigned_at: "2026-09-09",
   review_date: null,
   plan_type: null,
@@ -100,6 +101,7 @@ function mount(entry: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  let savedPlan: NutritionPlan | null = null;
   api.getPatient.mockResolvedValue(patient);
   api.listConsultations.mockResolvedValue([consultation]);
   api.listPatients.mockResolvedValue({ rows: [patient], total: 1 });
@@ -107,7 +109,11 @@ beforeEach(() => {
   api.listPlans.mockResolvedValue([]);
   api.createPlan.mockResolvedValue(plan);
   api.deleteDraft.mockResolvedValue(undefined);
-  api.updatePlan.mockImplementation(async (_id, patch) => ({ ...plan, ...patch }));
+  api.updatePlan.mockImplementation(async (_id, patch) => {
+    savedPlan ??= await api.getPlan();
+    savedPlan = { ...savedPlan!, ...patch };
+    return savedPlan;
+  });
   api.listVersions.mockResolvedValue([]);
   api.publishVersion.mockResolvedValue({ version_id: "version", version_number: 1, published_at: "2026-09-15T00:00:00Z", reused: false, already_current: false });
   api.loadReference.mockResolvedValue({
@@ -119,6 +125,15 @@ beforeEach(() => {
 });
 
 describe("DietWorkshopPage", () => {
+  it("resumes the last section and saves the newly selected section", async () => {
+    api.getPlan.mockResolvedValue({ ...plan, last_workshop_step: "macros", target_calories: 1800 });
+    mount("/app/diet-workshop/plan");
+    expect(await screen.findByRole("heading", { name: "Kilocalorías y macronutrientes" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Equivalentes/ }));
+    await waitFor(() => expect(api.updatePlan).toHaveBeenCalledWith(
+      "plan", expect.objectContaining({ last_workshop_step: "equivalents" }), expect.any(Number),
+    ));
+  });
   it("links a published plan to patient sharing from review", async () => {
     api.getPlan.mockResolvedValue({ ...plan, status: "active", current_version_id: "version" });
     mount("/app/diet-workshop/plan");
@@ -264,7 +279,7 @@ describe("DietWorkshopPage", () => {
     ["Energía", "Objetivo energético"],
     ["Guardar y salir", "Ficha del paciente"],
   ])("saves pending macros before %s", async (action, destination) => {
-    const saved = { ...plan, target_calories: 2000 };
+    const saved = { ...plan, target_calories: 2000, last_workshop_step: "macros" as const };
     api.getPlan.mockResolvedValue(saved);
     let finishSave: ((value: NutritionPlan) => void) | undefined;
     api.updatePlan.mockImplementationOnce(() => new Promise<NutritionPlan>(resolve => { finishSave = resolve; }));
@@ -289,7 +304,7 @@ describe("DietWorkshopPage", () => {
     macros = patchMacroInput(macros, "CARBOHYDRATE", "percentage", 50);
     macros = patchMacroInput(macros, "PROTEIN", "percentage", 20);
     macros = patchMacroInput(macros, "FAT", "percentage", 30);
-    const saved = { ...plan, target_calories: 2000, macro_distribution: macros };
+    const saved = { ...plan, target_calories: 2000, macro_distribution: macros, last_workshop_step: "equivalents" as const };
     api.getPlan.mockResolvedValue(saved);
     let finishSave: ((value: NutritionPlan) => void) | undefined;
     api.updatePlan.mockImplementationOnce(() => new Promise<NutritionPlan>(resolve => { finishSave = resolve; }));

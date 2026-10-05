@@ -44,6 +44,19 @@ beforeEach(() => {
   };
 });
 describe("plan organization", () => {
+  it("shows plans as a list with the last saved step and a resume action", () => {
+    mount([plan("Dieta de seguimiento", { last_workshop_step: "menu" })]);
+    expect(screen.getByRole("list", { name: "Planes del Taller" })).toBeInTheDocument();
+    expect(screen.getByText("Paso 5 de 6 · Menú")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Reanudar" })).toHaveAttribute(
+      "href", "/app/diet-workshop/Dieta de seguimiento",
+    );
+  });
+  it("keeps an active plan without a published version in the draft list", () => {
+    mount([plan("En preparación", { status: "active", current_version_id: null })]);
+    expect(screen.getByRole("button", { name: "Borradores 1" })).toBeInTheDocument();
+    expect(screen.getByText("Borrador")).toBeInTheDocument();
+  });
   it.each([false, true])(
     "deletes only after confirmation, assigned=%s",
     async (assigned) => {

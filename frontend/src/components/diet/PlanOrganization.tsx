@@ -11,6 +11,7 @@ import {
 import type { NutritionPlan } from "@/src/types/domain";
 import { deleteDietDraft, removePublishedDietPlan, updateDietPlan } from "@/src/services/dietPlans";
 import { formatPatientDate } from "@/src/features/patients/patientUtils";
+import { workshopStage, workshopStageLabels, workshopStageOrder } from "@/src/features/diet-workshop/stage";
 
 export const canDeleteDraft = (p: NutritionPlan) =>
   p.status === "draft" &&
@@ -19,6 +20,8 @@ export const canDeleteDraft = (p: NutritionPlan) =>
   !p.published_version_number;
 export const canRemovePublished = (p: NutritionPlan) =>
   p.status !== "archived" && !p.deleted_at && Boolean(p.current_version_id);
+const hasPublication = (p: NutritionPlan) =>
+  Boolean(p.current_version_id || p.has_published_versions || p.published_version_number);
 const sharingUrl = (plan: NutritionPlan) =>
   `/app/patients/${plan.patient_id}/portal?tab=share&planId=${plan.id}#portal-plan-sharing`;
 export function PlanOrganization({
@@ -47,8 +50,8 @@ export function PlanOrganization({
     (key === "archived"
       ? p.status === "archived"
       : key === "published"
-        ? p.status !== "archived" && !canDeleteDraft(p)
-        : canDeleteDraft(p));
+        ? p.status !== "archived" && hasPublication(p)
+        : p.status !== "archived" && !hasPublication(p));
   const visible = plans
     .filter(
       (p) =>
@@ -102,7 +105,7 @@ export function PlanOrganization({
     }
   };
   return (
-    <section className="mx-auto max-w-5xl" aria-label="Mis planes">
+    <section className="mx-auto max-w-6xl" aria-label="Mis planes">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-2xl font-semibold">Mis planes</h2>
         <a
@@ -161,106 +164,59 @@ export function PlanOrganization({
           {notice}
         </p>
       )}
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        {visible.map((plan) => (
-          <article
-            key={plan.id}
-            className={`min-w-0 rounded-2xl border border-l-4 bg-white p-5 ${plan.patient_id ? "border-[#dfe6e1] border-l-[#8fab9a]" : "border-[#dfe6e1] border-l-[#a6b5d2]"}`}
-          >
-            <div className="flex items-start gap-2">
-              <Link
-                to={`/app/diet-workshop/${plan.id}`}
-                className="min-w-0 flex-1 font-semibold text-[#24463b] [overflow-wrap:anywhere]"
-              >
-                {plan.title}
-              </Link>
-              <details className="relative shrink-0">
-                <summary
-                  aria-label={`Acciones de ${plan.title}`}
-                  className="grid h-10 w-10 cursor-pointer list-none place-items-center rounded-xl hover:bg-[#f3f6f3]"
-                >
-                  <MoreHorizontal size={20} />
-                </summary>
-                <div className="absolute right-0 z-10 grid min-w-44 gap-1 rounded-xl border bg-white p-2 text-sm shadow-lg">
-                  <Link
-                    className="rounded-lg p-2 hover:bg-[#f3f6f3]"
-                    to={`/app/diet-workshop/${plan.id}`}
-                  >
-                    Abrir
-                  </Link>
-                  <button
-                    className="rounded-lg p-2 text-left hover:bg-[#f3f6f3]"
-                    onClick={() => open(plan, "rename")}
-                  >
-                    Renombrar
-                  </button>
-                  {plan.patient_id && (
-                    <Link
-                      className="rounded-lg p-2 hover:bg-[#f3f6f3]"
-                      to={`/app/patients/${plan.patient_id}`}
-                    >
-                      Ver paciente
+      {visible.length > 0 && (
+        <div className="mt-4 rounded-2xl border border-[#d9e4df] bg-white shadow-[0_14px_38px_-28px_rgba(12,48,48,.45)]">
+          <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.25fr)_auto] gap-5 border-b border-[#d9e4df] bg-[#f3f8f6] px-5 py-3 text-[11px] font-bold uppercase tracking-[.12em] text-[#5b736a] lg:grid">
+            <span>Plan</span><span>Paciente</span><span>Etapa y estado</span><span>Continuar</span>
+          </div>
+          <ul className="divide-y divide-[#e4ebe7]" aria-label="Planes del Taller">
+            {visible.map((plan) => {
+              const stage = workshopStage(plan);
+              return (
+                <li key={plan.id} className="grid min-w-0 gap-4 px-5 py-4 transition-colors hover:bg-[#f8fbfa] lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.25fr)_auto] lg:items-center lg:gap-5">
+                  <div className="min-w-0">
+                    <Link to={`/app/diet-workshop/${plan.id}`} className="block truncate font-semibold text-[#24463b] hover:underline" title={plan.title}>{plan.title}</Link>
+                    <p className="mt-1 text-xs text-[#607269]">Actualizado {formatPatientDate(plan.updated_at)}</p>
+                  </div>
+                  <span className="inline-flex min-w-0 items-center gap-2 text-sm text-[#405c51]">
+                    <UserRound size={15} className="shrink-0 text-[#4f9089]" />
+                    <span className="truncate">{plan.patient_id ? `Paciente asignado · ${plan.patient_name || "Paciente"}` : "Plan libre"}</span>
+                  </span>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="rounded-full bg-[#e9f2f0] px-2.5 py-1.5 font-semibold text-[#246674]">
+                      Paso {workshopStageOrder.indexOf(stage) + 1} de 6 · {workshopStageLabels[stage]}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#f3f5f2] px-2.5 py-1.5 text-[#52665a]">
+                      {plan.status === "archived" ? <Archive size={13} /> : !hasPublication(plan) ? <FilePenLine size={13} /> : <Check size={13} />}
+                      {plan.status === "archived" ? "Archivado" : !hasPublication(plan) ? "Borrador" : `Publicado${plan.published_version_number ? ` · v${plan.published_version_number}` : ""}`}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                    <Link className="inline-flex items-center gap-1 rounded-xl bg-[#e7f3f1] px-3 py-2 text-sm font-semibold text-[#205a61] hover:bg-[#d6eae7]" to={`/app/diet-workshop/${plan.id}`}>
+                      {!hasPublication(plan) ? "Reanudar" : "Abrir"} <ChevronRight size={15} />
                     </Link>
-                  )}
-                  {canDeleteDraft(plan) && (
-                    <button
-                      className="rounded-lg p-2 text-left text-[#963f32] hover:bg-[#fbe9e5]"
-                      onClick={() => open(plan, "delete")}
-                    >
-                      Eliminar borrador
-                    </button>
-                  )}
-                  {canRemovePublished(plan) && (
-                    <button className="rounded-lg p-2 text-left text-[#963f32] hover:bg-[#fbe9e5]" onClick={() => open(plan, "removePublished")}>
-                      Eliminar plan publicado
-                    </button>
-                  )}
-                </div>
-              </details>
-            </div>
-            <p className="mt-1 text-xs text-[#607269]">
-              Actualizado {formatPatientDate(plan.updated_at)}
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2 text-xs">
-              <span
-                className={`inline-flex max-w-full items-center gap-1.5 rounded-lg px-2 py-1.5 ${plan.patient_id ? "bg-[#edf5ef] text-[#315e4f]" : "bg-[#eef1f8] text-[#495c80]"}`}
-              >
-                <UserRound size={13} className="shrink-0" />
-                <span className="break-words">
-                  {plan.patient_id
-                    ? `Paciente asignado · ${plan.patient_name || "Paciente"}`
-                    : "Plan libre"}
-                </span>
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#f3f5f2] px-2 py-1.5 text-[#52665a]">
-                {plan.status === "archived" ? (
-                  <Archive size={13} />
-                ) : canDeleteDraft(plan) ? (
-                  <FilePenLine size={13} />
-                ) : (
-                  <Check size={13} />
-                )}
-                {plan.status === "archived"
-                  ? "Archivado"
-                  : canDeleteDraft(plan)
-                    ? "Borrador"
-                    : `Publicado${plan.published_version_number ? ` · v${plan.published_version_number}` : ""}`}
-              </span>
-            </div>
-            <Link
-              className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#3d705d]"
-              to={`/app/diet-workshop/${plan.id}`}
-            >
-              Abrir plan <ChevronRight size={14} />
-            </Link>
-            {canRemovePublished(plan) && plan.patient_id && (
-              <Link className="ml-4 inline-flex items-center gap-1 text-xs font-semibold text-[#246674]" to={sharingUrl(plan)}>
-                Compartir con paciente <ChevronRight size={14} />
-              </Link>
-            )}
-          </article>
-        ))}
-      </div>
+                    {canRemovePublished(plan) && plan.patient_id && (
+                      <Link className="inline-flex items-center gap-1 rounded-xl border border-[#cbdedb] px-3 py-2 text-sm font-semibold text-[#246674] hover:bg-[#f0f8f6]" to={sharingUrl(plan)}>
+                        Compartir con paciente
+                      </Link>
+                    )}
+                    <details className="relative shrink-0">
+                      <summary aria-label={`Acciones de ${plan.title}`} className="grid h-10 w-10 cursor-pointer list-none place-items-center rounded-xl hover:bg-[#edf4f1]"><MoreHorizontal size={20} /></summary>
+                      <div className="absolute right-0 z-10 grid min-w-44 gap-1 rounded-xl border bg-white p-2 text-sm shadow-lg">
+                        <Link className="rounded-lg p-2 hover:bg-[#f3f6f3]" to={`/app/diet-workshop/${plan.id}`}>Abrir</Link>
+                        <button className="rounded-lg p-2 text-left hover:bg-[#f3f6f3]" onClick={() => open(plan, "rename")}>Renombrar</button>
+                        {plan.patient_id && <Link className="rounded-lg p-2 hover:bg-[#f3f6f3]" to={`/app/patients/${plan.patient_id}`}>Ver paciente</Link>}
+                        {canDeleteDraft(plan) && <button className="rounded-lg p-2 text-left text-[#963f32] hover:bg-[#fbe9e5]" onClick={() => open(plan, "delete")}>Eliminar borrador</button>}
+                        {canRemovePublished(plan) && <button className="rounded-lg p-2 text-left text-[#963f32] hover:bg-[#fbe9e5]" onClick={() => open(plan, "removePublished")}>Eliminar plan publicado</button>}
+                      </div>
+                    </details>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
       {!visible.length && (
         <div className="mt-4 rounded-2xl border border-dashed border-[#cdd9d1] bg-white p-8 text-center">
           <p className="text-sm text-[#607269]">

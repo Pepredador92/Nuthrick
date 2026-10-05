@@ -354,6 +354,7 @@ export interface QuestionnaireResponse {
 }
 export interface NutritionPlan {
   deleted_at?: string | null;
+  last_workshop_step?: "energy" | "macros" | "equivalents" | "meals" | "menu" | "review";
   text_diet?: TextDiet | null;
   patient_name?: string | null;
   published_version_number?: number | null;
