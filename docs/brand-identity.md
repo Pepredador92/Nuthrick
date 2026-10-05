@@ -23,7 +23,7 @@ La portada pasa a cuatro momentos: gancho de pendientes tras consulta, recorrido
 - El cierre muestra la fotografía del creador con sus tres monitores y destaca «Creado por un nutriólogo. Para nutriólogos.», sin nombre ni datos personales en el texto.
 - «Ver planes» visible en la cabecera sticky, incluso en móvil, hacia `/planes`.
 - Catálogo y precios siguen usando `loadPublicCommercialData`; no se inventan importes si la consulta no está disponible.
-- Prueba social textual solicitada por el propietario, destacada sin cantidades. La conversación superpuesta a la fotografía es ficticia y se identifica con la nota «Conversación de ejemplo» debajo de la fotografía; no se presenta como testimonio real. Las burbujas son texto HTML accesible, independiente de la imagen.
+- Prueba social textual solicitada por el propietario, destacada sin cantidades y con el mensaje «Nutriólogos ya utilizan Nuthrick para mejorar su consulta». La conversación superpuesta a la fotografía es ficticia y se identifica con la nota «Conversación de ejemplo» debajo de la fotografía; no se presenta como testimonio real. Las burbujas son texto HTML accesible, independiente de la imagen.
 - La landing abre en tema noche cuando no hay una preferencia válida guardada. El selector conserva la elección explícita del visitante; las demás rutas mantienen su valor predeterminado.
 - Conserva el tour de pantallas, su manejo por teclado, registro, acceso, preguntas desplegables y temas día/noche.
 - Sin NFC ni QR. Sin modificaciones a funciones clínicas, permisos o reglas comerciales.

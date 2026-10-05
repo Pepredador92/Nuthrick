@@ -24,7 +24,7 @@ describe('LandingPage', () => {
     expect(founder).toHaveTextContent('quien mejor entiende lo que necesitas en consulta');
     expect(founder).not.toHaveTextContent('José Olmedo');
     expect(within(founder).getByRole('img')).toHaveAttribute('src', '/images/jose-olmedo-nuthrick-1280.webp');
-    expect(screen.getByText('Nutriólogos ya utilizan Nuthrick para organizar su consulta.')).toBeInTheDocument();
+    expect(screen.getByText('Nutriólogos ya utilizan Nuthrick para mejorar su consulta.')).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/50 nutriólogos|NFC|código QR/);
     const banner = screen.getByRole('banner');
     expect(within(banner).getByRole('link', { name: 'Ver planes' })).toHaveAttribute('href', '/planes');
