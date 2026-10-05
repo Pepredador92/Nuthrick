@@ -14,7 +14,7 @@ import {
   Save,
   UserPlus,
 } from "lucide-react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
 import { DietEnergyStep } from "@/src/components/diet/DietEnergyStep";
 import { DietMacrosStep } from "@/src/components/diet/DietMacrosStep";
@@ -26,7 +26,7 @@ import { DietLibrary } from "@/src/components/diet/DietLibrary";
 import { TextDietAI } from "@/src/components/diet/TextDietAI";
 import { TextDietReviewStep } from "@/src/components/diet/TextDietReview";
 import "@/src/components/diet/DietWorkshopDay.css";
-import { PlanOrganization } from "@/src/components/diet/PlanOrganization";
+import { PlanOrganization, canDeleteDraft } from "@/src/components/diet/PlanOrganization";
 import { applyDietLibrary, createDietLibraryEditingDraft, restoreDietLibrary } from "@/src/services/dietLibrary";
 import { libraryKind, type DietLibraryItem } from "@/src/features/diet-library/model";
 import { withPatientSubstitutions } from "@/src/features/diet-review/preparation";
@@ -40,6 +40,7 @@ import { changedDietPlanPatch, encodePersistedValue } from "@/src/features/diet-
 import { calculateAge, consultationLabel, formatPatientDate } from "@/src/features/patients/patientUtils";
 import {
   createDietPlan,
+  deleteDietDraft,
   getDietPlan,
   listDietPlans,
   listDietPlanVersions,
@@ -335,6 +336,7 @@ export function DietWorkshopPage() {
   const { dietPlanId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const requestedPatientId = searchParams.get("patientId");
   const requestedConsultationId = searchParams.get("consultationId");
   const libraryEditId = searchParams.get("libraryEdit");
@@ -371,6 +373,11 @@ export function DietWorkshopPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [libraryEpoch, setLibraryEpoch] = useState(0);
+  const [exitDestination, setExitDestination] = useState<string | null>(null);
+  const [exitBusy, setExitBusy] = useState(false);
+  const [exitError, setExitError] = useState("");
+  const [versionsLoaded, setVersionsLoaded] = useState(false);
+  const deletingDraft = useRef(false);
 
   useEffect(() => { planRef.current = plan; }, [plan]);
 
@@ -415,6 +422,8 @@ export function DietWorkshopPage() {
     setError("");
     try {
       if (dietPlanId) {
+        setVersionsLoaded(false);
+        setVersions([]);
         const nextPlan = await getDietPlan(dietPlanId);
         if (!nextPlan) throw new Error("No encontramos este plan o no tienes autorización para verlo.");
         setPlan(nextPlan);
@@ -433,8 +442,9 @@ export function DietWorkshopPage() {
         if (requestedConsultationId && context.consultation) {
           if (creatingDirect.current) return;
           creatingDirect.current = true;
-          const created = await createDietPlan({ patientId: requestedPatientId, consultationId: requestedConsultationId });
-          navigate(`/app/diet-workshop/${created.id}`, { replace: true });
+          const reusable = (await listDietPlans()).find((item) => item.patient_id === requestedPatientId && item.consultation_id === requestedConsultationId && canDeleteDraft(item));
+          const next = reusable ?? await createDietPlan({ patientId: requestedPatientId, consultationId: requestedConsultationId });
+          navigate(`/app/diet-workshop/${next.id}`, { replace: true });
         }
         return;
       }
@@ -470,7 +480,7 @@ export function DietWorkshopPage() {
     if (!planId) return;
     let active = true;
     void listDietPlanVersions(planId)
-      .then((value) => { if (active) setVersions(value); })
+      .then((value) => { if (active) { setVersions(value); setVersionsLoaded(true); } })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "No pudimos cargar el historial de publicaciones."); });
     return () => { active = false; };
   }, [plan?.id]);
@@ -478,6 +488,7 @@ export function DietWorkshopPage() {
   useEffect(() => {
     if (!plan || title.trim() === savedTitle || !title.trim()) return;
     const timer = window.setTimeout(() => {
+      if (deletingDraft.current) return;
       void savePlanPatch({ title })
         .then((updated) => { setSavedTitle(updated.title); setNotice("Borrador guardado."); })
         .catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el título."))
@@ -487,21 +498,43 @@ export function DietWorkshopPage() {
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
-      if (plan && title.trim() && title.trim() !== savedTitle) {
+      if (plan && plan.status === "draft") {
         event.preventDefault();
         event.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [plan, savedTitle, title]);
+  }, [plan]);
+
+  useEffect(() => {
+    if (!plan) return;
+    const interceptNavigation = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = (event.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!anchor || anchor.hasAttribute("download") || anchor.getAttribute("target") === "_blank") return;
+      const destination = new URL(anchor.href, window.location.href);
+      if (destination.origin !== window.location.origin) return;
+      const current = `${location.pathname}${location.search}${location.hash}`;
+      const next = `${destination.pathname}${destination.search}${destination.hash}`;
+      if (next === current || (destination.pathname === location.pathname && destination.search === location.search)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setExitDestination(next);
+    };
+    document.addEventListener("click", interceptNavigation, true);
+    return () => document.removeEventListener("click", interceptNavigation, true);
+  }, [plan, location.pathname, location.search, location.hash]);
 
   const create = async (patientId: string | null, consultationId: string | null) => {
     setBusy(true);
     setError("");
     try {
-      const created = await createDietPlan({ patientId, consultationId });
-      navigate(`/app/diet-workshop/${created.id}`);
+      const reusable = patientId && consultationId
+        ? (await listDietPlans()).find((item) => item.patient_id === patientId && item.consultation_id === consultationId && canDeleteDraft(item))
+        : null;
+      const next = reusable ?? await createDietPlan({ patientId, consultationId });
+      navigate(`/app/diet-workshop/${next.id}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No pudimos crear el borrador.");
     } finally {
@@ -646,7 +679,28 @@ export function DietWorkshopPage() {
 
   const cardLayout = activeStep === "energy" || activeStep === "macros" || activeStep === "equivalents" || activeStep === "meals" || (activeStep === "menu" && !plan.text_diet) || (activeStep === "review" && !plan.text_diet);
   const exitTarget = patient ? `/app/patients/${patient.id}` : "/app/diet-workshop";
-  const saveAndExit = () => { void flushPendingDraft().then(() => navigate(exitTarget)).catch((cause) => setError(cause instanceof Error ? cause.message : "No pudimos guardar el plan.")); };
+  const saveAndExit = () => { setExitError(""); setExitDestination(exitTarget); };
+  const confirmExit = async (discard: boolean) => {
+    if (!exitDestination || exitBusy) return;
+    setExitBusy(true);
+    setExitError("");
+    try {
+      if (discard) {
+        deletingDraft.current = true;
+        await planSaveQueue.current;
+        const current = planRef.current ?? plan;
+        await deleteDietDraft(current.id, current.draft_revision ?? 1);
+      } else {
+        await flushPendingDraft();
+      }
+      navigate(exitDestination);
+    } catch (cause) {
+      deletingDraft.current = false;
+      setExitError(cause instanceof Error ? cause.message : "No pudimos salir del plan.");
+    } finally {
+      setExitBusy(false);
+    }
+  };
   const energyReference: EnergyReferenceContext = {
     weightKg: reference?.weight?.value ?? patient?.weight_kg ?? null,
     heightCm: reference?.height?.value ?? patient?.height_cm ?? null,
@@ -694,6 +748,19 @@ export function DietWorkshopPage() {
   </>;
   return (
     <div data-workshop-theme={appearance} className={`min-w-0 w-full pb-16 [overflow-wrap:anywhere] ${cardLayout ? "energy-workspace" : ""}`}>
+      {exitDestination && <div role="dialog" aria-modal="true" aria-labelledby="workshop-exit-title" className="fixed inset-0 z-[80] grid place-items-center bg-[#081c1f]/70 p-4">
+        <div className="w-full max-w-md rounded-[24px] border border-[#b6cecb]/40 bg-[#f8fbf9] p-6 text-[#173d36] shadow-2xl">
+          <p className="text-xs font-bold uppercase tracking-[.16em] text-[#52766e]">Taller de dietas</p>
+          <h2 id="workshop-exit-title" className="mt-2 text-xl font-semibold">¿Qué hacemos con este plan?</h2>
+          <p className="mt-2 text-sm leading-6 text-[#5d746c]">Puedes conservar el trabajo para retomarlo después.{canDeleteDraft(plan) && versionsLoaded && versions.length === 0 ? " Si no necesitas este borrador, puedes eliminarlo." : " Las versiones publicadas se conservan."}</p>
+          {exitError && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] p-3 text-sm text-[#963f32]">{exitError}</p>}
+          <div className="mt-6 grid gap-2">
+            <button type="button" className="nuth-button justify-center" disabled={exitBusy} onClick={() => void confirmExit(false)}>{exitBusy ? <LoaderCircle size={16} className="animate-spin" /> : <Save size={16} />}Conservar cambios y salir</button>
+            {canDeleteDraft(plan) && versionsLoaded && versions.length === 0 && <button type="button" className="nuth-button-secondary justify-center !text-[#963f32]" disabled={exitBusy} onClick={() => void confirmExit(true)}>Eliminar borrador y salir</button>}
+            <button type="button" className="mt-1 rounded-xl px-3 py-2 text-sm font-semibold text-[#315e4f]" disabled={exitBusy} onClick={() => { setExitDestination(null); setExitError(""); }}>Seguir editando</button>
+          </div>
+        </div>
+      </div>}
       <PlanContextHeader appearanceControl={<div className="workshop-appearance" role="group" aria-label="Apariencia del taller">
         <button type="button" aria-pressed={appearance === "day"} onClick={() => setAppearance("day")}><Sun size={14} />Día</button>
         <button type="button" aria-pressed={appearance === "night"} onClick={() => setAppearance("night")}><Moon size={14} />Noche</button>

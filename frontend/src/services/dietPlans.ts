@@ -67,6 +67,7 @@ export async function deleteDietDraft(id: string, revision: number): Promise<voi
   const { error } = await supabase.rpc("delete_nutrition_plan_draft", { p_plan_id: id, p_expected_revision: revision });
   if (error?.code === "40001") throw new DietPlanRevisionConflictError();
   if (error?.code === "23514") throw new Error("Este plan tiene publicaciones o ya no es un borrador. Su historial está protegido.");
+  if (error?.code === "23503") throw new Error("Este borrador aún tiene registros vinculados y no se pudo eliminar. Intenta actualizar la página; si persiste, contacta a soporte.");
   if (error) throw dietPlanError(error, "No pudimos eliminar el borrador. Intenta de nuevo.");
 }
 

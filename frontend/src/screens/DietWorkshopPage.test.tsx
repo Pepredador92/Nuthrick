@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { Link, MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DietWorkshopPage } from "./DietWorkshopPage";
 import type { NutritionPlan } from "@/src/types/domain";
@@ -12,6 +12,7 @@ const api = vi.hoisted(() => ({
   getPlan: vi.fn(),
   listPlans: vi.fn(),
   createPlan: vi.fn(),
+  deleteDraft: vi.fn(),
   updatePlan: vi.fn(),
   listVersions: vi.fn(),
   publishVersion: vi.fn(),
@@ -70,6 +71,7 @@ vi.mock("@/src/services/dietPlans", () => ({
   getDietPlan: api.getPlan,
   listDietPlans: api.listPlans,
   createDietPlan: api.createPlan,
+  deleteDietDraft: api.deleteDraft,
   updateDietPlan: api.updatePlan,
   listDietPlanVersions: api.listVersions,
   publishDietPlanVersion: api.publishVersion,
@@ -86,6 +88,7 @@ vi.mock("@/src/services/foodCatalog", () => ({
 function mount(entry: string) {
   return render(
     <MemoryRouter initialEntries={[entry]}>
+      <Link to="/app/patients/patient">Ficha desde el menú</Link>
       <Routes>
         <Route path="/app/diet-workshop" element={<DietWorkshopPage />} />
         <Route path="/app/diet-workshop/:dietPlanId" element={<DietWorkshopPage />} />
@@ -103,6 +106,7 @@ beforeEach(() => {
   api.getPlan.mockResolvedValue(plan);
   api.listPlans.mockResolvedValue([]);
   api.createPlan.mockResolvedValue(plan);
+  api.deleteDraft.mockResolvedValue(undefined);
   api.updatePlan.mockImplementation(async (_id, patch) => ({ ...plan, ...patch }));
   api.listVersions.mockResolvedValue([]);
   api.publishVersion.mockResolvedValue({ version_id: "version", version_number: 1, published_at: "2026-09-15T00:00:00Z", reused: false, already_current: false });
@@ -129,6 +133,13 @@ describe("DietWorkshopPage", () => {
     await waitFor(() => expect(api.createPlan).toHaveBeenCalledWith({ patientId: "patient", consultationId: "consultation" }));
     expect(await screen.findByText("Consulta fuente")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Elige la fuente del plan" })).not.toBeInTheDocument();
+  });
+
+  it("resumes an unpublished draft for the same patient and consultation instead of creating another", async () => {
+    api.listPlans.mockResolvedValue([{ ...plan, draft_revision: 3 }]);
+    mount("/app/diet-workshop?patientId=patient&consultationId=consultation");
+    expect(await screen.findByRole("heading", { name: "Objetivo energético" })).toBeInTheDocument();
+    expect(api.createPlan).not.toHaveBeenCalled();
   });
 
   it("recovers an existing draft and reads reference data with manual navigation enabled", async () => {
@@ -216,6 +227,30 @@ describe("DietWorkshopPage", () => {
     finishSave?.({ ...plan, title: "Plan actualizado" });
   });
 
+  it("asks whether to keep or delete a new draft when leaving", async () => {
+    mount("/app/diet-workshop/plan");
+    fireEvent.click(await screen.findByRole("button", { name: "Guardar y salir" }));
+    const dialog = await screen.findByRole("dialog", { name: "¿Qué hacemos con este plan?" });
+    expect(dialog).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Seguir editando" }));
+    expect(screen.queryByRole("dialog", { name: "¿Qué hacemos con este plan?" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar y salir" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Eliminar borrador y salir" }));
+    await waitFor(() => expect(api.deleteDraft).toHaveBeenCalledWith("plan", 1));
+    expect(await screen.findByRole("heading", { name: "Ficha del paciente" })).toBeInTheDocument();
+  });
+
+  it("intercepts a navigation link so the draft cannot be abandoned silently", async () => {
+    mount("/app/diet-workshop/plan");
+    expect(await screen.findByRole("heading", { name: "Objetivo energético" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("link", { name: "Ficha desde el menú" }));
+    expect(screen.getByRole("dialog", { name: "¿Qué hacemos con este plan?" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Ficha del paciente" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Conservar cambios y salir" }));
+    expect(await screen.findByRole("heading", { name: "Ficha del paciente" })).toBeInTheDocument();
+    expect(api.deleteDraft).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["Continuar a equivalentes", "Equivalentes"],
     ["Energía", "Objetivo energético"],
@@ -229,6 +264,7 @@ describe("DietWorkshopPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Macronutrientes" }));
     fireEvent.change(await screen.findByLabelText("Valor de Proteína"), { target: { value: "20" } });
     fireEvent.click(screen.getByRole("button", { name: action }));
+    if (action === "Guardar y salir") fireEvent.click(screen.getByRole("button", { name: "Conservar cambios y salir" }));
     await waitFor(() => expect(api.updatePlan).toHaveBeenCalledWith("plan", expect.objectContaining({
       macro_distribution: expect.objectContaining({ macros: expect.objectContaining({ PROTEIN: expect.objectContaining({ input_value: 20, grams: 100 }) }) }),
     }), 1));
@@ -255,6 +291,7 @@ describe("DietWorkshopPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Verduras.*Agregar/ }));
     fireEvent.change(screen.getByLabelText("Porciones de Verduras"), { target: { value: "1.5" } });
     fireEvent.click(screen.getByRole("button", { name: action }));
+    if (action === "Guardar y salir") fireEvent.click(screen.getByRole("button", { name: "Conservar cambios y salir" }));
     await waitFor(() => expect(api.updatePlan).toHaveBeenCalledWith("plan", expect.objectContaining({
       exchange_prescription: expect.objectContaining({ groups: expect.arrayContaining([expect.objectContaining({ group_code: "VEGETABLES", portions: 1.5 })]) }),
     }), 1));
