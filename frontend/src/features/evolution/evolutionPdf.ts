@@ -35,6 +35,9 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
     font(size, bold); color(hex); pdf.text(Array.isArray(value) ? value.map(plain) : plain(value), x, y, { align, lineHeightFactor: 1.3 });
   };
   const compactHeader = () => {
+    pdf.setFillColor(239, 244, 241); pdf.rect(0, 0, 210, 297, "F");
+    pdf.setFillColor(255, 255, 255); pdf.roundedRect(7, 6, 196, 285, 3, 3, "F");
+    pdf.setDrawColor(224, 232, 227); pdf.setLineWidth(.25); pdf.roundedRect(7, 6, 196, 285, 3, 3, "S");
     pdf.setFillColor(...hexToRgb(ink)); pdf.rect(0, 0, 210, 2, "F");
     text("NUTHRICK / Evolución nutricional", margin, 12, 9, true);
     text(lines(patient.full_name, 78, 7), 194, 12, 7, false, muted, "right");
@@ -59,6 +62,9 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
     pdf.lines(projected.slice(1).map((point, index) => [point.x - projected[index].x, point.y - projected[index].y]), first.x, first.y, [1, 1], fill ? "F" : "S", true);
   };
 
+  pdf.setFillColor(239, 244, 241); pdf.rect(0, 0, 210, 297, "F");
+  pdf.setFillColor(255, 255, 255); pdf.roundedRect(7, 6, 196, 285, 3, 3, "F");
+  pdf.setDrawColor(224, 232, 227); pdf.setLineWidth(.25); pdf.roundedRect(7, 6, 196, 285, 3, 3, "S");
   pdf.setFillColor(...hexToRgb(ink)); pdf.rect(0, 0, 210, 2, "F");
   pdf.setFillColor(205, 161, 96); pdf.rect(margin, 2, 28, 1.2, "F");
   text("NUTHRICK", margin, 13, 8, true, "#986e36");

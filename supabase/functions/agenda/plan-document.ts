@@ -73,7 +73,7 @@ export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:str
    write(block.text,block.kind==='supplement-heading'?12:10,block.kind!=='supplement-text',5,true);
   }else if(block.kind==='day'||block.kind==='meal'){
    if(y+28>bottom)page();y+=4;
-   if(block.kind==='day'){pdf.setFillColor(237,243,239);pdf.roundedRect(16,y-4,width-32,9,2,2,'F');}
+   if(block.kind==='day'){pdf.setFillColor(237,243,239);pdf.setDrawColor(220,232,224);pdf.setLineWidth(.25);pdf.roundedRect(15,y-4,width-30,10,2.5,2.5,'FD');pdf.setFillColor(120,181,153);pdf.roundedRect(15,y-4,1.2,10,.5,.5,'F');}
    write(block.text,block.kind==='day'?12:11,true,6);
   }else {if((block.kind==='title'||block.kind==='label')&&y+16>bottom)page();write(block.text,block.kind==='text'?9.5:10,block.kind!=='text');}
   if(pdf.getNumberOfPages()>120)throw new Error('document_too_large');

@@ -4,7 +4,13 @@ export interface ProfessionalDocumentInfo {
 }
 /** Shared letterhead used by consultation and published-plan documents. */
 export function drawProfessionalHeader(pdf:jsPDF,professional:ProfessionalDocumentInfo,logo:string|null,compact=false,compression:'FAST'|'NONE'='FAST'):number {
- const margin=16,pageWidth=pdf.internal.pageSize.getWidth(); let cursor=18;
+ const margin=16,pageWidth=pdf.internal.pageSize.getWidth(),pageHeight=pdf.internal.pageSize.getHeight(); let cursor=18;
+
+    // Soft page canvas and a raised paper surface, shared by consultation and
+    // published-plan PDFs. Redraw on every page before placing document text.
+    pdf.setFillColor(239,244,241); pdf.rect(0,0,pageWidth,pageHeight,'F');
+    pdf.setFillColor(255,255,255); pdf.roundedRect(7,6,pageWidth-14,pageHeight-12,3,3,'F');
+    pdf.setDrawColor(224,232,227); pdf.setLineWidth(.25); pdf.roundedRect(7,6,pageWidth-14,pageHeight-12,3,3,'S');
 
     const brand =
       professional.businessName?.trim() ||
