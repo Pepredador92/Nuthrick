@@ -3,6 +3,7 @@
   --professional-muted: #486674;
   --professional-line: #ffffffc9;
   --professional-contact: #f8fcfbd9;
+  --professional-portrait-size: clamp(184px, 28vw, 244px);
   position: relative;
   min-width: 0;
   overflow: hidden;
@@ -40,10 +41,10 @@
 .public-professional-orbit {
   position: absolute;
   z-index: -1;
-  top: 24px;
+  top: 52px;
   left: 50%;
-  width: 290px;
-  height: 195px;
+  width: calc(var(--professional-portrait-size) * 1.5);
+  height: calc(var(--professional-portrait-size) * 1.1);
   transform: translateX(-50%) rotate(-18deg);
   border: 1px solid #ffffffa6;
   border-radius: 50%;
@@ -64,15 +65,15 @@
   position: relative;
   display: grid;
   place-items: center;
-  width: clamp(132px, 14vw, 166px);
-  height: clamp(132px, 14vw, 166px);
+  width: min(var(--professional-portrait-size), 100%);
+  aspect-ratio: 1;
   margin: 23px auto 0;
   overflow: hidden;
   border: 5px solid #f6fbf8;
   border-radius: 50%;
   background: linear-gradient(145deg, #b9e4df, #83bad0);
   color: #184b59;
-  font-size: 2rem;
+  font-size: clamp(2.5rem, 5vw, 3.25rem);
   font-weight: 650;
   box-shadow: 0 18px 26px -12px #173a4375, 0 0 0 1px #91b8c299;
 }
