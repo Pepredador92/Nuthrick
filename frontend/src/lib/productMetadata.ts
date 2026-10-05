@@ -8,13 +8,13 @@ export const productMetadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
   title,
   description,
-  icons: { icon: '/favicon.svg' },
+  icons: { icon: '/favicon.svg', apple: '/brand/apple-touch-icon.png' },
   openGraph: {
     title,
     description,
     siteName: 'Nuthrick',
     locale: 'es_MX',
-    images: [{ url: '/og.png', width: 1730, height: 909, alt: 'Nuthrick, herramientas para ejercer mejor la nutrición' }],
+    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'Nuthrick, herramientas para ejercer mejor la nutrición' }],
     type: 'website',
   },
   twitter: {

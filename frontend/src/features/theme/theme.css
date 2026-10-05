@@ -245,3 +245,12 @@ html[data-nuthrick-theme='night'] .landing-editorial :is(.landing-product, .land
 html[data-nuthrick-theme='night'] .landing-editorial .landing-cta { background: var(--nuth-action); color: #fff; }
 html[data-nuthrick-theme='night'] .landing-editorial .landing-cta:hover { background: var(--nuth-action-hover); }
 html[data-nuthrick-theme='night'] .landing-editorial :is(.landing-tour-tabs button[aria-selected='true'], .landing-screen-bar) { background: #24494b; color: #e4f5ed; }
+
+/* Shared identity, independent of professional-uploaded logos. */
+.nuth-brand { display: inline-flex; align-items: center; gap: 10px; color: inherit; }
+.nuth-brand svg, .admin-brand > svg { flex-shrink: 0; }
+.nuth-brand-name { font-size: 22px; font-weight: 800; letter-spacing: -.055em; line-height: 1; }
+.admin-brand { letter-spacing: -.025em; }
+.admin-brand > svg { color: #d2e89f; }
+.portal-brand > .nuth-brand { width: auto; height: auto; padding: 0; background: none; border-radius: 0; color: inherit; }
+html[data-nuthrick-theme='night'] .nuth-brand { color: #f8f5ed; }

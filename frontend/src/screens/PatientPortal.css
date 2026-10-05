@@ -279,7 +279,7 @@ html[data-nuthrick-theme='night'] .portal-owner-workspace .nuth-input { border-c
 .patient-portal .portal-shell { max-width: 1100px; padding-top: 20px; }
 .portal-topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
 .portal-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.portal-brand > span:first-child { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 14px; background: #173e39; color: white; box-shadow: 0 5px 9px -7px #143b4e80; }
+.portal-brand > .nuth-brand { color: var(--portal-ink); }
 .portal-brand strong { font-size: 1.15rem; letter-spacing: -.04em; }
 .portal-brand-caption { border-left: 1px solid var(--portal-line); padding-left: 12px; margin-left: 2px; font-size: .75rem; color: var(--portal-muted); }
 .portal-topbar-actions { display: flex; align-items: center; gap: 12px; }

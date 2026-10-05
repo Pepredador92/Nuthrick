@@ -9,8 +9,17 @@ const mocks = vi.hoisted(() => ({
 vi.mock("jspdf", () => ({
   jsPDF: class {
     internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
+    saveGraphicsState() {}
+    restoreGraphicsState() {}
+    setLineCap() {}
+    moveTo() {}
+    curveTo() {}
+    close() {}
+    stroke() {}
+    fill() {}
     setFillColor() {}
     rect() {}
+    circle() {}
     addImage = mocks.addImage;
     setTextColor() {}
     setFont() {}

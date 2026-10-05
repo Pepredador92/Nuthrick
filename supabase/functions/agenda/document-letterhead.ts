@@ -1,4 +1,5 @@
 import type { jsPDF } from "jspdf";
+import { brandArcs, brandPerson } from "../_shared/brand-mark.ts";
 export interface ProfessionalDocumentInfo {
  fullName:string; professionalTitle?:string|null;licenseNumber?:string|null;businessName?:string|null;businessAddress?:string|null;contactLines?:string[];logoUrl?:string|null;
 }
@@ -41,11 +42,26 @@ export function drawProfessionalHeader(pdf:jsPDF,professional:ProfessionalDocume
  pdf.setDrawColor(218,230,232);pdf.setLineWidth(.2);pdf.line(margin,y+2,width-margin,y+2);
  return y+10;
 }
+/** Render the same brand curves as the UI, without network assets or raster blur. */
+function drawNuthrickMark(pdf: jsPDF, x: number, y: number, size: number) {
+ const scale=size/104;
+ pdf.saveGraphicsState();pdf.setDrawColor(23,63,57);pdf.setFillColor(23,63,57);pdf.setLineWidth(7*scale);pdf.setLineCap('round');
+ const path=(value:string)=>{
+  for(const command of value.matchAll(/([MCZ])([^MCZ]*)/g)){
+   const points=command[2].trim().split(/\s+/).filter(Boolean).map(Number).map((v,i)=>v*scale+(i%2?y:x));
+   if(command[1]==='M')pdf.moveTo(points[0],points[1]);
+   else if(command[1]==='C')pdf.curveTo(points[0],points[1],points[2],points[3],points[4],points[5]);
+   else pdf.close();
+  }
+ };
+ for(const arc of brandArcs){path(arc);pdf.stroke();}
+ pdf.circle(x+50*scale,y+50*scale,7.6*scale,'F');path(brandPerson);pdf.fill();pdf.restoreGraphicsState();
+}
 export function drawDocumentFooters(pdf:jsPDF,label='Documento privado · Información clínica confidencial') {
  const count=pdf.getNumberOfPages(),width=pdf.internal.pageSize.getWidth(),height=pdf.internal.pageSize.getHeight();
  for(let page=1;page<=count;page++){
   pdf.setPage(page);pdf.setDrawColor(218,230,232);pdf.setLineWidth(.2);pdf.line(16,height-15,width-16,height-15);pdf.setFont('helvetica','normal');pdf.setFontSize(7);pdf.setTextColor(98,118,129);
-  pdf.text(label,16,height-10);pdf.text(`Página ${page} de ${count}`,width-16,height-10,{align:'right'});
+  drawNuthrickMark(pdf,16,height-13.5,4.5);pdf.text(`Nuthrick · ${label}`,22,height-10);pdf.text(`Página ${page} de ${count}`,width-16,height-10,{align:'right'});
  }
 }
 export const drawPrivateFooters=(pdf:jsPDF)=>drawDocumentFooters(pdf);

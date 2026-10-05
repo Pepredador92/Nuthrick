@@ -1,3 +1,4 @@
+import { BrandMark } from '@/src/components/ui/Brand';
 import {
   ArrowLeft,
   TicketPercent,
@@ -8,7 +9,6 @@ import {
   KeyRound,
   LayoutDashboard,
   LogOut,
-  ShieldCheck,
   Users,
   Layers,
   ClipboardCheck,
@@ -40,9 +40,9 @@ export function AdminLayout() {
     <SupportProvider admin><div className="admin-shell">
       <aside className="admin-sidebar">
         <Link className="admin-brand" to="/admin">
-          <ShieldCheck size={25} />
+          <BrandMark size={38} />
           <span>
-            NUTHRICK<small>ADMINISTRACIÓN</small>
+            Nuthrick<small>ADMINISTRACIÓN</small>
           </span>
         </Link>
         <nav aria-label="Administración">

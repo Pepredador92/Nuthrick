@@ -1,3 +1,4 @@
+import { Brand } from '@/src/components/ui/Brand';
 import { UpcomingAppointments } from "@/src/components/agenda/UpcomingAppointments";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
@@ -5,7 +6,6 @@ import {
   Activity,
   CalendarDays,
   ClipboardList,
-  Leaf,
   LockKeyhole,
   LogOut,
   MessageCircle,
@@ -207,7 +207,7 @@ function PatientPortalContent() {
       <ShowcaseBackdrop />
       <div className="portal-shell">
         <div className="portal-topbar">
-          <div className="portal-brand"><span><Leaf size={21} aria-hidden="true" /></span><strong>Nuthrick</strong><span className="portal-brand-caption">Mi espacio</span></div>
+          <div className="portal-brand"><Brand /><span className="portal-brand-caption">Mi espacio</span></div>
           <div className="portal-topbar-actions"><ThemeSwitcher compact />{session && (
             <button
               className="portal-logout"
