@@ -127,6 +127,15 @@ describe("plan organization", () => {
     await waitFor(() => expect(api.removePublished).toHaveBeenCalledWith("Publicado", 3));
     expect(screen.queryByRole("link", { name: "Publicado" })).not.toBeInTheDocument();
   });
+  it("can remove a plan whose latest publication was retired without offering it to share", async () => {
+    mount([plan("Retirado", { patient_id: "patient", has_published_versions: true, published_version_number: 2 })]);
+    fireEvent.click(screen.getByRole("button", { name: "Publicados 1" }));
+    expect(screen.queryByRole("link", { name: "Compartir con paciente" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Acciones de Retirado"));
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar plan publicado" }));
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
+    await waitFor(() => expect(api.removePublished).toHaveBeenCalledWith("Retirado", 3));
+  });
   it("separates relation, publication, archive and filters", () => {
     mount([
       plan("Libre"),

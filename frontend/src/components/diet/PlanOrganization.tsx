@@ -19,7 +19,7 @@ export const canDeleteDraft = (p: NutritionPlan) =>
   !p.has_published_versions &&
   !p.published_version_number;
 export const canRemovePublished = (p: NutritionPlan) =>
-  p.status !== "archived" && !p.deleted_at && Boolean(p.current_version_id);
+  p.status !== "archived" && !p.deleted_at && hasPublication(p);
 const hasPublication = (p: NutritionPlan) =>
   Boolean(p.current_version_id || p.has_published_versions || p.published_version_number);
 const sharingUrl = (plan: NutritionPlan) =>
@@ -195,7 +195,7 @@ export function PlanOrganization({
                     <Link className="inline-flex items-center gap-1 rounded-xl bg-[#e7f3f1] px-3 py-2 text-sm font-semibold text-[#205a61] hover:bg-[#d6eae7]" to={`/app/diet-workshop/${plan.id}`}>
                       {!hasPublication(plan) ? "Reanudar" : "Abrir"} <ChevronRight size={15} />
                     </Link>
-                    {canRemovePublished(plan) && plan.patient_id && (
+                    {canRemovePublished(plan) && plan.current_version_id && plan.patient_id && (
                       <Link className="inline-flex items-center gap-1 rounded-xl border border-[#cbdedb] px-3 py-2 text-sm font-semibold text-[#246674] hover:bg-[#f0f8f6]" to={sharingUrl(plan)}>
                         Compartir con paciente
                       </Link>

@@ -80,8 +80,13 @@ export async function portalRequest(req: Request, body: Json, deps: Dependencies
   // Whitelist each payload; never spread untrusted JSON into actor fields.
   let data: Json = {};
   if(action==='plan_history') {
-    if(body.offset!==undefined && (!Number.isInteger(body.offset)||Number(body.offset)<0||Number(body.offset)>10000))throw new Error('invalid_input');
-    data={offset:body.offset||0};
+    if(body.retireVersionId!==undefined) {
+      if(body.offset!==undefined)throw new Error('invalid_input');
+      data={retireVersionId:uuid(body.retireVersionId)};
+    } else {
+      if(body.offset!==undefined && (!Number.isInteger(body.offset)||Number(body.offset)<0||Number(body.offset)>10000))throw new Error('invalid_input');
+      data={offset:body.offset||0};
+    }
   }
   if(action==='plan_version')data={versionId:uuid(body.versionId)};
   if(action==='export_plan') {

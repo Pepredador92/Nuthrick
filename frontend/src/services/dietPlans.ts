@@ -142,7 +142,7 @@ export async function listDietPlanVersions(planId: string): Promise<NutritionPla
     .eq("plan_id", planId)
     .order("version_number", { ascending: false });
   if (error) throw dietPlanError(error, "No pudimos cargar el historial de publicaciones.");
-  return (data ?? []) as NutritionPlanVersion[];
+  return (data ?? []).filter((version) => version.retired_at == null) as NutritionPlanVersion[];
 }
 
 export type PublishDietPlanVersionResult = {
