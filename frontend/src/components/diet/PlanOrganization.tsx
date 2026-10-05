@@ -9,7 +9,7 @@ import {
   UserRound,
 } from "lucide-react";
 import type { NutritionPlan } from "@/src/types/domain";
-import { deleteDietDraft, updateDietPlan } from "@/src/services/dietPlans";
+import { deleteDietDraft, removePublishedDietPlan, updateDietPlan } from "@/src/services/dietPlans";
 import { formatPatientDate } from "@/src/features/patients/patientUtils";
 
 export const canDeleteDraft = (p: NutritionPlan) =>
@@ -17,6 +17,10 @@ export const canDeleteDraft = (p: NutritionPlan) =>
   !p.current_version_id &&
   !p.has_published_versions &&
   !p.published_version_number;
+export const canRemovePublished = (p: NutritionPlan) =>
+  p.status !== "archived" && !p.deleted_at && Boolean(p.current_version_id);
+const sharingUrl = (plan: NutritionPlan) =>
+  `/app/patients/${plan.patient_id}/portal?tab=share&planId=${plan.id}#portal-plan-sharing`;
 export function PlanOrganization({
   plans,
   onChange,
@@ -30,7 +34,7 @@ export function PlanOrganization({
   const [relation, setRelation] = useState("all");
   const [action, setAction] = useState<{
     plan: NutritionPlan;
-    kind: "rename" | "delete";
+    kind: "rename" | "delete" | "removePublished";
   } | null>(null);
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
@@ -53,7 +57,7 @@ export function PlanOrganization({
           (relation === "assigned" ? !!p.patient_id : !p.patient_id)),
     )
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-  const open = (plan: NutritionPlan, kind: "rename" | "delete") => {
+  const open = (plan: NutritionPlan, kind: "rename" | "delete" | "removePublished") => {
     setAction({ plan, kind });
     setTitle(plan.title);
     setError("");
@@ -69,6 +73,10 @@ export function PlanOrganization({
         await deleteDietDraft(action.plan.id, action.plan.draft_revision ?? 1);
         onChange(plans.filter((p) => p.id !== action.plan.id));
         setNotice("Borrador eliminado.");
+      } else if (action.kind === "removePublished") {
+        await removePublishedDietPlan(action.plan.id, action.plan.draft_revision ?? 1);
+        onChange(plans.filter((p) => p.id !== action.plan.id));
+        setNotice("Plan retirado del Taller y del Super Link. Las versiones publicadas se conservan en el historial clínico.");
       } else {
         const updated = await updateDietPlan(
           action.plan.id,
@@ -202,6 +210,11 @@ export function PlanOrganization({
                       Eliminar borrador
                     </button>
                   )}
+                  {canRemovePublished(plan) && (
+                    <button className="rounded-lg p-2 text-left text-[#963f32] hover:bg-[#fbe9e5]" onClick={() => open(plan, "removePublished")}>
+                      Eliminar plan publicado
+                    </button>
+                  )}
                 </div>
               </details>
             </div>
@@ -240,6 +253,11 @@ export function PlanOrganization({
             >
               Abrir plan <ChevronRight size={14} />
             </Link>
+            {canRemovePublished(plan) && plan.patient_id && (
+              <Link className="ml-4 inline-flex items-center gap-1 text-xs font-semibold text-[#246674]" to={sharingUrl(plan)}>
+                Compartir con paciente <ChevronRight size={14} />
+              </Link>
+            )}
           </article>
         ))}
       </div>
@@ -269,7 +287,7 @@ export function PlanOrganization({
         aria-labelledby="plan-action-title"
       >
         <h2 id="plan-action-title" className="text-xl font-semibold">
-          {action?.kind === "delete" ? "Eliminar borrador" : "Renombrar plan"}
+          {action?.kind === "delete" ? "Eliminar borrador" : action?.kind === "removePublished" ? "Eliminar plan publicado" : "Renombrar plan"}
         </h2>
         {action?.kind === "delete" ? (
           <>
@@ -282,6 +300,10 @@ export function PlanOrganization({
               Esta acción eliminará el borrador y no se puede deshacer.
             </p>
           </>
+        ) : action?.kind === "removePublished" ? (
+          <p className="mt-3 text-sm leading-6 text-[#607269]">
+            El plan dejará de mostrarse en el Taller y en el Super Link del paciente. Se retirará de inmediato si estaba compartido. Sus versiones publicadas permanecerán en el historial clínico.
+          </p>
         ) : (
           <label className="mt-4 block text-sm">
             Nombre del plan
@@ -308,13 +330,13 @@ export function PlanOrganization({
             Cancelar
           </button>
           <button
-            disabled={busy || !title.trim()}
+            disabled={busy || (action?.kind === "rename" && !title.trim())}
             className="nuth-button"
             onClick={() => void submit()}
           >
             {busy
               ? "Procesando…"
-              : action?.kind === "delete"
+              : action?.kind === "delete" || action?.kind === "removePublished"
                 ? "Eliminar"
                 : "Guardar nombre"}
           </button>

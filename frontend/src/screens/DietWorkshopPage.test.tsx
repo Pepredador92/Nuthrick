@@ -119,6 +119,14 @@ beforeEach(() => {
 });
 
 describe("DietWorkshopPage", () => {
+  it("links a published plan to patient sharing from review", async () => {
+    api.getPlan.mockResolvedValue({ ...plan, status: "active", current_version_id: "version" });
+    mount("/app/diet-workshop/plan");
+    fireEvent.click(await screen.findByRole("button", { name: /Revisión/ }));
+    expect(await screen.findByRole("link", { name: "Compartir con paciente" })).toHaveAttribute(
+      "href", "/app/patients/patient/portal?tab=share&planId=plan#portal-plan-sharing",
+    );
+  });
   it("lets a patient plan choose its source consultation and also supports no consultation", async () => {
     mount("/app/diet-workshop?patientId=patient");
     expect(await screen.findByRole("heading", { name: "Elige la fuente del plan" })).toBeInTheDocument();

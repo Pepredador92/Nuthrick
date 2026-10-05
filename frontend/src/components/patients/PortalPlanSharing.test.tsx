@@ -1,9 +1,10 @@
 import {fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {MemoryRouter} from 'react-router-dom';
-import {expect,it,vi} from 'vitest';
+import {beforeEach,expect,it,vi} from 'vitest';
 import {PortalPlanSharing} from './PortalPlanSharing';
 import {portalAction} from '@/src/services/patientPortal';
 vi.mock('@/src/services/patientPortal',()=>({portalAction:vi.fn()}));
+beforeEach(() => vi.clearAllMocks());
 it('requires selection, patient preview and acknowledgement before sharing a plan ID only',async()=>{
   vi.mocked(portalAction).mockImplementation(async(_access,action)=>action==='plan_options'?{plans:[{id:'published',title:'Publicado',version_number:1,published_at:'2026-09-21'}],selectedPlanId:null}:action==='plan_preview'?{plan:{title:'Publicado',versionNumber:1,publishedAt:'2026-09-21',days:[]}}:{ok:true});
   render(<MemoryRouter><PortalPlanSharing patientId="patient"/></MemoryRouter>);
@@ -33,4 +34,19 @@ it('allows re-confirming the currently shared plan after reviewing it', async ()
   expect(button).toBeEnabled();
   fireEvent.click(button);
   await waitFor(() => expect(portalAction).toHaveBeenCalledWith({ patientId: 'patient' }, 'share_plan', { planId: 'published' }));
+});
+
+it('preselects the published plan from the workshop without sharing it automatically', async () => {
+  vi.mocked(portalAction).mockImplementation(async (_access, action) =>
+    action === 'plan_options'
+      ? { plans: [{ id: 'suggested', title: 'Nuevo plan', version_number: 3, published_at: '2026-10-05' }], selectedPlanId: null }
+      : action === 'plan_preview'
+        ? { plan: { title: 'Nuevo plan', versionNumber: 3, publishedAt: '2026-10-05', days: [] } }
+        : { ok: true },
+  );
+  render(<MemoryRouter><PortalPlanSharing patientId="patient" suggestedPlanId="suggested" /></MemoryRouter>);
+  await screen.findByRole('region', { name: 'Plan alimenticio publicado' });
+  expect(screen.getByLabelText('Plan visible en Mi plan')).toHaveValue('suggested');
+  expect(screen.getByRole('button', { name: 'Compartir plan' })).toBeDisabled();
+  expect(vi.mocked(portalAction).mock.calls.some((call) => call[1] === 'share_plan')).toBe(false);
 });

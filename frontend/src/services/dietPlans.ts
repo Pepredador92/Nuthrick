@@ -53,6 +53,7 @@ export async function listDietPlans(): Promise<NutritionPlan[]> {
   const { data, error } = await supabase
     .from("nutrition_plans")
     .select("*, patients!nutrition_plans_professional_id_patient_id_fkey(full_name), nutrition_plan_versions!nutrition_plan_versions_professional_id_plan_id_fkey(version_number)")
+    .is("deleted_at", null)
     .order("updated_at", { ascending: false });
   if (error) throw dietPlanError(error, "No pudimos cargar tus planes.");
   return (data ?? []).map((row) => {
@@ -71,11 +72,22 @@ export async function deleteDietDraft(id: string, revision: number): Promise<voi
   if (error) throw dietPlanError(error, "No pudimos eliminar el borrador. Intenta de nuevo.");
 }
 
+export async function removePublishedDietPlan(id: string, revision: number): Promise<void> {
+  const { error } = await supabase.rpc("remove_published_nutrition_plan", {
+    p_plan_id: id,
+    p_expected_revision: revision,
+  });
+  if (error?.code === "40001") throw new DietPlanRevisionConflictError();
+  if (error?.code === "23514") throw new Error("Solo puedes retirar planes que tengan una versión publicada.");
+  if (error) throw dietPlanError(error, "No pudimos retirar el plan publicado. Intenta de nuevo.");
+}
+
 export async function getDietPlan(id: string): Promise<NutritionPlan | null> {
   const { data, error } = await supabase
     .from("nutrition_plans")
     .select("*")
     .eq("id", id)
+    .is("deleted_at", null)
     .maybeSingle();
   if (error) throw dietPlanError(error, "No pudimos abrir este plan.");
   return data ? normalizeDietPlan(data as NutritionPlan) : null;
@@ -112,7 +124,8 @@ export async function updateDietPlan(
   let query = supabase
     .from("nutrition_plans")
     .update(payload)
-    .eq("id", id);
+    .eq("id", id)
+    .is("deleted_at", null);
   if (Number.isFinite(expectedDraftRevision)) query = query.eq("draft_revision", expectedDraftRevision!);
   const { data, error } = await query.select("*").maybeSingle();
   if (!data && !error && expectedDraftRevision !== undefined) throw new DietPlanRevisionConflictError();

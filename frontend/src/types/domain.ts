@@ -353,6 +353,7 @@ export interface QuestionnaireResponse {
   updated_at: string;
 }
 export interface NutritionPlan {
+  deleted_at?: string | null;
   text_diet?: TextDiet | null;
   patient_name?: string | null;
   published_version_number?: number | null;

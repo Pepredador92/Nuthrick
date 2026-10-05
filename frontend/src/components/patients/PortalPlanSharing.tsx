@@ -11,7 +11,7 @@ type Options = {
   }[];
   selectedPlanId: string | null;
 };
-export function PortalPlanSharing({ patientId }: { patientId: string }) {
+export function PortalPlanSharing({ patientId, suggestedPlanId }: { patientId: string; suggestedPlanId?: string | null }) {
   const access = useMemo(() => ({ patientId }), [patientId]);
   const [options, setOptions] = useState<Options | null>(null),
     [selection, setSelection] = useState(""),
@@ -27,8 +27,11 @@ export function PortalPlanSharing({ patientId }: { patientId: string }) {
       .then((v) => {
         if (active) {
           setOptions(v);
-          setSelection(v.selectedPlanId || "");
-          setLoading(Boolean(v.selectedPlanId));
+          const chosen = v.plans.some((candidate) => candidate.id === suggestedPlanId)
+            ? suggestedPlanId!
+            : v.selectedPlanId || "";
+          setSelection(chosen);
+          setLoading(Boolean(chosen));
         }
       })
       .catch((e) => {
@@ -37,7 +40,7 @@ export function PortalPlanSharing({ patientId }: { patientId: string }) {
     return () => {
       active = false;
     };
-  }, [access]);
+  }, [access, suggestedPlanId]);
   function choose(value: string) {
     setSelection(value);
     setReviewed(false);
@@ -87,6 +90,7 @@ export function PortalPlanSharing({ patientId }: { patientId: string }) {
   }
   return (
     <section
+      id="portal-plan-sharing"
       className="portal-card mt-5"
       aria-label="Compartir plan del Taller"
     >

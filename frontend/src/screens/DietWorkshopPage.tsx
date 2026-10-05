@@ -769,6 +769,17 @@ export function DietWorkshopPage() {
       <WorkshopNavigation activeStep={activeStep} onSelect={(step) => { void selectStep(step); }} />
       {notice && <p role="status" className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]">{notice}</p>}
       {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{error}</p>}
+      {activeStep === "review" && plan.current_version_id && patient && (
+        <section className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#8dc3c3]/60 bg-[#e6f3f2] p-5 text-[#194d53]" aria-label="Compartir versión publicada">
+          <div>
+            <h2 className="font-semibold">La versión está publicada</h2>
+            <p className="mt-1 text-sm">Para que el paciente la vea en su Super Link, revisa la vista previa y compártela.</p>
+          </div>
+          <Link className="nuth-button" to={`/app/patients/${patient.id}/portal?tab=share&planId=${plan.id}#portal-plan-sharing`}>
+            Compartir con paciente
+          </Link>
+        </section>
+      )}
       <div className="workshop-step-content mt-5 space-y-5" key={libraryEpoch}>
           {cardLayout ? <details className="energy-plan-tools"><summary>Nombre del plan y biblioteca</summary><div className="space-y-4">{planTools}</div></details> : planTools}
           {activeStep === "energy" && <DietEnergyStep

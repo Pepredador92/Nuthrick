@@ -387,7 +387,7 @@ function OwnerPortal({ patientId }: { patientId: string }) {
           <PortalAccessCode key={view.link} patientId={patientId} />
         )}
       </section>
-      {tab === "share" && <PortalPlanSharing patientId={patientId} />}
+      {tab === "share" && <PortalPlanSharing patientId={patientId} suggestedPlanId={searchParams.get("planId")} />}
       {notice && (
         <p role="status" className="mt-4 rounded-xl bg-[#edf5e9] p-4 text-sm">
           {notice}

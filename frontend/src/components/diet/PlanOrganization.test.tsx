@@ -4,9 +4,10 @@ import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PlanOrganization, canDeleteDraft } from "./PlanOrganization";
 import type { NutritionPlan } from "@/src/types/domain";
-const api = vi.hoisted(() => ({ remove: vi.fn(), update: vi.fn() }));
+const api = vi.hoisted(() => ({ remove: vi.fn(), removePublished: vi.fn(), update: vi.fn() }));
 vi.mock("@/src/services/dietPlans", () => ({
   deleteDietDraft: api.remove,
+  removePublishedDietPlan: api.removePublished,
   updateDietPlan: api.update,
 }));
 const plan = (id: string, props: Partial<NutritionPlan> = {}) =>
@@ -34,6 +35,7 @@ function mount(initial: NutritionPlan[]) {
 beforeEach(() => {
   vi.clearAllMocks();
   api.remove.mockResolvedValue(undefined);
+  api.removePublished.mockResolvedValue(undefined);
   HTMLDialogElement.prototype.showModal = function () {
     this.setAttribute("open", "");
   };
@@ -92,6 +94,25 @@ describe("plan organization", () => {
       "Historial protegido",
     );
     expect(screen.getByRole("link", { name: "Prueba" })).toBeInTheDocument();
+  });
+  it("offers sharing and removes a published plan only after confirmation", async () => {
+    mount([plan("Publicado", {
+      patient_id: "patient",
+      current_version_id: "version",
+      published_version_number: 3,
+      status: "active",
+    })]);
+    fireEvent.click(screen.getByRole("button", { name: "Publicados 1" }));
+    expect(screen.getByRole("link", { name: "Compartir con paciente" })).toHaveAttribute(
+      "href", "/app/patients/patient/portal?tab=share&planId=Publicado#portal-plan-sharing",
+    );
+    fireEvent.click(screen.getByLabelText("Acciones de Publicado"));
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar plan publicado" }));
+    expect(api.removePublished).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toHaveTextContent("Se retirará de inmediato si estaba compartido");
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
+    await waitFor(() => expect(api.removePublished).toHaveBeenCalledWith("Publicado", 3));
+    expect(screen.queryByRole("link", { name: "Publicado" })).not.toBeInTheDocument();
   });
   it("separates relation, publication, archive and filters", () => {
     mount([
