@@ -18,11 +18,11 @@ No se incorporan nuevos flujos, permisos, PWA, pagos ni cambios de datos con est
 
 ## Landing breve
 
-La portada pasa a cuatro momentos: gancho de pendientes tras consulta, recorrido visual existente del producto, origen de Nuthrick y planes/registro. Se retiran las fotografías editoriales del contenido visible; los recursos quedan disponibles para referencias existentes.
+La portada pasa a cuatro momentos: gancho de pendientes tras consulta, recorrido visual existente del producto, origen de Nuthrick y planes/registro. La portada utiliza la fotografía facilitada por el propietario, guardada sin alterar en `frontend/public/images/landing/paciente-conversacion.png`; las fotografías editoriales anteriores quedan disponibles para referencias existentes.
 
 - «Ver planes» visible en la cabecera sticky, incluso en móvil, hacia `/planes`.
 - Catálogo y precios siguen usando `loadPublicCommercialData`; no se inventan importes si la consulta no está disponible.
-- Prueba social textual solicitada por el propietario, sin cantidades ni testimonios.
+- Prueba social textual solicitada por el propietario, destacada sin cantidades. La conversación superpuesta a la fotografía es ficticia y se identifica como «Ejemplo ilustrativo»; no se presenta como testimonio real. Las burbujas son texto HTML accesible, independiente de la imagen.
 - Conserva el tour de pantallas, su manejo por teclado, registro, acceso, preguntas desplegables y temas día/noche.
 - Sin NFC ni QR. Sin modificaciones a funciones clínicas, permisos o reglas comerciales.
 - Verificación: typecheck, ESLint, pruebas de landing/SEO, render PDF, revisión visual y build `NITRO_PRESET=vercel` con smoke SSR aislado de todas las rutas críticas.

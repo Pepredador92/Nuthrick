@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { ArrowUpRight } from 'lucide-react';
 
 const views = [
-  { id: 'planes', label: 'Planes de alimentación', title: 'Del plan a la mesa.', description: 'Organiza opciones por tiempo de comida y distribúyelas en los días de tu plan.', image: 'nuthrick-planes.png', alt: 'Pantalla real de Nuthrick a la Mesa: organización de un menú por días con datos de demostración' },
+  { id: 'planes', label: 'Planes de alimentación', title: 'Lo que el paciente tenía que esperar, ahora se lo entregas en ese momento.', description: 'Organiza opciones por tiempo de comida y distribúyelas en los días de tu plan.', image: 'nuthrick-planes.png', alt: 'Pantalla real de Nuthrick a la Mesa: organización de un menú por días con datos de demostración' },
   { id: 'mediciones', label: 'Cálculos y mediciones', title: 'El dato y su contexto.', description: 'Consulta resultados y métodos para interpretar tu evaluación con criterio profesional.', image: 'nuthrick-calculos.png', alt: 'Pantalla real de resultados de Nuthrick con índices y composición corporal de demostración' },
   { id: 'expedientes', label: 'Tus pacientes', title: 'Cada historia, en su lugar.', description: 'Encuentra a tus pacientes y accede a su expediente para continuar donde te quedaste.', image: 'nuthrick-pacientes.png', alt: 'Pantalla real de pacientes de Nuthrick con expedientes ficticios para demostración' },
 ] as const;

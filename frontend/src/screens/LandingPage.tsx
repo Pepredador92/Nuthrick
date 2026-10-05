@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-html-link-for-pages -- Public links cross the SSR marketing / React Router product boundary. */
-import { ArrowDown, ArrowRight, Check, ClipboardList, MessageCircle, Salad, Sparkles } from 'lucide-react';
+import { ArrowDown, ArrowRight, Check, MessageCircle, Sparkles } from 'lucide-react';
 import { LandingHeader } from '@/src/components/marketing/LandingHeader';
 import { LandingProductTour } from '@/src/components/marketing/LandingProductTour';
 import { Brand, BrandMark } from '@/src/components/ui/Brand';
@@ -22,33 +22,27 @@ export function LandingPage({ plans = [], supportEmail = null }: { plans?: Publi
           <h1 id="landing-title">¿Terminó tu consulta…<br /><em>o apenas empezó<br />el trabajo?</em></h1>
           <p className="landing-lead">Planes por terminar. Mensajes por responder.<br />Información por encontrar.</p>
           <div className="landing-actions">
-            <a href="#como-funciona" className="landing-cta">Esto me pasa <ArrowDown size={17} aria-hidden="true" /></a>
+            <a href="#como-funciona" className="landing-cta">Sí me pasa <ArrowDown size={17} aria-hidden="true" /></a>
             <a href="/planes" className="landing-text-link">Ver planes <ArrowRight size={17} aria-hidden="true" /></a>
           </div>
-          <p className="landing-trust"><span aria-hidden="true"><Check size={13} /></span>Nutriólogos ya utilizan Nuthrick para organizar su consulta.</p>
+          <div className="landing-trust"><span className="landing-trust-mark" aria-hidden="true"><BrandMark size={30} /></span><div><span className="landing-trust-label">Ya es parte de otras consultas</span><p>Nutriólogos ya utilizan Nuthrick para organizar su consulta.</p></div></div>
         </div>
-        <div className="landing-orbit" aria-label="Consulta, plan y seguimiento conectados">
-          <span className="landing-orbit-ring" aria-hidden="true" />
-          <div className="landing-orbit-caption"><BrandMark size={28} /><span>TODO EMPIEZA A ENCAJAR</span></div>
-          <article className="landing-work-card landing-work-consultation">
-            <span className="landing-card-icon"><ClipboardList size={23} /></span>
-            <div><small>01 / CONSULTA</small><h2>Cada historia,<br />en su lugar.</h2></div>
-            <div className="landing-mini-record"><span>Entrevista</span><Check size={14} /><span>Mediciones</span><Check size={14} /><span>Objetivos e indicaciones</span><Check size={14} /></div>
-          </article>
-          <article className="landing-work-card landing-work-plan">
-            <span className="landing-card-icon"><Salad size={22} /></span><small>02 / PLAN</small><h2>Del cálculo<br />a la mesa.</h2>
-            <div className="landing-meal-tags"><span>Desayuno</span><span>Comida</span><span>Cena</span></div>
-          </article>
-          <article className="landing-work-card landing-work-followup">
-            <span className="landing-card-icon"><MessageCircle size={22} /></span><div><small>03 / SEGUIMIENTO</small><h2>Lo acordado, <br />a la mano.</h2><p>Su plan y tus indicaciones en Super Link.</p></div>
-          </article>
-          <p className="landing-orbit-footnote">Tu criterio conecta cada paso.</p>
-        </div>
+        <figure className="landing-patient-scene" aria-label="Ejemplo de conversación entre paciente y nutriólogo">
+          <img className="landing-patient-photo" src="/images/landing/paciente-conversacion.png" width="736" height="1104" fetchPriority="high" alt="Una mujer sonríe mientras consulta su teléfono en casa." />
+          <figcaption className="landing-scene-caption"><MessageCircle size={14} aria-hidden="true" /> Ejemplo ilustrativo</figcaption>
+          <div className="landing-conversation">
+            <div className="landing-chat landing-chat-patient"><span>Paciente</span><p>¡Ya tengo mi plan! Gracias por enviarlo tan rápido.</p></div>
+            <div className="landing-chat-bottom">
+              <div className="landing-chat landing-chat-professional"><span>Nutriólogo</span><p>Ahí tienes tu plan y las indicaciones que revisamos juntos.</p></div>
+              <div className="landing-chat landing-chat-patient"><span>Paciente</span><p>Todo muy claro y organizado. ¡Qué atención tan profesional!</p></div>
+            </div>
+          </div>
+        </figure>
       </section>
 
       <section id="como-funciona" className="landing-product" aria-labelledby="product-title">
         <div className="landing-shell landing-section">
-          <div className="landing-section-intro"><div><p className="landing-eyebrow">Menos buscar. Más acompañar.</p><h2 id="product-title">Tu consulta, con<br /><em>cada cosa en su lugar.</em></h2></div><p>Encuentra la historia. Prepara el plan.<br />Continúa el seguimiento.<br /><strong>Descubre cómo se ve en Nuthrick.</strong></p></div>
+          <div className="landing-section-intro"><div><p className="landing-eyebrow">Menos buscar. Más acompañar.</p><h2 id="product-title">Tu consulta ahora sí<br /><em>se sentirá organizada.</em></h2></div><p>Encuentra la historia. Prepara el plan.<br />Continúa el seguimiento.<br /><strong>Descubre cómo se ve en Nuthrick.</strong></p></div>
           <LandingProductTour />
           <div id="nuthrick-ai" className="landing-ai-note"><Sparkles size={22} aria-hidden="true" /><p><strong>Un apoyo extra cuando lo necesitas.</strong> Con IA puedes preparar borradores para revisar y ajustar. Consulta su disponibilidad y créditos en cada plan. El criterio sigue siendo tuyo.</p></div>
         </div>
