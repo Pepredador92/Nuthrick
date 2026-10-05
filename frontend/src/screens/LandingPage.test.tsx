@@ -12,23 +12,20 @@ describe('LandingPage', () => {
   it('renders its positioning and creator in the initial HTML without a router or auth', () => {
     const html = renderToString(<LandingPage />);
     expect(html).toContain('Software para nutriólogos');
-    expect(html).toContain('Tu consulta merece tu atención.');
-    expect(html).toContain('Tu vida también.');
+    expect(html).toContain('¿Terminó tu consulta…');
+    expect(html).toContain('o apenas empezó');
     expect(html).toContain('José Olmedo');
     expect(html.match(/<h1\b/g)).toHaveLength(1);
   });
 
-  it('keeps the complete founder photograph and requested introduction with emphasis', () => {
+  it('keeps a concise creator introduction and social proof without invented counts', () => {
     render(<LandingPage />);
-    const founder = screen.getByRole('region', { name: /Nuthrick nació desde/ });
-    expect(founder).toHaveTextContent('nutriólogo con más de 8 años de experiencia en consulta privada');
-    expect(founder).toHaveTextContent('no para reemplazar tu criterio profesional');
-    expect(within(founder).getByText('más simple, rápida y organizada').tagName).toBe('STRONG');
-    const image = within(founder).getByRole('img');
-    expect(image).toHaveAttribute('loading', 'lazy');
-    expect(image).toHaveAttribute('width', '1280');
-    expect(image.getAttribute('srcSet')).toContain('640w');
-    expect(image.getAttribute('alt')).toContain('tres computadoras');
+    const founder = screen.getByRole('region', { name: 'Creado por un nutriólogo' });
+    expect(founder).toHaveTextContent('más de 8 años de experiencia en consulta privada');
+    expect(screen.getByText('Nutriólogos ya utilizan Nuthrick para organizar su consulta.')).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/50 nutriólogos|NFC|código QR/);
+    const banner = screen.getByRole('banner');
+    expect(within(banner).getByRole('link', { name: 'Ver planes' })).toHaveAttribute('href', '/planes');
   });
 
   it('offers a keyboard-operable menu and real navigation destinations', () => {
@@ -39,7 +36,7 @@ describe('LandingPage', () => {
     const nav = screen.getByRole('navigation', { name: 'Navegación móvil' });
     fireEvent.click(within(nav).getByRole('link', { name: 'Quién lo creó' }));
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getAllByRole('link', { name: /^Registrarme/ }).every(link => link.getAttribute('href') === '/register')).toBe(true);
+    expect(screen.getAllByRole('link', { name: /^Crear mi cuenta/ }).every(link => link.getAttribute('href') === '/register')).toBe(true);
     expect(screen.getByRole('link', { name: 'Consultar plan Esencial' })).toHaveAttribute('href', '/planes?plan=plan-from-admin');
     expect(screen.getByRole('banner')).toBeInTheDocument();
     expect(screen.getByRole('contentinfo')).toBeInTheDocument();
@@ -49,7 +46,7 @@ describe('LandingPage', () => {
     render(<LandingPage />);
     expect(screen.getByText(/Pantalla real del sistema · datos de demostración/)).toBeInTheDocument();
     expect(screen.getByText(/Revisa el importe y la periodicidad/)).toBeInTheDocument();
-    expect(document.body.textContent).not.toMatch(/agenda|calendar|gmail|automatizaciones de comunicación/i);
+    expect(document.body.textContent).not.toMatch(/NFC|código QR|automatizaciones de comunicación/i);
     expect(screen.queryByText(/gratis para siempre|plan gratuito/i)).not.toBeInTheDocument();
   });
 

@@ -15,3 +15,14 @@ El símbolo circular y la figura humana se adaptaron a curvas vectoriales a part
 Colores de marca: verde profundo #173f39, marfil #f8f5ed y lima #d2e89f. Las superficies de producto mantienen sus temas actuales.
 
 No se incorporan nuevos flujos, permisos, PWA, pagos ni cambios de datos con esta actualización de identidad.
+
+## Landing breve
+
+La portada pasa a cuatro momentos: gancho de pendientes tras consulta, recorrido visual existente del producto, origen de Nuthrick y planes/registro. Se retiran las fotografías editoriales del contenido visible; los recursos quedan disponibles para referencias existentes.
+
+- «Ver planes» visible en la cabecera sticky, incluso en móvil, hacia `/planes`.
+- Catálogo y precios siguen usando `loadPublicCommercialData`; no se inventan importes si la consulta no está disponible.
+- Prueba social textual solicitada por el propietario, sin cantidades ni testimonios.
+- Conserva el tour de pantallas, su manejo por teclado, registro, acceso, preguntas desplegables y temas día/noche.
+- Sin NFC ni QR. Sin modificaciones a funciones clínicas, permisos o reglas comerciales.
+- Verificación: typecheck, ESLint, pruebas de landing/SEO, render PDF, revisión visual y build `NITRO_PRESET=vercel` con smoke SSR aislado de todas las rutas críticas.
