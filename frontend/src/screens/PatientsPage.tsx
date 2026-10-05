@@ -733,7 +733,7 @@ export function PatientsPage() {
         </div>
       </section>
       <section className="patients-results" aria-label="Resultados de pacientes">
-        <div className="patients-card-heading patients-results-heading"><span className="patients-step">02 · Abre el expediente</span><h2>Pacientes</h2><p>Selecciona una tarjeta para continuar la atención.</p></div>
+        <div className="patients-card-heading patients-results-heading"><span className="patients-step">02 · Abre el expediente</span><h2>Pacientes</h2><p>Encuentra al paciente en la lista y abre su ficha para continuar la atención.</p></div>
         {loading ? (
           <LoadingState label="Cargando pacientes…" />
         ) : error ? (
@@ -766,11 +766,26 @@ export function PatientsPage() {
           />
         ) : (
           <>
-            <div className="patients-card-grid">
+            <ul className="patients-list" aria-label="Lista de pacientes">
               {rows.map((patient) => (
-                <article key={patient.id} className="patients-person-card">
-                  <div className="patients-person-head">
-                    <span className="patients-person-avatar">{patientInitials(patient)}</span>
+                <li key={patient.id} className="patients-person-row">
+                  <div className="patients-person-main">
+                    <span className="patients-person-avatar" aria-hidden="true">{patientInitials(patient)}</span>
+                    <div className="patients-person-info">
+                      <Link to={`/app/patients/${patient.id}`} className="patients-person-name">{patient.full_name}</Link>
+                      <p className="patients-person-email" title={patient.email || undefined}>{patient.email || "Sin correo"}{calculateAge(patient.birth_date) !== null ? ` · ${calculateAge(patient.birth_date)} años` : ""}</p>
+                    </div>
+                  </div>
+                  <div className="patients-person-status">
+                    <span className={patient.status === "active" ? "is-active" : ""}>{patientStatusLabel(patient.status)}</span>
+                    <span>{patient.portal_access_enabled ? "Portal habilitado" : "Portal sin habilitar"}</span>
+                  </div>
+                  <div className="patients-person-activity">
+                    <span>Última actividad</span>
+                    <strong>{formatPatientDate(patient.last_activity_at)}</strong>
+                  </div>
+                  <div className="patients-person-actions">
+                    <Link to={`/app/patients/${patient.id}`}>Abrir ficha <ArrowRight size={15} aria-hidden="true" /></Link>
                     <PatientActionMenu
                       patient={patient}
                       onArchive={() => setConfirm({ type: "archive", patient })}
@@ -778,19 +793,9 @@ export function PatientsPage() {
                       onDelete={() => setConfirm({ type: "delete", patient })}
                     />
                   </div>
-                  <Link to={`/app/patients/${patient.id}`} className="patients-person-name">{patient.full_name}</Link>
-                  <p className="patients-person-email">{patient.email || "Sin correo"}{calculateAge(patient.birth_date) !== null ? ` · ${calculateAge(patient.birth_date)} años` : ""}</p>
-                  <div className="patients-person-status">
-                    <span className={patient.status === "active" ? "is-active" : ""}>{patientStatusLabel(patient.status)}</span>
-                    <span>{patient.portal_access_enabled ? "Portal habilitado" : "Portal sin habilitar"}</span>
-                  </div>
-                  <div className="patients-person-footer">
-                    <span>Última actividad<br /><strong>{formatPatientDate(patient.last_activity_at)}</strong></span>
-                    <Link to={`/app/patients/${patient.id}`}>Abrir ficha <ArrowRight size={15} /></Link>
-                  </div>
-                </article>
+                </li>
               ))}
-            </div>
+            </ul>
             <div className="mt-5 flex items-center justify-between text-sm text-[#718079]">
               <span>
                 Página {page + 1} de {pages}

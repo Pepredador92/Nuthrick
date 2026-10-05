@@ -20,7 +20,7 @@ beforeEach(() => {
 });
 
 describe('PatientsPage', () => {
-  it('keeps search, filters and patient detail available in guided cards', async () => {
+  it('keeps search, filters and patient detail available in the patient list', async () => {
     render(<MemoryRouter><PatientsPage /></MemoryRouter>);
 
     expect(screen.getByRole('region', { name: 'Buscar y filtrar pacientes' })).toBeVisible();

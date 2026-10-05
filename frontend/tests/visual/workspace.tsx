@@ -4,6 +4,7 @@ import { DashboardPage } from '../../src/screens/DashboardPage';
 import { PatientsPage } from '../../src/screens/PatientsPage';
 import { AgendaPage } from '../../src/screens/AgendaPage';
 import { EntryDigest } from '../../src/components/notifications/EntryDigest';
+import { ThemeSwitcher } from '../../src/features/theme/ThemeSwitcher';
 import '../../app/globals.css';
 const view = new URLSearchParams(location.search).get('view');
-createRoot(document.getElementById('root')!).render(<MemoryRouter>{view === 'digest' && <EntryDigest />}<div className="min-h-screen bg-[#f6f7f3] text-[#17312c]"><aside className="fixed inset-y-0 hidden w-[250px] border-r bg-white p-6 lg:block">Nuthrick · Demostración</aside><div className="lg:pl-[250px]"><header className="border-b px-6 py-5">Datos ficticios para revisión visual</header><main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">{view === 'patients' ? <PatientsPage /> : view === 'agenda' ? <AgendaPage /> : <DashboardPage />}</main></div></div></MemoryRouter>);
+createRoot(document.getElementById('root')!).render(<MemoryRouter>{view === 'digest' && <EntryDigest />}<div className="min-h-screen bg-[#f6f7f3] text-[#17312c]"><aside className="fixed inset-y-0 hidden w-[250px] border-r bg-white p-6 lg:block">Nuthrick · Demostración</aside><div className="lg:pl-[250px]"><header className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-5"><span>Datos ficticios para revisión visual</span><ThemeSwitcher compact /></header><main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">{view === 'patients' ? <PatientsPage /> : view === 'agenda' ? <AgendaPage /> : <DashboardPage />}</main></div></div></MemoryRouter>);
