@@ -276,7 +276,7 @@ function OwnerPortal({ patientId }: { patientId: string }) {
       />
     );
   return (
-    <div className="w-full min-w-0 py-3">
+    <div className="portal-owner-workspace w-full min-w-0 py-3">
       <Link
         to={`/app/patients/${patientId}`}
         className="mb-5 inline-flex items-center gap-2 text-sm"

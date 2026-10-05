@@ -74,6 +74,87 @@
   border-radius: 22px;
   padding: 26px;
 }
+
+/* Owner-side Super Link console: a focused workspace with floating surfaces. */
+.portal-owner-workspace {
+  --owner-ink: #203b3d;
+  --owner-muted: #59716d;
+  --owner-line: #879e9638;
+  --owner-surface: #ffffffed;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding: 20px clamp(12px, 2.2vw, 28px) 48px;
+  color: var(--owner-ink);
+  background:
+    radial-gradient(ellipse at 90% 3%, #d6d2ed8a, transparent 38%),
+    radial-gradient(ellipse at 6% 52%, #c7e3d588, transparent 42%),
+    linear-gradient(145deg, #f0f4f1, #e8f0ed 55%, #edf0f5);
+  border-radius: 28px;
+}
+.portal-owner-workspace > a:first-child {
+  padding: 9px 12px;
+  border: 1px solid var(--owner-line);
+  border-radius: 12px;
+  background: #ffffffc9;
+  box-shadow: 0 8px 20px #173d3610;
+}
+.portal-owner-workspace .portal-hero {
+  min-height: 176px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(24px, 4vw, 40px);
+  border: 1px solid #b6e5d333;
+  border-radius: 25px;
+  background:
+    radial-gradient(ellipse at 86% -12%, #5f61a766, transparent 47%),
+    radial-gradient(ellipse at 5% 115%, #71c3a633, transparent 50%),
+    linear-gradient(130deg, #102a34, #173d3b 60%, #1d3046);
+  box-shadow: 0 25px 50px -28px #102a3e80, inset 0 1px 0 #ffffff1c;
+}
+.portal-owner-workspace .portal-hero::after { width: 310px; height: 310px; right: -72px; top: -170px; border-width: 34px; border-color: #c6eedb0c; }
+.portal-owner-workspace .portal-card {
+  border: 1px solid #ffffffd9;
+  background: var(--owner-surface);
+  box-shadow: 0 20px 38px -27px #183c4666, 0 6px 13px -8px #16343a2e, inset 0 1px 0 #fff;
+  backdrop-filter: blur(14px);
+}
+.portal-owner-workspace .portal-tabs {
+  position: sticky;
+  top: 74px;
+  z-index: 12;
+  padding: 7px;
+  border-color: #ffffffd9;
+  background: #ffffffd9;
+  box-shadow: 0 12px 25px -19px #173d3680, inset 0 1px 0 #fff;
+  backdrop-filter: blur(16px);
+}
+.portal-owner-workspace .portal-tabs button { min-height: 46px; color: var(--owner-muted); }
+.portal-owner-workspace .portal-tabs button[aria-pressed="true"] { background: #dfece6; color: #204f45; box-shadow: inset 0 1px 0 #fff8; }
+.portal-owner-workspace .nuth-input { border-color: var(--owner-line); background: #fbfdfc; }
+html[data-nuthrick-theme='night'] .portal-owner-workspace {
+  --owner-ink: #e8f2ee;
+  --owner-muted: #b5c9c7;
+  --owner-line: #a2cfca36;
+  --owner-surface: #122d39ee;
+  color: var(--owner-ink);
+  background:
+    radial-gradient(ellipse at 88% 4%, #58518e66, transparent 40%),
+    radial-gradient(ellipse at 4% 58%, #285c4d80, transparent 45%),
+    linear-gradient(145deg, #081722, #0f2831 54%, #121a31);
+}
+html[data-nuthrick-theme='night'] .portal-owner-workspace > a:first-child { color: var(--owner-ink); border-color: var(--owner-line); background: #102b36dc; }
+html[data-nuthrick-theme='night'] .portal-owner-workspace .portal-card { border-color: #a2cfca25; box-shadow: 0 24px 40px -27px #000a, inset 0 1px 0 #ffffff0d; }
+html[data-nuthrick-theme='night'] .portal-owner-workspace .portal-tabs { border-color: #9bd6d329; background: #102b37e8; }
+html[data-nuthrick-theme='night'] .portal-owner-workspace .portal-tabs button { color: #bdd0d0; }
+html[data-nuthrick-theme='night'] .portal-owner-workspace .portal-tabs button[aria-pressed="true"] { background: #254b50; color: #e0f1e5; }
+html[data-nuthrick-theme='night'] .portal-owner-workspace .nuth-input { border-color: var(--owner-line); background: #0c2530; color: var(--owner-ink); }
+@media (max-width: 640px) {
+  .portal-owner-workspace { border-radius: 18px; padding: 12px 10px 32px; }
+  .portal-owner-workspace .portal-hero { min-height: 155px; border-radius: 19px; }
+  .portal-owner-workspace .portal-tabs { top: 60px; }
+  .portal-owner-workspace .portal-tabs button { min-height: 42px; padding-inline: 9px; font-size: 12px; }
+}
 .portal-goal {
   background: linear-gradient(120deg, #f0f5e7, #fffdf7);
   border-color: #dce5cb;
