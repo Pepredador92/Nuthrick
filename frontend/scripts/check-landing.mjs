@@ -23,7 +23,7 @@ try {
     await page.goto(origin,{waitUntil:'networkidle'});
     await page.evaluate(()=>document.fonts.ready);
     assert.equal(await page.locator('h1').count(),1);
-    assert.ok((await page.locator('h1').innerText()).includes('¿Terminó tu consulta…'));
+    assert.ok((await page.locator('h1').innerText()).includes('¿Por qué no empecé'));
     assert.equal(await page.locator('link[rel=canonical]').count(),1);
     assert.equal(await page.locator('meta[name=robots]').getAttribute('content'),'index, follow');
     assert.equal(await page.locator('script[type="application/ld+json"]').count(),1);

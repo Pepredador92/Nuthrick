@@ -19,8 +19,8 @@ export function LandingPage({ plans = [], supportEmail = null }: { plans?: Publi
       <section className="landing-hero landing-shell" aria-labelledby="landing-title">
         <div className="landing-hero-copy">
           <p className="landing-eyebrow">Software para nutriólogos</p>
-          <h1 id="landing-title">¿Terminó tu consulta…<br /><em>o apenas empezó<br />el trabajo?</em></h1>
-          <p className="landing-lead">Planes por terminar. Mensajes por responder.<br />Información por encontrar.</p>
+          <h1 id="landing-title">¿Por qué no empecé<br /><em>a trabajar así desde antes?</em></h1>
+          <p className="landing-lead">Planes terminados, consultas eficientes y seguimientos organizados.</p>
           <div className="landing-actions">
             <a href="#como-funciona" className="landing-cta">Sí me pasa <ArrowDown size={17} aria-hidden="true" /></a>
             <a href="/planes" className="landing-text-link">Ver planes <ArrowRight size={17} aria-hidden="true" /></a>
