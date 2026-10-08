@@ -15,6 +15,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
 import { Field, Input } from "@/src/components/ui/FormField";
 import { QuestionField } from "@/src/components/consultations/QuestionField";
+import { InterviewWorkspace, InterviewQuestionCard } from "@/src/components/consultations/InterviewWorkspace";
 import { InterviewReview } from "@/src/components/consultations/InterviewReview";
 import { PesCopilot, RecallCopilot } from "@/src/components/consultations/ClinicalCopilot";
 import { ClinicalObjective } from "@/src/components/consultations/ClinicalObjective";
@@ -35,7 +36,6 @@ import {
   matchesCondition,
   questionErrors,
   repeatableFields,
-  sectionProgress,
 } from "@/src/features/consultations/questionnaire";
 import { appendComposedText, composeInterviewDraft } from "@/src/features/consultations/composeClinicalText";
 import type { Answers, Question } from "@/src/features/consultations/questionnaire";
@@ -727,12 +727,9 @@ export function ConsultationPage() {
       ? latest.template.version > snapshot.template_version
       : latest.template.is_system &&
         snapshot.template_version < latest.template.version);
-  const progress = sections.map((section) => sectionProgress(section, values));
-  const answered = progress.reduce((sum, item) => sum + item.answered, 0);
-  const total = progress.reduce((sum, item) => sum + item.total, 0);
   const dirty = JSON.stringify(values) !== savedEncoded;
   return (
-    <div className="w-full min-w-0 pb-28 [overflow-wrap:anywhere]">
+    <div className="consultation-workspace">
       <header className="rounded-[24px] bg-[#173d36] p-5 text-white sm:p-7">
         <Link
           to={"/app/patients/" + patient.id}
@@ -953,111 +950,9 @@ export function ConsultationPage() {
             {error}
           </div>
         )}
-        <section className="mt-5 min-w-0 rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-7" aria-label="Tu entrevista">
-          <p className="nuth-eyebrow">Tu entrevista</p>
-          <h2 className="mt-2 text-2xl font-semibold text-[#173d36]">
-            {snapshot.template_name}
-          </h2>
-          <p className="mt-2 text-sm text-[#607269]">
-            {sections.length} secciones · {total} preguntas visibles
-          </p>
-          <div className="mt-5 max-w-md">
-            <p className="text-xs font-semibold text-[#496758]">
-              {answered} de {total} preguntas visibles con respuesta
-            </p>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#dfe8e1]">
-              <div
-                className="h-full rounded-full bg-[#709883]"
-                style={{ width: (total ? (answered / total) * 100 : 0) + "%" }}
-              />
-            </div>
-            <p className="mt-2 text-xs text-[#74817d]">
-              Orientativo; los campos opcionales no bloquean el cierre.
-            </p>
-          </div>
-          <label htmlFor="interview-section" className="mt-5 block text-xs font-semibold text-[#496758] sm:hidden">
-            Ir a una sección
-          </label>
-          <select
-            id="interview-section"
-            className="nuth-input mt-2 !min-w-0 sm:hidden"
-            disabled={busy}
-            value={active}
-            onChange={(event) => void goTo(Number(event.target.value))}
-          >
-            {sections.map((section, index) => (
-              <option key={section.section_key} value={index}>
-                {index + 1}. {section.title}
-              </option>
-            ))}
-            <option value={sections.length}>Revisar y cerrar</option>
-          </select>
-          <nav aria-label="Secciones de la entrevista" className="mt-5 hidden max-h-80 gap-2 overflow-y-auto pr-1 sm:grid sm:grid-cols-2">
-            {sections.map((section, index) => (
-              <button
-                type="button"
-                key={section.section_key}
-                disabled={busy}
-                aria-current={active === index ? "step" : undefined}
-                onClick={() => void goTo(index)}
-                className={
-                  "flex min-w-0 items-start gap-3 rounded-xl border p-4 text-left transition-colors disabled:opacity-50 " +
-                  (active === index
-                    ? "border-[#709883] bg-[#edf4ee]"
-                    : "border-[#e3e9e4] hover:bg-[#f4f7f3]")
-                }
-              >
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#edf4ee] text-sm font-semibold text-[#173d36]">
-                  {index + 1}
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-[#29423b]">{section.title}</span>
-                  <span className="mt-1 block text-xs text-[#607269]">
-                    {progress[index].answered} de {progress[index].total} con respuesta
-                  </span>
-                  {section.description && (
-                    <span className="mt-1 line-clamp-2 block text-xs text-[#74817d]">
-                      {section.description}
-                    </span>
-                  )}
-                </span>
-              </button>
-            ))}
-            <button
-              type="button"
-              disabled={busy}
-              aria-current={reviewing ? "step" : undefined}
-              onClick={() => void goTo(sections.length)}
-              className={
-                "flex min-w-0 items-start gap-3 rounded-xl border p-4 text-left transition-colors disabled:opacity-50 " +
-                (reviewing
-                  ? "border-[#709883] bg-[#edf4ee]"
-                  : "border-[#e3e9e4] hover:bg-[#f4f7f3]")
-              }
-            >
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#edf4ee] text-[#173d36]">
-                <ClipboardCheck size={16} />
-              </span>
-              <span className="text-sm font-semibold text-[#29423b]">Revisar y cerrar</span>
-            </button>
-          </nav>
-        </section>
-        <div className="mt-5 min-w-0">
-          <main className="min-w-0 rounded-2xl border border-[#dfe5e1] bg-white p-5 sm:p-7">
-            <p className="nuth-eyebrow">
-              {reviewing
-                ? "Antes de cerrar"
-                : "Sección " + (active + 1) + " de " + sections.length}
-            </p>
-            <h2
-              ref={heading}
-              tabIndex={-1}
-              className="mt-2 text-xl font-semibold text-[#173d36] outline-none sm:text-2xl"
-            >
-              {reviewing ? "Revisa lo conversado" : current?.title}
-            </h2>
+        <InterviewWorkspace templateName={snapshot.template_name} sections={sections} values={values} active={active} busy={busy} onSection={(index) => void goTo(index)} headingRef={heading}>
             {reviewing ? (
-              <>
+              <div className="interview-review-card">
                 <p className="mt-3 text-sm leading-6 text-[#718176]">
                   Esta síntesis organiza únicamente lo registrado. No completa
                   datos faltantes ni genera diagnósticos. Puedes volver a
@@ -1082,19 +977,9 @@ export function ConsultationPage() {
                   Revisé la información. Entiendo que al cerrar esta consulta
                   quedará en el historial y no podré editar sus respuestas.
                 </label>
-              </>
+              </div>
             ) : (
               <>
-                {current?.description && current.section_key !== 'nutrition_diagnosis' && (
-                  <div className="mt-4 rounded-2xl bg-[#eff6f0] p-4">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#527a61]">
-                      Guión para acompañar la conversación
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-[#426650]">
-                      {current.description}
-                    </p>
-                  </div>
-                )}
                 {current?.section_key === 'nutrition_diagnosis' && <PesCopilot key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} before={save} answers={values} onPes={draft => {
                   setAnswer('pes_problem', draft.problem);
                   setAnswer('pes_etiology', draft.etiology);
@@ -1118,14 +1003,14 @@ export function ConsultationPage() {
                 {current?.questions.some(q => q.question_key === 'recall_24h_v2') && <RecallCopilot key={`${consultation.id}:${snapshot.revision}:recall`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} before={save} />}
                 <fieldset
                   disabled={busy}
-                  className="mt-6 min-w-0 space-y-7 border-0 p-0"
+                  className="interview-question-grid"
                 >
                   {current?.questions
                     .filter((question) =>
                       matchesCondition(question.visibility_condition, values),
                     )
                     .map((question) => (
-                      <div key={question.question_key}>
+                      <InterviewQuestionCard key={question.question_key} question={question}>
                         {question.question_type === "long_text" && composeInterviewDraft(question.question_key, values) && (
                           <button
                             type="button"
@@ -1151,7 +1036,7 @@ export function ConsultationPage() {
                             setAnswer(question.question_key, value)
                           }
                         />
-                      </div>
+                      </InterviewQuestionCard>
                     ))}
                   {!current?.questions.length && (
                     <p className="text-sm text-[#74817d]">
@@ -1161,13 +1046,12 @@ export function ConsultationPage() {
                 </fieldset>
               </>
             )}
-          </main>
-        </div>
+        </InterviewWorkspace>
         <footer
           hidden={module !== "interview"}
           className="fixed inset-x-0 bottom-0 z-30 border-t border-[#dfe5e1] bg-white/95 px-3 py-3 backdrop-blur lg:left-[250px]"
         >
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-2">
+          <div className="interview-footer-inner">
             <button
               type="button"
               className="nuth-button-secondary !px-3 !text-xs sm:!text-sm"
@@ -1177,16 +1061,10 @@ export function ConsultationPage() {
               <ChevronLeft size={15} />
               Anterior
             </button>
-            <span
-              role="status"
-              className="hidden text-xs text-[#74817d] md:block"
-            >
-              {saving
-                ? "Guardando…"
-                : dirty
-                  ? "Cambios sin guardar"
-                  : "Cambios guardados"}
-            </span>
+            <div className="interview-next-step">
+              <strong>{reviewing ? "Último paso: revisar y cerrar" : active === sections.length - 1 ? "Sigue: revisar lo conversado" : `Sigue: ${sections[active + 1]?.title ?? "Revisar resumen"}`}</strong>
+              <span role="status">{saving ? "Guardando…" : dirty ? "Cambios sin guardar" : "Cambios guardados"}</span>
+            </div>
             {reviewing ? (
               <button
                 type="button"
