@@ -1,3 +1,4 @@
+import { PatientGroceries } from '../diet/PatientGroceries';
 import { PatientSupplements } from "../diet/PatientSupplements";
 import { useEffect, useState } from "react";
 import {
@@ -109,6 +110,7 @@ export function PortalPlanContent({ plan }: { plan: PortalPlan | null }) {
           </section>
         ))}
       </div>
+      <PatientGroceries value={plan.shoppingList} />
       </div>
     </section>
   );

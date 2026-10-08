@@ -95,7 +95,7 @@ export function TextDietAI({plan,before,onApplied,transport=textDietTransport}:{
         </>}
         {step===3&&!proposal&&<>
           <div className="rounded-xl bg-[#edf5f0] p-4 text-sm"><strong>{guidance.dietCount} dietas completas · {guidance.meals.length} tiempos por dieta</strong><p className="mt-2">{guidance.objective}</p><p className="mt-2">{guidance.meals.map(m=>`${m.name}${m.time?' '+m.time:''}`).join(' · ')}</p><p className="mt-2 whitespace-pre-wrap">{instructions}</p></div>
-          <p className="text-sm">La propuesta se guardará como borrador de texto y abrirá la revisión por dieta. Publicar requerirá tu aprobación posterior.</p>
+          <p className="text-sm">La propuesta se guardará como borrador de texto y abrirá la revisión por dieta. Publicar requerirá tu aprobación posterior. Al publicar podrás incluir el carrito del súper y elegir cuántos días usarás cada dieta.</p>
           {!!checked?.reasons.length&&<p role="alert">{checked.reasons.map(r=>copilotMessage(r.code)).join(' ')}</p>}
           {existing&&<label className="flex gap-2 text-sm"><input type="checkbox" checked={replace} onChange={e=>setReplace(e.target.checked)}/>Usar la nueva propuesta de texto para este borrador. Las versiones publicadas se conservan.</label>}
         </>}

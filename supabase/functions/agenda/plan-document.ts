@@ -66,7 +66,15 @@ export function planDocumentBlocks(model:PublishedNutritionPlanDocumentModel):Pl
    if(alternatives.length){blocks.push({kind:'label',text:'Sustituciones'},{kind:'text',text:'Elige una alternativa; no la agregues a la porción.'});for(const i of alternatives)blocks.push({kind:'text',text:`${i.name}: ${i.alternatives.map(a=>`${amount(a.amount)} ${a.unit} de ${a.name}`).join(' o ')}.`});}
   }
  }
+ if(model.plan.shoppingList){
+  const list=model.plan.shoppingList;
+  blocks.push({kind:'day',text:'Tu carrito del súper'},{kind:'text',text:groceryPeriod(list)});
+  for(const item of list.items)blocks.push({kind:'text',text:`${item.name} - ${amount(item.quantity)} ${item.unit}`});
+ }
  return blocks;
+}
+function groceryPeriod(list:NonNullable<PortalPlan['shoppingList']>):string {
+ return 'Para una persona · '+list.schedule.reduce((n,row)=>n+row.days,0)+' días. '+list.schedule.filter(row=>row.days>0).map(row=>`${row.title}: ${row.days} días`).join(' · ');
 }
 /** Date-only birth dates must never move to the previous day in Mexico. */
 export function birthDateDetails(birthDate:string|undefined,reference:string):string|undefined {
@@ -138,6 +146,12 @@ export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:str
    layout.card(item.name,fields,{tone:'mint',eyebrow:'SUPLEMENTO',flow:true});
   }
  }
+ if(model.plan.shoppingList){
+  const list=model.plan.shoppingList;
+  layout.section('Tu carrito del súper',groceryPeriod(list));
+  layout.card('Antes de comprar',[{value:'Revisa lo que ya tienes en casa. Las cantidades corresponden a las porciones del plan y conservan el estado indicado, crudo o cocido; no son conversiones a peso de compra ni a tamaños de envase.'}],{tone:'mint'});
+  for(let i=0;i<list.items.length;i+=12)layout.card('Alimentos y cantidades totales',list.items.slice(i,i+12).map(item=>({label:item.name,value:`${amount(item.quantity)} ${item.unit}`})),{tone:'mint',columns:2});
+ }
  layout.flushSection();drawPrivateFooters(pdf);return new Uint8Array(pdf.output('arraybuffer'));
 }
 export function escapeLatex(text:string):string {
@@ -163,6 +177,10 @@ export function renderPlanTex(model:PublishedNutritionPlanDocumentModel,logo:str
  if(model.plan.supplements?.length){
   blocks.push('\\section*{Tu suplementación}', 'Cantidades diarias indicadas por tu nutriólogo.');
   for(const item of model.plan.supplements)blocks.push(card(item.name,[field('Porción diaria',item.quantity),[item.brand,item.presentation].filter(Boolean).length?field('Producto',[item.brand,item.presentation].filter(Boolean).join(' · ')):'',item.instructions?field('Cómo tomarlo',item.instructions):''].join('\n'),true));
+ }
+ if(model.plan.shoppingList){
+  const list=model.plan.shoppingList;
+  blocks.push(card('Tu carrito del súper',e(groceryPeriod(list))+'\\par\n'+e('Revisa lo que ya tienes en casa. Se conserva el estado indicado, crudo o cocido; no son conversiones a peso de compra.')+'\\par\n'+list.items.map(item=>field(item.name,`${amount(item.quantity)} ${item.unit}`)).join('\n'),true));
  }
  // Embed the optional verified raster image as hexadecimal, never TeX commands
  // or external URLs. LuaLaTeX uses a unique temporary file and removes it after

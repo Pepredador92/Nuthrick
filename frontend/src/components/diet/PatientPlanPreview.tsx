@@ -1,3 +1,4 @@
+import { PatientGroceries } from './PatientGroceries';
 import { PatientSupplements } from "./PatientSupplements";
 import type { PatientPlanView } from "@/src/features/diet-review/model";
 import { canSubstitute, type PatientPreparation } from "@/src/features/diet-review/preparation";
@@ -47,5 +48,6 @@ export function PatientPlanPreview({ value, historical = false }: { value: Patie
         <Substitutions preparation={meal.preparation} />
       </article>)}</div>
     </section>)}</div>
+    <PatientGroceries value={value.shoppingList} />
   </section>;
 }

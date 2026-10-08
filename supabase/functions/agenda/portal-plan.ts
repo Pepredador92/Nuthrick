@@ -1,3 +1,4 @@
+import {patientGroceries,type PatientGroceries} from '../_shared/groceries.ts';
 import {isTextDiet} from '../_shared/text-diet.ts';
 import {patientSupplements,type PatientSupplement} from '../_shared/supplements.ts';
 // Server-side patient projection. Raw clinical snapshots never reach the browser.
@@ -28,14 +29,14 @@ const canonical = (v: unknown) => JSON.stringify(v, (_key,value: unknown) =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
     ? Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b,'en'))) : value);
 export type PortalPlanIngredient = {name:string;amount:number;unit:string;alternatives:{name:string;amount:number;unit:string}[]};
-export type PortalPlan = {supplements?:PatientSupplement[];title:string;versionNumber:number;publishedAt:string;days:{name:string;text?:string;meals:{name:string;time:string|null;title:string;ingredients:PortalPlanIngredient[];instructions:string[]}[]}[]};
+export type PortalPlan = {shoppingList?:PatientGroceries;supplements?:PatientSupplement[];title:string;versionNumber:number;publishedAt:string;days:{name:string;text?:string;meals:{name:string;time:string|null;title:string;ingredients:PortalPlanIngredient[];instructions:string[]}[]}[]};
 
 export function projectPortalPlan(raw: unknown): PortalPlan | null {
   if (raw === null) return null;
   const published = object(raw), snapshot = object(published.snapshot);
   if(snapshot.text_diet!=null){
     if(!isTextDiet(snapshot.text_diet)||!snapshot.text_diet.reviewed_at)throw new Error('invalid_plan');
-    return {title:text(object(snapshot.plan).title),versionNumber:positive(published.versionNumber),publishedAt:text(published.publishedAt,50),
+    return {shoppingList:patientGroceries(snapshot.text_diet.shopping_list,snapshot.text_diet.diets),title:text(object(snapshot.plan).title),versionNumber:positive(published.versionNumber),publishedAt:text(published.publishedAt,50),
       supplements:patientSupplements((object(snapshot.prescription).macro_distribution as ObjectValue|null)?.supplements),
       days:snapshot.text_diet.diets.map(d=>({name:d.title,text:d.text,meals:[]}))};
   }

@@ -1,3 +1,4 @@
+import { patientGroceries, type PatientGroceries } from '../../../../supabase/functions/_shared/groceries';
 import {isTextDiet,textDietPrescriptionMatches} from '../../../../supabase/functions/_shared/text-diet';
 import { isSupplementList, patientSupplements, type PatientSupplement, type SupplementItem } from "../../../../supabase/functions/_shared/supplements";
 import { optionCanConfirm, optionIsEligible, optionPortionDifferences } from "@/src/features/menu/options";
@@ -117,7 +118,7 @@ export function prepareSingleDayForReview(menu: DietMenu, distribution: MealDist
 
 export type PatientPlanMeal = { name: string; time: string | null; entries: DietMenuEntry[]; preparation: PatientPreparation };
 export type PatientPlanDay = { text?: string; name: string; meals: PatientPlanMeal[] };
-export type PatientPlanView = { supplements?: PatientSupplement[]; title: string; patientName: string; days: PatientPlanDay[] };
+export type PatientPlanView = { shoppingList?: PatientGroceries; supplements?: PatientSupplement[]; title: string; patientName: string; days: PatientPlanDay[] };
 
 function patientView(title: string, patientName: string, distribution: MealDistribution | null, calendar: DietMenu["week_plan"], supplements?: SupplementItem[]): PatientPlanView {
   const byId = new Map((distribution?.meal_times ?? []).map((meal) => [meal.id, meal]));
@@ -140,11 +141,11 @@ function patientView(title: string, patientName: string, distribution: MealDistr
 }
 
 export function patientPlanViewFromDraft(plan: NutritionPlan, patientName = "Paciente"): PatientPlanView {
-  if(plan.text_diet&&isTextDiet(plan.text_diet))return {title:plan.title,patientName,supplements:patientSupplements(plan.macro_distribution?.supplements),days:plan.text_diet.diets.map(d=>({name:d.title,text:d.text,meals:[]}))};
+  if(plan.text_diet&&isTextDiet(plan.text_diet))return {shoppingList:patientGroceries(plan.text_diet.shopping_list,plan.text_diet.diets),title:plan.title,patientName,supplements:patientSupplements(plan.macro_distribution?.supplements),days:plan.text_diet.diets.map(d=>({name:d.title,text:d.text,meals:[]}))};
   return patientView(plan.title, patientName, plan.meal_distribution, plan.diet_menu?.week_plan ?? null, plan.macro_distribution?.supplements);
 }
 
 export function patientPlanViewFromVersion(snapshot: NutritionPlanVersionSnapshot): PatientPlanView {
-  if(snapshot.text_diet&&isTextDiet(snapshot.text_diet))return {title:snapshot.plan.title,patientName:snapshot.patient.full_name,supplements:patientSupplements(snapshot.prescription.macro_distribution?.supplements),days:snapshot.text_diet.diets.map(d=>({name:d.title,text:d.text,meals:[]}))};
+  if(snapshot.text_diet&&isTextDiet(snapshot.text_diet))return {shoppingList:patientGroceries(snapshot.text_diet.shopping_list,snapshot.text_diet.diets),title:snapshot.plan.title,patientName:snapshot.patient.full_name,supplements:patientSupplements(snapshot.prescription.macro_distribution?.supplements),days:snapshot.text_diet.diets.map(d=>({name:d.title,text:d.text,meals:[]}))};
   return patientView(snapshot.plan.title, snapshot.patient.full_name, snapshot.prescription.meal_distribution, { schema_version: 1, days: snapshot.calendar }, snapshot.prescription.macro_distribution?.supplements);
 }

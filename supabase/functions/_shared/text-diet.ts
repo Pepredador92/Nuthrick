@@ -1,3 +1,4 @@
+import { isGroceryList, type GroceryList } from './groceries.ts';
 /** Shared plain-text contract. No catalog identifiers, HTML, or model-reported nutrients. */
 export type TextDietGuidance = {
   version: 1; dietCount: number; objective: string; contextReviewed: boolean;
@@ -6,6 +7,7 @@ export type TextDietGuidance = {
 };
 export type TextDiet = {
   schema_version: 1; requested_count: number;
+  shopping_list?: GroceryList;
   diets: Array<{ id: string; title: string; text: string }>;
   meals: TextDietGuidance['meals'];
   reviewed_at: string | null;
@@ -27,11 +29,12 @@ export function isTextDietGuidance(v: unknown): v is TextDietGuidance {
     && isTextDietMeals(v.meals);
 }
 export function isTextDiet(v: unknown): v is TextDiet {
-  return obj(v) && keys(v,['schema_version','requested_count','diets','meals','reviewed_at','prescription']) && v.schema_version === 1
+  return obj(v) && keys(v,['schema_version','requested_count','diets','meals','reviewed_at','prescription','shopping_list']) && v.schema_version === 1
     && Number.isInteger(v.requested_count) && Number(v.requested_count) >= 1 && Number(v.requested_count) <= 7
     && Array.isArray(v.diets) && v.diets.length === v.requested_count
     && v.diets.every(d => obj(d) && keys(d,['id','title','text']) && str(d.id,60) && str(d.title,120) && str(d.text,12000))
     && new Set(v.diets.map(d=>d.id)).size === v.diets.length
+    && (v.shopping_list === undefined || isGroceryList(v.shopping_list, v.diets as TextDiet['diets']))
     && isTextDietMeals(v.meals) && (v.reviewed_at === null || typeof v.reviewed_at === 'string' && Number.isFinite(Date.parse(v.reviewed_at)))
     && obj(v.prescription) && keys(v.prescription,['target_calories','macro_distribution'])
     && (v.prescription.target_calories === null || typeof v.prescription.target_calories === 'number' && Number.isFinite(v.prescription.target_calories))

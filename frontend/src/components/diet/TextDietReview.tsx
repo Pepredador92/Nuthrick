@@ -1,3 +1,4 @@
+import { GroceryPublicationDialog } from './GroceryPublicationDialog';
 import {useId,useRef,useState,useEffect} from 'react';
 import {CheckCircle2,LoaderCircle,Pencil,X} from 'lucide-react';
 import {isTextDiet,textDietPrescriptionMatches,type TextDiet} from '../../../../supabase/functions/_shared/text-diet';
@@ -18,7 +19,7 @@ export function TextDietEditor({plan,onSave,onClose}:{plan:NutritionPlan;onSave:
       await onSave(value);setDraft(value);setNotice(approve?'Dietas aprobadas para publicación.':'Borrador guardado.');
       if(nextPage!==undefined){setPage(nextPage);dialog.current?.scrollTo?.({top:0});}if(close)onClose();
     }catch(e){setError(e instanceof Error?e.message:'No pudimos guardar. Tus cambios siguen en este diálogo.');}finally{lock.current=false;setBusy(false);}}
-  function edit(field:'title'|'text',value:string){setDraft(d=>({...d,reviewed_at:null,diets:d.diets.map((row,i)=>i===page?{...row,[field]:value}:row)}));setReviewed(r=>r.map((v,i)=>i===page?false:v));setNotice('');}
+  function edit(field:'title'|'text',value:string){setDraft(d=>({...d,shopping_list:undefined,reviewed_at:null,diets:d.diets.map((row,i)=>i===page?{...row,[field]:value}:row)}));setReviewed(r=>r.map((v,i)=>i===page?false:v));setNotice('');}
   return <dialog ref={dialog} open={typeof HTMLDialogElement==='undefined'||!HTMLDialogElement.prototype.showModal} aria-labelledby={`${id}-title`} onCancel={e=>{e.preventDefault();void persist(undefined,true);}} className="m-auto max-h-[94dvh] w-[min(980px,calc(100vw-20px))] overflow-auto rounded-2xl border border-[#d4e2d8] bg-white p-4 text-[#173d36] shadow-xl backdrop:bg-[#173d36]/40 sm:p-6">
     <header className="flex items-start justify-between gap-3"><div><p className="nuth-eyebrow">Revisión del borrador · Dieta {page+1} de {draft.diets.length}</p><h2 tabIndex={-1} id={`${id}-title`} className="mt-1 text-xl font-semibold">Revisa y edita tu propuesta</h2></div><button aria-label="Guardar y cerrar revisión" disabled={busy} onClick={()=>void persist(undefined,true)}><X size={22}/></button></header>
     <p className="my-3 text-sm text-[#687870]">Modifica o elimina libremente ingredientes, cantidades y preparación. Los cambios se guardan al cambiar de dieta o pulsar Guardar borrador.</p>
@@ -41,7 +42,7 @@ export function TextDietEditor({plan,onSave,onClose}:{plan:NutritionPlan;onSave:
   </dialog>;
 }
 
-export function TextDietReviewStep({plan,patientName,versions,publishing,onSave,onPublish,generateAction}:{plan:NutritionPlan;patientName:string;versions:NutritionPlanVersion[];publishing:boolean;onSave:(draft:TextDiet)=>Promise<NutritionPlan>;onPublish:()=>void;generateAction?:React.ReactNode}) {
+export function TextDietReviewStep({plan,patientName,versions,publishing,onSave,onPublish,generateAction}:{plan:NutritionPlan;patientName:string;versions:NutritionPlanVersion[];publishing:boolean;onSave:(draft:TextDiet)=>Promise<NutritionPlan>;onPublish:(draft:TextDiet)=>Promise<boolean|void>|void;generateAction?:React.ReactNode}) {
   const [editing,setEditing]=useState(!plan.text_diet?.reviewed_at),[confirming,setConfirming]=useState(false),[version,setVersion]=useState<NutritionPlanVersion|null>(null);
   const draft=plan.text_diet!,ready=isTextDiet(draft)&&!!draft.reviewed_at&&textDietPrescriptionMatches(draft,plan)&&!!plan.patient_id;
   return <section className="rounded-[28px] border border-[#dce6de] bg-white p-4 text-[#173d36] sm:p-7">
@@ -51,7 +52,7 @@ export function TextDietReviewStep({plan,patientName,versions,publishing,onSave,
     <section className="mt-5 rounded-xl border border-[#dfe6e1] p-4"><h2 className="font-semibold">Publicación</h2><p className="mt-2 text-sm text-[#687870]">Las metas prescritas son referencia. Las cantidades y el contenido de estas dietas han de ser revisados por ti antes de publicar.</p><button className="nuth-button mt-3" disabled={!ready||publishing} onClick={()=>setConfirming(true)}>{publishing&&<LoaderCircle className="animate-spin" size={16}/>}Publicar versión</button></section>
     <section className="mt-5"><h2 className="font-semibold">Historial de publicaciones</h2><ul className="mt-2 space-y-2">{versions.map(v=><li key={v.id}><button className="nuth-button-secondary !py-2" onClick={()=>setVersion(v)}>Ver versión {v.version_number}{v.id===plan.current_version_id?' · vigente':''}</button></li>)}</ul></section>
     {editing&&<TextDietEditor plan={plan} onSave={onSave} onClose={()=>setEditing(false)}/>}
-    {confirming&&<div role="dialog" aria-modal="true" aria-label="Publicar dietas revisadas" className="fixed inset-0 z-50 grid place-items-center bg-[#173d36]/40 p-4"><div className="max-w-lg rounded-2xl bg-white p-6"><h2 className="text-xl font-semibold">Publicar {draft.diets.length} dietas revisadas</h2><p className="my-3 text-sm">Se conservará exactamente el texto aprobado. Las versiones anteriores permanecerán en el historial.</p><div className="flex gap-2"><button className="nuth-button-secondary" onClick={()=>setConfirming(false)}>Volver</button><button className="nuth-button" onClick={()=>{setConfirming(false);onPublish();}}>Confirmar publicación</button></div></div></div>}
+    {confirming&&<GroceryPublicationDialog draft={draft} onClose={()=>setConfirming(false)} onPublish={onPublish}/>}
     {version&&<div role="dialog" aria-modal="true" aria-label="Versión publicada" className="fixed inset-0 z-50 overflow-auto bg-[#173d36]/40 p-4"><div className="mx-auto max-w-3xl rounded-2xl bg-white p-5"><button className="nuth-button-secondary mb-3" onClick={()=>setVersion(null)}>Cerrar versión</button><PatientPlanPreview historical value={patientPlanViewFromVersion(version.snapshot)}/></div></div>}
   </section>;
 }

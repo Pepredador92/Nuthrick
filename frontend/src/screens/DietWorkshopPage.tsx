@@ -369,6 +369,7 @@ export function DietWorkshopPage() {
   const planRef = useRef<NutritionPlan | null>(null);
   const planSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
   const publishIdempotencyKey = useRef<string | null>(null);
+  const publishTextRequest = useRef<string | null>(null);
   const [appearance, setAppearance] = useNuthrickTheme();
   const [activeStep, setActiveStep] = useState<WorkshopStep>("energy");
   const [error, setError] = useState("");
@@ -642,11 +643,19 @@ export function DietWorkshopPage() {
     return updated;
   };
 
-  const publishVersion = async (foods: FoodItem[]) => {
+  const publishVersion = async (foods: FoodItem[], textDiet?: NonNullable<NutritionPlan["text_diet"]>) => {
     setPublishing(true);
     setError("");
     try {
       let saved = await flushPendingDraft();
+      if (textDiet) {
+        const request = JSON.stringify({ ...textDiet, reviewed_at: null, shopping_list: textDiet.shopping_list ? { ...textDiet.shopping_list, reviewed_at: null } : undefined });
+        if (request !== publishTextRequest.current) {
+          publishIdempotencyKey.current = null;
+          publishTextRequest.current = request;
+        }
+        saved = await savePlanPatch({ text_diet: textDiet });
+      }
       if (saved.diet_menu && !saved.text_diet) {
         saved = await savePlanPatch({ diet_menu: withPatientSubstitutions(saved.diet_menu, foods) });
       }
@@ -658,8 +667,10 @@ export function DietWorkshopPage() {
       setVersions(history);
       publishIdempotencyKey.current = null;
       setNotice(result.already_current ? `La versión vigente v${result.version_number} ya contiene este plan.` : `Versión ${result.version_number} publicada.`);
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No pudimos publicar la versión del plan.");
+      return false;
     } finally {
       setPublishing(false);
     }
@@ -882,7 +893,7 @@ export function DietWorkshopPage() {
             onGoToReview={() => { void selectStep("review"); }}
           />}
           {activeStep === "review" && plan.text_diet && <TextDietReviewStep key={libraryEpoch} plan={{...plan,title}} patientName={patient?.full_name||"Paciente"} versions={versions} publishing={publishing}
-            onSave={draft=>savePlanPatch({text_diet:draft})} onPublish={()=>void publishVersion([])}/>}
+            onSave={draft=>savePlanPatch({text_diet:draft})} onPublish={(draft)=>publishVersion([],draft)}/>}
           {activeStep === "review" && !plan.text_diet && <DietPlanReviewStep
             plan={{ ...plan, title }}
             patient={patient}

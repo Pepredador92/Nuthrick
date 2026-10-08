@@ -1,0 +1,24 @@
+# Carrito del súper para dietas de IA
+
+## Flujo
+
+Equivalentes → Generar con IA → revisar y aprobar todas las dietas → Publicar versión → **Incluir carrito del súper**.
+
+La opción es voluntaria. Se elige cuántos días se utilizará cada dieta (0 para omitirla, de 1 a 31 días en total para una persona). La lista suma los ingredientes de las dietas aprobadas y se revisa antes de confirmar la publicación. El texto de las dietas no cambia al editar la lista.
+
+La compilación es local y determinista; no hace otra petición de IA ni consume créditos. Lee las viñetas de ingredientes del formato de generación actual, admite fracciones habituales y normaliza g/kg y ml/l. Solo combina nombres normalizados y unidades compatibles. No convierte tazas en gramos, ni pesos cocidos en crudos. Cantidades ambiguas, ingredientes combinados o dietas sin viñetas requieren completar la revisión. El profesional puede añadir, corregir o quitar filas y debe revisar también ingredientes redactados fuera de las viñetas.
+
+## Conservación y entrega
+
+Se almacena como `text_diet.shopping_list` en el JSON existente, dentro del mismo guardado con control de revisión del borrador; la publicación conserva ese JSON en su snapshot inmutable. No requiere migración. La clave de origen conserva la identidad y el texto exactos de las dietas; editar título o contenido en el editor elimina el carrito previo. El contrato compartido verifica origen, días, cantidades, unidades y tamaño de lista.
+
+La proyección del Super Link entrega únicamente días y alimentos, sin la clave interna ni metadatos de revisión. El PDF y LaTeX usan esa misma proyección. Las publicaciones anteriores sin carrito conservan su presentación. Para añadir un carrito a un plan anterior se revisa el borrador y publica una nueva versión.
+
+## Verificación y despliegue
+
+- Pruebas de sumas, fracciones, unidades incompatibles, cantidades ambiguas, origen obsoleto, privacidad y exportación.
+- Pruebas del modal opcional, días, revisión obligatoria y conservación de ediciones tras un error de publicación.
+- Pruebas existentes del generador, taller y documentos.
+- Vista sintética: `frontend/tests/visual/groceries.html`.
+- PDF sintético: `node frontend/tests/visual/render-groceries.mjs`.
+- Desplegar Edge Function `agenda` con el contrato compartido actualizado antes de publicar el frontend. Se mantiene su autenticación interna y configuración JWT existente. No cambian permisos, tablas, créditos ni servicios de IA.
