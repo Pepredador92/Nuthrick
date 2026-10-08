@@ -114,7 +114,12 @@ describe("evolution PDF export", () => {
     vi.stubGlobal("fetch", fetchLogo);
     await downloadEvolutionPdf("logo.pdf", { full_name: "Ana Paciente", birth_date: "1992-09-27" } as never, { consultations: [], series: [] }, { seriesIds: [] }, { fullName: "Nutrióloga", logoUrl: "https://example.com/logo.png" });
     expect(fetchLogo).toHaveBeenCalledWith("https://example.com/logo.png");
-    expect(mocks.addImage).toHaveBeenCalledWith(bytes, "PNG", 171, 12, 23, 11.5, undefined, "FAST");
+    const image = mocks.addImage.mock.calls[0];
+    expect(image[0]).toBe("data:image/png;base64,AQID");
+    expect(image[1]).toBe("PNG");
+    expect(image[4]).toBeGreaterThan(23);
+    expect(image[4] / image[5]).toBe(2);
+    expect(image[2] + image[4]).toBeLessThan(72);
     const rendered = mocks.text.mock.calls.flatMap(([value]) => Array.isArray(value) ? value : [value]).join("\n");
     expect(rendered).toContain("DATOS DEL PACIENTE");
     expect(rendered).toContain("Ana Paciente");

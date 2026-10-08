@@ -187,7 +187,7 @@ describe("downloadConsultationPdf", () => {
       .join("\n");
     expect(documentText).toContain("Lic. Andrea Nombre Actualizado");
     expect(documentText).toContain("Nutrióloga clínica");
-    expect(documentText).toContain("Cédula profesional 9876543");
+    expect(documentText).toContain("Cédula profesional: 9876543");
     expect(documentText).toContain("Consultorio Bienestar");
     expect(documentText).toContain("Av. Salud 123, Zacatecas");
     expect(documentText).toContain("Informe de consulta nutricional");

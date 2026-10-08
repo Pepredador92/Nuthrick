@@ -14,10 +14,10 @@ export class DocumentLayout {
   readonly x = 16;
   readonly width: number;
   readonly bottom: number;
-  constructor(readonly pdf: jsPDF, readonly professional: ProfessionalDocumentInfo, readonly logo: string | null = null, readonly headerDetails: {contacts?: boolean; continuation?: string} = {}) {
+  constructor(readonly pdf: jsPDF, readonly professional: ProfessionalDocumentInfo, readonly logo: string | null = null, readonly headerDetails: {contacts?: boolean; continuation?: string; strictLogo?: boolean} = {}) {
     this.width = pdf.internal.pageSize.getWidth() - 32;
     this.bottom = pdf.internal.pageSize.getHeight() - 21;
-    this.y = drawProfessionalHeader(pdf, professional, logo, false, 'FAST', headerDetails.contacts);
+    this.y = drawProfessionalHeader(pdf, professional, logo, false, 'FAST', headerDetails.contacts, headerDetails.strictLogo);
   }
   newPage() {
     if (this.pdf.getNumberOfPages() >= 120) throw new Error("document_too_large");

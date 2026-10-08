@@ -12,35 +12,68 @@ export function drawDocumentCanvas(pdf: jsPDF) {
  pdf.setFillColor(228,241,238);pdf.rect(6,5,55,2,'F');
  pdf.setFillColor(231,228,244);pdf.rect(61,5,width-67,2,'F');
 }
-/** Compact identity. Contacts have a dedicated card, leaving the reader room for content. */
-export function drawProfessionalHeader(pdf:jsPDF,professional:ProfessionalDocumentInfo,logo:string|null,compact=false,compression:'FAST'|'NONE'='FAST',includeContacts=false):number {
+/** Prominent first-page letterhead; subsequent pages keep a compact identity. */
+export function drawProfessionalHeader(pdf:jsPDF,professional:ProfessionalDocumentInfo,logo:string|null,compact=false,compression:'FAST'|'NONE'='FAST',includeContacts=false,strictLogo=false):number {
  drawDocumentCanvas(pdf);
  const width=pdf.internal.pageSize.getWidth(),margin=16;
- const brand=professional.businessName?.trim()||professional.fullName.trim()||'Nuthrick';
- const textWidth=width-32-((logo||professional.logoUrl)&&!compact?30:0);
- pdf.setFont('helvetica','bold');pdf.setFontSize(compact?9:12);pdf.setTextColor(32,61,72);
- const brandLines=pdf.splitTextToSize(brand,textWidth) as string[];
- pdf.text(brandLines,margin,compact?15:18,{lineHeightFactor:1.3});
- let y=(compact?15:18)+brandLines.length*(compact?4.2:5.5);
- if(!compact){
-  pdf.setFont('helvetica','normal');pdf.setFontSize(8);pdf.setTextColor(98,118,129);
-  const identity=[professional.businessName?professional.fullName:null,professional.professionalTitle,professional.licenseNumber?`Cédula profesional ${professional.licenseNumber}`:null].filter(Boolean).join(' · ');
-  if(identity){const lines=pdf.splitTextToSize(identity,textWidth) as string[];pdf.text(lines,margin,y);y+=lines.length*3.8;}
+ const institution=professional.businessName?.trim();
+ const name=professional.fullName.trim()||institution||'Nuthrick';
+ if(compact){
+  pdf.setFont('helvetica','bold');pdf.setFontSize(9);pdf.setTextColor(32,61,72);
+  const lines=pdf.splitTextToSize(institution?`${name} · ${institution}`:name,width-32) as string[];
+  pdf.text(lines,margin,15,{lineHeightFactor:1.3});
+  const y=15+lines.length*4.2;
+  pdf.setDrawColor(218,230,232);pdf.setLineWidth(.2);pdf.line(margin,y+2,width-margin,y+2);
+  return y+10;
  }
- if(logo&&!compact){try{
+ // Measure every block before painting the card so long identities remain intact.
+ const logoSize=43, textX=logo?margin+logoSize+13:margin+8;
+ const textWidth=width-margin-8-textX;
+ let y=20;
+ const blocks:Array<{lines:string[];y:number;size:number;bold:boolean;color:[number,number,number]}>=[];
+ const block=(value:string|undefined|null,size:number,bold:boolean,color:[number,number,number],gap:number)=>{
+  if(!value?.trim())return;
+  pdf.setFont('helvetica',bold?'bold':'normal');pdf.setFontSize(size);
+  const lines=pdf.splitTextToSize(value.trim(),textWidth) as string[];
+  blocks.push({lines,y:y+size*.3528*.82,size,bold,color});
+  y+=lines.length*size*.3528*1.3+gap;
+ };
+ block(institution,10,true,[65,103,108],3);
+ block(name,22,true,[24,61,65],3);
+ block(professional.professionalTitle,10,false,[65,86,98],1.5);
+ block(professional.licenseNumber?`Cédula profesional: ${professional.licenseNumber}`:null,9,false,[65,86,98],0);
+ y=Math.max(y,logo?65:52);
+ const contacts=includeContacts?[professional.businessAddress,...(professional.contactLines??[])].filter((v):v is string=>Boolean(v?.trim())):[];
+ pdf.setFont('helvetica','normal');pdf.setFontSize(8.5);
+ const contactLines=contacts.flatMap(value=>pdf.splitTextToSize(value,width-48) as string[]);
+ const contactTop=y+5;
+ const bottom=contactLines.length?contactTop+6+contactLines.length*4.1+5:y+6;
+ pdf.setFillColor(221,232,234);pdf.roundedRect(margin+.7,13,width-32,bottom-12,3,3,'F');
+ pdf.setFillColor(241,247,247);pdf.setDrawColor(212,228,230);pdf.setLineWidth(.2);
+ pdf.roundedRect(margin,12,width-32,bottom-12,3,3,'FD');
+ pdf.setFillColor(20,126,134);pdf.roundedRect(margin,20,1.2,20,.6,.6,'F');
+ for(const item of blocks){
+  pdf.setFont('helvetica',item.bold?'bold':'normal');pdf.setFontSize(item.size);pdf.setTextColor(...item.color);
+  pdf.text(item.lines,textX,item.y,{lineHeightFactor:1.3});
+ }
+ if(logo){try{
   const pngHeader=logo.startsWith('data:image/png;base64,')?atob(logo.split(',')[1].slice(0,44)):null;
   const dimension=(at:number)=>pngHeader!.charCodeAt(at)*16777216+pngHeader!.charCodeAt(at+1)*65536+pngHeader!.charCodeAt(at+2)*256+pngHeader!.charCodeAt(at+3);
   const properties=pngHeader&&pngHeader.length>=24?{width:dimension(16),height:dimension(20),fileType:'PNG'}:pdf.getImageProperties(logo);
-  const scale=Math.min(23/properties.width,18/properties.height);
-  pdf.addImage(logo,properties.fileType,width-margin-23,12,properties.width*scale,properties.height*scale,undefined,compression);
-  y=Math.max(y,31);
- }catch{/* Optional branding never hides clinical content. */}}
- if(includeContacts&&!compact){
-  const contacts=[professional.businessAddress,...(professional.contactLines??[])].filter((v):v is string=>Boolean(v?.trim())).join(' · ');
-  if(contacts){pdf.setFont('helvetica','normal');pdf.setFontSize(8);pdf.setTextColor(98,118,129);const lines=pdf.splitTextToSize(contacts,width-32) as string[];pdf.text(lines,margin,y+3,{lineHeightFactor:1.3});y+=lines.length*3.8+4;}
+  const scale=Math.min((logoSize-6)/properties.width,(logoSize-6)/properties.height);
+  const logoX=margin+6,logoY=20;
+  pdf.setFillColor(255,255,255);pdf.roundedRect(logoX,logoY,logoSize,logoSize,3,3,'F');
+  pdf.addImage(logo,properties.fileType,logoX+(logoSize-properties.width*scale)/2,logoY+(logoSize-properties.height*scale)/2,properties.width*scale,properties.height*scale,undefined,compression);
+ }catch{
+  if(strictLogo)throw new Error("No pudimos incorporar el logo al PDF. Revisa la imagen guardada en Perfil y vuelve a exportar.");
+  // Optional branding never hides clinical content.
+ }}
+ if(contactLines.length){
+  pdf.setDrawColor(212,228,230);pdf.line(margin+8,contactTop,width-margin-8,contactTop);
+  pdf.setFont('helvetica','normal');pdf.setFontSize(8.5);pdf.setTextColor(65,86,98);
+  pdf.text(contactLines,margin+8,contactTop+6,{lineHeightFactor:4.1/(8.5*.3528)});
  }
- pdf.setDrawColor(218,230,232);pdf.setLineWidth(.2);pdf.line(margin,y+2,width-margin,y+2);
- return y+10;
+ return bottom+10;
 }
 /** Render the same brand curves as the UI, without network assets or raster blur. */
 function drawNuthrickMark(pdf: jsPDF, x: number, y: number, size: number) {

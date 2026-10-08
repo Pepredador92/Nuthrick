@@ -19,7 +19,11 @@ async function imageData(url: string) {
   try {
     const response = await fetch(url);
     if (!response.ok) throw new Error("Logo unavailable");
-    return new Uint8Array(await response.arrayBuffer());
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    const type = response.headers?.get("content-type") || "image/png";
+    return `data:${type};base64,${btoa(binary)}`;
   } catch { throw new Error("No pudimos cargar el logo del nutriólogo. Reintenta la exportación o revisa el logo en Perfil."); }
 }
 
@@ -59,15 +63,8 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
     pdf.lines(projected.slice(1).map((point, index) => [point.x - projected[index].x, point.y - projected[index].y]), first.x, first.y, [1, 1], fill ? "F" : "S", true);
   };
 
-  const layout = new DocumentLayout(pdf, professional);
-  if (professional.logoUrl) {
-    const logo = await imageData(professional.logoUrl);
-    try {
-      const props = pdf.getImageProperties(logo), scale = Math.min(23 / props.width, 18 / props.height);
-      pdf.addImage(logo, props.fileType, 171, 12, props.width * scale, props.height * scale, undefined, "FAST");
-    } catch { throw new Error("No pudimos incorporar el logo al PDF. Revisa la imagen guardada en Perfil y vuelve a exportar."); }
-    layout.y = Math.max(layout.y, 38);
-  }
+  const logo = professional.logoUrl ? await imageData(professional.logoUrl) : null;
+  const layout = new DocumentLayout(pdf, professional, logo, { contacts: true, strictLogo: true });
   layout.section("Reporte de progreso del paciente", "Tu evolución, consulta a consulta. Revisa los cambios con tu nutriólogo.");
   const dates = [...new Set(series.flatMap((item) => item.points.map((point) => point.consultation_date)))].sort();
   const visitCount = new Set(series.flatMap((item) => item.points.map((point) => point.consultation_id))).size;

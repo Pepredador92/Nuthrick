@@ -107,6 +107,7 @@ function patientBasics(patient: Patient): string[] {
 
 async function imageData(url: string): Promise<string | null> {
   try {
+    if (url.startsWith("data:image/")) return url;
     const response = await fetch(url);
     if (!response.ok) return null;
     const blob = await response.blob();
@@ -132,7 +133,7 @@ export async function buildConsultationPdf(
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
   const logo = professional.logoUrl ? await imageData(professional.logoUrl) : null;
-  const layout = new DocumentLayout(pdf, professional, logo);
+  const layout = new DocumentLayout(pdf, professional, logo, { contacts: true });
   layout.section("Informe de consulta nutricional", "Registro clínico para revisión del profesional.");
   layout.card(patient.full_name, [
     { label: "Consulta", value: consultationLabel(consultation) },
