@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Plus, ShoppingBasket, Trash2 } from "lucide-react";
+import { Check, Plus, ShoppingBasket, Trash2 } from "lucide-react";
 import type { TextDiet } from "../../../../supabase/functions/_shared/text-diet";
 import {
   grocerySourceKey,
@@ -49,6 +49,29 @@ export function GroceryPublicationDialog({
   const [reviewed, setReviewed] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [calculation, setCalculation] = useState<{
+    revision: number;
+    days: number;
+    products: number;
+  } | null>(null);
+  const [recalculated, setRecalculated] = useState(false);
+  useEffect(() => {
+    if (!recalculated) return;
+    const timer = setTimeout(() => setRecalculated(false), 2500);
+    return () => clearTimeout(timer);
+  }, [recalculated, calculation?.revision]);
+  const incomplete = (rows ?? [])
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => !validGroceryRows([row]));
+  function goToIncomplete() {
+    const first = incomplete[0];
+    if (!first) return;
+    const node = document.getElementById(`${id}-row-${first.index}`);
+    node?.scrollIntoView({ behavior: "smooth", block: "center" });
+    node
+      ?.querySelector<HTMLInputElement>('input[aria-invalid="true"]')
+      ?.focus({ preventScroll: true });
+  }
   const days = schedule.reduce((total, row) => total + row.days, 0),
     validDays =
       schedule.every(
@@ -61,13 +84,22 @@ export function GroceryPublicationDialog({
   );
   function calculate(next: GrocerySchedule) {
     const total = next.reduce((sum, row) => sum + row.days, 0);
-    setRows(
+    const result =
       next.every(
         (row) => Number.isInteger(row.days) && row.days >= 0 && row.days <= 31,
       ) &&
-        total > 0 &&
-        total <= 31
+      total > 0 &&
+      total <= 31
         ? compileGroceries(draft.diets, next)
+        : null;
+    setRows(result);
+    setCalculation((old) =>
+      result
+        ? {
+            revision: (old?.revision ?? 0) + 1,
+            days: total,
+            products: result.length,
+          }
         : null,
     );
     setReviewed(false);
@@ -87,6 +119,8 @@ export function GroceryPublicationDialog({
       old!.map((row, i) => (i === index ? { ...row, ...patch } : row)),
     );
     setReviewed(false);
+    setCalculation(null);
+    setRecalculated(false);
   }
   async function publish() {
     if (lock.current || !ready) return;
@@ -236,14 +270,36 @@ export function GroceryPublicationDialog({
                 className="nuth-button-secondary mt-3"
                 disabled={!validDays}
                 onClick={() => {
-                  setRows(compileGroceries(draft.diets, schedule));
-                  setReviewed(false);
+                  calculate(schedule);
+                  setRecalculated(true);
                 }}
               >
-                {rows
-                  ? "Volver a calcular desde las dietas"
-                  : "Preparar lista de compras"}
+                {recalculated ? (
+                  <>
+                    <Check size={16} />
+                    Lista recalculada
+                  </>
+                ) : rows ? (
+                  "Volver a calcular desde las dietas"
+                ) : (
+                  "Preparar lista de compras"
+                )}
               </button>
+              {calculation && (
+                <p
+                  key={calculation.revision}
+                  role="status"
+                  aria-live="polite"
+                  className="mt-3 rounded-xl bg-[#edf5f0] p-3 text-sm"
+                >
+                  Lista actualizada para {calculation.days}{" "}
+                  {calculation.days === 1 ? "día" : "días"} ·{" "}
+                  {calculation.products} productos.
+                  {incomplete.length === 0
+                    ? " Todas las cantidades están completas; revisa la lista y marca la casilla al final."
+                    : ` Hay ${incomplete.length} productos con datos por completar.`}
+                </p>
+              )}
               <p className="mt-2 text-xs text-[#687870]">
                 Las cantidades se calculan automáticamente. Cambiar los días o
                 recalcular reemplaza los ajustes manuales de la lista.
@@ -260,6 +316,27 @@ export function GroceryPublicationDialog({
                   productos están agrupados para facilitar la compra. Puedes
                   ajustar cantidades y categoría antes de publicar.
                 </p>
+                {incomplete.length > 0 && (
+                  <div
+                    role="alert"
+                    id={`${id}-missing`}
+                    className="mt-3 rounded-xl border border-[#cfaa70] bg-[#fbf4e7] p-3 text-sm"
+                  >
+                    <p>
+                      Faltan datos en {incomplete.length}{" "}
+                      {incomplete.length === 1 ? "producto" : "productos"}.
+                      Completa los campos señalados para habilitar la casilla de
+                      revisión.
+                    </p>
+                    <button
+                      type="button"
+                      className="mt-2 font-semibold underline"
+                      onClick={goToIncomplete}
+                    >
+                      Ir al primer producto pendiente
+                    </button>
+                  </div>
+                )}
                 <div className="mt-4 space-y-5">
                   {groups.map((group) => (
                     <section key={group.id} aria-label={group.label}>
@@ -272,12 +349,19 @@ export function GroceryPublicationDialog({
                       </h4>
                       <div className="space-y-3">
                         {group.items.map(({ index: i, ...row }) => (
-                          <div key={i} className="rounded-xl bg-[#f4f7f5] p-3">
+                          <div
+                            key={i}
+                            id={`${id}-row-${i}`}
+                            className={`rounded-xl p-3 ${validGroceryRows([row]) ? "bg-[#f4f7f5]" : "border border-[#cfaa70] bg-[#fbf4e7]"}`}
+                          >
                             <div className="grid grid-cols-[1fr_1fr_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_90px_100px_auto]">
                               <label className="col-span-3 text-xs sm:col-span-1">
                                 Alimento
                                 <input
                                   aria-label={`Alimento ${i + 1}`}
+                                  aria-invalid={
+                                    !row.name.trim() || row.name.length > 180
+                                  }
                                   className="nuth-input mt-1"
                                   maxLength={180}
                                   value={row.name}
@@ -290,6 +374,12 @@ export function GroceryPublicationDialog({
                                 Cantidad total
                                 <input
                                   aria-label={`Cantidad ${i + 1}`}
+                                  aria-invalid={
+                                    row.quantity === null ||
+                                    !Number.isFinite(row.quantity) ||
+                                    row.quantity <= 0 ||
+                                    row.quantity > 1000000
+                                  }
                                   className="nuth-input mt-1"
                                   type="number"
                                   min={0.001}
@@ -310,6 +400,9 @@ export function GroceryPublicationDialog({
                                 Unidad
                                 <input
                                   aria-label={`Unidad ${i + 1}`}
+                                  aria-invalid={
+                                    !row.unit.trim() || row.unit.length > 40
+                                  }
                                   className="nuth-input mt-1"
                                   value={row.unit}
                                   maxLength={40}
@@ -328,6 +421,8 @@ export function GroceryPublicationDialog({
                                     old!.filter((_, j) => j !== i),
                                   );
                                   setReviewed(false);
+                                  setCalculation(null);
+                                  setRecalculated(false);
                                 }}
                               >
                                 <Trash2 size={16} />
@@ -352,7 +447,7 @@ export function GroceryPublicationDialog({
                                 ))}
                               </select>
                             </label>
-                            {row.needsReview && (
+                            {row.needsReview && !validGroceryRows([row]) && (
                               <p className="mt-2 text-xs font-semibold text-[#926431]">
                                 Confirma el alimento, su cantidad y unidad con
                                 el texto aprobado.
@@ -387,6 +482,7 @@ export function GroceryPublicationDialog({
                       },
                     ]);
                     setReviewed(false);
+                    setCalculation(null);
                   }}
                 >
                   <Plus size={16} />
@@ -394,8 +490,9 @@ export function GroceryPublicationDialog({
                 </button>
                 {!validGroceryRows(rows) && (
                   <p className="mt-3 text-sm" role="alert">
-                    Completa nombre, cantidad mayor a cero y unidad de cada
-                    alimento.
+                    {rows.length === 0
+                      ? "Agrega al menos un producto al carrito."
+                      : "La revisión se habilita cuando cada producto tiene nombre, cantidad mayor a cero y unidad."}
                   </p>
                 )}
                 <label className="mt-4 flex items-start gap-2 text-sm">
@@ -404,6 +501,9 @@ export function GroceryPublicationDialog({
                     className="mt-1"
                     checked={reviewed}
                     disabled={!validGroceryRows(rows)}
+                    aria-describedby={
+                      incomplete.length ? `${id}-missing` : undefined
+                    }
                     onChange={(e) => setReviewed(e.target.checked)}
                   />
                   Revisé la lista, sus cantidades y que incluya los ingredientes

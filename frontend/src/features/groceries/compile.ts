@@ -87,7 +87,7 @@ const numberPattern =
 const units = Object.keys(unitMap)
   .sort((a, b) => b.length - a.length)
   .join("|");
-const measure = `(${numberPattern})\\s*(${units})\\.?(?=\\s|$|\\))`;
+const measure = `(${numberPattern})\\s*(?:de\\s+)?(${units})\\.?(?=\\s|$|\\))`;
 function numeric(raw: string): number {
   const text = raw.trim();
   if (fractions[text]) return fractions[text];
@@ -98,6 +98,16 @@ function numeric(raw: string): number {
     return b > 0 ? a / b : NaN;
   }
   return Number(text.replace(",", "."));
+}
+// A conjunction can join preparation descriptors of one food, not just two foods.
+function combinedProducts(name: string): boolean {
+  if (/\scon\s/i.test(name)) return true;
+  const preparation =
+    /^(?:(?:bien|finamente)\s+)?(?:cocid[oa]s?|pelad[oa]s?|machacad[oa]s?|picad[oa]s?|colad[oa]s?|escurrid[oa]s?|deshebrad[oa]s?|rallad[oa]s?|lavad[oa]s?|desinfectad[oa]s?|triturad[oa]s?|molidos?|molidas?|sin (?:piel|cascara|semillas?|espinas?))(?:\s+(?:finamente|bien|en (?:cubos|trozos|tiras|rodajas)))?$/;
+  return key(name)
+    .split(/\s+y\s+/)
+    .slice(1)
+    .some((part) => !preparation.test(part));
 }
 export function parseGroceryIngredient(source: string): GroceryDraftRow {
   const text = source.replace(/\*\*|__/g, "").trim();
@@ -152,7 +162,7 @@ export function parseGroceryIngredient(source: string): GroceryDraftRow {
     !Number.isFinite(quantity) ||
     quantity <= 0 ||
     !name ||
-    /\s(?:y|con)\s/i.test(name)
+    combinedProducts(name)
   )
     return fallback;
   const unit = unitMap[key(unitWord)];

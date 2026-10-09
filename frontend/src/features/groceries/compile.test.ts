@@ -66,3 +66,25 @@ it('groups by shopping aisle and respects explicit corrections',()=>{
  expect(inferGroceryCategory('Papa cocida')).toBe('produce');
  expect(groupGroceries([{name:'Arroz'},{name:'Pollo',category:'other'}]).map(group=>group.id)).toEqual(['grains','other']);
 });
+
+it.each([
+ ['1/2 taza de zanahoria cocida y machacada', .5, 'taza'],
+ ['1/4 de taza de calabacita cocida y picada finamente', .25, 'taza'],
+ ['1 taza de papa cocida y pelada', 1, 'taza'],
+ ['1/4 de taza de zanahoria cocida', .25, 'taza'],
+ ['1/2 taza de papa cocida y machacada', .5, 'taza'],
+ ['1/2 taza de calabacita cocida y machacada', .5, 'taza'],
+ ['1/2 taza de calabacita cocida y picada finamente', .5, 'taza'],
+ ['1/4 de taza de zanahoria cocida y machacada', .25, 'taza'],
+ ['1/2 pieza de manzana pelada y cocida', .5, 'pieza'],
+ ['1/4 de taza de calabacita cocida y machacada', .25, 'taza'],
+ ['3/4 de taza de arroz blanco cocido', .75, 'taza'],
+ ['3/4 de taza de frijoles bayos cocidos y colados', .75, 'taza'],
+ ['1/4 de taza de leche descremada', .25, 'taza'],
+ ['¾ de taza de arroz blanco cocido', .75, 'taza'],
+])('recognizes portion wording and single-food preparation: %s', (text,quantity,unit)=>{
+ expect(parseGroceryIngredient(text)).toMatchObject({quantity,unit,needsReview:false});
+});
+it.each(['1 taza de zanahoria cocida y arroz','1 taza de jitomate y cebolla picada','1 taza de papa cocida con pollo'])('still requires a quantity for each product in %s',text=>{
+ expect(parseGroceryIngredient(text).quantity).toBeNull();
+});

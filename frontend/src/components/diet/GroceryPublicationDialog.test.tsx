@@ -24,3 +24,31 @@ it('automatically prepares quantities and persists category corrections',async()
  await waitFor(()=>expect(publish).toHaveBeenCalled());
  expect(publish.mock.calls[0][0].shopping_list.items[0].category).toBe('other');
 });
+
+it('enables review with household fractions and preparation descriptors without manual repairs',()=>{
+ const portions={...draft,diets:[{...draft.diets[0],text:'• 3/4 de taza de arroz blanco cocido\n• 1/2 taza de zanahoria cocida y machacada'},{...draft.diets[1],text:'• 3/4 de taza de arroz blanco cocido\n• 1/2 pieza de manzana pelada y cocida'}]};
+ render(<GroceryPublicationDialog draft={portions} onClose={()=>{}} onPublish={()=>{}}/>);
+ fireEvent.click(screen.getByRole('checkbox',{name:/Incluir carrito/}));
+ expect(screen.getByLabelText('Cantidad 1')).toHaveValue(1.5);
+ expect(screen.getByRole('checkbox',{name:/Revisé la lista/})).toBeEnabled();
+ fireEvent.change(screen.getByLabelText('Días de Dieta 1'),{target:{value:'3'}});
+ expect(screen.getByLabelText('Cantidad 1')).toHaveValue(3);
+ expect(screen.getByRole('status')).toHaveTextContent('Lista actualizada para 4 días');
+ fireEvent.click(screen.getByRole('button',{name:'Volver a calcular desde las dietas'}));
+ expect(screen.getByRole('button',{name:'Lista recalculada'})).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('checkbox',{name:/Revisé la lista/}));
+ expect(screen.getByRole('button',{name:'Confirmar publicación'})).toBeEnabled();
+});
+it('explains the remaining incomplete product and highlights its missing fields',()=>{
+ const incomplete={...draft,diets:[{...draft.diets[0],text:'• Aceite al gusto'},draft.diets[1]]};
+ render(<GroceryPublicationDialog draft={incomplete} onClose={()=>{}} onPublish={()=>{}}/>);
+ fireEvent.click(screen.getByRole('checkbox',{name:/Incluir carrito/}));
+ expect(screen.getByText(/Faltan datos en 1 producto/)).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Ir al primer producto pendiente'})).toBeInTheDocument();
+ expect(screen.getByLabelText('Cantidad 1')).toHaveAttribute('aria-invalid','true');
+ expect(screen.getByRole('checkbox',{name:/Revisé la lista/})).toBeDisabled();
+ fireEvent.change(screen.getByLabelText('Cantidad 1'),{target:{value:'1'}});
+ fireEvent.change(screen.getByLabelText('Unidad 1'),{target:{value:'cucharadita'}});
+ expect(screen.getByRole('checkbox',{name:/Revisé la lista/})).toBeEnabled();
+ expect(screen.queryByText(/Faltan datos en 1 producto/)).not.toBeInTheDocument();
+});
