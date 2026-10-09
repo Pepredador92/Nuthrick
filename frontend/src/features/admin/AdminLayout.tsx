@@ -1,3 +1,4 @@
+import { AiCreditNotice } from './AiCreditNotice';
 import { BrandMark } from '@/src/components/ui/Brand';
 import {
   ArrowLeft,
@@ -74,7 +75,7 @@ export function AdminLayout() {
         <div className="admin-workspace">
           <div className="admin-topline">
             <span>CONTROL DE NUTHRICK</span>
-            <span className="admin-topline-actions"><span><span className="admin-dot" /> Administración privada</span><ThemeSwitcher compact /></span>
+            <span className="admin-topline-actions"><AiCreditNotice /><span><span className="admin-dot" /> Administración privada</span><ThemeSwitcher compact /></span>
           </div>
           <Outlet />
         </div>

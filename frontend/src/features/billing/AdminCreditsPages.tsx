@@ -378,6 +378,7 @@ export function CreditPurchasesPage() {
                     <th>Créditos</th>
                     <th>Importe</th>
                     <th>Estado</th>
+                    <th>Asignación</th>
                     <th>Promoción</th>
                   </tr>
                 </thead>
@@ -416,6 +417,7 @@ export function CreditPurchasesPage() {
                         )}
                       </td>
                       <td>{purchaseState(p.status)}</td>
+                      <td>{p.credited_at ? `Asignados · ${dateLabel(p.credited_at)}` : p.status === "paid" ? "Revisar: pago sin asignar" : "Pendiente de pago"}</td>
                       <td>{p.promotion_code ?? "—"}</td>
                     </tr>
                   ))}

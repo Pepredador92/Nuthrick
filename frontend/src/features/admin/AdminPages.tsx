@@ -1,3 +1,4 @@
+import { AiOperationsPanel } from './AiOperationsPanel';
 import { CommercialCostPreview, ProviderCreditLink } from "./CommercialCostPreview";
 import { SiteVisitStats } from "./SiteVisitStats";
 import {
@@ -733,12 +734,13 @@ export function CreditsPage() {
       <Heading
         eyebrow="Uso de la plataforma"
         title="IA y créditos"
-        text="Consulta los saldos y abre una cuenta para agregar o retirar créditos con un motivo administrativo."
+        text="Anticipa el consumo, revisa las recargas y mantén una reserva de IA para tus nutriólogos."
       />
       <nav className="billing-controls mb-6" aria-label="Administrar créditos"><Link className="admin-button" to="/admin/credits/packages">Paquetes de créditos</Link><Link className="admin-button secondary" to="/admin/credits/purchases">Compras de créditos</Link><ProviderCreditLink /></nav>
+      <AiOperationsPanel />
       <Ready data={data} error={error}>
         <section className="admin-card">
-          <h2>Consumo de los últimos 30 días</h2>
+          <h2>Consumo por función · últimos 30 días</h2>
           <UsageTable rows={data?.usage ?? []} />
         </section>
         <section className="admin-card">

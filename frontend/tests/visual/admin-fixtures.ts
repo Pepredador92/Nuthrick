@@ -1,3 +1,4 @@
+import { aiOperationsFixture } from './ai-operations-fixture';
 import type { Catalog, ProfessionalDetail } from "../../src/features/admin/api";
 export const useAuth = () => ({
   user: { id: "local-admin" },
@@ -151,7 +152,8 @@ export const supabase = {
   rpc: async (name: string, args?: { p_action: string }) => ({
     error: null,
     data:
-      name === "admin_site_analytics"
+      name === "admin_ai_operations" ? (args?.p_action === "alerts" ? {unread:aiOperationsFixture.alerts.unread} : args?.p_action === "mark_read" ? (aiOperationsFixture.alerts.unread=0,aiOperationsFixture.alerts.items.forEach(a=>a.is_read=true),{saved:true}) : aiOperationsFixture)
+      : name === "admin_site_analytics"
         ? { total: 124, days: 30, pageviews: 124, visitors: 87, daily: [{ day: "2026-10-05", pageviews: 18, visitors: 12 }] }
         : name === "admin_commercial_costs"
           ? { checked_at: "2026-10-05", features: [{ feature: "ai.pes", usd_per_credit: 0.01, pricing_version: "demo" }] }
