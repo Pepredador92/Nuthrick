@@ -74,3 +74,27 @@ describe("IA operating reserve", () => {
     expect(r.stale).toBe(true);
   });
 });
+
+describe("provider balance credit capacity", () => {
+  it("converts a $4.59 balance without adding user wallets", () => {
+    const data = sample();
+    data.settings.balance_usd = 4.59;
+    data.cost_since_balance = 0;
+    expect(reserveEstimate(data).capacityCredits).toBeCloseTo(459);
+  });
+  it("deducts recorded spending and uses the conservative observed rate", () => {
+    const data = sample();
+    data.usage.cost_usd = 20;
+    expect(reserveEstimate(data).capacityCredits).toBe(2400);
+    data.cost_since_balance = 100;
+    expect(reserveEstimate(data).capacityCredits).toBe(0);
+  });
+  it("keeps unavailable balance or conversion unknown", () => {
+    const data = sample();
+    data.settings.balance_usd = null;
+    expect(reserveEstimate(data).capacityCredits).toBeNull();
+    data.settings.balance_usd = 4.59;
+    data.usd_per_credit = null;
+    expect(reserveEstimate(data).capacityCredits).toBeNull();
+  });
+});

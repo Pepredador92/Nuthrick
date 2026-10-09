@@ -311,3 +311,28 @@
     font-size: 9px;
   }
 }
+
+.ai-capacity {
+  display: grid;
+  gap: 8px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+  border: 1px solid #248e9838;
+  border-radius: 16px;
+  background: #248e980d;
+}
+.ai-capacity > span {
+  font-size: 13px;
+  color: var(--admin-muted);
+}
+.ai-capacity > strong {
+  font-size: clamp(20px, 2.2vw, 28px);
+  overflow-wrap: anywhere;
+}
+.ai-capacity p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--admin-muted);
+  max-width: 78ch;
+}

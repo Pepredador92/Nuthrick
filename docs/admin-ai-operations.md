@@ -23,6 +23,8 @@ El panel cuenta pagos confirmados sin asignar y webhooks Live con error pendient
 
 La API oficial Usage/Costs informa consumo y costos; este panel no la presenta como saldo prepago ni solicita una clave administrativa: https://developers.openai.com/api/reference/resources/admin/subresources/organization/subresources/usage
 
+La capacidad estimada en créditos Nuthrick divide el saldo conciliado restante entre la conversión conservadora USD/crédito. No crea créditos, no se suma a las carteras y no representa un inventario disponible para venta. El panel muestra el gasto diario promedio de 30 días, sin extrapolar una duración garantizada del saldo.
+
 ## Seguridad y verificación
 
 `admin_ai_operations`: wrapper público invoker y función privada con `require_platform_admin()`, `search_path` fijo y tablas privadas sin permisos directos. Sin credenciales, prompts o información de pacientes. Cambios de reserva auditados. Las tablas tienen RLS sin políticas de acceso (denegación por defecto), de forma intencional.

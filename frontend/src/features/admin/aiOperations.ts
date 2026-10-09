@@ -102,10 +102,9 @@ export function reserveEstimate(data: AiOperations, now = Date.now()) {
     balance === null || recommended === null
       ? null
       : Math.max(0, recommended - balance);
-  const days =
-    balance === null || data.usage.cost_usd <= 0
-      ? null
-      : balance / (data.usage.cost_usd / 30);
+  const capacityCredits =
+    balance === null || unit === null || unit <= 0 ? null : balance / unit;
+  const dailyCostUsd = data.usage.cost_usd / 30;
   return {
     unit,
     exposure,
@@ -117,6 +116,7 @@ export function reserveEstimate(data: AiOperations, now = Date.now()) {
     balance,
     stale,
     gap,
-    days,
+    capacityCredits,
+    dailyCostUsd,
   };
 }

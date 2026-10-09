@@ -149,7 +149,7 @@ export function AiOperationsPanel() {
         </article>
         <article className="admin-card">
           <Coins />
-          <span>Créditos vigentes</span>
+          <span>Créditos de los nutriólogos</span>
           <strong>{n(estimate.exposure)}</strong>
           <small>
             {n(data.included)} incluidos + {n(data.purchased)} adicionales
@@ -197,6 +197,21 @@ export function AiOperationsPanel() {
             <strong>{usd(estimate.gap)}</strong>
           </div>
         </div>
+        <div className="ai-capacity">
+          <span>Capacidad estimada del saldo</span>
+          <strong>
+            {estimate.capacityCredits === null
+              ? "Pendiente de calcular"
+              : `≈ ${n(estimate.capacityCredits)} créditos Nuthrick`}
+          </strong>
+          <p>
+            {estimate.capacityCredits === null
+              ? "Registra el saldo y verifica la conversión de créditos para calcular su equivalencia."
+              : `Equivalencia del saldo de OpenAI usando ${new Intl.NumberFormat("es-MX", { maximumFractionDigits: 6 }).format(estimate.unit!)} USD por crédito.`}{" "}
+            Es una estimación de cobertura; no se suma a los saldos de los
+            nutriólogos ni asigna créditos a sus cuentas.
+          </p>
+        </div>
         <p className="admin-note">
           {data.settings.balance_at
             ? `Último saldo registrado: ${usd(data.settings.balance_usd)}, el ${date(data.settings.balance_at)}. Se resta el costo registrado desde entonces.`
@@ -225,14 +240,18 @@ export function AiOperationsPanel() {
         )}
         <div className="billing-controls">
           <ProviderCreditLink />
-          {estimate.days !== null && (
-            <span className="admin-note">
-              Al ritmo reciente: aproximadamente{" "}
-              {Math.min(999, Math.floor(estimate.days))}
-              {estimate.days > 999 ? "+" : ""} días de saldo. El consumo puede
-              cambiar.
-            </span>
-          )}
+          <span className="admin-note">
+            Consumo medio registrado:{" "}
+            {new Intl.NumberFormat("es-MX", {
+              style: "currency",
+              currency: "USD",
+              currencyDisplay: "narrowSymbol",
+              maximumFractionDigits: 4,
+            }).format(estimate.dailyCostUsd)}{" "}
+            USD/día en los últimos 30 días. La reserva recomendada considera{" "}
+            {data.settings.coverage_days} días y los créditos comprometidos; el
+            consumo puede cambiar.
+          </span>
         </div>
         <details className="ai-reserve-details">
           <summary>Cómo se calcula y cómo ajustar la reserva</summary>
