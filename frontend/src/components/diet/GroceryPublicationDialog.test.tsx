@@ -6,9 +6,21 @@ const draft:TextDiet={schema_version:1,requested_count:2,diets:[{id:'one',title:
 it('publishes without a cart by default',async()=>{const publish=vi.fn();render(<GroceryPublicationDialog draft={draft} onClose={()=>{}} onPublish={publish}/>);fireEvent.click(screen.getByText('Confirmar publicación'));await waitFor(()=>expect(publish).toHaveBeenCalled());expect(publish.mock.calls[0][0].shopping_list).toBeUndefined();expect(publish.mock.calls[0][0].reviewed_at).toBe(draft.reviewed_at);});
 it('requires a reviewed valid list, applies the day counts, and retains edits on publication failure',async()=>{
  const publish=vi.fn().mockResolvedValue(false),close=vi.fn();render(<GroceryPublicationDialog draft={draft} onClose={close} onPublish={publish}/>);
- fireEvent.click(screen.getByRole('checkbox',{name:/Incluir carrito/}));fireEvent.change(screen.getByLabelText('Días de Dieta 1'),{target:{value:'3'}});fireEvent.change(screen.getByLabelText('Días de Dieta 2'),{target:{value:'2'}});fireEvent.click(screen.getByText('Preparar lista de compras'));
+ fireEvent.click(screen.getByRole('checkbox',{name:/Incluir carrito/}));fireEvent.change(screen.getByLabelText('Días de Dieta 1'),{target:{value:'3'}});fireEvent.change(screen.getByLabelText('Días de Dieta 2'),{target:{value:'2'}});
  expect(screen.getByLabelText('Cantidad 1')).toHaveValue(700);expect(screen.getByText('Confirmar publicación')).toBeDisabled();
  fireEvent.click(screen.getByRole('checkbox',{name:/Revisé la lista/}));fireEvent.change(screen.getByLabelText('Cantidad 1'),{target:{value:'750'}});expect(screen.getByText('Confirmar publicación')).toBeDisabled();
  fireEvent.click(screen.getByRole('checkbox',{name:/Revisé la lista/}));fireEvent.click(screen.getByText('Confirmar publicación'));await screen.findByRole('alert');expect(close).not.toHaveBeenCalled();expect(screen.getByLabelText('Cantidad 1')).toHaveValue(750);expect(publish.mock.calls[0][0].shopping_list.items[0].quantity).toBe(750);
- fireEvent.change(screen.getByLabelText('Días de Dieta 2'),{target:{value:'0'}});expect(screen.queryByLabelText('Cantidad 1')).not.toBeInTheDocument();expect(screen.getByText('Confirmar publicación')).toBeDisabled();
+ fireEvent.change(screen.getByLabelText('Días de Dieta 2'),{target:{value:'0'}});expect(screen.getByLabelText('Cantidad 1')).toHaveValue(300);expect(screen.getByText('Confirmar publicación')).toBeDisabled();
+});
+
+it('automatically prepares quantities and persists category corrections',async()=>{
+ const publish=vi.fn();render(<GroceryPublicationDialog draft={draft} onClose={()=>{}} onPublish={publish}/>);
+ fireEvent.click(screen.getByRole('checkbox',{name:/Incluir carrito/}));
+ expect(screen.getByLabelText('Cantidad 1')).toHaveValue(300);
+ expect(screen.getByRole('region',{name:'Carnes, pescado y huevo'})).toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Categoría 1'),{target:{value:'other'}});
+ fireEvent.click(screen.getByRole('checkbox',{name:/Revisé la lista/}));
+ fireEvent.click(screen.getByText('Confirmar publicación'));
+ await waitFor(()=>expect(publish).toHaveBeenCalled());
+ expect(publish.mock.calls[0][0].shopping_list.items[0].category).toBe('other');
 });

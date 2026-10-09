@@ -1,3 +1,4 @@
+import {groupGroceries} from '../_shared/grocery-categories.ts';
 import {projectPortalPlan,type PortalPlan} from './portal-plan.ts';
 import {drawPrivateFooters,type ProfessionalDocumentInfo} from './document-letterhead.ts';
 import {jsPDF} from 'jspdf';
@@ -69,7 +70,7 @@ export function planDocumentBlocks(model:PublishedNutritionPlanDocumentModel):Pl
  if(model.plan.shoppingList){
   const list=model.plan.shoppingList;
   blocks.push({kind:'day',text:'Tu carrito del súper'},{kind:'text',text:groceryPeriod(list)});
-  for(const item of list.items)blocks.push({kind:'text',text:`${item.name} - ${amount(item.quantity)} ${item.unit}`});
+  for(const group of groupGroceries(list.items)){blocks.push({kind:'label',text:group.label});for(const item of group.items)blocks.push({kind:'text',text:`${item.name} - ${amount(item.quantity)} ${item.unit}`});}
  }
  return blocks;
 }
@@ -150,7 +151,7 @@ export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:str
   const list=model.plan.shoppingList;
   layout.section('Tu carrito del súper',groceryPeriod(list));
   layout.card('Antes de comprar',[{value:'Revisa lo que ya tienes en casa. Las cantidades corresponden a las porciones del plan y conservan el estado indicado, crudo o cocido; no son conversiones a peso de compra ni a tamaños de envase.'}],{tone:'mint'});
-  for(let i=0;i<list.items.length;i+=12)layout.card('Alimentos y cantidades totales',list.items.slice(i,i+12).map(item=>({label:item.name,value:`${amount(item.quantity)} ${item.unit}`})),{tone:'mint',columns:2});
+  for(const group of groupGroceries(list.items))for(let i=0;i<group.items.length;i+=12)layout.card(group.label+(i>0?' · continuación':''),group.items.slice(i,i+12).map(item=>({label:item.name,value:`${amount(item.quantity)} ${item.unit}`})),{tone:'mint',columns:2});
  }
  layout.flushSection();drawPrivateFooters(pdf);return new Uint8Array(pdf.output('arraybuffer'));
 }
@@ -180,7 +181,8 @@ export function renderPlanTex(model:PublishedNutritionPlanDocumentModel,logo:str
  }
  if(model.plan.shoppingList){
   const list=model.plan.shoppingList;
-  blocks.push(card('Tu carrito del súper',e(groceryPeriod(list))+'\\par\n'+e('Revisa lo que ya tienes en casa. Se conserva el estado indicado, crudo o cocido; no son conversiones a peso de compra.')+'\\par\n'+list.items.map(item=>field(item.name,`${amount(item.quantity)} ${item.unit}`)).join('\n'),true));
+  blocks.push(card('Tu carrito del súper',e(groceryPeriod(list))+'\\par\n'+e('Revisa lo que ya tienes en casa. Se conserva el estado indicado, crudo o cocido; no son conversiones a peso de compra.')+'\\par\n',true));
+  for(const group of groupGroceries(list.items))blocks.push(card(group.label,group.items.map(item=>field(item.name,`${amount(item.quantity)} ${item.unit}`)).join('\n'),true));
  }
  // Embed the optional verified raster image as hexadecimal, never TeX commands
  // or external URLs. LuaLaTeX uses a unique temporary file and removes it after

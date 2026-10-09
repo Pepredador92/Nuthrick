@@ -1,3 +1,4 @@
+import {inferGroceryCategory,groupGroceries} from '../../../../supabase/functions/_shared/grocery-categories';
 import { describe, expect, it } from 'vitest';
 import { compileGroceries, parseGroceryIngredient } from './compile';
 import { grocerySourceKey, isGroceryList, patientGroceries } from '../../../../supabase/functions/_shared/groceries';
@@ -29,6 +30,39 @@ it('binds the reviewed list to exact diet text and projects only patient-facing 
  const model=buildPlanDocument(raw,{});
  expect(renderPlanTex(model)).toContain('Tu carrito del súper');
  expect(renderPlanTex(model)).toContain('760 g');
+ expect(renderPlanTex(model)).toContain('Carnes, pescado y huevo');
  expect(new TextDecoder().decode(renderPlanPdf(model))).toContain('760 g');
  expect(isTextDiet({...draft,shopping_list:undefined})).toBe(true);
+});
+
+it.each([
+ ['Pechuga de pollo cocida: 120 g','Pechuga de pollo cocida',120,'g'],
+ ['Arroz cocido — 1/2 taza','Arroz cocido',.5,'taza'],
+ ['Leche (250 ml)','Leche',250,'ml'],
+ ['**100g de zanahoria**','zanahoria',100,'g'],
+ ['2 huevos','huevos',2,'pieza'],
+ ['1 cda. de aceite de oliva','aceite de oliva',1,'cucharada'],
+])('automatically reads existing ingredient format %s',(text,name,quantity,unit)=>{
+ expect(parseGroceryIngredient(text)).toMatchObject({name,quantity,unit,needsReview:false});
+});
+it('preserves categories through validation and rejects invalid ones',()=>{
+ const base={schema_version:1,source_key:grocerySourceKey(diets),reviewed_at:'2026-10-08T12:00:00Z',schedule,items:[{name:'Producto especial',quantity:2,unit:'pieza',category:'dairy'}]};
+ expect(isGroceryList(base,diets)).toBe(true);
+ expect(patientGroceries(base,diets)?.items[0].category).toBe('dairy');
+ expect(isGroceryList({...base,items:[{...base.items[0],category:'unexpected'}]},diets)).toBe(false);
+});
+
+it('sums common singular and plural pieces without conflating preparation',()=>{
+ const days=[{id:'one',title:'Dieta 1',text:'• 2 huevos\n• 1 pieza de huevo\n• 1 pieza de huevo cocido'}];
+ const rows=compileGroceries(days,[{diet_id:'one',title:'Dieta 1',days:2}]);
+ expect(rows).toHaveLength(2);
+ expect(rows[0].quantity).toBe(6);
+ expect(rows[1].quantity).toBe(2);
+});
+
+it('groups by shopping aisle and respects explicit corrections',()=>{
+ expect(inferGroceryCategory('Leche de almendra')).toBe('dairy');
+ expect(inferGroceryCategory('Crema de cacahuate')).toBe('fats');
+ expect(inferGroceryCategory('Papa cocida')).toBe('produce');
+ expect(groupGroceries([{name:'Arroz'},{name:'Pollo',category:'other'}]).map(group=>group.id)).toEqual(['grains','other']);
 });
