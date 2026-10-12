@@ -130,10 +130,10 @@ Deno.serve(async request => {
         const { data: source, error } = await db.rpc(r.feature==='patient_instructions' ? 'ai_patient_instructions_source' : 'ai_clinical_source',{p_owner:owner,p_patient:r.patientId,p_consultation:r.consultationId,p_revision:r.revision});
         if (error || !source) throw new AIError('context_unavailable');
         const clinical = r.feature==='recall_24h' ? source as ClinicalSource : withConfirmedRecall(source as ClinicalSource);
+        const supportContext = ['consultation_support','patient_instructions'].includes(r.feature) ? buildConsultationSupportContext(clinical,r.feature==='patient_instructions') : null;
         const context=r.feature==='pes_diagnosis' ? buildPesClinicalContext(clinical)
-          : ['consultation_support','patient_instructions'].includes(r.feature) ? buildConsultationSupportContext(clinical,r.feature==='patient_instructions')
-          : {narrative:redactClinicalText(r.narrative!,clinical.identifiers?.filter((v): v is string => typeof v === 'string'))};
-        if(['consultation_support','patient_instructions'].includes(r.feature)) consultationSupportFacts=(context as {facts:ConsultationSupportFact[]}).facts;
+          : supportContext ?? {narrative:redactClinicalText(r.narrative!,clinical.identifiers?.filter((v): v is string => typeof v === 'string'))};
+        if(supportContext) consultationSupportFacts=supportContext.facts;
         if(r.feature==='patient_instructions' && !consultationSupportFacts?.some(fact=>instructionAgreement(fact.source))) throw new AIError('instruction_agreements_required');
         if ('facts' in context && context.facts.length===0) throw new AIError('context_unavailable');
         return {stamp:clinical.stamp,context};

@@ -33,6 +33,6 @@ export function withConfirmedRecall(source: ClinicalSource): ClinicalSource {
   if (included < items.length) recall[0].finding += ` Contexto acotado: se describen ${included} de ${items.length} alimentos; los totales incluyen todos los confirmados.`;
   return { ...source, facts: [
     ...recall,
-    ...source.facts.filter(fact => !fact.source.startsWith('Recordatorio confirmado') && fact.source !== 'Entrevista · recall 24h v2'),
+    ...source.facts.filter(fact => !fact.source.startsWith('Recordatorio confirmado') && !fact.source.startsWith('Entrevista · recall 24h v2')),
   ] };
 }

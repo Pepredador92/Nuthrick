@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Circle, X } from "lucide-react";
 import { AIButton } from "@/src/components/ai/AIControls";
 import { RecallNarrativeInput } from "./RecallNarrativeInput";
@@ -37,6 +37,8 @@ type Props = {
   before: () => Promise<boolean>;
   onPes?: (draft: PesDraft) => void;
   answers?: Record<string, unknown>;
+  active?: boolean;
+  onPendingChange?: (pending: boolean) => void;
 };
 const input =
   "mt-1 w-full rounded-lg border border-[#dfe5e1] bg-white px-3 py-2 text-sm text-[#173d36]";
@@ -63,7 +65,7 @@ function useClinical(props: Props, feature: "pes_diagnosis" | "recall_24h") {
     return () => {
       alive = false;
     };
-  }, [props.consultationId, props.revision]);
+  }, [props.consultationId, props.revision, props.active]);
   async function refresh() {
     if (!(await props.before()))
       throw new Error("Guarda la entrevista antes de continuar.");
@@ -254,7 +256,7 @@ export function PesCopilot(props: Props) {
         Puedes redactar el PES manualmente.
       </p>
       <p className="mt-1 text-xs text-[#687870]">
-        La propuesta puede usar antecedentes de consultas cerradas con su fecha. Revisa cuáles siguen vigentes.
+        La propuesta prioriza esta consulta. Si falta la entrevista actual, puede usar antecedentes de consultas cerradas con su fecha. Revisa cuáles siguen vigentes.
       </p>
       {!draft && (
         <AIButton capability="ai.pes"
@@ -563,6 +565,9 @@ export function ConfirmedRecall({
     </div>
   );
 }
+function recallDraftSignature(text: string, items: RecallRow[]) {
+  return JSON.stringify([text, items.map(item => [item.mealLabel, item.rawText, item.search, item.foodId, item.quantity, item.unit, item.confirmed])]);
+}
 export function RecallCopilot(props: Props) {
   const clinical = useClinical(props, "recall_24h");
   const [open, setOpen] = useState(false);
@@ -575,6 +580,12 @@ export function RecallCopilot(props: Props) {
   const [creatingBusy, setCreatingBusy] = useState(false);
   const [replacement, setReplacement] = useState<RecallExtraction | null>(null);
   const [previousGeneration, setPreviousGeneration] = useState<string>();
+  const baseline = useRef('');
+  const { onPendingChange } = props;
+  useEffect(() => {
+    onPendingChange?.(open && (dictating || clinical.saving || recallDraftSignature(narrative, rows) !== baseline.current));
+  }, [open, narrative, rows, dictating, clinical.saving, onPendingChange]);
+  useEffect(() => () => onPendingChange?.(false), [onPendingChange]);
   const setMessage = clinical.setMessage;
   useEffect(() => {
     if (!open) return;
@@ -608,8 +619,7 @@ export function RecallCopilot(props: Props) {
     setAmbiguities([]);
     setReplacement(null);
     setNarrative(saved?.narrative ?? "");
-    setRows(
-      saved?.items.map((i) => ({
+    const nextRows = saved?.items.map((i) => ({
         id: crypto.randomUUID(),
         mealLabel: i.mealLabel,
         rawText: i.rawText,
@@ -618,8 +628,9 @@ export function RecallCopilot(props: Props) {
         quantity: String(i.quantity),
         unit: i.unit,
         confirmed: true,
-      })) ?? [],
-    );
+      })) ?? [];
+    baseline.current = recallDraftSignature(saved?.narrative ?? '', nextRows);
+    setRows(nextRows);
     setOpen(true);
   }
   return (

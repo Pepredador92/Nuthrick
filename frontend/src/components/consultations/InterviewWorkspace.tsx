@@ -5,7 +5,7 @@ import type { Answers, Question } from '@/src/features/consultations/questionnai
 import type { ConsultationSnapshotStructure } from '@/src/types/domain';
 import './InterviewWorkspace.css';
 
-export function InterviewWorkspace({ templateName, sections, values, active, busy, onSection, headingRef, children }: {
+export function InterviewWorkspace({ templateName, sections, values, active, busy, onSection, headingRef, children, reviewLabel = 'Revisar y cerrar' }: {
   templateName: string;
   sections: ConsultationSnapshotStructure['sections'];
   values: Answers;
@@ -14,6 +14,7 @@ export function InterviewWorkspace({ templateName, sections, values, active, bus
   onSection: (index: number) => void;
   headingRef?: Ref<HTMLHeadingElement>;
   children: ReactNode;
+  reviewLabel?: string;
 }) {
   const progress = sections.map(section => sectionProgress(section, values));
   const answered = progress.reduce((sum, item) => sum + item.answered, 0);
@@ -29,14 +30,14 @@ export function InterviewWorkspace({ templateName, sections, values, active, bus
       <label htmlFor="interview-section" className="interview-section-label">Ir a una sección</label>
       <select id="interview-section" className="nuth-input interview-section-select" disabled={busy} value={active} onChange={event => onSection(Number(event.target.value))}>
         {sections.map((section, index) => <option key={section.section_key} value={index}>{index + 1}. {section.title}</option>)}
-        <option value={sections.length}>Revisar y cerrar</option>
+        <option value={sections.length}>{reviewLabel}</option>
       </select>
       <nav aria-label="Secciones de la entrevista" className="interview-section-nav">
         {sections.map((section, index) => <button type="button" key={section.section_key} disabled={busy} aria-current={active === index ? 'step' : undefined} onClick={() => onSection(index)}>
           <span className="interview-step-number" aria-hidden="true">{progress[index].total > 0 && progress[index].answered === progress[index].total ? <Check size={14} /> : index + 1}</span>
           <span><span className="interview-step-title">{section.title}</span><small>{progress[index].answered} de {progress[index].total} con respuesta</small></span>
         </button>)}
-        <button type="button" disabled={busy} aria-current={reviewing ? 'step' : undefined} onClick={() => onSection(sections.length)}><span className="interview-step-number"><ClipboardCheck size={16} aria-hidden="true" /></span><span className="interview-step-title">Revisar y cerrar</span></button>
+        <button type="button" disabled={busy} aria-current={reviewing ? 'step' : undefined} onClick={() => onSection(sections.length)}><span className="interview-step-number"><ClipboardCheck size={16} aria-hidden="true" /></span><span className="interview-step-title">{reviewLabel}</span></button>
       </nav>
     </section>
     <div className="interview-content">

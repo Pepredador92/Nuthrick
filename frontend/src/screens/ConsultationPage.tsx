@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
-  Check,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -22,6 +21,9 @@ import { QuestionField } from "@/src/components/consultations/QuestionField";
 import { InterviewWorkspace, InterviewQuestionCard } from "@/src/components/consultations/InterviewWorkspace";
 import { InterviewReview } from "@/src/components/consultations/InterviewReview";
 import { PesCopilot, RecallCopilot } from "@/src/components/consultations/ClinicalCopilot";
+import { ClinicalReview } from "@/src/components/consultations/ClinicalReview";
+import { ClinicalSuggestionsAI } from "@/src/components/consultations/ConsultationObjectiveAI";
+import { consultationSteps, objectiveKeys, questionModule, workflowSections, type ConsultationModule } from "@/src/features/consultations/consultationWorkflow";
 import { ClinicalObjective } from "@/src/components/consultations/ClinicalObjective";
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
 import { ConsultationCloseDialog } from "@/src/components/consultations/ConsultationCloseDialog";
@@ -49,6 +51,7 @@ import {
   beginConsultation,
   linkConsultationToAppointment,
   ensureSnapshot,
+  prepareConsultationWorkflow,
   finishConsultation,
   getSnapshot,
   listAvailableTemplates,
@@ -73,6 +76,8 @@ type ConsultationWorkspace = {
   values: Answers;
   scrollY: number;
   updatedAt: string;
+  module?: ConsultationModule;
+  sectionKey?: string;
 };
 
 const workspaceKey = (id: string) => `nuthrick:consultation-workspace:${id}`;
@@ -131,6 +136,10 @@ export function ConsultationPage() {
   const [notice, setNotice] = useState("");
   const [reviewed, setReviewed] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [recallOpened, setRecallOpened] = useState(false);
+  const [clinicalOpened, setClinicalOpened] = useState(false);
+  const [clinicalRefresh, setClinicalRefresh] = useState(0);
+  const [recallPending, setRecallPending] = useState(false);
   const [measurementsOpened, setMeasurementsOpened] = useState(false);
   const [laboratoriesOpened, setLaboratoriesOpened] = useState(false);
   const [measurementsPending, setMeasurementsPending] = useState(false);
@@ -139,7 +148,7 @@ export function ConsultationPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [savedEncoded, setSavedEncoded] = useState("{}");
-  const [module, setModule] = useState<"interview" | "measurements" | "laboratories" | "evolution">("interview");
+  const [module, setModule] = useState<ConsultationModule>("interview");
   const valuesRef = useRef<Answers>({});
   const lastSaved = useRef("{}");
   const queue = useRef(createSaveQueue());
@@ -218,7 +227,7 @@ export function ConsultationPage() {
             : await loadActiveTemplate(type));
         const systemTemplate = await loadSystemTemplate(type);
         const startedSnapshot =
-          existingSnapshot ?? (await ensureSnapshot(consultationForLoad, loadedTemplate));
+          await prepareConsultationWorkflow(existingSnapshot ?? (await ensureSnapshot(consultationForLoad, loadedTemplate)));
         const answers = await listAnswers(consultationForLoad.id, startedSnapshot.revision);
         const serverValues = Object.fromEntries(
           answers.map((answer) => [answer.question_key, answer.value]),
@@ -252,7 +261,15 @@ export function ConsultationPage() {
         lastSaved.current = JSON.stringify(serverValues);
         setSavedEncoded(lastSaved.current);
         if (workspace) {
-          setActive(workspace.active);
+          const interview = workflowSections(startedSnapshot.structure, 'interview');
+          const sectionKey = workspace.sectionKey ?? startedSnapshot.structure.sections[workspace.active]?.section_key;
+          const sectionIndex = interview.findIndex(section => section.section_key === sectionKey);
+          setActive(workspace.active === interview.length ? interview.length : Math.max(0, sectionIndex));
+          setModule(workspace.module ?? 'interview');
+          setRecallOpened(workspace.module === 'recall');
+          setClinicalOpened(workspace.module === 'clinical');
+          setMeasurementsOpened(workspace.module === 'measurements');
+          setLaboratoriesOpened(workspace.module === 'laboratories');
           requestAnimationFrame(() => window.scrollTo(0, workspace.scrollY));
         }
         closed.current = false;
@@ -293,6 +310,8 @@ export function ConsultationPage() {
       if (closed.current) return;
       const workspace: ConsultationWorkspace = {
         active,
+        module,
+        sectionKey: snapshot ? workflowSections(snapshot.structure, 'interview')[active]?.section_key : undefined,
         values: valuesRef.current,
         scrollY: window.scrollY,
         updatedAt: new Date().toISOString(),
@@ -310,7 +329,7 @@ export function ConsultationPage() {
       document.removeEventListener("visibilitychange", persistWorkspace);
       window.removeEventListener("pagehide", persistWorkspace);
     };
-  }, [active, consultation, values]);
+  }, [active, module, snapshot, consultation, values]);
 
   const save = useCallback(
     async (): Promise<boolean> => {
@@ -420,7 +439,10 @@ export function ConsultationPage() {
       appendComposedText(valuesRef.current[question.question_key], text),
     );
   };
-  const sections = snapshot?.structure.sections ?? [];
+  const allSections = snapshot?.structure.sections ?? [];
+  const sections = snapshot ? workflowSections(snapshot.structure, 'interview') : [];
+  const recallSections = snapshot ? workflowSections(snapshot.structure, 'recall') : [];
+  const clinicalSections = snapshot ? workflowSections(snapshot.structure, 'clinical') : [];
   const reviewing = active === sections.length;
   const current = sections[active];
   const goTo = async (index: number) => {
@@ -446,7 +468,7 @@ export function ConsultationPage() {
     setBusy(true);
     try {
       if (!(await save())) return;
-      const next = await adoptTemplate(consultation, latest, snapshot.revision);
+      const next = await prepareConsultationWorkflow(await adoptTemplate(consultation, latest, snapshot.revision));
       const answers = await listAnswers(consultation.id, next.revision);
       const nextValues = Object.fromEntries(
         answers.map((answer) => [answer.question_key, answer.value]),
@@ -474,12 +496,12 @@ export function ConsultationPage() {
   };
   const complete = async () => {
     if (!consultation || !snapshot || !reviewed || closing.current) return;
-    if (measurementsPending || laboratoriesPending || clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient?.timezone)) {
+    if (recallPending || measurementsPending || laboratoriesPending || clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient?.timezone)) {
       setCloseDialogOpen(true);
       return;
     }
     setShowErrors(true);
-    const firstInvalid = sections.findIndex((section) =>
+    const firstInvalid = allSections.findIndex((section) =>
       section.questions.some(
         (q) =>
           matchesCondition(q.visibility_condition, valuesRef.current) &&
@@ -488,8 +510,13 @@ export function ConsultationPage() {
     );
     if (firstInvalid >= 0) {
       setCloseDialogOpen(false);
-      setModule("interview");
-      setActive(firstInvalid);
+      const invalidSection = allSections[firstInvalid];
+      const invalidQuestion = invalidSection.questions.find(question => matchesCondition(question.visibility_condition, valuesRef.current) && questionErrors(question, valuesRef.current[question.question_key]).length)!;
+      const invalidModule = questionModule(invalidQuestion.question_key);
+      setModule(invalidModule);
+      if (invalidModule === 'recall') setRecallOpened(true);
+      if (invalidModule === 'clinical') setClinicalOpened(true);
+      if (invalidModule === 'interview') setActive(Math.max(0, sections.findIndex(section => section.section_key === invalidSection.section_key)));
       setError(
         "Revisa los campos señalados antes de cerrar. Los campos opcionales pueden quedar sin responder.",
       );
@@ -499,7 +526,7 @@ export function ConsultationPage() {
     setBusy(true);
     try {
       if (!(await save())) return;
-      const answered = sections
+      const answered = allSections
         .flatMap((s) => s.questions)
         .filter(
           (q) =>
@@ -552,6 +579,50 @@ export function ConsultationPage() {
       setBusy(false);
     }
   };
+
+  const saveForClinical = async () => {
+    if (measurementsPending || laboratoriesPending || recallPending) {
+      setError('Guarda las mediciones y los estudios pendientes, y confirma los cambios del recordatorio antes de generar una propuesta clínica.');
+      return false;
+    }
+    return save();
+  };
+  const goModule = async (next: ConsultationModule) => {
+    if (next === 'clinical' && !await saveForClinical()) return;
+    if (next !== 'clinical' && !await save()) return;
+    if (next === 'measurements') setMeasurementsOpened(true);
+    if (next === 'laboratories') setLaboratoriesOpened(true);
+    if (next === 'recall') setRecallOpened(true);
+    if (next === 'clinical') setClinicalOpened(true);
+    setModule(next); setNotice(''); setError('');
+  };
+  const nextStepLabel = () => {
+    if (module === 'interview' && !reviewing) return `Sigue: ${sections[active + 1]?.title ?? 'Revisar entrevista'}`;
+    const index = consultationSteps.findIndex(step => step.key === module);
+    return `Sigue: ${consultationSteps[index + 1]?.label ?? 'Revisar y cerrar la consulta'}`;
+  };
+  const nextStep = async () => {
+    if (module === 'interview' && !reviewing) return goTo(active + 1);
+    const index = consultationSteps.findIndex(step => step.key === module);
+    if (index === consultationSteps.length - 1) { setReviewed(false); setError(''); setCloseDialogOpen(true); return; }
+    return goModule(consultationSteps[index + 1].key);
+  };
+  const previousStep = async () => {
+    if (module === 'interview') return goTo(active - 1);
+    const index = consultationSteps.findIndex(step => step.key === module);
+    return goModule(consultationSteps[index - 1].key);
+  };
+  const renderQuestions = (questions: Question[]) => <fieldset disabled={busy} className="interview-question-grid">{questions.filter(question => matchesCondition(question.visibility_condition, values)).map(question => <InterviewQuestionCard key={question.question_key} question={question}>
+    {question.question_type === 'long_text' && composeInterviewDraft(question.question_key, values) && <button type="button" className="nuth-button-secondary mb-2 !text-xs" onClick={() => setAnswer(question.question_key, appendComposedText(valuesRef.current[question.question_key], composeInterviewDraft(question.question_key, values)))}><FileText size={15} />Redactar con datos registrados</button>}
+    <QuestionField question={question} value={values[question.question_key]} errors={showErrors ? questionErrors(question, values[question.question_key]) : []} onChange={value => setAnswer(question.question_key, value)} />
+  </InterviewQuestionCard>)}</fieldset>;
+  const renderClinicalFields = (category: 'diagnosis' | 'objectives' | 'recommendations') => clinicalSections.flatMap(section => {
+    const questions = section.questions.filter(question => {
+      const kind = objectiveKeys.includes(question.question_key) ? 'objectives' : question.question_key.startsWith('pes_') || ['nutrition_assessment', 'clinical_notes', 'measurement_notes', 'indicator_progress'].includes(question.question_key) ? 'diagnosis' : 'recommendations';
+      return kind === category;
+    });
+    return questions.length ? [<div className="consultation-clinical-fields" key={section.section_key}>{!['Diagnóstico PES', 'Objetivos acordados', 'Recomendaciones y seguimiento'].includes(section.title) && <h3>{section.title}</h3>}{renderQuestions(questions)}</div>] : [];
+  });
 
   if (loading) return <LoadingState label="Preparando entrevista…" />;
   if (!consultation && patient) {
@@ -821,72 +892,42 @@ export function ConsultationPage() {
           </div>
         </div>
       </header>
-      {closeDialogOpen && <ConsultationCloseDialog busy={busy || saving} reviewed={reviewed} pending={[measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error} onReview={setReviewed} onCancel={() => setCloseDialogOpen(false)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
+      {closeDialogOpen && <ConsultationCloseDialog busy={busy || saving} reviewed={reviewed} pending={[recallPending && "Recordatorio de 24 horas", measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error} onReview={setReviewed} onCancel={() => setCloseDialogOpen(false)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
       <div className="sticky top-0 z-20 mt-4 flex justify-end rounded-xl bg-[#f7faf8]/95 p-2 backdrop-blur"><button type="button" className="nuth-button-secondary" disabled={busy || saving} onClick={() => { setReviewed(false); setError(""); setCloseDialogOpen(true); }}><ClipboardCheck size={16} />Revisar cierre de consulta</button></div>
-      <nav
-        className="mt-5 flex gap-2 overflow-x-auto border-b border-[#dfe5e1]"
-        aria-label="Módulos de la consulta"
-      >
-        <button
-          type="button"
-          aria-current={module === "interview" ? "page" : undefined}
-          onClick={() => setModule("interview")}
-          className={
-            "shrink-0 whitespace-nowrap rounded-t-xl px-4 py-3 text-sm font-semibold " +
-            (module === "interview"
-              ? "bg-[#eaf3ec] text-[#285647]"
-              : "text-[#66766f] hover:bg-white")
-          }
-        >
-          Entrevista
-        </button>
-        <button
-          type="button"
-          aria-current={module === "measurements" ? "page" : undefined}
-          onClick={() => { setMeasurementsOpened(true); setModule("measurements"); }}
-          className={
-            "shrink-0 whitespace-nowrap rounded-t-xl px-4 py-3 text-sm font-semibold " +
-            (module === "measurements"
-              ? "bg-[#eaf3ec] text-[#285647]"
-              : "text-[#66766f] hover:bg-white")
-          }
-        >
-          Mediciones
-        </button>
-        <button
-          type="button"
-          aria-current={module === "laboratories" ? "page" : undefined}
-          onClick={() => { setLaboratoriesOpened(true); setModule("laboratories"); }}
-          className={
-            "shrink-0 whitespace-nowrap rounded-t-xl px-4 py-3 text-sm font-semibold " +
-            (module === "laboratories"
-              ? "bg-[#eaf3ec] text-[#285647]"
-              : "text-[#66766f] hover:bg-white")
-          }
-        >
-          Laboratorios
-        </button>
-        <button
-          type="button"
-          aria-current={module === "evolution" ? "page" : undefined}
-          onClick={() => setModule("evolution")}
-          className={
-            "shrink-0 whitespace-nowrap rounded-t-xl px-4 py-3 text-sm font-semibold " +
-            (module === "evolution"
-              ? "bg-[#eaf3ec] text-[#285647]"
-              : "text-[#66766f] hover:bg-white")
-          }
-        >
-          Evolución
-        </button>
-        <Link
-          to={`/app/diet-workshop?patientId=${patient.id}&consultationId=${consultation.id}`}
-          className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-t-xl px-4 py-3 text-sm font-semibold text-[#66766f] hover:bg-white"
-        >
-          <Salad size={15} />
-          Taller de dietas
-        </Link>
+      <nav className="consultation-step-nav" aria-label="Módulos de la consulta">
+        {consultationSteps.map((step, index) => <button key={step.key} type="button" aria-current={module === step.key ? 'page' : undefined} disabled={busy || saving} onClick={() => void goModule(step.key)}><span aria-hidden="true">{index + 1}</span>{step.label}</button>)}
+        <Link to={`/app/diet-workshop?patientId=${patient.id}&consultationId=${consultation.id}`}><Salad size={15} />Taller de dietas</Link>
       </nav>
+      {notice && <p role="status" className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]">{notice}</p>}
+      {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{error}</p>}
+      {recallOpened && <section className="mt-6" hidden={module !== 'recall'} aria-label="Paso de recordatorio de 24 horas">
+        <header className="consultation-module-heading"><p className="nuth-eyebrow">02 · Registra el consumo</p><h2>Recordatorio de 24 horas</h2><p>Captura un día concreto y confirma los alimentos. Este paso está disponible en consultas iniciales y de seguimiento.</p></header>
+        <RecallCopilot key={`${consultation.id}:${snapshot.revision}:recall`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} active={module === 'recall'} before={save} onPendingChange={setRecallPending} />
+        {recallSections.map(section => <section key={section.section_key} className="consultation-clinical-card"><h3>{section.title === "Recordatorio de 24 horas" ? "Captura guiada del día" : section.title}</h3>{section.description && <p className="consultation-clinical-description">{section.description}</p>}{renderQuestions(section.questions)}</section>)}
+      </section>}
+      {clinicalOpened && <div className="mt-6 space-y-5" hidden={module !== 'clinical'}>
+        <ClinicalReview consultationId={consultation.id} snapshot={snapshot} values={values} active={module === 'clinical'} before={saveForClinical} />
+        <section className="consultation-clinical-card" aria-label="Diagnóstico PES">
+          <p className="nuth-eyebrow">02 · Formula el diagnóstico</p><h2>Diagnóstico PES</h2>
+          <p className="consultation-clinical-description">Revisa la evidencia y la vigencia de los antecedentes antes de aprobar el diagnóstico.</p>
+          <PesCopilot key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} active={module === 'clinical'} before={saveForClinical} answers={values} onPes={draft => {
+            setAnswer('pes_problem', draft.problem); setAnswer('pes_etiology', draft.etiology); setAnswer('pes_evidence', draft.signsSymptoms.join('\n')); setAnswer('pes_statement', draft.pesStatement); setClinicalRefresh(value => value + 1);
+          }} />
+          {renderClinicalFields('diagnosis')}
+        </section>
+        <section className="consultation-clinical-card" aria-label="Objetivos acordados">
+          <p className="nuth-eyebrow">03 · Acuerda la intervención</p><h2>Objetivos acordados</h2>
+          <p className="consultation-clinical-description">Usa el PES revisado para conversar y acordar los siguientes objetivos con tu paciente.</p>
+          {clinicalSections.flatMap(section => section.questions).filter(question => objectiveKeys.includes(question.question_key)).map(question => <ClinicalObjective key={`${consultation.id}:${snapshot.revision}:${question.question_key}:${clinicalRefresh}`} consultationId={consultation.id} revision={snapshot.revision} questionKey={question.question_key} value={values[question.question_key]} before={saveForClinical} active={module === 'clinical'} patientId={patient.id} onApplySuggestion={text => addObjectiveSuggestion(question, text)} />)}
+          {renderClinicalFields('objectives')}
+        </section>
+        <section className="consultation-clinical-card" aria-label="Recomendaciones y seguimiento">
+          <p className="nuth-eyebrow">04 · Deja claros los siguientes pasos</p><h2>Recomendaciones y seguimiento</h2>
+          <p className="consultation-clinical-description">Registra las indicaciones acordadas, tus notas y lo que revisarás en la próxima consulta.</p>
+          {renderClinicalFields('recommendations')}
+          <ClinicalSuggestionsAI kind="instructions" patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} before={saveForClinical} onApply={text => setAnswer('first_actions', appendComposedText(valuesRef.current.first_actions, text))} />
+        </section>
+      </div>}
       {measurementsOpened && (
         <div className="mt-6" hidden={module !== "measurements"}>
           <ConsultationMeasurements key={consultation.id} consultation={consultation} patient={patient} onPendingChange={setMeasurementsPending} />
@@ -952,23 +993,7 @@ export function ConsultationPage() {
             )}
           </div>
         )}
-        {notice && (
-          <p
-            role="status"
-            className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]"
-          >
-            {notice}
-          </p>
-        )}
-        {error && (
-          <div
-            role="alert"
-            className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]"
-          >
-            {error}
-          </div>
-        )}
-        <InterviewWorkspace templateName={snapshot.template_name} sections={sections} values={values} active={active} busy={busy} onSection={(index) => void goTo(index)} headingRef={heading}>
+        <InterviewWorkspace templateName={snapshot.template_name} sections={sections} values={values} active={active} busy={busy} onSection={(index) => void goTo(index)} headingRef={heading} reviewLabel="Revisar entrevista">
             {reviewing ? (
               <div className="interview-review-card">
                 <p className="mt-3 text-sm leading-6 text-[#718176]">
@@ -978,47 +1003,16 @@ export function ConsultationPage() {
                 </p>
                 <div className="mt-5">
                   <InterviewReview
-                    structure={snapshot.structure}
+                    structure={{ ...snapshot.structure, sections }}
                     values={values}
                     onSection={(index) => void goTo(index)}
                     showEmpty
                   />
                 </div>
-                <label className="mt-6 flex items-start gap-3 rounded-xl bg-[#edf5ef] p-4 text-sm leading-6 text-[#315e4f]">
-                  <input
-                    type="checkbox"
-                    className="mt-1.5 accent-[#315e4f]"
-                    checked={reviewed}
-                    disabled={busy}
-                    onChange={(event) => setReviewed(event.target.checked)}
-                  />
-                  Revisé la información. Entiendo que al cerrar esta consulta
-                  quedará en el historial y no podré editar sus respuestas.
-                </label>
+
               </div>
             ) : (
               <>
-                {current?.section_key === 'nutrition_diagnosis' && <PesCopilot key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} before={save} answers={values} onPes={draft => {
-                  setAnswer('pes_problem', draft.problem);
-                  setAnswer('pes_etiology', draft.etiology);
-                  setAnswer('pes_evidence', draft.signsSymptoms.join('\n'));
-                  setAnswer('pes_statement', draft.pesStatement);
-                }} />}
-                {current?.questions
-                  .filter((question) => ["objectives", "treatment_objective", "next_objectives"].includes(question.question_key))
-                  .map((question) => (
-                    <ClinicalObjective
-                      key={`${consultation.id}:${snapshot.revision}:${question.question_key}`}
-                      consultationId={consultation.id}
-                      revision={snapshot.revision}
-                      questionKey={question.question_key}
-                      value={values[question.question_key]}
-                      before={save}
-                      patientId={patient.id}
-                      onApplySuggestion={(text) => addObjectiveSuggestion(question, text)}
-                    />
-                  ))}
-                {current?.questions.some(q => q.question_key === 'recall_24h_v2') && <RecallCopilot key={`${consultation.id}:${snapshot.revision}:recall`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} before={save} />}
                 <fieldset
                   disabled={busy}
                   className="interview-question-grid"
@@ -1065,54 +1059,14 @@ export function ConsultationPage() {
               </>
             )}
         </InterviewWorkspace>
-        <footer
-          hidden={module !== "interview"}
-          className="fixed inset-x-0 bottom-0 z-30 border-t border-[#dfe5e1] bg-white/95 px-3 py-3 backdrop-blur lg:left-[250px]"
-        >
-          <div className="interview-footer-inner">
-            <button
-              type="button"
-              className="nuth-button-secondary !px-3 !text-xs sm:!text-sm"
-              disabled={active === 0 || busy}
-              onClick={() => void goTo(active - 1)}
-            >
-              <ChevronLeft size={15} />
-              Anterior
-            </button>
-            <div className="interview-next-step">
-              <strong>{reviewing ? "Último paso: revisar y cerrar" : active === sections.length - 1 ? "Sigue: revisar lo conversado" : `Sigue: ${sections[active + 1]?.title ?? "Revisar resumen"}`}</strong>
-              <span role="status">{saving ? "Guardando…" : dirty ? "Cambios sin guardar" : "Cambios guardados"}</span>
-            </div>
-            {reviewing ? (
-              <button
-                type="button"
-                className="nuth-button !px-3 !text-xs sm:!text-sm"
-                disabled={busy || !reviewed}
-                onClick={() => void complete()}
-              >
-                {busy ? (
-                  <LoaderCircle className="animate-spin" size={15} />
-                ) : (
-                  <Check size={15} />
-                )}
-                Cerrar entrevista
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="nuth-button !px-3 !text-xs sm:!text-sm"
-                disabled={busy}
-                onClick={() => void goTo(active + 1)}
-              >
-                {active === sections.length - 1
-                  ? "Revisar resumen"
-                  : "Siguiente"}
-                <ChevronRight size={15} />
-              </button>
-            )}
-          </div>
-        </footer>
       </div>
+      <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-[#dfe5e1] bg-white/95 px-3 py-3 backdrop-blur lg:left-[250px]">
+        <div className="interview-footer-inner">
+          <button type="button" className="nuth-button-secondary !px-3 !text-xs sm:!text-sm" disabled={busy || saving || (module === 'interview' && active === 0)} onClick={() => void previousStep()}><ChevronLeft size={15} />Anterior</button>
+          <div className="interview-next-step"><strong>{nextStepLabel()}</strong><span role="status">{saving ? 'Guardando…' : measurementsPending && module === 'measurements' ? 'Guarda las mediciones para continuar' : laboratoriesPending && module === 'laboratories' ? 'Guarda los estudios para continuar' : recallPending && module === 'recall' ? 'Confirma el recordatorio antes del cierre' : dirty ? 'Cambios sin guardar' : 'Cambios guardados'}</span></div>
+          <button type="button" className="nuth-button !px-3 !text-xs sm:!text-sm" disabled={busy || saving || (module === 'measurements' && measurementsPending) || (module === 'laboratories' && laboratoriesPending)} onClick={() => void nextStep()}>{module === 'evolution' ? 'Revisar cierre de consulta' : 'Siguiente'}<ChevronRight size={15} /></button>
+        </div>
+      </footer>
     </div>
   );
 }

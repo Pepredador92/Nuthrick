@@ -284,6 +284,15 @@ export async function ensureSnapshot(
   }
 }
 
+export async function prepareConsultationWorkflow(snapshot: ConsultationSnapshot): Promise<ConsultationSnapshot> {
+  const { data, error } = await supabase.rpc('prepare_consultation_workflow', {
+    p_consultation: snapshot.consultation_id,
+    p_revision: snapshot.revision,
+  }).single();
+  fail(error, 'No pudimos preparar los pasos de esta consulta. Tus respuestas se conservan.');
+  return data as ConsultationSnapshot;
+}
+
 export async function listAnswers(
   consultationId: string,
   revision?: number,

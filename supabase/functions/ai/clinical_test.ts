@@ -133,6 +133,7 @@ Deno.test("PES can explicitly decline unsupported diagnosis", () => {
 Deno.test("missing labs do not become a requirement in context", () => {
   assert.deepEqual(buildPesClinicalContext({ facts: [fact], stamp: "a" }), {
     facts: [fact],
+    interviewOrigin: 'missing',
   });
 });
 Deno.test("conflicting measured facts remain visible without guessing", () => {

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConsultationPage } from "./ConsultationPage";
+import { withWorkflowSections } from '@/src/features/consultations/consultationWorkflow';
 
 const mocks = vi.hoisted(() => ({
   save: vi.fn(),
@@ -14,11 +15,13 @@ const mocks = vi.hoisted(() => ({
   updateDate: vi.fn(),
   ensure: vi.fn(),
   objective: vi.fn(),
+  clinical: vi.fn(),
   generate: vi.fn(),
 }));
 vi.mock("@/src/services/clinicalCopilot", async (original) => ({
   ...(await original<object>()),
   clinicalObjective: mocks.objective,
+  clinicalWorkspace: mocks.clinical,
 }));
 vi.mock("@/src/services/ai", async (original) => ({
   ...(await original<object>()),
@@ -118,6 +121,7 @@ vi.mock("@/src/services/consultations", () => ({
   loadActiveTemplate: async () => fixtures.template,
   loadSystemTemplate: async () => fixtures.template,
   ensureSnapshot: mocks.ensure,
+  prepareConsultationWorkflow: async (snapshot: typeof fixtures.snapshot) => ({ ...snapshot, structure: withWorkflowSections(snapshot.structure as never) }),
   getSnapshot: mocks.getSnapshot,
   listAvailableSystemTemplates: async (type: string) =>
     type === "initial"
@@ -161,6 +165,7 @@ vi.mock("@/src/services/consultations", () => ({
 vi.mock("@/src/components/consultations/SnapshotHistory", () => ({
   SnapshotHistory: () => null,
 }));
+vi.mock('@/src/services/foodCatalog', () => ({ listFoodItems: async () => [], createCustomFood: vi.fn() }));
 
 vi.mock("@/src/components/consultations/ConsultationMeasurements", async () => {
   const { useEffect, useState } = await import("react");
@@ -196,6 +201,10 @@ const mount = (entry = "/app/patients/patient/consultations/draft") =>
       </Routes>
     </MemoryRouter>,
   );
+async function openModule(name: string) {
+  fireEvent.click(await screen.findByRole('button', { name }));
+  await waitFor(() => expect(screen.getByRole('button', { name })).toHaveAttribute('aria-current', 'page'));
+}
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
@@ -215,10 +224,58 @@ beforeEach(() => {
     consultation_date: `${date}T12:00:00.000Z`,
   }));
   mocks.ensure.mockResolvedValue(fixtures.snapshot);
+  mocks.objective.mockResolvedValue({ stamp: 's', facts: [], pes: null, objective: null, target: null });
+  mocks.clinical.mockResolvedValue({ stamp: 's', readiness: { interview: false, objective: false, anthropometry: false, laboratories: false }, records: {} });
   vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
 });
 
 describe("consultation save and review workflow", () => {
+  it('offers independent recall and clinical decisions in a follow-up while keeping them out of the interview', async () => {
+    mocks.getSnapshot.mockResolvedValue({ ...fixtures.snapshot, structure: { ...fixtures.snapshot.structure, consultation_type: 'follow_up' } });
+    mocks.listConsultations.mockResolvedValue([{ ...fixtures.c, consultation_type: 'follow_up' }]);
+    mount();
+    await screen.findByRole('heading', { name: 'Apertura de prueba' });
+    expect(within(screen.getByRole('navigation', { name: 'Secciones de la entrevista' })).queryByText(/Recordatorio|PES|Objetivos/)).not.toBeInTheDocument();
+    await openModule('Recordatorio de 24 horas');
+    expect(screen.getByRole('button', { name: 'Capturar recordatorio' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Agregar alimento o bebida' })).toBeVisible();
+    expect(screen.getByText('Sigue: Mediciones')).toBeVisible();
+    await openModule('Revisión clínica, PES y objetivos');
+    expect(screen.getByRole('heading', { name: 'Revisión clínica' })).toBeVisible();
+    expect(screen.getByLabelText('Objetivo acordado con el paciente')).toBeVisible();
+    expect(screen.getByLabelText('Redacción PES')).toBeVisible();
+  });
+
+  it('requires saving measurement edits before entering the clinical proposal step', async () => {
+    mount();
+    await screen.findByRole('heading', { name: 'Apertura de prueba' });
+    await openModule('Mediciones');
+    fireEvent.change(screen.getByLabelText('Peso de prueba'), { target: { value: '87.6' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Revisión clínica, PES y objetivos' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Guarda las mediciones');
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Mediciones' })).toHaveAttribute('aria-current', 'page');
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar medición de prueba' }));
+    await openModule('Revisión clínica, PES y objetivos');
+    expect(screen.getByRole('heading', { name: 'Revisión clínica' })).toBeVisible();
+  });
+
+  it('keeps an unconfirmed recall on screen and blocks closing until its changes are confirmed', async () => {
+    mount();
+    await screen.findByRole('heading', { name: 'Apertura de prueba' });
+    await openModule('Recordatorio de 24 horas');
+    fireEvent.click(screen.getByRole('button', { name: 'Capturar recordatorio' }));
+    fireEvent.change(screen.getByLabelText('Texto capturado'), { target: { value: 'Dos huevos y tres tortillas.' } });
+    await openModule('Entrevista');
+    await openModule('Recordatorio de 24 horas');
+    expect(screen.getByLabelText('Texto capturado')).toHaveValue('Dos huevos y tres tortillas.');
+    fireEvent.click(screen.getByRole('button', { name: 'Revisar cierre de consulta' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('checkbox'));
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Recordatorio de 24 horas');
+    expect(within(dialog).getByRole('button', { name: 'Confirmar cierre' })).toBeDisabled();
+  });
+
   it("generates an initial treatment objective on request and saves only the reviewed editable text", async () => {
     const question = fixtures.snapshot.structure.sections[0].questions[0];
     const previous = { ...question };
@@ -234,9 +291,10 @@ describe("consultation save and review workflow", () => {
     } });
     try {
       mount();
+      await openModule("Revisión clínica, PES y objetivos");
       const field = await screen.findByLabelText(question.label);
       fireEvent.click(screen.getByRole("button", { name: "Actualizar contexto" }));
-      await waitFor(() => expect(mocks.objective).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(mocks.objective.mock.calls.length).toBeGreaterThanOrEqual(2));
       expect(mocks.generate).not.toHaveBeenCalled();
       fireEvent.change(field, { target: { value: "Acuerdo escrito por el profesional." } });
       fireEvent.click(screen.getByRole("button", { name: "Proponer objetivos con IA" }));
@@ -461,10 +519,10 @@ describe("consultation save and review workflow", () => {
     await screen.findByRole("heading", { name: "Apertura de prueba" });
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
     fireEvent.change(await screen.findByRole("combobox", { name: /Confirmación de prueba/ }), { target: { value: "Revisado" } });
-    fireEvent.click(screen.getByRole("button", { name: "Mediciones" }));
+    await openModule("Mediciones");
     fireEvent.change(screen.getByLabelText("Peso de prueba"), { target: { value: "87.6" } });
-    fireEvent.click(screen.getByRole("button", { name: "Entrevista" }));
-    fireEvent.click(screen.getByRole("button", { name: "Mediciones" }));
+    await openModule("Entrevista");
+    await openModule("Mediciones");
     expect(screen.getByLabelText("Peso de prueba")).toHaveValue("87.6");
     fireEvent.click(screen.getByRole("button", { name: "Revisar cierre de consulta" }));
     let dialog = await screen.findByRole("dialog");
@@ -492,7 +550,7 @@ describe("consultation save and review workflow", () => {
       await screen.findByText(/Entrevista actualizada\. Las respuestas anteriores/);
       fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
       fireEvent.change(await screen.findByRole("combobox", { name: /Confirmación de prueba/ }), { target: { value: "Revisado" } });
-      fireEvent.click(screen.getByRole("button", { name: "Mediciones" }));
+      await openModule("Mediciones");
       fireEvent.click(screen.getByRole("button", { name: "Revisar cierre de consulta" }));
       const dialog = await screen.findByRole("dialog");
       fireEvent.click(within(dialog).getByRole("checkbox"));
@@ -507,7 +565,7 @@ describe("consultation save and review workflow", () => {
   it("returns to the required answer when closing from another tab", async () => {
     mount();
     await screen.findByRole("heading", { name: "Apertura de prueba" });
-    fireEvent.click(screen.getByRole("button", { name: "Mediciones" }));
+    await openModule("Mediciones");
     fireEvent.click(screen.getByRole("button", { name: "Revisar cierre de consulta" }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("checkbox"));
@@ -518,9 +576,9 @@ describe("consultation save and review workflow", () => {
   it("blocks closure with uncommitted laboratory edits even from another tab", async () => {
     mount();
     await screen.findByRole("heading", { name: "Apertura de prueba" });
-    fireEvent.click(screen.getByRole("button", { name: "Laboratorios" }));
+    await openModule("Laboratorios");
     fireEvent.click(screen.getByRole("button", { name: "Editar laboratorio de prueba" }));
-    fireEvent.click(screen.getByRole("button", { name: "Entrevista" }));
+    await openModule("Entrevista");
     fireEvent.click(screen.getByRole("button", { name: "Revisar cierre de consulta" }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("checkbox"));
@@ -535,13 +593,11 @@ describe("consultation save and review workflow", () => {
       target: { value: "2" },
     });
     await screen.findByRole("heading", { name: "Revisa lo conversado" });
-    expect(
-      screen.getByRole("button", { name: "Cerrar entrevista" }),
-    ).toBeDisabled();
-    fireEvent.click(
-      screen.getByRole("checkbox", { name: /Revisé la información/ }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Cerrar entrevista" }));
+    fireEvent.click(screen.getByRole('button', { name: 'Revisar cierre de consulta' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: 'Confirmar cierre' })).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole('checkbox'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirmar cierre' }));
     await screen.findByRole("heading", { name: "Cierre de prueba" });
     expect(mocks.finish).not.toHaveBeenCalled();
     expect(screen.getByText("Falta responder.")).toBeInTheDocument();
@@ -567,14 +623,14 @@ describe("consultation save and review workflow", () => {
       fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
       await screen.findByRole("heading", { name: "Cierre de prueba" });
       fireEvent.change(screen.getByRole("combobox", { name: /Confirmación de prueba/ }), { target: { value: "Revisado" } });
-      fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+      await openModule("Revisión clínica, PES y objetivos");
       await screen.findByRole("heading", { name: section.title });
       expect(screen.getByText(section.questions[0].help_text)).toBeInTheDocument();
       if (objective) fireEvent.change(screen.getByLabelText(section.questions[0].label), { target: { value: objective } });
-      fireEvent.click(screen.getByRole("button", { name: "Revisar resumen" }));
-      await screen.findByRole("heading", { name: "Revisa lo conversado" });
-      fireEvent.click(screen.getByRole("checkbox", { name: /Revisé la información/ }));
-      fireEvent.click(screen.getByRole("button", { name: "Cerrar entrevista" }));
+      fireEvent.click(screen.getByRole('button', { name: 'Revisar cierre de consulta' }));
+      const dialog = await screen.findByRole('dialog');
+      fireEvent.click(within(dialog).getByRole('checkbox'));
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Confirmar cierre' }));
       await waitFor(() => expect(mocks.finish).toHaveBeenCalledOnce());
       if (objective) expect(mocks.save).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ treatment_objective: objective }));
     } finally {
@@ -590,12 +646,10 @@ describe("consultation save and review workflow", () => {
       screen.getByRole("combobox", { name: /Confirmación de prueba/ }),
       { target: { value: "Revisado" } },
     );
-    fireEvent.click(screen.getByRole("button", { name: "Revisar resumen" }));
-    await screen.findByRole("heading", { name: "Revisa lo conversado" });
-    fireEvent.click(
-      screen.getByRole("checkbox", { name: /Revisé la información/ }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Cerrar entrevista" }));
+    fireEvent.click(screen.getByRole('button', { name: 'Revisar cierre de consulta' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('checkbox'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirmar cierre' }));
     await waitFor(() => expect(mocks.finish).toHaveBeenCalledOnce());
     expect(
       await screen.findByRole("heading", { name: "Ficha guardada" }),

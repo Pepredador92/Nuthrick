@@ -156,3 +156,26 @@ html[data-nuthrick-theme='night'] .consultation-template-reference-note { color:
   .consultation-type-card, .consultation-template-choice { transition: none; }
   .consultation-type-card:hover, .consultation-template-choice:hover { transform: none; }
 }
+.consultation-step-nav { display: flex; gap: 6px; margin-top: 20px; padding: 8px; overflow-x: auto; border: 1px solid var(--nuth-line); border-radius: 18px; background: var(--nuth-surface); }
+.consultation-step-nav button, .consultation-step-nav a { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; padding: 10px 12px; border-radius: 12px; font-size: 12px; font-weight: 650; color: var(--nuth-muted); }
+.consultation-step-nav button[aria-current='page'] { background: var(--nuth-surface-soft); color: var(--nuth-ink); }
+.consultation-step-nav button > span { display: grid; width: 23px; height: 23px; place-items: center; border-radius: 8px; background: var(--nuth-surface-soft); color: var(--nuth-action); }
+.consultation-step-nav button[aria-current='page'] > span { background: var(--nuth-action); color: white; }
+.consultation-module-heading { margin-bottom: 16px; }
+.consultation-module-heading h2, .consultation-clinical-card h2 { margin-top: 7px; font-size: 23px; font-weight: 650; line-height: 1.35; }
+.consultation-module-heading > p:last-child, .consultation-clinical-description { margin-top: 9px; max-width: 70ch; color: var(--nuth-muted); font-size: 14px; line-height: 1.65; }
+.consultation-clinical-card { min-width: 0; margin-top: 20px; padding: clamp(18px, 3vw, 26px); border: 1px solid var(--nuth-line); border-radius: 23px; background: var(--nuth-surface); box-shadow: 0 18px 38px -30px #173d3659; }
+.consultation-clinical-card h3 { margin-block: 10px; font-size: 17px; font-weight: 650; }
+.consultation-clinical-title { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.consultation-clinical-title > button { margin-left: auto; }
+.consultation-clinical-icon { display: grid; width: 43px; height: 43px; place-items: center; border-radius: 14px; background: var(--nuth-surface-soft); color: var(--nuth-action); }
+.consultation-context-priority { margin-top: 15px; padding: 13px 15px; border-radius: 14px; background: var(--nuth-surface-soft); color: var(--nuth-muted); font-size: 13px; line-height: 1.6; }
+.consultation-context-counts { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 15px; }
+.consultation-context-counts > span { border: 1px solid var(--nuth-line); padding: 7px 11px; border-radius: 10px; font-size: 12px; }
+.consultation-context-detail { padding: 13px 0; border-top: 1px solid var(--nuth-line); font-size: 13px; }
+.consultation-context-detail > summary { cursor: pointer; font-weight: 650; }
+.consultation-context-facts { display: grid; gap: 10px; max-height: 390px; overflow-y: auto; margin-top: 12px; }
+.consultation-context-facts > li { padding: 12px; border-radius: 12px; background: var(--nuth-surface-soft); }
+.consultation-context-facts p { margin-top: 6px; overflow-wrap: anywhere; white-space: pre-wrap; color: var(--nuth-muted); line-height: 1.6; }
+.consultation-clinical-fields { margin-top: 24px; padding-top: 15px; border-top: 1px solid var(--nuth-line); }
+@media (max-width: 640px) { .consultation-clinical-title > button { margin-left: 0; } }

@@ -3,6 +3,7 @@ import {
   buildConsultationSupportContext,
   buildPesClinicalContext,
   clinicalEvidenceValid,
+  clinicalAdapter,
 } from "../../../../supabase/functions/ai/clinical.ts";
 import { withConfirmedRecall } from "../../../../supabase/functions/ai/recall-context.ts";
 
@@ -37,6 +38,32 @@ describe("consultation objective AI context", () => {
       objectives: [{ text: "Elegir un horario para organizar la comida.", evidenceFactIds: [] }],
     }, context)).toBe(false);
   });
+});
+
+it('uses dated interview history for objectives only when the current interview is absent', () => {
+  const historical = { source: 'Antecedente de entrevista · 2026-09-01 · expectations · Expectativas', finding: 'Quiere organizar horarios' };
+  const measurement = { source: 'Antropometría · Peso', finding: '85 kg · medición 2026-10-12' };
+  const fallback = buildConsultationSupportContext({ stamp: 's', facts: [historical, measurement] });
+  expect(fallback.interviewOrigin).toBe('historical');
+  expect(fallback.facts.some(fact => fact.source === historical.source)).toBe(true);
+  const current = { source: 'Entrevista · changes since last · Cambios', finding: 'Ya organiza horarios; ahora quiere preparar colaciones' };
+  const context = buildConsultationSupportContext({ stamp: 's', facts: [historical, current] });
+  expect(context.interviewOrigin).toBe('current');
+  expect(context.facts.map(fact => fact.source)).toEqual([current.source]);
+  expect(buildPesClinicalContext({ stamp: 's', facts: [historical, measurement] }).facts[0]).toEqual(measurement);
+  expect(buildConsultationSupportContext({ stamp: 's', facts: [historical] }, true).facts).toEqual([]);
+  expect(clinicalAdapter('consultation_support', 'consultation_support@3')!.instructions).toContain('vigencia debe confirmarse');
+  expect(clinicalAdapter('pes_diagnosis', 'pes_diagnosis@4')!.instructions).toContain('conserva como prioritarias las mediciones');
+});
+
+it('does not count a recall or a previously drafted objective as a completed current interview', () => {
+  const facts = [
+    { source: 'Entrevista · recall 24h v2 · Registro', finding: '[{"food":"Huevo"}]' },
+    { source: 'Entrevista · treatment objective · Objetivo', finding: 'Texto pendiente de revisar' },
+    { source: 'Antecedente de entrevista · 2026-09-01 · main reason · Motivo', finding: 'Organizar comidas' },
+  ];
+  expect(buildConsultationSupportContext({ stamp: 's', facts }).interviewOrigin).toBe('historical');
+  expect(buildConsultationSupportContext({ stamp: 's', facts }).facts.some(fact => fact.source.startsWith('Antecedente'))).toBe(true);
 });
 
 it("uses confirmed catalog nutrients in PES/objective/instruction context and redacts identifiers", () => {

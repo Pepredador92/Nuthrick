@@ -13,6 +13,7 @@ export function ClinicalObjective({
   before,
   patientId,
   onApplySuggestion,
+  active,
 }: {
   consultationId: string;
   revision: number;
@@ -21,6 +22,7 @@ export function ClinicalObjective({
   before: () => Promise<boolean>;
   patientId?: string;
   onApplySuggestion?: (text: string) => void;
+  active?: boolean;
 }) {
   const [workspace, setWorkspace] = useState<ObjectiveWorkspace | null>(null);
   const [message, setMessage] = useState("");
@@ -37,7 +39,7 @@ export function ClinicalObjective({
     return () => {
       alive = false;
     };
-  }, [consultationId, revision]);
+  }, [consultationId, revision, active]);
   const approved =
     !!workspace?.objective &&
     workspace.objective.question_key === questionKey &&
