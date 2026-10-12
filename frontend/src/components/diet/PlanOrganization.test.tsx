@@ -122,10 +122,12 @@ describe("plan organization", () => {
     fireEvent.click(screen.getByLabelText("Acciones de Publicado"));
     fireEvent.click(screen.getByRole("button", { name: "Eliminar plan publicado" }));
     expect(api.removePublished).not.toHaveBeenCalled();
-    expect(screen.getByRole("dialog")).toHaveTextContent("Se retirará de inmediato si estaba compartido");
+    expect(screen.getByRole("dialog")).toHaveTextContent("todas sus versiones dejarán de mostrarse en el Taller y en el historial de planes del paciente");
+    expect(screen.getByRole("dialog")).toHaveTextContent("Se retirará de inmediato del Super Link si estaba compartido");
     fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
     await waitFor(() => expect(api.removePublished).toHaveBeenCalledWith("Publicado", 3));
     expect(screen.queryByRole("link", { name: "Publicado" })).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Plan eliminado del Taller, del historial de planes del paciente y del Super Link");
   });
   it("can remove a plan whose latest publication was retired without offering it to share", async () => {
     mount([plan("Retirado", { patient_id: "patient", has_published_versions: true, published_version_number: 2 })]);

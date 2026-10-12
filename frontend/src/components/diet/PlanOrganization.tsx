@@ -79,7 +79,7 @@ export function PlanOrganization({
       } else if (action.kind === "removePublished") {
         await removePublishedDietPlan(action.plan.id, action.plan.draft_revision ?? 1);
         onChange(plans.filter((p) => p.id !== action.plan.id));
-        setNotice("Plan retirado del Taller y del Super Link. Las versiones publicadas se conservan en el historial clínico.");
+        setNotice("Plan eliminado del Taller, del historial de planes del paciente y del Super Link. El registro clínico se conserva para auditoría.");
       } else {
         const updated = await updateDietPlan(
           action.plan.id,
@@ -258,7 +258,7 @@ export function PlanOrganization({
           </>
         ) : action?.kind === "removePublished" ? (
           <p className="mt-3 text-sm leading-6 text-[#607269]">
-            El plan dejará de mostrarse en el Taller y en el Super Link del paciente. Se retirará de inmediato si estaba compartido. Sus versiones publicadas permanecerán en el historial clínico.
+            El plan y todas sus versiones dejarán de mostrarse en el Taller y en el historial de planes del paciente. Se retirará de inmediato del Super Link si estaba compartido. El registro clínico se conserva para auditoría.
           </p>
         ) : (
           <label className="mt-4 block text-sm">

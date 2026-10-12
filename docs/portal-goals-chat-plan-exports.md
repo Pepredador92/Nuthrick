@@ -12,7 +12,7 @@
 6. Enter envía en los dos roles, con `trim`, bloqueo inmediato de envíos simultáneos e idempotencia existente.
 7. Shift+Enter conserva el salto de línea. Composición IME y pulsaciones repetidas no disparan envíos accidentales.
 8. El botón **Enviar mensaje** sigue disponible; no se agregó texto de ayuda que sature el chat.
-9. Historial → **Planes** muestra versiones publicadas separadas. **Todo** combina consultas finalizadas y publicaciones cronológicamente. **Ver** es de solo lectura.
+9. Historial → **Planes** muestra versiones publicadas separadas. **Todo** combina consultas finalizadas y publicaciones cronológicamente. **Ver** es de solo lectura. Eliminar un plan publicado desde el Taller retira todas sus versiones del historial y del Super Link; retirar una versión desde el historial conserva las demás. Los registros internos permanecen para auditoría. Archivar sin eliminar conserva el historial.
 10. El profesional utiliza **Exportar ▾ → PDF** sobre una versión específica.
 11. **Exportar ▾ → LaTeX (.tex)** descarga UTF-8 compilable con LuaLaTeX, sin `shell-escape` y con logotipo incrustado cuando está disponible.
 12. El paciente ve únicamente **Descargar PDF** en **Mi plan**, para el plan expresamente compartido y su versión publicada actual.
