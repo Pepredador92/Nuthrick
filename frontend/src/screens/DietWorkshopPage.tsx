@@ -687,7 +687,7 @@ export function DietWorkshopPage() {
   if (!dietPlanId && requestedPatientId && patient) {
     return <SourcePicker patient={patient} consultations={consultations} selectedId={selectedConsultationId} busy={busy} error={error} onSelect={setSelectedConsultationId} onCreate={(consultationId) => void create(patient.id, consultationId)} />;
   }
-  if (!dietPlanId && !requestedPatientId) return <div className="space-y-5"><WorkshopLanding busy={busy} onCreate={() => void create(null, null)} /><PlanOrganization plans={plans} onChange={setPlans} onCreate={() => void create(null, null)}/><div id="diet-library"><DietLibrary onEdit={editLibraryInWorkshop}/></div></div>;
+  if (!dietPlanId && !requestedPatientId) return <div className="mx-auto w-full max-w-6xl space-y-5"><WorkshopLanding busy={busy} onCreate={() => void create(null, null)} /><PlanOrganization plans={plans} onChange={setPlans} onCreate={() => void create(null, null)}/><div id="diet-library"><DietLibrary onEdit={editLibraryInWorkshop}/></div></div>;
   if (!plan) return <ErrorState message={error || "No pudimos abrir este plan."} onRetry={() => void load()} />;
 
   const cardLayout = activeStep === "energy" || activeStep === "macros" || activeStep === "equivalents" || activeStep === "meals" || (activeStep === "menu" && !plan.text_diet) || (activeStep === "review" && !plan.text_diet);
