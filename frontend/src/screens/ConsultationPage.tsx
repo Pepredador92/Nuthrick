@@ -683,10 +683,10 @@ export function ConsultationPage() {
         )}
         <div className="mt-5 flex justify-end">
           <Link
-            to="/app/consultation-templates/initial"
+            to="/app/settings"
             className="text-sm font-semibold text-[#3d705d] underline"
           >
-            Diseño de consulta
+            Configurar diseños
           </Link>
         </div>
         <div className="mt-6 grid gap-6 md:grid-cols-2">
@@ -781,7 +781,7 @@ export function ConsultationPage() {
               }
             >
               <SlidersHorizontal size={15} />
-              Personalizar consulta
+              Configurar diseño de entrevista
             </Link>
             <button
               type="button"

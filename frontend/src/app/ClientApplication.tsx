@@ -27,6 +27,7 @@ import { PatientsPage } from "@/src/screens/PatientsPage";
 import { PatientDetailPage } from "@/src/screens/PatientDetailPage";
 import { ConsultationPage } from "@/src/screens/ConsultationPage";
 import { ConsultationTemplateEditorPage } from "@/src/screens/ConsultationTemplateEditorPage";
+import { SettingsPage } from "@/src/screens/SettingsPage";
 import { DietWorkshopPage } from "@/src/screens/DietWorkshopPage";
 import { AgendaPage } from "@/src/screens/AgendaPage";
 import { PublicBookingPage } from "@/src/screens/PublicBookingPage";
@@ -135,6 +136,7 @@ export function ClientApplication() {
               <Route element={<ProfessionalAccessGate />}>
               <Route index element={<DashboardPage />} />
               <Route path="profile" element={<ProfilePage />} />
+              <Route path="settings" element={<SettingsPage />} />
               <Route path="agenda" element={<AgendaPage />} />
               <Route path="messages" element={<PatientMessagesPage />} />
               <Route path="patients" element={<PatientsPage />} />

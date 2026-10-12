@@ -1,5 +1,5 @@
-import { CreditCard, CalendarDays, ChevronDown, CircleHelp, ClipboardList, LayoutDashboard, LogOut, Menu, MessageCircle, PanelLeftClose, Salad, ShieldCheck, UserRound, UsersRound, X } from 'lucide-react';
-import { useState } from 'react';
+import { CreditCard, CalendarDays, ChevronDown, CircleHelp, LayoutDashboard, LogOut, Menu, MessageCircle, PanelLeftClose, Salad, Settings, ShieldCheck, UserRound, UsersRound, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Logo } from '@/src/components/ui/Logo';
 import { useAuth } from '@/src/features/auth/AuthProvider';
@@ -21,7 +21,6 @@ const nav = [
   { label: 'Perfil', href: '/app/profile', icon: UserRound },
   { label: 'Pacientes', href: '/app/patients', icon: UsersRound },
   { label: 'Taller de dietas', href: '/app/diet-workshop', icon: Salad },
-  { label: 'Diseño de consulta', href: '/app/consultation-templates/initial', icon: ClipboardList },
   { label: 'Agenda', href: '/app/agenda', icon: CalendarDays },
   { label: 'Mensajes', href: '/app/messages', icon: MessageCircle },
   { label: 'Créditos IA', href: '/app/credits', icon: CreditCard },
@@ -35,6 +34,26 @@ export function PrivateLayout() {
   const { data: accessData } = useAccess();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
+  const accountButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!accountOpen) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !accountRef.current?.contains(event.target)) setAccountOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setAccountOpen(false);
+        accountButtonRef.current?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [accountOpen]);
   const logout = async () => { await signOut(); navigate('/'); };
   const initials = (profile?.full_name || user?.email || 'N').split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 
@@ -46,7 +65,7 @@ export function PrivateLayout() {
     <div className="professional-shell min-h-screen bg-[#f6f7f3] text-[#17312c]">
       <aside className="professional-sidebar fixed inset-y-0 left-0 z-30 hidden w-[250px] flex-col border-r border-[#e1e7e2] bg-white lg:flex">{sidebar}</aside>
       {mobileOpen && <div className="fixed inset-0 z-40 lg:hidden"><button type="button" className="absolute inset-0 bg-[#102d27]/45" aria-label="Cerrar menú" onClick={() => setMobileOpen(false)} /><aside className="professional-sidebar relative flex h-full w-[280px] flex-col bg-white shadow-2xl">{sidebar}</aside></div>}
-      <div className="lg:pl-[250px]"><header className="professional-header sticky top-0 z-20 flex h-20 items-center justify-between border-b border-[#e1e7e2] bg-[#f6f7f3]/90 px-5 backdrop-blur sm:px-8"><button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-[#dce3de] bg-white lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Abrir menú"><Menu size={19} /></button><div className="hidden items-center gap-2 text-sm text-[#7a8782] lg:flex"><PanelLeftClose size={18} /><span>Espacio profesional</span></div><div className="flex items-center gap-2"><ThemeSwitcher compact /><NotificationCenter /><div className="relative"><button type="button" className="flex items-center gap-3 rounded-2xl border border-[#dce3de] bg-white p-1.5 pr-3 text-left shadow-sm" onClick={() => setAccountOpen((value) => !value)} aria-expanded={accountOpen}><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e4b374] text-xs font-bold">{initials}</span><span className="hidden sm:block"><span className="block max-w-40 truncate text-xs font-semibold">{profile?.full_name || 'Mi cuenta'}</span><span className="block max-w-40 truncate text-[10px] text-[#87938e]">{user?.email}</span></span><ChevronDown size={15} className="text-[#84908b]" /></button>{accountOpen && <div className="absolute right-0 top-14 w-56 rounded-2xl border border-[#dfe5e1] bg-white p-2 shadow-xl"><Link to="/app/profile" onClick={() => setAccountOpen(false)} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm hover:bg-[#f3f5f2]"><UserRound size={16} />Editar perfil</Link><Link to="/app/my-plan" onClick={() => setAccountOpen(false)} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm hover:bg-[#f3f5f2]"><CreditCard size={16} />Mi plan</Link><button type="button" onClick={() => { setAccountOpen(false); openBeginnerOnboarding(); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm hover:bg-[#f3f5f2]"><CircleHelp size={16} />Guía para principiantes</button><button type="button" onClick={() => { setAccountOpen(false); openAIProcessingConsent(); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm hover:bg-[#f3f5f2]"><ShieldCheck size={16} />Privacidad de IA</button><button type="button" onClick={logout} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-[#963f34] hover:bg-[#fff1ed]"><LogOut size={16} />Cerrar sesión</button></div>}</div></div></header><main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">{accessData?.access.status === 'grace' && <p role="status" className="mb-5 rounded-xl border border-[#ddc99e] bg-[#fff7e5] p-4 text-sm">Tu renovación está pendiente. Puedes continuar trabajando durante el período de gracia. <Link className="font-semibold underline" to="/app/my-plan">Revisar mi pago</Link></p>}<Outlet /></main></div>
+      <div className="lg:pl-[250px]"><header className="professional-header sticky top-0 z-20 flex h-20 items-center justify-between border-b border-[#e1e7e2] bg-[#f6f7f3]/90 px-5 backdrop-blur sm:px-8"><button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-[#dce3de] bg-white lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Abrir menú"><Menu size={19} /></button><div className="hidden items-center gap-2 text-sm text-[#7a8782] lg:flex"><PanelLeftClose size={18} /><span>Espacio profesional</span></div><div className="flex items-center gap-2"><ThemeSwitcher compact /><NotificationCenter /><div className="relative" ref={accountRef}><button ref={accountButtonRef} aria-label="Menú de cuenta" aria-controls="account-menu" type="button" className="flex items-center gap-3 rounded-2xl border border-[#dce3de] bg-white p-1.5 pr-3 text-left shadow-sm" onClick={() => setAccountOpen((value) => !value)} aria-expanded={accountOpen}><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e4b374] text-xs font-bold">{initials}</span><span className="hidden sm:block"><span className="block max-w-40 truncate text-xs font-semibold">{profile?.full_name || 'Mi cuenta'}</span><span className="block max-w-40 truncate text-[10px] text-[#87938e]">{user?.email}</span></span><ChevronDown size={15} className="text-[#84908b]" /></button>{accountOpen && <div id="account-menu" className="absolute right-0 top-14 w-56 rounded-2xl border border-[#dfe5e1] bg-white p-2 shadow-xl"><Link to="/app/profile" onClick={() => setAccountOpen(false)} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm hover:bg-[#f3f5f2]"><UserRound size={16} />Editar perfil</Link><Link to="/app/settings" onClick={() => setAccountOpen(false)} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm hover:bg-[#f3f5f2]"><Settings size={16} />Configuración</Link><Link to="/app/my-plan" onClick={() => setAccountOpen(false)} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm hover:bg-[#f3f5f2]"><CreditCard size={16} />Mi plan</Link><button type="button" onClick={() => { setAccountOpen(false); openBeginnerOnboarding(); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm hover:bg-[#f3f5f2]"><CircleHelp size={16} />Guía para principiantes</button><button type="button" onClick={() => { setAccountOpen(false); openAIProcessingConsent(); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm hover:bg-[#f3f5f2]"><ShieldCheck size={16} />Privacidad de IA</button><button type="button" onClick={logout} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-[#963f34] hover:bg-[#fff1ed]"><LogOut size={16} />Cerrar sesión</button></div>}</div></div></header><main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">{accessData?.access.status === 'grace' && <p role="status" className="mb-5 rounded-xl border border-[#ddc99e] bg-[#fff7e5] p-4 text-sm">Tu renovación está pendiente. Puedes continuar trabajando durante el período de gracia. <Link className="font-semibold underline" to="/app/my-plan">Revisar mi pago</Link></p>}<Outlet /></main></div>
     </div>
     <BeginnerOnboarding includeAI={[
       accessData?.access.values['ai.recall_24h'],

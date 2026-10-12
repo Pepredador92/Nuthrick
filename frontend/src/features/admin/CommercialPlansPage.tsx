@@ -103,7 +103,7 @@ export function CommercialPlansPage() {
                 </li>
                 {[
                   ["consultations", "Consultas"],
-                  ["consultation_design", "Diseño de consulta"],
+                  ["consultation_design", "Diseños de entrevista"],
                   ["diet_workshop", "Taller manual"],
                   ["public_profile", "Perfil público"],
                   ["patient_superlink", "Superlink con chat"],

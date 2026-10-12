@@ -1,0 +1,24 @@
+.settings-workspace { max-width: 980px; margin-inline: auto; padding-bottom: 32px; color: var(--nuth-ink); }
+.settings-back { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--nuth-muted); }
+.settings-heading { display: flex; align-items: flex-start; gap: 16px; margin-block: 28px; }
+.settings-icon, .settings-design-icon { display: grid; place-items: center; flex-shrink: 0; width: 48px; height: 48px; border-radius: 15px; background: var(--nuth-surface-soft); color: var(--nuth-action); }
+.settings-heading h1 { margin-top: 6px; font-size: clamp(26px, 3vw, 34px); font-weight: 650; line-height: 1.2; }
+.settings-heading p:last-child { margin-top: 10px; color: var(--nuth-muted); font-size: 14px; line-height: 1.6; }
+.settings-card, .settings-next { border: 1px solid var(--nuth-line); border-radius: 24px; background: var(--nuth-surface); box-shadow: 0 18px 40px -30px #173d3659; padding: clamp(20px, 3vw, 28px); }
+.settings-card { border-top: 3px solid var(--nuth-accent); }
+.settings-card h2 { margin-top: 8px; font-size: 23px; font-weight: 650; line-height: 1.3; }
+.settings-card header > p:last-child, .settings-next p:last-child { margin-top: 9px; font-size: 14px; line-height: 1.7; color: var(--nuth-muted); max-width: 65ch; }
+.settings-purpose { margin-top: 20px; padding: 14px 16px; border-radius: 14px; background: var(--nuth-surface-soft); font-size: 14px; line-height: 1.7; }
+.settings-designs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 22px; }
+.settings-design { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; padding: 22px; border: 1px solid var(--nuth-line); border-radius: 18px; background: var(--nuth-surface-soft); transition: border-color .18s ease, box-shadow .18s ease; }
+.settings-design:hover { border-color: var(--nuth-accent); box-shadow: 0 12px 28px -22px #173d3680; }
+.settings-design-initial .settings-design-icon { background: #dceeed; color: #285b62; }
+.settings-design-followup .settings-design-icon { background: #eee5f5; color: #664d81; }
+.settings-design h3 { margin-top: 16px; font-weight: 650; font-size: 17px; }
+.settings-design p { margin-block: 9px 22px; font-size: 14px; line-height: 1.6; color: var(--nuth-muted); max-width: 35ch; }
+.settings-design-action { display: inline-flex; align-items: center; gap: 8px; margin-top: auto; font-size: 14px; font-weight: 650; }
+.settings-hint { margin-top: 20px; font-size: 13px; line-height: 1.7; color: var(--nuth-muted); max-width: 80ch; }
+.settings-next { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 20px; }
+.settings-next h2 { margin-top: 8px; font-size: 17px; line-height: 1.5; font-weight: 650; }
+.settings-next .nuth-button { flex-shrink: 0; }
+@media (max-width: 640px) { .settings-designs { grid-template-columns: 1fr; } .settings-next { flex-direction: column; align-items: flex-start; } }

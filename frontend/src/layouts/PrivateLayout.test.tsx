@@ -1,0 +1,74 @@
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PrivateLayout } from './PrivateLayout';
+import { SettingsPage } from '@/src/screens/SettingsPage';
+
+const access = vi.hoisted(() => ({
+  allowed: true,
+  read_only: false,
+  status: 'active',
+  values: { consultation_design: true, patients: true } as Record<string, boolean>,
+}));
+vi.mock('@/src/features/auth/AuthProvider', () => ({
+  useAuth: () => ({ profile: { full_name: 'Nutriólogo de prueba' }, user: { id: 'owner', email: 'test@example.com' }, signOut: vi.fn() }),
+}));
+vi.mock('@/src/features/admin/AccessProvider', async (original) => ({
+  ...(await original<object>()),
+  useAccess: () => ({ data: { access, is_admin: false } }),
+}));
+vi.mock('@/src/features/presence/useProfessionalPresence', () => ({ useProfessionalPresence: vi.fn() }));
+vi.mock('@/src/components/ai/AIControls', () => ({ AIUsageIndicator: () => null }));
+vi.mock('@/src/components/notifications/NotificationCenter', () => ({ NotificationCenter: () => null }));
+vi.mock('@/src/components/notifications/EntryDigest', () => ({ EntryDigest: () => null }));
+vi.mock('@/src/features/notifications/useNotifications', () => ({ NotificationsProvider: ({ children }: { children: React.ReactNode }) => children }));
+vi.mock('@/src/features/support/SupportProvider', () => ({ SupportProvider: ({ children }: { children: React.ReactNode }) => children }));
+vi.mock('@/src/features/support/SupportWidget', () => ({ SupportWidget: () => null }));
+vi.mock('@/src/features/ai/AIProcessingConsent', () => ({ AIProcessingConsent: () => null, openAIProcessingConsent: vi.fn() }));
+vi.mock('@/src/features/onboarding/BeginnerOnboarding', () => ({ BeginnerOnboarding: () => null, openBeginnerOnboarding: vi.fn() }));
+
+function mount() {
+  render(<MemoryRouter initialEntries={['/app']}><Routes>
+    <Route path="/app" element={<PrivateLayout />}>
+      <Route index element={<h1>Inicio</h1>} />
+      <Route path="settings" element={<SettingsPage />} />
+      <Route path="consultation-templates/:consultationType" element={<h1>Editor de entrevista</h1>} />
+    </Route>
+  </Routes></MemoryRouter>);
+}
+
+beforeEach(() => { access.values.consultation_design = true; });
+
+describe('acceso a configuración de entrevistas', () => {
+  it('moves interview design out of the sidebar and opens it through account settings', () => {
+    mount();
+    const sidebar = within(screen.getByRole('navigation', { name: 'Aplicación' }));
+    expect(sidebar.queryByRole('link', { name: /Diseño|Configuración/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Menú de cuenta' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Configuración' }));
+    expect(screen.getByRole('heading', { name: 'Configuración' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Menú de cuenta' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('link', { name: /Entrevista de seguimiento/ })).toHaveAttribute('href', '/app/consultation-templates/follow_up');
+    fireEvent.click(screen.getByRole('link', { name: /Entrevista inicial/ }));
+    expect(screen.getByRole('heading', { name: 'Editor de entrevista' })).toBeInTheDocument();
+  });
+
+  it('keeps design links unavailable when the subscription lacks the feature', () => {
+    access.values.consultation_design = false;
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Menú de cuenta' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Configuración' }));
+    expect(screen.queryByRole('link', { name: /Entrevista inicial/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Revisar mi plan' })).toHaveAttribute('href', '/app/my-plan');
+    expect(screen.getByRole('link', { name: 'Ir a Pacientes' })).toHaveAttribute('href', '/app/patients');
+  });
+
+  it('closes the account dropdown on Escape and restores focus', () => {
+    mount();
+    const button = screen.getByRole('button', { name: 'Menú de cuenta' });
+    fireEvent.click(button);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('link', { name: 'Configuración' })).not.toBeInTheDocument();
+    expect(button).toHaveFocus();
+  });
+});

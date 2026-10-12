@@ -3,6 +3,12 @@
   margin-inline: auto;
 }
 
+.consultation-design-workspace .design-purpose {
+  background: var(--nuth-surface-soft);
+  border-color: var(--nuth-line);
+  color: var(--nuth-ink);
+}
+
 .consultation-design-workspace .design-hero {
   background: radial-gradient(circle at 90% 10%, #2d5e5d 0, transparent 34%),
     linear-gradient(125deg, #193a3d, #17283f);

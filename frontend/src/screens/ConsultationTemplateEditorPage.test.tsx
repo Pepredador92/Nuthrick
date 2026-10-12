@@ -143,25 +143,28 @@ describe("catálogo profesional de plantillas", () => {
   it("guides the editor through sections and back to the complete design", async () => {
     mount();
     fireEvent.click(
-      await screen.findByRole("button", { name: "Personalizar consulta" }),
+      await screen.findByRole("button", { name: "Personalizar diseño" }),
     );
     expect(screen.getByText("Sección 1 de 2")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Siguiente sección" }));
     expect(screen.getByText("Sección 2 de 2")).toBeInTheDocument();
     expect(screen.getByLabelText("Título de sección")).toHaveValue("Cierre");
     fireEvent.click(screen.getByRole("button", { name: "Ver diseño completo" }));
-    expect(screen.getByRole("region", { name: "Tu consulta" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Tu diseño de entrevista" })).toBeInTheDocument();
   });
   it("starts with the real section flow and opens the same question component in preview", async () => {
     mount();
     expect(
-      await screen.findByRole("heading", { name: "Diseño de consulta" }),
+      await screen.findByRole("heading", { name: "Diseños de entrevista" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Configuración" })).toHaveAttribute("href", "/app/settings");
+    expect(screen.getByRole("complementary", { name: "Dónde registrar los datos del paciente" })).toHaveTextContent("Nueva consulta");
     expect(
-      screen.getByRole("region", { name: "Tu consulta" }),
+      screen.getByRole("region", { name: "Tu diseño de entrevista" }),
     ).toHaveTextContent("2 secciones · 1 preguntas");
     expect(screen.queryByLabelText("Nombre")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Vista previa" }));
+    expect(screen.getByText(/Vista previa del diseño: utiliza respuestas de ejemplo/)).toBeInTheDocument();
     fireEvent.change(
       screen.getByLabelText("¿Cuántos días entrenas por semana?"),
       { target: { value: "3" } },
@@ -171,7 +174,7 @@ describe("catálogo profesional de plantillas", () => {
       screen.getByRole("button", { name: "Volver al diseño completo" }),
     );
     expect(
-      screen.getByRole("region", { name: "Tu consulta" }),
+      screen.getByRole("region", { name: "Tu diseño de entrevista" }),
     ).toBeInTheDocument();
   });
   it.each(["objectives", "treatment_objective", "next_objectives"])("protects %s and its containing section", async (objectiveKey) => {
@@ -189,7 +192,7 @@ describe("catálogo profesional de plantillas", () => {
     api.list.mockResolvedValue([data]);
     mount();
     fireEvent.click(
-      await screen.findByRole("button", { name: "Personalizar consulta" }),
+      await screen.findByRole("button", { name: "Personalizar diseño" }),
     );
     fireEvent.click(screen.getByText("1. Objetivos acordados"));
     expect(screen.getByLabelText("Sección activa")).toBeDisabled();
@@ -213,7 +216,7 @@ describe("catálogo profesional de plantillas", () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
     mount();
     fireEvent.click(
-      await screen.findByRole("button", { name: "Personalizar consulta" }),
+      await screen.findByRole("button", { name: "Personalizar diseño" }),
     );
     fireEvent.click(
       screen.getByRole("button", { name: "Restaurar diseño recomendado" }),
@@ -230,7 +233,7 @@ describe("catálogo profesional de plantillas", () => {
   it("edits metadata and ordered content, then saves the personal template", async () => {
     mount();
     fireEvent.click(
-      await screen.findByRole("button", { name: "Personalizar consulta" }),
+      await screen.findByRole("button", { name: "Personalizar diseño" }),
     );
     fireEvent.click(screen.getByText(/Otros diseños y variantes/));
     await screen.findByRole("heading", { name: "Diseños disponibles" });
@@ -269,7 +272,7 @@ describe("catálogo profesional de plantillas", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     mount();
     fireEvent.click(
-      await screen.findByRole("button", { name: "Personalizar consulta" }),
+      await screen.findByRole("button", { name: "Personalizar diseño" }),
     );
     fireEvent.click(screen.getByText(/Otros diseños y variantes/));
     await screen.findByRole("button", { name: "Hacer predeterminado" });
@@ -282,7 +285,7 @@ describe("catálogo profesional de plantillas", () => {
     );
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Personalizar consulta" }),
+      await screen.findByRole("button", { name: "Personalizar diseño" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Duplicar diseño" }));
     await waitFor(() => expect(api.copy).toHaveBeenCalled());
@@ -293,7 +296,7 @@ describe("catálogo profesional de plantillas", () => {
     );
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Personalizar consulta" }),
+      await screen.findByRole("button", { name: "Personalizar diseño" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
     await waitFor(() =>
@@ -305,7 +308,7 @@ describe("catálogo profesional de plantillas", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     mount();
     fireEvent.click(
-      await screen.findByRole("button", { name: "Personalizar consulta" }),
+      await screen.findByRole("button", { name: "Personalizar diseño" }),
     );
     fireEvent.click(screen.getByText(/Otros diseños y variantes/));
     await screen.findByRole("button", { name: "Quitar pregunta 1" });

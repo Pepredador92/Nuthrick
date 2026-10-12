@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowDown,
+  ArrowLeft,
   ArrowUp,
   Archive,
   Copy,
@@ -500,13 +501,14 @@ export function ConsultationTemplateEditorPage() {
   }
   return (
     <div className="consultation-design-workspace w-full min-w-0 pb-24 [overflow-wrap:anywhere]">
+      <Link to="/app/settings" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-[#3d705d]"><ArrowLeft size={16} />Configuración</Link>
       <header className="design-hero rounded-[24px] bg-[#173d36] p-5 text-white sm:p-7">
         <p className="text-xs text-white/60">
-          Guiones y cuestionarios de consulta
+          Configuración · Guiones y cuestionarios
         </p>
-        <h1 className="mt-2 text-3xl font-semibold">Diseño de consulta</h1>
+        <h1 className="mt-2 text-3xl font-semibold">Diseños de entrevista</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70">
-          Organiza tu consulta a tu manera.
+          Elige un diseño, personaliza sus preguntas y úsalo al iniciar una nueva consulta.
         </p>
         <nav aria-label="Tipo de diseño" className="mt-5 flex flex-wrap gap-2">
           {(["initial", "follow_up"] as const).map((item) => (
@@ -525,14 +527,17 @@ export function ConsultationTemplateEditorPage() {
           ))}
         </nav>
       </header>
+      <aside className="design-purpose mt-4 rounded-2xl border border-[#dfe5e1] p-4 text-sm leading-6" aria-label="Dónde registrar los datos del paciente">
+        <strong>Aquí configuras las preguntas de la entrevista.</strong> Para registrar las respuestas de un paciente, ve a <Link to="/app/patients" className="font-semibold underline">Pacientes</Link>, abre su ficha y selecciona <strong>Nueva consulta</strong>.
+      </aside>
       {overview && notice && <p role="status" className="mt-4 rounded-xl bg-[#edf5ef] p-4 text-sm text-[#315e4f]">{notice}</p>}
       {overview && error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] p-4 text-sm text-[#963f32]">{error}</p>}
       {overview && (
         <section
           className="design-overview-card mt-5 rounded-2xl border border-[#dfe5e1] p-5 sm:p-7"
-          aria-label="Tu consulta"
+          aria-label="Tu diseño de entrevista"
         >
-          <p className="nuth-eyebrow">Tu consulta</p>
+          <p className="nuth-eyebrow">Tu diseño de entrevista</p>
           <h2 className="mt-2 text-2xl font-semibold">
             {loaded.template.name}
           </h2>
@@ -566,7 +571,7 @@ export function ConsultationTemplateEditorPage() {
                 }
               }}
             >
-              Personalizar consulta
+              Personalizar diseño
             </button>
             <button
               className="nuth-button-secondary"
@@ -710,7 +715,7 @@ export function ConsultationTemplateEditorPage() {
                   onClick={() => void copy(loaded)}
                 >
                   <Copy size={16} />
-                  Personalizar consulta
+                  Personalizar diseño
                 </button>
               ) : (
                 <>
@@ -802,7 +807,7 @@ export function ConsultationTemplateEditorPage() {
             )}
           <p className="mt-3 text-xs leading-5 text-[#74817d]">
             {preview
-              ? "Vista de prueba: estas respuestas no se guardan en ningún expediente."
+              ? "Vista previa del diseño: utiliza respuestas de ejemplo. No se guardan en ningún expediente; la entrevista real se completa desde la ficha del paciente."
               : "Los cambios se guardan juntos. Las preguntas desactivadas se conservan y pueden reactivarse."}
           </p>
           {notice && (
