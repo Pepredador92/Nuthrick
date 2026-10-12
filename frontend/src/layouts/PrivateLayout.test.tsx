@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PrivateLayout } from './PrivateLayout';
 import { SettingsPage } from '@/src/screens/SettingsPage';
+import { openAIProcessingConsent } from '@/src/features/ai/AIProcessingConsent';
 
 const access = vi.hoisted(() => ({
   allowed: true,
@@ -48,6 +49,12 @@ describe('acceso a configuración de entrevistas', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Configuración' }));
     expect(screen.getByRole('heading', { name: 'Configuración' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Menú de cuenta' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('link', { name: /Abrir perfil/ })).toHaveAttribute('href', '/app/profile');
+    expect(screen.getByRole('link', { name: /Cambiar plan/ })).toHaveAttribute('href', '/app/my-plan#plan-actions');
+    expect(screen.getByRole('link', { name: /Cancelar suscripción/ })).toHaveAttribute('href', '/app/my-plan#plan-actions');
+    expect(screen.getAllByRole('group', { name: 'Apariencia de Nuthrick' })).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: /Administrar consentimiento/ }));
+    expect(openAIProcessingConsent).toHaveBeenCalledOnce();
     expect(screen.getByRole('link', { name: /Entrevista de seguimiento/ })).toHaveAttribute('href', '/app/consultation-templates/follow_up');
     fireEvent.click(screen.getByRole('link', { name: /Entrevista inicial/ }));
     expect(screen.getByRole('heading', { name: 'Editor de entrevista' })).toBeInTheDocument();

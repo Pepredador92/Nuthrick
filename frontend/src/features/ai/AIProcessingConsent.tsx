@@ -76,7 +76,7 @@ export function AIProcessingConsent() {
         <div className="mt-4 space-y-3 text-sm leading-6 text-[#53665d]">
           <p>Nuthrick utiliza OpenAI para asistir con el Recordatorio de 24 horas, diagnóstico PES y borradores del Taller de dietas, según las funciones incluidas en tu plan. Cuando solicites una de estas funciones, se enviará a OpenAI el contexto clínico mínimo preparado para esa solicitud. La información no se considera anónima de forma garantizada.</p>
           <p>Las solicitudes de Nuthrick usan <code>store: false</code>, que evita guardar el estado de respuesta en la API. OpenAI puede conservar registros de control de abuso hasta por 30 días, con excepciones previstas en su documentación. Consulta los <a className="font-semibold underline" href="https://developers.openai.com/api/docs/guides/your-data" target="_blank" rel="noreferrer">controles de datos de OpenAI</a>.</p>
-          <p>La IA ofrece apoyo y puede equivocarse. Revisa cada resultado con tu criterio profesional antes de incorporarlo al expediente o compartirlo. Puedes retirar este consentimiento desde el menú de tu cuenta; al retirarlo se bloquean nuevas solicitudes.</p>
+          <p>La IA ofrece apoyo y puede equivocarse. Revisa cada resultado con tu criterio profesional antes de incorporarlo al expediente o compartirlo. Puedes retirar este consentimiento desde Configuración; al retirarlo se bloquean nuevas solicitudes.</p>
         </div>
         {status.accepted ? (
           <div className="mt-6 rounded-2xl bg-[#f4f6f2] p-4 text-sm text-[#53665d]">
