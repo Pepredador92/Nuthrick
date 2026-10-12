@@ -321,16 +321,15 @@ describe("consultation save and review workflow", () => {
     mocks.getSnapshot.mockResolvedValue(null);
     mount("/app/patients/patient/consultations/new");
     await screen.findByRole("heading", {
-      name: "Elige el diseño para esta consulta",
+      name: "¿Qué tipo de consulta vas a iniciar?",
     });
     expect(screen.getByText("Tienes un borrador abierto")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Entrevista/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /^Seguimiento/ })).toBeEnabled();
-    expect(
-      screen.getByRole("button", { name: /Consulta inicial deportiva/ }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Consulta inicial/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Consulta de seguimiento/ })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Cancelar borrador" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /^Seguimiento/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Consulta de seguimiento/ }));
+    expect(await screen.findByRole("dialog", { name: "Elige un diseño de seguimiento" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Seguimiento.*Duración aproximada/ }));
     expect(
       await screen.findByRole("heading", { name: "Apertura de prueba" }),
     ).toBeInTheDocument();
@@ -340,8 +339,10 @@ describe("consultation save and review workflow", () => {
   it("resumes an existing draft without changing its consultation date", async () => {
     mount("/app/patients/patient/consultations/new");
     await screen.findByRole("heading", {
-      name: "Elige el diseño para esta consulta",
+      name: "¿Qué tipo de consulta vas a iniciar?",
     });
+    fireEvent.click(screen.getByText("Tienes un borrador abierto"));
+    expect(screen.getByRole("button", { name: "Reanudar borrador" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Reanudar borrador" }));
     expect(
       await screen.findByRole("heading", { name: "Apertura de prueba" }),
@@ -379,11 +380,12 @@ describe("consultation save and review workflow", () => {
     }));
     mount("/app/patients/patient/consultations/new");
     await screen.findByRole("heading", {
-      name: "Elige el diseño para esta consulta",
+      name: "¿Qué tipo de consulta vas a iniciar?",
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: /Consulta inicial deportiva/ }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /Consulta inicial/ }));
+    expect(await screen.findByRole("dialog", { name: "Elige un diseño de consulta inicial" })).toBeInTheDocument();
+    expect(screen.getByText("60 min")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Consulta inicial deportiva.*60 min/ }));
     expect(
       await screen.findByRole("heading", { name: "Entrenamiento" }),
     ).toBeInTheDocument();

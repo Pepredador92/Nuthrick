@@ -4,12 +4,16 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Clock3,
+  ClipboardList,
   ClipboardCheck,
   FileText,
   LoaderCircle,
+  RotateCcw,
   Save,
   Salad,
   SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
@@ -62,6 +66,7 @@ import type {
   ConsultationSnapshot,
   Patient,
 } from "@/src/types/domain";
+import "./ConsultationPage.css";
 
 type ConsultationWorkspace = {
   active: number;
@@ -113,6 +118,9 @@ export function ConsultationPage() {
   const [availableTemplates, setAvailableTemplates] = useState<
     LoadedTemplate[]
   >([]);
+  const [selectedConsultationType, setSelectedConsultationType] = useState<Consultation["consultation_type"] | null>(null);
+  const selectionDialog = useRef<HTMLDialogElement>(null);
+  const selectionOpener = useRef<HTMLButtonElement>(null);
   const [openDrafts, setOpenDrafts] = useState<Consultation[]>([]);
   const [values, setValues] = useState<Answers>({});
   const [active, setActive] = useState(0);
@@ -266,6 +274,18 @@ export function ConsultationPage() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    const dialog = selectionDialog.current;
+    if (selectedConsultationType) {
+      dialog?.showModal();
+      dialog?.querySelector<HTMLElement>("h2")?.focus();
+      return () => {
+        if (dialog?.open) dialog.close();
+      };
+    }
+    selectionOpener.current?.focus();
+  }, [selectedConsultationType]);
 
   useEffect(() => {
     if (!consultation) return;
@@ -535,60 +555,49 @@ export function ConsultationPage() {
 
   if (loading) return <LoadingState label="Preparando entrevista…" />;
   if (!consultation && patient) {
-    const initial = availableTemplates.filter(
-      (item) => item.template.consultation_type === "initial",
+    const selectedDraft = openDrafts.find(
+      (draft) => draft.consultation_type === selectedConsultationType,
     );
-    const followUp = availableTemplates.filter(
-      (item) => item.template.consultation_type === "follow_up",
+    const selectedTemplates = availableTemplates.filter(
+      (item) => item.template.consultation_type === selectedConsultationType,
     );
     const renderChoices = (items: LoadedTemplate[]) =>
       items.map((item) => {
-        const existingDraft = openDrafts.find(
-          (draft) =>
-            draft.consultation_type === item.template.consultation_type,
-        );
         return (
           <button
             type="button"
             key={item.template.id}
-            disabled={busy || Boolean(existingDraft)}
-            title={
-              existingDraft
-                ? "Ya existe un borrador de este tipo. Reanúdalo desde la lista superior."
-                : undefined
-            }
-            className="w-full rounded-2xl border border-[#dfe5e1] bg-white p-5 text-left transition hover:border-[#709883] hover:bg-[#f5faf5] disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={busy}
+            className="consultation-template-choice"
             onClick={() => void load(item)}
           >
-            <span className="block text-base font-semibold text-[#173d36]">
+            <span className="consultation-template-heading">
               {item.template.name}
             </span>
-            {existingDraft ? (
-              <span className="mt-2 block text-sm leading-6 text-[#66766f]">
-                Ya hay un borrador de este tipo. Reanúdalo desde la lista superior.
-              </span>
-            ) : item.template.description ? (
-              <span className="mt-2 block text-sm leading-6 text-[#66766f]">
+            {item.template.description ? (
+              <span className="consultation-template-description">
                 {item.template.description}
               </span>
             ) : null}
-            <span className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#74817d]">
-              {item.template.estimated_duration_minutes && (
-                <span>
-                  Duración aproximada: {item.template.estimated_duration_minutes} min
-                </span>
-              )}
+            <span className="consultation-template-meta">
+              <span className="consultation-template-duration">
+                <Clock3 size={17} aria-hidden="true" />
+                <span>Duración aproximada</span>
+                <strong>{item.template.estimated_duration_minutes ? `${item.template.estimated_duration_minutes} min` : "No definida"}</strong>
+              </span>
               {item.template.is_default && (
-                <span className="rounded-full bg-[#e5f1e8] px-2 py-1 font-semibold text-[#315e4f]">
+                <span className="consultation-template-badge consultation-template-default">
                   Predeterminada
                 </span>
               )}
               {item.template.is_system && (
-                <span className="rounded-full bg-[#f5eddd] px-2 py-1 font-semibold text-[#785c32]">
+                <span className="consultation-template-badge consultation-template-system">
                   Base Nuthrick
                 </span>
               )}
+              {!item.template.is_system && <span className="consultation-template-badge consultation-template-personal">Diseño propio</span>}
             </span>
+            <span className="consultation-template-choose">Usar este diseño <ChevronRight size={16} aria-hidden="true" /></span>
           </button>
         );
       });
@@ -601,20 +610,12 @@ export function ConsultationPage() {
           <ArrowLeft size={16} />
           Volver a la ficha
         </Link>
-        <header className="mt-5 rounded-[24px] bg-[#173d36] p-6 text-white sm:p-8">
-          <p className="text-xs font-bold uppercase tracking-[.16em] text-[#efbd6b]">
-            Nueva consulta
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold">
-            Elige el diseño para esta consulta
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70">
-            Puedes volver a realizar una entrevista inicial aunque el paciente
-            haya tenido consultas previas. La elección depende de tu valoración
-            clínica y del tiempo transcurrido.
-          </p>
+        <header className="consultation-selection-hero mt-5">
+          <p className="nuth-eyebrow">Nueva consulta · Paso 1</p>
+          <h1>¿Qué tipo de consulta vas a iniciar?</h1>
+          <p>Elige una opción para ver los diseños disponibles y su duración aproximada.</p>
         </header>
-        <div className="mt-5 max-w-sm rounded-2xl border border-[#dfe5e1] bg-white p-4">
+        <div className="consultation-date-card mt-5 max-w-sm rounded-2xl border border-[#dfe5e1] bg-white p-4">
           <Field label="Fecha de consulta" name="new-consultation-date">
             <Input
               id="new-consultation-date"
@@ -626,17 +627,12 @@ export function ConsultationPage() {
           </Field>
         </div>
         {openDrafts.length > 0 && (
-          <section className="mt-5 rounded-2xl border border-[#e7d3ae] bg-[#fff9eb] p-5">
+          <details className="consultation-drafts mt-5 rounded-2xl border border-[#e7d3ae] bg-[#fff9eb] p-4">
+            <summary className="cursor-pointer text-sm font-semibold text-[#775527]">
+              Tienes {openDrafts.length === 1 ? "un borrador abierto" : `${openDrafts.length} borradores abiertos`}
+            </summary>
             <p className="text-sm font-semibold text-[#775527]">
-              Tienes{" "}
-              {openDrafts.length === 1
-                ? "un borrador abierto"
-                : `${openDrafts.length} borradores abiertos`}
-            </p>
-            <p className="mt-1 text-sm leading-6 text-[#8e744c]">
-              Tus respuestas se conservan. Puedes reanudar un borrador o elegir
-              una consulta de otro tipo. Para iniciar una del mismo tipo,
-              reanuda el borrador existente.
+              Tus respuestas se conservan. Reanuda el borrador para continuar o elige el otro tipo de consulta.
             </p>
             <div className="mt-4 space-y-3">
               {openDrafts.map((draft) => (
@@ -663,7 +659,7 @@ export function ConsultationPage() {
                 </div>
               ))}
             </div>
-          </section>
+          </details>
         )}
         {notice && (
           <p
@@ -681,36 +677,50 @@ export function ConsultationPage() {
             {error}
           </div>
         )}
-        <div className="mt-5 flex justify-end">
-          <Link
-            to="/app/settings"
-            className="text-sm font-semibold text-[#3d705d] underline"
-          >
-            Configurar diseños
-          </Link>
+        <div className="consultation-type-choices mt-6">
+          <button type="button" ref={selectedConsultationType === "initial" ? selectionOpener : null} className="consultation-type-card consultation-type-initial" onClick={(event) => { selectionOpener.current = event.currentTarget; setSelectedConsultationType("initial"); }}>
+            <span className="consultation-type-icon"><ClipboardList size={24} aria-hidden="true" /></span>
+            <span className="consultation-type-content"><strong>Consulta inicial</strong><span>Conoce su historia, hábitos y objetivos.</span></span>
+            <ChevronRight size={20} aria-hidden="true" />
+          </button>
+          <button type="button" ref={selectedConsultationType === "follow_up" ? selectionOpener : null} className="consultation-type-card consultation-type-followup" onClick={(event) => { selectionOpener.current = event.currentTarget; setSelectedConsultationType("follow_up"); }}>
+            <span className="consultation-type-icon"><RotateCcw size={24} aria-hidden="true" /></span>
+            <span className="consultation-type-content"><strong>Consulta de seguimiento</strong><span>Revisa avances y acuerdos previos.</span></span>
+            <ChevronRight size={20} aria-hidden="true" />
+          </button>
         </div>
-        <div className="mt-6 grid gap-6 md:grid-cols-2">
-          <section>
-            <h2 className="text-lg font-semibold">Consulta inicial</h2>
-            <div className="mt-3 space-y-3">
-              {initial.length ? renderChoices(initial) : (
-                <p className="rounded-xl border border-dashed p-4 text-sm text-[#74817d]">
-                  No hay diseños iniciales activos.
-                </p>
-              )}
+        <p className="mt-5 text-sm text-[#66766f]">
+          ¿Quieres cambiar las preguntas de entrevista? <Link to="/app/settings" className="font-semibold text-[#315e4f] underline">Configura tus diseños</Link> antes o después.
+        </p>
+        <dialog ref={selectionDialog} aria-modal="true" aria-labelledby="consultation-design-dialog-title" className="consultation-design-dialog" onCancel={(event) => { event.preventDefault(); setSelectedConsultationType(null); }}>
+          <div className="consultation-design-dialog-heading">
+            <div>
+              <p className="nuth-eyebrow">Nueva consulta · Paso 2</p>
+              <h2 id="consultation-design-dialog-title" tabIndex={-1}>
+                Elige un diseño de {selectedConsultationType === "initial" ? "consulta inicial" : "seguimiento"}
+              </h2>
+              <p>Compara las preguntas y el tiempo aproximado antes de comenzar.</p>
             </div>
-          </section>
-          <section>
-            <h2 className="text-lg font-semibold">Consulta de seguimiento</h2>
-            <div className="mt-3 space-y-3">
-              {followUp.length ? renderChoices(followUp) : (
-                <p className="rounded-xl border border-dashed p-4 text-sm text-[#74817d]">
-                  No hay diseños de seguimiento activos.
-                </p>
-              )}
-            </div>
-          </section>
-        </div>
+            <button type="button" className="nuth-button-secondary consultation-design-dialog-close" aria-label="Cerrar diseños" onClick={() => setSelectedConsultationType(null)}><X size={18} /></button>
+          </div>
+          {selectedDraft ? (
+            <section className="consultation-existing-draft">
+              <p className="nuth-eyebrow">Ya tienes una entrevista en curso</p>
+              <h3>{consultationLabel(selectedDraft)}</h3>
+              <p>Sus respuestas se guardaron. Reanuda este borrador para seguir, o cierra y elige el otro tipo de consulta.</p>
+              <button type="button" className="nuth-button" disabled={busy} onClick={() => void load(undefined, selectedDraft.id)}>Reanudar borrador</button>
+            </section>
+          ) : selectedTemplates.length ? (
+            <div className="consultation-template-options">{renderChoices(selectedTemplates)}</div>
+          ) : (
+            <section className="consultation-no-designs">
+              <ClipboardList size={22} aria-hidden="true" />
+              <p>No hay diseños activos para este tipo de consulta.</p>
+              <Link to={`/app/consultation-templates/${selectedConsultationType}`} onClick={() => setSelectedConsultationType(null)} className="font-semibold underline">Configurar diseños de entrevista</Link>
+            </section>
+          )}
+          <div className="consultation-design-dialog-footer"><span>Puedes cambiar tus diseños en Configuración cuando lo necesites.</span><button type="button" className="nuth-button-secondary" onClick={() => setSelectedConsultationType(null)}>Volver</button></div>
+        </dialog>
       </div>
     );
   }
