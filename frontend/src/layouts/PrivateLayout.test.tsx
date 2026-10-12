@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PrivateLayout } from './PrivateLayout';
@@ -11,6 +11,7 @@ const access = vi.hoisted(() => ({
   status: 'active',
   values: { consultation_design: true, patients: true } as Record<string, boolean>,
 }));
+const billing = vi.hoisted(() => ({ value: { subscription: { state: 'active' }, access: { arrangement: 'monthly' } } as unknown }));
 vi.mock('@/src/features/auth/AuthProvider', () => ({
   useAuth: () => ({ profile: { full_name: 'Nutriólogo de prueba' }, user: { id: 'owner', email: 'test@example.com' }, signOut: vi.fn() }),
 }));
@@ -27,6 +28,7 @@ vi.mock('@/src/features/support/SupportProvider', () => ({ SupportProvider: ({ c
 vi.mock('@/src/features/support/SupportWidget', () => ({ SupportWidget: () => null }));
 vi.mock('@/src/features/ai/AIProcessingConsent', () => ({ AIProcessingConsent: () => null, openAIProcessingConsent: vi.fn() }));
 vi.mock('@/src/features/onboarding/BeginnerOnboarding', () => ({ BeginnerOnboarding: () => null, openBeginnerOnboarding: vi.fn() }));
+vi.mock('@/src/features/billing/api', () => ({ getMyBilling: vi.fn(async () => billing.value) }));
 
 function mount() {
   render(<MemoryRouter initialEntries={['/app']}><Routes>
@@ -38,10 +40,13 @@ function mount() {
   </Routes></MemoryRouter>);
 }
 
-beforeEach(() => { access.values.consultation_design = true; });
+beforeEach(() => {
+  access.values.consultation_design = true;
+  billing.value = { subscription: { state: 'active' }, access: { arrangement: 'monthly' } };
+});
 
 describe('acceso a configuración de entrevistas', () => {
-  it('moves interview design out of the sidebar and opens it through account settings', () => {
+  it('moves interview design out of the sidebar and opens it through account settings', async () => {
     mount();
     const sidebar = within(screen.getByRole('navigation', { name: 'Aplicación' }));
     expect(sidebar.queryByRole('link', { name: /Diseño|Configuración/ })).not.toBeInTheDocument();
@@ -50,14 +55,26 @@ describe('acceso a configuración de entrevistas', () => {
     expect(screen.getByRole('heading', { name: 'Configuración' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Menú de cuenta' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('link', { name: /Abrir perfil/ })).toHaveAttribute('href', '/app/profile');
-    expect(screen.getByRole('link', { name: /Cambiar plan/ })).toHaveAttribute('href', '/app/my-plan#plan-actions');
-    expect(screen.getByRole('link', { name: /Cancelar suscripción/ })).toHaveAttribute('href', '/app/my-plan#plan-actions');
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /Cambiar plan/ })).toHaveAttribute('href', '/app/my-plan#plan-actions');
+      expect(screen.getByRole('link', { name: /Cancelar suscripción/ })).toHaveAttribute('href', '/app/my-plan#plan-actions');
+    });
     expect(screen.getAllByRole('group', { name: 'Apariencia de Nuthrick' })).toHaveLength(2);
     fireEvent.click(screen.getByRole('button', { name: /Administrar consentimiento/ }));
     expect(openAIProcessingConsent).toHaveBeenCalledOnce();
     expect(screen.getByRole('link', { name: /Entrevista de seguimiento/ })).toHaveAttribute('href', '/app/consultation-templates/follow_up');
     fireEvent.click(screen.getByRole('link', { name: /Entrevista inicial/ }));
     expect(screen.getByRole('heading', { name: 'Editor de entrevista' })).toBeInTheDocument();
+  });
+
+  it('does not promise self-service cancellation for managed access', async () => {
+    billing.value = { subscription: null, access: { arrangement: 'managed' } };
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Menú de cuenta' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Configuración' }));
+    expect(await screen.findByRole('link', { name: /Ver mi plan/ })).toHaveAttribute('href', '/app/my-plan#plan-actions');
+    expect(screen.queryByRole('link', { name: /Cancelar suscripción/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/Tu acceso es administrado por Nuthrick/)).toBeInTheDocument();
   });
 
   it('keeps design links unavailable when the subscription lacks the feature', () => {

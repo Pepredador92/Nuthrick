@@ -1,14 +1,30 @@
 import { ArrowLeft, ArrowRight, ArrowUpRight, ClipboardList, CreditCard, MoonStar, RefreshCw, Settings, ShieldCheck, UserRound, UsersRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAccess } from '@/src/features/admin/AccessProvider';
 import { canReadFeature } from '@/src/features/admin/api';
 import { openAIProcessingConsent } from '@/src/features/ai/AIProcessingConsent';
+import { getMyBilling, type MyBilling } from '@/src/features/billing/api';
 import { ThemeSwitcher } from '@/src/features/theme/ThemeSwitcher';
 import './SettingsPage.css';
 
 export function SettingsPage() {
   const { data } = useAccess();
   const canDesign = canReadFeature(data?.access, 'consultation_design');
+  const [billing, setBilling] = useState<MyBilling | null>(null);
+  const [billingLoaded, setBillingLoaded] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void getMyBilling().then((result) => {
+      if (active) setBilling(result);
+    }).catch(() => {
+      if (active) setBilling(null);
+    }).finally(() => {
+      if (active) setBillingLoaded(true);
+    });
+    return () => { active = false; };
+  }, []);
 
   return (
     <div className="settings-workspace">
@@ -45,10 +61,16 @@ export function SettingsPage() {
               <p>Consulta tu plan, cambia de nivel o inicia la cancelación cuando lo necesites.</p>
             </div>
             <div className="settings-card-actions">
-              <Link to="/app/my-plan#plan-actions" className="nuth-button">Cambiar plan <ArrowRight size={15} /></Link>
-              <Link to="/app/my-plan#plan-actions" className="settings-card-link settings-cancel-link">Cancelar suscripción <ArrowUpRight size={16} /></Link>
+              {billing?.subscription && billing.subscription.state !== 'cancelled' ? <>
+                <Link to="/app/my-plan#plan-actions" className="nuth-button">Cambiar plan <ArrowRight size={15} /></Link>
+                <Link to="/app/my-plan#plan-actions" className="settings-card-link settings-cancel-link">Cancelar suscripción <ArrowUpRight size={16} /></Link>
+              </> : <Link to="/app/my-plan#plan-actions" className="nuth-button">Ver mi plan <ArrowRight size={15} /></Link>}
             </div>
-            <p className="settings-card-footnote">La cancelación se confirma en Mi plan antes de aplicarse.</p>
+            {billing?.subscription && billing.subscription.state !== 'cancelled'
+              ? <p className="settings-card-footnote">La cancelación se confirma en Mi plan antes de aplicarse.</p>
+              : billingLoaded && billing?.access.arrangement !== 'founder'
+                ? <p className="settings-card-footnote">Tu acceso es administrado por Nuthrick y no tiene una suscripción recurrente para cancelar aquí. Si necesitas modificarlo, contacta a soporte desde Ayuda.</p>
+                : null}
           </article>
 
           <article className="settings-general-card settings-preferences-card">
