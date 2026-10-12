@@ -267,7 +267,7 @@ export function MyPlanPage() {
             <p className="billing-step">02 · Gestiona tu plan</p>
             <h3>Acciones disponibles</h3>
             <p className="admin-note">Consulta tus créditos, administra pagos o solicita un cambio cuando lo necesites.</p>
-            <div className="billing-controls">
+            <div className={`billing-controls${!s || s.state === "cancelled" ? " has-plan-choice" : ""}`}>
               <Link className="admin-button secondary" to="/app/credits">Ver créditos y recargar</Link>
               {s && (
                 <button
@@ -321,7 +321,9 @@ export function MyPlanPage() {
                   </>
                 )
                 : (
-                  <Link className="admin-button" to="/planes">Elegir plan</Link>
+                  <Link className="admin-button choose-plan-cta" to="/planes">
+                    Elegir un plan <span aria-hidden="true">→</span>
+                  </Link>
                 )}
             </div>
             {retention && <RetentionStatus offer={retention} />}

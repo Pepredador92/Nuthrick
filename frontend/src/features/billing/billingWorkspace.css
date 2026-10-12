@@ -90,6 +90,44 @@
   margin-top: 16px;
 }
 
+.billing-workspace .plan-actions-card .billing-controls.has-plan-choice {
+  align-items: stretch;
+}
+
+.billing-workspace .plan-actions-card .choose-plan-cta {
+  order: -1;
+  flex: 1 0 100%;
+  min-height: 58px;
+  padding: 16px 22px;
+  border: 2px solid #075b55;
+  border-radius: 15px;
+  background: #08786f !important;
+  box-shadow: 0 8px 18px -8px #075b5566;
+  color: #fff !important;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: .01em;
+  text-decoration: none;
+  transition: background-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+.billing-workspace .plan-actions-card .choose-plan-cta:hover {
+  background: #06645d !important;
+  box-shadow: 0 11px 22px -8px #075b5580;
+  color: #fff !important;
+  transform: translateY(-1px);
+}
+
+.billing-workspace .plan-actions-card .choose-plan-cta:focus-visible {
+  outline: 3px solid #e6a93c;
+  outline-offset: 3px;
+}
+
+.billing-workspace .plan-actions-card .choose-plan-cta span {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
 .billing-workspace .plan-actions-card .billing-confirm {
   background: #fff;
   border-radius: 16px;
