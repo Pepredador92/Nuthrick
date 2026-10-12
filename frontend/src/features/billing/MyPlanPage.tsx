@@ -122,9 +122,6 @@ export function MyPlanPage() {
           Actualizar estado
         </button>
       </header>
-      {data && <p className="billing-test">
-        {data?.mode === "live" ? "Stripe Live · Suscripción con cobro real." : "Stripe Test · Los pagos de esta sección son pruebas."}
-      </p>}
       {params.get("checkout") === "success" && (
         <p role="status" className="billing-benefits">
           {s?.state === 'trial' ? 'Tus 30 días de prueba están activos. Puedes ver la fecha del primer cobro y cancelar desde aquí.' : checkoutPayment
