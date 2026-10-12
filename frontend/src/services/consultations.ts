@@ -309,6 +309,62 @@ export async function listAnswers(
   return (data ?? []) as ConsultationAnswer[];
 }
 
+/** Load patient-facing agreements from the latest finalized revision of one consultation. */
+export async function loadPatientAgreements(
+  patientId: string,
+  consultationId: string,
+): Promise<{ revision: number; text: string }> {
+  const consultation = await supabase
+    .from("consultations")
+    .select("id")
+    .eq("id", consultationId)
+    .eq("patient_id", patientId)
+    .eq("status", "completed")
+    .is("deleted_at", null)
+    .maybeSingle();
+  fail(consultation.error, "No pudimos revisar el estado de la consulta.");
+  if (!consultation.data) throw new Error("La consulta ya no está finalizada.");
+
+  const snapshot = await supabase
+    .from("consultation_snapshots")
+    .select("revision")
+    .eq("consultation_id", consultationId)
+    .eq("patient_id", patientId)
+    .order("revision", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  fail(snapshot.error, "No pudimos cargar la revisión de la consulta.");
+  if (!snapshot.data) throw new Error("La consulta no tiene una revisión disponible.");
+
+  const answers = await supabase
+    .from("consultation_answers")
+    .select("question_key,value")
+    .eq("consultation_id", consultationId)
+    .eq("patient_id", patientId)
+    .eq("revision", snapshot.data.revision)
+    .in("question_key", ["first_actions", "patient_instructions", "recommendations"]);
+  fail(answers.error, "No pudimos cargar las indicaciones de la consulta.");
+
+  const labels: Record<string, string> = {
+    first_actions: "Indicaciones acordadas",
+    patient_instructions: "Indicaciones para el paciente",
+    recommendations: "Recomendaciones",
+  };
+  const text = (answers.data ?? [])
+    .sort((a, b) => ["first_actions", "patient_instructions", "recommendations"].indexOf(a.question_key) - ["first_actions", "patient_instructions", "recommendations"].indexOf(b.question_key))
+    .flatMap((answer) => {
+      const value = answer.value;
+      const content = typeof value === "string"
+        ? value.trim()
+        : typeof value === "number" || typeof value === "boolean"
+          ? String(value)
+          : "";
+      return content ? [`${labels[answer.question_key]}\n${content}`] : [];
+    })
+    .join("\n\n");
+  return { revision: snapshot.data.revision, text };
+}
+
 export async function saveAnswers(
   consultation: Consultation,
   snapshot: ConsultationSnapshot,
