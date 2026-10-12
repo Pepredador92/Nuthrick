@@ -106,6 +106,8 @@
   box-shadow: 0 12px 30px -27px #173d3659;
   transition: border-color .16s ease, transform .16s ease;
 }
+.consultation-template-choice-system { background: color-mix(in srgb, #dceeed 58%, var(--nuth-surface)); border-color: #9ac8c1; }
+.consultation-template-choice-personal { background: color-mix(in srgb, #eee5f5 56%, var(--nuth-surface)); border-color: #cbb8dd; }
 .consultation-template-choice:hover { transform: translateY(-1px); border-color: var(--nuth-action); }
 .consultation-template-heading { font-size: 16px; font-weight: 680; line-height: 1.4; }
 .consultation-template-description { margin-top: 7px; color: var(--nuth-muted); font-size: 13px; line-height: 1.55; }
@@ -116,6 +118,9 @@
 .consultation-template-default { background: #e5f1e8; color: #315e4f; }
 .consultation-template-system { background: #f5eddd; color: #785c32; }
 .consultation-template-personal { background: #eee5f5; color: #664d81; }
+.consultation-template-references { display: grid; gap: 3px; margin-top: 13px; padding: 10px 12px; border-left: 3px solid #6baea4; border-radius: 8px; background: #f4faf8; color: #46655e; font-size: 11px; line-height: 1.5; }
+.consultation-template-references strong { margin-bottom: 2px; color: #285b55; font-size: 11px; }
+.consultation-template-reference-note { margin-top: 2px; color: #68776f; }
 .consultation-template-choose { display: inline-flex; align-items: center; justify-content: flex-end; gap: 7px; margin-top: 14px; color: var(--nuth-action); font-size: 12px; font-weight: 650; }
 .consultation-existing-draft, .consultation-no-designs { margin-top: 22px; padding: 19px; border: 1px solid var(--nuth-line); border-radius: 17px; background: var(--nuth-surface-soft); }
 .consultation-existing-draft h3 { margin-top: 8px; font-size: 17px; font-weight: 680; }
@@ -135,6 +140,11 @@ html[data-nuthrick-theme='night'] .consultation-drafts > div > div { background-
 html[data-nuthrick-theme='night'] .consultation-template-default { background: #29453a; color: #c2e3c9; }
 html[data-nuthrick-theme='night'] .consultation-template-system { background: #453a29; color: #efcc8c; }
 html[data-nuthrick-theme='night'] .consultation-template-personal { background: #3a3554; color: #d0c3f2; }
+html[data-nuthrick-theme='night'] .consultation-template-choice-system { background: #1e383b; border-color: #42666c; }
+html[data-nuthrick-theme='night'] .consultation-template-choice-personal { background: #2b293e; border-color: #504c70; }
+html[data-nuthrick-theme='night'] .consultation-template-references { background: #183033; border-color: #65aaa0; color: #c1d8d1; }
+html[data-nuthrick-theme='night'] .consultation-template-references strong { color: #a8e0da; }
+html[data-nuthrick-theme='night'] .consultation-template-reference-note { color: #b1c0bb; }
 @media (max-width: 640px) {
   .consultation-type-choices { grid-template-columns: 1fr; gap: 11px; }
   .consultation-type-card { min-height: 112px; padding: 18px; }

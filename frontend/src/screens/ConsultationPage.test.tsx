@@ -384,6 +384,12 @@ describe("consultation save and review workflow", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Consulta inicial/ }));
     expect(await screen.findByRole("dialog", { name: "Elige un diseño de consulta inicial" })).toBeInTheDocument();
+    const systemOption = screen.getByRole("button", { name: /Entrevista.*45 min/ });
+    expect(systemOption).toHaveClass("consultation-template-choice-system");
+    expect(systemOption).toHaveTextContent("NOM-004-SSA3-2012");
+    expect(systemOption).toHaveTextContent("NOM-043-SSA2-2012");
+    expect(systemOption).toHaveTextContent("NOM-008-SSA3-2017");
+    expect(screen.getByRole("button", { name: /Consulta inicial deportiva.*60 min/ })).toHaveClass("consultation-template-choice-personal");
     expect(screen.getByText("60 min")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Consulta inicial deportiva.*60 min/ }));
     expect(

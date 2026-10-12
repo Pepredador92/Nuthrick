@@ -568,7 +568,7 @@ export function ConsultationPage() {
             type="button"
             key={item.template.id}
             disabled={busy}
-            className="consultation-template-choice"
+            className={`consultation-template-choice ${item.template.is_system ? "consultation-template-choice-system" : "consultation-template-choice-personal"}`}
             onClick={() => void load(item)}
           >
             <span className="consultation-template-heading">
@@ -597,6 +597,14 @@ export function ConsultationPage() {
               )}
               {!item.template.is_system && <span className="consultation-template-badge consultation-template-personal">Diseño propio</span>}
             </span>
+            {item.template.is_system && (
+              <span className="consultation-template-references">
+                <strong>Referencias normativas de apoyo</strong>
+                <span>NOM-004-SSA3-2012 · Expediente clínico</span>
+                <span>NOM-043-SSA2-2012 · Orientación alimentaria</span>
+                <span className="consultation-template-reference-note">La NOM-008-SSA3-2017 corresponde solo cuando se atiende sobrepeso u obesidad.</span>
+              </span>
+            )}
             <span className="consultation-template-choose">Usar este diseño <ChevronRight size={16} aria-hidden="true" /></span>
           </button>
         );
