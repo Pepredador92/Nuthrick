@@ -49,3 +49,14 @@ Deno.test('4E optional data absent or unconfirmed cannot affect readiness', asyn
   const p = (await prepareDietSnapshot(loaded)).prepared.payload;
   assert.equal(p.clinical.recall24h,undefined); assert.equal(p.clinical.anthropometry,undefined);
 });
+Deno.test('approved AI intake is approximate context for the workshop and cannot replace prescription', async () => {
+  const loaded = structuredClone(fixtures.B), baseline = await prepareDietSnapshot(loaded);
+  Object.assign(loaded.source, { confirmedRecall: { method: 'ai_estimate', approved_at: '2026-10-13T12:00:00Z', items: [],
+    estimate: { confidence: 'low', assumptions: ['Tamaño de vaso supuesto.'], uncertainties: ['Confirmar cantidad.'], meals: [{ mealLabel: 'Comida', description: 'Un vaso de leche private@example.test', energy_kcal: 150, protein_g: 8, carbohydrate_g: 12, fat_g: 8 }] }, narrative: 'PRIVATE narrative' } });
+  const next = await prepareDietSnapshot(loaded), recall = next.prepared.payload.clinical.recall24h!;
+  assert.equal(recall.totalsScope, 'professionally_reviewed_ai_estimate');
+  assert.equal(recall.nutrition.energy_kcal, 150);
+  assert.deepEqual(next.prepared.payload.prescription, baseline.prepared.payload.prescription);
+  assert.ok(!JSON.stringify(recall).includes('private@example.test'));
+  assert.ok(!JSON.stringify(recall).includes('PRIVATE'));
+});

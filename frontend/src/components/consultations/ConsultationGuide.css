@@ -85,3 +85,12 @@
   .clinical-review-summary span { grid-column: 2; }
   .recall-meal-list { grid-template-columns: minmax(0, 1fr); }
 }
+
+.recall-estimate-review { display: grid; gap: 16px; max-width: 780px; margin: 18px auto; }
+.recall-estimate-meal { display: grid; gap: 12px; padding: 18px; border: 1px solid var(--nuth-line); border-radius: 18px; background: var(--nuth-surface-soft); }
+.recall-estimate-meal header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.recall-estimate-review label { display: grid; gap: 6px; font-size: 13px; color: var(--nuth-muted); }
+.recall-estimate-meal > label:first-of-type { max-width: 280px; }
+.recall-estimate-values { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.recall-removal { padding: 16px; border: 1px solid var(--nuth-line); border-radius: 14px; background: var(--nuth-surface-soft); }
+@media (max-width: 640px) { .recall-estimate-values { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

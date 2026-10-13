@@ -221,3 +221,5 @@ export { calculateRecall } from "../consultations/recallNutrition";
 export { prepareGuidedDiet } from "./guidedPreparation";
 
 export { textDietReviewSource } from './textReviewContext';
+
+export { isRecallEstimate, recallEstimateTotals } from "../consultations/recallEstimate";

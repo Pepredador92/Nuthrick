@@ -1,5 +1,7 @@
 import { supabase } from "@/src/lib/supabase";
 import type { RecallSavedItem } from "@/src/features/consultations/clinicalCopilot";
+import type { RecallEstimate } from "@/src/features/consultations/recallEstimate";
+export type SavedRecallRecord = { narrative: string; items: RecallSavedItem[]; approved_at?: string; method?: 'ai_estimate'; estimate?: RecallEstimate };
 export async function getClinicalRevision(patientId: string, consultationId: string) {
   const { data, error } = await supabase.from("consultation_snapshots")
     .select("revision").eq("patient_id", patientId).eq("consultation_id", consultationId)
@@ -67,11 +69,7 @@ export type ClinicalWorkspace = {
   };
   records: {
     pes?: { approved_at: string };
-    recall?: {
-      narrative: string;
-      items: RecallSavedItem[];
-      approved_at: string;
-    };
+    recall?: SavedRecallRecord;
   };
 };
 export async function clinicalWorkspace(
@@ -81,7 +79,10 @@ export async function clinicalWorkspace(
   payload?: unknown,
   generationId?: string,
 ) {
-  const { data, error } = await supabase.rpc("clinical_workspace", {
+  const estimate = kind === 'recall' && payload && typeof payload === 'object' && 'method' in payload && payload.method === 'ai_estimate';
+  const { data, error } = await supabase.rpc(estimate ? 'clinical_recall_estimate' : "clinical_workspace", estimate ? {
+    p_consultation: consultationId, p_revision: revision, p_action: 'approve', p_payload: payload, p_generation: generationId ?? null,
+  } : {
     p_consultation: consultationId,
     p_revision: revision,
     p_kind: kind ?? null,
@@ -97,4 +98,8 @@ export async function clinicalWorkspace(
           : "No pudimos guardar o cargar esta revisión clínica. Tus cambios siguen disponibles para revisar.",
     );
   return data as ClinicalWorkspace;
+}
+export async function removeClinicalRecall(consultationId: string, revision: number, stamp: string) {
+  const { error } = await supabase.rpc('clinical_recall_estimate', { p_consultation: consultationId, p_revision: revision, p_action: 'remove', p_payload: { stamp }, p_generation: null });
+  if (error) throw new Error(error.message === 'context_changed' ? 'La consulta cambió. Actualiza antes de retirar el recordatorio.' : 'No pudimos retirar el recordatorio de esta consulta.');
 }

@@ -216,5 +216,5 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   }
   await store.settle(generation.id, valid ? 'succeeded' : 'invalid_output',result.usage,result.responseId);
   if (!valid) throw new AIError('invalid_output');
-  return { generationId: generation.id, status: 'succeeded', output: request.feature==='recall_24h'?conservativeRecallQuantities(result.output):result.output, replay: false };
+  return { generationId: generation.id, status: 'succeeded', output: request.feature==='recall_24h' && config.prompt_version==='recall_24h@1'?conservativeRecallQuantities(result.output):result.output, replay: false };
 }

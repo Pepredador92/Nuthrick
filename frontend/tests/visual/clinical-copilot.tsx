@@ -4,11 +4,11 @@ import {
   PesCopilot,
   RecallCopilot,
 } from "../../src/components/consultations/ClinicalCopilot";
-import "./style.css";
+import "../../app/globals.css";
 import { ClinicalObjective } from "../../src/components/consultations/ClinicalObjective";
 import { appendComposedText } from "../../src/features/consultations/composeClinicalText";
 function Fixture() {
-  const [tab, setTab] = React.useState("pes");
+  const [tab, setTab] = React.useState(new URLSearchParams(location.search).has("recall") ? "recall" : "pes");
   const [goal, setGoal] = React.useState(
     localStorage.getItem("qa-goal-text") || "",
   );

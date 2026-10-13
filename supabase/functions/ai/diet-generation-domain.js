@@ -950,18 +950,61 @@ function calculateMenuStatus(menu, mealDistribution) {
   };
 }
 
-// frontend/src/features/diet-workshop/clinicalSummary.ts
+// frontend/src/features/consultations/recallEstimate.ts
+var recallNutrients = [
+  { key: "energy_kcal", label: "Energ\xEDa", unit: "kcal", max: 1e4 },
+  { key: "protein_g", label: "Prote\xEDna", unit: "g", max: 1e3 },
+  { key: "carbohydrate_g", label: "Carbohidratos", unit: "g", max: 1e3 },
+  { key: "fat_g", label: "Grasas", unit: "g", max: 1e3 }
+];
 var object = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+var notes = (v) => Array.isArray(v) && v.length <= 20 && v.every((s) => typeof s === "string" && s.trim().length > 0 && s.length <= 1e3);
+function isRecallEstimate(v) {
+  if (!object(v) || !["low", "moderate", "high"].includes(String(v.confidence)) || !notes(v.assumptions) || !notes(v.uncertainties) || !Array.isArray(v.meals) || !v.meals.length || v.meals.length > 12) return false;
+  if (!v.meals.every((m) => object(m) && typeof m.mealLabel === "string" && m.mealLabel.trim().length > 0 && m.mealLabel.length <= 120 && typeof m.description === "string" && m.description.trim().length > 0 && m.description.length <= 1e3 && recallNutrients.every((n) => {
+    const value = m[n.key];
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= n.max;
+  }))) return false;
+  return recallNutrients.every((n) => v.meals.reduce((sum, m) => sum + m[n.key], 0) <= n.max * 3);
+}
+function recallEstimateTotals(estimate) {
+  const total = { energy_kcal: 0, protein_g: 0, carbohydrate_g: 0, fat_g: 0 };
+  for (const meal of estimate.meals) for (const n of recallNutrients) total[n.key] += meal[n.key];
+  const macros = [
+    { code: "PROTEIN", label: "Prote\xEDna", grams: total.protein_g, factor: 4, color: "#ab8bc8" },
+    { code: "CARBOHYDRATE", label: "Carbohidratos", grams: total.carbohydrate_g, factor: 4, color: "#65b4ce" },
+    { code: "FAT", label: "Grasas", grams: total.fat_g, factor: 9, color: "#d7ae68" }
+  ];
+  const energy = macros.reduce((sum, m) => sum + m.grams * m.factor, 0);
+  return { total, macros: macros.map((m) => ({ ...m, percentage: energy > 0 ? m.grams * m.factor / energy * 100 : null })) };
+}
+
+// frontend/src/features/diet-workshop/clinicalSummary.ts
+var object2 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 var positive = (v) => typeof v === "number" && Number.isFinite(v) && v > 0;
 var groups = new Set(exchangeCatalog.map((g) => g.groupCode));
 var CLINICAL_SUMMARY_LIMITS = { meals: 8, foodsPerMeal: 8, foodCharacters: 64, recordedItems: 150 };
 function summarizeConfirmedRecall(raw, sanitize) {
-  if (!object(raw) || typeof raw.approved_at !== "string" || !Number.isFinite(Date.parse(raw.approved_at)) || !Array.isArray(raw.items) || !raw.items.length || raw.items.length > CLINICAL_SUMMARY_LIMITS.recordedItems) return void 0;
+  if (object2(raw) && raw.method === "ai_estimate" && typeof raw.approved_at === "string" && Number.isFinite(Date.parse(raw.approved_at)) && isRecallEstimate(raw.estimate)) {
+    const clean2 = (s) => sanitize(s).trim().slice(0, 500);
+    return {
+      scope: "one_recorded_day_not_prescription",
+      totalsScope: "professionally_reviewed_ai_estimate",
+      method: "ai_estimate",
+      nutrition: recallEstimateTotals(raw.estimate).total,
+      confidence: raw.estimate.confidence,
+      assumptions: raw.estimate.assumptions.slice(0, 10).map(clean2),
+      uncertainties: raw.estimate.uncertainties.slice(0, 10).map(clean2),
+      meals: raw.estimate.meals.slice(0, CLINICAL_SUMMARY_LIMITS.meals).map((m) => ({ name: clean2(m.mealLabel), foods: [clean2(m.description)] })),
+      foodListTruncated: raw.estimate.meals.length > CLINICAL_SUMMARY_LIMITS.meals
+    };
+  }
+  if (!object2(raw) || typeof raw.approved_at !== "string" || !Number.isFinite(Date.parse(raw.approved_at)) || !Array.isArray(raw.items) || !raw.items.length || raw.items.length > CLINICAL_SUMMARY_LIMITS.recordedItems) return void 0;
   const clean = (s) => sanitize(s).trim().slice(0, CLINICAL_SUMMARY_LIMITS.foodCharacters);
   const contributions = [];
   const meals = /* @__PURE__ */ new Map();
   for (const item of raw.items) {
-    if (!object(item) || !object(item.food) || typeof item.mealLabel !== "string" || !item.mealLabel.trim() || typeof item.food.name !== "string" || !item.food.name.trim() || !positive(item.quantity) || item.quantity > 1e4 || !positive(item.food.portion_amount) || item.unit !== item.food.portion_unit || typeof item.food.group_code !== "string" || !groups.has(item.food.group_code)) return void 0;
+    if (!object2(item) || !object2(item.food) || typeof item.mealLabel !== "string" || !item.mealLabel.trim() || typeof item.food.name !== "string" || !item.food.name.trim() || !positive(item.quantity) || item.quantity > 1e4 || !positive(item.food.portion_amount) || item.unit !== item.food.portion_unit || typeof item.food.group_code !== "string" || !groups.has(item.food.group_code)) return void 0;
     contributions.push(...exchangeContributionForFood(item.food, item.quantity));
     const meal = clean(item.mealLabel), food = clean(item.food.name);
     if (!meals.has(meal)) meals.set(meal, /* @__PURE__ */ new Set());
@@ -979,7 +1022,7 @@ function summarizeConfirmedRecall(raw, sanitize) {
   };
 }
 function summarizeAnthropometry(raw) {
-  if (!object(raw)) return void 0;
+  if (!object2(raw)) return void 0;
   const keys = ["weightKg", "heightCm", "bmi", "waistCm", "bodyFatPct", "leanMassKg"];
   const result = Object.fromEntries(keys.flatMap((k) => positive(raw[k]) && (k !== "bodyFatPct" || raw[k] <= 100) ? [[k, raw[k]]] : []));
   return Object.keys(result).length ? result : void 0;
@@ -2033,10 +2076,12 @@ export {
   estimateDietPayload,
   getDietGenerationEligibility,
   hasDietMenuContent,
+  isRecallEstimate,
   manualGenerationPolicy,
   parseDietModelOutput,
   prepareDietGeneration,
   prepareGuidedDiet,
+  recallEstimateTotals,
   textDietReviewSource,
   validateDietGenerationDraft,
   validateDietSnapshotDraft

@@ -135,10 +135,11 @@ export async function clinicalWorkspace(
   );
   if (kind && payload) {
     records[kind] = { ...payload, approved_at: new Date().toISOString() };
-    if (kind === "recall")
+    if (kind === "recall" && payload.method !== "ai_estimate")
       records[kind].items = (payload.items as { foodId: string }[]).map(
         (i) => ({ ...i, food: foods.find((f) => f.id === i.foodId) }),
       );
+    if (kind === "recall" && payload.method === "ai_estimate") records[kind].items = [];
     localStorage.setItem("qa-clinical-records", JSON.stringify(records));
   }
   return {
@@ -170,19 +171,6 @@ export async function runAIRequest(request: {
       evidence: [{ source: "Entrevista · Motivo", finding: "Mejorar la regularidad de comidas" }],
     }] },
   };
-  const item = (
-    rawText: string,
-    normalizedName: string,
-    quantity: number | null,
-    unit: string | null,
-  ) => ({
-    rawText,
-    normalizedName,
-    quantity,
-    unit,
-    confidence: 0.8,
-    needsConfirmation: quantity === null,
-  });
   return {
     generationId: crypto.randomUUID(),
     status: "succeeded",
@@ -203,41 +191,19 @@ export async function runAIRequest(request: {
             ],
           }
         : {
+            confidence: 'low',
+            assumptions: ['Para la leche se asumió un vaso de 240 ml.', 'Se estimaron porciones domésticas para el arroz y los frijoles.'],
+            uncertainties: ['Confirmar la cantidad de arroz y frijoles y cómo se prepararon las alitas.'],
             meals: [
-              {
-                mealLabel: "Desayuno",
-                approximateTime: null,
-                items: [
-                  item("2 huevos", "Huevo entero", 2, "piece"),
-                  item("3 tortillas", "Tortilla de maíz", 3, "tortilla"),
-                  item(
-                    "media taza de frijoles",
-                    "Frijoles cocidos",
-                    0.5,
-                    "cup",
-                  ),
-                ],
-              },
-              {
-                mealLabel: "Comida",
-                approximateTime: null,
-                items: [
-                  item("pollo", "Pollo cocido", null, null),
-                  item("arroz", "Arroz cocido", null, null),
-                  item("agua", "Agua", null, null),
-                ],
-              },
-              {
-                mealLabel: "Cena",
-                approximateTime: null,
-                items: [item("3 tacos de carne", "Tacos de carne", 3, null)],
-              },
+              { mealLabel: 'Desayuno', description: 'Dos gorditas de chicharrón con papa y un vaso de refresco.', energy_kcal: 700, protein_g: 18, carbohydrate_g: 80, fat_g: 34 },
+              { mealLabel: 'Comida', description: 'Alitas, dos tortillas, arroz, frijoles y agua de limón; las porciones faltantes son supuestas.', energy_kcal: 850, protein_g: 36, carbohydrate_g: 105, fat_g: 32 },
+              { mealLabel: 'Cena', description: 'Una lata de atún con jitomate y cebolla, galletas saladas y un vaso de leche.', energy_kcal: 490, protein_g: 39, carbohydrate_g: 42, fat_g: 18 },
             ],
-            unresolvedItems: [
-              "Agua: precisar presentación",
-              "Tacos: precisar ingredientes y tamaño",
-            ],
-            ambiguities: ["Pollo y arroz: cantidades pendientes"],
           },
   };
+}
+export async function removeClinicalRecall() {
+  const records = JSON.parse(localStorage.getItem('qa-clinical-records') || '{}');
+  delete records.recall; delete records.pes;
+  localStorage.setItem('qa-clinical-records', JSON.stringify(records));
 }

@@ -13,6 +13,8 @@ import {
 import {
   clinicalWorkspace,
   type ClinicalWorkspace,
+  type SavedRecallRecord,
+  removeClinicalRecall,
 } from "@/src/services/clinicalCopilot";
 import { createCustomFood, listFoodItems } from "@/src/services/foodCatalog";
 import { foodUnitLabels } from "@/src/features/menu/units";
@@ -21,14 +23,14 @@ import {
   calculateRecall,
   canonicalRecallItem,
   matchRecallFoods,
-  recallRows,
   pesFromAnswers,
   canApprovePes,
   type PesDraft,
-  type RecallExtraction,
   type RecallRow,
   type RecallSavedItem,
 } from "@/src/features/consultations/clinicalCopilot";
+import { isRecallEstimate, type RecallEstimate } from '@/src/features/consultations/recallEstimate';
+import { RecallEstimateReview, RecallEstimateSummary } from './RecallEstimateReview';
 import type { FoodItem } from "@/src/types/domain";
 
 type Props = {
@@ -115,7 +117,9 @@ function useClinical(props: Props, feature: "pes_diagnosis" | "recall_24h") {
             ? "insufficient"
             : "error",
       );
-      setMessage(e instanceof Error ? e.message : "No se pudo generar.");
+      setMessage(feature === 'recall_24h' && e instanceof AIRequestError && e.code === 'invalid_output'
+        ? 'No pudimos obtener una estimación válida. Tu relato sigue aquí; puedes aclarar cantidades y volver a calcular o usar el registro manual.'
+        : e instanceof Error ? e.message : 'No se pudo generar.');
       return null;
     }
   }
@@ -167,7 +171,18 @@ function useClinical(props: Props, feature: "pes_diagnosis" | "recall_24h") {
       setSaving(false);
     }
   }
+  async function removeRecall() {
+    setSaving(true); setMessage('');
+    try {
+      const w = await refresh();
+      await removeClinicalRecall(props.consultationId, props.revision, w.stamp);
+      setWorkspace(await clinicalWorkspace(props.consultationId, props.revision));
+      setGeneration(undefined); setMessage('Recordatorio retirado de esta consulta. Puedes capturarlo de nuevo.'); return true;
+    } catch (e) { setMessage(e instanceof Error ? e.message : 'No pudimos retirar el recordatorio.'); return false; }
+    finally { setSaving(false); }
+  }
   return {
+    removeRecall,
     workspace,
     state,
     message,
@@ -496,8 +511,13 @@ export function RecallTotals({
 export function ConfirmedRecall({
   record,
 }: {
-  record: { narrative: string; items: RecallSavedItem[] };
+  record: SavedRecallRecord;
 }) {
+  if (record.method === 'ai_estimate' && record.estimate && isRecallEstimate(record.estimate)) return <div className="mt-4 text-sm">
+    <h4 className="font-semibold">Recordatorio confirmado · Estimación con IA revisada</h4>
+    <RecallEstimateSummary estimate={record.estimate} />
+    <details className="mt-3"><summary>Texto registrado</summary><p className="mt-2 whitespace-pre-wrap">{record.narrative}</p></details>
+  </div>;
   return (
     <div className="mt-4 text-sm">
       <h4 className="font-semibold">Recordatorio confirmado</h4>
@@ -528,7 +548,7 @@ export function ConfirmedRecall({
 function recallDraftSignature(text: string, items: RecallRow[]) {
   return JSON.stringify([text, items.map(item => [item.mealLabel, item.rawText, item.search, item.foodId, item.quantity, item.unit, item.confirmed])]);
 }
-export type RecallNavigation = { open: boolean; stage: number; nextDisabled: boolean; saving: boolean; busy: boolean };
+export type RecallNavigation = { open: boolean; stage: number; nextDisabled: boolean; saving: boolean; busy: boolean; mode?: "ai" | "manual" };
 export type RecallNavigationActions = { next: () => void; previous: () => void };
 export function RecallCopilot(props: Props & { navigationRef?: Ref<RecallNavigationActions>; onNavigationChange?: (navigation: RecallNavigation | null) => void }) {
   const clinical = useClinical(props, "recall_24h");
@@ -541,17 +561,22 @@ export function RecallCopilot(props: Props & { navigationRef?: Ref<RecallNavigat
   const [ambiguities, setAmbiguities] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [creatingBusy, setCreatingBusy] = useState(false);
-  const [replacement, setReplacement] = useState<RecallExtraction | null>(null);
+  const [replacement, setReplacement] = useState<RecallEstimate | null>(null);
   const [previousGeneration, setPreviousGeneration] = useState<string>();
+  const [mode, setMode] = useState<'ai' | 'manual'>('ai');
+  const [estimate, setEstimate] = useState<RecallEstimate | null>(null);
+  const [reviewedEstimate, setReviewedEstimate] = useState(false);
+  const [removeRequested, setRemoveRequested] = useState(false);
+  const [estimateNarrative, setEstimateNarrative] = useState('');
   const baseline = useRef('');
   const { onPendingChange } = props;
   useEffect(() => {
-    onPendingChange?.(open && (dictating || clinical.saving || recallDraftSignature(narrative, rows) !== baseline.current));
-  }, [open, narrative, rows, dictating, clinical.saving, onPendingChange]);
+    onPendingChange?.(open && (dictating || clinical.saving || JSON.stringify([recallDraftSignature(narrative, rows), mode, estimate]) !== baseline.current));
+  }, [open, narrative, rows, mode, estimate, dictating, clinical.saving, onPendingChange]);
   useEffect(() => () => onPendingChange?.(false), [onPendingChange]);
   const setMessage = clinical.setMessage;
   useEffect(() => {
-    if (!open) return;
+    if (!open || mode !== 'manual') return;
     let alive = true;
     void listFoodItems()
       .then((v) => {
@@ -563,12 +588,10 @@ export function RecallCopilot(props: Props & { navigationRef?: Ref<RecallNavigat
     return () => {
       alive = false;
     };
-  }, [open, setMessage]);
-  function apply(extraction: RecallExtraction) {
-    setRows(recallRows(extraction, foods));
-    setAmbiguities([...extraction.ambiguities, ...extraction.unresolvedItems]);
-    setReplacement(null);
-    setStage(1);
+  }, [open, mode, setMessage]);
+  function apply(next: RecallEstimate) {
+    setEstimate(next); setEstimateNarrative(narrative);
+    setReviewedEstimate(false); setMode('ai'); setReplacement(null); setStage(1);
   }
   const update = (id: string, patch: Partial<RecallRow>) =>
     setRows((all) => all.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -583,14 +606,16 @@ export function RecallCopilot(props: Props & { navigationRef?: Ref<RecallNavigat
     if (open && props.active !== false) recallSection.current?.scrollIntoView?.({ block: 'start' });
   }, [open, stage, props.active]);
   const working = clinical.saving || dictating || clinical.state === 'generating';
-  const canConfirm = !clinical.saving && !dictating && clinical.state !== 'generating' && !replacement && items.length > 0 && items.length === rows.length;
-  const nextDisabled = working || (stage === 2 ? !canConfirm : !rows.length);
+  const usableEstimate = estimate && isRecallEstimate(estimate) && estimateNarrative === narrative;
+  const hasResult = mode === 'ai' ? !!usableEstimate : rows.length > 0;
+  const canConfirm = !working && !replacement && (mode === 'ai' ? !!usableEstimate && reviewedEstimate : items.length > 0 && items.length === rows.length);
+  const nextDisabled = working || (stage === 2 ? !canConfirm : !hasResult);
   const { onNavigationChange } = props;
-  useEffect(() => { onNavigationChange?.({ open, stage, nextDisabled, saving: clinical.saving, busy: working }); }, [open, stage, nextDisabled, clinical.saving, working, onNavigationChange]);
+  useEffect(() => { onNavigationChange?.({ open, stage, nextDisabled, saving: clinical.saving, busy: working, mode }); }, [open, stage, nextDisabled, clinical.saving, working, mode, onNavigationChange]);
   useEffect(() => () => onNavigationChange?.(null), [onNavigationChange]);
   async function confirmRecall() {
     if (!canConfirm) return;
-    const ok = await clinical.approve('recall', {
+    const ok = await clinical.approve('recall', mode === 'ai' ? { method: 'ai_estimate', narrative, estimate } : {
       narrative,
       items: rows.map(row => ({ foodId: row.foodId, mealLabel: row.mealLabel, rawText: row.rawText, quantity: Number(row.quantity), unit: row.unit })),
     });
@@ -615,12 +640,17 @@ export function RecallCopilot(props: Props & { navigationRef?: Ref<RecallNavigat
         unit: i.unit,
         confirmed: true,
       })) ?? [];
-    baseline.current = recallDraftSignature(saved?.narrative ?? '', nextRows);
+    const nextEstimate = saved?.method === 'ai_estimate' && isRecallEstimate(saved.estimate) ? structuredClone(saved.estimate) : null;
+    const nextMode = nextRows.length ? 'manual' : 'ai';
+    setMode(nextMode); setEstimate(nextEstimate); setEstimateNarrative(saved?.narrative ?? '');
+    setReviewedEstimate(false); clinical.setGeneration(undefined);
+    baseline.current = JSON.stringify([recallDraftSignature(saved?.narrative ?? '', nextRows), nextMode, nextEstimate]);
     setRows(nextRows);
-    setStage(nextRows.length ? 1 : 0);
+    setStage(nextRows.length || nextEstimate ? 1 : 0);
     setOpen(true);
   }
   function addFood() {
+    setMode('manual'); clinical.setGeneration(undefined);
     setRows(all => [...all, { id: crypto.randomUUID(), mealLabel: "Desayuno", rawText: "", search: "", foodId: "", quantity: "", unit: "", confirmed: false }]);
     setStage(1);
   }
@@ -648,8 +678,8 @@ export function RecallCopilot(props: Props & { navigationRef?: Ref<RecallNavigat
         <div>
           <ConsultationGuide label="Pasos del recordatorio" active={stage} onChange={setStage} busy={clinical.saving || clinical.state === 'generating' || dictating} steps={[
             { title: 'Captura', description: 'Escucha el día completo' },
-            { title: 'Alimentos', description: 'Revisa cantidades y unidades' },
-            { title: 'Confirma', description: 'Guarda el registro revisado', disabled: !rows.length },
+            { title: mode === 'ai' ? 'Estimación' : 'Alimentos', description: mode === 'ai' ? 'Revisa calorías y macros' : 'Revisa cantidades y unidades' },
+            { title: 'Confirma', description: 'Guarda el registro revisado', disabled: !hasResult },
           ]} />
           <div hidden={stage !== 0}>
           <div className="recall-stage-heading"><h4>1. Captura lo que recuerda</h4><p>Incluye comidas, bebidas y colaciones, desde que despertó hasta que se durmió.</p></div>
@@ -661,7 +691,6 @@ export function RecallCopilot(props: Props & { navigationRef?: Ref<RecallNavigat
               disabled={
                 !narrative.trim() ||
                 dictating ||
-                !foods.length ||
                 clinical.saving ||
                 !!replacement
               }
@@ -670,13 +699,14 @@ export function RecallCopilot(props: Props & { navigationRef?: Ref<RecallNavigat
                   setPreviousGeneration(clinical.generation);
                   const result = await clinical.generate(narrative);
                   if (result) {
-                    if (rows.length) { setReplacement(result as RecallExtraction); setStage(1); }
-                    else apply(result as RecallExtraction);
+                    if (!isRecallEstimate(result)) { clinical.setMessage('No se recibió una estimación válida. Conservamos tu relato.'); return; }
+                    if (estimate) { setReplacement(result); setStage(1); }
+                    else apply(result);
                   }
                 })()
               }
             >
-              Organizar alimentos
+              Calcular consumo con IA
             </AIButton>
             <button
               type="button"
@@ -686,12 +716,12 @@ export function RecallCopilot(props: Props & { navigationRef?: Ref<RecallNavigat
             >
               Agregar alimento manualmente
             </button>
-            {rows.length > 0 && <button type="button" className={secondary} disabled={dictating || clinical.saving || clinical.state === 'generating'} onClick={() => setStage(1)}>Continuar con los alimentos <ArrowRight size={15} /></button>}
+            {hasResult && <button type="button" className={secondary} disabled={dictating || clinical.saving || clinical.state === 'generating'} onClick={() => setStage(1)}>Continuar con la revisión <ArrowRight size={15} /></button>}
           </div>
-          {replacement && <p className="consultation-guided-hint">Ya hay una nueva interpretación. Abre Alimentos para revisarla o conservar tu captura.</p>}
+          {replacement && <p className="consultation-guided-hint">Ya hay una nueva estimación. Abre la revisión para aceptarla o conservar tu captura.</p>}
           </div>
           <div hidden={stage !== 1}>
-          <div className="recall-stage-heading"><h4>2. Revisa cada alimento</h4><p>Elige el alimento del catálogo, comprueba su cantidad y marca la casilla de revisión.</p></div>
+          <div className="recall-stage-heading"><h4>{mode === 'ai' ? '2. Revisa la estimación' : '2. Revisa cada alimento'}</h4><p>{mode === 'ai' ? 'Comprueba las porciones asumidas. Puedes corregir los alimentos y los valores de cada comida.' : 'Elige el alimento del catálogo, comprueba su cantidad y marca la casilla de revisión.'}</p></div>
           {replacement && (
             <div className="rounded-xl border p-3 text-sm">
               <p>
@@ -716,6 +746,10 @@ export function RecallCopilot(props: Props & { navigationRef?: Ref<RecallNavigat
               </button>
             </div>
           )}
+          {mode === 'ai' && estimate && <RecallEstimateReview estimate={estimate} onChange={next => { setEstimate(next); setReviewedEstimate(false); }} />}
+          {mode === 'ai' && estimate && estimateNarrative !== narrative && <p role="alert">Cambió el relato. Vuelve a Captura y calcula otra estimación antes de confirmar.</p>}
+          {mode === 'ai' && <div className="recall-actions"><button type="button" className={secondary} onClick={() => setStage(0)}>Editar relato / volver a calcular</button><button type="button" className="nuth-button" disabled={!usableEstimate || !!replacement} onClick={() => setStage(2)}>Revisar resumen <ArrowRight size={15} /></button></div>}
+          <div hidden={mode !== 'manual'}>
           {ambiguities.length > 0 && (
             <p role="status" className="text-xs text-[#856127]">
               Por revisar: {ambiguities.join(" · ")}
@@ -875,9 +909,11 @@ export function RecallCopilot(props: Props & { navigationRef?: Ref<RecallNavigat
           <div className="recall-actions"><button type="button" className={secondary} onClick={addFood}>Agregar otro alimento</button><button type="button" className="nuth-button" disabled={!rows.length} onClick={() => setStage(2)}>Revisar resumen <ArrowRight size={15} /></button></div>
           <p className="recall-confirm-progress" role="status">{items.length} de {rows.length} alimentos revisados.</p>
           </div>
+          </div>
           <div hidden={stage !== 2}>
           <div className="recall-stage-heading"><h4>3. Confirma el recordatorio</h4><p>Revisa el resumen. Al confirmar, estos alimentos estarán disponibles para la revisión clínica y el plan.</p></div>
-          {rows.length > 0 && (
+          {mode === 'ai' && estimate && <><RecallEstimateSummary estimate={estimate} /><label className="recall-food-review"><input type="checkbox" checked={reviewedEstimate} disabled={!usableEstimate} onChange={e => setReviewedEstimate(e.target.checked)} />Revisé las porciones, los supuestos y los valores estimados.</label></>}
+          {mode === 'manual' && rows.length > 0 && (
             <>
               {previewItems.length > 0 ? (
                 <RecallTotals
@@ -904,7 +940,7 @@ export function RecallCopilot(props: Props & { navigationRef?: Ref<RecallNavigat
             >
               {clinical.saving ? "Guardando…" : "Confirmar recordatorio"}
             </button>
-            {items.length !== rows.length && <button type="button" className={secondary} onClick={() => setStage(1)}>Completar alimentos pendientes</button>}
+            {mode === 'manual' && items.length !== rows.length && <button type="button" className={secondary} onClick={() => setStage(1)}>Completar alimentos pendientes</button>}
             <button
               type="button"
               className={secondary}
@@ -922,6 +958,8 @@ export function RecallCopilot(props: Props & { navigationRef?: Ref<RecallNavigat
           {stage !== 2 && <button type="button" className="mt-5 text-xs font-medium underline" disabled={clinical.saving || clinical.state === 'generating' || dictating} onClick={() => { setOpen(false); setReplacement(null); clinical.setGeneration(undefined); }}>Descartar cambios</button>}
         </div>
       )}
+      {!open && clinical.workspace?.records.recall && <div className="recall-actions"><button type="button" className={secondary} disabled={working} onClick={() => setRemoveRequested(true)}>Retirar recordatorio y volver a capturar</button></div>}
+      {removeRequested && <div className="recall-removal" role="alert"><p>Se retirará el recordatorio de esta consulta. El PES y el objetivo tendrán que revisarse de nuevo si ya estaban aprobados.</p><div className="recall-actions"><button type="button" className={secondary} disabled={working} onClick={() => setRemoveRequested(false)}>Conservar recordatorio</button><button type="button" className="nuth-button" disabled={working} onClick={() => void clinical.removeRecall().then(ok => { if (ok) { setRemoveRequested(false); setOpen(false); setEstimate(null); setRows([]); setNarrative(''); } })}>Retirar de esta consulta</button></div></div>}
       <Feedback clinical={clinical} />
     </section>
   );

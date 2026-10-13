@@ -14,9 +14,11 @@ const api = vi.hoisted(() => ({
   generate: vi.fn(),
   foods: vi.fn(),
   status: vi.fn(),
+  remove: vi.fn(),
 }));
 vi.mock("@/src/services/clinicalCopilot", () => ({
   clinicalWorkspace: api.workspace,
+  removeClinicalRecall: api.remove,
 }));
 vi.mock("@/src/services/ai", async (original) => ({
   ...(await original<object>()),
@@ -221,8 +223,8 @@ describe("recall copilot", () => {
   it("manual capture works without generation and recalculates after quantity change", async () => {
     render(<RecallCopilot {...props} />);
     fireEvent.click(screen.getByText("Capturar recordatorio"));
-    await waitFor(() => expect(api.foods).toHaveBeenCalled());
     fireEvent.click(screen.getByText("Agregar alimento manualmente"));
+    await waitFor(() => expect(api.foods).toHaveBeenCalled());
     fireEvent.change(screen.getByLabelText("Buscar alimento 1"), {
       target: { value: "huevo" },
     });
@@ -271,45 +273,64 @@ describe("recall copilot", () => {
     );
     expect(api.generate).not.toHaveBeenCalled();
   });
-  it("AI extraction remains unconfirmed and preserves the original narrative", async () => {
-    api.generate.mockResolvedValue({
-      generationId: "recall-gen",
-      status: "succeeded",
-      output: {
-        meals: [
-          {
-            mealLabel: "Desayuno",
-            approximateTime: null,
-            items: [
-              {
-                rawText: "2 huevos",
-                normalizedName: "huevo",
-                quantity: 2,
-                unit: "piece",
-                confidence: 1,
-                needsConfirmation: false,
-              },
-            ],
-          },
-        ],
-        unresolvedItems: [],
-        ambiguities: [],
-      },
-    });
+  const estimate = { confidence: 'low', assumptions: ['Se asumió un vaso de 240 ml.'], uncertainties: ['Confirmar el tamaño del vaso.'], meals: [{ mealLabel: 'Desayuno', description: 'Dos huevos y un vaso de leche.', energy_kcal: 300, protein_g: 20, carbohydrate_g: 12, fat_g: 18 }] };
+  async function calculate() {
+    api.generate.mockResolvedValue({ generationId: 'recall-gen', status: 'succeeded', output: structuredClone(estimate) });
     render(<RecallCopilot {...props} />);
-    fireEvent.click(screen.getByText("Capturar recordatorio"));
-    await waitFor(() => expect(api.foods).toHaveBeenCalled());
-    fireEvent.change(screen.getByLabelText("Texto capturado"), {
-      target: { value: "Desayunó 2 huevos" },
-    });
-    fireEvent.click(screen.getByText("Organizar alimentos"));
-    await screen.findByText("Texto original: 2 huevos");
-    expect(screen.getByDisplayValue("Desayunó 2 huevos")).toBeTruthy();
+    fireEvent.click(screen.getByText('Capturar recordatorio'));
+    fireEvent.change(screen.getByLabelText('Texto capturado'), { target: { value: 'Desayunó dos huevos y un vaso de leche.' } });
+    fireEvent.click(screen.getByText('Calcular consumo con IA'));
+    await screen.findByLabelText('Energía 1');
+  }
+  it('calculates without a catalog, edits meal values and saves only after professional confirmation', async () => {
+    await calculate();
+    expect(api.foods).not.toHaveBeenCalled();
+    expect(api.workspace.mock.calls.every(c => !c[2])).toBe(true);
+    fireEvent.change(screen.getByLabelText('Energía 1'), { target: { value: '350' } });
     fireEvent.click(screen.getByRole('button', { name: 'Revisar resumen' }));
-    expect(
-      (screen.getByText("Confirmar recordatorio") as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
-    expect(api.workspace.mock.calls.every((c) => !c[2])).toBe(true);
+    expect(screen.getByRole('button', { name: 'Confirmar recordatorio' })).toBeDisabled();
+    fireEvent.click(screen.getByLabelText('Revisé las porciones, los supuestos y los valores estimados.'));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar recordatorio' }));
+    await waitFor(() => expect(api.workspace).toHaveBeenCalledWith('test-consult', 1, 'recall', expect.objectContaining({ method: 'ai_estimate', narrative: 'Desayunó dos huevos y un vaso de leche.', estimate: expect.objectContaining({ meals: [expect.objectContaining({ energy_kcal: 350 })] }) }), 'recall-gen'));
+  });
+  it('retains dictation on a rejected estimate and offers the manual path', async () => {
+    api.generate.mockRejectedValue(new AIRequestError('invalid_output'));
+    render(<RecallCopilot {...props} />); fireEvent.click(screen.getByText('Capturar recordatorio'));
+    fireEvent.change(screen.getByLabelText('Texto capturado'), { target: { value: 'Dos gorditas y un refresco.' } });
+    fireEvent.click(screen.getByText('Calcular consumo con IA'));
+    await screen.findByText(/Tu relato sigue aquí/);
+    expect(screen.getByDisplayValue('Dos gorditas y un refresco.')).toBeVisible();
+    expect(api.workspace.mock.calls.every(c => !c[2])).toBe(true);
+    fireEvent.click(screen.getByText('Agregar alimento manualmente'));
+    await screen.findByLabelText('Buscar alimento 1');
+  });
+  it('invalidates confirmation when the source narrative changes', async () => {
+    await calculate();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar relato / volver a calcular' }));
+    fireEvent.change(screen.getByLabelText('Texto capturado'), { target: { value: 'Solo bebió agua.' } });
+    fireEvent.click(screen.getByRole('button', { name: /Estimación Revisa/ }));
+    expect(screen.getByRole('button', { name: 'Revisar resumen' })).toBeDisabled();
+    expect(api.workspace.mock.calls.every(c => !c[2])).toBe(true);
+  });
+  it('a second generation preserves the edited result until explicitly replaced', async () => {
+    await calculate();
+    fireEvent.change(screen.getByLabelText('Energía 1'), { target: { value: '375' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Editar relato / volver a calcular' }));
+    api.generate.mockResolvedValue({ generationId: 'new-gen', status: 'succeeded', output: { ...estimate, meals: [{ ...estimate.meals[0], energy_kcal: 500 }] } });
+    fireEvent.click(screen.getByText('Calcular consumo con IA'));
+    await screen.findByText('Hay una nueva interpretación. Tu captura actual sigue intacta.');
+    expect(screen.getByLabelText('Energía 1')).toHaveValue(375);
+    fireEvent.click(screen.getByText('Revisar nueva interpretación'));
+    expect(screen.getByLabelText('Energía 1')).toHaveValue(500);
+  });
+  it('saved estimates are visible and withdrawal requires an explicit action', async () => {
+    api.workspace.mockResolvedValue({ ...w, records: { recall: { method: 'ai_estimate', approved_at: '2026-10-13', items: [], narrative: 'Dos huevos y leche.', estimate } } });
+    api.remove.mockResolvedValue(undefined);
+    render(<RecallCopilot {...props} />);
+    await screen.findByText('Recordatorio confirmado · Estimación con IA revisada');
+    fireEvent.click(screen.getByText('Retirar recordatorio y volver a capturar'));
+    expect(api.remove).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Retirar de esta consulta'));
+    await waitFor(() => expect(api.remove).toHaveBeenCalledWith('test-consult', 1, 'a'));
   });
 });

@@ -1,0 +1,53 @@
+create function pg_temp.assert_true(ok boolean,label text) returns void language plpgsql as $$begin if ok is distinct from true then raise exception 'Assertion failed: %',label;end if;end$$;
+create function pg_temp.reject(query text,expected text) returns void language plpgsql as $$begin execute query; raise exception 'Unexpected success'; exception when others then if sqlerrm<>expected and sqlstate<>expected then raise;end if;end$$;
+insert into professional_profiles values('00000000-0000-0000-0000-000000000001'),('00000000-0000-0000-0000-000000000002');
+insert into patients values('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001',null,'SYNTHETIC',null,null);
+insert into consultations values('20000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',null,'draft');
+insert into consultation_snapshots(professional_id,consultation_id,patient_id,revision,structure) select professional_id,id,patient_id,1,'{"sections":[{"questions":[{"question_key":"pes_statement"}]}]}' from consultations;
+insert into private.ai_accounts(professional_id) select id from professional_profiles;
+insert into private.ai_generations(id,professional_id,idempotency_key,request_hash,patient_id,consultation_id,feature,provider,model,prompt_version,config_snapshot,status,reserved_included,reserved_purchased,estimated_cost,clinical_revision)
+select '40000000-0000-0000-0000-000000000001',professional_id,gen_random_uuid(),repeat('a',64),patient_id,id,'recall_24h','openai','synthetic','recall_24h@3','{}','succeeded',0,0,0,1 from consultations;
+select set_config('test.estimate','{"confidence":"low","assumptions":["Vaso de 240 ml supuesto."],"uncertainties":["Confirmar el tamaño."],"meals":[{"mealLabel":"Cena","description":"Un vaso de leche.","energy_kcal":150,"protein_g":8,"carbohydrate_g":12,"fat_g":8}]}',true);
+create function pg_temp.save_recall(energy numeric default 150,generation uuid default '40000000-0000-0000-0000-000000000001') returns jsonb language sql as $$
+select public.clinical_recall_estimate('20000000-0000-0000-0000-000000000001',1,'approve',jsonb_build_object(
+ 'stamp',clinical_workspace('20000000-0000-0000-0000-000000000001',1)->>'stamp','method','ai_estimate','narrative','Un vaso de leche.',
+ 'estimate',jsonb_set(current_setting('test.estimate')::jsonb,'{meals,0,energy_kcal}',to_jsonb(energy))), generation);
+$$;
+update consultation_snapshots set clinical_records='{"recall":{"approved_at":"2026-10-12","items":[]}}';
+select pg_temp.assert_true(ai_diet_source('00000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',1)->'source'->>'stamp'=md5(jsonb_build_object('confirmedRecall',jsonb_build_object('approved_at','2026-10-12','items','[]'::jsonb))::text),'manual source hash preserved');
+select pg_temp.assert_true(ai_text_diet_source('00000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',1)->'source'->'confirmedRecall'=jsonb_build_object('approved_at','2026-10-12','items','[]'::jsonb),'manual text diet source unchanged');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000000002';
+set local role authenticated;
+select pg_temp.reject('select pg_temp.save_recall()','context_unavailable');
+reset role;
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000000001';
+set local role authenticated;
+select pg_temp.reject($q$select public.clinical_recall_estimate('20000000-0000-0000-0000-000000000001',1,'approve','{"stamp":"stale"}')$q$,'context_changed');
+select pg_temp.reject('select pg_temp.save_recall(-1)','invalid_request');
+select pg_temp.reject('select pg_temp.save_recall(10001)','invalid_request');
+select pg_temp.reject('select pg_temp.save_recall(150,gen_random_uuid())','generation_unavailable');
+select pg_temp.save_recall();
+reset role;
+select pg_temp.assert_true((select clinical_records->'recall'->>'method'='ai_estimate' and clinical_records->'recall'->'items'='[]' from consultation_snapshots),'no catalog IDs required');
+select pg_temp.assert_true((select clinical_records->'recall'->'estimate'->'meals'->0->>'energy_kcal'='150' from consultation_snapshots),'approved estimate stored');
+select pg_temp.assert_true(ai_diet_source('00000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',1)->'source'->'confirmedRecall'->'estimate' is not null,'diet projection includes estimate');
+select pg_temp.assert_true(ai_text_diet_source('00000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',1)->'source'->'confirmedRecall'->'estimate' is not null,'text diet projection includes estimate');
+update consultation_snapshots set clinical_records=clinical_records||'{"pes":{"approved_at":"2026-10-13"},"objective":{"approved_at":"2026-10-13"}}';
+set local role authenticated;
+select pg_temp.save_recall(175);
+reset role;
+select pg_temp.assert_true((select clinical_records->'recall'->'estimate'->'meals'->0->>'energy_kcal'='175' and not(clinical_records ? 'pes') and not(clinical_records ? 'objective') from consultation_snapshots),'edited estimate invalidates approvals');
+insert into consultation_snapshots(professional_id,consultation_id,patient_id,revision,structure) select professional_id,consultation_id,patient_id,2,structure from consultation_snapshots where revision=1;
+set local role authenticated;
+select pg_temp.reject('select pg_temp.save_recall()','context_unavailable');
+select pg_temp.reject($q$select clinical_recall_estimate('20000000-0000-0000-0000-000000000001',1,'remove','{"stamp":"a"}')$q$,'context_changed');
+select clinical_recall_estimate('20000000-0000-0000-0000-000000000001',2,'remove',jsonb_build_object('stamp',clinical_workspace('20000000-0000-0000-0000-000000000001',2)->>'stamp'));
+reset role;
+select pg_temp.assert_true((select not(clinical_records ? 'recall') from consultation_snapshots where revision=2),'current recall removed');
+select pg_temp.assert_true((select clinical_records->'recall'->'estimate'->'meals'->0->>'energy_kcal'='175' from consultation_snapshots where revision=1),'previous revision retained');
+update consultations set status='completed';
+set local role authenticated;
+select pg_temp.reject($q$select clinical_recall_estimate('20000000-0000-0000-0000-000000000001',2,'remove','{}')$q$,'context_unavailable');
+reset role;
+select pg_temp.assert_true(not has_function_privilege('anon','public.clinical_recall_estimate(uuid,integer,text,jsonb,uuid)','execute'),'anonymous cannot approve or remove');
+rollback;

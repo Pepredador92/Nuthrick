@@ -14,7 +14,7 @@ export const dietDraftAdapter = {
   ...dietDraftAdapterV1,
   instructions: dietDraftAdapterV1.instructions + `
 Priority: prescribed energy/macros and exchanges, mandatory restrictions/exclusions, agreed objective and approved PES, preferences, observed R24h foods, practicality. Never relax an exclusion to meet a target.
-Optional clinical.recall24h describes confirmed items from ONE recorded day, not permanent habits or a diet to copy. Its totals are deterministic recorded intake, not targets; missing foods or quantities are not evidence of low intake. Favor familiar listed candidates only when compatible. Optional clinical.anthropometry is measured/previously calculated context, never authorization to recalculate energy, macros or prescribe. Do not calculate new clinical indicators.`,
+Optional clinical.recall24h describes confirmed items from ONE recorded day, not permanent habits or a diet to copy. Its totals are recorded intake, not targets; method ai_estimate indicates an approximate AI estimate reviewed by the professional, with assumptions and uncertainties that must remain explicit, never treat it as exact intake; missing foods or quantities are not evidence of low intake. Favor familiar listed candidates only when compatible. Optional clinical.anthropometry is measured/previously calculated context, never authorization to recalculate energy, macros or prescribe. Do not calculate new clinical indicators.`,
 };
 
 export const dietDraftAdapterV3 = {

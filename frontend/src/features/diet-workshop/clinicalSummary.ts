@@ -3,6 +3,7 @@
 import { calculateExchangeTotals } from '../exchanges/model';
 import { exchangeContributionForFood } from '../menu/model';
 import { exchangeCatalog } from '../exchanges/catalog';
+import { isRecallEstimate, recallEstimateTotals } from '../consultations/recallEstimate';
 import type { FoodSnapshot } from '../../types/domain';
 
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -11,6 +12,16 @@ const groups = new Set<string>(exchangeCatalog.map(g => g.groupCode));
 export const CLINICAL_SUMMARY_LIMITS = { meals: 8, foodsPerMeal: 8, foodCharacters: 64, recordedItems: 150 } as const;
 
 export function summarizeConfirmedRecall(raw: unknown, sanitize: (s: string) => string) {
+  if (object(raw) && raw.method === 'ai_estimate' && typeof raw.approved_at === 'string' && Number.isFinite(Date.parse(raw.approved_at)) && isRecallEstimate(raw.estimate)) {
+    const clean = (s: string) => sanitize(s).trim().slice(0, 500);
+    return { scope: 'one_recorded_day_not_prescription' as const, totalsScope: 'professionally_reviewed_ai_estimate' as const,
+      method: 'ai_estimate' as const, nutrition: recallEstimateTotals(raw.estimate).total,
+      confidence: raw.estimate.confidence,
+      assumptions: raw.estimate.assumptions.slice(0, 10).map(clean), uncertainties: raw.estimate.uncertainties.slice(0, 10).map(clean),
+      meals: raw.estimate.meals.slice(0, CLINICAL_SUMMARY_LIMITS.meals).map(m => ({ name: clean(m.mealLabel), foods: [clean(m.description)] })),
+      foodListTruncated: raw.estimate.meals.length > CLINICAL_SUMMARY_LIMITS.meals,
+    };
+  }
   if (!object(raw) || typeof raw.approved_at !== 'string' || !Number.isFinite(Date.parse(raw.approved_at))
     || !Array.isArray(raw.items) || !raw.items.length || raw.items.length > CLINICAL_SUMMARY_LIMITS.recordedItems) return undefined;
   const clean = (s: string) => sanitize(s).trim().slice(0, CLINICAL_SUMMARY_LIMITS.foodCharacters);
