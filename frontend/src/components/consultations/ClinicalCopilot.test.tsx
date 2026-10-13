@@ -235,7 +235,10 @@ describe("recall copilot", () => {
     fireEvent.click(
       screen.getByLabelText("Revisé alimento, cantidad y unidad"),
     );
-    await screen.findByText("150 kcal estimadas");
+    fireEvent.click(screen.getByRole('button', { name: 'Revisar resumen' }));
+    expect(await screen.findByText('Energía estimada')).toBeVisible();
+    expect(screen.getByText('150')).toHaveTextContent('150 kcal');
+    fireEvent.click(screen.getByRole('button', { name: /Alimentos Revisa/ }));
     fireEvent.change(screen.getByLabelText("Cantidad 1"), {
       target: { value: "1" },
     });
@@ -246,7 +249,8 @@ describe("recall copilot", () => {
     fireEvent.click(
       screen.getByLabelText("Revisé alimento, cantidad y unidad"),
     );
-    await screen.findByText("75 kcal estimadas");
+    fireEvent.click(screen.getByRole('button', { name: 'Revisar resumen' }));
+    expect(screen.getByText('75')).toHaveTextContent('75 kcal');
     fireEvent.click(screen.getByText("Confirmar recordatorio"));
     await waitFor(() =>
       expect(api.workspace).toHaveBeenCalledWith(
@@ -301,6 +305,7 @@ describe("recall copilot", () => {
     fireEvent.click(screen.getByText("Organizar alimentos"));
     await screen.findByText("Texto original: 2 huevos");
     expect(screen.getByDisplayValue("Desayunó 2 huevos")).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Revisar resumen' }));
     expect(
       (screen.getByText("Confirmar recordatorio") as HTMLButtonElement)
         .disabled,

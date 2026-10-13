@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
-import { Check, Circle, X } from "lucide-react";
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+import { ArrowRight, Check, Circle, X } from "lucide-react";
 import { AIButton } from "@/src/components/ai/AIControls";
 import { RecallNarrativeInput } from "./RecallNarrativeInput";
+import { ConsultationGuide } from "./ConsultationGuide";
 import { CustomFoodForm } from "@/src/components/diet/MenuEditors";
 import {
   AIRequestError,
@@ -41,9 +42,9 @@ type Props = {
   onPendingChange?: (pending: boolean) => void;
 };
 const input =
-  "mt-1 w-full rounded-lg border border-[#dfe5e1] bg-white px-3 py-2 text-sm text-[#173d36]";
+  "nuth-input mt-1 w-full !text-sm";
 const secondary =
-  "rounded-lg border border-[#dfe5e1] bg-white px-3 py-2 text-sm text-[#315e4f] disabled:opacity-50";
+  "nuth-button-secondary !text-sm disabled:opacity-50";
 function useClinical(props: Props, feature: "pes_diagnosis" | "recall_24h") {
   const storageKey = `clinical-pending:${props.consultationId}:${feature}`;
   const [workspace, setWorkspace] = useState<ClinicalWorkspace | null>(null);
@@ -184,7 +185,7 @@ function Feedback({ clinical }: { clinical: ReturnType<typeof useClinical> }) {
   return (
     <>
       {clinical.message && (
-        <p role="status" className="mt-3 text-sm text-[#52675f]">
+        <p role="status" className="mt-3 text-sm text-[var(--nuth-muted)]">
           {clinical.message}
         </p>
       )}
@@ -216,18 +217,20 @@ export function PesCopilot(props: Props) {
   return (
     <section
       aria-label="Asistencia PES"
-      className="mt-5 rounded-2xl border border-[#dfe5e1] bg-[#f7faf8] p-4 sm:p-5"
+      className="clinical-assistant"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="font-semibold text-[#173d36]">Diagnóstico PES</h3>
-        <span className="text-xs text-[#687870]">
+        <h3 className="font-semibold">Redacta o revisa tu PES</h3>
+        <span className="text-xs text-[var(--nuth-muted)]">
           {clinical.workspace?.records.pes
-            ? "Existe una aprobación guardada; los cambios requieren revisión"
-            : "Borrador bajo revisión profesional"}
+            ? "Hay un PES aprobado"
+            : "Revisión profesional pendiente"}
         </span>
       </div>
+      <details className="mt-3 text-xs">
+        <summary className="cursor-pointer">Datos disponibles y cómo se usa la IA</summary>
       <div
-        className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-[#52675f]"
+        className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-[var(--nuth-muted)]"
         aria-label="Información disponible"
       >
         {(
@@ -249,15 +252,16 @@ export function PesCopilot(props: Props) {
           );
         })}
       </div>
-      <p className="mt-2 text-xs text-[#687870]">
+      <p className="mt-2 text-xs text-[var(--nuth-muted)]">
         {clinical.workspace?.readiness.anthropometry
           ? "Los laboratorios no son obligatorios."
           : "Agregar antropometría puede aportar más contexto; no es obligatorio."}{" "}
         Puedes redactar el PES manualmente.
       </p>
-      <p className="mt-1 text-xs text-[#687870]">
+      <p className="mt-1 text-xs text-[var(--nuth-muted)]">
         La propuesta prioriza esta consulta. Si falta la entrevista actual, puede usar antecedentes de consultas cerradas con su fecha. Revisa cuáles siguen vigentes.
       </p>
+      </details>
       {!draft && (
         <AIButton capability="ai.pes"
           className="mt-4"
@@ -342,7 +346,7 @@ export function PesCopilot(props: Props) {
               }
             />
           </label>
-          <details className="text-xs text-[#52675f]">
+          <details className="text-xs text-[var(--nuth-muted)]">
             <summary className="cursor-pointer">
               Información utilizada y límites
             </summary>
@@ -464,76 +468,31 @@ export function RecallTotals({
   provisional?: boolean;
 }) {
   const result = calculateRecall(items);
-  return (
-    <div className="mt-4 rounded-xl bg-[#edf5ef] p-3 text-sm text-[#315e4f]">
-      <p>
-        <strong>{result.total.energy_kcal.toFixed(0)} kcal estimadas</strong> ·
-        Proteína {result.total.protein_g.toFixed(1)} g · Carbohidratos{" "}
-        {result.total.carbohydrate_g.toFixed(1)} g · Grasa{" "}
-        {result.total.fat_g.toFixed(1)} g
-      </p>
-      <div className="mt-3" aria-label="Distribución de macronutrientes">
-        <p className="text-xs font-semibold">Distribución energética por macronutriente</p>
-        <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-white" aria-hidden="true">
-          {result.macros.map((macro) => <span key={macro.code} style={{ width: `${macro.percentage ?? 0}%`, backgroundColor: macro.color }} />)}
-        </div>
-        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-          {result.macros.map((macro) => <li key={macro.code}>
-            {macro.label}: {macro.percentage === null ? "Sin datos" : `${macro.percentage.toFixed(1)} %`}
-          </li>)}
-        </ul>
-        <p className="mt-1 text-xs">Porcentajes sobre la energía de los macros, con factores 4/4/9.</p>
-      </div>
-      <ul className="mt-2 text-xs">
-        {result.meals.map((m) => (
-          <li key={m.mealLabel}>
-            {m.mealLabel}: {m.energy_kcal.toFixed(0)} kcal ·{" "}
-            {m.energyPercent.toFixed(0)} %
-          </li>
-        ))}
-      </ul>
-      <p className="mt-2 text-xs">
-        Estimación por equivalentes del catálogo.{" "}
-        {provisional
-          ? "Vista preliminar: revisa las cantidades antes de confirmar."
-          : "Solo incluye alimentos revisados."}
-      </p>
-      {result.groups.length > 0 && (
-        <details className="mt-2 text-xs">
-          <summary>Equivalentes utilizados</summary>
-          <ul className="mt-1">
-            {[...new Set(result.groups.map((g) => g.group_code))].map(
-              (code) => (
-                <li key={code}>
-                  {getExchangeGroup(code).shortName}:{" "}
-                  {result.groups
-                    .filter((g) => g.group_code === code)
-                    .reduce((n, g) => n + g.portions, 0)
-                    .toFixed(2)}
-                </li>
-              ),
-            )}
-          </ul>
-        </details>
-      )}
-      {target?.energy_kcal && (
-        <p className="mt-2 text-xs">
-          Objetivo del plan de esta consulta: {target.energy_kcal} kcal
-          {target.protein_g != null
-            ? ` · Proteína ${Number(target.protein_g).toFixed(1)} g`
-            : ""}
-          {target.carbohydrate_g != null
-            ? ` · Carbohidratos ${Number(target.carbohydrate_g).toFixed(1)} g`
-            : ""}
-          {target.fat_g != null
-            ? ` · Grasa ${Number(target.fat_g).toFixed(1)} g`
-            : ""}
-          . Comparación informativa, sin clasificación automática.
-        </p>
-      )}
+  return <section className="recall-totals" aria-label="Resumen nutricional del recordatorio">
+    <div className="recall-nutrient-grid">
+      <div><small>Energía estimada</small><strong>{result.total.energy_kcal.toFixed(0)} <span>kcal</span></strong></div>
+      <div><small>Proteína</small><strong>{result.total.protein_g.toFixed(1)} <span>g</span></strong></div>
+      <div><small>Carbohidratos</small><strong>{result.total.carbohydrate_g.toFixed(1)} <span>g</span></strong></div>
+      <div><small>Grasas</small><strong>{result.total.fat_g.toFixed(1)} <span>g</span></strong></div>
     </div>
-  );
+    <div className="mt-4" aria-label="Distribución de macronutrientes">
+      <div className="recall-macro-bar" aria-hidden="true">{result.macros.map(macro => <span key={macro.code} style={{ width: `${macro.percentage ?? 0}%`, backgroundColor: macro.color }} />)}</div>
+      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">{result.macros.map(macro => <li key={macro.code}>{macro.label}: {macro.percentage === null ? 'Sin datos' : `${macro.percentage.toFixed(1)} %`}</li>)}</ul>
+    </div>
+    <p>{provisional ? 'Estimación preliminar. Confirma cada alimento y su cantidad para guardar el recordatorio.' : 'Estimación por equivalentes del catálogo, con los alimentos revisados.'}</p>
+    <details className="mt-3 text-xs">
+      <summary className="cursor-pointer font-semibold">Ver distribución por comidas y equivalentes</summary>
+      <ul className="mt-3 space-y-1">{result.meals.map(meal => <li key={meal.mealLabel}>{meal.mealLabel}: {meal.energy_kcal.toFixed(0)} kcal · {meal.energyPercent.toFixed(0)} %</li>)}</ul>
+      <p className="mt-3">Porcentajes de macros calculados con factores 4/4/9.</p>
+      {result.groups.length > 0 && <ul className="mt-3 space-y-1">{[...new Set(result.groups.map(group => group.group_code))].map(code => <li key={code}>{getExchangeGroup(code).shortName}: {result.groups.filter(group => group.group_code === code).reduce((n, group) => n + group.portions, 0).toFixed(2)} equivalentes</li>)}</ul>}
+    </details>
+    {target?.energy_kcal && <details className="mt-3 text-xs">
+      <summary className="cursor-pointer font-semibold">Comparar con el plan de esta consulta</summary>
+      <p className="mt-3">Objetivo del plan: {target.energy_kcal} kcal{target.protein_g != null ? ` · Proteína ${Number(target.protein_g).toFixed(1)} g` : ''}{target.carbohydrate_g != null ? ` · Carbohidratos ${Number(target.carbohydrate_g).toFixed(1)} g` : ''}{target.fat_g != null ? ` · Grasa ${Number(target.fat_g).toFixed(1)} g` : ''}. Comparación informativa, sin clasificación automática.</p>
+    </details>}
+  </section>;
 }
+
 export function ConfirmedRecall({
   record,
 }: {
@@ -541,23 +500,24 @@ export function ConfirmedRecall({
 }) {
   return (
     <div className="mt-4 text-sm">
-      <h4 className="font-semibold text-[#173d36]">Recordatorio confirmado</h4>
+      <h4 className="font-semibold">Recordatorio confirmado</h4>
+      <div className="recall-meal-list">
       {[...new Set(record.items.map((i) => i.mealLabel))].map((meal) => (
-        <div key={meal} className="mt-3">
-          <h5 className="font-medium">{meal}</h5>
-          <ul className="mt-1 space-y-1 text-[#52675f]">
+        <div key={meal}>
+          <h5>{meal}</h5>
+          <ul>
             {record.items
               .filter((i) => i.mealLabel === meal)
               .map((i, index) => (
                 <li key={index}>
-                  {i.food.name} · {Number(i.quantity.toFixed(3))}{" "}
-                  {foodUnitLabels[i.food.portion_unit]}
+                  <span>{i.food.name}</span><span>{Number(i.quantity.toFixed(3))} {foodUnitLabels[i.food.portion_unit]}</span>
                 </li>
               ))}
           </ul>
         </div>
       ))}
-      <details className="mt-3 text-xs text-[#687870]">
+      </div>
+      <details className="mt-3 text-xs">
         <summary>Texto original</summary>
         <p className="mt-2 whitespace-pre-wrap">{record.narrative}</p>
       </details>
@@ -568,8 +528,11 @@ export function ConfirmedRecall({
 function recallDraftSignature(text: string, items: RecallRow[]) {
   return JSON.stringify([text, items.map(item => [item.mealLabel, item.rawText, item.search, item.foodId, item.quantity, item.unit, item.confirmed])]);
 }
-export function RecallCopilot(props: Props) {
+export type RecallNavigation = { open: boolean; stage: number; nextDisabled: boolean; saving: boolean; busy: boolean };
+export type RecallNavigationActions = { next: () => void; previous: () => void };
+export function RecallCopilot(props: Props & { navigationRef?: Ref<RecallNavigationActions>; onNavigationChange?: (navigation: RecallNavigation | null) => void }) {
   const clinical = useClinical(props, "recall_24h");
+  const [stage, setStage] = useState(0);
   const [open, setOpen] = useState(false);
   const [narrative, setNarrative] = useState("");
   const [dictating, setDictating] = useState(false);
@@ -605,6 +568,7 @@ export function RecallCopilot(props: Props) {
     setRows(recallRows(extraction, foods));
     setAmbiguities([...extraction.ambiguities, ...extraction.unresolvedItems]);
     setReplacement(null);
+    setStage(1);
   }
   const update = (id: string, patch: Partial<RecallRow>) =>
     setRows((all) => all.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -614,6 +578,28 @@ export function RecallCopilot(props: Props) {
   const previewItems = rows
     .map((r) => canonicalRecallItem({ ...r, confirmed: true }, foods))
     .filter((i): i is RecallSavedItem => !!i);
+  const recallSection = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (open && props.active !== false) recallSection.current?.scrollIntoView?.({ block: 'start' });
+  }, [open, stage, props.active]);
+  const working = clinical.saving || dictating || clinical.state === 'generating';
+  const canConfirm = !clinical.saving && !dictating && clinical.state !== 'generating' && !replacement && items.length > 0 && items.length === rows.length;
+  const nextDisabled = working || (stage === 2 ? !canConfirm : !rows.length);
+  const { onNavigationChange } = props;
+  useEffect(() => { onNavigationChange?.({ open, stage, nextDisabled, saving: clinical.saving, busy: working }); }, [open, stage, nextDisabled, clinical.saving, working, onNavigationChange]);
+  useEffect(() => () => onNavigationChange?.(null), [onNavigationChange]);
+  async function confirmRecall() {
+    if (!canConfirm) return;
+    const ok = await clinical.approve('recall', {
+      narrative,
+      items: rows.map(row => ({ foodId: row.foodId, mealLabel: row.mealLabel, rawText: row.rawText, quantity: Number(row.quantity), unit: row.unit })),
+    });
+    if (ok) setOpen(false);
+  }
+  useImperativeHandle(props.navigationRef, () => ({
+    next: () => { if (!nextDisabled) { if (stage === 2) void confirmRecall(); else setStage(stage + 1); } },
+    previous: () => { if (stage > 0 && !clinical.saving && !dictating && clinical.state !== 'generating') setStage(stage - 1); },
+  }));
   function start() {
     const saved = clinical.workspace?.records.recall;
     setAmbiguities([]);
@@ -631,19 +617,23 @@ export function RecallCopilot(props: Props) {
       })) ?? [];
     baseline.current = recallDraftSignature(saved?.narrative ?? '', nextRows);
     setRows(nextRows);
+    setStage(nextRows.length ? 1 : 0);
     setOpen(true);
+  }
+  function addFood() {
+    setRows(all => [...all, { id: crypto.randomUUID(), mealLabel: "Desayuno", rawText: "", search: "", foodId: "", quantity: "", unit: "", confirmed: false }]);
+    setStage(1);
   }
   return (
     <section
       aria-label="Recordatorio estructurado"
-      className="mt-5 rounded-2xl border border-[#dfe5e1] bg-[#f7faf8] p-4 sm:p-5"
+      ref={recallSection}
+      className="recall-workspace"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="font-semibold text-[#173d36]">
-          Texto libre y análisis de alimentos
-        </h3>
+      <div className="recall-workspace-heading">
+        <div><h3>{clinical.workspace?.records.recall && !open ? "Consumo registrado" : "¿Qué comió y bebió el paciente?"}</h3><p>{clinical.workspace?.records.recall && !open ? "El recordatorio está confirmado. Puedes revisarlo o continuar con las mediciones." : "Escucha un día completo, revisa las cantidades y confirma el registro."}</p></div>
         {!open && (
-          <button type="button" className={secondary} onClick={start}>
+          <button type="button" className={clinical.workspace?.records.recall ? secondary : 'nuth-button'} onClick={start}>
             {clinical.workspace?.records.recall
               ? "Revisar recordatorio"
               : "Capturar recordatorio"}
@@ -653,11 +643,19 @@ export function RecallCopilot(props: Props) {
       {!open && clinical.workspace?.records.recall && (
         <ConfirmedRecall record={clinical.workspace.records.recall} />
       )}
+      {!open && !clinical.workspace?.records.recall && <div className="consultation-guided-hint"><ArrowRight size={17} aria-hidden="true" /><p>Empieza con el relato del paciente. Puedes escribirlo, dictarlo o agregar los alimentos manualmente.</p></div>}
       {open && (
-        <div className="mt-4 space-y-4">
+        <div>
+          <ConsultationGuide label="Pasos del recordatorio" active={stage} onChange={setStage} busy={clinical.saving || clinical.state === 'generating' || dictating} steps={[
+            { title: 'Captura', description: 'Escucha el día completo' },
+            { title: 'Alimentos', description: 'Revisa cantidades y unidades' },
+            { title: 'Confirma', description: 'Guarda el registro revisado', disabled: !rows.length },
+          ]} />
+          <div hidden={stage !== 0}>
+          <div className="recall-stage-heading"><h4>1. Captura lo que recuerda</h4><p>Incluye comidas, bebidas y colaciones, desde que despertó hasta que se durmió.</p></div>
           <RecallNarrativeInput value={narrative} onChange={setNarrative}
-            disabled={clinical.state === "generating" || clinical.saving} onListeningChange={setDictating} />
-          <div className="flex flex-wrap gap-2">
+            disabled={props.active === false || stage !== 0 || clinical.state === "generating" || clinical.saving} onListeningChange={setDictating} />
+          <div className="recall-actions">
             <AIButton capability="ai.recall_24h"
               state={clinical.state}
               disabled={
@@ -672,7 +670,7 @@ export function RecallCopilot(props: Props) {
                   setPreviousGeneration(clinical.generation);
                   const result = await clinical.generate(narrative);
                   if (result) {
-                    if (rows.length) setReplacement(result as RecallExtraction);
+                    if (rows.length) { setReplacement(result as RecallExtraction); setStage(1); }
                     else apply(result as RecallExtraction);
                   }
                 })()
@@ -683,25 +681,17 @@ export function RecallCopilot(props: Props) {
             <button
               type="button"
               className={secondary}
-              onClick={() =>
-                setRows([
-                  ...rows,
-                  {
-                    id: crypto.randomUUID(),
-                    mealLabel: "Desayuno",
-                    rawText: "",
-                    search: "",
-                    foodId: "",
-                    quantity: "",
-                    unit: "",
-                    confirmed: false,
-                  },
-                ])
-              }
+              disabled={clinical.saving || clinical.state === 'generating' || dictating}
+              onClick={addFood}
             >
               Agregar alimento manualmente
             </button>
+            {rows.length > 0 && <button type="button" className={secondary} disabled={dictating || clinical.saving || clinical.state === 'generating'} onClick={() => setStage(1)}>Continuar con los alimentos <ArrowRight size={15} /></button>}
           </div>
+          {replacement && <p className="consultation-guided-hint">Ya hay una nueva interpretación. Abre Alimentos para revisarla o conservar tu captura.</p>}
+          </div>
+          <div hidden={stage !== 1}>
+          <div className="recall-stage-heading"><h4>2. Revisa cada alimento</h4><p>Elige el alimento del catálogo, comprueba su cantidad y marca la casilla de revisión.</p></div>
           {replacement && (
             <div className="rounded-xl border p-3 text-sm">
               <p>
@@ -737,26 +727,10 @@ export function RecallCopilot(props: Props) {
             return (
               <div
                 key={row.id}
-                className="rounded-xl border border-[#dfe5e1] bg-white p-3"
+                className="recall-food-card"
               >
-                {row.rawText && (
-                  <p className="mb-2 text-xs text-[#687870]">
-                    Texto original: {row.rawText}
-                  </p>
-                )}
-                <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-[1fr_2fr_1fr_1fr_auto]">
-                  <label className="text-xs">
-                    Tiempo
-                    <input
-                      aria-label={`Tiempo ${index + 1}`}
-                      className={input}
-                      maxLength={120}
-                      value={row.mealLabel}
-                      onChange={(e) =>
-                        update(row.id, { mealLabel: e.target.value })
-                      }
-                    />
-                  </label>
+                <div className="recall-food-heading"><span>{index + 1}</span><strong>{food?.name || row.search || 'Alimento por completar'}</strong><button type="button" className="p-2 text-[#8b5750]" aria-label={`Omitir alimento ${index + 1}`} onClick={() => setRows(rows.filter(r => r.id !== row.id))}><X size={16} /></button></div>
+                <div className="recall-food-grid">
                   <label className="text-xs">
                     Alimento
                     <input
@@ -796,6 +770,8 @@ export function RecallCopilot(props: Props) {
                       ))}
                     </select>
                   </label>
+                  <label className="text-xs">Tiempo de comida<input aria-label={`Tiempo ${index + 1}`} className={input} maxLength={120} value={row.mealLabel} onChange={e => update(row.id, { mealLabel: e.target.value })} /></label>
+                  <div className="recall-food-amount">
                   <label className="text-xs">
                     Cantidad
                     <input
@@ -849,15 +825,9 @@ export function RecallCopilot(props: Props) {
                       ) : null}
                     </select>
                   </label>
-                  <button
-                    type="button"
-                    className="self-start p-2 text-[#8b5750]"
-                    aria-label={`Omitir alimento ${index + 1}`}
-                    onClick={() => setRows(rows.filter((r) => r.id !== row.id))}
-                  >
-                    <X size={16} />
-                  </button>
+                  </div>
                 </div>
+                {row.rawText && <p className="recall-food-original">Texto original: {row.rawText}</p>}
                 {!row.foodId && row.search && matches.length === 0 && (
                   <p className="mt-2 text-xs">
                     No encontré este alimento en tu catálogo. Busca otro nombre,{" "}
@@ -871,7 +841,7 @@ export function RecallCopilot(props: Props) {
                     u omítelo.
                   </p>
                 )}
-                <label className="mt-3 flex items-center gap-2 text-xs">
+                <label className="recall-food-review">
                   <input
                     type="checkbox"
                     checked={row.confirmed}
@@ -884,6 +854,7 @@ export function RecallCopilot(props: Props) {
               </div>
             );
           })}
+          {!rows.length && <p className="recall-empty">Todavía no hay alimentos. Agrégalos manualmente o vuelve a Captura para organizar el relato con IA.</p>}
           {creating && (
             <CustomFoodForm
               initialGroup="VEGETABLES"
@@ -901,6 +872,11 @@ export function RecallCopilot(props: Props) {
               }}
             />
           )}
+          <div className="recall-actions"><button type="button" className={secondary} onClick={addFood}>Agregar otro alimento</button><button type="button" className="nuth-button" disabled={!rows.length} onClick={() => setStage(2)}>Revisar resumen <ArrowRight size={15} /></button></div>
+          <p className="recall-confirm-progress" role="status">{items.length} de {rows.length} alimentos revisados.</p>
+          </div>
+          <div hidden={stage !== 2}>
+          <div className="recall-stage-heading"><h4>3. Confirma el recordatorio</h4><p>Revisa el resumen. Al confirmar, estos alimentos estarán disponibles para la revisión clínica y el plan.</p></div>
           {rows.length > 0 && (
             <>
               {previewItems.length > 0 ? (
@@ -910,47 +886,25 @@ export function RecallCopilot(props: Props) {
                   provisional={items.length !== rows.length}
                 />
               ) : (
-                <p className="text-sm text-[#687870]">
+                <p className="text-sm text-[var(--nuth-muted)]">
                   Completa alimento, cantidad y unidad para estimar nutrientes.
                 </p>
               )}
-              <p className="text-xs text-[#687870]">
-                {items.length} de {rows.length} alimentos revisados. Resuelve u
-                omite los pendientes antes de confirmar.
+              <p className="text-xs text-[var(--nuth-muted)]">
+                {items.length} de {rows.length} alimentos revisados. {items.length === rows.length ? 'El registro está listo para confirmar.' : 'Resuelve u omite los pendientes antes de confirmar.'}
               </p>
             </>
           )}
-          <div className="flex flex-wrap gap-2">
+          <div className="recall-actions">
             <button
               type="button"
-              className={secondary}
-              disabled={
-                clinical.saving ||
-                dictating ||
-                clinical.state === "generating" ||
-                !!replacement ||
-                !items.length ||
-                items.length !== rows.length
-              }
-              onClick={() =>
-                void clinical
-                  .approve("recall", {
-                    narrative,
-                    items: rows.map((r) => ({
-                      foodId: r.foodId,
-                      mealLabel: r.mealLabel,
-                      rawText: r.rawText,
-                      quantity: Number(r.quantity),
-                      unit: r.unit,
-                    })),
-                  })
-                  .then((ok) => {
-                    if (ok) setOpen(false);
-                  })
-              }
+              className="nuth-button"
+              disabled={!canConfirm}
+              onClick={() => void confirmRecall()}
             >
               {clinical.saving ? "Guardando…" : "Confirmar recordatorio"}
             </button>
+            {items.length !== rows.length && <button type="button" className={secondary} onClick={() => setStage(1)}>Completar alimentos pendientes</button>}
             <button
               type="button"
               className={secondary}
@@ -964,6 +918,8 @@ export function RecallCopilot(props: Props) {
               Descartar cambios
             </button>
           </div>
+          </div>
+          {stage !== 2 && <button type="button" className="mt-5 text-xs font-medium underline" disabled={clinical.saving || clinical.state === 'generating' || dictating} onClick={() => { setOpen(false); setReplacement(null); clinical.setGeneration(undefined); }}>Descartar cambios</button>}
         </div>
       )}
       <Feedback clinical={clinical} />

@@ -85,28 +85,28 @@ export function ClinicalObjective({
   return (
     <section
       aria-label="Revisión del objetivo"
-      className="mt-5 rounded-2xl border border-[#dfe5e1] bg-[#f7faf8] p-4 sm:p-5"
+      className="clinical-assistant"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-semibold text-[#173d36]">Objetivo acordado</h3>
-        <span className="text-xs text-[#687870]">
+        <h3 className="font-semibold">Revisa y aprueba el objetivo</h3>
+        <span className="text-xs text-[var(--nuth-muted)]">
           {approved ? "Aprobado" : "Pendiente de revisión"}
         </span>
       </div>
       {workspace?.pes ? (
-        <div className="mt-3 text-sm text-[#315e4f]">
+        <div className="mt-3 text-sm text-[var(--nuth-muted)]">
           <p className="text-xs font-semibold">PES aprobado</p>
           <p className="mt-1 whitespace-pre-line">
             {workspace.pes.pesStatement}
           </p>
         </div>
       ) : (
-        <p className="mt-3 text-sm text-[#687870]">
-          Puedes redactar el objetivo abajo. Para aprobarlo, revisa primero el
+        <p className="mt-3 text-sm text-[var(--nuth-muted)]">
+          Puedes redactar el objetivo en su campo. Para aprobarlo, revisa primero el
           PES.
         </p>
       )}
-      <p className="mt-3 text-xs text-[#687870]">
+      <p className="mt-3 text-xs text-[var(--nuth-muted)]">
         El objetivo expresa lo acordado con el paciente. Las kcal objetivo y los
         macronutrientes se ajustan por separado.
       </p>
@@ -119,7 +119,7 @@ export function ClinicalObjective({
           onApply={onApplySuggestion}
         />
       )}
-      <details className="mt-3 text-xs text-[#52675f]">
+      <details className="mt-3 text-xs text-[var(--nuth-muted)]">
         <summary className="cursor-pointer">
           Consultar contexto registrado
         </summary>
@@ -160,13 +160,13 @@ export function ClinicalObjective({
           type="button"
           disabled={busy}
           onClick={() => void review("read")}
-          className="px-3 py-2 text-sm text-[#315e4f]"
+          className="px-3 py-2 text-sm text-[var(--nuth-muted)]"
         >
           Actualizar contexto
         </button>
       </div>
       {message && (
-        <p role="status" className="mt-3 text-sm text-[#52675f]">
+        <p role="status" className="mt-3 text-sm text-[var(--nuth-muted)]">
           {message}
         </p>
       )}

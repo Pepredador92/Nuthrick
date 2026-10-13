@@ -101,13 +101,13 @@ export function RecallNarrativeInput({ value, onChange, disabled, onListeningCha
     }
   }
 
-  return <div>
+  return <div className="recall-narrative">
     <div className="flex items-center justify-between gap-3">
       <label htmlFor={id} className="text-sm">Texto capturado</label>
       <button type="button" aria-pressed={listening}
         aria-label={listening ? "Detener dictado" : "Dictar recordatorio"}
         disabled={disabled || !speechConstructor() || value.length >= 8000 && !listening}
-        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50 ${listening ? "border-red-300 bg-red-50 text-red-800" : "border-[#dfe5e1] bg-white text-[#315e4f]"}`}
+        className={`nuth-button-secondary !text-xs disabled:opacity-50 ${listening ? "!border-red-300 !bg-red-50 !text-red-800" : ""}`}
         onClick={() => listening ? recognition.current?.stop() : start()}>
         {listening ? <Square size={15} aria-hidden="true" /> : <Mic size={16} aria-hidden="true" />}
         {listening ? "Detener" : "Dictar"}
@@ -117,10 +117,10 @@ export function RecallNarrativeInput({ value, onChange, disabled, onListeningCha
       rows={4} maxLength={8000} disabled={disabled} readOnly={listening}
       placeholder="Describe lo que comió y bebió, con las cantidades que recuerde."
       value={preview ?? value} onChange={(event) => onChange(event.target.value)} />
-    <p className="mt-1 text-xs leading-5 text-[#687870]">
+    <details className="mt-2 text-xs"><summary className="cursor-pointer">Acerca del dictado</summary><p className="mt-2 leading-5">
       {speechConstructor() ? "El dictado usa el servicio de voz del navegador, que puede procesar audio en línea. Nuthrick guarda el texto al confirmar el recordatorio."
         : "Este navegador no ofrece dictado. Puedes escribir o usar el micrófono del teclado de tu dispositivo."}
-    </p>
+    </p></details>
     {(listening || message) && <p role="status" className="mt-2 text-xs text-[#315e4f]">
       {listening ? "Escuchando… Detén el dictado para revisar y editar el texto." : message}
     </p>}

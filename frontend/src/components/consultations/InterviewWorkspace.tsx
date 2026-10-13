@@ -51,7 +51,7 @@ export function InterviewWorkspace({ templateName, sections, values, active, bus
   </div>;
 }
 
-export function InterviewQuestionCard({ question, children }: { question: Question; children: ReactNode }) {
+export function InterviewQuestionCard({ question, children, className = '' }: { question: Question; children: ReactNode; className?: string }) {
   const wide = ['long_text', 'multi_select', 'repeatable_group'].includes(question.question_type) || question.configuration.widget === 'frequency_grid';
-  return <div className={`interview-question-card${wide ? ' is-wide' : ''}`} data-field-type={question.question_type}>{children}</div>;
+  return <div className={`interview-question-card${wide ? ' is-wide' : ''} ${className}`} data-field-type={question.question_type}>{children}</div>;
 }

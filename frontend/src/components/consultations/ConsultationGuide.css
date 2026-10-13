@@ -1,0 +1,87 @@
+.consultation-guided-workspace { width: 100%; max-width: 1000px; margin-inline: auto; color: var(--nuth-ink); }
+.consultation-guide-steps { display: flex; gap: 8px; margin-block: 18px; padding: 7px; border: 1px solid var(--nuth-line); border-radius: 18px; background: var(--nuth-surface); }
+.consultation-guide-steps button { display: flex; flex: 1; min-width: 0; align-items: center; gap: 10px; padding: 12px; border-radius: 12px; text-align: left; color: var(--nuth-muted); }
+.consultation-guide-steps button[aria-current=step] { background: var(--nuth-surface-soft); color: var(--nuth-ink); }
+.consultation-guide-steps button:disabled { opacity: .5; cursor: not-allowed; }
+.consultation-guide-number { display: grid; width: 30px; height: 30px; flex: none; place-items: center; border-radius: 10px; background: var(--nuth-surface-soft); font-size: 12px; font-weight: 700; }
+.consultation-guide-steps [aria-current=step] .consultation-guide-number { background: var(--nuth-action); color: #fff; }
+.consultation-guide-steps strong { display: block; font-size: 13px; font-weight: 650; }
+.consultation-guide-steps small { display: block; margin-top: 3px; font-size: 11px; line-height: 1.45; }
+.consultation-guide-steps button:focus-visible { outline: 2px solid var(--nuth-action); outline-offset: 2px; }
+.consultation-guided-intro { margin: 18px 0; scroll-margin-top: 80px; }
+.consultation-guided-intro h2 { margin-top: 7px; font-size: clamp(23px, 3vw, 30px); font-weight: 680; line-height: 1.25; }
+.consultation-guided-intro > p:last-child { max-width: 60ch; margin-top: 9px; color: var(--nuth-muted); font-size: 14px; line-height: 1.65; }
+.consultation-guided-hint { display: flex; align-items: center; gap: 10px; margin-top: 18px; padding: 12px 15px; border: 1px solid var(--nuth-line); border-radius: 13px; background: var(--nuth-surface-soft); color: var(--nuth-muted); font-size: 13px; line-height: 1.6; }
+.clinical-assistant { margin-top: 20px; padding: 18px; border: 1px solid var(--nuth-line); border-radius: 17px; background: var(--nuth-surface-soft); color: var(--nuth-ink); }
+.clinical-assistant :is(h3, h4, label) { color: var(--nuth-ink); }
+.clinical-assistant > p, .clinical-assistant > div > p { color: var(--nuth-muted); }
+.clinical-assistant input:not([type=checkbox]), .clinical-assistant textarea, .clinical-assistant select { color: var(--nuth-ink); background: var(--nuth-surface); border-color: var(--nuth-line); }
+.clinical-assistant button[title="Asistencia con inteligencia artificial"] { background: var(--nuth-action); }
+.recall-workspace { scroll-margin-top: 80px; padding: clamp(18px, 3vw, 26px); border: 1px solid var(--nuth-line); border-radius: 23px; background: var(--nuth-surface); box-shadow: 0 18px 38px -30px #173d3659; }
+.recall-workspace-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
+.recall-workspace-heading h3 { font-size: 19px; font-weight: 650; }
+.recall-workspace-heading p { max-width: 58ch; margin-top: 6px; color: var(--nuth-muted); font-size: 13px; line-height: 1.6; }
+.recall-workspace .consultation-guide-steps { background: var(--nuth-surface-soft); border: 0; }
+.recall-workspace .consultation-guide-steps [aria-current=step] { background: var(--nuth-surface); box-shadow: 0 4px 15px -10px #173d3640; }
+.recall-stage-heading { margin-block: 22px 15px; }
+.recall-stage-heading h4 { font-size: 17px; font-weight: 650; }
+.recall-stage-heading p { max-width: 58ch; margin-top: 7px; color: var(--nuth-muted); font-size: 13px; line-height: 1.6; }
+.recall-narrative { max-width: 740px; margin-inline: auto; }
+.recall-narrative > textarea { min-height: 155px; padding: 15px; border: 1px solid var(--nuth-line); border-radius: 14px; background: var(--nuth-surface-soft); color: var(--nuth-ink); font-size: 14px; line-height: 1.65; }
+.recall-narrative > p { margin-top: 9px; color: var(--nuth-muted); font-size: 12px; line-height: 1.6; }
+.recall-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 20px; }
+.recall-actions .nuth-button { min-height: 42px; }
+.recall-actions > button[title="Asistencia con inteligencia artificial"] { background: var(--nuth-action); }
+.recall-food-card { margin-top: 12px; padding: 17px; border: 1px solid var(--nuth-line); border-radius: 17px; background: var(--nuth-surface-soft); }
+.recall-food-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 13px; }
+.recall-food-heading > span { display: grid; place-items: center; width: 27px; height: 27px; flex: none; border-radius: 8px; background: var(--nuth-surface); color: var(--nuth-action); font-size: 12px; font-weight: 700; }
+.recall-food-heading strong { flex: 1; font-size: 14px; font-weight: 650; }
+.recall-food-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 14px; }
+.recall-food-grid label { min-width: 0; color: var(--nuth-muted); font-size: 12px; }
+.recall-food-grid .nuth-input { min-width: 0; width: 100%; margin-top: 6px; font-size: 14px; }
+.recall-food-amount { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(100px, 1fr); gap: 12px; }
+.recall-food-original { margin-top: 12px; color: var(--nuth-muted); font-size: 12px; }
+.recall-food-review { display: flex; align-items: center; gap: 9px; margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--nuth-line); color: var(--nuth-ink); font-size: 12px; }
+.recall-food-review input { accent-color: var(--nuth-action); width: 16px; height: 16px; }
+.recall-empty { margin-top: 16px; padding: 23px; border: 1px dashed var(--nuth-line); border-radius: 15px; color: var(--nuth-muted); font-size: 14px; line-height: 1.6; }
+.recall-confirm-progress { margin-top: 18px; color: var(--nuth-muted); font-size: 13px; }
+.recall-totals { margin-top: 18px; padding: 20px; border: 1px solid var(--nuth-line); border-radius: 18px; background: var(--nuth-surface-soft); color: var(--nuth-ink); }
+.recall-nutrient-grid { display: grid; grid-template-columns: 1.3fr repeat(3, 1fr); gap: 10px; }
+.recall-nutrient-grid > div { padding: 14px; border-radius: 13px; background: var(--nuth-surface); }
+.recall-nutrient-grid small { color: var(--nuth-muted); font-size: 11px; }
+.recall-nutrient-grid strong { display: block; margin-top: 5px; font-size: 21px; font-weight: 680; }
+.recall-nutrient-grid strong > span { font-size: 11px; font-weight: 400; color: var(--nuth-muted); }
+.recall-totals > p { margin-top: 12px; color: var(--nuth-muted); font-size: 12px; line-height: 1.65; }
+.recall-macro-bar { display: flex; height: 6px; overflow: hidden; border-radius: 8px; background: var(--nuth-line); }
+.recall-meal-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 15px; }
+.recall-meal-list > div { padding: 15px; border: 1px solid var(--nuth-line); border-radius: 14px; background: var(--nuth-surface-soft); }
+.recall-meal-list h5 { color: var(--nuth-action); font-size: 12px; font-weight: 650; }
+.recall-meal-list li { display: flex; justify-content: space-between; gap: 10px; padding-top: 9px; color: var(--nuth-ink); font-size: 13px; }
+.recall-meal-list li > span:last-child { flex: none; color: var(--nuth-muted); }
+.recall-supported-fields { margin-top: 18px; padding: 18px; border: 1px solid var(--nuth-line); border-radius: 18px; background: var(--nuth-surface); }
+.recall-supported-fields > summary { cursor: pointer; font-size: 14px; font-weight: 650; }
+.recall-supported-fields > p { margin-block: 12px 18px; color: var(--nuth-muted); font-size: 13px; line-height: 1.6; }
+.clinical-review-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-block: 20px; }
+.clinical-review-summary > div { display: grid; gap: 6px; padding: 16px; border: 1px solid var(--nuth-line); border-radius: 15px; background: var(--nuth-surface-soft); }
+.clinical-review-summary svg { color: var(--nuth-action); }
+.clinical-review-summary strong { font-size: 14px; font-weight: 650; }
+.clinical-review-summary span { color: var(--nuth-muted); font-size: 12px; line-height: 1.5; }
+.clinical-review-sources > details { margin-top: 10px; padding: 15px; border: 1px solid var(--nuth-line); border-radius: 14px; background: var(--nuth-surface-soft); }
+.clinical-review-sources summary { cursor: pointer; font-size: 13px; font-weight: 650; }
+.clinical-review-empty { margin-top: 12px; color: var(--nuth-muted); font-size: 13px; line-height: 1.6; }
+.clinical-decision-workspace .consultation-clinical-card { margin-top: 0; }
+.clinical-decision-workspace .consultation-clinical-fields .interview-question-card { box-shadow: none; }
+.clinical-decision-workspace .consultation-clinical-fields textarea { max-width: 740px; }
+.clinical-decision-workspace .consultation-clinical-fields :is([data-field-type=long_text], [data-field-type=repeatable_group]) { max-width: 780px; width: 100%; margin-inline: auto; }
+@media (min-width: 640px) { .clinical-decision-workspace .interview-question-card.clinical-pes-field { grid-column: auto; } }
+@media (max-width: 720px) {
+  .consultation-guide-steps small { display: none; }
+  .consultation-guide-steps button { flex-direction: column; gap: 6px; padding: 10px 5px; text-align: center; }
+  .consultation-guide-steps strong { font-size: 10px; white-space: nowrap; }
+  .recall-food-grid { grid-template-columns: minmax(0, 1fr); }
+  .recall-nutrient-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .clinical-review-summary { grid-template-columns: minmax(0, 1fr); }
+  .clinical-review-summary > div { grid-template-columns: 22px 1fr; align-items: center; gap: 7px 10px; padding: 12px; }
+  .clinical-review-summary span { grid-column: 2; }
+  .recall-meal-list { grid-template-columns: minmax(0, 1fr); }
+}

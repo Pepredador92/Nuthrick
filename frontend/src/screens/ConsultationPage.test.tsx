@@ -238,12 +238,17 @@ describe("consultation save and review workflow", () => {
     expect(within(screen.getByRole('navigation', { name: 'Secciones de la entrevista' })).queryByText(/Recordatorio|PES|Objetivos/)).not.toBeInTheDocument();
     await openModule('Recordatorio de 24 horas');
     expect(screen.getByRole('button', { name: 'Capturar recordatorio' })).toBeVisible();
+    fireEvent.click(screen.getByText('Registro detallado del día y preguntas de apoyo'));
     expect(screen.getByRole('button', { name: 'Agregar alimento o bebida' })).toBeVisible();
     expect(screen.getByText('Sigue: Mediciones')).toBeVisible();
     await openModule('Revisión clínica, PES y objetivos');
     expect(screen.getByRole('heading', { name: 'Revisión clínica' })).toBeVisible();
-    expect(screen.getByLabelText('Objetivo acordado con el paciente')).toBeVisible();
-    expect(screen.getByLabelText('Redacción PES')).toBeVisible();
+    expect(screen.getByLabelText('Redacción PES')).not.toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    await waitFor(() => expect(screen.getByLabelText('Redacción PES')).toBeVisible());
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    await waitFor(() => expect(screen.getByLabelText('Objetivo acordado con el paciente')).toBeVisible());
+    expect(screen.getByLabelText('Redacción PES')).not.toBeVisible();
   });
 
   it('requires saving measurement edits before entering the clinical proposal step', async () => {
@@ -292,6 +297,7 @@ describe("consultation save and review workflow", () => {
     try {
       mount();
       await openModule("Revisión clínica, PES y objetivos");
+      fireEvent.click(screen.getByRole('button', { name: /Objetivos Acuerda/ }));
       const field = await screen.findByLabelText(question.label);
       fireEvent.click(screen.getByRole("button", { name: "Actualizar contexto" }));
       await waitFor(() => expect(mocks.objective.mock.calls.length).toBeGreaterThanOrEqual(2));
@@ -624,6 +630,7 @@ describe("consultation save and review workflow", () => {
       await screen.findByRole("heading", { name: "Cierre de prueba" });
       fireEvent.change(screen.getByRole("combobox", { name: /Confirmación de prueba/ }), { target: { value: "Revisado" } });
       await openModule("Revisión clínica, PES y objetivos");
+      fireEvent.click(screen.getByRole('button', { name: /Objetivos Acuerda/ }));
       await screen.findByRole("heading", { name: section.title });
       expect(screen.getByText(section.questions[0].help_text)).toBeInTheDocument();
       if (objective) fireEvent.change(screen.getByLabelText(section.questions[0].label), { target: { value: objective } });
