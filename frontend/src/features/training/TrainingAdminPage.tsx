@@ -44,11 +44,11 @@ export function TrainingAdminPage() {
     if (!catalog) return;
     const ids = catalog.videos.map(video => video.id);
     [ids[index], ids[index + direction]] = [ids[index + direction], ids[index]];
-    void mutate(() => reorderTrainingVideos(ids, catalog.revision), 'Orden actualizado en la Academia.');
+    void mutate(() => reorderTrainingVideos(ids, catalog.revision), 'Orden actualizado en Capacitación Nuthrick.');
   };
   const toggle = async (video: TrainingVideo) => {
     if (!catalog) return;
-    const saved = await mutate(() => saveTrainingVideo({ id: video.id, title: video.title, description: video.description, youtube_video_id: video.youtube_video_id, published: !video.published }, catalog.revision), video.published ? 'Video oculto para los profesionales.' : 'Video publicado en la Academia.');
+    const saved = await mutate(() => saveTrainingVideo({ id: video.id, title: video.title, description: video.description, youtube_video_id: video.youtube_video_id, published: !video.published }, catalog.revision), video.published ? 'Video oculto para los profesionales.' : 'Video publicado en Capacitación Nuthrick.');
     if (saved && form.id === video.id) setForm(current => ({ ...current, published: !video.published }));
   };
   const remove = async (video: TrainingVideo) => {
@@ -57,7 +57,7 @@ export function TrainingAdminPage() {
   };
 
   return <div className="training-admin">
-    <header className="admin-heading"><div><p className="admin-eyebrow">Academia Nuthrick</p><h1>Capacitación</h1><p className="admin-description">Agrega tutoriales y organiza el orden en que los nutriólogos los verán. Puedes revisar cada video antes de publicarlo.</p></div></header>
+    <header className="admin-heading"><div><p className="admin-eyebrow">Capacitación Nuthrick</p><h1>Capacitación</h1><p className="admin-description">Agrega tutoriales y organiza el orden en que los nutriólogos los verán. Puedes revisar cada video antes de publicarlo.</p></div></header>
     {error && <div className="training-feedback" role="alert"><p>{error}</p><button type="button" className="admin-button secondary" disabled={loading || busy} onClick={refresh}><RefreshCw size={15} />Actualizar catálogo</button></div>}
     {notice && <p className="training-feedback" role="status">{notice}</p>}
     <div className="training-workspace">
@@ -76,7 +76,7 @@ export function TrainingAdminPage() {
             <p id="training-url-help" className="training-help">Pega el enlace a un video individual. Una playlist por sí sola no identifica el video.</p>
             <label htmlFor="training-description">Descripción breve</label>
             <textarea id="training-description" className="nuth-input" rows={4} maxLength={1000} value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} placeholder="¿Qué aprenderá el nutriólogo con este video?" />
-            <label className="training-publish"><input type="checkbox" checked={form.published} onChange={event => setForm({ ...form, published: event.target.checked })} />Visible en Academia Nuthrick</label>
+            <label className="training-publish"><input type="checkbox" checked={form.published} onChange={event => setForm({ ...form, published: event.target.checked })} />Visible en Capacitación Nuthrick</label>
             <p className="training-help">El video debe permitir su reproducción en otros sitios desde la configuración de YouTube.</p>
             <div className="training-form-actions">
               <button type="submit" className="admin-button">{busy ? 'Guardando…' : form.id ? 'Guardar cambios' : 'Agregar video'}</button>

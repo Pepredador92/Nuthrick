@@ -21,7 +21,7 @@ beforeEach(() => {
   HTMLDialogElement.prototype.close = function () { this.open = false; };
 });
 
-describe('Academia Nuthrick', () => {
+describe('Capacitación Nuthrick', () => {
   it('loads YouTube only after selecting a video and stops it on close', async () => {
     const { container } = render(<AcademyPage />);
     const play = await screen.findByRole('button', { name: 'Ver video: Conoce tu espacio' });
@@ -64,7 +64,7 @@ describe('training administration', () => {
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: ' Nueva consulta ' } });
     fireEvent.change(screen.getByLabelText('Enlace de YouTube'), { target: { value: 'https://youtu.be/PuIO8UgjOrM?si=example' } });
     fireEvent.change(screen.getByLabelText('Descripción breve'), { target: { value: ' Aprende a consultar. ' } });
-    fireEvent.click(screen.getByLabelText('Visible en Academia Nuthrick'));
+    fireEvent.click(screen.getByLabelText('Visible en Capacitación Nuthrick'));
     fireEvent.click(screen.getByRole('button', { name: 'Agregar video' }));
     await waitFor(() => expect(saveTrainingVideo).toHaveBeenCalledWith({ title: 'Nueva consulta', description: 'Aprende a consultar.', youtube_video_id: 'PuIO8UgjOrM', published: true }, 5));
     expect(await screen.findByRole('status')).toHaveTextContent('Video guardado.');

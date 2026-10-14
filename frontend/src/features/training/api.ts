@@ -3,7 +3,7 @@ import type { TrainingCatalog, TrainingVideo, TrainingVideoInput } from './model
 
 const messages: Record<string, string> = {
   admin_required: 'Esta cuenta no puede administrar la capacitación.',
-  professional_required: 'Inicia sesión con tu cuenta profesional para ver la Academia.',
+  professional_required: 'Inicia sesión con tu cuenta profesional para ver Capacitación Nuthrick.',
   stale_revision: 'El catálogo cambió en otra sesión. Actualízalo y revisa el orden antes de guardar de nuevo.',
   video_already_exists: 'Ese video ya está en la capacitación. Puedes editar su registro.',
   video_not_found: 'Este video ya no está en el catálogo. Actualiza la lista.',

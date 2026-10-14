@@ -27,7 +27,7 @@ export function VideoModal({ video, onClose }: { video: Pick<TrainingVideo, 'tit
     onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="academy-modal-content">
       <header className="academy-modal-header">
-        <div><p className="academy-eyebrow">Academia Nuthrick</p><h2 id={titleId}>{video.title}</h2></div>
+        <div><p className="academy-eyebrow">Capacitación Nuthrick</p><h2 id={titleId}>{video.title}</h2></div>
         <button ref={closeRef} type="button" className="academy-icon-button" aria-label="Cerrar video" onClick={onClose}><X size={22} /></button>
       </header>
       <div className="academy-player">

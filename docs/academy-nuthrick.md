@@ -1,10 +1,10 @@
-# Academia Nuthrick
+# Capacitación Nuthrick
 
 Implementación local del 14 de octubre de 2026, rama `codex/academy-nuthrick`.
 
 ## Uso
 
-- **Espacio profesional → Academia Nuthrick** (`/app/academy`): videos publicados, numerados según el orden del catálogo, con miniatura y descripción. Está disponible para cuentas profesionales autenticadas que completaron el onboarding y la aceptación legal, incluso si su acceso comercial venció.
+- **Espacio profesional → Capacitación Nuthrick** (`/app/academy`): videos publicados, numerados según el orden del catálogo, con miniatura y descripción. Está disponible para cuentas profesionales autenticadas que completaron el onboarding y la aceptación legal, incluso si su acceso comercial venció.
 - **Administración → Capacitación** (`/admin/training`): agregar, editar, previsualizar, publicar/ocultar, eliminar y subir/bajar videos. Los registros nuevos empiezan ocultos salvo que se marque su visibilidad.
 - Cada video se reproduce en un modal con el reproductor de YouTube. Cerrar, Escape desde los controles del diálogo o pulsar el fondo elimina el iframe, detiene la reproducción y devuelve el foco al control que abrió el video. El diálogo nativo mantiene el foco dentro y permite pantalla completa mediante YouTube. Dentro del reproductor, YouTube gestiona sus propias teclas; el botón Cerrar permanece disponible.
 - El navegador puede exigir pulsar Play. El video debe permitir reproducción insertada en YouTube. El catálogo usa videos individuales; una playlist sin `v` no identifica un video.
@@ -37,7 +37,7 @@ Referencias: [reproductor de YouTube](https://developers.google.com/youtube/ifra
 - TypeScript y ESLint focal correctos.
 - SQL ejecutado en PostgreSQL local: acceso profesional, denegación anónima/no administrativa, publicación/ocultamiento, validación, concurrencia por revisión, orden completo, eliminación, RLS y auditoría. Fixtures y cambios revertidos.
 - Asesores de seguridad/rendimiento de Supabase CLI sobre una base local aislada: `No issues found`. La base y los roles temporales se eliminaron.
-- Navegador: Academia y Administración a 320, 390, 768 y 1440 px en día/noche, sin desbordamientos. Verificados alta, edición, publicación, ocultamiento, orden y eliminación; reproducción real dentro del modal, cierre, Escape, fondo, foco y una sola pestaña. Sin llamadas a Supabase desde la preview.
+- Navegador: Capacitación y Administración a 320, 390, 768 y 1440 px en día/noche, sin desbordamientos. Verificados alta, edición, publicación, ocultamiento, orden y eliminación; reproducción real dentro del modal, cierre, Escape, fondo, foco y una sola pestaña. Sin llamadas a Supabase desde la preview.
 - Build Vercel con smoke SSR aislado correcto, incluyendo las rutas nuevas y su `noindex`.
 
 ## Reproducir

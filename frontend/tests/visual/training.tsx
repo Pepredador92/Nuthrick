@@ -10,7 +10,7 @@ function Preview() {
   const [admin, setAdmin] = useState(false);
   return <div style={{ minHeight: '100vh', background: 'var(--nuth-surface-soft)', color: 'var(--nuth-ink)' }}>
     <header style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--nuth-line)', background: 'var(--nuth-surface)' }}>
-      <strong style={{ marginRight: 'auto', fontSize: 13 }}>Vista local · Academia Nuthrick</strong>
+      <strong style={{ marginRight: 'auto', fontSize: 13 }}>Vista local · Capacitación Nuthrick</strong>
       <button className="nuth-button-secondary" aria-pressed={!admin} onClick={() => setAdmin(false)}>Espacio profesional</button>
       <button className="nuth-button-secondary" aria-pressed={admin} onClick={() => setAdmin(true)}>Administración</button>
       <ThemeSwitcher compact />

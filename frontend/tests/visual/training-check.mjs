@@ -14,7 +14,7 @@ page.on('request', request => { if (request.url().includes('.supabase.co')) requ
 const summary = { responsive: [], playback: null };
 try {
   await page.goto('http://127.0.0.1:4196/tests/visual/training.html');
-  await page.getByRole('heading', { name: 'Academia Nuthrick', exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Capacitación Nuthrick', exact: true }).waitFor();
   assert.equal(await page.locator('.academy-video').count(), 5);
   assert.equal(await page.locator('iframe').count(), 0);
   for (const theme of ['day', 'night']) {
@@ -97,7 +97,7 @@ try {
   const example = page.locator('.training-rows > li').filter({ hasText: 'Ejemplo local' });
   await example.getByRole('button', { name: 'Editar', exact: true }).click();
   await page.getByLabel('Título', { exact: true }).fill('Ejemplo editado');
-  await page.getByLabel('Visible en Academia Nuthrick').check();
+  await page.getByLabel('Visible en Capacitación Nuthrick').check();
   await page.getByRole('button', { name: 'Guardar cambios', exact: true }).click();
   await page.getByText('5 publicados · 6 en total', { exact: true }).waitFor();
   page.once('dialog', dialog => dialog.accept());
@@ -106,7 +106,7 @@ try {
   await page.getByRole('button', { name: 'Tema de día', exact: true }).click();
   await page.screenshot({ path: `${output}/admin-overview.png` });
   await page.getByRole('button', { name: 'Espacio profesional', exact: true }).click();
-  await page.getByRole('heading', { name: 'Academia Nuthrick', exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Capacitación Nuthrick', exact: true }).waitFor();
   await page.screenshot({ path: `${output}/academy-overview.png` });
   assert.deepEqual(errors, []);
   assert.deepEqual(requestsToSupabase, []);

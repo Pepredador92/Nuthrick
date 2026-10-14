@@ -23,7 +23,7 @@ const nav = [
   { label: 'Taller de dietas', href: '/app/diet-workshop', icon: Salad },
   { label: 'Agenda', href: '/app/agenda', icon: CalendarDays },
   { label: 'Mensajes', href: '/app/messages', icon: MessageCircle },
-  { label: 'Academia Nuthrick', href: '/app/academy', icon: GraduationCap },
+  { label: 'Capacitación Nuthrick', href: '/app/academy', icon: GraduationCap },
   { label: 'Créditos IA', href: '/app/credits', icon: CreditCard },
   { label: 'Mi plan', href: '/app/my-plan', icon: CreditCard },
 ];

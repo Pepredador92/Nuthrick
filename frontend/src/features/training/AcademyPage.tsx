@@ -24,7 +24,7 @@ export function AcademyPage() {
   return <div className="academy-page">
     <header className="academy-intro">
       <span className="academy-intro-icon"><GraduationCap size={30} /></span>
-      <div><p className="academy-eyebrow">Tutoriales paso a paso</p><h1>Academia Nuthrick</h1>
+      <div><p className="academy-eyebrow">Tutoriales paso a paso</p><h1>Capacitación Nuthrick</h1>
         <p>Aprende a usar tu espacio, prepara tu consulta y conoce las herramientas de Nuthrick a tu ritmo.</p></div>
     </header>
     <div className="academy-section-heading"><div><h2>Aprende a usar Nuthrick</h2><p>Sigue el orden de los videos o ve directamente al tema que necesitas.</p></div>
