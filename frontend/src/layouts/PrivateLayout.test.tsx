@@ -35,17 +35,25 @@ function mount() {
     <Route path="/app" element={<PrivateLayout />}>
       <Route index element={<h1>Inicio</h1>} />
       <Route path="settings" element={<SettingsPage />} />
+      <Route path="academy" element={<h1>Academia Nuthrick</h1>} />
       <Route path="consultation-templates/:consultationType" element={<h1>Editor de entrevista</h1>} />
     </Route>
   </Routes></MemoryRouter>);
 }
 
 beforeEach(() => {
+  access.allowed = true;
   access.values.consultation_design = true;
   billing.value = { subscription: { state: 'active' }, access: { arrangement: 'monthly' } };
 });
 
 describe('acceso a configuración de entrevistas', () => {
+  it('keeps training reachable when professional access has expired', () => {
+    access.allowed = false;
+    mount();
+    fireEvent.click(screen.getByRole('link', { name: 'Academia Nuthrick' }));
+    expect(screen.getByRole('heading', { name: 'Academia Nuthrick' })).toBeInTheDocument();
+  });
   it('moves interview design out of the sidebar and opens it through account settings', async () => {
     mount();
     const sidebar = within(screen.getByRole('navigation', { name: 'Aplicación' }));

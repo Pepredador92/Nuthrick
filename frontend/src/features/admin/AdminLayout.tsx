@@ -15,6 +15,7 @@ import {
   ClipboardCheck,
   Activity,
   Headphones,
+  GraduationCap,
 } from "lucide-react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/src/features/auth/AuthProvider";
@@ -25,6 +26,7 @@ const nav = [
   ["", "Inicio", LayoutDashboard],
   ["professionals", "Profesionales", Users],
   ["support", "Atención a nutriólogos", Headphones],
+  ["training", "Capacitación", GraduationCap],
   ["plans", "Planes", Layers],
   ["access", "Accesos", KeyRound],
   ["credits", "IA y créditos", Coins],

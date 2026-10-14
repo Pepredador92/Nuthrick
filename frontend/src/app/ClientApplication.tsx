@@ -52,6 +52,8 @@ import { CodesPage } from '@/src/features/admin/CodesPage';
 import { LegalAcceptanceGate } from '@/src/features/legal/LegalAcceptanceGate';
 import { trackSiteVisit } from '@/src/services/siteAnalytics';
 import { ThemeSwitcher } from '@/src/features/theme/ThemeSwitcher';
+import { AcademyPage } from '@/src/features/training/AcademyPage';
+import { TrainingAdminPage } from '@/src/features/training/TrainingAdminPage';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -107,6 +109,7 @@ export function ClientApplication() {
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminHome />} />
               <Route path="support" element={<AdminSupportPage />} />
+              <Route path="training" element={<TrainingAdminPage />} />
               <Route path="professionals" element={<ProfessionalsPage />} />
               <Route path="professionals/:professionalId" element={<ProfessionalPage />} />
               <Route path="plans" element={<PlansPage />} />
@@ -133,6 +136,7 @@ export function ClientApplication() {
             <Route path="/app" element={<LegalAcceptanceGate source="onboarding"><PrivateLayout /></LegalAcceptanceGate>}>
               <Route path="my-plan" element={<MyPlanPage />} />
               <Route path="credits" element={<MyCreditsPage />} />
+              <Route path="academy" element={<AcademyPage />} />
               <Route element={<ProfessionalAccessGate />}>
               <Route index element={<DashboardPage />} />
               <Route path="profile" element={<ProfilePage />} />
