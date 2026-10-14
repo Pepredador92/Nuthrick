@@ -23,7 +23,7 @@ Títulos y temas verificados mediante los metadatos públicos de la [playlist fa
 
 ## Datos y permisos
 
-La migración `20261014214419_academy_training_catalog.sql` crea `private.training_videos` y el estado de revisión del catálogo. RLS está activo, con políticas de denegación y sin grants directos a clientes. `public.training_catalog` y `public.training_admin_api` son wrappers `SECURITY INVOKER`; sus implementaciones privadas fijan `search_path` y comprueban identidad profesional o el rol administrativo existente. Solo los administradores ven registros ocultos mediante el RPC administrativo.
+La migración `20261014221744_academy_training_catalog.sql` crea `private.training_videos` y el estado de revisión del catálogo. RLS está activo, con políticas de denegación y sin grants directos a clientes. `public.training_catalog` y `public.training_admin_api` son wrappers `SECURITY INVOKER`; sus implementaciones privadas fijan `search_path` y comprueban identidad profesional o el rol administrativo existente. Solo los administradores ven registros ocultos mediante el RPC administrativo.
 
 Todas las mutaciones bloquean la fila de estado del catálogo y requieren `expected_revision`. Un catálogo cambiado en otra sesión rechaza la operación. Reordenar exige exactamente todos los IDs, incluyendo los ocultos, sin repeticiones ni IDs ajenos. El orden tiene una restricción única diferida; eliminación y orden se guardan de manera atómica. Cada mutación registra al administrador real en `private.admin_audit`.
 
@@ -53,4 +53,6 @@ npx vite --config tests/visual/training.vite.config.ts
 
 Preview: `http://127.0.0.1:4196/tests/visual/training.html`. Usa los componentes reales con un catálogo de demostración en memoria; los cambios de la preview desaparecen al recargar. Las pruebas de navegador usan `PLAYWRIGHT_MODULE` para localizar Playwright instalado y opcionalmente `PLAYWRIGHT_CHANNEL=chrome`.
 
-Evidencias locales: `output/academy/`. La migración y el frontend están preparados para publicación; no se aplicaron cambios en Supabase remoto ni se hizo push/despliegue.
+Evidencias locales: `output/academy/`. La migración se aplicó en el proyecto productivo de Supabase `qlsqhvyrslclmlstlemn` el 14 de octubre de 2026; el archivo conserva la versión registrada por Supabase. Se verificaron los cinco videos publicados en orden, revisión inicial 1, acceso mediante los RPC profesional y administrativo y ausencia de permisos directos para clientes. Los advisors de seguridad y rendimiento no añadieron hallazgos respecto a la revisión previa.
+
+El frontend se publica en Vercel desde `main` con `NEXT_PUBLIC_SITE_URL=https://nuthrick.com`. La configuración histórica de Preview usa el dominio técnico y falla la comprobación que impide anunciarlo en robots/sitemap; Producción utiliza el dominio oficial.
