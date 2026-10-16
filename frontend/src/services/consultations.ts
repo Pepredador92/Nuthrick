@@ -418,6 +418,13 @@ export async function deleteConsultationRecord(
   fail(error, "No pudimos eliminar la consulta.");
 }
 
+export async function discardConsultationDraft(consultationId: string): Promise<void> {
+  const { error } = await supabase.rpc("discard_consultation_draft", { p_consultation: consultationId });
+  if (error?.message === "consultation_history_protected") throw new Error("Esta consulta tiene antecedentes clínicos conservados. Guarda el borrador para continuar; su historial está protegido.");
+  if (error?.message === "consultation_plan_linked" || error?.code === "23503") throw new Error("Esta consulta tiene un plan u otro registro vinculado. Guarda el borrador y revisa esos vínculos antes de eliminarla.");
+  fail(error, "No pudimos eliminar el borrador. Tu consulta sigue disponible; vuelve a intentarlo.");
+}
+
 export async function renameConsultation(
   consultation: Consultation,
   name: string,

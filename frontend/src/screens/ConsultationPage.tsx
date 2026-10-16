@@ -14,7 +14,7 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useBlocker, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
 import { Field, Input } from "@/src/components/ui/FormField";
 import { QuestionField } from "@/src/components/consultations/QuestionField";
@@ -28,6 +28,7 @@ import { consultationSteps, objectiveKeys, questionModule, workflowSections, typ
 import { ClinicalObjective } from "@/src/components/consultations/ClinicalObjective";
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
 import { ConsultationCloseDialog } from "@/src/components/consultations/ConsultationCloseDialog";
+import { ConsultationExitDialog } from "@/src/components/consultations/ConsultationExitDialog";
 import { ConsultationMeasurements } from "@/src/components/consultations/ConsultationMeasurements";
 import { LaboratoryReports } from "@/src/components/consultations/LaboratoryReports";
 import { PatientEvolutionTable } from "@/src/components/patients/PatientEvolutionTable";
@@ -62,6 +63,7 @@ import {
   loadSystemTemplate,
   reopenConsultationForEdit,
   updateConsultationDate,
+  discardConsultationDraft,
 } from "@/src/services/consultations";
 import { saveAnswers } from "@/src/services/consultations";
 
@@ -92,6 +94,10 @@ type ConsultationWorkspace = {
 };
 
 const workspaceKey = (id: string) => `nuthrick:consultation-workspace:${id}`;
+const canDiscardDraft = (draft: Consultation) => draft.status === "draft" && !draft.draft_discard_protected && draft.summary == null && draft.completed_at == null;
+function clearWorkspace(id: string) {
+  try { window.sessionStorage.removeItem(workspaceKey(id)); } catch { /* Storage can be unavailable. */ }
+}
 
 function dateInZone(value: Date, timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone) {
   const parts = new Intl.DateTimeFormat("en", {
@@ -116,6 +122,11 @@ function readWorkspace(id: string): ConsultationWorkspace | null {
 }
 
 export function ConsultationPage() {
+  const { patientId, consultationId } = useParams();
+  return <ConsultationEditor key={`${patientId}:${consultationId ?? "new"}`} />;
+}
+
+function ConsultationEditor() {
   const { patientId, consultationId } = useParams();
   const [searchParams] = useSearchParams();
   const appointmentId = searchParams.get("appointmentId");
@@ -145,6 +156,12 @@ export function ConsultationPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [exitError, setExitError] = useState("");
+  const [discardDraft, setDiscardDraft] = useState<Consultation | null>(null);
+  const discardDialog = useRef<HTMLDialogElement>(null);
+  const loadLock = useRef(false);
+  const enteringConsultation = useRef(false);
+  const exitLock = useRef(false);
   const [reviewed, setReviewed] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [recallOpened, setRecallOpened] = useState(false);
@@ -152,6 +169,7 @@ export function ConsultationPage() {
   const [clinicalStage, setClinicalStage] = useState(0);
   const [clinicalRefresh, setClinicalRefresh] = useState(0);
   const [recallPending, setRecallPending] = useState(false);
+  const [pesPending, setPesPending] = useState(false);
   const [recallNavigation, setRecallNavigation] = useState<RecallNavigation | null>(null);
   const recallNavigationRef = useRef<RecallNavigationActions>(null);
   const [measurementsOpened, setMeasurementsOpened] = useState(false);
@@ -169,10 +187,17 @@ export function ConsultationPage() {
   const pending = useRef(0);
   const heading = useRef<HTMLHeadingElement>(null);
   const closed = useRef(false);
+  const blocker = useBlocker(({ currentLocation, nextLocation }) =>
+    Boolean(consultation || enteringConsultation.current) && !closed.current &&
+    (currentLocation.pathname !== nextLocation.pathname || currentLocation.search !== nextLocation.search),
+  );
 
   const load = useCallback(
     async (chosenTemplate?: LoadedTemplate, resumeDraftId?: string) => {
       if (!patientId) return;
+      if (loadLock.current) return;
+      loadLock.current = true;
+      enteringConsultation.current = Boolean(consultationId || chosenTemplate || resumeDraftId);
       setLoading(true);
       setError("");
       try {
@@ -227,6 +252,7 @@ export function ConsultationPage() {
           existingConsultation.status !== "draft"
             ? await reopenConsultationForEdit(existingConsultation.id)
             : (existingConsultation ?? (await beginConsultation(patientId, type)));
+        setConsultation(started);
         const datedConsultation = existingConsultation
           ? started
           : await updateConsultationDate(started.id, clinicalDateRef.current, loadedPatient.timezone);
@@ -295,6 +321,8 @@ export function ConsultationPage() {
             : "No se pudo iniciar la consulta.",
         );
       } finally {
+        loadLock.current = false;
+        enteringConsultation.current = false;
         setLoading(false);
       }
     },
@@ -318,6 +346,13 @@ export function ConsultationPage() {
     }
     selectionOpener.current?.focus();
   }, [selectedConsultationType]);
+
+  useEffect(() => {
+    if (!discardDraft) return;
+    const dialog = discardDialog.current;
+    dialog?.showModal();
+    return () => { if (dialog?.open) dialog.close(); };
+  }, [discardDraft]);
 
   useEffect(() => {
     if (!consultation) return;
@@ -355,6 +390,7 @@ export function ConsultationPage() {
       setSaving(true);
       try {
         await queue.current(async () => {
+          if (closed.current) return;
           if (encoded === lastSaved.current) return;
           await saveAnswers(consultation, snapshot, captured);
           lastSaved.current = encoded;
@@ -386,24 +422,24 @@ export function ConsultationPage() {
   }, [values, save, busy, loading]);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
-      if (
-        JSON.stringify(valuesRef.current) !== lastSaved.current ||
-        pending.current
-      ) {
+      if (consultation && !closed.current) {
         event.preventDefault();
         event.returnValue = "";
       }
     };
-    // Guard in-app links as well as browser refresh: a sidebar click must not lose the last keystroke.
+    // Plain anchors also use the router. Links have already handled their click
+    // by the time this bubbles to document.
     const leave = (event: MouseEvent) => {
       const anchor =
         event.target instanceof Element ? event.target.closest("a") : null;
       if (
-        !anchor ||
+        event.defaultPrevented || !anchor ||
+        anchor.hasAttribute("download") ||
         anchor.target === "_blank" ||
         event.metaKey ||
         event.ctrlKey ||
         event.shiftKey ||
+        event.altKey ||
         event.button !== 0
       )
         return;
@@ -411,23 +447,81 @@ export function ConsultationPage() {
       if (
         url.origin !== window.location.origin ||
         closed.current ||
-        (JSON.stringify(valuesRef.current) === lastSaved.current &&
-          !pending.current)
+        !consultation ||
+        (url.pathname === window.location.pathname && url.search === window.location.search)
       )
         return;
       event.preventDefault();
-      event.stopPropagation();
-      void save().then((ok) => {
-        if (ok) navigate(url.pathname + url.search + url.hash);
-      });
+      navigate(url.pathname + url.search + url.hash);
     };
     window.addEventListener("beforeunload", warn);
-    document.addEventListener("click", leave, true);
+    document.addEventListener("click", leave);
     return () => {
       window.removeEventListener("beforeunload", warn);
-      document.removeEventListener("click", leave, true);
+      document.removeEventListener("click", leave);
     };
-  }, [save, navigate]);
+  }, [consultation, navigate]);
+
+  const pendingModules: { key: ConsultationModule; label: string }[] = [
+    ...(recallPending ? [{ key: "recall" as const, label: "recordatorio de 24 horas" }] : []),
+    ...(measurementsPending ? [{ key: "measurements" as const, label: "mediciones" }] : []),
+    ...(laboratoriesPending ? [{ key: "laboratories" as const, label: "laboratorios" }] : []),
+    ...(pesPending ? [{ key: "clinical" as const, label: "propuesta PES" }] : []),
+  ];
+  const continueConsultation = () => {
+    if (exitLock.current) return;
+    setExitError("");
+    if (blocker.state === "blocked") blocker.reset();
+  };
+  const exitConsultation = async (discard: boolean) => {
+    if (blocker.state !== "blocked" || exitLock.current || busy || loading) return;
+    if (!consultation) { blocker.proceed(); return; }
+    if (!discard && pendingModules.length) return;
+    exitLock.current = true;
+    setBusy(true);
+    setExitError("");
+    try {
+      if (discard) {
+        if (!canDiscardDraft(consultation)) throw new Error("Esta consulta conserva un historial previo. Guarda el borrador para continuar.");
+        // Stop autosave and drain writes before retiring the draft.
+        closed.current = true;
+        await queue.current(async () => undefined);
+        await discardConsultationDraft(consultation.id);
+        clearWorkspace(consultation.id);
+      } else {
+        if (!await save()) throw new Error("No pudimos guardar el borrador. Tus respuestas siguen aquí; vuelve a intentarlo.");
+        if (clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient?.timezone)) {
+          await updateConsultationDate(consultation.id, clinicalDate, patient?.timezone);
+        }
+        closed.current = true;
+      }
+      blocker.proceed();
+    } catch (cause) {
+      closed.current = false;
+      setExitError(cause instanceof Error ? cause.message : "No pudimos completar la acción. Continúa aquí e inténtalo de nuevo.");
+    } finally {
+      exitLock.current = false;
+      setBusy(false);
+    }
+  };
+  const discardExistingDraft = async () => {
+    if (!discardDraft || exitLock.current) return;
+    exitLock.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await discardConsultationDraft(discardDraft.id);
+      clearWorkspace(discardDraft.id);
+      setOpenDrafts(current => current.filter(draft => draft.id !== discardDraft.id));
+      setDiscardDraft(null);
+      setNotice("Borrador eliminado. Ya puedes elegir el diseño para la nueva consulta.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No pudimos eliminar el borrador.");
+    } finally {
+      exitLock.current = false;
+      setBusy(false);
+    }
+  };
 
   const setAnswer = (key: string, value: unknown) => {
     const next = { ...valuesRef.current, [key]: value };
@@ -511,7 +605,7 @@ export function ConsultationPage() {
   };
   const complete = async () => {
     if (!consultation || !snapshot || !reviewed || closing.current) return;
-    if (recallPending || measurementsPending || laboratoriesPending || clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient?.timezone)) {
+    if (recallPending || pesPending || measurementsPending || laboratoriesPending || clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient?.timezone)) {
       setCloseDialogOpen(true);
       return;
     }
@@ -650,11 +744,19 @@ export function ConsultationPage() {
     return questions.length ? [<div className="consultation-clinical-fields" key={section.section_key}>{!['Diagnóstico PES', 'Objetivos acordados', 'Recomendaciones y seguimiento'].includes(section.title) && <h3>{section.title}</h3>}{renderQuestions(questions)}</div>] : [];
   });
 
-  if (loading) return <LoadingState label="Preparando entrevista…" />;
+  const exitDialog = blocker.state === "blocked" && <ConsultationExitDialog busy={busy || loading} canDiscard={!consultation || canDiscardDraft(consultation)} pending={pendingModules.map(item => item.label)} error={exitError} onSave={() => void exitConsultation(false)} onDiscard={() => void exitConsultation(true)} onContinue={continueConsultation} onReview={() => {
+    const pendingModule = pendingModules[0];
+    continueConsultation();
+    if (pendingModule) {
+      setModule(pendingModule.key);
+      if (pendingModule.key === "clinical") setClinicalStage(1);
+    }
+  }} />;
+  if (loading) return <>{exitDialog}<LoadingState label="Preparando entrevista…" /></>;
   if (!consultation && patient) {
     const selectedDraft = openDrafts.find(
       (draft) => draft.consultation_type === selectedConsultationType,
-    );
+    ) ?? openDrafts[0];
     const selectedTemplates = availableTemplates.filter(
       (item) => item.template.consultation_type === selectedConsultationType,
     );
@@ -706,7 +808,7 @@ export function ConsultationPage() {
           </button>
         );
       });
-    return (
+    return <>{exitDialog}
       <div className="mx-auto max-w-4xl">
         <Link
           to={`/app/patients/${patient.id}`}
@@ -732,12 +834,12 @@ export function ConsultationPage() {
           </Field>
         </div>
         {openDrafts.length > 0 && (
-          <details className="consultation-drafts mt-5 rounded-2xl border border-[#e7d3ae] bg-[#fff9eb] p-4">
+          <details open className="consultation-drafts mt-5 rounded-2xl border border-[#e7d3ae] bg-[#fff9eb] p-4">
             <summary className="cursor-pointer text-sm font-semibold text-[#775527]">
               Tienes {openDrafts.length === 1 ? "un borrador abierto" : `${openDrafts.length} borradores abiertos`}
             </summary>
             <p className="text-sm font-semibold text-[#775527]">
-              Tus respuestas se conservan. Reanuda el borrador para continuar o elige el otro tipo de consulta.
+              Reanuda una consulta pendiente o elimina su borrador antes de iniciar otra.
             </p>
             <div className="mt-4 space-y-3">
               {openDrafts.map((draft) => (
@@ -753,7 +855,7 @@ export function ConsultationPage() {
                       Iniciada el {formatPatientDate(draft.consultation_date)}
                     </p>
                   </div>
-                  <button
+                  <div className="flex flex-wrap gap-2"><button
                     type="button"
                     className="nuth-button-secondary !px-3 !py-2 !text-xs"
                     disabled={busy}
@@ -761,6 +863,7 @@ export function ConsultationPage() {
                   >
                     Reanudar borrador
                   </button>
+                  {canDiscardDraft(draft) && <button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs consultation-discard-action" disabled={busy} onClick={() => setDiscardDraft(draft)}>Eliminar borrador</button>}</div>
                 </div>
               ))}
             </div>
@@ -812,8 +915,9 @@ export function ConsultationPage() {
             <section className="consultation-existing-draft">
               <p className="nuth-eyebrow">Ya tienes una entrevista en curso</p>
               <h3>{consultationLabel(selectedDraft)}</h3>
-              <p>Sus respuestas se guardaron. Reanuda este borrador para seguir, o cierra y elige el otro tipo de consulta.</p>
+              <p>Este paciente tiene una consulta pendiente. Reanúdala para continuar o elimina su borrador antes de iniciar otra.</p>
               <button type="button" className="nuth-button" disabled={busy} onClick={() => void load(undefined, selectedDraft.id)}>Reanudar borrador</button>
+              {canDiscardDraft(selectedDraft) && <button type="button" className="nuth-button-secondary mt-3 consultation-discard-action" disabled={busy} onClick={() => setDiscardDraft(selectedDraft)}>Eliminar borrador para empezar otra</button>}
             </section>
           ) : selectedTemplates.length ? (
             <div className="consultation-template-options">{renderChoices(selectedTemplates)}</div>
@@ -826,16 +930,22 @@ export function ConsultationPage() {
           )}
           <div className="consultation-design-dialog-footer"><span>Puedes cambiar tus diseños en Configuración cuando lo necesites.</span><button type="button" className="nuth-button-secondary" onClick={() => setSelectedConsultationType(null)}>Volver</button></div>
         </dialog>
+        {discardDraft && <dialog ref={discardDialog} aria-labelledby="discard-draft-title" onCancel={event => { event.preventDefault(); if (!busy) setDiscardDraft(null); }} className="m-auto w-[calc(100%-2rem)] max-w-md rounded-3xl border border-[#dfe5e1] bg-white p-6 text-[#173d36] shadow-xl backdrop:bg-[#173d36]/50">
+          <h2 id="discard-draft-title" className="text-xl font-semibold">¿Eliminar este borrador?</h2>
+          <p className="mt-3 text-sm leading-6 text-[#60766a]">Se eliminarán {consultationLabel(discardDraft)} y los datos capturados en ese borrador. Esta acción no se puede deshacer. Podrás empezar una consulta nueva.</p>
+          {error && <p role="alert" className="mt-3 text-sm text-[#963f32]">{error}</p>}
+          <div className="mt-5 flex flex-wrap justify-end gap-3"><button autoFocus type="button" disabled={busy} className="nuth-button-secondary" onClick={() => setDiscardDraft(null)}>Conservar borrador</button><button type="button" disabled={busy} className="nuth-button-secondary consultation-discard-action" onClick={() => void discardExistingDraft()}>{busy ? "Eliminando…" : "Confirmar eliminación"}</button></div>
+        </dialog>}
       </div>
-    );
+    </>;
   }
   if (!patient || !consultation || !snapshot)
-    return (
+    return <>{exitDialog}
       <ErrorState
         message={error || "No pudimos abrir la consulta."}
         onRetry={() => void load()}
       />
-    );
+    </>;
   const canUpgrade =
     latest &&
     (latest.template.id === snapshot.template_id
@@ -845,6 +955,7 @@ export function ConsultationPage() {
   const dirty = JSON.stringify(values) !== savedEncoded;
   return (
     <div className="consultation-workspace">
+      {exitDialog}
       <header className="rounded-[24px] bg-[#173d36] p-5 text-white sm:p-7">
         <Link
           to={"/app/patients/" + patient.id}
@@ -918,7 +1029,7 @@ export function ConsultationPage() {
           </div>
         </div>
       </header>
-      {closeDialogOpen && <ConsultationCloseDialog busy={busy || saving} reviewed={reviewed} pending={[recallPending && "Recordatorio de 24 horas", measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error} onReview={setReviewed} onCancel={() => setCloseDialogOpen(false)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
+      {closeDialogOpen && <ConsultationCloseDialog busy={busy || saving} reviewed={reviewed} pending={[pesPending && "la propuesta PES", recallPending && "Recordatorio de 24 horas", measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error} onReview={setReviewed} onCancel={() => setCloseDialogOpen(false)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
       <div className="sticky top-0 z-20 mt-4 flex justify-end rounded-xl bg-[#f7faf8]/95 p-2 backdrop-blur"><button type="button" className="nuth-button-secondary" disabled={busy || saving} onClick={() => { setReviewed(false); setError(""); setCloseDialogOpen(true); }}><ClipboardCheck size={16} />Revisar cierre de consulta</button></div>
       <nav className="consultation-step-nav" aria-label="Módulos de la consulta">
         {consultationSteps.map((step, index) => <button key={step.key} type="button" aria-current={module === step.key ? 'page' : undefined} disabled={busy || saving} onClick={() => void goModule(step.key)}><span aria-hidden="true">{index + 1}</span>{step.label}</button>)}
@@ -938,7 +1049,7 @@ export function ConsultationPage() {
         <section hidden={clinicalStage !== 1} className="consultation-clinical-card" aria-label="Diagnóstico PES">
           <p className="nuth-eyebrow">02 · Formula el diagnóstico</p><h2>Diagnóstico PES</h2>
           <p className="consultation-clinical-description">Revisa la evidencia y la vigencia de los antecedentes antes de aprobar el diagnóstico.</p>
-          <PesCopilot key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} active={module === 'clinical' && clinicalStage === 1} before={saveForClinical} answers={values} onPes={draft => {
+          <PesCopilot key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} active={module === 'clinical' && clinicalStage === 1} before={saveForClinical} answers={values} onPendingChange={setPesPending} onPes={draft => {
             setAnswer('pes_problem', draft.problem); setAnswer('pes_etiology', draft.etiology); setAnswer('pes_evidence', draft.signsSymptoms.join('\n')); setAnswer('pes_statement', draft.pesStatement); setClinicalRefresh(value => value + 1);
           }} />
           {renderClinicalFields('diagnosis')}

@@ -5,6 +5,7 @@ import { PrivateLayout } from './PrivateLayout';
 import { SettingsPage } from '@/src/screens/SettingsPage';
 import { openAIProcessingConsent } from '@/src/features/ai/AIProcessingConsent';
 
+const signOut = vi.hoisted(() => vi.fn());
 const access = vi.hoisted(() => ({
   allowed: true,
   read_only: false,
@@ -13,7 +14,7 @@ const access = vi.hoisted(() => ({
 }));
 const billing = vi.hoisted(() => ({ value: { subscription: { state: 'active' }, access: { arrangement: 'monthly' } } as unknown }));
 vi.mock('@/src/features/auth/AuthProvider', () => ({
-  useAuth: () => ({ profile: { full_name: 'Nutriólogo de prueba' }, user: { id: 'owner', email: 'test@example.com' }, signOut: vi.fn() }),
+  useAuth: () => ({ profile: { full_name: 'Nutriólogo de prueba' }, user: { id: 'owner', email: 'test@example.com' }, signOut }),
 }));
 vi.mock('@/src/features/admin/AccessProvider', async (original) => ({
   ...(await original<object>()),
@@ -32,6 +33,7 @@ vi.mock('@/src/features/billing/api', () => ({ getMyBilling: vi.fn(async () => b
 
 function mount() {
   render(<MemoryRouter initialEntries={['/app']}><Routes>
+    <Route path="/logout" element={<h1>Salida después de confirmar</h1>} />
     <Route path="/app" element={<PrivateLayout />}>
       <Route index element={<h1>Inicio</h1>} />
       <Route path="settings" element={<SettingsPage />} />
@@ -48,6 +50,14 @@ beforeEach(() => {
 });
 
 describe('acceso a configuración de entrevistas', () => {
+  it('requests navigation before revoking the session so consultation guards can run', () => {
+    signOut.mockClear();
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Menú de cuenta' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+    expect(screen.getByRole('heading', { name: 'Salida después de confirmar' })).toBeInTheDocument();
+    expect(signOut).not.toHaveBeenCalled();
+  });
   it('keeps training reachable when professional access has expired', () => {
     access.allowed = false;
     mount();

@@ -2,9 +2,10 @@
 import { AppointmentConfirmationPage } from "@/src/screens/AppointmentConfirmationPage";
 import { LegalAdminPage } from "../features/legal/LegalAdminPage";
 
-import { useEffect, useSyncExternalStore } from "react";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { createBrowserRouter, createRoutesFromElements, Outlet, Route, RouterProvider, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/src/features/auth/AuthProvider";
+import { SignOutPage } from "@/src/features/auth/SignOutPage";
 import {
   OnboardingGuard,
   RequireAuthentication,
@@ -87,14 +88,23 @@ export function ClientApplication() {
   if (!isBrowser)
     return <div className="min-h-screen bg-[#f7f8f4]" aria-hidden="true" />;
 
-  return (
-    <BrowserRouter>
-      <AuthProvider>
+  return <BrowserApplication />;
+}
+
+function ApplicationLayout() {
+  return <AuthProvider>
         <AccessProvider>
         <ScrollToTop />
         <SiteVisitTracker />
         <PublicThemeControl />
-        <Routes>
+        <Outlet />
+        </AccessProvider>
+      </AuthProvider>;
+}
+
+function BrowserApplication() {
+  const [router] = useState(() => createBrowserRouter(createRoutesFromElements(
+        <Route element={<ApplicationLayout />}>
           <Route path="/" element={<PublicLandingClient />} />
           <Route path="/planes" element={<CommercialPlansPage />} />
           <Route path="/login" element={<AuthPage mode="login" />} />
@@ -102,6 +112,7 @@ export function ClientApplication() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
+          <Route path="/logout" element={<SignOutPage />} />
           <Route element={<OnboardingGuard />}>
             <Route path="/onboarding" element={<OnboardingPage />} />
           </Route>
@@ -176,9 +187,7 @@ export function ClientApplication() {
           <Route path="/terms" element={<LegalPage type="terms" />} />
           <Route path="/refunds" element={<LegalPage type="refunds" />} />
           <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-        </AccessProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  );
+        </Route>,
+  )));
+  return <RouterProvider router={router} />;
 }

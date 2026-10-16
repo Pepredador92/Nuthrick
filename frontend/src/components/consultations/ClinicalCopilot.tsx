@@ -222,6 +222,11 @@ export function PesCopilot(props: Props) {
   const [replacement, setReplacement] = useState<PesDraft | null>(null);
   const [previousGeneration, setPreviousGeneration] = useState<string>();
   const [editing, setEditing] = useState(true);
+  const { onPendingChange } = props;
+  useEffect(() => {
+    onPendingChange?.(Boolean(draft || replacement || clinical.saving || clinical.state === "generating"));
+  }, [draft, replacement, clinical.saving, clinical.state, onPendingChange]);
+  useEffect(() => () => onPendingChange?.(false), [onPendingChange]);
   async function generate() {
     setPreviousGeneration(clinical.generation);
     const output = await clinical.generate();

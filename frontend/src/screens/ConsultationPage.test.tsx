@@ -1,11 +1,12 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { createMemoryRouter, createRoutesFromElements, Link, Outlet, Route, RouterProvider, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConsultationPage } from "./ConsultationPage";
 import { withWorkflowSections } from '@/src/features/consultations/consultationWorkflow';
 
 const mocks = vi.hoisted(() => ({
   save: vi.fn(),
+  discard: vi.fn(),
   finish: vi.fn(),
   adopt: vi.fn(),
   begin: vi.fn(),
@@ -159,6 +160,7 @@ vi.mock("@/src/services/consultations", () => ({
   updateConsultationDate: mocks.updateDate,
   listAnswers: async () => [],
   saveAnswers: mocks.save,
+  discardConsultationDraft: mocks.discard,
   finishConsultation: mocks.finish,
   adoptTemplate: mocks.adopt,
 }));
@@ -185,22 +187,22 @@ vi.mock("@/src/components/consultations/LaboratoryReports", async () => {
   } };
 });
 
-const mount = (entry = "/app/patients/patient/consultations/draft") =>
-  render(
-    <MemoryRouter initialEntries={[entry]}>
-      <Routes>
-        <Route
-          path="/app/patients/:patientId/consultations/new"
-          element={<ConsultationPage />}
-        />
-        <Route
-          path="/app/patients/:patientId/consultations/:consultationId"
-          element={<ConsultationPage />}
-        />
-        <Route path="/app/patients/patient" element={<h1>Ficha guardada</h1>} />
-      </Routes>
-    </MemoryRouter>,
-  );
+function TestNavigation() {
+  const navigate = useNavigate();
+  return <><nav aria-label="Navegación de prueba"><Link to="/app/patients">Pacientes</Link><Link to="/app/messages">Mensajes</Link><button onClick={() => navigate('/app/messages')}>Abrir mensaje</button></nav><Outlet /></>;
+}
+const mount = (entry = "/app/patients/patient/consultations/draft", previous?: string) => {
+  const router = createMemoryRouter(createRoutesFromElements(
+    <Route element={<TestNavigation />}>
+      <Route path="/app/patients/:patientId/consultations/new" element={<ConsultationPage />} />
+      <Route path="/app/patients/:patientId/consultations/:consultationId" element={<ConsultationPage />} />
+      <Route path="/app/patients/patient" element={<h1>Ficha guardada</h1>} />
+      <Route path="/app/patients" element={<h1>Lista de pacientes</h1>} />
+      <Route path="/app/messages" element={<h1>Mensajes del paciente</h1>} />
+    </Route>,
+  ), { initialEntries: previous ? [previous, entry] : [entry] });
+  return { ...render(<RouterProvider router={router} />), router };
+};
 async function openModule(name: string) {
   fireEvent.click(await screen.findByRole('button', { name }));
   await waitFor(() => expect(screen.getByRole('button', { name })).toHaveAttribute('aria-current', 'page'));
@@ -211,6 +213,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   window.sessionStorage.clear();
   mocks.save.mockResolvedValue(undefined);
+  mocks.discard.mockResolvedValue(undefined);
   mocks.finish.mockResolvedValue(fixtures.c);
   fixtures.c.status = "draft";
   mocks.listConsultations.mockResolvedValue([fixtures.c]);
@@ -376,7 +379,7 @@ describe("consultation save and review workflow", () => {
       "Respuesta todavía local",
     );
   });
-  it("lets the professional start another type without cancelling an open draft", async () => {
+  it("requires resolving an existing draft before starting another consultation type", async () => {
     mocks.begin.mockResolvedValue({
       ...fixtures.c,
       id: "follow-up-draft",
@@ -390,10 +393,16 @@ describe("consultation save and review workflow", () => {
     expect(screen.getByText("Tienes un borrador abierto")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Consulta inicial/ })).toBeEnabled();
     expect(screen.getByRole("button", { name: /Consulta de seguimiento/ })).toBeEnabled();
-    expect(screen.queryByRole("button", { name: "Cancelar borrador" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Eliminar borrador" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Consulta de seguimiento/ }));
     expect(await screen.findByRole("dialog", { name: "Elige un diseño de seguimiento" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Seguimiento.*Duración aproximada/ }));
+    expect(screen.queryByRole("button", { name: /Seguimiento.*Duración aproximada/ })).not.toBeInTheDocument();
+    expect(mocks.begin).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar borrador para empezar otra" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar eliminación" }));
+    await waitFor(() => expect(mocks.discard).toHaveBeenCalledWith("draft"));
+    mocks.listConsultations.mockResolvedValue([]);
+    fireEvent.click(await screen.findByRole("button", { name: /Seguimiento.*Duración aproximada/ }));
     expect(
       await screen.findByRole("heading", { name: "Apertura de prueba" }),
     ).toBeInTheDocument();
@@ -405,7 +414,6 @@ describe("consultation save and review workflow", () => {
     await screen.findByRole("heading", {
       name: "¿Qué tipo de consulta vas a iniciar?",
     });
-    fireEvent.click(screen.getByText("Tienes un borrador abierto"));
     expect(screen.getByRole("button", { name: "Reanudar borrador" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Reanudar borrador" }));
     expect(
@@ -661,5 +669,191 @@ describe("consultation save and review workflow", () => {
     expect(
       await screen.findByRole("heading", { name: "Ficha guardada" }),
     ).toBeInTheDocument();
+  });
+});
+
+const exitTitle = "¿Qué quieres hacer con esta consulta?";
+async function requestExit() {
+  fireEvent.click(screen.getByRole("button", { name: "Abrir mensaje" }));
+  return screen.findByRole("dialog", { name: exitTitle });
+}
+
+describe("consultation exit decisions", () => {
+  it("asks even with no edits and allows continuing the consultation", async () => {
+    mount();
+    await screen.findByRole("heading", { name: "Apertura de prueba" });
+    fireEvent.click(screen.getByRole("link", { name: "Pacientes" }));
+    const dialog = await screen.findByRole("dialog", { name: exitTitle });
+    expect(screen.queryByRole("heading", { name: "Lista de pacientes" })).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Continuar en la consulta" }));
+    expect(screen.queryByRole("dialog", { name: exitTitle })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Apertura de prueba" })).toBeInTheDocument();
+    expect(mocks.discard).not.toHaveBeenCalled();
+  });
+  it("saves the last keystroke before opening a message", async () => {
+    mount();
+    fireEvent.change(await screen.findByLabelText(/detalle breve de prueba/i), { target: { value: "Respuesta recién escrita" } });
+    const dialog = await requestExit();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Guardar borrador y salir" }));
+    await screen.findByRole("heading", { name: "Mensajes del paciente" });
+    expect(mocks.save).toHaveBeenLastCalledWith(expect.objectContaining({ id: "draft" }), expect.anything(), { note: "Respuesta recién escrita" });
+    expect(mocks.discard).not.toHaveBeenCalled();
+  });
+  it("asks after autosave has finished", async () => {
+    mount();
+    fireEvent.change(await screen.findByLabelText(/detalle breve de prueba/i), { target: { value: "Ya guardado" } });
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledOnce(), { timeout: 1800 });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Guardar" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("link", { name: "Mensajes" }));
+    expect(await screen.findByRole("dialog", { name: exitTitle })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Mensajes del paciente" })).not.toBeInTheDocument();
+  });
+  it("blocks browser Back and preserves the requested destination", async () => {
+    const { router } = mount(undefined, "/app/patients");
+    await screen.findByRole("heading", { name: "Apertura de prueba" });
+    await act(async () => { await router.navigate(-1); });
+    const dialog = await screen.findByRole("dialog", { name: exitTitle });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Guardar borrador y salir" }));
+    await screen.findByRole("heading", { name: "Lista de pacientes" });
+    expect(router.state.location.pathname).toBe("/app/patients");
+  });
+  it("discards only this consultation and clears its local recovery copy", async () => {
+    mount();
+    fireEvent.change(await screen.findByLabelText(/detalle breve de prueba/i), { target: { value: "Descartar esto" } });
+    sessionStorage.setItem("nuthrick:consultation-workspace:other", "other draft");
+    const dialog = await requestExit();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Eliminar consulta y salir" }));
+    await screen.findByRole("heading", { name: "Mensajes del paciente" });
+    expect(mocks.discard).toHaveBeenCalledExactlyOnceWith("draft");
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem("nuthrick:consultation-workspace:draft")).toBeNull();
+    expect(sessionStorage.getItem("nuthrick:consultation-workspace:other")).toBe("other draft");
+  });
+  it("waits for an in-flight save before discarding", async () => {
+    let resolveSave!: () => void;
+    mocks.save.mockImplementationOnce(() => new Promise<void>(resolve => { resolveSave = resolve; }));
+    mount();
+    fireEvent.change(await screen.findByLabelText(/detalle breve de prueba/i), { target: { value: "Guardado en curso" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledOnce());
+    const dialog = await requestExit();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Eliminar consulta y salir" }));
+    expect(mocks.discard).not.toHaveBeenCalled();
+    await act(async () => { resolveSave(); });
+    await screen.findByRole("heading", { name: "Mensajes del paciente" });
+    expect(mocks.discard).toHaveBeenCalledExactlyOnceWith("draft");
+  });
+  it.each(["save", "discard"] as const)("keeps the form open and allows retry when %s fails", async action => {
+    if (action === "save") mocks.save.mockRejectedValueOnce(new Error("Sin conexión"));
+    else mocks.discard.mockRejectedValueOnce(new Error("Sin conexión"));
+    mount();
+    fireEvent.change(await screen.findByLabelText(/detalle breve de prueba/i), { target: { value: "Conservar si falla" } });
+    const dialog = await requestExit();
+    const label = action === "save" ? "Guardar borrador y salir" : "Eliminar consulta y salir";
+    fireEvent.click(within(dialog).getByRole("button", { name: label }));
+    expect(await within(dialog).findByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Mensajes del paciente" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/detalle breve de prueba/i)).toHaveValue("Conservar si falla");
+    fireEvent.click(within(dialog).getByRole("button", { name: label }));
+    await screen.findByRole("heading", { name: "Mensajes del paciente" });
+  });
+  it.each(["Mediciones", "Laboratorios", "Recordatorio de 24 horas"])("protects pending edits in %s", async moduleName => {
+    mount();
+    await screen.findByRole("heading", { name: "Apertura de prueba" });
+    await openModule(moduleName);
+    if (moduleName === "Mediciones") fireEvent.change(screen.getByLabelText("Peso de prueba"), { target: { value: "72.5" } });
+    else if (moduleName === "Laboratorios") fireEvent.click(screen.getByRole("button", { name: "Editar laboratorio de prueba" }));
+    else {
+      fireEvent.click(screen.getByRole("button", { name: "Capturar recordatorio" }));
+      fireEvent.change(screen.getByLabelText("Texto capturado"), { target: { value: "Desayuno por revisar" } });
+    }
+    await openModule("Entrevista");
+    const dialog = await requestExit();
+    expect(within(dialog).getByRole("button", { name: "Guardar borrador y salir" })).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Revisar cambios pendientes" }));
+    expect(screen.queryByRole("dialog", { name: exitTitle })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: moduleName })).toHaveAttribute("aria-current", "page");
+    if (moduleName === "Mediciones") expect(screen.getByLabelText("Peso de prueba")).toHaveValue("72.5");
+    if (moduleName === "Recordatorio de 24 horas") expect(screen.getByLabelText("Texto capturado")).toHaveValue("Desayuno por revisar");
+  });
+  it("warns on refresh even with no pending autosave", async () => {
+    const { unmount } = mount();
+    await screen.findByRole("heading", { name: "Apertura de prueba" });
+    const event = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    unmount();
+    const after = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(after);
+    expect(after.defaultPrevented).toBe(false);
+  });
+  it("leaves the type chooser freely before starting a consultation", async () => {
+    mount("/app/patients/patient/consultations/new");
+    await screen.findByRole("heading", { name: "¿Qué tipo de consulta vas a iniciar?" });
+    fireEvent.click(screen.getByRole("link", { name: "Mensajes" }));
+    await screen.findByRole("heading", { name: "Mensajes del paciente" });
+    expect(mocks.begin).not.toHaveBeenCalled();
+  });
+  it("keeps an existing draft when deletion is cancelled", async () => {
+    mount("/app/patients/patient/consultations/new");
+    fireEvent.click(await screen.findByRole("button", { name: "Eliminar borrador" }));
+    const dialog = await screen.findByRole("dialog", { name: "¿Eliminar este borrador?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Conservar borrador" }));
+    expect(screen.getByRole("button", { name: "Reanudar borrador" })).toBeInTheDocument();
+    expect(mocks.discard).not.toHaveBeenCalled();
+  });
+});
+
+describe("consultation exit edge cases", () => {
+  it("keeps an unapproved PES proposal and returns to its exact review step", async () => {
+    mount();
+    await screen.findByRole("heading", { name: "Apertura de prueba" });
+    await openModule("Revisión clínica, PES y objetivos");
+    await waitFor(() => expect(screen.getByRole("button", { name: /PES Formula el diagnóstico/ })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: /PES Formula el diagnóstico/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Revisar PES escrito" }));
+    fireEvent.change(screen.getByLabelText("Enunciado PES"), { target: { value: "Propuesta escrita por revisar" } });
+    await openModule("Entrevista");
+    const dialog = await requestExit();
+    expect(within(dialog).getByRole("button", { name: "Guardar borrador y salir" })).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Revisar cambios pendientes" }));
+    expect(screen.getByLabelText("Enunciado PES")).toBeVisible();
+    expect(screen.getByLabelText("Enunciado PES")).toHaveValue("Propuesta escrita por revisar");
+  });
+  it("preserves a reopened clinical history instead of offering deletion", async () => {
+    mocks.listConsultations.mockResolvedValue([{ ...fixtures.c, draft_discard_protected: true }]);
+    mount();
+    await screen.findByRole("heading", { name: "Apertura de prueba" });
+    const dialog = await requestExit();
+    expect(within(dialog).queryByRole("button", { name: "Eliminar consulta y salir" })).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/conserva un historial previo/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Guardar borrador y salir" }));
+    await screen.findByRole("heading", { name: "Mensajes del paciente" });
+    expect(mocks.discard).not.toHaveBeenCalled();
+  });
+  it("saves a changed consultation date before leaving", async () => {
+    mount();
+    fireEvent.change(await screen.findByLabelText("Fecha de consulta"), { target: { value: "2026-09-01" } });
+    const dialog = await requestExit();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Guardar borrador y salir" }));
+    await screen.findByRole("heading", { name: "Mensajes del paciente" });
+    expect(mocks.updateDate).toHaveBeenCalledWith("draft", "2026-09-01", undefined);
+  });
+  it("holds navigation while the first draft creation request is pending", async () => {
+    let resolveStart!: (value: typeof fixtures.c) => void;
+    mocks.listConsultations.mockResolvedValue([]);
+    mocks.begin.mockImplementationOnce(() => new Promise<typeof fixtures.c>(resolve => { resolveStart = resolve; }));
+    mount("/app/patients/patient/consultations/new");
+    fireEvent.click(await screen.findByRole("button", { name: /Consulta inicial/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Entrevista.*Duración aproximada/ }));
+    await waitFor(() => expect(mocks.begin).toHaveBeenCalledOnce());
+    const dialog = await requestExit();
+    expect(within(dialog).getByRole("button", { name: "Guardar borrador y salir" })).toBeDisabled();
+    await act(async () => { resolveStart(fixtures.c); });
+    const readyDialog = await screen.findByRole("dialog", { name: exitTitle });
+    await waitFor(() => expect(within(readyDialog).getByRole("button", { name: "Guardar borrador y salir" })).toBeEnabled());
+    fireEvent.click(within(readyDialog).getByRole("button", { name: "Guardar borrador y salir" }));
+    await screen.findByRole("heading", { name: "Mensajes del paciente" });
+    expect(mocks.begin).toHaveBeenCalledOnce();
   });
 });

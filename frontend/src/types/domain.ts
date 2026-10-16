@@ -199,6 +199,7 @@ export interface Consultation {
   summary: string | null;
   completed_at: string | null;
   deleted_at?: string | null;
+  draft_discard_protected?: boolean;
   created_at: string;
   updated_at: string;
 }

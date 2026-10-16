@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renameConsultation } from "./consultations";
+import { discardConsultationDraft, renameConsultation } from "./consultations";
 import { supabase } from "@/src/lib/supabase";
 import type { Consultation } from "@/src/types/domain";
 
@@ -10,6 +10,22 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(supabase.rpc).mockReturnValue({ single } as never);
   single.mockResolvedValue({ data: { id: "visit", display_name: null, status: "completed" }, error: null });
+});
+
+describe("discarding consultation drafts", () => {
+  it("uses the draft-only deletion RPC", async () => {
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: null, error: null } as never);
+    await discardConsultationDraft("draft");
+    expect(supabase.rpc).toHaveBeenCalledExactlyOnceWith("discard_consultation_draft", { p_consultation: "draft" });
+  });
+  it.each([
+    ["consultation_history_protected", "historial está protegido"],
+    ["consultation_plan_linked", "registro vinculado"],
+  ])("explains %s without trying to archive clinical history", async (message, expected) => {
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: null, error: { code: "23514", message } } as never);
+    await expect(discardConsultationDraft("draft")).rejects.toThrow(expected);
+    expect(supabase.rpc).toHaveBeenCalledTimes(1);
+  });
 });
 describe("consultation names", () => {
   it("clears a custom name through the metadata RPC without reopening or changing clinical status", async () => {

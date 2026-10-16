@@ -179,3 +179,5 @@ html[data-nuthrick-theme='night'] .consultation-template-reference-note { color:
 .consultation-context-facts p { margin-top: 6px; overflow-wrap: anywhere; white-space: pre-wrap; color: var(--nuth-muted); line-height: 1.6; }
 .consultation-clinical-fields { margin-top: 24px; padding-top: 15px; border-top: 1px solid var(--nuth-line); }
 @media (max-width: 640px) { .consultation-clinical-title > button { margin-left: 0; } }
+.consultation-discard-action { color: #963f32 !important; }
+html[data-nuthrick-theme='night'] .consultation-discard-action { color: #f0aea1 !important; }
