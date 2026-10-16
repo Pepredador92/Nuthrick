@@ -1,0 +1,27 @@
+{
+  "requested_on": "2026-10-16",
+  "scope": "Remove the operator's personal identifiers from public policies and withdraw older public projections.",
+  "documents": [
+    {
+      "key": "privacy",
+      "expected_version": 2,
+      "expected_revision": 9,
+      "expected_content_hash": "58ff96f5cf55339349044bd2ce58008cfefa0311dd08b4103cbb86c235bbeffa",
+      "requires_acceptance": true
+    },
+    {
+      "key": "refunds",
+      "expected_version": 2,
+      "expected_revision": 7,
+      "expected_content_hash": "de91831570e79409dbb15ff643d40114ba0855c806ff4a3c7b318bb09ea4371c",
+      "requires_acceptance": false
+    },
+    {
+      "key": "terms",
+      "expected_version": 2,
+      "expected_revision": 9,
+      "expected_content_hash": "acc0f17461d252a4abebc9c974421ea7a5fbe1da92ef33fdafb60f8c8949edb9",
+      "requires_acceptance": true
+    }
+  ]
+}

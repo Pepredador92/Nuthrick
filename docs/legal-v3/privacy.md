@@ -1,0 +1,53 @@
+# Aviso de privacidad de Nuthrick
+
+## Alcance y contacto
+Este aviso describe el tratamiento de datos personales en Nuthrick, disponible en https://nuthrick.com.
+Este aviso describe el tratamiento de datos personales relacionado con la operación de la plataforma Nuthrick. Las solicitudes sobre datos personales se atienden mediante el canal de privacidad indicado a continuación.
+Contacto de privacidad: hola.nuthrick@gmail.com. Soporte: hola.nuthrick@gmail.com. Correo institucional temporal pendiente de migración futura.
+
+## Datos de la persona profesional
+La cuenta puede incluir nombre, correo, datos de perfil profesional y contacto, identidad de acceso, preferencias, imagen o marca y configuración de servicios conectados. La operación comercial mantiene plan, suscripción, promociones, movimientos de créditos, referencias de pago y comprobantes. También se registran eventos de acceso, aceptación de documentos y operaciones necesarias para seguridad y soporte.
+Nuthrick no solicita almacenar el número completo de tarjeta ni su código de seguridad. Los formularios de pago y gestión de medios de pago se alojan en Stripe cuando se utilizan; Nuthrick conserva referencias y estados comerciales recibidos del proveedor.
+
+## Información de pacientes
+El profesional puede registrar datos de identificación y contacto de sus pacientes, antecedentes e información relacionada con salud, incluyendo antropometría, historiales, consultas, laboratorios, cuestionarios, notas, diagnósticos nutricionales, objetivos, seguimiento, planes nutricionales, archivos y mensajes según las funciones utilizadas. Esta información puede ser sensible conforme a la normativa aplicable.
+La información de pacientes es distinta de los datos de la cuenta profesional. El profesional conserva la relación clínica, decide qué datos recoge y con qué finalidad, determina el contenido que comparte y mantiene el criterio y la responsabilidad profesional. Nuthrick proporciona infraestructura y funciones de software; la asignación concreta de roles y las obligaciones entre el profesional y Nuthrick se interpretan conforme a la función utilizada, la normativa aplicable y los acuerdos que correspondan.
+El profesional debe informar a sus pacientes y obtener las autorizaciones o consentimientos necesarios, incluida la representación de una persona menor de edad cuando corresponda. Nuthrick no obtiene directamente el consentimiento clínico del paciente.
+
+## Finalidades y funciones de comunicación
+Los datos se utilizan para crear y proteger la cuenta, prestar las funciones solicitadas, guardar y consultar registros, elaborar y compartir planes, gestionar solicitudes de Agenda y Superlink, permitir mensajes, gestionar soporte, suscripciones, cobros y créditos cuando esas funciones estén habilitadas, cumplir obligaciones legales y atender seguridad, auditoría y controversias.
+Superlink y el espacio del paciente facilitan el acceso a la información que el profesional pone a disposición mediante sus controles. No son un canal de emergencias. El profesional debe revisar qué información comparte y con quién.
+Los correos de cuenta, seguridad y transacción se limitan a la finalidad correspondiente; no deben incluir diagnósticos, laboratorios, planes clínicos ni contenido de expedientes. Los avisos comerciales solo se enviarán cuando exista una base legal o consentimiento aplicable y la configuración los habilite. No se habilitan campañas masivas con el sistema transaccional de esta fase.
+
+## Proveedores y circulación de datos
+Supabase participa en autenticación, base de datos y almacenamiento. Vercel aloja la aplicación. Stripe procesa pagos y gestiona medios de pago. Google Calendar interviene en las funciones de agenda autorizadas y Gmail en los correos de autenticación, seguridad y operación. Se limitan los datos comunicados a lo necesario para cada función.
+Los proveedores pueden tratar información en ubicaciones distintas de México según la región y el servicio contratados. Las comunicaciones a proveedores que actúan por cuenta del responsable deben sujetarse a instrucciones y obligaciones de protección de datos. Las transferencias a terceros que requieran consentimiento se informarán y recabarán antes de efectuarse; las excepciones legales se aplican cuando corresponda. No se comunican expedientes clínicos a Stripe ni en el cuerpo de los correos operativos.
+
+## Conexiones con Google
+La conexión de Google Calendar es opcional y la autoriza cada profesional desde Agenda. Nuthrick consulta la lista de calendarios y sus permisos para permitir elegir cuáles utilizar, los intervalos ocupados para evitar conflictos y los identificadores y estados de eventos necesarios para comprobar las citas. Conserva la selección de calendarios, las referencias de los eventos vinculados a las citas y el estado de la conexión. La consulta de disponibilidad no necesita copiar títulos o descripciones de eventos ajenos a las citas gestionadas por Nuthrick.
+
+Al crear o cancelar una cita vinculada, Nuthrick transmite a Google Calendar el nombre del profesional, fecha, horario, zona horaria, modalidad o dirección del consultorio, correo de la persona invitada y una referencia interna de la cita. Google puede enviar invitaciones y actualizaciones a esa dirección. No se incluyen diagnósticos, laboratorios ni notas del expediente en el evento generado por Nuthrick. El profesional debe informar de este uso y revisar los datos de contacto antes de utilizar la función.
+
+La conexión de Gmail para el envío operativo la autoriza exclusivamente la administración de Nuthrick sobre la cuenta remitente configurada. Se consulta su identidad de correo y se solicita permiso para enviar mensajes; esta conexión no permite leer la bandeja de entrada de profesionales ni pacientes. Los destinatarios y el contenido necesario para autenticación, seguridad, Agenda y transacciones se comunican a Google al enviar esos mensajes. Se conservan referencias de envío y registros de entrega para seguimiento y resolución de incidencias. Los profesionales no tienen que conceder acceso a su Gmail para conectar Calendar.
+
+Las autorizaciones renovables de Google se guardan cifradas y con acceso restringido en el servidor. El uso de datos obtenidos mediante las APIs de Google, y su comunicación a otras aplicaciones, se sujetan a la [Política de Datos de Usuario de los Servicios API de Google](https://developers.google.com/terms/api-services-user-data-policy), incluidos sus requisitos de uso limitado. Se utilizan para las funciones autorizadas, su seguridad y las obligaciones legales aplicables; no se venden, no se utilizan para publicidad personalizada ni para entrenar modelos de IA de uso general. El acceso humano requiere autorización específica de la persona usuaria, salvo las excepciones de seguridad o cumplimiento legal permitidas por dicha política.
+
+La persona que autorizó la conexión puede retirar el acceso desde las [conexiones con terceros de su cuenta de Google](https://myaccount.google.com/connections). La revocación impide seguir utilizando esa autorización y puede detener la sincronización o el envío correspondiente. No elimina automáticamente las citas o mensajes ya creados ni los registros necesarios en Nuthrick. Para solicitar su eliminación o la supresión de datos de la conexión, puede escribir a hola.nuthrick@gmail.com; se aplican las reglas de conservación y derechos descritas en este aviso.
+
+## IA opcional
+Si se habilita una función de IA, se informará de su finalidad, proveedor y tratamiento de datos antes de su uso y se recabará el consentimiento que corresponda. Las medidas para reducir el contexto transmitido no equivalen a una garantía de anonimización. El profesional debe revisar la información que utiliza y los resultados. La asistencia de IA no sustituye criterio ni responsabilidad clínica.
+
+## Seguridad y acceso
+Nuthrick utiliza autenticación y controles de acceso por cuenta y profesional. Estos controles reducen riesgos, pero no constituyen una garantía absoluta de seguridad. Se debe proteger la cuenta, evitar compartir credenciales y comunicar incidentes por los canales publicados. Los registros operativos se limitan a la información necesaria; no deben guardar secretos ni datos de tarjeta completos.
+
+## Conservación y cierre
+La suspensión o cancelación de un plan no provoca por sí sola la eliminación de los expedientes. La conservación, bloqueo y eliminación se determinan según la finalidad, el estado de la cuenta, las solicitudes de las personas, obligaciones profesionales y legales, seguridad, auditoría y atención de controversias. Los respaldos técnicos pueden conservarse durante el ciclo razonable de rotación y recuperación. No se promete conservar datos indefinidamente ni eliminarlos de inmediato en todos los supuestos. Las solicitudes de eliminación se evalúan junto con obligaciones de conservación y los derechos de otras personas.
+
+## Derechos y solicitudes
+La persona titular o su representante puede solicitar acceso, rectificación, cancelación u oposición al tratamiento de sus datos, revocar el consentimiento o limitar su uso o divulgación a través de hola.nuthrick@gmail.com. La solicitud debe indicar el nombre de la persona titular, un medio para recibir respuesta, el derecho solicitado y los datos necesarios para localizar la información. Se solicitará la acreditación de identidad o representación por un medio proporcionado al caso. Evite enviar información clínica, documentos de identidad completos u otros datos innecesarios en el primer contacto.
+En solicitudes ARCO se comunicará la determinación en un máximo de veinte días desde la recepción y, cuando proceda, se hará efectiva dentro de los quince días siguientes, con las ampliaciones justificadas previstas por la ley. El trámite es gratuito, salvo los costos permitidos de reproducción o envío. Se informará cualquier causa legal que impida atender total o parcialmente la solicitud.
+Cuando la información pertenezca a un expediente gestionado por un profesional, se determinará la intervención de las partes según sus roles. Las solicitudes relativas a menores deben presentarse por quien tenga representación legítima. La cancelación y revocación no tienen efectos retroactivos ni eliminan obligaciones de conservación o derechos de terceros.
+
+## Actualizaciones
+La versión vigente y su fecha efectiva se publican en https://nuthrick.com/privacy. Los cambios relevantes se informarán mediante el sitio y, cuando corresponda, dentro de la cuenta o por correo. Se recabará una nueva aceptación o consentimiento cuando resulte necesario; se conservan los registros de las versiones anteriores.
+

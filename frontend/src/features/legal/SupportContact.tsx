@@ -21,6 +21,6 @@ export function OperationalContacts() {
     <p className="font-semibold">Contactos vigentes de Nuthrick</p>
     <p>Soporte: <a className="underline" href={`mailto:${contacts.support_email}`}>{contacts.support_email}</a></p>
     <p>Privacidad y solicitudes sobre tus datos: <a className="underline" href={`mailto:${contacts.privacy_email}`}>{contacts.privacy_email}</a></p>
-    <p>Utiliza estos contactos para las nuevas solicitudes. Las versiones anteriores de los documentos conservan los datos que tenían al publicarse.</p>
+    <p>Utiliza estos canales oficiales para tus solicitudes de soporte y privacidad.</p>
   </aside>;
 }
