@@ -6,12 +6,11 @@ import {
 } from "../../src/components/consultations/ClinicalCopilot";
 import "../../app/globals.css";
 import { ClinicalObjective } from "../../src/components/consultations/ClinicalObjective";
-import { appendComposedText } from "../../src/features/consultations/composeClinicalText";
 import { ClinicalMeasurementsReview } from '../../src/components/consultations/ClinicalMeasurementsReview';
 import { reviewFacts } from './clinical-copilot-fixtures';
 import { ThemeSwitcher } from '../../src/features/theme/ThemeSwitcher';
 function Fixture() {
-  const [tab, setTab] = React.useState(new URLSearchParams(location.search).has("recall") ? "recall" : "pes");
+  const [tab, setTab] = React.useState(new URLSearchParams(location.search).has("recall") ? "recall" : new URLSearchParams(location.search).has("objective") ? "objective" : "pes");
   const [goal, setGoal] = React.useState(
     localStorage.getItem("qa-goal-text") || "",
   );
@@ -55,20 +54,13 @@ function Fixture() {
             {...props}
             questionKey="treatment_objective"
             value={goal}
-            onApplySuggestion={(text) => setGoal((current) => appendComposedText(current, text))}
+            onChangeText={text => setGoal(text)}
             before={async () => {
               localStorage.setItem("qa-goal-text", goal);
               return true;
             }}
           />
-          <label className="mt-5 block text-sm">
-            Objetivo acordado con el paciente
-            <textarea
-              className="mt-2 w-full rounded-xl border bg-white p-3"
-              value={goal}
-              onChange={(e) => setGoal(e.target.value)}
-            />
-          </label>
+
         </>
       ) : (
         <RecallCopilot {...props} />

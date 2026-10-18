@@ -170,6 +170,8 @@ function ConsultationEditor() {
   const [clinicalRefresh, setClinicalRefresh] = useState(0);
   const [recallPending, setRecallPending] = useState(false);
   const [pesPending, setPesPending] = useState(false);
+  const [objectivePending, setObjectivePending] = useState<Record<string, boolean>>({});
+  const hasObjectivePending = Object.values(objectivePending).some(Boolean);
   const [recallNavigation, setRecallNavigation] = useState<RecallNavigation | null>(null);
   const recallNavigationRef = useRef<RecallNavigationActions>(null);
   const [measurementsOpened, setMeasurementsOpened] = useState(false);
@@ -467,6 +469,7 @@ function ConsultationEditor() {
     ...(measurementsPending ? [{ key: "measurements" as const, label: "mediciones" }] : []),
     ...(laboratoriesPending ? [{ key: "laboratories" as const, label: "laboratorios" }] : []),
     ...(pesPending ? [{ key: "clinical" as const, label: "propuesta PES" }] : []),
+    ...(hasObjectivePending ? [{ key: "clinical" as const, label: "objetivos sin guardar" }] : []),
   ];
   const continueConsultation = () => {
     if (exitLock.current) return;
@@ -529,24 +532,15 @@ function ConsultationEditor() {
     setValues(next);
     setReviewed(false);
   };
-  const addObjectiveSuggestion = (question: Question, text: string) => {
-    if (question.question_type === "repeatable_group") {
+  const replaceObjectiveText = (question: Question, text: string, texts: string[]) => {
+    if (question.question_type === 'repeatable_group') {
       const fields = repeatableFields(question.configuration);
-      const objectiveField = fields.find((field) =>
-        /objetivo|goal/i.test(`${field.key} ${field.label}`),
-      );
+      const objectiveField = fields.find(field => /objetivo|goal/i.test(`${field.key} ${field.label}`));
       if (!objectiveField) return;
-      const row = Object.fromEntries(fields.map((field) => [field.key, ""]));
-      row[objectiveField.key] = text;
       const existing = valuesRef.current[question.question_key];
       const rows = Array.isArray(existing) ? existing.filter(isRecord) : [];
-      setAnswer(question.question_key, [...rows, row]);
-      return;
-    }
-    setAnswer(
-      question.question_key,
-      appendComposedText(valuesRef.current[question.question_key], text),
-    );
+      setAnswer(question.question_key, texts.map((item, index) => ({ ...Object.fromEntries(fields.map(field => [field.key, ''])), ...rows[index], [objectiveField.key]: item })));
+    } else setAnswer(question.question_key, text);
   };
   const allSections = snapshot?.structure.sections ?? [];
   const sections = snapshot ? workflowSections(snapshot.structure, 'interview') : [];
@@ -605,7 +599,7 @@ function ConsultationEditor() {
   };
   const complete = async () => {
     if (!consultation || !snapshot || !reviewed || closing.current) return;
-    if (recallPending || pesPending || measurementsPending || laboratoriesPending || clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient?.timezone)) {
+    if (recallPending || pesPending || hasObjectivePending || measurementsPending || laboratoriesPending || clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient?.timezone)) {
       setCloseDialogOpen(true);
       return;
     }
@@ -738,7 +732,7 @@ function ConsultationEditor() {
   </InterviewQuestionCard>)}</fieldset>;
   const renderClinicalFields = (category: 'diagnosis' | 'objectives' | 'recommendations') => clinicalSections.flatMap(section => {
     const questions = section.questions.filter(question => {
-      if (['pes_problem', 'pes_etiology', 'pes_evidence', 'pes_statement'].includes(question.question_key)) return false;
+      if (['pes_problem', 'pes_etiology', 'pes_evidence', 'pes_statement', ...objectiveKeys].includes(question.question_key)) return false;
       const kind = objectiveKeys.includes(question.question_key) ? 'objectives' : question.question_key.startsWith('pes_') || ['nutrition_assessment', 'clinical_notes', 'measurement_notes', 'indicator_progress'].includes(question.question_key) ? 'diagnosis' : 'recommendations';
       return kind === category;
     });
@@ -750,7 +744,7 @@ function ConsultationEditor() {
     continueConsultation();
     if (pendingModule) {
       setModule(pendingModule.key);
-      if (pendingModule.key === "clinical") setClinicalStage(1);
+      if (pendingModule.key === "clinical") setClinicalStage(hasObjectivePending && !pesPending ? 2 : 1);
     }
   }} />;
   if (loading) return <>{exitDialog}<LoadingState label="Preparando entrevista…" /></>;
@@ -1030,7 +1024,7 @@ function ConsultationEditor() {
           </div>
         </div>
       </header>
-      {closeDialogOpen && <ConsultationCloseDialog busy={busy || saving} reviewed={reviewed} pending={[pesPending && "la propuesta PES", recallPending && "Recordatorio de 24 horas", measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error} onReview={setReviewed} onCancel={() => setCloseDialogOpen(false)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
+      {closeDialogOpen && <ConsultationCloseDialog busy={busy || saving} reviewed={reviewed} pending={[pesPending && "la propuesta PES", hasObjectivePending && "los objetivos sin guardar", recallPending && "Recordatorio de 24 horas", measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error} onReview={setReviewed} onCancel={() => setCloseDialogOpen(false)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
       <div className="sticky top-0 z-20 mt-4 flex justify-end rounded-xl bg-[#f7faf8]/95 p-2 backdrop-blur"><button type="button" className="nuth-button-secondary" disabled={busy || saving} onClick={() => { setReviewed(false); setError(""); setCloseDialogOpen(true); }}><ClipboardCheck size={16} />Revisar cierre de consulta</button></div>
       <nav className="consultation-step-nav" aria-label="Módulos de la consulta">
         {consultationSteps.map((step, index) => <button key={step.key} type="button" aria-current={module === step.key ? 'page' : undefined} disabled={busy || saving} onClick={() => void goModule(step.key)}><span aria-hidden="true">{index + 1}</span>{step.label}</button>)}
@@ -1057,9 +1051,8 @@ function ConsultationEditor() {
         </section>
         <section hidden={clinicalStage !== 2} className="consultation-clinical-card" aria-label="Objetivos acordados">
           <p className="nuth-eyebrow">03 · Acuerda la intervención</p><h2>Objetivos acordados</h2>
-          <p className="consultation-clinical-description">Usa el PES revisado para conversar y acordar los siguientes objetivos con tu paciente.</p>
-          {renderClinicalFields('objectives')}
-          {clinicalSections.flatMap(section => section.questions).filter(question => objectiveKeys.includes(question.question_key)).map(question => <ClinicalObjective key={`${consultation.id}:${snapshot.revision}:${question.question_key}:${clinicalRefresh}`} consultationId={consultation.id} revision={snapshot.revision} questionKey={question.question_key} value={values[question.question_key]} before={saveForClinical} active={module === 'clinical' && clinicalStage === 2} patientId={patient.id} onApplySuggestion={text => addObjectiveSuggestion(question, text)} />)}
+          <p className="consultation-clinical-description">Define resultados medibles a partir de la etiología y los signos del PES. Acuerda metas alcanzables y un plazo para reevaluarlas.</p>
+          {clinicalSections.flatMap(section => section.questions).filter(question => objectiveKeys.includes(question.question_key) && matchesCondition(question.visibility_condition, values)).map(question => <ClinicalObjective key={`${consultation.id}:${snapshot.revision}:${question.question_key}`} consultationId={consultation.id} revision={snapshot.revision} questionKey={question.question_key} contextVersion={clinicalRefresh} value={values[question.question_key]} before={saveForClinical} active={module === 'clinical' && clinicalStage === 2} patientId={patient.id} maxLength={typeof question.configuration.max_length === 'number' ? question.configuration.max_length : question.question_type === 'repeatable_group' ? 12000 : 2000} onPendingChange={pending => setObjectivePending(current => current[question.question_key] === pending ? current : { ...current, [question.question_key]: pending })} onChangeText={(text, texts) => replaceObjectiveText(question, text, texts)} />)}
           <p className="consultation-guided-hint">Después de cerrar la consulta, podrás seleccionar este objetivo para compartirlo en el Super Link.</p>
         </section>
         <section hidden={clinicalStage !== 3} className="consultation-clinical-card" aria-label="Recomendaciones y seguimiento">

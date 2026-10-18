@@ -1,4 +1,5 @@
 // Offline visual/E2E fixture only. Never imported by the application build.
+import { type ObjectivePlan } from '../../../supabase/functions/_shared/objectives';
 import type { FoodItem } from "../../src/types/domain";
 import type { ClinicalMeasurementFact } from '../../src/features/consultations/clinicalCopilot';
 export const reviewFacts: ClinicalMeasurementFact[] = [
@@ -31,19 +32,26 @@ export async function clinicalObjective(
   action = "read",
   _stamp?: string,
   questionKey?: string,
+  plan?: ObjectivePlan,
 ) {
   const records = JSON.parse(
     localStorage.getItem("qa-clinical-records") || "{}",
   );
-  const pes = records.pes ?? null;
+  const parts = JSON.parse(localStorage.getItem('qa-pes-parts') || '{}');
+  const pes = records.pes ? { ...records.pes, ...parts, pesStatement: parts.pes_statement ?? records.pes.pesStatement, etiology: parts.pes_etiology ?? records.pes.etiology, signsSymptoms: parts.pes_evidence ?? records.pes.signsSymptoms?.join('\n') } : null;
+  const plans = JSON.parse(localStorage.getItem('qa-objective-plans') || '{}');
+  if (['save','approve'].includes(action) && plan && questionKey) { plans[questionKey] = plan; localStorage.setItem('qa-objective-plans', JSON.stringify(plans)); objectiveReset(); }
+  function objectiveReset() { localStorage.removeItem('qa-clinical-objective'); }
   let objective = JSON.parse(
     localStorage.getItem("qa-clinical-objective") || "null",
   );
+  if (action === "save") objective = null;
   if (action === "approve") {
     if (!pes) throw new Error("Revisa y aprueba primero el PES.");
     const value = localStorage.getItem("qa-goal-text") || "";
     objective = {
       question_key: questionKey,
+      smart_plan: plan,
       value,
       content: value,
       revision,
@@ -57,6 +65,7 @@ export async function clinicalObjective(
   return {
     stamp: "synthetic-stamp",
     pes,
+    plans,
     objective,
     facts: [
       {
@@ -175,8 +184,16 @@ export async function runAIRequest(request: {
   if (request.feature === "consultation_support") return {
     generationId: crypto.randomUUID(), status: "succeeded", replay: false,
     output: { objectives: [{
-      text: "Organizar las comidas durante la jornada laboral.",
-      evidence: [{ source: "Entrevista · Motivo", finding: "Mejorar la regularidad de comidas" }],
+      goal: {
+        outcome: 'Mejorar la suficiencia de la ingesta oral',
+        etiology: 'disminución del apetito referida en la entrevista',
+        sign: 'consumo registrado de 1200 kcal en el día evaluado',
+        indicator: 'Consumo energético registrado en kcal/día',
+        baseline: '1200 kcal en el día evaluado; confirmar representatividad',
+        target: '', timeframe: '', monitoring: 'Revisar registro de consumo con el profesional',
+        feasibility: '', agreement: 'pending',
+      },
+      evidence: [{ source: 'PES actual aprobado · Signos y síntomas', finding: 'consumo registrado de 1200 kcal en el día evaluado' }],
     }] },
   };
   return {

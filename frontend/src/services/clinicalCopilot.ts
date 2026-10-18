@@ -2,6 +2,7 @@ import { supabase } from "@/src/lib/supabase";
 import type { RecallSavedItem } from "@/src/features/consultations/clinicalCopilot";
 import type { RecallEstimate } from "@/src/features/consultations/recallEstimate";
 import type { ClinicalMeasurementFact } from '@/src/features/consultations/clinicalCopilot';
+import type { ObjectivePlan } from '../../../supabase/functions/_shared/objectives';
 export type SavedRecallRecord = { narrative: string; items: RecallSavedItem[]; approved_at?: string; method?: 'ai_estimate'; estimate?: RecallEstimate };
 export async function getClinicalRevision(patientId: string, consultationId: string) {
   const { data, error } = await supabase.from("consultation_snapshots")
@@ -12,6 +13,7 @@ export async function getClinicalRevision(patientId: string, consultationId: str
 }
 export type ObjectiveWorkspace = {
   stamp: string;
+  plans?: Record<string, ObjectivePlan>;
   facts: ClinicalMeasurementFact[];
   pes: {
     approved_at: string;
@@ -27,6 +29,7 @@ export type ObjectiveWorkspace = {
     content: string;
     pes_statement: string;
     revision: number;
+    smart_plan?: ObjectivePlan;
   } | null;
   target: ClinicalWorkspace["target"];
 };
@@ -36,6 +39,7 @@ export async function clinicalObjective(
   action = "read",
   stamp?: string,
   questionKey?: string,
+  plan?: ObjectivePlan,
 ): Promise<ObjectiveWorkspace> {
   const { data, error } = await supabase.rpc("clinical_objective", {
     p_consultation: consultationId,
@@ -43,10 +47,19 @@ export async function clinicalObjective(
     p_action: action,
     p_stamp: stamp ?? null,
     p_question_key: questionKey ?? null,
+    p_plan: plan ?? null,
   });
   if (error)
     throw new Error(
-      error.message === "pes_approval_required"
+      error.message === 'objective_plan_required' || error.message === 'objective_smart_required'
+        ? 'Completa resultado, relación con el PES, indicador, situación inicial, meta, plazo, seguimiento y viabilidad.'
+        : error.message === 'objective_agreement_required'
+        ? 'Registra si el objetivo se acordó con el paciente o cuidador.'
+        : error.message === 'objective_pes_changed'
+        ? 'El PES cambió. Vincula los objetivos al PES actual y revisa sus signos y síntomas.'
+        : error.message === 'objective_text_mismatch'
+        ? 'El texto guardado no coincide con los objetivos. Guarda los cambios y vuelve a revisar.'
+        : error.message === "pes_approval_required"
         ? "Revisa y aprueba el PES antes de aprobar el objetivo."
         : error.message === "context_changed"
           ? "La consulta cambió. Actualiza el contexto antes de aprobar."

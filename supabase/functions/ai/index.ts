@@ -1,6 +1,7 @@
 import { productOriginAllowed, siteOrigin } from '../_shared/site.ts';
 import { createClient } from '@supabase/supabase-js';
 import { AIError, type AIStore, type FeatureConfig, type Generation, OpenAIResponsesProvider, parseRequest, runAIRequest } from './core.ts';
+import { objectiveFields } from '../_shared/objectives.ts';
 import { buildConsultationSupportContext, buildPesClinicalContext, instructionAgreement, redactClinicalText, type ClinicalSource, type ConsultationSupportFact } from './clinical.ts';
 import { withConfirmedRecall } from './recall-context.ts';
 import { prepareDietSnapshot, prepareDietAlternative, verifyDietSnapshot, validateSnapshot, parseDietDecision, DietRoutingProvider, type DietSnapshot } from './diet.ts';
@@ -109,6 +110,7 @@ Deno.serve(async request => {
       throw new AIError('service_unavailable',true);
     }
     let consultationSupportFacts: ConsultationSupportFact[] | null = null;
+    let smartObjectives = false;
     let textSnapshot:TextDietSnapshot|null=null,textDraft:TextDiet|null=null;
     let dietSnapshot: DietSnapshot | null=null;
     let dietValidation: ReturnType<typeof validateSnapshot> | null=null;
@@ -130,10 +132,11 @@ Deno.serve(async request => {
         const { data: source, error } = await db.rpc(r.feature==='patient_instructions' ? 'ai_patient_instructions_source' : 'ai_clinical_source',{p_owner:owner,p_patient:r.patientId,p_consultation:r.consultationId,p_revision:r.revision});
         if (error || !source) throw new AIError('context_unavailable');
         const clinical = r.feature==='recall_24h' ? source as ClinicalSource : withConfirmedRecall(source as ClinicalSource);
-        const supportContext = ['consultation_support','patient_instructions'].includes(r.feature) ? buildConsultationSupportContext(clinical,r.feature==='patient_instructions') : null;
+        const supportContext = ['consultation_support','patient_instructions'].includes(r.feature) ? buildConsultationSupportContext(clinical,r.feature==='patient_instructions',smartObjectives) : null;
         const context=r.feature==='pes_diagnosis' ? buildPesClinicalContext(clinical)
           : supportContext ?? {narrative:redactClinicalText(r.narrative!,clinical.identifiers?.filter((v): v is string => typeof v === 'string'))};
         if(supportContext) consultationSupportFacts=supportContext.facts;
+        if (smartObjectives && !supportContext?.approvedPes) throw new AIError('pes_approval_required');
         if(r.feature==='patient_instructions' && !consultationSupportFacts?.some(fact=>instructionAgreement(fact.source))) throw new AIError('instruction_agreements_required');
         if ('facts' in context && context.facts.length===0) throw new AIError('context_unavailable');
         return {stamp:clinical.stamp,context};
@@ -149,6 +152,7 @@ Deno.serve(async request => {
       },
       config: async feature => {
         const c=await rpc<FeatureConfig>('config',{feature});
+        smartObjectives = feature === 'consultation_support' && c.prompt_version === 'consultation_support@4';
         if(feature==='diet_draft' && (c.execution_mode==='simulated')!==simulated)throw new AIError('feature_disabled');
         return c;
       },
@@ -184,7 +188,11 @@ Deno.serve(async request => {
       const output=result.output as Record<typeof key,{text:string;evidenceFactIds:string[]}[]>;
       return respond({...result,output:{
         [key]:output[key].map(objective=>({
-          text:objective.text,
+          ...(smartObjectives ? { goal: {
+            ...Object.fromEntries(objectiveFields.filter(key => key !== 'baseline').map(key => [key, (objective as unknown as Record<string, string>)[key]])),
+            baseline: consultationSupportFacts!.find(fact => fact.id === (objective as unknown as { baselineFactId: string }).baselineFactId && fact.finding.length <= 400)?.finding ?? '',
+            agreement: 'pending',
+          } } : { text:objective.text }),
           evidence:objective.evidenceFactIds.flatMap(id=>{
             const fact=consultationSupportFacts!.find(candidate=>candidate.id===id);
             return fact?[{source:fact.source,finding:fact.finding}]:[];

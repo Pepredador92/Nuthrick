@@ -9,6 +9,7 @@ export const aiMessages: Record<string,string> = {
   input_count_unavailable: 'No pudimos comprobar el tamaño del contexto. No se generó una propuesta ni se cobró esta solicitud. Puedes reintentar o continuar manualmente.',
   context_unavailable: 'La consulta cambió o ya no está disponible para esta solicitud. Guarda los cambios y actualiza la página. Puedes continuar manualmente.',
   instruction_agreements_required: 'Esta consulta no tiene objetivos o acciones registrados para redactar indicaciones. Puedes escribirlas manualmente.',
+  pes_approval_required: 'Revisa y aprueba el PES antes de pedir objetivos vinculados al diagnóstico.',
   insufficient_credits: 'Ya utilizaste los créditos de IA incluidos en tu plan.',
   feature_disabled: 'Esta función de IA aún no está habilitada.',
   pilot_limit_reached: 'Se alcanzó el límite de uso de esta función.',

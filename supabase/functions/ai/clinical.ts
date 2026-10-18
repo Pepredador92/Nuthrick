@@ -39,6 +39,15 @@ export const consultationSupportSchema = object({
   },
 });
 export const patientInstructionsSchema = object({ instructions: consultationSupportSchema.properties.objectives });
+export const smartObjectivesSchema = object({ objectives: {
+  type: 'array', maxItems: 3, items: object({
+    ...Object.fromEntries(['outcome','etiology','sign','indicator','target','timeframe','monitoring','feasibility'].map(key => [key, { type: 'string', maxLength: 400 }])),
+    etiology: { type: 'string', maxLength: 1500 },
+    sign: { type: 'string', maxLength: 2000 },
+    baselineFactId: { type: 'string', pattern: '^(f[0-9]{1,2})?$' },
+    evidenceFactIds: { type: 'array', minItems: 1, maxItems: 6, items: { type: 'string', pattern: '^f[0-9]{1,2}$' } },
+  }),
+} });
 export const recallSchema = object({
   meals: {
     type: "array",
@@ -89,6 +98,10 @@ export function clinicalAdapter(feature: string, version: string) {
       schema: pesSchema,
       instructions: `${boundary} Redacta únicamente un borrador nutricional PES para revisión profesional. Usa SOLO facts. Cada evidence debe copiar literalmente source y finding de un fact disponible; nunca inventes mediciones, síntomas, antecedentes o consumo. Usa solo las evidencias necesarias, sin repetir todo el expediente. Si falta sustento, deja el campo vacío y explica en missingContext/uncertainties. Señala contradicciones sin resolverlas por tu cuenta. No presentes la propuesta como diagnóstico validado.${historyBoundary}${["pes_diagnosis@3", "pes_diagnosis@4", "pes_diagnosis@5"].includes(version) ? " Para la etiología revisa también los antecedentes de entrevista fechados y los PES previos aprobados. Los PES previos son valoraciones profesionales históricas, no prueba independiente de causalidad. Un antecedente no confirma su vigencia actual. Distingue explícitamente factores documentados, hipótesis y vigencia pendiente de confirmar; prioriza cambios, mejoría y contradicciones actuales. Formula una hipótesis etiológica concreta solo si los hechos la sostienen y cita sus fuentes; no uses etiquetas como malos hábitos ni atribuyas causalidad a IMC, grasa corporal o enfermedades por sí solos. Si no hay sustento etiológico, devuelve etiology y pesStatement vacíos y explica en missingContext qué preguntar o confirmar; no construyas un PES con frases de relleno como etiología no documentada." : ""}${["pes_diagnosis@4", "pes_diagnosis@5"].includes(version) ? " Si interviewOrigin es historical, no hay entrevista actual registrada: usa los antecedentes fechados como apoyo, conserva como prioritarias las mediciones y el recordatorio actuales y señala qué datos históricos deben confirmarse. Si interviewOrigin es missing, indica esa ausencia en missingContext." : ""}${version === "pes_diagnosis@5" ? " Sigue la secuencia Problema → relacionado con → Etiología → evidenciado por → Signos y síntomas. Prioriza UN problema nutricional abordable mediante intervención, usando un término clínico preciso; no inventes códigos NCPT ni afirmes que una terminología fue validada. La etiología debe describir un factor documentado sobre el que pueda orientarse la intervención, sin confundir una medición con una causa. Usa signos específicos, medibles cuando corresponda, con unidades, fechas y fuentes. Todas las cifras de P, E y S deben estar en evidence; no calcules porcentajes de cambio o ingesta ni conviertas unidades por tu cuenta. Los datos de ficha son antecedentes y no mediciones de hoy. No clasifiques gravedad de desnutrición a partir de un dato aislado. Si falta un componente indispensable, conserva el borrador parcial y explica qué falta, sin rellenar con supuestos. El sistema compone el enunciado final a partir de P, E y S." : ""}`,
     };
+  if (feature === 'consultation_support' && version === 'consultation_support@4') return {
+    schema: smartObjectivesSchema,
+    instructions: `${boundary} Propón de 0 a 3 objetivos nutricionales priorizados, vinculados al PES ACTUAL aprobado en approvedPes. Un objetivo expresa una respuesta anticipada de la persona, con indicador de monitoreo; no es una indicación ni la intervención en sí. etiology y sign deben copiar literalmente la etiología y uno de los signos del PES aprobado. Relaciona outcome e indicator con esa causa y su evidencia. Usa SMART: resultado específico, indicador medible, meta alcanzable, relevancia para la etiología y plazo de reevaluación. baselineFactId debe identificar un hecho citado que realmente documente la situación inicial del indicador; deja vacío si falta. target y timeframe SOLO pueden copiar fragmentos literales ya documentados en los hechos citados como metas o plazos acordados; deja vacío lo no documentado. No conviertas peso, requerimientos, consumo de un día ni datos históricos en metas. No inventes cifras, diagnósticos, capacidad, barreras ni acuerdo del paciente. feasibility recoge únicamente barreras, disposición, preferencias culturales y apoyos documentados; si no constan deja vacío. monitoring propone un método para reevaluar el mismo indicador, sujeto a revisión profesional. No uses albúmina o prealbúmina aisladas como marcadores del estado nutricional o de respuesta a nutrición. No prescribas cambios de tratamiento, vía o consistencia, suplementos, kcal o macros. No generes metas universales de peso o laboratorio. Cita de 1 a 6 evidenceFactIds existentes, incluyendo el PES aprobado. Devuelve objectives vacío si falta PES aprobado o no hay datos suficientes para un objetivo específico. Los campos vacíos se completarán con juicio profesional y decisión compartida; no declares que la persona aceptó. ${historyBoundary}`,
+  };
   if (feature === "consultation_support" && ["consultation_support@1", "consultation_support@2", "consultation_support@3"].includes(version))
     return {
       schema: consultationSupportSchema,
@@ -117,6 +130,7 @@ export type ClinicalSource = {
   stamp: string;
   records?: unknown;
   recall?: unknown;
+  approvedPes?: { approved_at: string; problem: string; etiology: string; signsSymptoms: string; pesStatement: string } | null;
 };
 export function redactClinicalText(value: string, identifiers: string[] = []) {
   let result = value;
@@ -195,19 +209,21 @@ export function clinicalInterviewOrigin(facts: ClinicalFact[]): 'current' | 'his
   if (facts.some(fact => fact.source.startsWith('Entrevista · ') && !decisionTopic.test(interviewTopic(fact.source)))) return 'current';
   return facts.some(fact => fact.source.startsWith('Antecedente de entrevista · ')) ? 'historical' : 'missing';
 }
-export function buildConsultationSupportContext(source: ClinicalSource, instructions = false) {
+export function buildConsultationSupportContext(source: ClinicalSource, instructions = false, smart = false) {
   const prepared = prepareClinicalFacts(source);
   const interviewOrigin = clinicalInterviewOrigin(prepared);
   const permitted = prepared.filter((fact) => {
     const sourceLabel = fact?.source?.toLocaleLowerCase() ?? "";
     if (sourceLabel.startsWith("entrevista · ")) {
       return /(?:main reason|expectations|consult now|objectives|treatment objective|next objectives|first actions|interview priorities|access barriers|eating drivers|changes since last|progress perception|symptoms changes|medical changes|indicators reviewed|barriers|adjustments|measurement notes|indicator progress|recall 24h v2|recall date|recall day type)/i.test(sourceLabel)
-        || instructions && /(?:medical history|medical diagnoses|medication|food reactions)/i.test(sourceLabel);
+        || (instructions || smart) && /(?:medical history|medical diagnoses|medication|food reactions)/i.test(sourceLabel)
+        || smart && /(?:appetite|symptom|eating preferences|food preferences|support network|food access|cooking|shopping|readiness|motivation|culture|food availability|food buyer|food budget|budget constraint|food shortage|unavailable foods|behavior support)/i.test(sourceLabel);
     }
     if (sourceLabel.startsWith("recordatorio confirmado")) return true;
     if (!instructions && interviewOrigin !== 'current' && sourceLabel.startsWith('antecedente de entrevista · ')) {
       return /^(?:main reason|expectations|consult now|objectives|treatment objective|next objectives|first actions|interview priorities|access barriers|eating drivers|changes since last|progress perception|symptoms changes|medical changes|barriers|adjustments)(?: ·|$)/i.test(interviewTopic(fact.source));
     }
+    if (smart && /^(Antropometría|Cálculo registrado|Laboratorio|Dato de ficha|Historial(?: calculado)?) · /.test(fact.source)) return true;
     if (historical(fact.source)) return historyMetric(fact.source) && (fact.metric_code
       ? ['weight', 'waist_circumference', 'bmi', 'body_fat', 'body_fat_percentage', 'body_fat_percentage_device'].includes(fact.metric_code)
       : /^Historial(?: calculado)? · (?:peso|peso corporal|cintura|índice de masa corporal|imc|bmi|grasa|porcentaje de grasa corporal|body_fat_percentage)(?:[ (·]|$)/i.test(fact.source));
@@ -221,14 +237,19 @@ export function buildConsultationSupportContext(source: ClinicalSource, instruct
     return historicalRank(a) - historicalRank(b) || rank(a) - rank(b) ||
       (historyNarrative(a.source) && historyNarrative(b.source) ? b.source.localeCompare(a.source) : 0);
   });
-  const facts = permitted.slice(0, 99).flatMap((fact, index) => {
+  const pes = smart && source.approvedPes ? Object.fromEntries(Object.entries(source.approvedPes).map(([key, value]) => [key, redactClinicalText(value, source.identifiers)])) as ClinicalSource['approvedPes'] : null;
+  const approvedFacts = pes ? [
+    { source: 'PES actual aprobado · Etiología', finding: pes.etiology },
+    ...pes.signsSymptoms.split('\n').filter(sign => sign.trim()).map(sign => ({ source: 'PES actual aprobado · Signos y síntomas', finding: sign.trim() })),
+  ] : [];
+  const facts = [...approvedFacts, ...permitted].slice(0, 99).flatMap((fact, index) => {
     if (typeof fact?.source !== "string" || typeof fact.finding !== "string") return [];
     const finding = fact.finding;
     const label = fact.source;
     if (!finding || !label || ["null", "undefined", '""', "[]", "{}"].includes(finding)) return [];
     return [{ id: `f${index + 1}`, source: label, finding }];
   });
-  return { facts, interviewOrigin };
+  return { facts, interviewOrigin, ...(smart ? { approvedPes: pes, objectiveFormat: 'smart@1' } : {}) };
 }
 export function clinicalEvidenceValid(
   feature: string,
@@ -252,6 +273,7 @@ export function clinicalEvidenceValid(
     );
   }
   if (feature === "consultation_support" || feature === "patient_instructions") {
+    if (feature === 'consultation_support' && (context as { objectiveFormat?: string }).objectiveFormat === 'smart@1') return smartObjectivesValid(output, context);
     const o = output as {
       objectives: { text: string; evidenceFactIds: string[] }[];
       instructions: { text: string; evidenceFactIds: string[] }[];
@@ -280,6 +302,26 @@ export function clinicalEvidenceValid(
     );
   }
   return true;
+}
+export function smartObjectivesValid(output: unknown, context: unknown): boolean {
+  const { objectives } = output as { objectives: Record<string, unknown>[] };
+  const { facts, approvedPes } = context as { facts: ConsultationSupportFact[]; approvedPes: ClinicalSource['approvedPes'] };
+  if (!approvedPes) return objectives.length === 0;
+  return objectives.every(goal => {
+    const ids = goal.evidenceFactIds as string[];
+    const evidence = facts.filter(fact => ids.includes(fact.id));
+    if (ids.length !== evidence.length || !evidence.some(fact => fact.source.startsWith('PES actual aprobado · '))) return false;
+    if (goal.etiology !== approvedPes.etiology || !approvedPes.signsSymptoms.split('\n').map(sign => sign.trim()).includes(goal.sign as string)) return false;
+    if (!String(goal.outcome).trim() || !String(goal.indicator).trim()) return false;
+    if (goal.baselineFactId && !evidence.some(fact => fact.id === goal.baselineFactId)) return false;
+    // Measured values must never silently become prescribed targets. Only
+    // explicit current agreement fields can supply a target or a time frame.
+    for (const key of ['target', 'timeframe']) {
+      const value = String(goal[key]).trim();
+      if (value && !evidence.some(fact => /^Entrevista · (objectives|next objectives|treatment objective|first actions|adjustments)(?: ·|$)/.test(fact.source) && fact.finding.includes(value))) return false;
+    }
+    return unsupportedPesNumbers({ problem: String(goal.outcome), etiology: '', signsSymptoms: [String(goal.indicator), String(goal.monitoring), String(goal.feasibility)] }, evidence).length === 0;
+  });
 }
 export function conservativeRecallQuantities(output: unknown) {
   const o = structuredClone(output) as {
