@@ -10,6 +10,8 @@ export const aiMessages: Record<string,string> = {
   context_unavailable: 'La consulta cambió o ya no está disponible para esta solicitud. Guarda los cambios y actualiza la página. Puedes continuar manualmente.',
   instruction_agreements_required: 'Esta consulta no tiene objetivos o acciones registrados para redactar indicaciones. Puedes escribirlas manualmente.',
   pes_approval_required: 'Revisa y aprueba el PES antes de pedir objetivos vinculados al diagnóstico.',
+  strategy_approvals_required: 'Revisa y aprueba el PES y los objetivos SMART antes de proponer estrategias.',
+  strategy_approval_required: 'Revisa y aprueba una estrategia vigente antes de generar indicaciones.',
   insufficient_credits: 'Ya utilizaste los créditos de IA incluidos en tu plan.',
   feature_disabled: 'Esta función de IA aún no está habilitada.',
   pilot_limit_reached: 'Se alcanzó el límite de uso de esta función.',
@@ -37,7 +39,7 @@ export async function getAIGenerationStatus(idempotencyKey: string) {
   return data as { generationId: string; status: string; chargedCredits: number; errorCode: string | null } | null;
 }
 // Reuse the same key when checking/retrying a logical request. Never supply owner/model/prompt/prices.
-export async function runAIRequest(request: { textGuidance?:TextDietGuidance; guidance?: DietGuidance; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean }> {
+export async function runAIRequest(request: { strategyFeedback?: string; textGuidance?:TextDietGuidance; guidance?: DietGuidance; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean }> {
   try {
     const consent = await supabase.rpc('my_ai_processing_consent');
     if (consent.error || !consent.data) throw new AIRequestError('ai_consent_unavailable');

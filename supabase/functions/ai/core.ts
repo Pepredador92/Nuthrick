@@ -1,3 +1,4 @@
+import { interventionAdapter, interventionEvidenceValid, type InterventionContext } from './intervention.ts';
 import { isDietGuidance, type DietGuidance } from '../_shared/diet-guidance.ts';
 import {isTextDietGuidance,type TextDietGuidance} from '../_shared/text-diet.ts';
 import {textDietAdapter} from './text-diet-contract.ts';
@@ -31,6 +32,7 @@ export function featureAdapter(feature: string, promptVersion: string, textMode=
   if (feature === 'diet_draft' && promptVersion === 'diet_draft@1') return { ...dietDraftAdapterV1 };
   if (feature === 'diet_draft' && promptVersion === 'diet_draft@2') return { ...dietDraftAdapter };
   if (feature === 'diet_draft' && promptVersion === 'diet_draft@3') return { ...dietDraftAdapterV3 };
+  if (feature === 'intervention_strategy' && promptVersion === 'intervention_strategy@1') return { ...interventionAdapter, context: {} as unknown };
   const clinical = clinicalAdapter(feature,promptVersion);
   if (clinical) return { ...clinical, context: {} as unknown };
   if (feature !== 'core_check' || promptVersion !== 'core_check@1') throw new AIError('feature_not_implemented');
@@ -74,7 +76,7 @@ export class OpenAIResponsesProvider implements AIProvider {
     };
     const signal = AbortSignal.timeout(config.timeout_ms);
     if (bytes + 2048 > config.max_input_tokens) {
-      if (!['pes_diagnosis','consultation_support','patient_instructions','diet_draft'].includes(config.feature) || bytes > 65536) throw new AIError('input_too_large');
+      if (!['pes_diagnosis','consultation_support','patient_instructions','intervention_strategy','diet_draft'].includes(config.feature) || bytes > 65536) throw new AIError('input_too_large');
       let tokens: unknown;
       try {
         const count = await this.transport('https://api.openai.com/v1/responses/input_tokens', {
@@ -148,12 +150,12 @@ export interface AIStore {
   validateOutput?(output: unknown): boolean;
   recordResult?(id: string, result: ProviderResult, valid: boolean): Promise<void>;
 }
-export type AIRequest = { textGuidance?: TextDietGuidance; guidance?: DietGuidance; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
+export type AIRequest = { textGuidance?: TextDietGuidance; guidance?: DietGuidance; strategyFeedback?: string; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function parseRequest(value: unknown): AIRequest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new AIError('invalid_request');
   const v = value as Record<string, unknown>;
-  if (Object.keys(v).some(k => !['feature','idempotencyKey','patientId','consultationId','revision','narrative','planId','previousProposalId','rejectedItems','guidance','textGuidance'].includes(k))
+  if (Object.keys(v).some(k => !['feature','idempotencyKey','patientId','consultationId','revision','narrative','planId','previousProposalId','rejectedItems','guidance','textGuidance','strategyFeedback'].includes(k))
     || typeof v.feature !== 'string' || !/^[a-z][a-z0-9_]{1,63}$/.test(v.feature)
     || typeof v.idempotencyKey !== 'string' || !uuid.test(v.idempotencyKey)
     || [v.patientId,v.consultationId].some(id => id !== undefined && (typeof id !== 'string' || !uuid.test(id)))
@@ -169,7 +171,8 @@ export function parseRequest(value: unknown): AIRequest {
   if (!workshop && ['planId','rejectedFoodIds','rejectedSignatures'].some(k => v[k] !== undefined)) throw new AIError('invalid_request');
   if (v.rejectedFoodIds !== undefined && (!Array.isArray(v.rejectedFoodIds) || v.rejectedFoodIds.length>30 || v.rejectedFoodIds.some(id => typeof id!=='string'||!uuid.test(id)))) throw new AIError('invalid_request');
   if (v.rejectedSignatures !== undefined && (!Array.isArray(v.rejectedSignatures) || v.rejectedSignatures.length>3 || v.rejectedSignatures.some(s => typeof s!=='string'||s.length>16000))) throw new AIError('invalid_request');
-  const clinical = ['pes_diagnosis','recall_24h','consultation_support','patient_instructions'].includes(v.feature as string);
+  if (v.strategyFeedback !== undefined && (v.feature !== 'intervention_strategy' || typeof v.strategyFeedback !== 'string' || v.strategyFeedback.length > 600)) throw new AIError('invalid_request');
+  const clinical = ['pes_diagnosis','recall_24h','consultation_support','patient_instructions','intervention_strategy'].includes(v.feature as string);
   if (clinical && (!v.consultationId || !Number.isSafeInteger(v.revision) || Number(v.revision) < 1)) throw new AIError('invalid_request');
   if (!clinical && !workshop && (v.revision !== undefined || v.narrative !== undefined)) throw new AIError('invalid_request');
   // Reuse the already fingerprinted narrative field for bounded diet instructions.
@@ -183,11 +186,11 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   const config = await store.config(request.feature);
   if (!config.enabled || config.provider !== 'openai') throw new AIError('feature_disabled');
   const adapter = featureAdapter(request.feature, config.prompt_version,!!request.textGuidance);
-  const clinical = ['pes_diagnosis','recall_24h','consultation_support','patient_instructions','diet_draft'].includes(request.feature);
+  const clinical = ['pes_diagnosis','recall_24h','consultation_support','patient_instructions','intervention_strategy','diet_draft'].includes(request.feature);
   if (clinical && (!store.context || !store.bindContext)) throw new AIError('context_unavailable');
   const hydrated = clinical ? await store.context!(request) : null;
   if (hydrated) adapter.context = hydrated.context;
-  const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : [])]);
+  const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : []), ...(request.feature==='intervention_strategy'?[request.strategyFeedback??null]:[])]);
   const fingerprint = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical))), b => b.toString(16).padStart(2,'0')).join('');
   const { generation, created } = await store.reserve(config,request,fingerprint);
   if (!created) return { generationId: generation.id, status: generation.status, replay: true };
@@ -207,7 +210,7 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   if (request.feature === 'pes_diagnosis' && config.prompt_version === 'pes_diagnosis@5') result = { ...result, output: normalizePesOutput(result.output) };
   let valid = false;
   try {
-    valid = result.status === 'completed' && validOutput(adapter.schema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (request.feature !== 'pes_diagnosis' || config.prompt_version !== 'pes_diagnosis@5' || pesClinicalStructureValid(result.output)) && (!store.validateOutput || store.validateOutput(result.output));
+    valid = result.status === 'completed' && validOutput(adapter.schema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (request.feature !== 'intervention_strategy' || interventionEvidenceValid(result.output,adapter.context as InterventionContext)) && (request.feature !== 'pes_diagnosis' || config.prompt_version !== 'pes_diagnosis@5' || pesClinicalStructureValid(result.output)) && (!store.validateOutput || store.validateOutput(result.output));
     await store.recordResult?.(generation.id,result,valid);
   } catch {
     // Confirmed provider usage remains billable even if domain validation or

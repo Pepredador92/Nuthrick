@@ -25,6 +25,7 @@ import { ClinicalReview } from "@/src/components/consultations/ClinicalReview";
 import { ConsultationGuide } from "@/src/components/consultations/ConsultationGuide";
 import { ClinicalSuggestionsAI } from "@/src/components/consultations/ConsultationObjectiveAI";
 import { consultationSteps, objectiveKeys, questionModule, workflowSections, type ConsultationModule } from "@/src/features/consultations/consultationWorkflow";
+import { ClinicalInterventions } from "@/src/components/consultations/ClinicalInterventions";
 import { ClinicalObjective } from "@/src/components/consultations/ClinicalObjective";
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
 import { ConsultationCloseDialog } from "@/src/components/consultations/ConsultationCloseDialog";
@@ -79,10 +80,11 @@ const clinicalStages = [
   { title: 'Datos', description: 'Revisa la consulta' },
   { title: 'PES', description: 'Formula el diagnóstico' },
   { title: 'Objetivos', description: 'Acuerda la intervención' },
+  { title: 'Estrategia', description: 'Define las acciones y responsables' },
   { title: 'Indicaciones', description: 'Prepara los siguientes pasos' },
 ];
 const clinicalStageFor = (key: string) => objectiveKeys.includes(key) ? 2
-  : key.startsWith('pes_') || ['nutrition_assessment', 'clinical_notes', 'measurement_notes', 'indicator_progress'].includes(key) ? 1 : 3;
+  : key.startsWith('pes_') || ['nutrition_assessment', 'clinical_notes', 'measurement_notes', 'indicator_progress'].includes(key) ? 1 : 4;
 
 type ConsultationWorkspace = {
   active: number;
@@ -170,6 +172,7 @@ function ConsultationEditor() {
   const [clinicalRefresh, setClinicalRefresh] = useState(0);
   const [recallPending, setRecallPending] = useState(false);
   const [pesPending, setPesPending] = useState(false);
+  const [strategyPending, setStrategyPending] = useState(false);
   const [objectivePending, setObjectivePending] = useState<Record<string, boolean>>({});
   const hasObjectivePending = Object.values(objectivePending).some(Boolean);
   const [recallNavigation, setRecallNavigation] = useState<RecallNavigation | null>(null);
@@ -470,6 +473,7 @@ function ConsultationEditor() {
     ...(laboratoriesPending ? [{ key: "laboratories" as const, label: "laboratorios" }] : []),
     ...(pesPending ? [{ key: "clinical" as const, label: "propuesta PES" }] : []),
     ...(hasObjectivePending ? [{ key: "clinical" as const, label: "objetivos sin guardar" }] : []),
+    ...(strategyPending ? [{ key: "clinical" as const, label: "estrategias sin guardar o propuestas pendientes" }] : []),
   ];
   const continueConsultation = () => {
     if (exitLock.current) return;
@@ -599,7 +603,7 @@ function ConsultationEditor() {
   };
   const complete = async () => {
     if (!consultation || !snapshot || !reviewed || closing.current) return;
-    if (recallPending || pesPending || hasObjectivePending || measurementsPending || laboratoriesPending || clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient?.timezone)) {
+    if (recallPending || pesPending || hasObjectivePending || strategyPending || measurementsPending || laboratoriesPending || clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient?.timezone)) {
       setCloseDialogOpen(true);
       return;
     }
@@ -744,7 +748,7 @@ function ConsultationEditor() {
     continueConsultation();
     if (pendingModule) {
       setModule(pendingModule.key);
-      if (pendingModule.key === "clinical") setClinicalStage(hasObjectivePending && !pesPending ? 2 : 1);
+      if (pendingModule.key === "clinical") setClinicalStage(pesPending ? 1 : hasObjectivePending ? 2 : strategyPending ? 3 : 1);
     }
   }} />;
   if (loading) return <>{exitDialog}<LoadingState label="Preparando entrevista…" /></>;
@@ -1024,7 +1028,7 @@ function ConsultationEditor() {
           </div>
         </div>
       </header>
-      {closeDialogOpen && <ConsultationCloseDialog busy={busy || saving} reviewed={reviewed} pending={[pesPending && "la propuesta PES", hasObjectivePending && "los objetivos sin guardar", recallPending && "Recordatorio de 24 horas", measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error} onReview={setReviewed} onCancel={() => setCloseDialogOpen(false)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
+      {closeDialogOpen && <ConsultationCloseDialog busy={busy || saving} reviewed={reviewed} pending={[pesPending && "la propuesta PES", hasObjectivePending && "los objetivos sin guardar", strategyPending && "las estrategias sin guardar o propuestas pendientes", recallPending && "Recordatorio de 24 horas", measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error} onReview={setReviewed} onCancel={() => setCloseDialogOpen(false)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
       <div className="sticky top-0 z-20 mt-4 flex justify-end rounded-xl bg-[#f7faf8]/95 p-2 backdrop-blur"><button type="button" className="nuth-button-secondary" disabled={busy || saving} onClick={() => { setReviewed(false); setError(""); setCloseDialogOpen(true); }}><ClipboardCheck size={16} />Revisar cierre de consulta</button></div>
       <nav className="consultation-step-nav" aria-label="Módulos de la consulta">
         {consultationSteps.map((step, index) => <button key={step.key} type="button" aria-current={module === step.key ? 'page' : undefined} disabled={busy || saving} onClick={() => void goModule(step.key)}><span aria-hidden="true">{index + 1}</span>{step.label}</button>)}
@@ -1055,11 +1059,16 @@ function ConsultationEditor() {
           {clinicalSections.flatMap(section => section.questions).filter(question => objectiveKeys.includes(question.question_key) && matchesCondition(question.visibility_condition, values)).map(question => <ClinicalObjective key={`${consultation.id}:${snapshot.revision}:${question.question_key}`} consultationId={consultation.id} revision={snapshot.revision} questionKey={question.question_key} contextVersion={clinicalRefresh} value={values[question.question_key]} before={saveForClinical} active={module === 'clinical' && clinicalStage === 2} patientId={patient.id} maxLength={typeof question.configuration.max_length === 'number' ? question.configuration.max_length : question.question_type === 'repeatable_group' ? 12000 : 2000} onPendingChange={pending => setObjectivePending(current => current[question.question_key] === pending ? current : { ...current, [question.question_key]: pending })} onChangeText={(text, texts) => replaceObjectiveText(question, text, texts)} />)}
           <p className="consultation-guided-hint">Después de cerrar la consulta, podrás seleccionar este objetivo para compartirlo en el Super Link.</p>
         </section>
-        <section hidden={clinicalStage !== 3} className="consultation-clinical-card" aria-label="Recomendaciones y seguimiento">
-          <p className="nuth-eyebrow">04 · Deja claros los siguientes pasos</p><h2>Recomendaciones y seguimiento</h2>
+        <section hidden={clinicalStage !== 3} className="consultation-clinical-card" aria-label="Estrategia de intervención">
+          <p className="nuth-eyebrow">04 · Define cómo se llevará a cabo</p><h2>Estrategia de intervención</h2>
+          <p className="consultation-clinical-description">Elige las acciones dirigidas a la etiología y a los objetivos acordados. Registra su implementación y seguimiento.</p>
+          <ClinicalInterventions key={`${consultation.id}:${snapshot.revision}:strategies`} consultationId={consultation.id} patientId={patient.id} revision={snapshot.revision} before={saveForClinical} active={module === 'clinical' && clinicalStage === 3} onPendingChange={setStrategyPending} onChanged={() => setClinicalRefresh(value => value + 1)} workshopUrl={`/app/diet-workshop?patientId=${patient.id}&consultationId=${consultation.id}`} onInstructions={text => { setAnswer('first_actions', appendComposedText(valuesRef.current.first_actions, text)); setClinicalStage(4); }} />
+        </section>
+        <section hidden={clinicalStage !== 4} className="consultation-clinical-card" aria-label="Recomendaciones y seguimiento">
+          <p className="nuth-eyebrow">05 · Deja claros los siguientes pasos</p><h2>Recomendaciones y seguimiento</h2>
           <p className="consultation-clinical-description">Registra las indicaciones acordadas, tus notas y lo que revisarás en la próxima consulta.</p>
           {renderClinicalFields('recommendations')}
-          <ClinicalSuggestionsAI kind="instructions" patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} before={saveForClinical} onApply={text => setAnswer('first_actions', appendComposedText(valuesRef.current.first_actions, text))} />
+          <ClinicalSuggestionsAI key={`instructions:${clinicalRefresh}`} kind="instructions" patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} before={saveForClinical} onApply={text => setAnswer('first_actions', appendComposedText(valuesRef.current.first_actions, text))} />
           <p className="consultation-guided-hint">Al cerrar la consulta, podrás copiar las indicaciones al Super Link, revisarlas y publicarlas para el paciente.</p>
         </section>
       </div>}

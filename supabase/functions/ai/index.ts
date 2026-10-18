@@ -1,3 +1,4 @@
+import { buildInterventionContext, hydrateInterventionOutput, type InterventionContext } from './intervention.ts';
 import { productOriginAllowed, siteOrigin } from '../_shared/site.ts';
 import { createClient } from '@supabase/supabase-js';
 import { AIError, type AIStore, type FeatureConfig, type Generation, OpenAIResponsesProvider, parseRequest, runAIRequest } from './core.ts';
@@ -111,6 +112,7 @@ Deno.serve(async request => {
     }
     let consultationSupportFacts: ConsultationSupportFact[] | null = null;
     let smartObjectives = false;
+    let interventionContext: InterventionContext | null = null;
     let textSnapshot:TextDietSnapshot|null=null,textDraft:TextDiet|null=null;
     let dietSnapshot: DietSnapshot | null=null;
     let dietValidation: ReturnType<typeof validateSnapshot> | null=null;
@@ -132,11 +134,17 @@ Deno.serve(async request => {
         const { data: source, error } = await db.rpc(r.feature==='patient_instructions' ? 'ai_patient_instructions_source' : 'ai_clinical_source',{p_owner:owner,p_patient:r.patientId,p_consultation:r.consultationId,p_revision:r.revision});
         if (error || !source) throw new AIError('context_unavailable');
         const clinical = r.feature==='recall_24h' ? source as ClinicalSource : withConfirmedRecall(source as ClinicalSource);
+        if (r.feature === 'intervention_strategy') {
+          interventionContext = buildInterventionContext(clinical, r.strategyFeedback);
+          if (!interventionContext.binding.pesApprovedAt || !interventionContext.binding.objectiveApprovedAt) throw new AIError('strategy_approvals_required');
+          return {stamp:clinical.stamp, context:interventionContext};
+        }
         const supportContext = ['consultation_support','patient_instructions'].includes(r.feature) ? buildConsultationSupportContext(clinical,r.feature==='patient_instructions',smartObjectives) : null;
         const context=r.feature==='pes_diagnosis' ? buildPesClinicalContext(clinical)
           : supportContext ?? {narrative:redactClinicalText(r.narrative!,clinical.identifiers?.filter((v): v is string => typeof v === 'string'))};
         if(supportContext) consultationSupportFacts=supportContext.facts;
         if (smartObjectives && !supportContext?.approvedPes) throw new AIError('pes_approval_required');
+        if(r.feature==='patient_instructions' && supportContext?.strategiesRequired && !supportContext.hasApprovedStrategies) throw new AIError('strategy_approval_required');
         if(r.feature==='patient_instructions' && !consultationSupportFacts?.some(fact=>instructionAgreement(fact.source))) throw new AIError('instruction_agreements_required');
         if ('facts' in context && context.facts.length===0) throw new AIError('context_unavailable');
         return {stamp:clinical.stamp,context};
@@ -177,6 +185,7 @@ Deno.serve(async request => {
       },
     };
     const result=await runAIRequest(input,store,new DietRoutingProvider(simulated ? new SimulatedDietProvider() : new OpenAIResponsesProvider(apiKey!)));
+    if (input.feature === 'intervention_strategy' && result.output && interventionContext) return respond({ ...result, output: hydrateInterventionOutput(result.output, interventionContext, result.generationId) });
     if(input.textGuidance&&result.status==='succeeded'){const saved=await dietRpc('get',{generationId:result.generationId},true);await verifyTextDietSnapshot(saved.snapshot);return respond({...result,output:{textDraft:saved.result.textDraft},decision:saved.decision});}
     if(input.feature==='diet_draft' && !input.textGuidance && ['succeeded','invalid_output'].includes(result.status)) {
       const saved=await dietRpc('get',{generationId:result.generationId});

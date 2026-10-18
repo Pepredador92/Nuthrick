@@ -12,6 +12,7 @@ const messages:Record<string,string> = {
   context_mismatch:'Actualiza el contexto de la consulta.', context_unavailable:'No se pudo leer el contexto. Revisa la consulta seleccionada y vuelve a abrir el diálogo.',
   energy_required:'Falta definir la energía de la prescripción.', macros_required:'Falta definir los macronutrientes.',
   prescription_inconsistent:'Revisa la prescripción de energía y macronutrientes.', exchanges_unconfirmed:'Confirma los equivalentes de la prescripción.',
+  strategy_review_required:'Revisa la estrategia de alimentación: el contexto clínico o su borrador cambió.',
   pes_approval_required:'Aprueba el PES de esta consulta.', objective_approval_required:'Aprueba el objetivo de esta consulta.',
   meal_structure_required:'Configura los tiempos de comida.', meal_structure_invalid:'Revisa los tiempos de comida.',
   distribution_invalid:'Revisa la distribución de porciones.', invalid_distribution:'Configura y confirma los tiempos de comida.',

@@ -12,7 +12,7 @@ export function textDietContext(loaded:TextDietSource,guidance:TextDietGuidance,
   const {context,blockers}=buildDietGenerationContext({...reviewedSource.source,catalog:undefined,additionalInstructions:instructions,
     guidance:{version:1,objective:guidance.objective,contextReviewed:guidance.contextReviewed,reactionReview:'recorded',
       meals:guidance.meals.map(m=>({...m,type:'CUSTOM' as const,options:1}))}},clean);
-  const reasons=blockers.filter(b=>['draft_required','consultation_required','context_mismatch','energy_required','macros_required','prescription_inconsistent','instructions_too_long'].includes(b)).map(code=>({code}));
+  const reasons=blockers.filter(b=>['draft_required','consultation_required','context_mismatch','energy_required','macros_required','prescription_inconsistent','strategy_review_required','instructions_too_long'].includes(b)).map(code=>({code}));
   if(!guidance.contextReviewed||!guidance.objective.trim())reasons.push({code:'context_review_required'});
   if(!guidance.restrictionsReviewed||!guidance.restrictions.trim())reasons.push({code:'text_restrictions_required'});
   const payload={format:'text_diet' as const,diet_count:guidance.dietCount,

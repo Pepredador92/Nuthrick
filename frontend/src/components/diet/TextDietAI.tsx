@@ -1,3 +1,4 @@
+import {DietInterventionSummary} from './DietInterventionSummary';
 import {useEffect,useId,useRef,useState} from 'react';
 import {LoaderCircle,Plus,Sparkles,Trash2,X} from 'lucide-react';
 import {useAccess} from '@/src/features/admin/AccessProvider';
@@ -13,7 +14,7 @@ import {dietFactDate,dietRestrictionsSuggestion} from './textDietFormContext';
 import './TextDietAI.css';
 
 const pages=['Contexto','Dietas y horarios','Preferencias','Confirmar'];
-const critical=new Set(['draft_required','consultation_required','context_mismatch','energy_required','macros_required','prescription_inconsistent','feature_disabled','insufficient_credits']);
+const critical=new Set(['draft_required','consultation_required','context_mismatch','energy_required','macros_required','prescription_inconsistent','strategy_review_required','feature_disabled','insufficient_credits']);
 export function TextDietAI({plan,before,onApplied,transport=textDietTransport}:{plan:NutritionPlan;before:()=>Promise<NutritionPlan>;onApplied:(plan:NutritionPlan)=>void;transport?:TextDietTransport}) {
   const {data:access}=useAccess(),available=!access||canUseFeature(access.access,'ai.diet_draft');
   const id=useId(),dialog=useRef<HTMLDialogElement>(null),opener=useRef<HTMLButtonElement>(null),lock=useRef(false);
@@ -66,6 +67,7 @@ export function TextDietAI({plan,before,onApplied,transport=textDietTransport}:{
           <section className="rounded-xl bg-[#edf5f0] p-3 text-sm"><h3 className="font-semibold">Metas prescritas para alimentos</h3><p>Energía: {factText(c.prescription.energy_kcal.fact,v=>`${numberText(v)} kcal`)}</p><p>{factText(c.prescription.macros.fact,v=>`Proteína: ${numberText(v.PROTEIN.grams)} g · Carbohidratos: ${numberText(v.CARBOHYDRATE.grams)} g · Grasa: ${numberText(v.FAT.grams)} g`)}</p><p className="mt-1 text-xs">Ya se descontaron los suplementos. Son objetivos para orientar la propuesta; sus aportes requieren revisión profesional.</p></section>
           <label className="block text-sm font-semibold">Objetivo de las dietas <span className="font-normal text-[#687870]">· Obligatorio</span><textarea id={`${id}-objective`} aria-label="Objetivo de las dietas" aria-required="true" aria-invalid={attempted&&!guidance.objective.trim()} aria-describedby={`${id}-objective-help`} className="nuth-input mt-1 min-h-20" maxLength={1200} value={guidance.objective} onChange={e=>edit({objective:e.target.value,contextReviewed:false})}/></label>
           <p id={`${id}-objective-help`} className="!mt-1 text-xs text-[#687870]">{c.clinical.objectiveSuggestionOrigin?`${dietFactDate(c.clinical.objectiveSuggestionOrigin)}. `:''}Revisa o adapta el objetivo registrado. Si no hay uno, escribe el objetivo que acordaste con el paciente.</p>
+          <DietInterventionSummary items={c.clinical.interventions}/>
           <details className="rounded-xl border border-[#dfe6e1] p-3 text-sm"><summary className="font-semibold">Consulta e historial utilizado</summary>{c.clinical.history?.map((h,i)=><section key={i} className="mt-3"><h4>{h.current?'Consulta seleccionada':'Antecedente'} · {h.date}</h4><ul className="mt-1 space-y-1 text-xs">{h.facts.map((f,j)=><li key={j}><strong>{dietClinicalLabel(f.key)}:</strong> {dietClinicalValue(f.value)}</li>)}</ul></section>)}</details>
           <section aria-label="Datos alimentarios del expediente" className="rounded-xl bg-[#edf5f0] p-3 text-sm">
             <h3 className="mb-2 font-semibold">Datos de la consulta y antecedentes</h3>

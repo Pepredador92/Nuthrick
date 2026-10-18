@@ -1,3 +1,4 @@
+import { isStrategyDocument, type StrategyDocument } from '../../../../supabase/functions/_shared/interventions';
 import type { DietGuidance } from '../../../../supabase/functions/_shared/diet-guidance';
 import { foodTargetsFor } from '../supplements/targets';
 import { isSupplementList } from '../../../../supabase/functions/_shared/supplements';
@@ -59,6 +60,8 @@ export type DietContextSource = {
   /** Service-only RPC: confirmed record and current consultation measurements. */
   confirmedRecall?: unknown;
   anthropometry?: unknown;
+  interventionStrategies?: { document: StrategyDocument }[];
+  interventionReviewRequired?: boolean;
   /** Bounded, owned active catalog selected by the future server, not the client. */
   catalog?: { foods: FoodItem[]; recipes: Recipe[] };
 };
@@ -82,6 +85,7 @@ type ContextCatalog = {
 export type DietGenerationContext = {
   schema_version: 1;
   clinical: { pes: Sourced<string>; objective: Sourced<string>;
+    interventions?: {title:string;action:string;method:string;frequency:string;adaptations:string;composition:string}[];
     history?: Array<{date:string;current:boolean;facts:Array<{key:string;value:string}>}>;
     objectiveSuggestion?: string;
     objectiveSuggestionOrigin?: {date:string;historical:boolean};
@@ -120,7 +124,7 @@ export type DietGenerationContext = {
 export type ContextBlocker =
   | 'draft_required' | 'consultation_required' | 'context_mismatch'
   | 'energy_required' | 'macros_required' | 'prescription_inconsistent'
-  | 'pes_approval_required' | 'objective_approval_required'
+  | 'strategy_review_required' | 'pes_approval_required' | 'objective_approval_required'
   | 'meal_structure_required' | 'meal_structure_invalid' | 'distribution_invalid'
   | 'restrictions_need_review' | 'instructions_too_long' | 'catalog_required';
 
@@ -158,6 +162,7 @@ function mapFact<A, B>(fact: Fact<A>, fn: (a: A) => B): Fact<B> {
 export function buildDietGenerationContext(source: DietContextSource, sanitizeText: (text: string) => string): DietContextResult {
   const { plan, consultation: c } = source;
   const blockers: ContextBlocker[] = [];
+  if (source.interventionReviewRequired) blockers.push('strategy_review_required');
   const clean = (s: string) => sanitizeText(s.trim());
   const fromPlan = <T>(path: string, fact: Fact<T>, calculated = false): Sourced<T> => ({
     fact, origin: { source: 'nutrition_plans', path, kind: calculated ? 'system_calculated' : 'professional_captured' },
@@ -263,6 +268,7 @@ export function buildDietGenerationContext(source: DietContextSource, sanitizeTe
     clinical: {
       ...(source.objectiveSuggestion ? {objectiveSuggestion:clean(source.objectiveSuggestion).slice(0,1200)} : {}),
       ...(source.datedContext ? {history:source.datedContext.slice(0,5).map(c=>({date:c.date,current:c.current,facts:c.facts.slice(0,24).map(f=>({key:f.key,value:clean(typeof f.value==='string'?f.value:JSON.stringify(f.value)).slice(0,500)}))}))} : {}),
+      ...(source.interventionStrategies ? {interventions:source.interventionStrategies.filter(entry=>isStrategyDocument(entry.document)&&entry.document.strategy.category==='food'&&entry.document.strategy.route==='oral').slice(0,10).map(({document:{strategy:s}})=>({title:clean(s.title),action:clean(s.action),method:clean(s.method),frequency:clean(s.frequency),adaptations:clean(s.adaptations),composition:clean(s.composition)}))} : {}),
       ...(recall24h ? { recall24h } : {}),
       ...(anthropometry ? { anthropometry } : {}),
       pes: { fact: pesApproved ? { state: 'known', value: clean(c!.pes!.statement) } : unavailable(), origin: { source: 'consultation_snapshots', path: 'clinical_records.pes + pes_statement', kind: 'approved_pes' } },

@@ -1,3 +1,4 @@
+import {DietInterventionSummary} from './DietInterventionSummary';
 import {dietClinicalLabel,dietClinicalValue} from './dietClinicalLabels';
 import {useEffect, useId, useRef, useState} from 'react';
 import {LoaderCircle, Sparkles, X, Plus, Trash2} from 'lucide-react';
@@ -10,7 +11,7 @@ import {factText, targetNutrition, nutritionLabels, numberText, copilotMessage} 
 import type {NutritionPlan} from '@/src/types/domain';
 
 const screens=['Contexto y objetivo','Tiempos y alternativas','Preferencias','Resumen'];
-const planningReasons=new Set(['exchanges_unconfirmed','invalid_distribution','meal_structure_required','meal_structure_invalid','distribution_invalid','pes_approval_required','objective_approval_required','restrictions_need_review','candidate_coverage_missing','input_too_large']);
+const planningReasons=new Set(['strategy_review_required','exchanges_unconfirmed','invalid_distribution','meal_structure_required','meal_structure_invalid','distribution_invalid','pes_approval_required','objective_approval_required','restrictions_need_review','candidate_coverage_missing','input_too_large']);
 type Props={plan:NutritionPlan;before:()=>Promise<NutritionPlan>;onApplied:(plan:NutritionPlan)=>void;transport?:WorkshopTransport};
 export function GuidedDietAI({plan,before,onApplied,transport=workshopTransport}:Props){
   const {data:access}=useAccess(),id=useId(),dialog=useRef<HTMLDialogElement>(null),opener=useRef<HTMLButtonElement>(null),lock=useRef(false);
@@ -76,6 +77,7 @@ export function GuidedDietAI({plan,before,onApplied,transport=workshopTransport}
         {targets&&<section className="rounded-xl bg-[#edf5f0] p-3 text-sm"><h3 className="font-semibold">Objetivos para alimentos</h3><p>{nutritionLabels.map(([k,l,u])=>`${l}: ${numberText(targets[k])} ${u}`).join(' · ')}</p><p className="mt-1 text-xs">Se usan Energía y Macros del taller, descontando los suplementos prescritos.</p></section>}
         <label className="block text-sm font-semibold">Objetivo de esta dieta<textarea aria-label="Objetivo de esta dieta" className="nuth-input mt-1 min-h-20" maxLength={1200} value={guidance.objective} onChange={e=>edit({objective:e.target.value})}/><span className="text-xs font-normal text-[#687870]">Puedes ajustar el objetivo de la propuesta sin modificar la entrevista.</span></label>
         <div className="text-sm"><h3 className="font-semibold">PES aprobado</h3><p>{factText(c.clinical.pes.fact)}</p></div>
+        <DietInterventionSummary items={c.clinical.interventions}/>
         {c.clinical.anthropometry&&<details className="text-sm"><summary>Mediciones de la consulta</summary><ul className="mt-2 space-y-1">{Object.entries(c.clinical.anthropometry).map(([k,v])=><li key={k}>{({weightKg:'Peso (kg)',heightCm:'Estatura (cm)',bmi:'IMC (kg/m²)',waistCm:'Cintura (cm)',bodyFatPct:'Grasa corporal (%)',leanMassKg:'Masa libre de grasa (kg)'} as Record<string,string>)[k]}: {numberText(Number(v))}</li>)}</ul></details>}
         <details className="rounded-xl border border-[#dfe6e1] p-3 text-sm" open><summary className="font-semibold">Consulta e historial utilizado</summary><p className="mt-1 text-xs text-[#687870]">Se incluyen datos de la consulta seleccionada, la inicial y hasta tres consultas previas cerradas.</p>{c.clinical.history?.length?c.clinical.history.map((h,i)=><section key={i} className="mt-3"><h4 className="font-semibold">{h.current?'Consulta seleccionada':'Antecedente'} · {h.date}</h4><ul className="mt-1 space-y-1 text-xs">{h.facts.map((f,j)=><li key={j}><strong>{dietClinicalLabel(f.key)}:</strong> {dietClinicalValue(f.value)}</li>)}</ul></section>):<p className="mt-2">No hay antecedentes adicionales disponibles.</p>}</details>
         <section className="rounded-xl bg-[#fff7e7] p-3 text-sm"><h3 className="font-semibold">Alergias y restricciones</h3><p>Reacciones registradas: {factText(c.restrictions.reaction_status.fact)}</p><p>{factText(c.restrictions.reactions.fact,r=>r.map(x=>`${x.food}: ${x.classification}`).join('; '))}</p><p>Patrón: {factText(c.preferences.eating_pattern.fact,v=>v.join(', '))}</p>

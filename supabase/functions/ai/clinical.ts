@@ -1,4 +1,6 @@
 // Versioned clinical adapters. Estimates are drafts; only the professional can approve clinical writes.
+import { approvedStrategyFacts, type StrategyDocument } from '../_shared/interventions.ts';
+import type { ObjectivePlan } from '../_shared/objectives.ts';
 import { isRecallEstimate } from './diet-generation-domain.js';
 import { composePesStatement, pesStatementMatches, unsupportedPesNumbers, type ClinicalMeasurementFact } from '../_shared/pes.ts';
 const text = { type: "string", maxLength: 2000 };
@@ -107,10 +109,10 @@ export function clinicalAdapter(feature: string, version: string) {
       schema: consultationSupportSchema,
       instructions: version === "consultation_support@3" ? `${boundary} Sugiere de 0 a 3 borradores de objetivos conductuales para que el profesional los converse y acuerde con la persona. Prioriza lo que la persona expresó como importante y las acciones que ya constan en facts. Usa primero la información de la consulta actual. Si interviewOrigin es historical, no se registró entrevista actual: puedes apoyarte en entrevistas y acuerdos históricos fechados, indicando que su vigencia debe confirmarse; nunca presentes esos acuerdos como actuales. No conviertas una medición en una meta. El recordatorio y su consumo estimado aportan contexto de UN día: no infieras hábitos ni prescribas metas a partir de él. No inventes frecuencia, plazo, capacidad, diagnóstico, conducta, preferencias ni resultados. No indiques pérdida de peso ni metas numéricas, kcal, macros, suplementos o cambios de tratamiento salvo que consten literalmente como acuerdo y aun así pide revisión. Redacta en lenguaje sencillo, concreto y respetuoso, centrado en acciones bajo control de la persona. Cada objetivo debe citar de 1 a 3 evidenceFactIds existentes. Si no hay base explícita para una propuesta, devuelve objectives vacío. No apruebes ni guardes objetivos.${historyBoundary}` : `${boundary} Sugiere de 0 a 3 borradores de objetivos conductuales para que el profesional los converse y acuerde con la persona. Prioriza lo que la persona expresó como importante y las acciones que ya constan en facts; usa el historial solo como contexto, nunca conviertas una medición en una meta. El recordatorio y su consumo estimado aportan contexto de UN día: no infieras hábitos ni prescribas metas a partir de él. No inventes frecuencia, plazo, capacidad, diagnóstico, conducta, preferencias ni resultados. No indiques pérdida de peso ni metas numéricas, kcal, macros, suplementos o cambios de tratamiento salvo que consten literalmente como acuerdo y aun así pide revisión. Redacta en lenguaje sencillo, concreto y respetuoso, centrado en acciones bajo control de la persona. Cada objetivo debe citar de 1 a 3 evidenceFactIds existentes. Si no hay base explícita para una propuesta, devuelve objectives vacío. No apruebes ni guardes objetivos.`,
     };
-  if (feature === "patient_instructions" && version === "patient_instructions@1")
+  if (feature === "patient_instructions" && ["patient_instructions@1", "patient_instructions@2"].includes(version))
     return {
       schema: patientInstructionsSchema,
-      instructions: `${boundary} Redacta de 0 a 3 borradores breves de indicaciones nutricionales en lenguaje sencillo para revisión del profesional antes de compartir con el paciente. Reformula SOLO acciones, objetivos o acuerdos registrados en facts. Cuando estén documentados, incluye qué hacer, cuándo y cómo revisarlo; omite los datos faltantes. Usa el recordatorio confirmado y su consumo estimado únicamente para contextualizar esos acuerdos, sin inferir hábitos a partir de UN día. No inventes ni calcules dietas, alimentos nuevos, cantidades, frecuencias, metas de peso/kcal/macros, diagnósticos, tratamientos, suplementos o plazos. Respeta las alergias y limitaciones documentadas; ante contradicciones omite la propuesta. Nunca presentes propuestas pendientes como acuerdos ya aceptados. Cada indicación debe citar 1 a 3 evidenceFactIds y al menos uno debe ser un acuerdo/objetivo/acción de la entrevista; el recordatorio solo no basta. Si no hay acuerdos suficientes devuelve instructions vacío. No incluyas identidad, diagnósticos privados ni notas internas en el texto destinado al paciente. No guardes ni publiques.`,
+      instructions: `${version === "patient_instructions@2" ? "Cuando existan Estrategias aprobadas, deriva las indicaciones de esas acciones vigentes y cita al menos una por indicación. Mantén cantidad, frecuencia y duración solo cuando estén explícitas. No conviertas una aprobación en evidencia de ejecución. Conserva coordinación profesional cuando se haya documentado. " : ""}${boundary} Redacta de 0 a 3 borradores breves de indicaciones nutricionales en lenguaje sencillo para revisión del profesional antes de compartir con el paciente. Reformula SOLO acciones, objetivos o acuerdos registrados en facts. Cuando estén documentados, incluye qué hacer, cuándo y cómo revisarlo; omite los datos faltantes. Usa el recordatorio confirmado y su consumo estimado únicamente para contextualizar esos acuerdos, sin inferir hábitos a partir de UN día. No inventes ni calcules dietas, alimentos nuevos, cantidades, frecuencias, metas de peso/kcal/macros, diagnósticos, tratamientos, suplementos o plazos. Respeta las alergias y limitaciones documentadas; ante contradicciones omite la propuesta. Nunca presentes propuestas pendientes como acuerdos ya aceptados. Cada indicación debe citar 1 a 3 evidenceFactIds y al menos uno debe corresponder a una estrategia aprobada o, cuando no existen estrategias registradas, a un acuerdo/objetivo/acción de la entrevista; el recordatorio solo no basta. Si no hay acuerdos suficientes devuelve instructions vacío. No incluyas identidad, diagnósticos privados ni notas internas en el texto destinado al paciente. No guardes ni publiques.`,
     };
   if (feature === "recall_24h" && version === "recall_24h@3") return {
     schema: recallEstimateSchema,
@@ -130,6 +132,9 @@ export type ClinicalSource = {
   stamp: string;
   records?: unknown;
   recall?: unknown;
+  approvedObjective?: { approved_at: string; pes_approved_at: string; smart_plan?: ObjectivePlan } | null;
+  approvedStrategies?: { document: StrategyDocument }[];
+  strategyRequired?: boolean;
   approvedPes?: { approved_at: string; problem: string; etiology: string; signsSymptoms: string; pesStatement: string } | null;
 };
 export function redactClinicalText(value: string, identifiers: string[] = []) {
@@ -202,7 +207,7 @@ export function buildPesClinicalContext(source: ClinicalSource) {
   return { facts, interviewOrigin: clinicalInterviewOrigin(facts) };
 }
 export type ConsultationSupportFact = ClinicalFact & { id: string };
-export const instructionAgreement = (source: string) => /^Entrevista · (objectives|next objectives|treatment objective|first actions|adjustments)$/.test(source);
+export const instructionAgreement = (source: string) => source.startsWith("Estrategia aprobada · ") || /^Entrevista · (objectives|next objectives|treatment objective|first actions|adjustments)$/.test(source);
 const interviewTopic = (source: string) => source.replace(/^Entrevista · /, '').replace(/^Antecedente de entrevista · \d{4}-\d{2}-\d{2} · /, '');
 const decisionTopic = /^(?:objectives|next objectives|treatment objective|first actions|adjustments|professional notes|measurement notes|indicator progress|recall |pes )/i;
 export function clinicalInterviewOrigin(facts: ClinicalFact[]): 'current' | 'historical' | 'missing' {
@@ -211,9 +216,11 @@ export function clinicalInterviewOrigin(facts: ClinicalFact[]): 'current' | 'his
 }
 export function buildConsultationSupportContext(source: ClinicalSource, instructions = false, smart = false) {
   const prepared = prepareClinicalFacts(source);
+  if (instructions) prepared.unshift(...prepareClinicalFacts({...source,facts:approvedStrategyFacts(source.approvedStrategies)}));
   const interviewOrigin = clinicalInterviewOrigin(prepared);
   const permitted = prepared.filter((fact) => {
     const sourceLabel = fact?.source?.toLocaleLowerCase() ?? "";
+    if (instructions && sourceLabel.startsWith("estrategia aprobada · ")) return true;
     if (sourceLabel.startsWith("entrevista · ")) {
       return /(?:main reason|expectations|consult now|objectives|treatment objective|next objectives|first actions|interview priorities|access barriers|eating drivers|changes since last|progress perception|symptoms changes|medical changes|indicators reviewed|barriers|adjustments|measurement notes|indicator progress|recall 24h v2|recall date|recall day type)/i.test(sourceLabel)
         || (instructions || smart) && /(?:medical history|medical diagnoses|medication|food reactions)/i.test(sourceLabel)
@@ -229,7 +236,7 @@ export function buildConsultationSupportContext(source: ClinicalSource, instruct
       : /^Historial(?: calculado)? · (?:peso|peso corporal|cintura|índice de masa corporal|imc|bmi|grasa|porcentaje de grasa corporal|body_fat_percentage)(?:[ (·]|$)/i.test(fact.source));
     return false;
   }).sort((a, b) => {
-    const rank = (fact: ClinicalFact) => /food reactions|medication|medical diagnoses/.test(fact.source) ? 0
+    const rank = (fact: ClinicalFact) => fact.source.startsWith('Estrategia aprobada · ') ? -1 : /food reactions|medication|medical diagnoses/.test(fact.source) ? 0
       : /objectives|treatment objective|first actions|adjustments/.test(fact.source) ? 1
         : fact.source.startsWith("Recordatorio confirmado") ? 2 : 3;
     // Current agreements and measurements always precede dated fallback interviews.
@@ -249,7 +256,7 @@ export function buildConsultationSupportContext(source: ClinicalSource, instruct
     if (!finding || !label || ["null", "undefined", '""', "[]", "{}"].includes(finding)) return [];
     return [{ id: `f${index + 1}`, source: label, finding }];
   });
-  return { facts, interviewOrigin, ...(smart ? { approvedPes: pes, objectiveFormat: 'smart@1' } : {}) };
+  return { facts, interviewOrigin, ...(instructions ? { strategiesRequired: source.strategyRequired === true, hasApprovedStrategies: (source.approvedStrategies?.length ?? 0) > 0 } : {}), ...(smart ? { approvedPes: pes, objectiveFormat: 'smart@1' } : {}) };
 }
 export function clinicalEvidenceValid(
   feature: string,
@@ -284,6 +291,7 @@ export function clinicalEvidenceValid(
       objective.text.trim().length >= 8 &&
       objective.evidenceFactIds.length > 0 &&
       objective.evidenceFactIds.every((id) => facts.some((fact) => fact.id === id)) &&
+      (feature !== "patient_instructions" || !(context as {hasApprovedStrategies?:boolean}).hasApprovedStrategies || objective.evidenceFactIds.some(id => facts.some(fact => fact.id === id && fact.source.startsWith("Estrategia aprobada · ")))) &&
       (feature !== "patient_instructions" || objective.evidenceFactIds.some((id) => facts.some(fact => fact.id === id && instructionAgreement(fact.source)))),
     );
   }

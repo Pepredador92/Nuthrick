@@ -7,10 +7,13 @@ import {
 import "../../app/globals.css";
 import { ClinicalObjective } from "../../src/components/consultations/ClinicalObjective";
 import { ClinicalMeasurementsReview } from '../../src/components/consultations/ClinicalMeasurementsReview';
+import { ClinicalInterventions } from '../../src/components/consultations/ClinicalInterventions';
+import { seedInterventionPreview } from './clinical-copilot-fixtures';
 import { reviewFacts } from './clinical-copilot-fixtures';
 import { ThemeSwitcher } from '../../src/features/theme/ThemeSwitcher';
 function Fixture() {
-  const [tab, setTab] = React.useState(new URLSearchParams(location.search).has("recall") ? "recall" : new URLSearchParams(location.search).has("objective") ? "objective" : "pes");
+  const [tab, setTab] = React.useState(new URLSearchParams(location.search).has("strategy") ? "strategy" : new URLSearchParams(location.search).has("recall") ? "recall" : new URLSearchParams(location.search).has("objective") ? "objective" : "pes");
+  const [strategyRefresh,setStrategyRefresh] = React.useState(0);
   const [goal, setGoal] = React.useState(
     localStorage.getItem("qa-goal-text") || "",
   );
@@ -34,6 +37,7 @@ function Fixture() {
           Recordatorio de 24 horas
         </button>
         <button onClick={() => setTab("objective")}>Objetivo</button>
+        <button onClick={() => setTab("strategy")}>Estrategia</button>
       </div>
       {tab === "pes" ? (
         <>
@@ -48,7 +52,10 @@ function Fixture() {
             }}
           />
         </>
-      ) : tab === "objective" ? (
+      ) : tab === 'strategy' ? (<>
+        <button className="nuth-button-secondary mt-4 !text-xs" onClick={()=>{seedInterventionPreview();setStrategyRefresh(v=>v+1);}}>Cargar ejemplo sintético de estrategia</button>
+        <ClinicalInterventions key={`synthetic-strategy:${strategyRefresh}`} {...props} onInstructions={text=>window.alert(`Indicaciones sintéticas:\n${text}`)} />
+      </>) : tab === "objective" ? (
         <>
           <ClinicalObjective
             {...props}

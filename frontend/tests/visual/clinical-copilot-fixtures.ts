@@ -181,6 +181,7 @@ export async function runAIRequest(request: {
   narrative?: string;
 }) {
   await new Promise((r) => setTimeout(r, 250));
+  if (request.feature === 'intervention_strategy') return { generationId:crypto.randomUUID(), status:'succeeded', replay:false, output:{strategies:[syntheticStrategy()]} };
   if (request.feature === "consultation_support") return {
     generationId: crypto.randomUUID(), status: "succeeded", replay: false,
     output: { objectives: [{
@@ -232,4 +233,50 @@ export async function removeClinicalRecall() {
   const records = JSON.parse(localStorage.getItem('qa-clinical-records') || '{}');
   delete records.recall; delete records.pes;
   localStorage.setItem('qa-clinical-records', JSON.stringify(records));
+}
+
+// Strategy preview uses localStorage only; no database or provider calls.
+import { emptyStrategy, type StrategyDocument } from '../../../supabase/functions/_shared/interventions';
+import type { InterventionAction, InterventionItem, InterventionWorkspace } from '../../src/services/clinicalInterventions';
+export function seedInterventionPreview() {
+ const now = new Date().toISOString();
+ const pes = { approved_at: now, problem: 'Conocimientos insuficientes para organizar colaciones', etiology: 'ausencia de orientación práctica previa', signsSymptoms: ['No identifica opciones para la jornada laboral'], pesStatement: 'Conocimientos insuficientes para organizar colaciones relacionados con ausencia de orientación práctica previa, evidenciados por dificultad para identificar opciones.' };
+ const plan: ObjectivePlan = {version:1,pesApprovedAt:now,goals:[{outcome:'Identificar opciones de colación que pueda preparar',etiology:pes.etiology,sign:pes.signsSymptoms[0],indicator:'Opciones explicadas por la persona',baseline:'No identifica opciones en la entrevista sintética',target:'Explicar tres opciones compatibles con sus recursos',timeframe:'Al finalizar la sesión educativa',monitoring:'Comprobación práctica de comprensión',feasibility:'Usar alimentos habituales y preparación sencilla',agreement:'patient'}]};
+ localStorage.setItem('qa-clinical-records',JSON.stringify({pes}));
+ localStorage.setItem('qa-pes-parts',JSON.stringify({pes_problem:pes.problem,pes_etiology:pes.etiology,pes_evidence:pes.signsSymptoms.join('\n'),pes_statement:pes.pesStatement}));
+ localStorage.setItem('qa-clinical-objective',JSON.stringify({approved_at:now,question_key:'treatment_objective',value:'Objetivo sintético revisado',content:'Objetivo sintético revisado',pes_statement:pes.pesStatement,pes_approved_at:now,revision:1,smart_plan:plan}));
+ localStorage.setItem('qa-objective-plans',JSON.stringify({treatment_objective:plan}));
+ localStorage.setItem('qa-interventions','[]');
+ sessionStorage.removeItem('intervention-drafts:synthetic-consultation:1');
+ sessionStorage.removeItem('clinical-pending:synthetic-consultation:1:intervention_strategy');
+}
+function syntheticStrategy(): StrategyDocument {
+ const pes=JSON.parse(localStorage.getItem('qa-clinical-records')||'{}').pes;
+ const objective=JSON.parse(localStorage.getItem('qa-clinical-objective')||'null');
+ return {version:1,pesApprovedAt:pes?.approved_at??'',objectiveApprovedAt:objective?.approved_at??'',strategy:{...emptyStrategy(),category:'education',goalIndexes:[0],title:'Sesión práctica para organizar colaciones',action:'Explorar y practicar opciones de colación para la jornada laboral.',etiologyLink:'La orientación práctica aborda la ausencia previa de educación.',method:'Construir ejemplos con los alimentos que la persona reconoce como accesibles.',frequency:'Una sesión inicial y revisión en seguimiento',duration:'Durante el periodo acordado',startDate:'En esta consulta, tras acordarlo',responsible:'Nutriólogo tratante',executor:'Nutriólogo con participación del paciente',adaptations:'Usar alimentos habituales y preparaciones sencillas.',monitoring:'La persona explica las opciones que prepararía.',reviewAt:'Al finalizar la sesión y en la siguiente consulta',adjustmentCriteria:'Revisar si persisten dudas o aparecen barreras de acceso.',educationTopic:'Organización práctica de colaciones',materials:'Ejemplos de combinaciones y lista de opciones',comprehensionCheck:'Pedir que explique cómo prepararía sus opciones.',referenceIds:['academy-intervention','academy-monitoring'],evidence:[{source:'Objetivo aprobado · 1',finding:'Identificar opciones de colación que pueda preparar'}],missingContext:['Confirmar el acuerdo con la persona antes de aprobar.']}};
+}
+export async function clinicalInterventions(_consultation:string,revision:number,action:InterventionAction='read',data:Record<string,unknown>={}):Promise<InterventionWorkspace> {
+ const w=await clinicalObjective(_consultation,revision);
+ let items:InterventionItem[]=JSON.parse(localStorage.getItem('qa-interventions')||'[]');
+ const id=data.id as string;let item=items.find(i=>i.id===id);const now=new Date().toISOString();
+ if(action!=='read'){
+  if(item&&data.expectedUpdatedAt!==item.updated_at)throw new Error('Esta estrategia cambió. Actualiza el contexto.');
+  if(action==='delete')items=items.filter(i=>i.id!==id);
+  else if(action==='save'||action==='approve'){
+   const document=data.document as StrategyDocument;
+   if(!item){item={id,draft:null,approved:null,version:0,updated_at:now,state:'draft',requiresReview:false,execution:{},history:[]};items.push(item);}
+   if(action==='save')item.draft=document;
+   else {if(!w.pes||!w.objective)throw new Error('Aprueba primero el PES y los objetivos.');item.version++;item.approved={document,version:item.version,approvedAt:now,goals:w.objective.smart_plan?.goals??[]};item.draft=null;item.state='approved';item.execution={};item.history.unshift({id:crypto.randomUUID(),action,version:item.version,recorded_at:now,payload:item.approved});}
+  }else if(item){
+   if(action==='revert')item.draft=null;
+   if(action==='start'){item.state='executing';item.execution={...item.execution,startDate:String(data.startDate),executor:String(data.executor)};}
+   if(action==='communicate')item.execution.communication={recipient:String(data.recipient),recordedAt:now};
+   if(action==='complete')item.state='completed';if(action==='withdraw')item.state='withdrawn';
+   item.history.unshift({id:crypto.randomUUID(),action,version:item.version,recorded_at:now,payload:{reason:data.reason,recipient:data.recipient}});
+  }
+  if(item)item.updated_at=now;
+  localStorage.setItem('qa-interventions',JSON.stringify(items));
+ }
+ items=items.map(item=>({...item,requiresReview:['approved','executing'].includes(item.state)&&!!item.approved&&(!!item.draft||item.approved.document.pesApprovedAt!==w.pes?.approved_at||item.approved.document.objectiveApprovedAt!==w.objective?.approved_at)}));
+ return {...w,items};
 }

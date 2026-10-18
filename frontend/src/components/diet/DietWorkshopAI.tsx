@@ -1,3 +1,4 @@
+import {DietInterventionSummary} from './DietInterventionSummary';
 import {useAccess} from '@/src/features/admin/AccessProvider';
 import {canUseFeature} from '@/src/features/admin/api';
 import { useEffect, useId, useRef, useState } from 'react';
@@ -16,6 +17,7 @@ function ContextSummary({context:c}:{context:WorkshopContext}) {
     <div><h3 className="font-semibold">Prescripción</h3><p>{nutritionLabels.map(([key,label,unit])=>`${label}: ${(key==='energy_kcal'?c.prescription.energy_kcal.fact:c.prescription.macros.fact).state==='known'?`${numberText(targets[key])} ${unit}`:'No especificado'}`).join(' · ')}</p></div>
     <div><h3 className="font-semibold">Objetivo aprobado</h3><p>{factText(c.clinical.objective.fact)}</p></div>
     <div><h3 className="font-semibold">PES aprobado</h3><p>{factText(c.clinical.pes.fact)}</p></div>
+    <DietInterventionSummary items={c.clinical.interventions}/>
     <div><h3 className="font-semibold">Tiempos</h3><p>{c.meals.join(' · ') || 'No especificado'}</p></div>
     <div><h3 className="font-semibold">Restricciones revisadas</h3><p>Reacciones alimentarias: {factText(c.restrictions.reaction_status.fact)}</p>
       <p>{factText(c.restrictions.reactions.fact,rows=>rows.map(r=>`${r.food}: ${r.classification}${r.management?` · ${r.management}`:''}`).join('; '))}</p></div>

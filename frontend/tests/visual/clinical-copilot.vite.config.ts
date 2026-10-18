@@ -13,6 +13,7 @@ export default defineConfig({
       ...[
         "@/src/services/ai",
         "@/src/services/clinicalCopilot",
+        "@/src/services/clinicalInterventions",
         "@/src/lib/supabase",
       ].map((find) => ({ find, replacement: fixture })),
       {

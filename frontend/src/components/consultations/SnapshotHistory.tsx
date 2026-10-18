@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ClinicalInterventions } from "./ClinicalInterventions";
 import { InterviewReview } from "@/src/components/consultations/InterviewReview";
 import { ConfirmedRecall } from "@/src/components/consultations/ClinicalCopilot";
 import { listAnswers, listSnapshots } from "@/src/services/consultations";
@@ -13,6 +14,7 @@ export function SnapshotHistory({
 }) {
   const [snapshots, setSnapshots] = useState<ConsultationSnapshot[]>([]);
   const [selected, setSelected] = useState(0);
+  const [interventionsOpen, setInterventionsOpen] = useState(false);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -97,7 +99,7 @@ export function SnapshotHistory({
         {loading ? (
           <p className="text-sm text-[#74817d]">Cargando respuestas…</p>
         ) : (
-          <><InterviewReview structure={snapshot.structure} values={answers} />{snapshot.clinical_records?.recall&&<ConfirmedRecall record={snapshot.clinical_records.recall}/>}</>
+          <><InterviewReview structure={snapshot.structure} values={answers} />{snapshot.clinical_records?.recall&&<ConfirmedRecall record={snapshot.clinical_records.recall}/>}<details className="mt-4" onToggle={event=>setInterventionsOpen(event.currentTarget.open)}><summary className="cursor-pointer text-sm font-semibold">Estrategias y registro de ejecución</summary>{interventionsOpen&&<ClinicalInterventions key={`${consultation.id}:${snapshot.revision}:history-strategies`} consultationId={consultation.id} patientId={consultation.patient_id} revision={snapshot.revision} before={async()=>true} readOnly />}</details></>
         )}
       </div>
     </section>
