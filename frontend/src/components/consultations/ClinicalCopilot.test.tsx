@@ -50,7 +50,7 @@ const draft = {
   problem: "Borrador P",
   etiology: "Borrador E",
   signsSymptoms: ["Peso registrado"],
-  pesStatement: "Borrador PES",
+  pesStatement: "Borrador P relacionado con Borrador E, evidenciado por Peso registrado.",
   evidence: [{ source: "Antropometría", finding: "92 kg" }],
   missingContext: ["Laboratorios no registrados"],
   uncertainties: [],
@@ -102,13 +102,13 @@ describe("PES copilot", () => {
   });
   it("preserves manual review and approval after a context-size failure", async () => {
     api.generate.mockRejectedValue(new AIRequestError("input_too_large"));
-    render(<PesCopilot {...props} answers={{ pes_problem: "P", pes_etiology: "E", pes_evidence: "Dato registrado", pes_statement: "PES manual revisado" }} />);
+    render(<PesCopilot {...props} answers={{ pes_problem: "P", pes_etiology: "E", pes_evidence: "Dato registrado", pes_statement: "P relacionado con E, evidenciado por Dato registrado." }} />);
     await screen.findByText("Antropometría disponible");
     fireEvent.click(screen.getByText("Generar borrador"));
     await screen.findByText(/Puedes redactar y cerrar la consulta manualmente/);
     fireEvent.click(screen.getByText("Revisar PES escrito"));
     fireEvent.click(screen.getByText("Aprobar"));
-    await waitFor(() => expect(props.onPes).toHaveBeenCalledWith(expect.objectContaining({ pesStatement: "PES manual revisado" })));
+    await waitFor(() => expect(props.onPes).toHaveBeenCalledWith(expect.objectContaining({ pesStatement: "P relacionado con E, evidenciado por Dato registrado." })));
     expect(sessionStorage.getItem("clinical-pending:test-consult:pes_diagnosis")).toBeNull();
   });
   it.each(["B", "C"] as const)("explains real %s abstention without allowing approval", async (key) => {
@@ -129,7 +129,7 @@ describe("PES copilot", () => {
           pes_problem: "P",
           pes_etiology: "E",
           pes_evidence: "Evidencia",
-          pes_statement: "PES manual",
+          pes_statement: "P relacionado con E, evidenciado por Evidencia.",
         }}
       />,
     );
@@ -141,7 +141,7 @@ describe("PES copilot", () => {
         "test-consult",
         1,
         "pes",
-        expect.objectContaining({ pesStatement: "PES manual" }),
+        expect.objectContaining({ pesStatement: "P relacionado con E, evidenciado por Evidencia." }),
         undefined,
       ),
     );
@@ -152,22 +152,20 @@ describe("PES copilot", () => {
     await screen.findByText("Antropometría disponible");
     expect(screen.getByText("Laboratorios sin registrar")).toBeTruthy();
     fireEvent.click(screen.getByText("Generar borrador"));
-    await screen.findByDisplayValue("Borrador PES");
+    await screen.findByText("Borrador P relacionado con Borrador E, evidenciado por Peso registrado.");
     expect(api.workspace.mock.calls.every((c) => !c[2])).toBe(true);
-    fireEvent.change(screen.getByLabelText("Enunciado PES"), {
-      target: { value: "PES revisado" },
-    });
+    fireEvent.change(screen.getByLabelText("Etiología"), { target: { value: "Causa revisada" } });
     fireEvent.click(screen.getByText("Aprobar"));
     await waitFor(() =>
       expect(props.onPes).toHaveBeenCalledWith(
-        expect.objectContaining({ pesStatement: "PES revisado" }),
+        expect.objectContaining({ pesStatement: "Borrador P relacionado con Causa revisada, evidenciado por Peso registrado." }),
       ),
     );
     expect(api.workspace).toHaveBeenCalledWith(
       "test-consult",
       1,
       "pes",
-      expect.objectContaining({ pesStatement: "PES revisado", stamp: "a" }),
+      expect.objectContaining({ pesStatement: "Borrador P relacionado con Causa revisada, evidenciado por Peso registrado.", stamp: "a" }),
       "generation",
     );
   });
@@ -175,7 +173,7 @@ describe("PES copilot", () => {
     render(<PesCopilot {...props} />);
     await screen.findByText("Antropometría disponible");
     fireEvent.click(screen.getByText("Generar borrador"));
-    await screen.findByDisplayValue("Borrador PES");
+    await screen.findByText("Borrador P relacionado con Borrador E, evidenciado por Peso registrado.");
     fireEvent.click(screen.getByText("Descartar"));
     expect(api.workspace.mock.calls.every((c) => !c[2])).toBe(true);
   });
@@ -183,18 +181,18 @@ describe("PES copilot", () => {
     render(<PesCopilot {...props} />);
     await screen.findByText("Antropometría disponible");
     fireEvent.click(screen.getByText("Generar borrador"));
-    await screen.findByDisplayValue("Borrador PES");
+    await screen.findByText("Borrador P relacionado con Borrador E, evidenciado por Peso registrado.");
     api.generate.mockResolvedValue({
       generationId: "new",
       status: "succeeded",
-      output: { ...draft, pesStatement: "Alternativa" },
+      output: { ...draft, problem: "Alternativa" },
       replay: false,
     });
     fireEvent.click(screen.getByText("Otra propuesta"));
-    await screen.findByText("Alternativa");
-    expect(screen.getByDisplayValue("Borrador PES")).toBeTruthy();
+    await screen.findByText("Alternativa relacionado con Borrador E, evidenciado por Peso registrado.");
+    expect(screen.getByText("Borrador P relacionado con Borrador E, evidenciado por Peso registrado.")).toBeTruthy();
     fireEvent.click(screen.getByText("Conservar anterior"));
-    expect(screen.getByDisplayValue("Borrador PES")).toBeTruthy();
+    expect(screen.getByText("Borrador P relacionado con Borrador E, evidenciado por Peso registrado.")).toBeTruthy();
   });
   it("disabled or no credit generation does not remove manual path", async () => {
     api.generate.mockRejectedValue(new AIRequestError("insufficient_credits"));

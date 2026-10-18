@@ -23,6 +23,18 @@ Deno.test('PES uses server context and the same reserve/settle pipeline',async()
   const result=await runAIRequest({...request,feature:'pes_diagnosis',revision:1},store,{run:i=>{assert.equal(bound,true);assert.deepEqual(i.context,{facts});return Promise.resolve({...ok,output});}});
   assert.deepEqual(result.output,output);assert.equal(store.settlements.length,1);
 });
+Deno.test('PES @5 derives one coherent statement and rejects uncited numeric claims before returning a draft',async()=>{
+  for(const invented of [false,true]) {
+    const store:AIStore & Store=new Store();store.config=()=>Promise.resolve({...config,feature:'pes_diagnosis',prompt_version:'pes_diagnosis@5'});
+    const facts=[{source:'Antropometría · Peso',finding:'92 kg'}];
+    store.context=()=>Promise.resolve({context:{facts},stamp:'v1'});store.bindContext=()=>Promise.resolve();
+    const output={problem:'Problema registrado',etiology:'Factor documentado',signsSymptoms:[invented?'Pérdida de 7.5 %':'Peso registrado de 92 kg'],pesStatement:'Texto independiente que no se utiliza',evidence:facts,missingContext:[],uncertainties:[]};
+    const operation=()=>runAIRequest({...request,feature:'pes_diagnosis',revision:1},store,{run:()=>Promise.resolve({...ok,output})});
+    if(invented) await assert.rejects(operation,/invalid_output/);
+    else assert.equal(((await operation()).output as {pesStatement:string}).pesStatement,'Problema registrado relacionado con Factor documentado, evidenciado por Peso registrado de 92 kg.');
+    assert.equal(store.settlements.length,1);
+  }
+});
 Deno.test('foreign clinical context rejects before reservation and provider',async()=>{
   const store:AIStore & Store=new Store();store.config=()=>Promise.resolve({...config,feature:'pes_diagnosis',prompt_version:'pes_diagnosis@1'});
   store.context=()=>Promise.reject(new AIError('context_unavailable'));store.bindContext=()=>Promise.resolve();

@@ -1,5 +1,13 @@
 // Offline visual/E2E fixture only. Never imported by the application build.
 import type { FoodItem } from "../../src/types/domain";
+import type { ClinicalMeasurementFact } from '../../src/features/consultations/clinicalCopilot';
+export const reviewFacts: ClinicalMeasurementFact[] = [
+  { source: 'Antropometría · Peso · Captura directa', finding: '92 kg · consulta 2026-10-18', metric_code: 'weight', origin: 'measurement', numeric_value: 92, unit: 'kg', method: 'Captura directa', consultation_date: '2026-10-18' },
+  { source: 'Historial · Peso · Captura directa', finding: '94 kg · consulta 2026-09-01', metric_code: 'weight', origin: 'measurement', numeric_value: 94, unit: 'kg', method: 'Captura directa', consultation_date: '2026-09-01' },
+  { source: 'Antropometría · Grasa (%) · Equipo A', finding: '30 % · consulta 2026-10-18', metric_code: 'body_fat_percentage_device', origin: 'measurement', numeric_value: 30, unit: '%', method: 'Equipo A', consultation_date: '2026-10-18' },
+  { source: 'Historial · Grasa (%) · Equipo A', finding: '32 % · consulta 2026-09-01', metric_code: 'body_fat_percentage_device', origin: 'measurement', numeric_value: 32, unit: '%', method: 'Equipo A', consultation_date: '2026-09-01' },
+  { source: 'Dato de ficha · Estatura', finding: '170 cm · dato de ficha; fecha de medición no registrada', metric_code: 'height', origin: 'baseline' },
+];
 export const hasSupabaseConfig = false;
 export const aiMessages = {
   insufficient_credits: "No tienes créditos de IA disponibles.",
@@ -178,12 +186,13 @@ export async function runAIRequest(request: {
     output:
       request.feature === "pes_diagnosis"
         ? {
-            problem: "Consumo alimentario por precisar",
-            etiology: "Contexto pendiente de revisión profesional",
-            signsSymptoms: ["Peso registrado: 92 kg"],
+            problem: "Ingesta oral insuficiente",
+            etiology: "disminución del apetito referida en la entrevista",
+            signsSymptoms: ["consumo registrado de 1200 kcal en el día evaluado"],
             pesStatement: "Borrador de prueba para revisión profesional.",
             evidence: [
-              { source: "Antropometría de consulta", finding: "Peso: 92 kg" },
+              { source: "Entrevista · Apetito", finding: "La persona refiere disminución del apetito." },
+              { source: "Recordatorio confirmado", finding: "Consumo registrado de 1200 kcal en el día evaluado." },
             ],
             missingContext: ["Cantidades del recordatorio por precisar"],
             uncertainties: [

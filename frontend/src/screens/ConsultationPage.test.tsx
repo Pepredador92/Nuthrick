@@ -246,12 +246,12 @@ describe("consultation save and review workflow", () => {
     expect(screen.getByText('Sigue: Mediciones')).toBeVisible();
     await openModule('Revisión clínica, PES y objetivos');
     expect(screen.getByRole('heading', { name: 'Revisión clínica' })).toBeVisible();
-    expect(screen.getByLabelText('Redacción PES')).not.toBeVisible();
+    expect(screen.queryByLabelText('Redacción PES')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
-    await waitFor(() => expect(screen.getByLabelText('Redacción PES')).toBeVisible());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Redactar PES manualmente' })).toBeVisible());
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
     await waitFor(() => expect(screen.getByLabelText('Objetivo acordado con el paciente')).toBeVisible());
-    expect(screen.getByLabelText('Redacción PES')).not.toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Redactar PES manualmente' })).not.toBeInTheDocument();
   });
 
   it('requires saving measurement edits before entering the clinical proposal step', async () => {
@@ -811,14 +811,14 @@ describe("consultation exit edge cases", () => {
     await openModule("Revisión clínica, PES y objetivos");
     await waitFor(() => expect(screen.getByRole("button", { name: /PES Formula el diagnóstico/ })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: /PES Formula el diagnóstico/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "Revisar PES escrito" }));
-    fireEvent.change(screen.getByLabelText("Enunciado PES"), { target: { value: "Propuesta escrita por revisar" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Redactar PES manualmente" }));
+    fireEvent.change(screen.getByLabelText("Problema"), { target: { value: "Propuesta escrita por revisar" } });
     await openModule("Entrevista");
     const dialog = await requestExit();
     expect(within(dialog).getByRole("button", { name: "Guardar borrador y salir" })).toBeDisabled();
     fireEvent.click(within(dialog).getByRole("button", { name: "Revisar cambios pendientes" }));
-    expect(screen.getByLabelText("Enunciado PES")).toBeVisible();
-    expect(screen.getByLabelText("Enunciado PES")).toHaveValue("Propuesta escrita por revisar");
+    expect(screen.getByLabelText("Problema")).toBeVisible();
+    expect(screen.getByLabelText("Problema")).toHaveValue("Propuesta escrita por revisar");
   });
   it("preserves a reopened clinical history instead of offering deletion", async () => {
     mocks.listConsultations.mockResolvedValue([{ ...fixtures.c, draft_discard_protected: true }]);

@@ -7,6 +7,7 @@ import { emptyValue, matchesCondition } from '@/src/features/consultations/quest
 import type { Answers } from '@/src/features/consultations/questionnaire';
 import type { ConsultationSnapshot } from '@/src/types/domain';
 import { workflowSections } from '@/src/features/consultations/consultationWorkflow';
+import { ClinicalMeasurementsReview } from './ClinicalMeasurementsReview';
 
 export function ClinicalReview({ consultationId, snapshot, values, active, before }: {
   consultationId: string; snapshot: ConsultationSnapshot; values: Answers; active: boolean; before: () => Promise<boolean>;
@@ -25,7 +26,7 @@ export function ClinicalReview({ consultationId, snapshot, values, active, befor
   }, [active, consultationId, snapshot.revision]);
   const historical = (source: string) => /^(Historial|Antecedente de entrevista|PES previo aprobado)/.test(source);
   const facts = context?.facts ?? [];
-  const currentFacts = facts.filter(fact => !historical(fact.source));
+  const currentFacts = facts.filter(fact => !historical(fact.source) && fact.origin !== 'baseline');
   const historyFacts = facts.filter(fact => historical(fact.source));
   const interviewStructure = { ...snapshot.structure, sections: workflowSections(snapshot.structure, 'interview') };
   const hasInterviewAnswers = interviewStructure.sections.some(section => section.questions.some(question => matchesCondition(question.visibility_condition, values) && !emptyValue(values[question.question_key])));
@@ -48,6 +49,7 @@ export function ClinicalReview({ consultationId, snapshot, values, active, befor
       <div><History size={19} aria-hidden="true" /><strong>Antecedentes</strong><span>{context ? `${historyFacts.length} datos de consultas anteriores` : 'Cargando datos'}</span></div>
     </div>
     {error && <p role="alert" className="admin-error">{error}</p>}
+    {context && <ClinicalMeasurementsReview facts={facts} />}
     <div className="clinical-review-sources">
       <details><summary>Lo conversado en la entrevista</summary><div className="mt-4">{hasInterviewAnswers ? <InterviewReview structure={interviewStructure} values={values} /> : <p className="clinical-review-empty">No hay respuestas registradas en la entrevista actual. Revisa los antecedentes disponibles antes de formular el diagnóstico.</p>}</div></details>
       <details><summary>Lo que comió y bebió</summary>{records.recall ? <ConfirmedRecall record={records.recall} /> : <p className="clinical-review-empty">Confirma el recordatorio en el paso anterior para incluir sus alimentos y cantidades.</p>}</details>

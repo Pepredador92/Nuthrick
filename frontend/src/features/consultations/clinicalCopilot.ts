@@ -1,5 +1,8 @@
 import { normalizeFoodName } from "@/src/services/foodCatalog";
 import type { FoodItem, FoodSnapshot } from "@/src/types/domain";
+import { composePesStatement, pesStatementMatches } from '../../../../supabase/functions/_shared/pes';
+export { composePesStatement, pesStatementMatches, unsupportedPesNumbers } from '../../../../supabase/functions/_shared/pes';
+export type { ClinicalMeasurementFact } from '../../../../supabase/functions/_shared/pes';
 
 export type PesDraft = {
   problem: string;
@@ -33,10 +36,15 @@ export function canApprovePes(draft: PesDraft) {
     draft.etiology.length <= 1500 &&
     draft.pesStatement.trim().length > 0 &&
     draft.pesStatement.length <= 2000 &&
-    draft.signsSymptoms.length > 0 &&
-    draft.signsSymptoms.length <= 30 &&
-    draft.signsSymptoms.every((s) => s.trim() && s.length <= 2000)
+    draft.signsSymptoms.filter(s => s.trim()).length > 0 &&
+    draft.signsSymptoms.filter(s => s.trim()).length <= 30 &&
+    draft.signsSymptoms.every((s) => s.length <= 2000) &&
+    pesStatementMatches(draft)
   );
+}
+export function updatePesParts(draft: PesDraft, change: Partial<Pick<PesDraft, 'problem' | 'etiology' | 'signsSymptoms'>>) {
+  const next = { ...draft, ...change };
+  return { ...next, pesStatement: composePesStatement(next) };
 }
 export type RecallExtraction = {
   meals: {

@@ -738,6 +738,7 @@ function ConsultationEditor() {
   </InterviewQuestionCard>)}</fieldset>;
   const renderClinicalFields = (category: 'diagnosis' | 'objectives' | 'recommendations') => clinicalSections.flatMap(section => {
     const questions = section.questions.filter(question => {
+      if (['pes_problem', 'pes_etiology', 'pes_evidence', 'pes_statement'].includes(question.question_key)) return false;
       const kind = objectiveKeys.includes(question.question_key) ? 'objectives' : question.question_key.startsWith('pes_') || ['nutrition_assessment', 'clinical_notes', 'measurement_notes', 'indicator_progress'].includes(question.question_key) ? 'diagnosis' : 'recommendations';
       return kind === category;
     });

@@ -1,6 +1,7 @@
 import { supabase } from "@/src/lib/supabase";
 import type { RecallSavedItem } from "@/src/features/consultations/clinicalCopilot";
 import type { RecallEstimate } from "@/src/features/consultations/recallEstimate";
+import type { ClinicalMeasurementFact } from '@/src/features/consultations/clinicalCopilot';
 export type SavedRecallRecord = { narrative: string; items: RecallSavedItem[]; approved_at?: string; method?: 'ai_estimate'; estimate?: RecallEstimate };
 export async function getClinicalRevision(patientId: string, consultationId: string) {
   const { data, error } = await supabase.from("consultation_snapshots")
@@ -11,7 +12,7 @@ export async function getClinicalRevision(patientId: string, consultationId: str
 }
 export type ObjectiveWorkspace = {
   stamp: string;
-  facts: { source: string; finding: string }[];
+  facts: ClinicalMeasurementFact[];
   pes: {
     approved_at: string;
     problem: string;
@@ -91,7 +92,11 @@ export async function clinicalWorkspace(
   });
   if (error)
     throw new Error(
-      error.message === "context_changed"
+      error.message === 'pes_statement_mismatch'
+        ? 'El enunciado no coincide con P, E y S. Actualiza el enunciado antes de aprobar.'
+        : error.message === 'pes_evidence_review_required'
+          ? 'Confirma la revisión de P, E y S y de sus fuentes antes de aprobar.'
+          : error.message === "context_changed"
         ? "La consulta cambió. Actualiza el contexto y revisa la propuesta antes de aprobar."
         : error.message === "unit_unavailable"
           ? "Revisa la unidad del alimento."

@@ -7,14 +7,15 @@ import {
 import "../../app/globals.css";
 import { ClinicalObjective } from "../../src/components/consultations/ClinicalObjective";
 import { appendComposedText } from "../../src/features/consultations/composeClinicalText";
+import { ClinicalMeasurementsReview } from '../../src/components/consultations/ClinicalMeasurementsReview';
+import { reviewFacts } from './clinical-copilot-fixtures';
+import { ThemeSwitcher } from '../../src/features/theme/ThemeSwitcher';
 function Fixture() {
   const [tab, setTab] = React.useState(new URLSearchParams(location.search).has("recall") ? "recall" : "pes");
   const [goal, setGoal] = React.useState(
     localStorage.getItem("qa-goal-text") || "",
   );
-  const [pes, setPes] = React.useState(
-    localStorage.getItem("qa-pes-text") || "",
-  );
+  const [parts, setParts] = React.useState<Record<string, string>>(() => JSON.parse(localStorage.getItem('qa-pes-parts') || '{}'));
   const props = {
     patientId: "synthetic-patient",
     consultationId: "synthetic-consultation",
@@ -27,7 +28,8 @@ function Fixture() {
         PRUEBA LOCAL · Sin pacientes, créditos ni llamadas reales
       </p>
       <h1 className="mt-2 text-2xl font-semibold">Consulta de prueba</h1>
-      <div className="mt-5 flex gap-3">
+      <ThemeSwitcher compact />
+      <div className="mt-5 flex flex-wrap gap-3">
         <button onClick={() => setTab("pes")}>Diagnóstico PES</button>
         <button onClick={() => setTab("recall")}>
           Recordatorio de 24 horas
@@ -36,21 +38,16 @@ function Fixture() {
       </div>
       {tab === "pes" ? (
         <>
+          <ClinicalMeasurementsReview facts={reviewFacts} />
           <PesCopilot
             {...props}
+            answers={parts}
             onPes={(d) => {
               localStorage.setItem("qa-pes-text", d.pesStatement);
-              setPes(d.pesStatement);
+              const saved = { pes_problem: d.problem, pes_etiology: d.etiology, pes_evidence: d.signsSymptoms.join('\n'), pes_statement: d.pesStatement };
+              localStorage.setItem('qa-pes-parts', JSON.stringify(saved)); setParts(saved);
             }}
           />
-          <label className="mt-5 block text-sm">
-            PES manual / aprobado
-            <textarea
-              className="mt-2 w-full rounded-xl border bg-white p-3"
-              value={pes}
-              onChange={(e) => setPes(e.target.value)}
-            />
-          </label>
         </>
       ) : tab === "objective" ? (
         <>

@@ -2,7 +2,7 @@ import { isDietGuidance, type DietGuidance } from '../_shared/diet-guidance.ts';
 import {isTextDietGuidance,type TextDietGuidance} from '../_shared/text-diet.ts';
 import {textDietAdapter} from './text-diet-contract.ts';
 import { Ajv } from 'ajv';
-import { clinicalAdapter, clinicalEvidenceValid, conservativeRecallQuantities } from './clinical.ts';
+import { clinicalAdapter, clinicalEvidenceValid, conservativeRecallQuantities, normalizePesOutput, pesClinicalStructureValid } from './clinical.ts';
 import { dietDraftAdapter, dietDraftAdapterV1, dietDraftAdapterV3 } from './diet-contract.ts';
 
 export type FeatureConfig = {
@@ -204,9 +204,10 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
     await store.settle(generation.id,'failed',{ input_tokens: 0, output_tokens: 0, cached_tokens: 0 });
     throw error;
   }
+  if (request.feature === 'pes_diagnosis' && config.prompt_version === 'pes_diagnosis@5') result = { ...result, output: normalizePesOutput(result.output) };
   let valid = false;
   try {
-    valid = result.status === 'completed' && validOutput(adapter.schema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (!store.validateOutput || store.validateOutput(result.output));
+    valid = result.status === 'completed' && validOutput(adapter.schema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (request.feature !== 'pes_diagnosis' || config.prompt_version !== 'pes_diagnosis@5' || pesClinicalStructureValid(result.output)) && (!store.validateOutput || store.validateOutput(result.output));
     await store.recordResult?.(generation.id,result,valid);
   } catch {
     // Confirmed provider usage remains billable even if domain validation or

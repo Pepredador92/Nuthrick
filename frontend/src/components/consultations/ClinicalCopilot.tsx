@@ -24,6 +24,9 @@ import {
   canonicalRecallItem,
   matchRecallFoods,
   pesFromAnswers,
+  composePesStatement,
+  pesStatementMatches,
+  updatePesParts,
   canApprovePes,
   type PesDraft,
   type RecallRow,
@@ -231,8 +234,10 @@ export function PesCopilot(props: Props) {
     setPreviousGeneration(clinical.generation);
     const output = await clinical.generate();
     if (!output) return;
-    if (draft) setReplacement(output as PesDraft);
-    else setDraft(output as PesDraft);
+    const next = output as PesDraft;
+    const composed = { ...next, pesStatement: composePesStatement(next) };
+    if (draft) setReplacement(composed);
+    else setDraft(composed);
   }
   return (
     <section
@@ -242,7 +247,7 @@ export function PesCopilot(props: Props) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="font-semibold">Redacta o revisa tu PES</h3>
         <span className="text-xs text-[var(--nuth-muted)]">
-          {clinical.workspace?.records.pes
+          {draft ? 'Borrador pendiente de aprobación' : clinical.workspace?.records.pes
             ? "Hay un PES aprobado"
             : "Revisión profesional pendiente"}
         </span>
@@ -282,6 +287,7 @@ export function PesCopilot(props: Props) {
         La propuesta prioriza esta consulta. Si falta la entrevista actual, puede usar antecedentes de consultas cerradas con su fecha. Revisa cuáles siguen vigentes.
       </p>
       </details>
+      {!draft && typeof props.answers?.pes_statement === 'string' && props.answers.pes_statement.trim() && <div className="pes-final-summary"><p className="nuth-eyebrow">Enunciado guardado</p><p>{props.answers.pes_statement}</p><small>Abre la revisión para comprobar el problema, la causa y la evidencia antes de aprobar cambios.</small></div>}
       {!draft && (
         <AIButton capability="ai.pes"
           className="mt-4"
@@ -302,9 +308,10 @@ export function PesCopilot(props: Props) {
             setReplacement(null);
             clinical.setGeneration(undefined);
             setEditing(true);
+                    clinical.setMessage('');
           }}
         >
-          Revisar PES escrito
+          {['pes_problem','pes_etiology','pes_evidence','pes_statement'].some(key => typeof props.answers?.[key] === 'string' && (props.answers[key] as string).trim()) ? 'Revisar PES escrito' : 'Redactar PES manualmente'}
         </button>
       )}
       {clinical.state === "generating" && (
@@ -334,20 +341,20 @@ export function PesCopilot(props: Props) {
             [
               ["problem", "Problema"],
               ["etiology", "Etiología"],
-              ["pesStatement", "Enunciado PES"],
             ] as const
           ).map(([key, label]) => (
             <label key={key} className="block text-xs font-medium">
               {label}
               <textarea
                 className={input}
+                aria-label={label}
                 readOnly={!editing}
                 maxLength={
                   key === "problem" ? 500 : key === "etiology" ? 1500 : 2000
                 }
                 value={draft[key]}
                 aria-invalid={key === "etiology" && !draft.etiology.trim() ? true : undefined}
-                onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
+                onChange={(e) => { setDraft(updatePesParts(draft, { [key]: e.target.value })); }}
               />
             </label>
           ))}
@@ -355,18 +362,22 @@ export function PesCopilot(props: Props) {
             Signos y síntomas
             <textarea
               className={input}
+              aria-label="Signos y síntomas"
               readOnly={!editing}
               maxLength={1500}
               value={draft.signsSymptoms.join("\n")}
               onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  signsSymptoms: e.target.value.split("\n"),
-                })
+                { setDraft(updatePesParts(draft, { signsSymptoms: e.target.value.split("\n") })); }
               }
             />
           </label>
-          <details className="text-xs text-[var(--nuth-muted)]">
+          <div className="block text-xs font-medium"><h4>Enunciado PES final</h4>
+            <output className={input + ' pes-final-statement'} aria-label="Enunciado PES final" aria-live="off" aria-describedby="pes-statement-help">{draft.pesStatement || 'Completa P, E y S para construir el enunciado.'}</output>
+          </div>
+          <p id="pes-statement-help" className="text-xs text-[var(--nuth-muted)]">Se compone con Problema → relacionado con → Etiología → evidenciado por → Signos y síntomas. Edita P, E o S para actualizarlo.</p>
+          {!pesStatementMatches(draft) && <div role="alert" className="pes-review-warning"><p>El enunciado guardado no coincide con los componentes actuales. Revisa P, E y S y actualízalo antes de aprobar.</p><button type="button" className={secondary} onClick={() => { setDraft({ ...draft, pesStatement: composePesStatement(draft) }); }}>Actualizar enunciado con P, E y S</button></div>}
+          {draft.pesStatement.length > 2000 && <p role="alert">El enunciado supera 2000 caracteres. Resume los componentes y conserva la evidencia pertinente.</p>}
+          <details open className="text-xs text-[var(--nuth-muted)]">
             <summary className="cursor-pointer">
               Información utilizada y límites
             </summary>
@@ -377,6 +388,7 @@ export function PesCopilot(props: Props) {
                 </li>
               ))}
             </ul>
+            {!draft.evidence.length && <p className="mt-2">Redacción manual: contrasta los signos y síntomas con las mediciones, entrevista y estudios de la revisión clínica.</p>}
             {(["missingContext", "uncertainties"] as const).map((key) => (
               <label key={key} className="mt-3 block">
                 {key === "missingContext"
@@ -393,6 +405,7 @@ export function PesCopilot(props: Props) {
               </label>
             ))}
           </details>
+          <p className="pes-evidence-review-note">Al aprobar confirmas que revisaste el problema nutricional, la causa documentada y la evidencia, incluidas sus fechas, unidades y vigencia. La propuesta requiere tu criterio profesional.</p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -410,14 +423,15 @@ export function PesCopilot(props: Props) {
                 clinical.state === "generating" ||
                 !canApprovePes(draft)
               }
-              onClick={() =>
-                void clinical.approve("pes", draft).then((ok) => {
+              onClick={() => {
+                const approved = { ...draft, signsSymptoms: draft.signsSymptoms.map(sign => sign.trim()).filter(Boolean) };
+                void clinical.approve("pes", { ...approved, evidenceReviewed: true }).then((ok) => {
                   if (ok) {
-                    props.onPes?.(draft);
+                    props.onPes?.(approved);
                     setDraft(null);
                   }
-                })
-              }
+                });
+              }}
             >
               {clinical.saving ? "Guardando…" : "Aprobar"}
             </button>

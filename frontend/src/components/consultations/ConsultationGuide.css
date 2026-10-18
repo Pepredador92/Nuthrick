@@ -94,3 +94,25 @@
 .recall-estimate-values { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .recall-removal { padding: 16px; border: 1px solid var(--nuth-line); border-radius: 14px; background: var(--nuth-surface-soft); }
 @media (max-width: 640px) { .recall-estimate-values { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.clinical-measurements-review { margin: 20px 0; padding: 18px; border: 1px solid var(--nuth-line); border-radius: 16px; background: var(--nuth-surface); }
+.clinical-measurements-review h3 { font-size: 16px; font-weight: 650; }
+.clinical-measurements-review > p, .clinical-baseline > p { margin-top: 8px; color: var(--nuth-muted); font-size: 12px; line-height: 1.7; }
+.clinical-measurements-scroll { max-width: 100%; overflow-x: auto; margin-top: 18px; }
+.clinical-measurements-review table { width: 100%; min-width: 560px; text-align: left; font-size: 12px; border-collapse: collapse; }
+.clinical-measurements-review th, .clinical-measurements-review td { padding: 12px 10px; border-bottom: 1px solid var(--nuth-line); vertical-align: top; }
+.clinical-measurements-review th { font-weight: 650; }
+.clinical-measurements-review small { display: block; font-size: 10px; color: var(--nuth-muted); margin-top: 5px; font-weight: 400; }
+.clinical-measurements-review td > div + div { margin-top: 10px; }
+.clinical-baseline { margin-top: 18px; }
+.clinical-baseline h4 { font-size: 13px; font-weight: 650; }
+.clinical-baseline ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 10px; margin-top: 12px; }
+.clinical-baseline li { display: grid; gap: 6px; padding: 12px; border-radius: 12px; background: var(--nuth-surface-soft); font-size: 12px; }
+.clinical-baseline li span { color: var(--nuth-muted); line-height: 1.6; }
+.pes-final-summary, .pes-review-warning { margin-top: 16px; padding: 16px; border: 1px solid var(--nuth-line); border-radius: 12px; background: var(--nuth-surface); }
+.pes-final-summary > p:not(.nuth-eyebrow) { font-size: 14px; line-height: 1.8; white-space: pre-wrap; }
+.pes-final-summary small { display: block; color: var(--nuth-muted); margin-top: 10px; }
+.pes-review-warning { border-color: #b99656; font-size: 12px; }
+.pes-review-warning button { margin-top: 12px; }
+.pes-final-statement { display: block; min-height: 100px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; font-weight: 400; }
+
+.pes-evidence-review-note { padding: 12px; border-left: 3px solid var(--nuth-action); color: var(--nuth-muted); font-size: 12px; line-height: 1.7; }

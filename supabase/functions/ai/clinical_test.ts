@@ -8,6 +8,8 @@ import {
   pesSchema,
   recallSchema,
   redactClinicalText,
+  normalizePesOutput,
+  pesClinicalStructureValid,
 } from "./clinical.ts";
 import { parseRequest, validOutput } from "./core.ts";
 import { clinicalCalibrationCases } from "./clinical_calibration_fixtures.ts";
@@ -263,7 +265,7 @@ Deno.test("history compaction keeps numeric methods, units, dates and conflictin
     { source: "Historial · tríceps", finding: "30 mm · consulta 2026-07-18" },
   ];
   const context = buildPesClinicalContext({ stamp: "a", facts });
-  assert.equal(context.facts.length, 1);
+  assert.equal(context.facts.length, 2);
   for (const reading of facts.slice(0, 3)) assert.ok(context.facts[0].finding.includes(reading.finding));
 });
 Deno.test("PES context omits absent facts without altering units, decimals or dates", () => {
@@ -273,4 +275,25 @@ Deno.test("PES context omits absent facts without altering units, decimals or da
     { source: "Cálculo registrado", finding: "22.4 kg/m²" },
   ];
   assert.deepEqual(buildPesClinicalContext({ stamp: "a", facts: [...units, { source: "Ausente", finding: "null" }, { source: "Ausente", finding: "" }] }).facts, units);
+});
+Deno.test('PES @5 preserves renamed historical metrics by stable codes and separates methods', () => {
+  const facts = [
+    { source: 'Historial · Grasa (%) · Equipo A', finding: '32 % · consulta 2026-09-01', metric_code: 'body_fat_percentage_device', origin: 'measurement' as const, method: 'Equipo A', unit: '%', consultation_date: '2026-09-01' },
+    { source: 'Historial · Nombre actualizado · Equipo A', finding: '30 % · consulta 2026-10-01', metric_code: 'body_fat_percentage_device', origin: 'measurement' as const, method: 'Equipo A', unit: '%', consultation_date: '2026-10-01' },
+    { source: 'Historial · Grasa (%) · Equipo B', finding: '31 % · consulta 2026-10-01', metric_code: 'body_fat_percentage_device', origin: 'measurement' as const, method: 'Equipo B', unit: '%', consultation_date: '2026-10-01' },
+    { source: 'Historial · Masa muscular', finding: '28 kg · consulta 2026-10-01', metric_code: 'skeletal_muscle_mass_device', origin: 'measurement' as const, method: 'Equipo B', unit: 'kg', consultation_date: '2026-10-01' },
+  ];
+  const context = buildPesClinicalContext({ stamp: 'x', facts });
+  assert.equal(context.facts.length, 3);
+  assert.match(context.facts[0].finding, /32 %.*30 %/);
+  assert.ok(context.facts.some(fact => fact.finding.includes('28 kg')));
+  assert.equal(buildConsultationSupportContext({ stamp: 'x', facts }).facts.some(fact => fact.finding.includes('28 kg')), false);
+});
+Deno.test('PES @5 composes the statement and refuses numerical claims absent from cited facts', () => {
+  const output = normalizePesOutput(pes);
+  assert.equal(pesClinicalStructureValid(output), true);
+  assert.equal(pesClinicalStructureValid(normalizePesOutput({ ...pes, signsSymptoms: ['Pérdida del 7.5 % en 30 días'] })), false);
+  assert.equal(pesClinicalStructureValid({ ...pes, pesStatement: 'Una frase incompatible' }), false);
+  assert.equal(pesClinicalStructureValid(normalizePesOutput({ ...pes, etiology: '', pesStatement: 'relleno' })), true);
+  assert.match(clinicalAdapter('pes_diagnosis', 'pes_diagnosis@5')!.instructions, /no inventes códigos NCPT/);
 });
