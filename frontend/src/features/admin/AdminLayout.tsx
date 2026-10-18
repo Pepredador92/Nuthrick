@@ -16,6 +16,7 @@ import {
   Activity,
   Headphones,
   GraduationCap,
+  Megaphone,
 } from "lucide-react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/src/features/auth/AuthProvider";
@@ -27,6 +28,7 @@ const nav = [
   ["professionals", "Profesionales", Users],
   ["support", "Atención a nutriólogos", Headphones],
   ["training", "Capacitación", GraduationCap],
+  ["announcements", "Anuncios y avisos", Megaphone],
   ["plans", "Planes", Layers],
   ["access", "Accesos", KeyRound],
   ["credits", "IA y créditos", Coins],

@@ -55,6 +55,7 @@ import { trackSiteVisit } from '@/src/services/siteAnalytics';
 import { ThemeSwitcher } from '@/src/features/theme/ThemeSwitcher';
 import { AcademyPage } from '@/src/features/training/AcademyPage';
 import { TrainingAdminPage } from '@/src/features/training/TrainingAdminPage';
+import { AnnouncementsAdminPage } from '@/src/features/announcements/AnnouncementsAdminPage';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -121,6 +122,7 @@ function BrowserApplication() {
               <Route index element={<AdminHome />} />
               <Route path="support" element={<AdminSupportPage />} />
               <Route path="training" element={<TrainingAdminPage />} />
+              <Route path="announcements" element={<AnnouncementsAdminPage />} />
               <Route path="professionals" element={<ProfessionalsPage />} />
               <Route path="professionals/:professionalId" element={<ProfessionalPage />} />
               <Route path="plans" element={<PlansPage />} />

@@ -7,7 +7,7 @@ import { useAccess, routeEntitlement } from '@/src/features/admin/AccessProvider
 import { canReadFeature } from '@/src/features/admin/api';
 import { AIUsageIndicator } from '@/src/components/ai/AIControls';
 import { NotificationCenter } from '@/src/components/notifications/NotificationCenter';
-import { EntryDigest } from '@/src/components/notifications/EntryDigest';
+import { EntryAnnouncements } from '@/src/features/announcements/EntryAnnouncements';
 import { NotificationsProvider } from '@/src/features/notifications/useNotifications';
 import { useProfessionalPresence } from '@/src/features/presence/useProfessionalPresence';
 import { SupportProvider } from '@/src/features/support/SupportProvider';
@@ -62,7 +62,7 @@ export function PrivateLayout() {
 
   return (
     <SupportProvider><NotificationsProvider>
-    <EntryDigest />
+    <EntryAnnouncements />
     <div className="professional-shell min-h-screen bg-[#f6f7f3] text-[#17312c]">
       <aside className="professional-sidebar fixed inset-y-0 left-0 z-30 hidden w-[250px] flex-col overflow-y-auto border-r border-[#e1e7e2] bg-white lg:flex">{sidebar}</aside>
       {mobileOpen && <div className="fixed inset-0 z-40 lg:hidden"><button type="button" className="absolute inset-0 bg-[#102d27]/45" aria-label="Cerrar menú" onClick={() => setMobileOpen(false)} /><aside className="professional-sidebar relative flex h-full w-[280px] flex-col overflow-y-auto bg-white shadow-2xl">{sidebar}</aside></div>}

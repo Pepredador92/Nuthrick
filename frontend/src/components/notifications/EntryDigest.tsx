@@ -11,12 +11,12 @@ export function upcomingReminders(items: Appointment[], now = Date.now()) {
     .sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at));
 }
 
-export function EntryDigest() {
+export function EntryDigest({ onAvailabilityChange }: { onAvailabilityChange?: (available: boolean) => void } = {}) {
   const { user } = useAuth();
-  return user ? <DigestSession key={user.id} userId={user.id} /> : null;
+  return user ? <DigestSession key={user.id} userId={user.id} onAvailabilityChange={onAvailabilityChange} /> : null;
 }
 
-function DigestSession({ userId }: { userId: string }) {
+function DigestSession({ userId, onAvailabilityChange }: { userId: string; onAvailabilityChange?: (available: boolean) => void }) {
   const { items, loading, markRead } = useNotifications();
   const navigate = useNavigate();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -36,6 +36,9 @@ function DigestSession({ userId }: { userId: string }) {
   const upcoming = showAgenda ? upcomingReminders(appointments ?? []) : [];
   const messages = items.filter(item => !item.read_at && item.type === 'portal_message' && !dismissedMessages.includes(item.id));
   const show = !loading && (messages.length > 0 || upcoming.length > 0 || notices.length > 0);
+  const available = !loading && (alreadySeen || appointments !== null) && !show;
+
+  useEffect(() => { onAvailabilityChange?.(available); }, [available, onAvailabilityChange]);
 
   useEffect(() => {
     if (alreadySeen) return;
