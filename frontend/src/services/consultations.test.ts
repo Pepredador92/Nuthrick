@@ -1,15 +1,36 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { discardConsultationDraft, renameConsultation } from "./consultations";
+import { discardConsultationDraft, renameConsultation, syncConsultationAnswers } from "./consultations";
 import { supabase } from "@/src/lib/supabase";
 import type { Consultation } from "@/src/types/domain";
 
 vi.mock("@/src/lib/supabase", () => ({ supabase: { rpc: vi.fn() } }));
 const visit = { id: "visit", display_name: "Anterior", display_sequence_number: 2, status: "completed" } as Consultation;
 const single = vi.fn();
+const abortSignal=vi.fn();
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(supabase.rpc).mockReturnValue({ single } as never);
   single.mockResolvedValue({ data: { id: "visit", display_name: null, status: "completed" }, error: null });
+});
+
+describe('versioned consultation answer transport',()=>{
+  it('passes only a delta, expected version, request identifier and cancellation signal',async()=>{
+    const signal=new AbortController().signal;
+    vi.mocked(supabase.rpc).mockReturnValue({abortSignal} as never);
+    abortSignal.mockResolvedValue({data:{version:4,answers:{note:'Nuevo'}},error:null});
+    expect(await syncConsultationAnswers('visit',2,{version:3,changes:{note:'Nuevo'},requestId:'request'},signal)).toEqual({version:4,answers:{note:'Nuevo'}});
+    expect(supabase.rpc).toHaveBeenCalledWith('sync_consultation_answers',{p_consultation:'visit',p_revision:2,p_version:3,p_changes:{note:'Nuevo'},p_request:'request'});
+    expect(abortSignal).toHaveBeenCalledWith(signal);
+  });
+  it('reads without creating a save request',async()=>{
+    vi.mocked(supabase.rpc).mockReturnValue({abortSignal} as never);abortSignal.mockResolvedValue({data:{version:0,answers:{}},error:null});
+    await syncConsultationAnswers('visit',1,undefined,new AbortController().signal);
+    expect(supabase.rpc).toHaveBeenCalledWith('sync_consultation_answers',{p_consultation:'visit',p_revision:1});
+  });
+  it('does not confirm a malformed or missing acknowledgement',async()=>{
+    vi.mocked(supabase.rpc).mockReturnValue({abortSignal} as never);abortSignal.mockResolvedValue({data:null,error:null});
+    await expect(syncConsultationAnswers('visit',1,undefined,new AbortController().signal)).rejects.toThrow('confirmar');
+  });
 });
 
 describe("discarding consultation drafts", () => {

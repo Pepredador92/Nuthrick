@@ -1,5 +1,6 @@
 import { accessMessages } from "@/src/features/admin/api";
 import { supabase } from "@/src/lib/supabase";
+import { AnswerSaveError, type AnswerState, type AnswerWrite } from '@/src/features/consultations/answerAutosave';
 import type {
   Consultation,
   ConsultationAnswer,
@@ -376,6 +377,18 @@ export async function saveAnswers(
     responses: values,
   });
   fail(error);
+}
+
+export async function syncConsultationAnswers(consultationId:string, revision:number, request:AnswerWrite|undefined, signal:AbortSignal):Promise<AnswerState> {
+  const {data,error}=await supabase.rpc('sync_consultation_answers',{
+    p_consultation:consultationId,p_revision:revision,
+    ...(request?{p_version:request.version,p_changes:request.changes,p_request:request.requestId}:{}),
+  }).abortSignal(signal);
+  if(error?.message==='consultation_revision_changed') throw new Error('El cuestionario cambió. Conservamos tus cambios en esta pestaña; revisa la consulta antes de volver a guardar.');
+  if(error?.message==='consultation_not_editable') throw new Error('La consulta ya no es editable. Tus cambios siguen en esta pestaña para revisión.');
+  fail(error);
+  if(!data || !Number.isSafeInteger(data.version) || data.version<0 || !data.answers || typeof data.answers!=='object' || Array.isArray(data.answers)) throw new AnswerSaveError('unavailable','No pudimos confirmar el guardado. Tus cambios siguen pendientes.');
+  return data as AnswerState;
 }
 
 export async function finishConsultation(

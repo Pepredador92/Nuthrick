@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   clinical: vi.fn(),
   generate: vi.fn(),
   interventions: vi.fn(),
+  answerState: {version:0,answers:{} as Record<string,unknown>},
 }));
 vi.mock("@/src/services/clinicalCopilot", async (original) => ({
   ...(await original<object>()),
@@ -164,6 +165,13 @@ vi.mock("@/src/services/consultations", () => ({
   updateConsultationDate: mocks.updateDate,
   listAnswers: async () => [],
   saveAnswers: mocks.save,
+  syncConsultationAnswers: async (_id:string, revision:number, request?:{changes:Record<string,unknown>}) => {
+    if(request) {
+      await mocks.save(fixtures.c,{...fixtures.snapshot,revision},request.changes);
+      mocks.answerState={version:mocks.answerState.version+1,answers:{...mocks.answerState.answers,...request.changes}};
+    }
+    return structuredClone(mocks.answerState);
+  },
   discardConsultationDraft: mocks.discard,
   finishConsultation: mocks.finish,
   adoptTemplate: mocks.adopt,
@@ -217,6 +225,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   window.sessionStorage.clear();
   mocks.save.mockResolvedValue(undefined);
+  mocks.answerState={version:0,answers:{}};
   mocks.discard.mockResolvedValue(undefined);
   mocks.finish.mockResolvedValue(fixtures.c);
   fixtures.c.status = "draft";
@@ -238,6 +247,18 @@ beforeEach(() => {
 });
 
 describe("consultation save and review workflow", () => {
+  it('keeps a recovered legacy draft pending review across reloads',async()=>{
+    sessionStorage.setItem('nuthrick:consultation-workspace:draft',JSON.stringify({active:0,module:'interview',values:{note:'Texto recuperado'},scrollY:0,updatedAt:'2026-10-19T12:00:00Z'}));
+    const first=mount();await screen.findByText(/Recuperamos un borrador de la versión anterior/);
+    expect(screen.getByLabelText(/detalle breve de prueba/i)).toHaveValue('Texto recuperado');
+    expect(JSON.parse(sessionStorage.getItem('nuthrick:consultation-workspace:draft')!).requiresReview).toBe(true);
+    first.unmount();mount();await screen.findByText(/Recuperamos un borrador de la versión anterior/);
+    expect(mocks.save).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button',{name:'Conservar mis cambios y sincronizar'}));
+    await waitFor(()=>expect(mocks.save).toHaveBeenCalledOnce());
+    expect(screen.getByLabelText(/detalle breve de prueba/i)).toHaveValue('Texto recuperado');
+    await waitFor(()=>expect(screen.queryByRole('button',{name:'Conservar mis cambios y sincronizar'})).not.toBeInTheDocument());
+  });
   it('offers independent recall and clinical decisions in a follow-up while keeping them out of the interview', async () => {
     mocks.getSnapshot.mockResolvedValue({ ...fixtures.snapshot, structure: { ...fixtures.snapshot.structure, consultation_type: 'follow_up' } });
     mocks.listConsultations.mockResolvedValue([{ ...fixtures.c, consultation_type: 'follow_up' }]);
@@ -520,7 +541,7 @@ describe("consultation save and review workflow", () => {
       { note: "Respuesta desde tarjeta" },
     );
   });
-  it("keeps answers on screen and stops navigation after a failed save", async () => {
+  it("preserves answers and permits navigation after a failed background save", async () => {
     mocks.save.mockRejectedValue(new Error("Sin conexión. Vuelve a intentar."));
     mount();
     await screen.findByRole("heading", { name: "Apertura de prueba" });
@@ -530,11 +551,53 @@ describe("consultation save and review workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Sin conexión");
     expect(
-      screen.getByRole("heading", { name: "Apertura de prueba" }),
+      screen.getByRole("heading", { name: "Cierre de prueba" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Siguiente'})).toBeEnabled();
+    fireEvent.click(screen.getByRole('button',{name:'Anterior'}));
+    await screen.findByRole('heading',{name:'Apertura de prueba'});
     expect(screen.getByLabelText(/detalle breve de prueba/i)).toHaveValue(
       "No perder",
     );
+  });
+  it('keeps module and clinical navigation available during an unresolved save',async()=>{
+    let release!:()=>void;
+    mocks.save.mockImplementationOnce(()=>new Promise<void>(resolve=>{release=resolve;}));
+    mount();fireEvent.change(await screen.findByLabelText(/detalle breve de prueba/i),{target:{value:'Último cambio'}});
+    fireEvent.click(screen.getByRole('button',{name:'Siguiente'}));
+    await screen.findByRole('heading',{name:'Cierre de prueba'});
+    await waitFor(()=>expect(mocks.save).toHaveBeenCalledOnce());
+    expect(screen.getByRole('button',{name:'Siguiente'})).toBeEnabled();
+    await openModule('Revisión clínica, PES y objetivos');
+    fireEvent.click(screen.getByRole('button',{name:'Objetivos Acuerda la intervención'}));
+    await screen.findByRole('heading',{name:'Define objetivos SMART'});
+    expect(screen.getByRole('button',{name:'Proponer objetivos con IA'})).toBeDisabled();
+    await act(async()=>release());
+    await openModule('Entrevista');fireEvent.click(screen.getByRole('button',{name:'Anterior'}));
+    await screen.findByRole('heading',{name:'Apertura de prueba'});
+    expect(screen.getByLabelText(/detalle breve de prueba/i)).toHaveValue('Último cambio');
+  });
+  it('ends a hung save after its deadline and retries without losing the local draft',async()=>{
+    mount();await screen.findByRole('heading',{name:'Apertura de prueba'});
+    vi.useFakeTimers();
+    try {
+      mocks.save.mockImplementationOnce(()=>new Promise(()=>{}));
+      fireEvent.change(screen.getByLabelText(/detalle breve de prueba/i),{target:{value:'Conservar este texto'}});
+      await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Guardar'}));await Promise.resolve();});
+      await act(async()=>{await vi.advanceTimersByTimeAsync(20000);});
+      expect(screen.getByRole('alert')).toHaveTextContent('tardó demasiado');
+      expect(screen.getByRole('button',{name:'Siguiente'})).toBeEnabled();
+      expect(screen.getByLabelText(/detalle breve de prueba/i)).toHaveValue('Conservar este texto');
+      expect(JSON.parse(sessionStorage.getItem('nuthrick:consultation-workspace:draft')!).values.note).toBe('Conservar este texto');
+      fireEvent.change(screen.getByLabelText(/detalle breve de prueba/i),{target:{value:'Último cambio mientras está sin conexión'}});
+      await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
+      expect(mocks.save).toHaveBeenCalledOnce();
+      mocks.save.mockResolvedValue(undefined);
+      await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Reintentar guardado'}));await Promise.resolve();});
+      expect(screen.queryByRole('button',{name:'Reintentar guardado'})).not.toBeInTheDocument();
+      expect(screen.getByRole('button',{name:'Guardar'})).toBeEnabled();
+      expect(screen.getByLabelText(/detalle breve de prueba/i)).toHaveValue('Último cambio mientras está sin conexión');
+    } finally {vi.useRealTimers();}
   });
   it("closes from measurements after saving, preserving the form when switching tabs", async () => {
     mount();
@@ -723,7 +786,7 @@ describe("consultation exit decisions", () => {
   it("asks after autosave has finished", async () => {
     mount();
     fireEvent.change(await screen.findByLabelText(/detalle breve de prueba/i), { target: { value: "Ya guardado" } });
-    await waitFor(() => expect(mocks.save).toHaveBeenCalledOnce(), { timeout: 1800 });
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledOnce(), { timeout: 3500 });
     await waitFor(() => expect(screen.getByRole("button", { name: "Guardar" })).toBeEnabled());
     fireEvent.click(screen.getByRole("link", { name: "Mensajes" }));
     expect(await screen.findByRole("dialog", { name: exitTitle })).toBeInTheDocument();

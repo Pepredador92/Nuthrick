@@ -39,8 +39,8 @@ import {
   formatPatientDate,
 } from "@/src/features/patients/patientUtils";
 import {
-  createSaveQueue,
   emptyValue,
+  formatAnswer,
   isRecord,
   matchesCondition,
   questionErrors,
@@ -58,7 +58,7 @@ import {
   finishConsultation,
   getSnapshot,
   listAvailableTemplates,
-  listAnswers,
+  syncConsultationAnswers,
   loadActiveTemplate,
   loadTemplateById,
   loadSystemTemplate,
@@ -66,7 +66,7 @@ import {
   updateConsultationDate,
   discardConsultationDraft,
 } from "@/src/services/consultations";
-import { saveAnswers } from "@/src/services/consultations";
+import { ANSWER_SAVE_DELAY, boundedAnswerRequest, createAnswerAutosave, type AnswerState } from '@/src/features/consultations/answerAutosave';
 
 import type { LoadedTemplate } from "@/src/services/consultations";
 import type {
@@ -93,6 +93,9 @@ type ConsultationWorkspace = {
   updatedAt: string;
   module?: ConsultationModule;
   sectionKey?: string;
+  base?: AnswerState;
+  revision?: number;
+  requiresReview?: boolean;
 };
 
 const workspaceKey = (id: string) => `nuthrick:consultation-workspace:${id}`;
@@ -155,6 +158,9 @@ function ConsultationEditor() {
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saveConflict, setSaveConflict] = useState(false);
+  const [backupWarning, setBackupWarning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -188,10 +194,22 @@ function ConsultationEditor() {
   const [module, setModule] = useState<ConsultationModule>("interview");
   const valuesRef = useRef<Answers>({});
   const lastSaved = useRef("{}");
-  const queue = useRef(createSaveQueue());
-  const pending = useRef(0);
+  const saveTarget = useRef<{id:string;revision:number}|null>(null);
+  const mounted = useRef(true);
   const heading = useRef<HTMLHeadingElement>(null);
   const closed = useRef(false);
+  const [autosave] = useState(() => createAnswerAutosave());
+  useEffect(() => {autosave.configure({
+    read: signal => { const t=saveTarget.current; if(!t) throw new Error('Consulta no disponible.'); return syncConsultationAnswers(t.id,t.revision,undefined,signal); },
+    write: (request,signal) => { const t=saveTarget.current; if(!t) throw new Error('Consulta no disponible.'); return syncConsultationAnswers(t.id,t.revision,request,signal); },
+    onState: state => { if(mounted.current) { setSaving(state.saving);setSaveError(state.error);setSaveConflict(state.conflict); } },
+    onMerge: (next,saved) => {
+      if(!mounted.current || closed.current) return;
+      valuesRef.current=next;setValues(next);
+      lastSaved.current=JSON.stringify(saved.answers);setSavedEncoded(lastSaved.current);
+    },
+  });},[autosave]);
+  useEffect(() => { mounted.current=true;return () => {mounted.current=false;void autosave.stop();}; },[autosave]);
   const blocker = useBlocker(({ currentLocation, nextLocation }) =>
     Boolean(consultation || enteringConsultation.current) && !closed.current &&
     (currentLocation.pathname !== nextLocation.pathname || currentLocation.search !== nextLocation.search),
@@ -273,14 +291,16 @@ function ConsultationEditor() {
         const systemTemplate = await loadSystemTemplate(type);
         const startedSnapshot =
           await prepareConsultationWorkflow(existingSnapshot ?? (await ensureSnapshot(consultationForLoad, loadedTemplate)));
-        const answers = await listAnswers(consultationForLoad.id, startedSnapshot.revision);
-        const serverValues = Object.fromEntries(
-          answers.map((answer) => [answer.question_key, answer.value]),
-        );
+        const saved = await boundedAnswerRequest(signal => syncConsultationAnswers(consultationForLoad.id,startedSnapshot.revision,undefined,signal));
+        const serverValues = saved.answers;
         const workspace = readWorkspace(started.id);
+        const editableKeys=new Set(startedSnapshot.structure.sections.flatMap(section=>section.questions.map(q=>q.question_key)));
+        const restoredValues=Object.fromEntries(Object.entries(workspace?.values ?? {}).filter(([key])=>editableKeys.has(key)));
         const nextValues = workspace
-          ? { ...serverValues, ...workspace.values }
+          ? { ...serverValues, ...restoredValues }
           : serverValues;
+        saveTarget.current={id:consultationForLoad.id,revision:startedSnapshot.revision};
+        autosave.reset(saved,nextValues,workspace?.revision===startedSnapshot.revision?workspace.base:undefined,!!workspace && (workspace.requiresReview || !workspace.base || workspace.revision!==startedSnapshot.revision));
         const changedPersonal =
           startedSnapshot.template_id === loadedTemplate.template.id &&
           startedSnapshot.template_version < loadedTemplate.template.version;
@@ -331,7 +351,7 @@ function ConsultationEditor() {
         setLoading(false);
       }
     },
-    [appointmentId, consultationId, patientId],
+    [appointmentId, consultationId, patientId, autosave],
   );
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -370,11 +390,12 @@ function ConsultationEditor() {
         values: valuesRef.current,
         scrollY: window.scrollY,
         updatedAt: new Date().toISOString(),
+        base:autosave.saved(),
+        revision:snapshot?.revision,
+        requiresReview:saveConflict,
       };
-      window.sessionStorage.setItem(
-        workspaceKey(consultation.id),
-        JSON.stringify(workspace),
-      );
+      try { window.sessionStorage.setItem(workspaceKey(consultation.id),JSON.stringify(workspace)); }
+      catch { queueMicrotask(() => {if(mounted.current) setBackupWarning(true);}); }
     };
     persistWorkspace();
     document.addEventListener("visibilitychange", persistWorkspace);
@@ -384,47 +405,24 @@ function ConsultationEditor() {
       document.removeEventListener("visibilitychange", persistWorkspace);
       window.removeEventListener("pagehide", persistWorkspace);
     };
-  }, [active, module, snapshot, consultation, values]);
+  }, [active, module, snapshot, consultation, values, autosave, saveConflict]);
 
   const save = useCallback(
     async (): Promise<boolean> => {
       if (!consultation || !snapshot || closed.current) return false;
-      const captured = structuredClone(valuesRef.current);
-      const encoded = JSON.stringify(captured);
-      pending.current += 1;
-      setSaving(true);
-      try {
-        await queue.current(async () => {
-          if (closed.current) return;
-          if (encoded === lastSaved.current) return;
-          await saveAnswers(consultation, snapshot, captured);
-          lastSaved.current = encoded;
-          setSavedEncoded(encoded);
-        });
-        setError("");
-        return true;
-      } catch (cause) {
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : "No se pudo guardar. No cierres esta pantalla; puedes volver a intentarlo.",
-        );
-        return false;
-      } finally {
-        pending.current -= 1;
-        setSaving(pending.current > 0);
-      }
+      autosave.update(valuesRef.current);
+      return autosave.flush();
     },
-    [consultation, snapshot],
+    [consultation, snapshot, autosave],
   );
 
   useEffect(() => {
-    if (busy || loading || JSON.stringify(values) === lastSaved.current) return;
+    if (busy || loading || saveError || JSON.stringify(values) === lastSaved.current) return;
     const timer = window.setTimeout(() => {
       void save();
-    }, 900);
+    }, ANSWER_SAVE_DELAY);
     return () => window.clearTimeout(timer);
-  }, [values, save, busy, loading]);
+  }, [values, save, busy, loading, saveError]);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
       if (consultation && !closed.current) {
@@ -492,7 +490,7 @@ function ConsultationEditor() {
         if (!canDiscardDraft(consultation)) throw new Error("Esta consulta conserva un historial previo. Guarda el borrador para continuar.");
         // Stop autosave and drain writes before retiring the draft.
         closed.current = true;
-        await queue.current(async () => undefined);
+        await autosave.stop();
         await discardConsultationDraft(consultation.id);
         clearWorkspace(consultation.id);
       } else {
@@ -505,6 +503,7 @@ function ConsultationEditor() {
       blocker.proceed();
     } catch (cause) {
       closed.current = false;
+      if(discard) autosave.resume();
       setExitError(cause instanceof Error ? cause.message : "No pudimos completar la acción. Continúa aquí e inténtalo de nuevo.");
     } finally {
       exitLock.current = false;
@@ -533,6 +532,7 @@ function ConsultationEditor() {
   const setAnswer = (key: string, value: unknown) => {
     const next = { ...valuesRef.current, [key]: value };
     valuesRef.current = next;
+    autosave.update(next);
     setValues(next);
     setReviewed(false);
   };
@@ -553,7 +553,7 @@ function ConsultationEditor() {
   const reviewing = active === sections.length;
   const current = sections[active];
   const goTo = async (index: number) => {
-    if (!(await save())) return;
+    if(!saveError) void save();
     setActive(Math.max(0, Math.min(index, sections.length)));
     setNotice("");
     requestAnimationFrame(() => {
@@ -576,10 +576,10 @@ function ConsultationEditor() {
     try {
       if (!(await save())) return;
       const next = await prepareConsultationWorkflow(await adoptTemplate(consultation, latest, snapshot.revision));
-      const answers = await listAnswers(consultation.id, next.revision);
-      const nextValues = Object.fromEntries(
-        answers.map((answer) => [answer.question_key, answer.value]),
-      );
+      const saved = await boundedAnswerRequest(signal => syncConsultationAnswers(consultation.id,next.revision,undefined,signal));
+      const nextValues = saved.answers;
+      saveTarget.current={id:consultation.id,revision:next.revision};
+      autosave.reset(saved,nextValues);
       setSnapshot(next);
       setValues(nextValues);
       valuesRef.current = nextValues;
@@ -633,6 +633,9 @@ function ConsultationEditor() {
     setBusy(true);
     try {
       if (!(await save())) return;
+      if (allSections.some(section=>section.questions.some(q=>matchesCondition(q.visibility_condition,valuesRef.current) && questionErrors(q,valuesRef.current[q.question_key]).length))) {
+        setCloseDialogOpen(false);setError('La información sincronizada tiene campos pendientes. Revisa los campos señalados antes de cerrar.');return;
+      }
       const answered = allSections
         .flatMap((s) => s.questions)
         .filter(
@@ -695,8 +698,10 @@ function ConsultationEditor() {
     return save();
   };
   const goModule = async (next: ConsultationModule) => {
-    if (next === 'clinical' && !await saveForClinical()) return;
-    if (next !== 'clinical' && !await save()) return;
+    if (next === 'clinical' && (measurementsPending || laboratoriesPending || recallPending)) {
+      setError('Guarda las mediciones y los estudios pendientes, y confirma los cambios del recordatorio antes de generar una propuesta clínica.');return;
+    }
+    if(!saveError) void save();
     if (next === 'measurements') setMeasurementsOpened(true);
     if (next === 'laboratories') setLaboratoriesOpened(true);
     if (next === 'recall') setRecallOpened(true);
@@ -726,7 +731,7 @@ function ConsultationEditor() {
     return goModule(consultationSteps[index - 1].key);
   };
   const goClinicalStage = async (next: number) => {
-    if (!await save()) return;
+    if(!saveError) void save();
     setClinicalStage(next);
     requestAnimationFrame(() => document.getElementById('consultation-clinical-heading')?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }));
   };
@@ -1028,12 +1033,14 @@ function ConsultationEditor() {
           </div>
         </div>
       </header>
-      {closeDialogOpen && <ConsultationCloseDialog busy={busy || saving} reviewed={reviewed} pending={[pesPending && "la propuesta PES", hasObjectivePending && "los objetivos sin guardar", strategyPending && "las estrategias sin guardar o propuestas pendientes", recallPending && "Recordatorio de 24 horas", measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error} onReview={setReviewed} onCancel={() => setCloseDialogOpen(false)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
+      {closeDialogOpen && <ConsultationCloseDialog busy={busy || saving} reviewed={reviewed} pending={[pesPending && "la propuesta PES", hasObjectivePending && "los objetivos sin guardar", strategyPending && "las estrategias sin guardar o propuestas pendientes", recallPending && "Recordatorio de 24 horas", measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error || saveError} onReview={setReviewed} onCancel={() => setCloseDialogOpen(false)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
       <div className="sticky top-0 z-20 mt-4 flex justify-end rounded-xl bg-[#f7faf8]/95 p-2 backdrop-blur"><button type="button" className="nuth-button-secondary" disabled={busy || saving} onClick={() => { setReviewed(false); setError(""); setCloseDialogOpen(true); }}><ClipboardCheck size={16} />Revisar cierre de consulta</button></div>
       <nav className="consultation-step-nav" aria-label="Módulos de la consulta">
-        {consultationSteps.map((step, index) => <button key={step.key} type="button" aria-current={module === step.key ? 'page' : undefined} disabled={busy || saving} onClick={() => void goModule(step.key)}><span aria-hidden="true">{index + 1}</span>{step.label}</button>)}
+        {consultationSteps.map((step, index) => <button key={step.key} type="button" aria-current={module === step.key ? 'page' : undefined} disabled={busy} onClick={() => void goModule(step.key)}><span aria-hidden="true">{index + 1}</span>{step.label}</button>)}
         <Link to={`/app/diet-workshop?patientId=${patient.id}&consultationId=${consultation.id}`}><Salad size={15} />Taller de dietas</Link>
       </nav>
+      {backupWarning && <p role="alert" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">El respaldo local no está disponible en este navegador. Conserva esta pestaña abierta hasta confirmar el guardado.</p>}
+      {saveError && <section aria-label="Estado del guardado" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-950"><p role="alert">{saveError}</p>{saveConflict && <details className="mt-3"><summary>Comparar los cambios antes de elegir</summary><dl className="mt-3 space-y-3">{autosave.differences().map(item => {const question=snapshot.structure.sections.flatMap(section=>section.questions).find(q=>q.question_key===item.key);return <div key={item.key}><dt className="font-semibold">{question?.label ?? 'Respuesta de la consulta'}</dt><dd>Tu borrador: {question ? formatAnswer(question,item.local) : String(item.local ?? '')}</dd><dd>En el servidor: {question ? formatAnswer(question,item.remote) : String(item.remote ?? '')}</dd></div>;})}</dl></details>}{saveConflict ? <div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={saving || busy} className="nuth-button-secondary" onClick={() => {autosave.resolveConflict(true);void save();}}>Conservar mis cambios y sincronizar</button><button type="button" disabled={saving || busy} className="nuth-button-secondary" onClick={() => {autosave.resolveConflict(false);void save();}}>Usar la versión guardada en el servidor</button><p>La primera opción conserva tus campos modificados y toma del servidor los demás. La segunda reemplaza el borrador local por lo que está guardado.</p></div> : <button type="button" disabled={saving || busy} className="nuth-button-secondary mt-3" onClick={() => void save()}>Reintentar guardado</button>}</section>}
       {notice && <p role="status" className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]">{notice}</p>}
       {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{error}</p>}
       {recallOpened && <section className="consultation-guided-workspace mt-6" hidden={module !== 'recall'} aria-label="Paso de recordatorio de 24 horas">
@@ -1043,7 +1050,7 @@ function ConsultationEditor() {
       </section>}
       {clinicalOpened && <div className="consultation-guided-workspace clinical-decision-workspace mt-6" hidden={module !== 'clinical'}>
         <header className="consultation-guided-intro" id="consultation-clinical-heading"><p className="nuth-eyebrow">05 · Revisa y acuerda</p><h2>De los datos a los siguientes pasos</h2><p>Revisa la consulta, formula el PES y acuerda con tu paciente qué hará después.</p></header>
-        <ConsultationGuide label="Pasos de la revisión clínica" steps={clinicalStages} active={clinicalStage} onChange={next => void goClinicalStage(next)} busy={busy || saving} />
+        <ConsultationGuide label="Pasos de la revisión clínica" steps={clinicalStages} active={clinicalStage} onChange={next => void goClinicalStage(next)} busy={busy} />
         <div hidden={clinicalStage !== 0}><ClinicalReview consultationId={consultation.id} snapshot={snapshot} values={values} active={module === 'clinical' && clinicalStage === 0} before={saveForClinical} /></div>
         <section hidden={clinicalStage !== 1} className="consultation-clinical-card" aria-label="Diagnóstico PES">
           <p className="nuth-eyebrow">02 · Formula el diagnóstico</p><h2>Diagnóstico PES</h2>
@@ -1206,9 +1213,9 @@ function ConsultationEditor() {
       </div>
       <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-[#dfe5e1] bg-white/95 px-3 py-3 backdrop-blur lg:left-[250px]">
         <div className="interview-footer-inner">
-          <button type="button" className="nuth-button-secondary !px-3 !text-xs sm:!text-sm" disabled={busy || saving || (module === 'interview' && active === 0) || (module === 'recall' && recallNavigation?.busy)} onClick={() => void previousStep()}><ChevronLeft size={15} />Anterior</button>
-          <div className="interview-next-step"><strong>{nextStepLabel()}</strong><span role="status">{saving ? 'Guardando…' : module === 'recall' && recallNavigation?.busy ? 'Procesando el recordatorio…' : measurementsPending && module === 'measurements' ? 'Guarda las mediciones para continuar' : laboratoriesPending && module === 'laboratories' ? 'Guarda los estudios para continuar' : module === 'recall' && recallNavigation?.open && recallNavigation.stage === 0 && recallNavigation.nextDisabled ? 'Calcula el consumo con IA o agrega un alimento manualmente para continuar' : recallPending && module === 'recall' ? 'Confirma el recordatorio antes del cierre' : dirty ? 'Cambios sin guardar' : 'Cambios guardados'}</span></div>
-          <button type="button" className="nuth-button !px-3 !text-xs sm:!text-sm" disabled={busy || saving || (module === 'measurements' && measurementsPending) || (module === 'laboratories' && laboratoriesPending) || (module === 'recall' && recallNavigation?.open && recallNavigation.nextDisabled)} onClick={() => void nextStep()}>{module === 'evolution' ? 'Revisar cierre de consulta' : module === 'recall' && recallNavigation?.open && recallNavigation.stage === 2 ? recallNavigation.saving ? 'Guardando…' : 'Confirmar recordatorio' : 'Siguiente'}<ChevronRight size={15} /></button>
+          <button type="button" className="nuth-button-secondary !px-3 !text-xs sm:!text-sm" disabled={busy || (module === 'interview' && active === 0) || (module === 'recall' && recallNavigation?.busy)} onClick={() => void previousStep()}><ChevronLeft size={15} />Anterior</button>
+          <div className="interview-next-step"><strong>{nextStepLabel()}</strong><span role="status">{saveError ? 'Pendiente de sincronizar' : saving ? 'Guardando… puedes continuar' : module === 'recall' && recallNavigation?.busy ? 'Procesando el recordatorio…' : measurementsPending && module === 'measurements' ? 'Guarda las mediciones para continuar' : laboratoriesPending && module === 'laboratories' ? 'Guarda los estudios para continuar' : module === 'recall' && recallNavigation?.open && recallNavigation.stage === 0 && recallNavigation.nextDisabled ? 'Calcula el consumo con IA o agrega un alimento manualmente para continuar' : recallPending && module === 'recall' ? 'Confirma el recordatorio antes del cierre' : dirty ? 'Cambios sin guardar' : 'Cambios guardados'}</span></div>
+          <button type="button" className="nuth-button !px-3 !text-xs sm:!text-sm" disabled={busy || (module === 'measurements' && measurementsPending) || (module === 'laboratories' && laboratoriesPending) || (module === 'recall' && recallNavigation?.open && recallNavigation.nextDisabled)} onClick={() => void nextStep()}>{module === 'evolution' ? 'Revisar cierre de consulta' : module === 'recall' && recallNavigation?.open && recallNavigation.stage === 2 ? recallNavigation.saving ? 'Guardando…' : 'Confirmar recordatorio' : 'Siguiente'}<ChevronRight size={15} /></button>
         </div>
       </footer>
     </div>
