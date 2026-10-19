@@ -76,6 +76,34 @@ async function mountSaved(approved = false) {
   await screen.findByLabelText("Resultado esperado · objetivo 1");
   return { ...view, plan };
 }
+it("restores approval from JSONB regardless of object property order", async () => {
+  const plan = smartPlan();
+  const reorder = (value: unknown): unknown =>
+    Array.isArray(value)
+      ? value.map(reorder)
+      : value && typeof value === "object"
+      ? Object.fromEntries(
+        Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map((
+          [key, item],
+        ) => [key, reorder(item)]),
+      )
+      : value;
+  api.review.mockResolvedValue(reorder(objectiveWorkspace(plan, true)));
+  render(<Subject initial={composeObjective(plan.goals[0])} />);
+  await screen.findByLabelText("Resultado esperado · objetivo 1");
+  expect(screen.getByText("Aprobados")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Volver a revisar" }))
+    .toBeEnabled();
+  expect(api.review).toHaveBeenCalledExactlyOnceWith("c", 1);
+  fireEvent.change(
+    screen.getByLabelText("Meta o criterio de logro · objetivo 1"),
+    {
+      target: { value: "Meta profesional revisada" },
+    },
+  );
+  expect(screen.queryByText("Aprobados")).not.toBeInTheDocument();
+  expect(screen.getByText("Borrador sin guardar")).toBeVisible();
+});
 it("shows approved PES and assessment evidence without generating or approving automatically", async () => {
   render(<Subject />);
   await screen.findByText("PES aprobado");

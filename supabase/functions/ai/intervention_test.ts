@@ -16,6 +16,8 @@ import {
   hydrateInterventionOutput,
   interventionAdapter,
   interventionEvidenceValid,
+  interventionValidationIssues,
+  normalizeInterventionOutput,
 } from "./intervention.ts";
 import {
   type AIStore,
@@ -175,6 +177,65 @@ Deno.test("unsupported numbers and invented citations stay rejected", () => {
     }, context),
     false,
   );
+});
+Deno.test("unverified operational parameters become professional gaps, never invented instructions", () => {
+  const context = buildInterventionContext(source());
+  const raw = {
+    strategies: [{
+      ...proposal(),
+      dose: "999 mg",
+      frequency: "Cada día",
+      startDate: "2026-11-02",
+    }],
+  };
+  const output = normalizeInterventionOutput(raw, context);
+  assert.equal(
+    raw.strategies[0].dose,
+    "999 mg",
+    "do not mutate the provider payload",
+  );
+  for (const key of ["dose", "frequency", "startDate"] as const) {
+    assert.equal(output.strategies[0][key], "");
+  }
+  assert.equal(output.strategies[0].missingContext.length, 4);
+  assert.equal(interventionEvidenceValid(output, context), true);
+  const doc =
+    hydrateInterventionOutput(output, context, generationId).strategies[0];
+  assert.equal(doc.strategy.agreement, "pending");
+  assert.ok(!JSON.stringify(doc).includes("999 mg"));
+  const unsafe = normalizeInterventionOutput({
+    strategies: [{ ...proposal(), action: "Tomar 999 mg", dose: "999 mg" }],
+  }, context);
+  assert.equal(
+    interventionEvidenceValid(unsafe, context),
+    false,
+    "unsupported numbers in an action are still rejected",
+  );
+  assert.deepEqual(interventionValidationIssues(unsafe, context), [
+    "strategy_0:unsupported_number",
+  ]);
+});
+Deno.test("documented operational snippets stay intact and missing-context notes remain bounded", () => {
+  const g = {
+    ...longGoal(),
+    timeframe: "En 2 semanas",
+    target: "Preparar comida 4 días por semana",
+  };
+  const context = buildInterventionContext(source([g]));
+  const item = {
+    ...proposal(["f6", "f7"]),
+    frequency: "4 días por semana",
+    duration: "2 semanas",
+    dose: "Inventada",
+    missingContext: Array.from({ length: 15 }, (_, i) => `Dato pendiente ${i}`),
+  };
+  const output = normalizeInterventionOutput({ strategies: [item] }, context);
+  assert.equal(output.strategies[0].frequency, item.frequency);
+  assert.equal(output.strategies[0].duration, item.duration);
+  assert.equal(output.strategies[0].dose, "");
+  assert.equal(output.strategies[0].missingContext.length, 15);
+  assert.ok(output.strategies[0].missingContext[0].startsWith("Definir dosis"));
+  assert.equal(interventionEvidenceValid(output, context), true);
 });
 Deno.test("provider success cannot return evidence that the editor rejects", () => {
   for (

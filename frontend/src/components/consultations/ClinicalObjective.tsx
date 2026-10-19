@@ -10,6 +10,7 @@ import {
   isObjectivePlan,
   type ObjectiveGoal,
   objectiveIssues,
+  objectivePlansEqual,
   type ObjectivePlan,
 } from "../../../../supabase/functions/_shared/objectives";
 
@@ -128,12 +129,7 @@ export function ClinicalObjective(props: Props) {
   const approved = !dirty && !!workspace?.objective?.smart_plan &&
     workspace.objective.question_key === questionKey &&
     JSON.stringify(workspace.objective.value) === JSON.stringify(value) &&
-    JSON.stringify(workspace.objective.smart_plan) ===
-      JSON.stringify({
-        version: plan.version,
-        pesApprovedAt: plan.pesApprovedAt,
-        goals: plan.goals,
-      });
+    objectivePlansEqual(workspace.objective.smart_plan, plan);
   const issues = plan.goals.flatMap((goal, index) =>
     objectiveIssues(goal).map((issue) => `Objetivo ${index + 1}: ${issue}`)
   );

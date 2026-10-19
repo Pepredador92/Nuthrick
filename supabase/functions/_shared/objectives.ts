@@ -91,3 +91,15 @@ export function isObjectivePlan(value: unknown): value is ObjectivePlan {
       ) && ["pending", "patient", "caregiver"].includes(goal.agreement)
     );
 }
+/** JSONB may reorder object keys. Goal array order and all field values matter. */
+export function objectivePlansEqual(
+  a: ObjectivePlan,
+  b: ObjectivePlan,
+): boolean {
+  return a.version === b.version && a.pesApprovedAt === b.pesApprovedAt &&
+    a.goals.length === b.goals.length && a.goals.every((goal, index) => {
+      const other = b.goals[index];
+      return goal.agreement === other.agreement &&
+        objectiveFields.every((key) => goal[key] === other[key]);
+    });
+}

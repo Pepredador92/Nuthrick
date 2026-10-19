@@ -44,7 +44,7 @@ Deno.test("HTTP strategy proposals retain long SMART evidence and reject unusabl
     pesStatement: "Enunciado sintético",
   };
   let server: Deno.HttpServer | undefined, port = 0, count = 1;
-  let oversized = false;
+  let oversized = false, unverifiedParameters = false;
   const settlements: string[] = [];
   const json = (value: unknown) =>
     new Response(JSON.stringify(value), {
@@ -130,6 +130,9 @@ Deno.test("HTTP strategy proposals retain long SMART evidence and reject unusabl
         title: oversized ? "漢".repeat(1500) : "Educación nutricional",
         action: oversized ? "漢".repeat(1500) : "Practicar registro",
         etiologyLink: "Aborda conocimientos",
+        ...(unverifiedParameters
+          ? { dose: "999 mg", frequency: "Diariamente" }
+          : {}),
         category: "education",
         route: "not_applicable",
         priority: 1,
@@ -227,6 +230,28 @@ Deno.test("HTTP strategy proposals retain long SMART evidence and reject unusabl
         assert.equal(response.body.error, "invalid_output");
         assert.equal(settlements.at(-1), "invalid_output");
         assert.equal(response.body.output, undefined);
+      },
+    );
+    await t.step(
+      "unsupported operational parameters return empty fields for professional review",
+      async () => {
+        oversized = false;
+        unverifiedParameters = true;
+        count = 1;
+        const response = await request();
+        assert.equal(response.status, 200, JSON.stringify(response.body));
+        const doc = response.body.output.strategies[0];
+        assert.equal(isStrategyDocument(doc), true);
+        assert.equal(doc.strategy.dose, "");
+        assert.equal(doc.strategy.frequency, "");
+        assert.equal(doc.strategy.agreement, "pending");
+        assert.ok(
+          doc.strategy.missingContext.some((note: string) =>
+            note.startsWith("Definir dosis")
+          ),
+        );
+        assert.ok(!JSON.stringify(doc).includes("999 mg"));
+        assert.equal(settlements.at(-1), "succeeded");
       },
     );
   } finally {
