@@ -3,6 +3,8 @@ import { createMemoryRouter, createRoutesFromElements, Link, Outlet, Route, Rout
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConsultationPage } from "./ConsultationPage";
 import { withWorkflowSections } from '@/src/features/consultations/consultationWorkflow';
+import { approvedPes, objectiveWorkspace, smartPlan } from '@/src/test/clinicalFixtures';
+import { composeObjective, type ObjectivePlan } from '../../../supabase/functions/_shared/objectives';
 
 const mocks = vi.hoisted(() => ({
   save: vi.fn(),
@@ -18,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   objective: vi.fn(),
   clinical: vi.fn(),
   generate: vi.fn(),
+  interventions: vi.fn(),
 }));
 vi.mock("@/src/services/clinicalCopilot", async (original) => ({
   ...(await original<object>()),
@@ -28,6 +31,7 @@ vi.mock("@/src/services/ai", async (original) => ({
   ...(await original<object>()),
   runAIRequest: mocks.generate,
 }));
+vi.mock("@/src/services/clinicalInterventions", () => ({ clinicalInterventions: mocks.interventions }));
 const fixtures = vi.hoisted(() => {
   const c = {
     id: "draft",
@@ -228,6 +232,7 @@ beforeEach(() => {
   }));
   mocks.ensure.mockResolvedValue(fixtures.snapshot);
   mocks.objective.mockResolvedValue({ stamp: 's', facts: [], pes: null, objective: null, target: null });
+  mocks.interventions.mockResolvedValue({ stamp: 's', facts: [], pes: null, objective: null, items: [] });
   mocks.clinical.mockResolvedValue({ stamp: 's', readiness: { interview: false, objective: false, anthropometry: false, laboratories: false }, records: {} });
   vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
 });
@@ -250,8 +255,13 @@ describe("consultation save and review workflow", () => {
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Redactar PES manualmente' })).toBeVisible());
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
-    await waitFor(() => expect(screen.getByLabelText('Objetivo acordado con el paciente')).toBeVisible());
+    await screen.findByRole('heading', { name: 'Define objetivos SMART' });
+    expect(screen.getByRole('button', { name: 'Agregar objetivo' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Proponer objetivos con IA' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Redactar PES manualmente' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    await screen.findByRole('heading', { name: 'Del objetivo a la acción' });
+    expect(screen.getByRole('button', { name: 'Proponer estrategias con IA' })).toBeDisabled();
   });
 
   it('requires saving measurement edits before entering the clinical proposal step', async () => {
@@ -284,48 +294,46 @@ describe("consultation save and review workflow", () => {
     expect(within(dialog).getByRole('button', { name: 'Confirmar cierre' })).toBeDisabled();
   });
 
-  it("generates an initial treatment objective on request and saves only the reviewed editable text", async () => {
-    const question = fixtures.snapshot.structure.sections[0].questions[0];
-    const previous = { ...question };
-    Object.assign(question, {
-      question_key: "treatment_objective",
-      label: "Objetivo acordado con el paciente",
-      question_type: "long_text",
+  it("generates SMART goals, saves the reviewed plan and enables strategies only after explicit approval", async () => {
+    let savedPlan: ObjectivePlan | undefined;
+    let approved = false;
+    mocks.objective.mockImplementation(async (_c, _r, action = 'read', _stamp, _key, plan) => {
+      if (action === 'save' || action === 'approve') savedPlan = structuredClone(plan);
+      if (action === 'approve') approved = true;
+      return objectiveWorkspace(savedPlan, approved);
     });
-    mocks.objective.mockResolvedValue({ stamp: "current", facts: [], pes: null, objective: null, target: null });
-    const suggestion = "Organizar las comidas durante la jornada laboral.";
-    mocks.generate.mockResolvedValue({ generationId: "g", status: "succeeded", output: {
-      objectives: [{ text: suggestion, evidence: [{ source: "Entrevista · expectations", finding: "Organizar comidas" }] }],
-    } });
-    try {
-      mount();
-      await openModule("Revisión clínica, PES y objetivos");
-      fireEvent.click(screen.getByRole('button', { name: /Objetivos Acuerda/ }));
-      const field = await screen.findByLabelText(question.label);
-      fireEvent.click(screen.getByRole("button", { name: "Actualizar contexto" }));
-      await waitFor(() => expect(mocks.objective.mock.calls.length).toBeGreaterThanOrEqual(2));
-      expect(mocks.generate).not.toHaveBeenCalled();
-      fireEvent.change(field, { target: { value: "Acuerdo escrito por el profesional." } });
-      fireEvent.click(screen.getByRole("button", { name: "Proponer objetivos con IA" }));
-      await screen.findByText(suggestion);
-      expect(mocks.generate).toHaveBeenCalledOnce();
-      expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
-        feature: "consultation_support", patientId: "patient", consultationId: "draft", revision: 1,
-      }));
-      expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(mocks.generate.mock.invocationCallOrder[0]);
-      expect(field).toHaveValue("Acuerdo escrito por el profesional.");
-      fireEvent.click(screen.getByRole("button", { name: "Agregar a la entrevista" }));
-      expect(field).toHaveValue(`Acuerdo escrito por el profesional.\n\n${suggestion}`);
-      expect(screen.getByRole("button", { name: "Aprobar objetivo" })).toBeDisabled();
-      expect(mocks.objective.mock.calls.every(args => args.length === 2)).toBe(true);
-      fireEvent.change(field, { target: { value: "Objetivo revisado y editado." } });
-      fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
-      await waitFor(() => expect(mocks.save).toHaveBeenLastCalledWith(
-        expect.objectContaining({ id: "draft" }),
-        expect.objectContaining({ revision: 1 }),
-        { treatment_objective: "Objetivo revisado y editado." },
-      ));
-    } finally { Object.assign(question, previous); }
+    mocks.interventions.mockImplementation(async () => ({ stamp: 'current', facts: [], pes: approvedPes, objective: objectiveWorkspace(savedPlan, approved).objective, items: [] }));
+    const goal = { ...smartPlan().goals[0], agreement: 'pending' };
+    mocks.generate.mockResolvedValue({ generationId: 'g', status: 'succeeded', output: { objectives: [{ goal, evidence: [{ source: 'PES actual aprobado · Etiología', finding: approvedPes.etiology }] }] } });
+    mount();
+    fireEvent.change(await screen.findByLabelText('Detalle breve de prueba'), { target: { value: 'Historia revisada' } });
+    await openModule('Revisión clínica, PES y objetivos');
+    fireEvent.click(screen.getByRole('button', { name: /Objetivos Acuerda/ }));
+    await screen.findByRole('heading', { name: 'Define objetivos SMART' });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Proponer objetivos con IA' })).toBeEnabled());
+    expect(mocks.generate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Proponer objetivos con IA' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Revisar objetivo SMART' }));
+    expect(mocks.generate).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ feature: 'consultation_support', patientId: 'patient', consultationId: 'draft', revision: 1 }));
+    expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(mocks.generate.mock.invocationCallOrder[0]);
+    expect(screen.getByLabelText('Acuerdo · objetivo 1')).toHaveValue('pending');
+    expect(screen.getByRole('button', { name: 'Aprobar objetivos' })).toBeDisabled();
+    expect(mocks.objective.mock.calls.every(args => args.length === 2)).toBe(true);
+    fireEvent.change(screen.getByLabelText('Resultado esperado · objetivo 1'), { target: { value: 'Resultado revisado por el profesional' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+    await screen.findByText('Borrador guardado. Puedes continuar y revisarlo después.');
+    expect(savedPlan?.goals[0]).toMatchObject({ outcome: 'Resultado revisado por el profesional', agreement: 'pending', sign: approvedPes.signsSymptoms });
+    expect(mocks.save).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'draft' }), expect.objectContaining({ revision: 1 }), expect.objectContaining({ treatment_objective: composeObjective(savedPlan!.goals[0]) }));
+    fireEvent.click(screen.getByRole('button', { name: /Estrategia Define las acciones y responsables/ }));
+    expect(await screen.findByRole('button', { name: 'Proponer estrategias con IA' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /Objetivos Acuerda/ }));
+    fireEvent.change(await screen.findByLabelText('Acuerdo · objetivo 1'), { target: { value: 'patient' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Aprobar objetivos' }));
+    await screen.findByText('Objetivos aprobados para seguimiento.');
+    expect(mocks.objective).toHaveBeenLastCalledWith('draft', 1, 'approve', 'current', 'treatment_objective', savedPlan);
+    fireEvent.click(screen.getByRole('button', { name: /Estrategia Define las acciones y responsables/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Proponer estrategias con IA' })).toBeEnabled());
+    expect(mocks.generate).toHaveBeenCalledOnce();
   });
   it("respects the saved custom label even for a canonical question key", async () => {
     const question=fixtures.snapshot.structure.sections[0].questions[0];
@@ -639,15 +647,28 @@ describe("consultation save and review workflow", () => {
       fireEvent.change(screen.getByRole("combobox", { name: /Confirmación de prueba/ }), { target: { value: "Revisado" } });
       await openModule("Revisión clínica, PES y objetivos");
       fireEvent.click(screen.getByRole('button', { name: /Objetivos Acuerda/ }));
-      await screen.findByRole("heading", { name: section.title });
-      expect(screen.getByText(section.questions[0].help_text)).toBeInTheDocument();
-      if (objective) fireEvent.change(screen.getByLabelText(section.questions[0].label), { target: { value: objective } });
+      await screen.findByRole("heading", { name: "Define objetivos SMART" });
+      if (objective) {
+        fireEvent.click(screen.getByRole('button', { name: 'Agregar objetivo' }));
+        fireEvent.change(screen.getByLabelText('Resultado esperado · objetivo 1'), { target: { value: objective } });
+        fireEvent.click(screen.getByRole('button', { name: 'Revisar cierre de consulta' }));
+        const pending = await screen.findByRole('dialog');
+        fireEvent.click(within(pending).getByRole('checkbox'));
+        expect(within(pending).getByRole('status')).toHaveTextContent('los objetivos sin guardar');
+        expect(within(pending).getByRole('button', { name: 'Confirmar cierre' })).toBeDisabled();
+        expect(mocks.finish).not.toHaveBeenCalled();
+        fireEvent.click(within(pending).getAllByRole('button', { name: 'Volver a la consulta' }).at(-1)!);
+        fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+        await screen.findByText('Borrador guardado. Puedes continuar y revisarlo después.');
+        expect(mocks.objective).toHaveBeenCalledWith('draft', 1, 'save', 's', 'treatment_objective', expect.objectContaining({ goals: [expect.objectContaining({ outcome: objective, agreement: 'pending' })] }));
+      }
       fireEvent.click(screen.getByRole('button', { name: 'Revisar cierre de consulta' }));
       const dialog = await screen.findByRole('dialog');
       fireEvent.click(within(dialog).getByRole('checkbox'));
       fireEvent.click(within(dialog).getByRole('button', { name: 'Confirmar cierre' }));
       await waitFor(() => expect(mocks.finish).toHaveBeenCalledOnce());
       if (objective) expect(mocks.save).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ treatment_objective: objective }));
+      expect(mocks.objective.mock.calls.some(args => args[2] === 'approve')).toBe(false);
     } finally {
       fixtures.snapshot.structure.sections.pop();
     }

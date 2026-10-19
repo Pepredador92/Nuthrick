@@ -109,7 +109,9 @@ it("summarizes dated history without dropping current findings, contraindication
   expect(context.facts.find(f => f.source === current[2].source)?.finding).toBe('[{"food":"nuez","reaction":"alergia"}]');
   const history = context.facts.find(f => f.source === "Historial · Peso")!.finding;
   expect(history).toContain("2026-06-01");expect(history).toContain("2026-08-01");expect(history).toContain("91 kg");expect(history).not.toContain("2026-07-01");
-  expect(context.facts.some(f => f.source === "Historial · Pliegue tricipital")).toBe(false);
+  expect(context.facts.find(f => f.source === "Historial · Pliegue tricipital")).toEqual({
+    source: "Historial · Pliegue tricipital", finding: "30 mm · consulta 2026-07-01",
+  });
   expect(context.facts.filter(f => f.source.includes("body_fat_percentage"))).toHaveLength(2);
   expect(buildConsultationSupportContext({ facts, stamp: "s" },true).facts.find(f => f.source === current[0].source)?.finding).toContain("No suspender el medicamento.");
   const evidence = [context.facts[0]];

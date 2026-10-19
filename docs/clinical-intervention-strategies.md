@@ -65,3 +65,13 @@ deno run --allow-read=supabase/migrations --allow-run=psql --config supabase/fun
 ```
 
 Desde `frontend`: `npm test -- src/components/consultations/ClinicalInterventions.test.tsx`. Cubren evidencia larga, tres objetivos, caracteres especiales, privacidad, citas inválidas, exceso de tamaño y edición/guardado del borrador. La prueba HTTP usa el handler real con dependencias sintéticas; la prueba SQL usa el validador real de la migración en PostgreSQL local por socket `/tmp` y revierte sus cambios. No ejecutan llamadas reales al proveedor ni usan expedientes reales.
+
+### Regresión del flujo SMART y navegación
+
+Las pruebas de `ClinicalObjective` usan ahora el plan estructurado vigente: guardado del borrador, aprobación con contexto actualizado, acuerdo de paciente/cuidador, revocación, cambios del PES, signos desactualizados, recuperación de la sesión y prioridad de hasta tres objetivos. Las pruebas de `ConsultationPage` verifican el paso desde objetivos aprobados a estrategias y el bloqueo de cierre cuando existen cambios SMART sin guardar. Los fixtures son sintéticos y las llamadas externas se sustituyen en estas pruebas de interfaz.
+
+La selección ampliada pasa 186 pruebas en 27 archivos. Incluye anuncios, recordatorios de entrada, revisión clínica, objetivos, estrategias, consulta, contexto y resumen clínico del taller. También comprueba que el contexto PES conserve los pliegues históricos con su fecha, conforme a la ampliación de medidas de valoración. Desde `frontend`:
+
+```sh
+npm test -- src/components/consultations src/screens/ConsultationPage.test.tsx src/features/announcements src/components/notifications/EntryDigest.test.tsx src/layouts/PrivateLayout.test.tsx src/features/consultations src/features/diet-workshop/clinicalSummary.test.ts
+```

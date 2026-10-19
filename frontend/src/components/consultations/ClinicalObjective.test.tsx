@@ -1,103 +1,329 @@
+import { useState } from "react";
 import {
-  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { ClinicalObjective } from "./ClinicalObjective";
-const api = vi.hoisted(() => ({ review: vi.fn(), before: vi.fn() }));
-vi.mock("@/src/services/clinicalCopilot", () => ({
-  clinicalObjective: api.review,
+import { composeObjective } from "../../../../supabase/functions/_shared/objectives";
+import {
+  approvedPes,
+  objectiveWorkspace,
+  smartPlan,
+} from "@/src/test/clinicalFixtures";
+const api = vi.hoisted(() => ({
+  review: vi.fn(),
+  before: vi.fn(),
+  generate: vi.fn(),
+  changed: vi.fn(),
+  pending: vi.fn(),
 }));
-const w = {
-  stamp: "current",
-  facts: [{ source: "Motivo", finding: "Mejorar hábitos" }],
-  pes: {
-    pesStatement: "Enunciado revisado por el profesional",
-    approved_at: "today",
-  },
-  objective: null,
-  target: { energy_kcal: 2100 },
-};
+vi.mock(
+  "@/src/services/clinicalCopilot",
+  () => ({ clinicalObjective: api.review }),
+);
+vi.mock(
+  "@/src/services/ai",
+  async (original) => ({
+    ...(await original<object>()),
+    runAIRequest: api.generate,
+  }),
+);
+vi.mock(
+  "@/src/features/admin/AccessProvider",
+  () => ({
+    useAccess: () => ({
+      data: {
+        access: { allowed: true, values: { "ai.consultation_support": true } },
+      },
+    }),
+  }),
+);
 const props = {
   consultationId: "c",
+  patientId: "p",
   revision: 1,
   questionKey: "treatment_objective",
-  value: "Acordar horarios",
   before: api.before,
 };
+function Subject({ initial = "" }: { initial?: string }) {
+  const [value, setValue] = useState(initial);
+  return (
+    <ClinicalObjective
+      {...props}
+      value={value}
+      onPendingChange={api.pending}
+      onChangeText={(text, texts) => {
+        api.changed(text, texts);
+        setValue(text);
+      }}
+    />
+  );
+}
 beforeEach(() => {
   vi.clearAllMocks();
-  api.review.mockResolvedValue(w);
+  sessionStorage.clear();
+  api.review.mockResolvedValue(objectiveWorkspace());
   api.before.mockResolvedValue(true);
 });
-afterEach(cleanup);
-it("shows approved PES and context without another AI request or automatic approval", async () => {
-  render(<ClinicalObjective {...props} />);
+async function mountSaved(approved = false) {
+  const plan = smartPlan();
+  api.review.mockResolvedValue(objectiveWorkspace(plan, approved));
+  const view = render(<Subject initial={composeObjective(plan.goals[0])} />);
+  await screen.findByLabelText("Resultado esperado · objetivo 1");
+  return { ...view, plan };
+}
+it("shows approved PES and assessment evidence without generating or approving automatically", async () => {
+  render(<Subject />);
   await screen.findByText("PES aprobado");
-  expect(api.review).toHaveBeenCalledTimes(1);
-  expect(api.review).toHaveBeenCalledWith("c", 1);
-  expect(screen.getByText("Pendiente de revisión")).toBeTruthy();
-  expect(screen.getByText(/2100 kcal/)).toBeTruthy();
+  expect(api.review).toHaveBeenCalledExactlyOnceWith("c", 1);
+  expect(screen.getByText("Pendientes de revisión")).toBeVisible();
+  expect(screen.getByText(approvedPes.etiology)).toBeVisible();
+  fireEvent.click(
+    screen.getByText("Consultar datos de valoración registrados"),
+  );
+  expect(screen.getByText("Horario laboral variable")).toBeVisible();
+  expect(screen.queryByText(/2100 kcal/)).not.toBeInTheDocument();
+  expect(api.generate).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
+    .toBeDisabled();
 });
-it("approval saves interview first and sends only reference/stamp, never calories", async () => {
-  render(<ClinicalObjective {...props} />);
-  await screen.findByText("PES aprobado");
-  fireEvent.click(screen.getByText("Aprobar objetivo"));
-  await waitFor(() =>
-    expect(api.review).toHaveBeenCalledWith(
-      "c",
-      1,
-      "approve",
-      "current",
-      "treatment_objective",
-    ),
+it("saves the interview, refreshes the stamp and approves the full plan without calorie prescriptions", async () => {
+  const { plan } = await mountSaved();
+  api.review.mockResolvedValueOnce({
+    ...objectiveWorkspace(plan),
+    stamp: "fresh",
+  }).mockResolvedValueOnce(objectiveWorkspace(plan, true));
+  fireEvent.click(screen.getByRole("button", { name: "Aprobar objetivos" }));
+  await screen.findByText("Objetivos aprobados para seguimiento.");
+  expect(api.review).toHaveBeenLastCalledWith(
+    "c",
+    1,
+    "approve",
+    "fresh",
+    "treatment_objective",
+    plan,
   );
   expect(api.before).toHaveBeenCalledOnce();
   expect(api.before.mock.invocationCallOrder[0]).toBeLessThan(
     api.review.mock.invocationCallOrder[1],
   );
+  expect(api.review.mock.invocationCallOrder[1]).toBeLessThan(
+    api.review.mock.invocationCallOrder[2],
+  );
+  expect(screen.getByText("Aprobados")).toBeVisible();
+  expect(api.pending).toHaveBeenLastCalledWith(false);
 });
-it("incomplete case keeps manual writing possible but cannot approve without PES", async () => {
-  api.review.mockResolvedValue({ ...w, pes: null });
-  render(<ClinicalObjective {...props} />);
-  await screen.findByText(/Puedes redactar/);
-  expect(screen.getByText("Aprobar objetivo")).toBeDisabled();
-});
-it("edited objective is not labelled approved", async () => {
-  api.review.mockResolvedValue({
-    ...w,
-    objective: { question_key: props.questionKey, value: "Texto anterior" },
+it("allows a manual draft without PES while blocking approval and AI", async () => {
+  api.review.mockResolvedValue({ ...objectiveWorkspace(), pes: null });
+  render(<Subject />);
+  await screen.findByText(/Puedes redactar y guardar un borrador/);
+  expect(screen.getByRole("button", { name: "Proponer objetivos con IA" }))
+    .toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Agregar objetivo" }));
+  fireEvent.change(screen.getByLabelText("Resultado esperado · objetivo 1"), {
+    target: { value: "Conversar sobre horarios" },
   });
-  render(<ClinicalObjective {...props} />);
-  await screen.findByText("PES aprobado");
-  expect(screen.getByText("Pendiente de revisión")).toBeTruthy();
-  expect(screen.getByText("Aprobar objetivo")).not.toBeDisabled();
+  expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
+    .toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Guardar borrador" }));
+  await screen.findByText(
+    "Borrador guardado. Puedes continuar y revisarlo después.",
+  );
+  expect(api.review).toHaveBeenLastCalledWith(
+    "c",
+    1,
+    "save",
+    "current",
+    "treatment_objective",
+    expect.objectContaining({
+      goals: [
+        expect.objectContaining({
+          outcome: "Conversar sobre horarios",
+          agreement: "pending",
+        }),
+      ],
+    }),
+  );
+  expect(api.generate).not.toHaveBeenCalled();
 });
-it("failed save cannot approve", async () => {
+it("marks an edited approved objective as an unsaved draft", async () => {
+  await mountSaved(true);
+  expect(screen.getByText("Aprobados")).toBeVisible();
+  fireEvent.change(screen.getByLabelText("Resultado esperado · objetivo 1"), {
+    target: { value: "Resultado revisado" },
+  });
+  expect(screen.queryByText("Aprobados")).not.toBeInTheDocument();
+  expect(screen.getByText("Borrador sin guardar")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
+    .toBeEnabled();
+  expect(api.pending).toHaveBeenLastCalledWith(true);
+  expect(api.review).toHaveBeenCalledOnce();
+});
+it("does not approve when saving the interview fails", async () => {
+  await mountSaved();
   api.before.mockResolvedValue(false);
-  render(<ClinicalObjective {...props} />);
-  await screen.findByText("PES aprobado");
-  fireEvent.click(screen.getByText("Aprobar objetivo"));
-  await screen.findByText(/Guarda la entrevista/);
-  expect(api.review).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "Aprobar objetivos" }));
+  await screen.findByText(/Guarda la entrevista antes de continuar/);
+  expect(api.review).toHaveBeenCalledOnce();
+  expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
+    .toBeEnabled();
 });
-it("revoke leaves the text to be edited and never updates PES", async () => {
-  api.review.mockResolvedValue({
-    ...w,
-    objective: { question_key: props.questionKey, value: props.value },
+it("revokes approval while preserving the editable plan and PES", async () => {
+  const { plan } = await mountSaved(true);
+  api.review.mockResolvedValueOnce(objectiveWorkspace(plan, true))
+    .mockResolvedValueOnce(objectiveWorkspace(plan));
+  fireEvent.click(screen.getByRole("button", { name: "Volver a revisar" }));
+  await screen.findByText("Objetivos pendientes de revisión.");
+  expect(api.review).toHaveBeenLastCalledWith(
+    "c",
+    1,
+    "revoke",
+    "current",
+    "treatment_objective",
+    undefined,
+  );
+  expect(screen.getByLabelText("Resultado esperado · objetivo 1")).toHaveValue(
+    plan.goals[0].outcome,
+  );
+  expect(screen.getByText(approvedPes.etiology, { selector: "dd" }))
+    .toBeVisible();
+  expect(screen.queryByText("Aprobados")).not.toBeInTheDocument();
+});
+it("requires patient agreement while permitting an incomplete draft to be saved", async () => {
+  await mountSaved();
+  fireEvent.change(screen.getByLabelText("Acuerdo · objetivo 1"), {
+    target: { value: "pending" },
   });
-  render(<ClinicalObjective {...props} />);
-  fireEvent.click(await screen.findByText("Volver a revisar"));
-  await waitFor(() =>
-    expect(api.review).toHaveBeenCalledWith(
-      "c",
-      1,
-      "revoke",
-      "current",
-      props.questionKey,
+  expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
+    .toBeDisabled();
+  expect(screen.getByRole("button", { name: "Guardar borrador" }))
+    .toBeEnabled();
+  fireEvent.change(screen.getByLabelText("Acuerdo · objetivo 1"), {
+    target: { value: "caregiver" },
+  });
+  expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
+    .toBeEnabled();
+});
+it("rejects approval if PES changes during the save", async () => {
+  const { plan } = await mountSaved();
+  api.review.mockResolvedValueOnce({
+    ...objectiveWorkspace(plan),
+    pes: { ...approvedPes, approved_at: "2026-10-18T13:00:00Z" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Aprobar objetivos" }));
+  await screen.findByText(/El PES cambió. Vincula los objetivos al PES actual/);
+  expect(api.review.mock.calls.every((call) => call.length === 2)).toBe(true);
+  expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
+    .toBeDisabled();
+  expect(screen.getByRole("button", { name: "Vincular al PES actual" }))
+    .toBeEnabled();
+});
+it("blocks approval when the selected sign is no longer in the approved PES", async () => {
+  const plan = smartPlan();
+  plan.goals[0].sign = "Signo anterior";
+  api.review.mockResolvedValue(objectiveWorkspace(plan));
+  render(<Subject />);
+  await screen.findByLabelText("Resultado esperado · objetivo 1");
+  expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
+    .toBeDisabled();
+  fireEvent.change(
+    screen.getByLabelText("Signo o síntoma del PES · objetivo 1"),
+    { target: { value: approvedPes.signsSymptoms } },
+  );
+  expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
+    .toBeEnabled();
+});
+it("recovers an unsaved plan and restores its canonical interview text", async () => {
+  const plan = smartPlan();
+  sessionStorage.setItem(
+    "objective-draft:c:1:treatment_objective",
+    JSON.stringify(plan),
+  );
+  render(<Subject />);
+  await screen.findByLabelText("Resultado esperado · objetivo 1");
+  expect(screen.getByText("Borrador sin guardar")).toBeVisible();
+  expect(api.changed).toHaveBeenCalledWith(composeObjective(plan.goals[0]), [
+    composeObjective(plan.goals[0]),
+  ]);
+  fireEvent.click(screen.getByRole("button", { name: "Guardar borrador" }));
+  await screen.findByText(/Borrador guardado/);
+  expect(sessionStorage.getItem("objective-draft:c:1:treatment_objective"))
+    .toBeNull();
+});
+it("limits the plan to three goals and preserves explicit priority changes", async () => {
+  await mountSaved();
+  fireEvent.click(screen.getByRole("button", { name: "Agregar objetivo" }));
+  fireEvent.change(screen.getByLabelText("Resultado esperado · objetivo 2"), {
+    target: { value: "Segunda prioridad" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Agregar objetivo" }));
+  expect(screen.getByRole("button", { name: "Agregar objetivo" }))
+    .toBeDisabled();
+  expect(screen.getByRole("button", { name: "Proponer objetivos con IA" }))
+    .toBeDisabled();
+  fireEvent.click(
+    within(screen.getByRole("region", { name: "Objetivo 2" })).getByRole(
+      "button",
+      { name: "Subir prioridad" },
     ),
   );
+  expect(screen.getByLabelText("Resultado esperado · objetivo 1")).toHaveValue(
+    "Segunda prioridad",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Quitar objetivo 3" }));
+  expect(screen.getByRole("button", { name: "Agregar objetivo" }))
+    .toBeEnabled();
+});
+it("adds a structured AI proposal for review and requires the professional to record agreement", async () => {
+  const goal = smartPlan().goals[0];
+  api.generate.mockResolvedValue({
+    status: "succeeded",
+    output: {
+      objectives: [{
+        goal,
+        evidence: [{
+          source: "PES actual aprobado · Etiología",
+          finding: approvedPes.etiology,
+        }],
+      }],
+    },
+  });
+  render(<Subject />);
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Proponer objetivos con IA" }))
+      .toBeEnabled()
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Proponer objetivos con IA" }),
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Revisar objetivo SMART" }),
+  );
+  expect(screen.getByLabelText("Resultado esperado · objetivo 1")).toHaveValue(
+    goal.outcome,
+  );
+  expect(screen.getByLabelText("Acuerdo · objetivo 1")).toHaveValue("pending");
+  expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
+    .toBeDisabled();
+  expect(api.review).toHaveBeenCalledOnce();
+  expect(api.generate).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({
+      feature: "consultation_support",
+      patientId: "p",
+      consultationId: "c",
+      revision: 1,
+    }),
+  );
+  expect(api.before.mock.invocationCallOrder[0]).toBeLessThan(
+    api.generate.mock.invocationCallOrder[0],
+  );
+  fireEvent.change(screen.getByLabelText("Acuerdo · objetivo 1"), {
+    target: { value: "patient" },
+  });
+  expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
+    .toBeEnabled();
 });
