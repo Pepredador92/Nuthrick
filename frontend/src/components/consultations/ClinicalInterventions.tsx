@@ -276,13 +276,16 @@ export function ClinicalInterventions(props: Props) {
         return;
       }
       const documents = (result.output as { strategies?: unknown }).strategies;
-      const drafts = Array.isArray(documents)
-        ? documents.filter(isStrategyDocument)
-        : [];
+      if (!Array.isArray(documents) || documents.length > 3 ||
+        !documents.every(isStrategyDocument)) {
+        throw new Error(
+          "La propuesta de IA llegó incompleta o con datos incompatibles. No se pudo abrir para revisión. Puedes continuar manualmente o contactar a soporte.",
+        );
+      }
       sessionStorage.removeItem(pendingKey);
-      setProposals(drafts);
+      setProposals(documents);
       setState("ready");
-      if (!drafts.length) {
+      if (!documents.length) {
         setMessage(
           "No hubo información suficiente para proponer una estrategia específica. Puedes redactarla manualmente.",
         );

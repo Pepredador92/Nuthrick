@@ -85,6 +85,30 @@ export const emptyStrategy = (): Strategy => ({
   referenceIds: [],
   missingContext: [],
 });
+// Matches validate_intervention_document and the draft column in PostgreSQL.
+export const STRATEGY_DOCUMENT_MAX_BYTES = 90000;
+function withinDocumentByteLimit(value: unknown): boolean {
+  try {
+    const serialized = JSON.stringify(value);
+    if (typeof serialized !== "string") return false;
+    // jsonb::text adds one space after structural commas and colons. Count
+    // those separators outside strings so a compact JSON payload cannot pass
+    // here and then exceed the database limit when PostgreSQL normalizes it.
+    let separators = 0, quoted = false, escaped = false;
+    for (const char of serialized) {
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === '"') quoted = false;
+      } else if (char === '"') quoted = true;
+      else if (char === ":" || char === ",") separators++;
+    }
+    return new TextEncoder().encode(serialized).length + separators <=
+      STRATEGY_DOCUMENT_MAX_BYTES;
+  } catch {
+    return false;
+  }
+}
 export function isStrategyDocument(value: unknown): value is StrategyDocument {
   if (!value || typeof value !== "object") return false;
   const d = value as StrategyDocument, s = d.strategy;
@@ -110,7 +134,7 @@ export function isStrategyDocument(value: unknown): value is StrategyDocument {
     ) && Array.isArray(s.missingContext) && s.missingContext.length <= 15 &&
     s.missingContext.every((note) =>
       typeof note === "string" && note.length <= 400
-    );
+    ) && withinDocumentByteLimit(d);
 }
 export function strategyIssues(s: Strategy): string[] {
   const required: typeof strategyFields[number][] = [

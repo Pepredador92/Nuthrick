@@ -210,7 +210,7 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   if (request.feature === 'pes_diagnosis' && config.prompt_version === 'pes_diagnosis@5') result = { ...result, output: normalizePesOutput(result.output) };
   let valid = false;
   try {
-    valid = result.status === 'completed' && validOutput(adapter.schema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (request.feature !== 'intervention_strategy' || interventionEvidenceValid(result.output,adapter.context as InterventionContext)) && (request.feature !== 'pes_diagnosis' || config.prompt_version !== 'pes_diagnosis@5' || pesClinicalStructureValid(result.output)) && (!store.validateOutput || store.validateOutput(result.output));
+    valid = result.status === 'completed' && validOutput(adapter.schema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (request.feature !== 'intervention_strategy' || interventionEvidenceValid(result.output,adapter.context as InterventionContext,generation.id)) && (request.feature !== 'pes_diagnosis' || config.prompt_version !== 'pes_diagnosis@5' || pesClinicalStructureValid(result.output)) && (!store.validateOutput || store.validateOutput(result.output));
     await store.recordResult?.(generation.id,result,valid);
   } catch {
     // Confirmed provider usage remains billable even if domain validation or

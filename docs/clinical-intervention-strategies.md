@@ -49,3 +49,19 @@ Se realizan comprobaciones de tipos TypeScript/Deno, ESLint, compilación de fro
 Vista previa: `tests/visual/clinical-copilot.html?strategy=1`. Incluye un botón para cargar un ejemplo sintético; las propuestas y el guardado usan únicamente almacenamiento local.
 
 La migración `20261019035119_enforce_intervention_retention_patient.sql` incorpora la autorización por paciente. Se verifica con `node scripts/test-intervention-retention.mjs`: 67 comprobaciones con PostgreSQL local por socket `/tmp`, fixtures sintéticos y rollback. Cubre las ocho mutaciones, consultas abiertas/finalizadas, lectura, los cinco pacientes habilitados, vigencia, modo de facturación y titularidad. `--without-fix` reproduce el fallo anterior. El helper de autorización y el RPC proceden de las migraciones reales; los permisos comerciales ajenos a la selección de pacientes se representan por sus firmas y un control de cuenta en lectura.
+
+### Corrección de evidencia de objetivos largos
+
+Cada componente del objetivo SMART aprobado se ofrece como un hecho independiente con su etiqueta e índice. Se conserva completo el texto redactado de cada campo y el objetivo estructurado del contexto. Esto evita que citar un objetivo entero como JSON exceda los 4.000 caracteres permitidos por evidencia. Los máximos actuales de los campos SMART caben en ese contrato sin truncarlos.
+
+Antes de marcar una generación como exitosa, el servidor hidrata cada estrategia y aplica `isStrategyDocument`, el mismo validador del editor. Comprueba también el límite de 90.000 bytes del documento normalizado por PostgreSQL, incluidos los espacios de separadores JSONB. El identificador real de generación se incluye en esa comprobación. La interfaz valida toda la colección y presenta un error explícito cuando contiene documentos incompatibles; una colección válida vacía conserva el mensaje de información insuficiente. El consumo confirmado del proveedor se contabiliza según las reglas existentes, también si devuelve una salida inválida.
+
+La corrección requiere desplegar `ai` y publicar el frontend; utiliza la migración de estrategias vigente y mantiene `intervention_strategy@1`, permisos, modelo y cuotas existentes. Pruebas de regresión:
+
+```sh
+deno test --config supabase/functions/ai/deno.json supabase/functions/ai/intervention_test.ts
+deno test --allow-env --allow-net=127.0.0.1 --config supabase/functions/ai/deno.json supabase/functions/ai/intervention_http_test.ts
+deno run --allow-read=supabase/migrations --allow-run=psql --config supabase/functions/ai/deno.json scripts/test-intervention-evidence.ts
+```
+
+Desde `frontend`: `npm test -- src/components/consultations/ClinicalInterventions.test.tsx`. Cubren evidencia larga, tres objetivos, caracteres especiales, privacidad, citas inválidas, exceso de tamaño y edición/guardado del borrador. La prueba HTTP usa el handler real con dependencias sintéticas; la prueba SQL usa el validador real de la migración en PostgreSQL local por socket `/tmp` y revierte sus cambios. No ejecutan llamadas reales al proveedor ni usan expedientes reales.
