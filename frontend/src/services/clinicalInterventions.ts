@@ -1,4 +1,5 @@
 import { supabase } from "@/src/lib/supabase";
+import { accessMessages } from "@/src/features/admin/api";
 import type { ObjectiveGoal } from "../../../supabase/functions/_shared/objectives";
 import type { StrategyDocument } from "../../../supabase/functions/_shared/interventions";
 import type { ObjectiveWorkspace } from "./clinicalCopilot";
@@ -86,6 +87,7 @@ export async function clinicalInterventions(
     };
     throw new Error(
       messages[result.error.message] ??
+        accessMessages[result.error.message] ??
         "No pudimos cargar o guardar las estrategias. Conserva tus cambios e intenta de nuevo.",
     );
   }
