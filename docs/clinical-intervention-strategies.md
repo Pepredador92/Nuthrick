@@ -42,7 +42,7 @@ Estas páginas fundamentan la estructura del proceso, no dosis ni indicaciones t
 
 ## Publicación y comprobaciones
 
-La migración `20261018225431_clinical_intervention_strategies.sql` requiere las migraciones previas del PES y objetivos SMART. Desplegar primero el Edge con `intervention_strategy@1` y `patient_instructions@2`; aplicar las migraciones pendientes y publicar frontend de forma coordinada. Recargar las pestañas abiertas. No se modificaron datos reales, funciones remotas ni planes publicados durante la implementación.
+La migración `20261019031459_clinical_intervention_strategies.sql` requiere las migraciones previas del PES y objetivos SMART. Desplegar primero el Edge con `intervention_strategy@1` y `patient_instructions@2`; aplicar las migraciones pendientes y publicar frontend de forma coordinada. Recargar las pestañas abiertas. No se modificaron datos reales, funciones remotas ni planes publicados durante la implementación.
 
 Se realizan comprobaciones de tipos TypeScript/Deno, ESLint, compilación de frontend, compilación de la migración y asesores de Supabase sobre un esquema local desechable. Los servicios de facturación y dietas ajenos al esquema clínico se representan por sus firmas en la compilación local; esto no valida su comportamiento integrado. No se añaden ni ejecutan pruebas funcionales ni llamadas reales de IA en esta entrega.
 
@@ -75,3 +75,36 @@ La selección ampliada pasa 186 pruebas en 27 archivos. Incluye anuncios, record
 ```sh
 npm test -- src/components/consultations src/screens/ConsultationPage.test.tsx src/features/announcements src/components/notifications/EntryDigest.test.tsx src/layouts/PrivateLayout.test.tsx src/features/consultations src/features/diet-workshop/clinicalSummary.test.ts
 ```
+
+### Auditoría integrada del 19 de octubre de 2026
+
+Se corrigió el indicador de aprobación SMART: PostgreSQL JSONB reordena las propiedades de objetos y una comparación con `JSON.stringify` marcaba como pendientes objetivos ya aprobados. Ahora se comparan versión, vínculo PES, orden de metas, campos y acuerdo por su valor. Una regresión reproduce el fallo con las claves devueltas en otro orden y comprueba que editar una meta vuelve a dejar el borrador pendiente. La selección anterior pasa ahora 187 pruebas.
+
+La IA conserva vacíos los parámetros operativos sin una indicación textual en sus hechos citados y añade las correspondientes tareas de definición profesional. Esto se aplica a dosis, composición, acceso, frecuencia, duración e inicio; no se calculan ni sustituyen por valores inferidos. La propuesta conserva acuerdo pendiente. Las cifras no sustentadas en las acciones, citas inexistentes, vías no sustentadas y documentos incompatibles siguen rechazándose. El límite de tamaño se comprueba antes de esta normalización. Los rechazos registran únicamente códigos técnicos y el identificador de generación, sin texto clínico. No hay reintentos automáticos por salida inválida; el consumo confirmado se contabiliza según las reglas existentes.
+
+La batería del servicio pasa 72 pruebas con 26 pasos HTTP. Se añadió un entorno integrado reproducible con Auth, PostgREST y Storage reales y el handler de producción, sin sustituir RPC ni contratos de la aplicación:
+
+```sh
+node scripts/setup-three-features-local.mjs
+node scripts/test-three-features-local.mjs
+# Opcional: dos llamadas reales, exclusivamente con el caso sintético local.
+node scripts/test-three-features-local.mjs --real-ai
+```
+
+Requiere Node >=22.13, Deno, Docker, npm y ffmpeg. El último comando lee únicamente `OPENAI_API_KEY` de `supabase/functions/.env`, limita el coste máximo configurado a USD 0.05 y conserva marcadores antes del envío para evitar repetir intentos cuyo resultado no esté confirmado. Los informes se guardan con permisos 0600; no contienen claves ni contraseñas. Los reintentos con respuestas ya guardadas reutilizan esa salida.
+
+El proyecto fijo `NuthrickFeatureAudit` usa puertos 553xx y el directorio `tmp/feature-audit-local`. El preparador no sobrescribe una instalación detenida ni altera otros proyectos locales. Aplica primero las migraciones anteriores al piloto de IA, crea una identidad y facturación ficticias exclusivamente locales para satisfacer esa precondición histórica, y termina las migraciones. Desactiva cron solo en este proyecto. No enlaza Supabase remoto ni llama a Stripe. El runner rechaza cualquier URL distinta de `http://127.0.0.1:55321`.
+
+La instalación limpia detectó un permiso explícito que faltaba para `consultation_device_sessions`: el contexto clínico usa `SECURITY INVOKER` y necesita lectura de esa tabla desde el servidor. La migración `20261019043838_grant_clinical_device_context_read.sql` concede ese SELECT a `service_role`. Producción ya tenía dicho permiso; la migración asegura que las instalaciones con concesiones automáticas desactivadas también sean reproducibles. No modifica concesiones a clientes ni revoca permisos previos del servidor.
+
+El montaje limpio completo y ocho verificaciones integradas sin proveedor pasaron. La ejecución opcional pasó diez verificaciones, incluidas propuesta SMART, cambios profesionales, borrador y aprobación; estrategia con evidencia completa, aprobación, inicio e historial; liquidación de ambas generaciones sin créditos reservados. Coste del último par de llamadas: USD 0.0025934. La publicación, pausado, las tres frecuencias, dos sesiones de Auth y descarga privada de PNG/MP4 también se comprobaron en el entorno aislado.
+
+Para retirar exclusivamente este entorno desechable después de conservar los informes necesarios:
+
+```sh
+npx --yes supabase@2.121.0 stop --project-id NuthrickFeatureAudit --no-backup --workdir tmp/feature-audit-local
+```
+
+Antes de crear otra instalación desde cero, conserva o mueve el directorio anterior fuera de `tmp/feature-audit-local`. El preparador se detiene si encuentra su configuración sin un stack activo para evitar sobrescribir informes o estado guardado.
+
+Las comprobaciones visuales y su alcance en producción se documentan en [Verificación de los tres módulos](three-feature-verification.md).
