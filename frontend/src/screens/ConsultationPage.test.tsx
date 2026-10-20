@@ -247,6 +247,47 @@ beforeEach(() => {
 });
 
 describe("consultation save and review workflow", () => {
+  it('clears saved PES answers and keeps them empty after reopening and reloading', async () => {
+    const cleared = { pes_problem: '', pes_etiology: '', pes_evidence: '', pes_statement: '' };
+    mocks.answerState.answers = { note: 'Conservar entrevista', pes_problem: 'Problema anterior', pes_etiology: 'Causa anterior', pes_evidence: 'Evidencia anterior', pes_statement: 'Problema anterior relacionado con Causa anterior, evidenciado por Evidencia anterior.' };
+    const first = mount();
+    await screen.findByRole('heading', { name: 'Apertura de prueba' });
+    await openModule('Revisión clínica, PES y objetivos');
+    fireEvent.click(screen.getByRole('button', { name: /PES Formula el diagnóstico/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Revisar PES escrito' }));
+    expect(screen.getByLabelText('Problema')).toHaveValue('Problema anterior');
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar y limpiar' }));
+    await screen.findByText('PES descartado y campos limpios.');
+    expect(mocks.answerState.answers).toMatchObject({ ...cleared, note: 'Conservar entrevista' });
+    expect(screen.queryByText(/Problema anterior relacionado con/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Redactar PES manualmente' }));
+    for (const label of ['Problema', 'Etiología', 'Signos y síntomas']) expect(screen.getByLabelText(label)).toHaveValue('');
+    first.unmount();
+    mount();
+    await openModule('Revisión clínica, PES y objetivos');
+    fireEvent.click(screen.getByRole('button', { name: /PES Formula el diagnóstico/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Redactar PES manualmente' }));
+    for (const label of ['Problema', 'Etiología', 'Signos y síntomas']) expect(screen.getByLabelText(label)).toHaveValue('');
+    expect(mocks.answerState.answers).toMatchObject({ ...cleared, note: 'Conservar entrevista' });
+  });
+  it('preserves saved PES text when clearing fails and allows retrying', async () => {
+    const answers = { note: 'Conservar entrevista', pes_problem: 'Problema anterior', pes_etiology: 'Causa anterior', pes_evidence: 'Evidencia anterior', pes_statement: 'Problema anterior relacionado con Causa anterior, evidenciado por Evidencia anterior.' };
+    mocks.answerState.answers = { ...answers };
+    mount();
+    await screen.findByRole('heading', { name: 'Apertura de prueba' });
+    await openModule('Revisión clínica, PES y objetivos');
+    fireEvent.click(screen.getByRole('button', { name: /PES Formula el diagnóstico/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Revisar PES escrito' }));
+    mocks.save.mockRejectedValue(new Error('Sin conexión'));
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar y limpiar' }));
+    await screen.findByText(/No pudimos limpiar el PES guardado/);
+    expect(screen.getByLabelText('Problema')).toHaveValue(answers.pes_problem);
+    expect(mocks.answerState.answers).toEqual(answers);
+    mocks.save.mockResolvedValue(undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar y limpiar' }));
+    await screen.findByText('PES descartado y campos limpios.');
+    expect(mocks.answerState.answers).toMatchObject({ note: answers.note, pes_problem: '', pes_etiology: '', pes_evidence: '', pes_statement: '' });
+  });
   it('keeps a recovered legacy draft pending review across reloads',async()=>{
     sessionStorage.setItem('nuthrick:consultation-workspace:draft',JSON.stringify({active:0,module:'interview',values:{note:'Texto recuperado'},scrollY:0,updatedAt:'2026-10-19T12:00:00Z'}));
     const first=mount();await screen.findByText(/Recuperamos un borrador de la versión anterior/);

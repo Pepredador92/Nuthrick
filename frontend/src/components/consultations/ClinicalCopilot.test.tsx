@@ -1,4 +1,5 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -169,13 +170,72 @@ describe("PES copilot", () => {
       "generation",
     );
   });
-  it("discard never writes clinical data", async () => {
-    render(<PesCopilot {...props} />);
+  it("discards the proposal, clears its fields and releases pending changes without approving", async () => {
+    const onPendingChange = vi.fn();
+    render(<PesCopilot {...props} onPendingChange={onPendingChange} />);
     await screen.findByText("Antropometría disponible");
     fireEvent.click(screen.getByText("Generar borrador"));
     await screen.findByText("Borrador P relacionado con Borrador E, evidenciado por Peso registrado.");
-    fireEvent.click(screen.getByText("Descartar"));
+    fireEvent.click(screen.getByText("Descartar y limpiar"));
+    await screen.findByText("PES descartado y campos limpios.");
+    expect(screen.queryByText(draft.pesStatement)).not.toBeInTheDocument();
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
+    fireEvent.click(screen.getByText("Redactar PES manualmente"));
+    expect(screen.getByLabelText("Problema")).toHaveValue("");
+    expect(screen.getByLabelText("Etiología")).toHaveValue("");
+    expect(screen.getByLabelText("Signos y síntomas")).toHaveValue("");
     expect(api.workspace.mock.calls.every((c) => !c[2])).toBe(true);
+    expect(props.onPes).not.toHaveBeenCalled();
+  });
+  it("clears both proposals after saving and prevents repeated discard while saving", async () => {
+    let finish!: (saved: boolean) => void;
+    const onDiscardPes = vi.fn(() => new Promise<boolean>(resolve => { finish = resolve; }));
+    render(<PesCopilot {...props} onDiscardPes={onDiscardPes} />);
+    await screen.findByText("Antropometría disponible");
+    fireEvent.click(screen.getByText("Generar borrador"));
+    await screen.findByText(draft.pesStatement);
+    api.generate.mockResolvedValue({ generationId: "alternative", status: "succeeded", output: { ...draft, problem: "Alternativa" } });
+    fireEvent.click(screen.getByText("Otra propuesta"));
+    await screen.findByText(/Alternativa relacionado con/);
+    fireEvent.click(screen.getByText("Descartar y limpiar"));
+    fireEvent.click(screen.getByText("Limpiando…"));
+    expect(onDiscardPes).toHaveBeenCalledOnce();
+    expect(screen.getByText("Limpiando…")).toBeDisabled();
+    expect(screen.getByText("Otra propuesta")).toBeDisabled();
+    expect(screen.getByLabelText("Problema")).toHaveAttribute("readonly");
+    await act(async () => finish(true));
+    expect(screen.queryByText(draft.pesStatement)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Alternativa relacionado con/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Nueva propuesta · aún no reemplaza/)).not.toBeInTheDocument();
+    expect(screen.getByText("Generar borrador")).toBeEnabled();
+  });
+  it("preserves the visible draft when clearing its saved text fails", async () => {
+    const onDiscardPes = vi.fn().mockResolvedValue(false);
+    render(<PesCopilot {...props} onDiscardPes={onDiscardPes} />);
+    await screen.findByText("Antropometría disponible");
+    fireEvent.click(screen.getByText("Generar borrador"));
+    await screen.findByText(draft.pesStatement);
+    fireEvent.click(screen.getByText("Descartar y limpiar"));
+    await screen.findByText(/No pudimos limpiar el PES guardado/);
+    expect(screen.getByLabelText("Problema")).toHaveValue(draft.problem);
+    expect(screen.getByText(draft.pesStatement)).toBeInTheDocument();
+    expect(screen.getByText("Descartar y limpiar")).toBeEnabled();
+  });
+  it("keeps an uncertain provider request recoverable after clearing the visible proposal", async () => {
+    render(<PesCopilot {...props} />);
+    await screen.findByText("Antropometría disponible");
+    fireEvent.click(screen.getByText("Generar borrador"));
+    await screen.findByText(draft.pesStatement);
+    api.generate.mockRejectedValue(new AIRequestError("provider_outcome_unknown"));
+    fireEvent.click(screen.getByText("Otra propuesta"));
+    await screen.findByText("Comprobar solicitud");
+    const pending = sessionStorage.getItem("clinical-pending:test-consult:pes_diagnosis");
+    fireEvent.click(screen.getByText("Descartar y limpiar"));
+    await screen.findByText("PES descartado y campos limpios.");
+    expect(screen.queryByText(draft.pesStatement)).not.toBeInTheDocument();
+    expect(screen.getByText("Comprobar solicitud")).toBeInTheDocument();
+    expect(sessionStorage.getItem("clinical-pending:test-consult:pes_diagnosis")).toBe(pending);
+    expect(api.generate).toHaveBeenCalledTimes(2);
   });
   it("another proposal preserves the editable draft until an explicit choice", async () => {
     render(<PesCopilot {...props} />);

@@ -541,6 +541,27 @@ function ConsultationEditor() {
     setValues(next);
     setReviewed(false);
   };
+  const discardPes = async () => {
+    const fields = ['pes_problem', 'pes_etiology', 'pes_evidence', 'pes_statement'];
+    if (!fields.some(key => typeof valuesRef.current[key] === 'string' && valuesRef.current[key] !== '')) return true;
+    const previous = Object.fromEntries(fields.map(key => [key, valuesRef.current[key] ?? '']));
+    const update = (parts: Answers) => {
+      const next = { ...valuesRef.current, ...parts };
+      valuesRef.current = next;
+      autosave.update(next);
+      setValues(next);
+      setReviewed(false);
+    };
+    update(Object.fromEntries(fields.map(key => [key, ''])));
+    let saved = false;
+    try {
+      saved = await save();
+      if (saved) setClinicalRefresh(value => value + 1);
+      return saved;
+    } finally {
+      if (!saved) update(previous);
+    }
+  };
   const replaceObjectiveText = (question: Question, text: string, texts: string[]) => {
     if (question.question_type === 'repeatable_group') {
       const fields = repeatableFields(question.configuration);
@@ -1068,7 +1089,7 @@ function ConsultationEditor() {
         <div hidden={clinicalStage !== 0}><ClinicalReview consultationId={consultation.id} snapshot={snapshot} values={values} active={module === 'clinical' && clinicalStage === 0} before={saveForClinical} onStatusChange={status => updateClinicalProgress('review', status)} onOpenModule={next => void goModule(next)} /></div>
         <section hidden={clinicalStage !== 1} className="clinical-stage" aria-label="Diagnóstico PES">
           <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">02 · Formula el diagnóstico</p><h2>Diagnóstico PES</h2><p>Completa el problema, su causa y la evidencia. Después, revisa y aprueba el enunciado.</p></div></header>
-          <PesCopilot key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} active={module === 'clinical' && clinicalStage === 1} before={saveForClinical} answers={values} onPendingChange={setPesPending} onStatusChange={status => updateClinicalProgress('pes', status)} onPes={draft => {
+          <PesCopilot key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} active={module === 'clinical' && clinicalStage === 1} before={saveForClinical} answers={values} onPendingChange={setPesPending} onStatusChange={status => updateClinicalProgress('pes', status)} onDiscardPes={discardPes} onPes={draft => {
             setAnswer('pes_problem', draft.problem); setAnswer('pes_etiology', draft.etiology); setAnswer('pes_evidence', draft.signsSymptoms.join('\n')); setAnswer('pes_statement', draft.pesStatement); setClinicalRefresh(value => value + 1);
           }} />
           {renderClinicalFields('diagnosis')}

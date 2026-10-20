@@ -66,6 +66,7 @@ type Props = {
   revision: number;
   before: () => Promise<boolean>;
   onPes?: (draft: PesDraft) => void;
+  onDiscardPes?: () => Promise<boolean>;
   answers?: Record<string, unknown>;
   active?: boolean;
   onPendingChange?: (pending: boolean) => void;
@@ -228,6 +229,17 @@ function useClinical(props: Props, feature: "pes_diagnosis" | "recall_24h") {
   }
   return {
     removeRecall,
+    resetPes() {
+      setGeneration(undefined);
+      setMessage("PES descartado y campos limpios.");
+      setState(sessionStorage.getItem(storageKey) ? "uncertain" : "idle");
+      setWorkspace((current) => {
+        if (!current) return current;
+        const records = { ...current.records };
+        delete records.pes;
+        return { ...current, records };
+      });
+    },
     workspace,
     state,
     message,
@@ -267,6 +279,9 @@ export function PesCopilot(props: Props) {
   const [replacement, setReplacement] = useState<PesDraft | null>(null);
   const [previousGeneration, setPreviousGeneration] = useState<string>();
   const [editing, setEditing] = useState(true);
+  const [discarding, setDiscarding] = useState(false);
+  const discardLock = useRef(false);
+  const busy = clinical.saving || discarding;
   const { onPendingChange, onStatusChange } = props;
   const savedDraft = pesFromAnswers(props.answers ?? {});
   const hasSavedParts =
@@ -275,7 +290,7 @@ export function PesCopilot(props: Props) {
       savedDraft.pesStatement.trim());
   const status: ClinicalTaskStatus = draft
     ? "progress"
-    : clinical.workspace?.records.pes
+    : hasSavedParts && clinical.workspace?.records.pes
     ? "approved"
     : hasSavedParts
     ? "progress"
@@ -286,12 +301,34 @@ export function PesCopilot(props: Props) {
   useEffect(() => {
     onPendingChange?.(
       Boolean(
-        draft || replacement || clinical.saving ||
+        draft || replacement || busy ||
           clinical.state === "generating",
       ),
     );
-  }, [draft, replacement, clinical.saving, clinical.state, onPendingChange]);
+  }, [draft, replacement, busy, clinical.state, onPendingChange]);
   useEffect(() => () => onPendingChange?.(false), [onPendingChange]);
+  async function discard() {
+    if (discardLock.current) return;
+    discardLock.current = true;
+    setDiscarding(true);
+    clinical.setMessage("");
+    try {
+      if (props.onDiscardPes && !(await props.onDiscardPes())) {
+        clinical.setMessage("No pudimos limpiar el PES guardado. Tu borrador sigue aquí; vuelve a intentarlo.");
+        return;
+      }
+      setDraft(null);
+      setReplacement(null);
+      setPreviousGeneration(undefined);
+      setEditing(true);
+      clinical.resetPes();
+    } catch {
+      clinical.setMessage("No pudimos limpiar el PES guardado. Tu borrador sigue aquí; vuelve a intentarlo.");
+    } finally {
+      setDiscarding(false);
+      discardLock.current = false;
+    }
+  }
   async function generate() {
     setPreviousGeneration(clinical.generation);
     const output = await clinical.generate();
@@ -343,9 +380,9 @@ export function PesCopilot(props: Props) {
               <button
                 type="button"
                 className="nuth-button !text-sm"
-                disabled={clinical.saving || clinical.state === "generating"}
+                disabled={busy || clinical.state === "generating"}
                 onClick={() => {
-                  setDraft(pesFromAnswers(props.answers ?? {}));
+                  setDraft(savedDraft);
                   setReplacement(null);
                   clinical.setGeneration(undefined);
                   setEditing(true);
@@ -366,7 +403,7 @@ export function PesCopilot(props: Props) {
               <AIButton
                 capability="ai.pes"
                 state={clinical.state}
-                disabled={clinical.saving || !clinical.workspace}
+                disabled={busy || !clinical.workspace}
                 onClick={() => void generate()}
               >
                 Generar borrador
@@ -407,7 +444,7 @@ export function PesCopilot(props: Props) {
           )}
           <PesDiagnosisCards
             draft={draft}
-            editable={editing}
+            editable={editing && !discarding}
             onChange={(parts) => setDraft(updatePesParts(draft, parts))}
           />
           <div className="clinical-pes-statement">
@@ -435,6 +472,7 @@ export function PesCopilot(props: Props) {
               <button
                 type="button"
                 className={secondary + " mt-3"}
+                disabled={busy}
                 onClick={() =>
                   setDraft({
                     ...draft,
@@ -486,7 +524,7 @@ export function PesCopilot(props: Props) {
                 </span>
                 <textarea
                   className="nuth-input"
-                  readOnly={!editing}
+                  readOnly={!editing || discarding}
                   value={draft[key].join("\n")}
                   onChange={(event) =>
                     setDraft({
@@ -523,7 +561,7 @@ export function PesCopilot(props: Props) {
               <button
                 type="button"
                 className={secondary}
-                disabled={clinical.saving}
+                disabled={busy}
                 onClick={() =>
                   setEditing(!editing)}
               >
@@ -532,7 +570,7 @@ export function PesCopilot(props: Props) {
               <button
                 type="button"
                 className="nuth-button !text-sm"
-                disabled={clinical.saving || !!replacement ||
+                disabled={busy || !!replacement ||
                   clinical.state === "generating" || !canApprovePes(draft)}
                 onClick={() => {
                   const approved = {
@@ -557,19 +595,15 @@ export function PesCopilot(props: Props) {
               <button
                 type="button"
                 className={secondary}
-                disabled={clinical.state === "generating" || clinical.saving}
-                onClick={() => {
-                  setDraft(null);
-                  setReplacement(null);
-                  clinical.setGeneration(undefined);
-                }}
+                disabled={clinical.state === "generating" || busy}
+                onClick={() => void discard()}
               >
-                Descartar
+                {discarding ? "Limpiando…" : "Descartar y limpiar"}
               </button>
               <AIButton
                 capability="ai.pes"
                 state={clinical.state}
-                disabled={clinical.saving || !!replacement}
+                disabled={busy || !!replacement}
                 onClick={() => void generate()}
               >
                 Otra propuesta
@@ -586,6 +620,7 @@ export function PesCopilot(props: Props) {
                 <button
                   type="button"
                   className={secondary}
+                  disabled={busy}
                   onClick={() => {
                     setDraft(replacement);
                     setReplacement(null);
@@ -596,6 +631,7 @@ export function PesCopilot(props: Props) {
                 <button
                   type="button"
                   className={secondary}
+                  disabled={busy}
                   onClick={() => {
                     setReplacement(null);
                     clinical.setGeneration(previousGeneration);
