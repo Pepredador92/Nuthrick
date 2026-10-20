@@ -27,6 +27,7 @@ import { ClinicalSuggestionsAI } from "@/src/components/consultations/Consultati
 import { consultationSteps, objectiveKeys, questionModule, workflowSections, type ConsultationModule } from "@/src/features/consultations/consultationWorkflow";
 import { ClinicalInterventions } from "@/src/components/consultations/ClinicalInterventions";
 import { ClinicalObjective } from "@/src/components/consultations/ClinicalObjective";
+import type { ClinicalTaskStatus } from "@/src/components/consultations/ClinicalTaskCard";
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
 import { ConsultationCloseDialog } from "@/src/components/consultations/ConsultationCloseDialog";
 import { ConsultationExitDialog } from "@/src/components/consultations/ConsultationExitDialog";
@@ -176,6 +177,10 @@ function ConsultationEditor() {
   const [clinicalOpened, setClinicalOpened] = useState(false);
   const [clinicalStage, setClinicalStage] = useState(0);
   const [clinicalRefresh, setClinicalRefresh] = useState(0);
+  const [clinicalProgress, setClinicalProgress] = useState<Record<string, ClinicalTaskStatus>>({});
+  const updateClinicalProgress = useCallback((key: string, status: ClinicalTaskStatus) => {
+    setClinicalProgress(current => current[key] === status ? current : { ...current, [key]: status });
+  }, []);
   const [recallPending, setRecallPending] = useState(false);
   const [pesPending, setPesPending] = useState(false);
   const [strategyPending, setStrategyPending] = useState(false);
@@ -747,6 +752,15 @@ function ConsultationEditor() {
     });
     return questions.length ? [<div className="consultation-clinical-fields" key={section.section_key}>{!['Diagnóstico PES', 'Objetivos acordados', 'Recomendaciones y seguimiento'].includes(section.title) && <h3>{section.title}</h3>}{renderQuestions(questions)}</div>] : [];
   });
+  const clinicalObjectiveQuestions = clinicalSections.flatMap(section => section.questions).filter(question => objectiveKeys.includes(question.question_key) && matchesCondition(question.visibility_condition, values));
+  const objectiveStatuses = clinicalObjectiveQuestions.map(question => clinicalProgress[`objective:${question.question_key}`] ?? 'pending');
+  const objectiveStatus: ClinicalTaskStatus = objectiveStatuses.length && objectiveStatuses.every(status => status === 'approved') ? 'approved'
+    : objectiveStatuses.length && objectiveStatuses.every(status => status === 'complete' || status === 'approved') ? 'complete'
+    : objectiveStatuses.some(status => status !== 'pending') ? 'progress' : 'pending';
+  const clinicalStepsWithProgress = clinicalStages.map((step, index) => {
+    const status = index === 0 ? clinicalProgress.review : index === 1 ? clinicalProgress.pes : index === 2 ? objectiveStatus : undefined;
+    return { ...step, status, statusLabel: status === 'approved' ? 'Aprobado' : status === 'complete' ? index === 0 ? 'Revisado' : 'Listo para revisar' : status === 'progress' ? 'En curso' : undefined };
+  });
 
   const exitDialog = blocker.state === "blocked" && <ConsultationExitDialog busy={busy || loading} canDiscard={!consultation || canDiscardDraft(consultation)} pending={pendingModules.map(item => item.label)} error={exitError} onSave={() => void exitConsultation(false)} onDiscard={() => void exitConsultation(true)} onContinue={continueConsultation} onReview={() => {
     const pendingModule = pendingModules[0];
@@ -1049,22 +1063,20 @@ function ConsultationEditor() {
         {recallSections.map(section => <details key={section.section_key} className="recall-supported-fields" open={showErrors && section.questions.some(question => matchesCondition(question.visibility_condition, values) && questionErrors(question, values[question.question_key]).length > 0)}><summary>{section.title === "Recordatorio de 24 horas" ? "Registro detallado del día y preguntas de apoyo" : section.title}</summary><p>{section.title === "Recordatorio de 24 horas" ? 'Aquí puedes registrar la fecha, horarios, preparación y posibles olvidos. Este registro complementa los alimentos confirmados arriba.' : section.description}</p>{renderQuestions(section.questions)}</details>)}
       </section>}
       {clinicalOpened && <div className="consultation-guided-workspace clinical-decision-workspace mt-6" hidden={module !== 'clinical'}>
-        <header className="consultation-guided-intro" id="consultation-clinical-heading"><p className="nuth-eyebrow">05 · Revisa y acuerda</p><h2>De los datos a los siguientes pasos</h2><p>Revisa la consulta, formula el PES y acuerda con tu paciente qué hará después.</p></header>
-        <ConsultationGuide label="Pasos de la revisión clínica" steps={clinicalStages} active={clinicalStage} onChange={next => void goClinicalStage(next)} busy={busy} />
-        <div hidden={clinicalStage !== 0}><ClinicalReview consultationId={consultation.id} snapshot={snapshot} values={values} active={module === 'clinical' && clinicalStage === 0} before={saveForClinical} /></div>
-        <section hidden={clinicalStage !== 1} className="consultation-clinical-card" aria-label="Diagnóstico PES">
-          <p className="nuth-eyebrow">02 · Formula el diagnóstico</p><h2>Diagnóstico PES</h2>
-          <p className="consultation-clinical-description">Revisa la evidencia y la vigencia de los antecedentes antes de aprobar el diagnóstico.</p>
-          <PesCopilot key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} active={module === 'clinical' && clinicalStage === 1} before={saveForClinical} answers={values} onPendingChange={setPesPending} onPes={draft => {
+        <header className="consultation-guided-intro" id="consultation-clinical-heading"><p className="nuth-eyebrow">05 · Revisa y acuerda</p><h2>De los datos a los siguientes pasos</h2><p>Avanza por partes: revisa, formula el diagnóstico y acuerda qué sigue.</p></header>
+        <ConsultationGuide label="Pasos de la revisión clínica" steps={clinicalStepsWithProgress} active={clinicalStage} onChange={next => void goClinicalStage(next)} busy={busy} />
+        <div hidden={clinicalStage !== 0}><ClinicalReview consultationId={consultation.id} snapshot={snapshot} values={values} active={module === 'clinical' && clinicalStage === 0} before={saveForClinical} onStatusChange={status => updateClinicalProgress('review', status)} onOpenModule={next => void goModule(next)} /></div>
+        <section hidden={clinicalStage !== 1} className="clinical-stage" aria-label="Diagnóstico PES">
+          <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">02 · Formula el diagnóstico</p><h2>Diagnóstico PES</h2><p>Completa el problema, su causa y la evidencia. Después, revisa y aprueba el enunciado.</p></div></header>
+          <PesCopilot key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} active={module === 'clinical' && clinicalStage === 1} before={saveForClinical} answers={values} onPendingChange={setPesPending} onStatusChange={status => updateClinicalProgress('pes', status)} onPes={draft => {
             setAnswer('pes_problem', draft.problem); setAnswer('pes_etiology', draft.etiology); setAnswer('pes_evidence', draft.signsSymptoms.join('\n')); setAnswer('pes_statement', draft.pesStatement); setClinicalRefresh(value => value + 1);
           }} />
           {renderClinicalFields('diagnosis')}
         </section>
-        <section hidden={clinicalStage !== 2} className="consultation-clinical-card" aria-label="Objetivos acordados">
-          <p className="nuth-eyebrow">03 · Acuerda la intervención</p><h2>Objetivos acordados</h2>
-          <p className="consultation-clinical-description">Define resultados medibles a partir de la etiología y los signos del PES. Acuerda metas alcanzables y un plazo para reevaluarlas.</p>
-          {clinicalSections.flatMap(section => section.questions).filter(question => objectiveKeys.includes(question.question_key) && matchesCondition(question.visibility_condition, values)).map(question => <ClinicalObjective key={`${consultation.id}:${snapshot.revision}:${question.question_key}`} consultationId={consultation.id} revision={snapshot.revision} questionKey={question.question_key} contextVersion={clinicalRefresh} value={values[question.question_key]} before={saveForClinical} active={module === 'clinical' && clinicalStage === 2} patientId={patient.id} maxLength={typeof question.configuration.max_length === 'number' ? question.configuration.max_length : question.question_type === 'repeatable_group' ? 12000 : 2000} onPendingChange={pending => setObjectivePending(current => current[question.question_key] === pending ? current : { ...current, [question.question_key]: pending })} onChangeText={(text, texts) => replaceObjectiveText(question, text, texts)} />)}
-          <p className="consultation-guided-hint">Después de cerrar la consulta, podrás seleccionar este objetivo para compartirlo en el Super Link.</p>
+        <section hidden={clinicalStage !== 2} className="clinical-stage" aria-label="Objetivos acordados">
+          <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">03 · Acuerda el cambio</p><h2>Objetivos acordados</h2><p>Define qué quieren lograr, cómo lo medirán y cuándo revisarán el avance.</p></div></header>
+          {clinicalObjectiveQuestions.map(question => <ClinicalObjective key={`${consultation.id}:${snapshot.revision}:${question.question_key}`} consultationId={consultation.id} revision={snapshot.revision} questionKey={question.question_key} contextVersion={clinicalRefresh} value={values[question.question_key]} before={saveForClinical} active={module === 'clinical' && clinicalStage === 2} patientId={patient.id} maxLength={typeof question.configuration.max_length === 'number' ? question.configuration.max_length : question.question_type === 'repeatable_group' ? 12000 : 2000} onStatusChange={status => updateClinicalProgress(`objective:${question.question_key}`, status)} onPendingChange={pending => setObjectivePending(current => current[question.question_key] === pending ? current : { ...current, [question.question_key]: pending })} onChangeText={(text, texts) => replaceObjectiveText(question, text, texts)} />)}
+          <p className="clinical-stage-next"><ChevronRight size={16} />Después, elige las estrategias para llevar estos objetivos a la práctica.</p>
         </section>
         <section hidden={clinicalStage !== 3} className="consultation-clinical-card" aria-label="Estrategia de intervención">
           <p className="nuth-eyebrow">04 · Define cómo se llevará a cabo</p><h2>Estrategia de intervención</h2>

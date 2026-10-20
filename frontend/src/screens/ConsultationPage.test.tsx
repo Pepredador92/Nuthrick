@@ -276,7 +276,7 @@ describe("consultation save and review workflow", () => {
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Redactar PES manualmente' })).toBeVisible());
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
-    await screen.findByRole('heading', { name: 'Define objetivos SMART' });
+    await screen.findByRole('heading', { name: 'Un cambio concreto, un objetivo a la vez' });
     expect(screen.getByRole('button', { name: 'Agregar objetivo' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Proponer objetivos con IA' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Redactar PES manualmente' })).not.toBeInTheDocument();
@@ -330,7 +330,7 @@ describe("consultation save and review workflow", () => {
     fireEvent.change(await screen.findByLabelText('Detalle breve de prueba'), { target: { value: 'Historia revisada' } });
     await openModule('Revisión clínica, PES y objetivos');
     fireEvent.click(screen.getByRole('button', { name: /Objetivos Acuerda/ }));
-    await screen.findByRole('heading', { name: 'Define objetivos SMART' });
+    await screen.findByRole('heading', { name: 'Un cambio concreto, un objetivo a la vez' });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Proponer objetivos con IA' })).toBeEnabled());
     expect(mocks.generate).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Proponer objetivos con IA' }));
@@ -570,7 +570,7 @@ describe("consultation save and review workflow", () => {
     expect(screen.getByRole('button',{name:'Siguiente'})).toBeEnabled();
     await openModule('Revisión clínica, PES y objetivos');
     fireEvent.click(screen.getByRole('button',{name:'Objetivos Acuerda la intervención'}));
-    await screen.findByRole('heading',{name:'Define objetivos SMART'});
+    await screen.findByRole('heading',{name:'Un cambio concreto, un objetivo a la vez'});
     expect(screen.getByRole('button',{name:'Proponer objetivos con IA'})).toBeDisabled();
     await act(async()=>release());
     await openModule('Entrevista');fireEvent.click(screen.getByRole('button',{name:'Anterior'}));
@@ -710,7 +710,7 @@ describe("consultation save and review workflow", () => {
       fireEvent.change(screen.getByRole("combobox", { name: /Confirmación de prueba/ }), { target: { value: "Revisado" } });
       await openModule("Revisión clínica, PES y objetivos");
       fireEvent.click(screen.getByRole('button', { name: /Objetivos Acuerda/ }));
-      await screen.findByRole("heading", { name: "Define objetivos SMART" });
+      await screen.findByRole("heading", { name: "Un cambio concreto, un objetivo a la vez" });
       if (objective) {
         fireEvent.click(screen.getByRole('button', { name: 'Agregar objetivo' }));
         fireEvent.change(screen.getByLabelText('Resultado esperado · objetivo 1'), { target: { value: objective } });

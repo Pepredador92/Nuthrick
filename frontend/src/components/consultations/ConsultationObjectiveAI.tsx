@@ -173,7 +173,7 @@ export function ClinicalSuggestionsAI({
   }
 
   return (
-    <section className="mt-4 rounded-xl border border-blue-200 bg-blue-50/60 p-3">
+    <section className="clinical-ai-assistance">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h4 className="text-sm font-semibold text-[#173d36]">
@@ -182,7 +182,7 @@ export function ClinicalSuggestionsAI({
           <p className="mt-1 max-w-2xl text-xs leading-5 text-[#52675f]">
             {instructions
               ? "Borradores basados en lo registrado."
-              : "Hasta 3 resultados vinculados al PES aprobado. Completa las metas y plazos pendientes y acuerda con la persona."}
+              : "Parte del PES aprobado. Tú completas las metas, los plazos y el acuerdo."}
             {" "}
             Usa créditos de IA según el consumo real.
           </p>

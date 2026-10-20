@@ -1,4 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { ArrowRight, Check, Plus, Target } from "lucide-react";
+import {
+  ClinicalStatusBadge,
+  type ClinicalTaskStatus,
+} from "./ClinicalTaskCard";
+import {
+  firstIncompleteObjectivePart,
+  objectiveCompletedFields,
+  ObjectiveGoalEditor,
+} from "./ObjectiveGoalEditor";
 import {
   clinicalObjective,
   type ObjectiveWorkspace,
@@ -10,8 +20,8 @@ import {
   isObjectivePlan,
   type ObjectiveGoal,
   objectiveIssues,
-  objectivePlansEqual,
   type ObjectivePlan,
+  objectivePlansEqual,
 } from "../../../../supabase/functions/_shared/objectives";
 
 type Props = {
@@ -27,49 +37,8 @@ type Props = {
   onChangeText?: (text: string, texts: string[]) => void;
   onPendingChange?: (pending: boolean) => void;
   maxLength?: number;
+  onStatusChange?: (status: ClinicalTaskStatus) => void;
 };
-const fields = [
-  [
-    "outcome",
-    "Resultado esperado",
-    "¿Qué cambio esperas observar en la persona?",
-  ],
-  [
-    "etiology",
-    "Causa del PES que se abordará",
-    "Explica cómo este resultado responde a la etiología.",
-  ],
-  [
-    "indicator",
-    "Indicador de seguimiento",
-    "Qué medirás y en qué unidad o escala.",
-  ],
-  [
-    "baseline",
-    "Situación inicial y fecha",
-    "Dato registrado y su fecha. Si falta, indica cómo se obtendrá.",
-  ],
-  [
-    "target",
-    "Meta o criterio de logro",
-    "Valor, rango o conducta observable que se acordará.",
-  ],
-  [
-    "timeframe",
-    "Plazo de reevaluación",
-    "Fecha, duración o próxima consulta de seguimiento.",
-  ],
-  [
-    "monitoring",
-    "Cómo se evaluará",
-    "Método de registro o medición y frecuencia.",
-  ],
-  [
-    "feasibility",
-    "Viabilidad, barreras y preferencias",
-    "Qué lo hace alcanzable y qué apoyos o adaptaciones se necesitan.",
-  ],
-] as const;
 const blankPlan = (): ObjectivePlan => ({
   version: 1,
   pesApprovedAt: "",
@@ -85,6 +54,7 @@ export function ClinicalObjective(props: Props) {
     patientId,
     active,
     onPendingChange,
+    onStatusChange,
     maxLength = 2000,
   } = props;
   const cacheKey =
@@ -112,6 +82,9 @@ export function ClinicalObjective(props: Props) {
   const [workspace, setWorkspace] = useState<ObjectiveWorkspace | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [activeGoal, setActiveGoal] = useState(0);
+  const [activePart, setActivePart] = useState<number | null>(0);
+  const editorId = useId();
   const text = plan.goals.map(composeObjective).filter(Boolean).join("\n\n");
   const legacy = typeof value === "string"
     ? value
@@ -127,6 +100,7 @@ export function ClinicalObjective(props: Props) {
     ).join("\n\n")
     : "";
   const approved = !dirty && !!workspace?.objective?.smart_plan &&
+    workspace?.pes?.approved_at === plan.pesApprovedAt &&
     workspace.objective.question_key === questionKey &&
     JSON.stringify(workspace.objective.value) === JSON.stringify(value) &&
     objectivePlansEqual(workspace.objective.smart_plan, plan);
@@ -139,6 +113,23 @@ export function ClinicalObjective(props: Props) {
     workspace?.pes?.signsSymptoms?.split("\n").map((sign) => sign.trim())
       .filter(Boolean) ?? [];
   const staleSigns = plan.goals.some((goal) => !signs.includes(goal.sign));
+  const completeGoals =
+    plan.goals.filter((goal) =>
+      objectiveCompletedFields(goal, signs) === 10 &&
+      !objectiveIssues(goal).length
+    ).length;
+  const ready = !!plan.goals.length && !issues.length && !staleSigns &&
+    !!workspace?.pes && !pesChanged && text.length <= maxLength;
+  const status: ClinicalTaskStatus = approved
+    ? "approved"
+    : ready
+    ? "complete"
+    : plan.goals.length || dirty
+    ? "progress"
+    : "pending";
+  useEffect(() => {
+    onStatusChange?.(status);
+  }, [onStatusChange, status]);
   const pendingCallback = useRef(onPendingChange);
   useEffect(() => {
     pendingCallback.current = onPendingChange;
@@ -159,6 +150,16 @@ export function ClinicalObjective(props: Props) {
           pesApprovedAt: saved.pesApprovedAt,
           goals: saved.goals,
         });
+        if (saved.goals.length) {
+          setActiveGoal(0);
+          setActivePart(
+            firstIncompleteObjectivePart(
+              saved.goals[0],
+              w.pes?.signsSymptoms.split("\n").map((sign) => sign.trim())
+                .filter(Boolean) ?? [],
+            ),
+          );
+        }
       }
     }).catch((error) => {
       if (alive) setMessage(error.message);
@@ -203,6 +204,8 @@ export function ClinicalObjective(props: Props) {
       etiology: goal.etiology || workspace?.pes?.etiology || "",
       sign: goal.sign || (signs.length === 1 ? signs[0] : ""),
     };
+    setActiveGoal(plan.goals.length);
+    setActivePart(firstIncompleteObjectivePart(goal, signs));
     change({
       ...plan,
       pesApprovedAt: plan.goals.length
@@ -256,33 +259,63 @@ export function ClinicalObjective(props: Props) {
       setBusy(false);
     }
   }
+  function showPending() {
+    const index = plan.goals.findIndex((goal) =>
+      objectiveCompletedFields(goal, signs) < 10 || objectiveIssues(goal).length
+    );
+    if (index < 0) return;
+    const part = firstIncompleteObjectivePart(plan.goals[index], signs);
+    setActiveGoal(index);
+    setActivePart(part);
+    requestAnimationFrame(() => {
+      const heading = document.getElementById(
+        `${editorId}-${index}-part-${part}`,
+      );
+      heading?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      heading?.focus();
+    });
+  }
   return (
-    <section aria-label="Revisión del objetivo" className="clinical-assistant">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-semibold">Define objetivos SMART</h3>
-        <span className="text-xs text-[var(--nuth-muted)]">
+    <section
+      aria-label="Revisión del objetivo"
+      className="clinical-objectives-workspace"
+    >
+      <div className="clinical-objective-overview">
+        <span className="clinical-stage-icon">
+          <Target size={22} aria-hidden="true" />
+        </span>
+        <div>
+          <h3>Un cambio concreto, un objetivo a la vez</h3>
+          <p>
+            Define hasta tres objetivos por prioridad. Completa cada uno en tres
+            partes.
+          </p>
+        </div>
+        <ClinicalStatusBadge status={status}>
           {approved
             ? "Aprobados"
             : dirty
             ? "Borrador sin guardar"
+            : ready
+            ? "Listos para revisar"
             : "Pendientes de revisión"}
-        </span>
-      </header>
-      <p className="mt-2 text-sm text-[var(--nuth-muted)]">
-        Describe el cambio esperado, cómo lo medirás y cuándo lo revisarás.
-        Ordena hasta tres objetivos por prioridad clínica.
-      </p>
+        </ClinicalStatusBadge>
+      </div>
       {workspace?.pes
         ? (
-          <details open className="mt-3 text-sm">
-            <summary>PES aprobado</summary>
-            <dl className="mt-2 space-y-2">
+          <details className="clinical-context-strip">
+            <summary>
+              <Check size={16} aria-hidden="true" />
+              <span>PES aprobado</span>
+              <small>Consultar causa y evidencia</small>
+            </summary>
+            <dl>
               <div>
-                <dt className="font-semibold">Etiología</dt>
+                <dt>Etiología</dt>
                 <dd>{workspace.pes.etiology}</dd>
               </div>
               <div>
-                <dt className="font-semibold">Signos y síntomas</dt>
+                <dt>Signos y síntomas</dt>
                 <dd className="whitespace-pre-line">
                   {workspace.pes.signsSymptoms}
                 </dd>
@@ -291,46 +324,20 @@ export function ClinicalObjective(props: Props) {
           </details>
         )
         : (
-          <p className="mt-3 text-sm text-[var(--nuth-muted)]">
+          <p className="clinical-notice">
             Puedes redactar y guardar un borrador. Para aprobarlo, revisa
             primero el PES.
           </p>
         )}
-      {!plan.goals.length && legacy && (
-        <div className="mt-4 rounded-lg border border-[var(--nuth-line)] p-3">
-          <p className="text-xs font-semibold">
-            Objetivo registrado anteriormente
-          </p>
-          <p className="mt-2 whitespace-pre-line text-sm">{legacy}</p>
-          <p className="mt-2 text-xs text-[var(--nuth-muted)]">
-            Conserva su texto hasta que elijas revisarlo con la estructura
-            SMART.
-          </p>
-          <button
-            type="button"
-            className="nuth-button-secondary mt-3 !text-xs"
-            disabled={busy || legacy.length > 400}
-            onClick={() => add({ ...emptyObjective(), outcome: legacy })}
-          >
-            Usar texto como resultado esperado
-          </button>
-        </div>
-      )}
-      {workspace?.objective && !workspace.objective.smart_plan && (
-        <p className="mt-3 text-xs text-[var(--nuth-muted)]">
-          Aprobación anterior conservada. Revisa los criterios SMART para una
-          nueva aprobación.
-        </p>
-      )}
       {pesChanged && (
-        <div role="alert" className="mt-3 text-sm">
+        <div role="alert" className="clinical-notice is-warning">
           <p>
             El PES cambió. Revisa la causa, el signo y las metas antes de volver
             a aprobar.
           </p>
           <button
             type="button"
-            className="nuth-button-secondary mt-2 !text-xs"
+            className="nuth-button-secondary mt-3 !text-xs"
             disabled={busy}
             onClick={() =>
               change({
@@ -342,139 +349,91 @@ export function ClinicalObjective(props: Props) {
           </button>
         </div>
       )}
-      <fieldset disabled={busy} className="mt-4 min-w-0 space-y-4">
-        {plan.goals.map((goal, index) => (
-          <section
-            key={index}
-            aria-label={`Objetivo ${index + 1}`}
-            className="rounded-xl border border-[var(--nuth-line)] p-3 sm:p-4"
+      {!plan.goals.length && legacy && (
+        <div className="clinical-legacy-objective">
+          <strong>Objetivo registrado anteriormente</strong>
+          <p>{legacy}</p>
+          <button
+            type="button"
+            className="nuth-button-secondary !text-xs"
+            disabled={busy || legacy.length > 400}
+            onClick={() => add({ ...emptyObjective(), outcome: legacy })}
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h4 className="font-semibold">Objetivo {index + 1}</h4>
-              <div className="flex gap-2">
-                {index > 0 && (
-                  <button
-                    type="button"
-                    className="text-xs underline"
-                    onClick={() => {
-                      const goals = [...plan.goals];
-                      [goals[index - 1], goals[index]] = [
-                        goals[index],
-                        goals[index - 1],
-                      ];
-                      change({ ...plan, goals });
-                    }}
-                  >
-                    Subir prioridad
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="text-xs underline"
-                  onClick={() =>
-                    change({
-                      ...plan,
-                      goals: plan.goals.filter((_, i) => i !== index),
-                    })}
-                >
-                  Quitar objetivo {index + 1}
-                </button>
-              </div>
-            </div>
-            <div className="mt-3 grid min-w-0 gap-4 sm:grid-cols-2">
-              {fields.map(([key, label, hint]) => (
-                <label key={key} className="min-w-0 text-sm">
-                  {label}
-                  <textarea
-                    aria-label={`${label} · objetivo ${index + 1}`}
-                    className="nuth-input mt-1 w-full !text-sm"
-                    rows={2}
-                    maxLength={key === "etiology" ? 1500 : 400}
-                    value={goal[key]}
-                    placeholder={hint}
-                    onChange={(event) =>
-                      update(index, { [key]: event.target.value })}
-                  />
-                  <span className="mt-1 block text-xs text-[var(--nuth-muted)]">
-                    {hint}
-                  </span>
-                </label>
-              ))}
-              <label className="min-w-0 text-sm">
-                Signo o síntoma del PES<select
-                  aria-label={`Signo o síntoma del PES · objetivo ${index + 1}`}
-                  className="nuth-input mt-1 w-full !text-sm"
-                  value={goal.sign}
-                  onChange={(event) =>
-                    update(index, { sign: event.target.value })}
-                >
-                  <option value="">
-                    Selecciona la evidencia que reevaluarás
-                  </option>
-                  {goal.sign && !signs.includes(goal.sign) && (
-                    <option value={goal.sign}>
-                      {goal.sign} · revisar vigencia
-                    </option>
-                  )}
-                  {signs.map((sign) => (
-                    <option key={sign} value={sign}>{sign}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="min-w-0 text-sm">
-                Acuerdo con la persona<select
-                  aria-label={`Acuerdo · objetivo ${index + 1}`}
-                  className="nuth-input mt-1 w-full !text-sm"
-                  value={goal.agreement}
-                  onChange={(event) =>
-                    update(index, {
-                      agreement: event.target
-                        .value as ObjectiveGoal["agreement"],
-                    })}
-                >
-                  <option value="pending">Pendiente de conversar</option>
-                  <option value="patient">Acordado con el paciente</option>
-                  <option value="caregiver">
-                    Acordado con cuidador o representante
-                  </option>
-                </select>
-              </label>
-            </div>
-            <p className="mt-4 text-xs font-semibold">Enunciado del objetivo</p>
-            <output
-              aria-label={`Enunciado del objetivo ${index + 1}`}
-              className="mt-1 block whitespace-pre-line break-words text-sm"
-            >
-              {composeObjective(goal) ||
-                "Completa el resultado y sus criterios de seguimiento."}
-            </output>
-            <p className="mt-2 text-xs text-[var(--nuth-muted)]">
-              {objectiveIssues(goal).length
-                ? "Pendiente de completar o acordar."
-                : "Criterios documentados para revisión profesional."}
-            </p>
-          </section>
+            Usar texto como resultado esperado
+          </button>
+        </div>
+      )}
+      {workspace?.objective && !workspace.objective.smart_plan && (
+        <p className="clinical-notice">
+          Aprobación anterior conservada. Revisa los criterios SMART para una
+          nueva aprobación.
+        </p>
+      )}
+      {!plan.goals.length && (
+        <div className="clinical-empty-state">
+          <span className="clinical-stage-icon">
+            <Target size={24} aria-hidden="true" />
+          </span>
+          <h4>¿Qué quieren lograr primero?</h4>
+          <p>
+            Agrega el primer objetivo o usa una propuesta de IA como punto de
+            partida.
+          </p>
+        </div>
+      )}
+      <fieldset disabled={busy} className="clinical-goals-list">
+        {plan.goals.map((goal, index) => (
+          <ObjectiveGoalEditor
+            key={index}
+            id={`${editorId}-${index}`}
+            goal={goal}
+            index={index}
+            signs={signs}
+            approved={approved}
+            expanded={activeGoal === index}
+            activePart={activePart}
+            onExpand={() => {
+              setActiveGoal(activeGoal === index ? -1 : index);
+              setActivePart(firstIncompleteObjectivePart(goal, signs));
+            }}
+            onPartChange={setActivePart}
+            onChange={(patch) => update(index, patch)}
+            onRemove={() => {
+              change({
+                ...plan,
+                goals: plan.goals.filter((_, i) => i !== index),
+              });
+              setActiveGoal(Math.max(0, index - 1));
+              setActivePart(0);
+            }}
+            onMoveUp={index > 0
+              ? () => {
+                const goals = [...plan.goals];
+                [goals[index - 1], goals[index]] = [
+                  goals[index],
+                  goals[index - 1],
+                ];
+                change({ ...plan, goals });
+                setActiveGoal(index - 1);
+                setActivePart(firstIncompleteObjectivePart(goal, signs));
+              }
+              : undefined}
+          />
         ))}
         <button
           type="button"
-          className="nuth-button-secondary !text-sm"
+          aria-label="Agregar objetivo"
+          className={plan.goals.length
+            ? "nuth-button-secondary clinical-add-objective"
+            : "nuth-button clinical-add-objective"}
           disabled={plan.goals.length >= 3}
-          onClick={() =>
-            add()}
+          onClick={() => add()}
         >
-          Agregar objetivo
+          <Plus size={17} />Agregar objetivo{plan.goals.length > 0 && (
+            <span>{plan.goals.length} de 3</span>
+          )}
         </button>
       </fieldset>
-      <details className="mt-4 text-xs text-[var(--nuth-muted)]">
-        <summary>Consultar datos de valoración registrados</summary>
-        <ul className="mt-2 max-h-64 space-y-2 overflow-y-auto break-words">
-          {workspace?.facts.map((fact, index) => (
-            <li key={index}>
-              <strong>{fact.source}:</strong> {fact.finding}
-            </li>
-          ))}
-        </ul>
-      </details>
       {patientId && (
         <ConsultationObjectiveAI
           key={workspace?.pes?.approved_at ?? "no-pes"}
@@ -488,63 +447,113 @@ export function ClinicalObjective(props: Props) {
           onApplyGoal={(goal) => add(goal)}
         />
       )}
+      <details className="clinical-support-details">
+        <summary>Consultar datos de valoración registrados</summary>
+        <ul className="consultation-context-facts">
+          {workspace?.facts.map((fact, index) => (
+            <li key={index}>
+              <strong>{fact.source}</strong>
+              <p>{fact.finding}</p>
+            </li>
+          ))}
+        </ul>
+      </details>
       {text.length > maxLength && (
-        <p role="alert" className="mt-3 text-sm">
+        <p role="alert" className="clinical-notice is-warning">
           El texto de los objetivos supera el límite de {maxLength}{" "}
           caracteres de esta pregunta. Resume los enunciados antes de guardar.
         </p>
       )}
-      {plan.goals.length > 0 && (
-        <details className="mt-4 text-xs text-[var(--nuth-muted)]">
-          <summary>Qué falta para aprobar</summary>
-          <ul className="mt-2 list-disc space-y-1 pl-4">
-            {issues.map((issue, index) => <li key={index}>{issue}</li>)}
-            {staleSigns && (
-              <li>Selecciona un signo del PES vigente para cada objetivo.</li>
+      {(plan.goals.length > 0 || dirty) && (
+        <div
+          className="clinical-approval-card"
+          data-status={approved ? "approved" : ready ? "complete" : "progress"}
+        >
+          <div className="clinical-approval-copy">
+            <span className="clinical-stage-icon">
+              {approved || ready
+                ? <Check size={20} aria-hidden="true" />
+                : <Target size={20} aria-hidden="true" />}
+            </span>
+            <div>
+              <h4>
+                {approved
+                  ? "Objetivos aprobados"
+                  : !plan.goals.length
+                  ? "Borrador sin objetivos"
+                  : ready
+                  ? "Todo listo para tu revisión"
+                  : `${completeGoals} de ${plan.goals.length} objetivos listos para revisar`}
+              </h4>
+              <p>
+                {approved
+                  ? "Puedes continuar con la estrategia de intervención."
+                  : !plan.goals.length
+                  ? "Guarda el borrador para confirmar que retiraste los objetivos."
+                  : ready
+                  ? "Confirma que las metas son viables y representan lo acordado con la persona."
+                  : "Completa los criterios y registra el acuerdo antes de aprobar."}
+              </p>
+            </div>
+          </div>
+          {!ready && !approved && completeGoals < plan.goals.length && (
+            <button
+              type="button"
+              className="clinical-next-part"
+              onClick={showPending}
+            >
+              Ir al siguiente pendiente<ArrowRight size={15} />
+            </button>
+          )}
+          <div className="clinical-approval-actions">
+            <button
+              type="button"
+              className="nuth-button-secondary !text-sm"
+              disabled={busy || !dirty || text.length > maxLength}
+              onClick={() => void persist("save")}
+            >
+              Guardar borrador
+            </button>
+            <button
+              type="button"
+              className="nuth-button !text-sm"
+              disabled={busy || !ready || approved}
+              onClick={() => void persist("approve")}
+            >
+              {busy ? "Guardando…" : "Aprobar objetivos"}
+            </button>
+            {approved && (
+              <button
+                type="button"
+                className="nuth-button-secondary !text-sm"
+                disabled={busy}
+                onClick={() => void persist("revoke")}
+              >
+                Volver a revisar
+              </button>
             )}
-            {!issues.length && !staleSigns && (
-              <li>
-                Revisa la pertinencia clínica y que lo documentado represente lo
-                acordado.
-              </li>
-            )}
-          </ul>
-        </details>
+          </div>
+          <details className="clinical-approval-details">
+            <summary>Qué falta para aprobar</summary>
+            <ul>
+              {issues.map((issue, index) => <li key={index}>{issue}</li>)}
+              {staleSigns && (
+                <li>Selecciona un signo del PES vigente para cada objetivo.</li>
+              )}
+              {!workspace?.pes && <li>Revisa y aprueba primero el PES.</li>}
+              {pesChanged && <li>Vincula los objetivos al PES actual.</li>}
+              {!issues.length && !staleSigns && workspace?.pes && !pesChanged &&
+                (
+                  <li>
+                    Revisa la pertinencia clínica y que lo documentado
+                    represente lo acordado.
+                  </li>
+                )}
+            </ul>
+          </details>
+        </div>
       )}
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button
-          type="button"
-          className="nuth-button-secondary !text-sm"
-          disabled={busy || !dirty || text.length > maxLength}
-          onClick={() => void persist("save")}
-        >
-          Guardar borrador
-        </button>
-        <button
-          type="button"
-          className="nuth-button !text-sm"
-          disabled={busy || !plan.goals.length || !!issues.length ||
-            staleSigns || !workspace?.pes || pesChanged || approved ||
-            text.length > maxLength}
-          onClick={() => void persist("approve")}
-        >
-          {busy ? "Guardando…" : "Aprobar objetivos"}
-        </button>
-        {approved && (
-          <button
-            type="button"
-            className="nuth-button-secondary !text-sm"
-            onClick={() => void persist("revoke")}
-          >
-            Volver a revisar
-          </button>
-        )}
-      </div>
-      <p className="mt-3 text-xs text-[var(--nuth-muted)]">
-        Al aprobar confirmas la relación con el PES, la viabilidad y el acuerdo
-        registrado. Las indicaciones se documentan en el siguiente paso.
-      </p>
-      {message && <p role="status" className="mt-3 text-sm">{message}</p>}
+      {message && <p role="status" className="clinical-notice">{message}</p>}
     </section>
   );
 }
