@@ -54,7 +54,7 @@ export const objectiveParts = [
 
 export function objectiveFieldComplete(
   goal: ObjectiveGoal,
-  key: keyof ObjectiveGoal,
+  key: (typeof objectiveParts)[number]['keys'][number],
   signs: string[],
 ) {
   if (key === "agreement") {
@@ -133,6 +133,7 @@ export function ObjectiveGoalEditor(
   function field(key: keyof typeof fields) {
     const [label, hint] = fields[key];
     const complete = objectiveFieldComplete(goal, key, signs);
+    const proposed = goal.agreement === 'pending' && ((key === 'target' && goal.targetOrigin === 'proposed') || (key === 'timeframe' && goal.timeframeOrigin === 'proposed'));
     return (
       <label
         key={key}
@@ -140,8 +141,9 @@ export function ObjectiveGoalEditor(
       >
         <span>
           {label}
-          {complete && <Check size={14} aria-label="Registrado" />}
+          {complete && <Check size={14} aria-label={proposed ? "Propuesto, por acordar" : "Registrado"} />}
         </span>
+        {proposed && <small>Propuesta editable · por acordar con el paciente</small>}
         <textarea
           aria-label={`${label} · objetivo ${index + 1}`}
           className="nuth-input"
@@ -332,7 +334,7 @@ export function ObjectiveGoalEditor(
           })}
         </div>
         <details className="clinical-objective-preview">
-          <summary>Ver enunciado del objetivo</summary>
+          <summary>{goal.textStyle === 'patient_v1' ? 'Ver texto para el paciente' : 'Ver enunciado del objetivo'}</summary>
           <output aria-label={`Enunciado del objetivo ${index + 1}`}>
             {composeObjective(goal) ||
               "Completa el resultado y sus criterios de seguimiento."}

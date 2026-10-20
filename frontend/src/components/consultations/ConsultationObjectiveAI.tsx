@@ -13,7 +13,7 @@ import {
 } from "@/src/services/ai";
 
 type Evidence = { source: string; finding: string };
-type Suggestion = { text: string; evidence: Evidence[]; goal?: ObjectiveGoal };
+type Suggestion = { text: string; evidence: Evidence[]; goal?: ObjectiveGoal; references?: {title:string;url:string}[] };
 
 type SuggestionProps = {
   patientId: string;
@@ -75,6 +75,7 @@ export function ClinicalSuggestionsAI({
         patientId,
         consultationId,
         revision,
+        ...(!instructions ? { objectiveTextStyle: 'patient_v1' as const } : {}),
       });
       if (result.status !== "succeeded" || !result.output) {
         setState("uncertain");
@@ -113,7 +114,9 @@ export function ClinicalSuggestionsAI({
                 typeof (entry as Evidence).finding === "string",
             )
             : [];
-          return evidence.length ? [{ text: text.trim(), evidence, goal }] : [];
+          const references = Array.isArray(candidate.references) ? candidate.references.filter(reference =>
+            reference && typeof reference.title === 'string' && typeof reference.url === 'string' && /^https:\/\//.test(reference.url)) : [];
+          return evidence.length ? [{ text: text.trim(), evidence, goal, references }] : [];
         })
         : [];
       sessionStorage.removeItem(storageKey);
@@ -182,7 +185,7 @@ export function ClinicalSuggestionsAI({
           <p className="mt-1 max-w-2xl text-xs leading-5 text-[#52675f]">
             {instructions
               ? "Borradores basados en lo registrado."
-              : "Parte del PES aprobado. Tú completas las metas, los plazos y el acuerdo."}
+              : "Parte del PES aprobado y propone la meta, el plazo y un texto sencillo para el paciente. Revisa y adapta cada objetivo antes de acordarlo."}
             {" "}
             Usa créditos de IA según el consumo real.
           </p>
@@ -230,7 +233,8 @@ export function ClinicalSuggestionsAI({
                 <p className="mt-2 text-xs text-[#52675f]">
                   {!suggestion.goal.target || !suggestion.goal.timeframe
                     ? "Meta o plazo pendientes de definir. "
-                    : ""}Acuerdo con el paciente pendiente.
+                    : suggestion.goal.targetOrigin === 'proposed' || suggestion.goal.timeframeOrigin === 'proposed'
+                    ? "La meta o el plazo son propuestas editables. " : ""}Acuerdo con el paciente pendiente.
                 </p>
               )}
               {suggestion.evidence.length > 0 && (
@@ -242,6 +246,15 @@ export function ClinicalSuggestionsAI({
                         <strong>{fact.source}:</strong> {fact.finding}
                       </li>
                     ))}
+                  </ul>
+                </details>
+              )}
+              {!!suggestion.references?.length && (
+                <details className="mt-2 text-xs text-[#52675f]">
+                  <summary className="cursor-pointer">Fuentes para revisar la propuesta</summary>
+                  <p className="mt-2">Orientación general para planear metas y seguimiento. Ajusta el criterio y el plazo al caso.</p>
+                  <ul className="mt-2 space-y-1.5">
+                    {suggestion.references.map(reference => <li key={reference.url}><a className="underline" href={reference.url} target="_blank" rel="noopener noreferrer">{reference.title}</a></li>)}
                   </ul>
                 </details>
               )}

@@ -6,6 +6,7 @@ import { composePesStatement, pesStatementMatches, unsupportedPesNumbers, type C
 import { pesSynthesisInstructions } from './pes-synthesis.ts';
 import { referencedPesSchema, pesReferenceInstructions } from './pes-references.ts';
 import { concisePesSchema, concisePesInstructions } from './pes-concise.ts';
+import { objectiveProposalsSchema, objectiveProposalInstructions, objectiveProposalsValid } from './objective-proposals.ts';
 const text = { type: "string", maxLength: 2000 };
 const strings = { type: "array", items: text, maxItems: 30 };
 const object = (properties: Record<string, unknown>) => ({
@@ -99,6 +100,9 @@ const boundary =
 const historyBoundary = " Prioriza la consulta actual. El historial es un resumen de los registros disponibles con sus fechas, no una historia completa ni datos actuales; no infieras valores intermedios ni tendencias continuas.";
 const comprehensivePesReview = " Para esta versión, examina TODOS los facts disponibles antes de formular el diagnóstico: entrevista, antropometría, mediciones de equipo, cálculos, estudios de laboratorio, recordatorio confirmado, ficha e historial pertinente. No decidas basándote solo en la entrevista ni descartes una categoría porque otra ya aporte una etiología. Distingue cada hecho actual de cada antecedente fechado. En una consulta inicial usa todos los datos actuales; no inventes antecedentes. En seguimiento prioriza los datos de la consulta actual y contrástalos con los antecedentes disponibles. Integra en signosSymptoms cada medición, cálculo o resultado clínicamente pertinente que respalde el problema; cita su fact exacto en evidence, con valor, unidad y fecha tal como aparecen. No dejes una medición pertinente únicamente en evidence si debe formar parte de S. Si hay hallazgos clínicamente importantes que no encajan en el PES principal, menciónalos en uncertainties para revisión profesional en vez de omitirlos. No fuerces datos inconexos dentro de un solo diagnóstico. El IMC, el peso o la grasa corporal pueden ser signos o indicadores, pero no prueban por sí solos una etiología ni autorizan a inventar una clasificación; conserva el valor medido y su fuente, y distingue lo que requiere interpretación profesional. Nunca afirmes que un dato fue considerado si no está en facts.";
 export function clinicalAdapter(feature: string, version: string) {
+  if (feature === 'consultation_support' && version === 'consultation_support@5') {
+    return { schema: objectiveProposalsSchema, instructions: `${boundary}${objectiveProposalInstructions}${historyBoundary}` };
+  }
   if (feature === 'pes_diagnosis' && version === 'pes_diagnosis@9') {
     return { schema: concisePesSchema, instructions: `${boundary}${concisePesInstructions}${historyBoundary}` };
   }
@@ -293,6 +297,7 @@ export function clinicalEvidenceValid(
     );
   }
   if (feature === "consultation_support" || feature === "patient_instructions") {
+    if (feature === 'consultation_support' && (context as { objectiveFormat?: string }).objectiveFormat === 'smart@2') return objectiveProposalsValid(output, context);
     if (feature === 'consultation_support' && (context as { objectiveFormat?: string }).objectiveFormat === 'smart@1') return smartObjectivesValid(output, context);
     const o = output as {
       objectives: { text: string; evidenceFactIds: string[] }[];
@@ -324,25 +329,80 @@ export function clinicalEvidenceValid(
   }
   return true;
 }
-export function smartObjectivesValid(output: unknown, context: unknown): boolean {
-  const { objectives } = output as { objectives: Record<string, unknown>[] };
-  const { facts, approvedPes } = context as { facts: ConsultationSupportFact[]; approvedPes: ClinicalSource['approvedPes'] };
-  if (!approvedPes) return objectives.length === 0;
-  return objectives.every(goal => {
-    const ids = goal.evidenceFactIds as string[];
-    const evidence = facts.filter(fact => ids.includes(fact.id));
-    if (ids.length !== evidence.length || !evidence.some(fact => fact.source.startsWith('PES actual aprobado · '))) return false;
-    if (goal.etiology !== approvedPes.etiology || !approvedPes.signsSymptoms.split('\n').map(sign => sign.trim()).includes(goal.sign as string)) return false;
-    if (!String(goal.outcome).trim() || !String(goal.indicator).trim()) return false;
-    if (goal.baselineFactId && !evidence.some(fact => fact.id === goal.baselineFactId)) return false;
-    // Measured values must never silently become prescribed targets. Only
-    // explicit current agreement fields can supply a target or a time frame.
-    for (const key of ['target', 'timeframe']) {
-      const value = String(goal[key]).trim();
-      if (value && !evidence.some(fact => /^Entrevista · (objectives|next objectives|treatment objective|first actions|adjustments)(?: ·|$)/.test(fact.source) && fact.finding.includes(value))) return false;
+type SmartObjectiveDraft = Record<'outcome' | 'etiology' | 'sign' | 'indicator' | 'target' | 'timeframe' | 'monitoring' | 'feasibility' | 'baselineFactId', string> & { evidenceFactIds: string[] };
+type SmartObjectivesOutput = { objectives: SmartObjectiveDraft[] };
+type SmartObjectiveContext = { facts: ConsultationSupportFact[]; approvedPes: ClinicalSource['approvedPes'] };
+const objectiveAgreement = (fact: ConsultationSupportFact) => /^Entrevista · (objectives|next objectives|treatment objective|first actions|adjustments)(?: ·|$)/.test(fact.source);
+const documentedObjectiveFragment = (value: string, evidence: ConsultationSupportFact[]) => !value.trim() || evidence.some(fact => objectiveAgreement(fact) && fact.finding.includes(value.trim()));
+const unsupportedObjectiveNumbers = (value: string, evidence: ConsultationSupportFact[]) => unsupportedPesNumbers({ problem: value, etiology: '', signsSymptoms: [] }, evidence).length > 0;
+const sameClinicalCopy = (value: string) => value.normalize('NFC').trim().replace(/\s+/g, ' ').replace(/[.;]+$/u, '').toLocaleLowerCase('es');
+
+/** Keep an editable draft partial instead of rejecting it for a missing optional
+ * field. Only source-owned values are hydrated; unsupported values are removed,
+ * never invented or rewritten as clinical facts. Approval remains a separate RPC.
+ * The caller must validate the JSON schema before invoking this adapter. */
+export function normalizeSmartObjectivesOutput(output: unknown, context: unknown): SmartObjectivesOutput {
+  const { objectives } = output as SmartObjectivesOutput;
+  const { facts, approvedPes } = context as SmartObjectiveContext;
+  if (!approvedPes) return output as SmartObjectivesOutput;
+  const signs = approvedPes.signsSymptoms.split('\n').map(sign => sign.trim()).filter(Boolean);
+  return { objectives: objectives.map(original => {
+    const goal = { ...original, evidenceFactIds: [...new Set(original.evidenceFactIds)] };
+    // The approved etiology is already known; asking the model to reproduce it
+    // verbatim created avoidable failures for otherwise reviewable objectives.
+    goal.etiology = approvedPes.etiology;
+    const citedSigns = facts.filter(fact => goal.evidenceFactIds.includes(fact.id) && fact.source === 'PES actual aprobado · Signos y síntomas');
+    const matchedSign = signs.find(sign => sameClinicalCopy(sign) === sameClinicalCopy(goal.sign));
+    if (matchedSign) goal.sign = matchedSign;
+    else if (citedSigns.length === 1) goal.sign = citedSigns[0].finding;
+    else if (signs.length === 1) goal.sign = signs[0];
+
+    const baseline = facts.find(fact => fact.id === goal.baselineFactId && fact.finding.length <= 400);
+    if (!baseline) goal.baselineFactId = '';
+    else if (!goal.evidenceFactIds.includes(baseline.id)) {
+      if (goal.evidenceFactIds.length < 6) goal.evidenceFactIds.push(baseline.id);
+      else goal.baselineFactId = '';
     }
-    return unsupportedPesNumbers({ problem: String(goal.outcome), etiology: '', signsSymptoms: [String(goal.indicator), String(goal.monitoring), String(goal.feasibility)] }, evidence).length === 0;
-  });
+    const evidence = facts.filter(fact => goal.evidenceFactIds.includes(fact.id));
+    // Unagreed targets/time frames are pending form fields, not grounds to lose
+    // the supported outcome. Measurements must never become prescribed targets.
+    for (const key of ['target', 'timeframe'] as const) {
+      goal[key] = documentedObjectiveFragment(goal[key], evidence) ? goal[key].trim() : '';
+    }
+    for (const key of ['monitoring', 'feasibility'] as const) {
+      if (unsupportedObjectiveNumbers(goal[key], evidence)) goal[key] = '';
+    }
+    return goal;
+  }) };
+}
+
+/** Technical codes only: safe to log without retaining the clinical response. */
+export function smartObjectiveValidationIssues(output: unknown, context: unknown): string[] {
+  const { objectives } = output as SmartObjectivesOutput;
+  const { facts, approvedPes } = context as SmartObjectiveContext;
+  if (!approvedPes) return objectives.length ? ['pes_missing'] : [];
+  const issues = new Set<string>();
+  for (const goal of objectives) {
+    const ids = goal.evidenceFactIds;
+    const evidence = facts.filter(fact => ids.includes(fact.id));
+    if (ids.length !== evidence.length) issues.add('evidence_reference');
+    if (!evidence.some(fact => fact.source.startsWith('PES actual aprobado · '))) issues.add('pes_evidence_missing');
+    if (goal.etiology !== approvedPes.etiology) issues.add('etiology_mismatch');
+    if (!approvedPes.signsSymptoms.split('\n').map(sign => sign.trim()).includes(goal.sign)) issues.add('sign_mismatch');
+    if (!goal.outcome.trim()) issues.add('outcome_missing');
+    if (!goal.indicator.trim()) issues.add('indicator_missing');
+    if (goal.baselineFactId && !evidence.some(fact => fact.id === goal.baselineFactId)) issues.add('baseline_reference');
+    for (const key of ['target', 'timeframe'] as const) {
+      if (!documentedObjectiveFragment(goal[key], evidence)) issues.add(`${key}_undocumented`);
+    }
+    for (const key of ['outcome', 'indicator', 'monitoring', 'feasibility'] as const) {
+      if (unsupportedObjectiveNumbers(goal[key], evidence)) issues.add(`${key}_number_without_evidence`);
+    }
+  }
+  return [...issues];
+}
+export function smartObjectivesValid(output: unknown, context: unknown): boolean {
+  return smartObjectiveValidationIssues(output, context).length === 0;
 }
 export function conservativeRecallQuantities(output: unknown) {
   const o = structuredClone(output) as {

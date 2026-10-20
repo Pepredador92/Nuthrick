@@ -3,6 +3,7 @@ import { productOriginAllowed, siteOrigin } from '../_shared/site.ts';
 import { createClient } from '@supabase/supabase-js';
 import { AIError, type AIStore, type FeatureConfig, type Generation, OpenAIResponsesProvider, parseRequest, runAIRequest } from './core.ts';
 import { objectiveFields } from '../_shared/objectives.ts';
+import { objectivePlanningReferences } from './objective-proposals.ts';
 import { buildConsultationSupportContext, buildPesClinicalContext, instructionAgreement, redactClinicalText, type ClinicalSource, type ConsultationSupportFact } from './clinical.ts';
 import { withConfirmedRecall } from './recall-context.ts';
 import { prepareDietSnapshot, prepareDietAlternative, verifyDietSnapshot, validateSnapshot, parseDietDecision, DietRoutingProvider, type DietSnapshot } from './diet.ts';
@@ -160,7 +161,7 @@ Deno.serve(async request => {
       },
       config: async feature => {
         const c=await rpc<FeatureConfig>('config',{feature});
-        smartObjectives = feature === 'consultation_support' && c.prompt_version === 'consultation_support@4';
+        smartObjectives = feature === 'consultation_support' && ['consultation_support@4','consultation_support@5'].includes(c.prompt_version);
         if(feature==='diet_draft' && (c.execution_mode==='simulated')!==simulated)throw new AIError('feature_disabled');
         return c;
       },
@@ -208,8 +209,15 @@ Deno.serve(async request => {
           ...(smartObjectives ? { goal: {
             ...Object.fromEntries(objectiveFields.filter(key => key !== 'baseline').map(key => [key, (objective as unknown as Record<string, string>)[key]])),
             baseline: consultationSupportFacts!.find(fact => fact.id === (objective as unknown as { baselineFactId: string }).baselineFactId && fact.finding.length <= 400)?.finding ?? '',
+            ...((objective as unknown as { textStyle?: string }).textStyle === 'patient_v1' ? {
+              ...(input.objectiveTextStyle === 'patient_v1' ? { textStyle: 'patient_v1' } : {}),
+              targetOrigin: (objective as unknown as { targetOrigin: string }).targetOrigin,
+              timeframeOrigin: (objective as unknown as { timeframeOrigin: string }).timeframeOrigin,
+              baseline: consultationSupportFacts!.find(fact => fact.id === (objective as unknown as { baselineFactId: string }).baselineFactId && fact.finding.length <= 400)?.finding ?? 'Revisa el punto de partida en el PES aprobado y complétalo con el primer registro.',
+            } : {}),
             agreement: 'pending',
           } } : { text:objective.text }),
+          ...((objective as unknown as { textStyle?: string }).textStyle === 'patient_v1' ? { references: objectivePlanningReferences } : {}),
           evidence:objective.evidenceFactIds.flatMap(id=>{
             const fact=consultationSupportFacts!.find(candidate=>candidate.id===id);
             return fact?[{source:fact.source,finding:fact.finding}]:[];

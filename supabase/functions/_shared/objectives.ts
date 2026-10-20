@@ -9,6 +9,9 @@ export type ObjectiveGoal = {
   monitoring: string;
   feasibility: string;
   agreement: "pending" | "patient" | "caregiver";
+  textStyle?: 'patient_v1';
+  targetOrigin?: 'documented' | 'proposed';
+  timeframeOrigin?: 'documented' | 'proposed';
 };
 export type ObjectivePlan = {
   version: 1;
@@ -40,6 +43,13 @@ export const emptyObjective = (): ObjectiveGoal => ({
 });
 const clean = (text: string) => text.trim().replace(/[.;\s]+$/g, "");
 export function composeObjective(goal: ObjectiveGoal): string {
+  if (goal.textStyle === 'patient_v1') {
+    const parts = [clean(goal.outcome)];
+    for (const [key, label] of [['target', 'Lo que buscamos'], ['timeframe', 'Cuándo lo revisaremos'], ['monitoring', 'Cómo lo haremos']] as const) {
+      if (goal[key].trim()) parts.push(`${label}: ${clean(goal[key])}`);
+    }
+    return parts.filter(Boolean).join('. ') + (parts.some(Boolean) ? '.' : '');
+  }
   const parts = [clean(goal.outcome)];
   for (
     const [key, label] of [
@@ -88,7 +98,9 @@ export function isObjectivePlan(value: unknown): value is ObjectivePlan {
         typeof goal[key] === "string" &&
         goal[key].length <=
           (key === "sign" ? 2000 : key === "etiology" ? 1500 : 400)
-      ) && ["pending", "patient", "caregiver"].includes(goal.agreement)
+      ) && ["pending", "patient", "caregiver"].includes(goal.agreement) &&
+      (goal.textStyle === undefined || goal.textStyle === 'patient_v1') &&
+      [goal.targetOrigin, goal.timeframeOrigin].every(origin => origin === undefined || ['documented','proposed'].includes(origin))
     );
 }
 /** JSONB may reorder object keys. Goal array order and all field values matter. */
@@ -100,6 +112,7 @@ export function objectivePlansEqual(
     a.goals.length === b.goals.length && a.goals.every((goal, index) => {
       const other = b.goals[index];
       return goal.agreement === other.agreement &&
+        goal.textStyle === other.textStyle && goal.targetOrigin === other.targetOrigin && goal.timeframeOrigin === other.timeframeOrigin &&
         objectiveFields.every((key) => goal[key] === other[key]);
     });
 }
