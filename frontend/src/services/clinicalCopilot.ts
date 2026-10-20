@@ -1,5 +1,5 @@
 import { supabase } from "@/src/lib/supabase";
-import type { RecallSavedItem } from "@/src/features/consultations/clinicalCopilot";
+import type { PesDraft, RecallSavedItem } from "@/src/features/consultations/clinicalCopilot";
 import type { RecallEstimate } from "@/src/features/consultations/recallEstimate";
 import type { ClinicalMeasurementFact } from '@/src/features/consultations/clinicalCopilot';
 import type { ObjectivePlan } from '../../../supabase/functions/_shared/objectives';
@@ -82,7 +82,7 @@ export type ClinicalWorkspace = {
     laboratories: boolean;
   };
   records: {
-    pes?: { approved_at: string };
+    pes?: { approved_at: string } & Partial<Pick<PesDraft, 'evidence' | 'missingContext' | 'uncertainties'>>;
     recall?: SavedRecallRecord;
   };
 };

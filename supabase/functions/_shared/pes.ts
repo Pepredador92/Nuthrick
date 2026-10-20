@@ -9,6 +9,19 @@ export function composePesStatement(parts: Pick<PesParts, 'problem' | 'etiology'
 export function pesStatementMatches(parts: PesParts) {
   return parts.pesStatement.trim() === composePesStatement(parts);
 }
+// These notes remain inside the existing public/approval contract. They are a
+// short evidence-based justification, never a transcript of model reasoning.
+export const pesPriorityPrefix = 'Prioridad clínica: ';
+export const pesPriorityPendingPrefix = 'Prioridad por revisar: ';
+export function pesReviewNotes(uncertainties: string[]) {
+  const entry = uncertainties.find(note => note.startsWith(pesPriorityPrefix) || note.startsWith(pesPriorityPendingPrefix));
+  return {
+    priority: entry?.slice(entry.startsWith(pesPriorityPrefix) ? pesPriorityPrefix.length : pesPriorityPendingPrefix.length) ?? '',
+    priorityPending: entry?.startsWith(pesPriorityPendingPrefix) ?? false,
+    priorityEntry: entry,
+    notes: uncertainties.filter(note => !note.startsWith(pesPriorityPrefix) && !note.startsWith(pesPriorityPendingPrefix)),
+  };
+}
 const numbers = (text: string) => [...text.matchAll(/\d+(?:[.,]\d+)?/g)].map(match => Number(match[0].replace(',', '.')).toString());
 export function unsupportedPesNumbers(parts: Pick<PesParts, 'problem' | 'etiology' | 'signsSymptoms'>, evidence: { finding: string }[]) {
   const available = new Set(evidence.flatMap(item => numbers(item.finding)));

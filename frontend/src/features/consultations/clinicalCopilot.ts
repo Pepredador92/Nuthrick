@@ -1,7 +1,7 @@
 import { normalizeFoodName } from "@/src/services/foodCatalog";
 import type { FoodItem, FoodSnapshot } from "@/src/types/domain";
-import { composePesStatement, pesStatementMatches } from '../../../../supabase/functions/_shared/pes';
-export { composePesStatement, pesStatementMatches, unsupportedPesNumbers } from '../../../../supabase/functions/_shared/pes';
+import { composePesStatement, pesStatementMatches, pesReviewNotes } from '../../../../supabase/functions/_shared/pes';
+export { composePesStatement, pesStatementMatches, pesReviewNotes, unsupportedPesNumbers } from '../../../../supabase/functions/_shared/pes';
 export type { ClinicalMeasurementFact } from '../../../../supabase/functions/_shared/pes';
 
 export type PesDraft = {
@@ -44,7 +44,8 @@ export function canApprovePes(draft: PesDraft) {
 }
 export function updatePesParts(draft: PesDraft, change: Partial<Pick<PesDraft, 'problem' | 'etiology' | 'signsSymptoms'>>) {
   const next = { ...draft, ...change };
-  return { ...next, pesStatement: composePesStatement(next) };
+  const changed = next.problem !== draft.problem || next.etiology !== draft.etiology || JSON.stringify(next.signsSymptoms) !== JSON.stringify(draft.signsSymptoms);
+  return { ...next, pesStatement: composePesStatement(next), uncertainties: changed ? pesReviewNotes(draft.uncertainties).notes : draft.uncertainties };
 }
 export type RecallExtraction = {
   meals: {

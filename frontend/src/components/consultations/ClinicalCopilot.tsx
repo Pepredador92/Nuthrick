@@ -46,6 +46,7 @@ import {
   type PesDraft,
   pesFromAnswers,
   pesStatementMatches,
+  pesReviewNotes,
   type RecallRow,
   type RecallSavedItem,
   updatePesParts,
@@ -273,6 +274,16 @@ function Feedback({ clinical }: { clinical: ReturnType<typeof useClinical> }) {
     </>
   );
 }
+function PesPriorityReview({ notes }: { notes: string[] }) {
+  const review = pesReviewNotes(notes);
+  if (!review.priority) return null;
+  return (
+    <aside aria-label="Prioridad clínica de la propuesta" className={`clinical-notice${review.priorityPending ? ' is-warning' : ''}`}>
+      <h4 className="font-semibold">{review.priorityPending ? 'Prioridad pendiente de revisar' : 'Por qué se propone este problema'}</h4>
+      <p className="mt-2">{review.priority}</p>
+    </aside>
+  );
+}
 export function PesCopilot(props: Props) {
   const clinical = useClinical(props, "pes_diagnosis");
   const [draft, setDraft] = useState<PesDraft | null>(null);
@@ -283,7 +294,14 @@ export function PesCopilot(props: Props) {
   const discardLock = useRef(false);
   const busy = clinical.saving || discarding;
   const { onPendingChange, onStatusChange } = props;
-  const savedDraft = pesFromAnswers(props.answers ?? {});
+  const savedRecord = clinical.workspace?.records.pes;
+  const savedDraft = {
+    ...pesFromAnswers(props.answers ?? {}),
+    evidence: savedRecord?.evidence ?? [],
+    missingContext: savedRecord?.missingContext ?? [],
+    uncertainties: savedRecord?.uncertainties ?? [],
+  };
+  const reviewNotes = pesReviewNotes(draft?.uncertainties ?? []);
   const hasSavedParts =
     !!(savedDraft.problem.trim() || savedDraft.etiology.trim() ||
       savedDraft.signsSymptoms.some((sign) => sign.trim()) ||
@@ -366,6 +384,7 @@ export function PesCopilot(props: Props) {
               <p>{savedDraft.pesStatement}</p>
             </div>
           )}
+          {hasSavedParts && <PesPriorityReview notes={savedDraft.uncertainties} />}
           <div className="clinical-pes-start-actions">
             <div>
               <FilePenLine size={20} aria-hidden="true" />
@@ -463,6 +482,7 @@ export function PesCopilot(props: Props) {
               y síntomas.
             </small>
           </div>
+          <PesPriorityReview notes={draft.uncertainties} />
           {!pesStatementMatches(draft) && (
             <div role="alert" className="clinical-notice is-warning">
               <p>
@@ -525,11 +545,13 @@ export function PesCopilot(props: Props) {
                 <textarea
                   className="nuth-input"
                   readOnly={!editing || discarding}
-                  value={draft[key].join("\n")}
+                  value={(key === "uncertainties" ? reviewNotes.notes : draft[key]).join("\n")}
                   onChange={(event) =>
                     setDraft({
                       ...draft,
-                      [key]: event.target.value.split("\n"),
+                      [key]: key === "uncertainties" && reviewNotes.priorityEntry
+                        ? [reviewNotes.priorityEntry, ...event.target.value.split("\n")]
+                        : event.target.value.split("\n"),
                     })}
                 />
               </label>

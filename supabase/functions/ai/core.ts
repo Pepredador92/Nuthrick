@@ -5,6 +5,7 @@ import {textDietAdapter} from './text-diet-contract.ts';
 import { Ajv } from 'ajv';
 import { pesSynthesisEvidenceValid } from './pes-synthesis.ts';
 import { normalizeReferencedPes, referencedPesContext } from './pes-references.ts';
+import { normalizeConcisePes } from './pes-concise.ts';
 import { clinicalAdapter, clinicalEvidenceValid, conservativeRecallQuantities, normalizePesOutput, pesClinicalStructureValid, pesSchema } from './clinical.ts';
 import { dietDraftAdapter, dietDraftAdapterV1, dietDraftAdapterV3 } from './diet-contract.ts';
 
@@ -187,7 +188,7 @@ export function parseRequest(value: unknown): AIRequest {
 }
 export async function runAIRequest(request: AIRequest, store: AIStore, provider: AIProvider) {
   const config = await store.config(request.feature);
-  const referencedPes = request.feature === 'pes_diagnosis' && config.prompt_version === 'pes_diagnosis@8';
+  const referencedPes = request.feature === 'pes_diagnosis' && ['pes_diagnosis@8','pes_diagnosis@9'].includes(config.prompt_version);
   if (referencedPes && !store.refundInvalidPes) throw new AIError('configuration_required');
   if (!config.enabled || config.provider !== 'openai') throw new AIError('feature_disabled');
   const adapter = featureAdapter(request.feature, config.prompt_version,!!request.textGuidance);
@@ -216,7 +217,7 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   const structuredPes = request.feature === 'pes_diagnosis' && ['pes_diagnosis@5', 'pes_diagnosis@6', 'pes_diagnosis@7'].includes(config.prompt_version);
   if (referencedPes) {
     result = { ...result, output: result.status === 'completed' && validOutput(adapter.schema,result.output)
-      ? normalizeReferencedPes(result.output,adapter.context) : null };
+      ? (config.prompt_version === 'pes_diagnosis@9' ? normalizeConcisePes : normalizeReferencedPes)(result.output,adapter.context) : null };
   }
   const outputSchema = referencedPes ? pesSchema : adapter.schema;
   if (structuredPes) result = { ...result, output: normalizePesOutput(result.output) };
