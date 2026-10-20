@@ -62,6 +62,9 @@ export function ClinicalReview(
   const [reviewedSources, setReviewedSources] = useState<
     Record<string, string>
   >({});
+  const [expandedSources, setExpandedSources] = useState<
+    Record<string, boolean>
+  >({});
   useEffect(() => {
     if (!active) return;
     let alive = true;
@@ -270,6 +273,12 @@ export function ClinicalReview(
                 : context
                 ? "Sin registro"
                 : "Cargando"}
+              open={expandedSources[source.key] ?? false}
+              onToggle={() =>
+                setExpandedSources((current) => ({
+                  ...current,
+                  [source.key]: !(current[source.key] ?? false),
+                }))}
             >
               {source.key === "interview" && (interviewAnswers.length
                 ? (
@@ -368,11 +377,16 @@ export function ClinicalReview(
                   className="clinical-review-check"
                   aria-pressed={reviewed}
                   disabled={loading || !!error}
-                  onClick={() =>
+                  onClick={() => {
                     setReviewedSources((current) => ({
                       ...current,
                       [source.key]: reviewed ? "" : source.signature,
-                    }))}
+                    }));
+                    setExpandedSources((current) => ({
+                      ...current,
+                      [source.key]: false,
+                    }));
+                  }}
                 >
                   <Check size={16} />
                   {reviewed
