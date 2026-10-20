@@ -482,7 +482,7 @@ export function PesCopilot(props: Props) {
                 <span>
                   {key === "missingContext"
                     ? "Datos faltantes"
-                    : "Incertidumbres"}
+                    : "Incertidumbres y otros hallazgos"}
                 </span>
                 <textarea
                   className="nuth-input"

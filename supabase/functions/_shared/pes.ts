@@ -16,7 +16,7 @@ export function unsupportedPesNumbers(parts: Pick<PesParts, 'problem' | 'etiolog
 }
 export type ClinicalMeasurementFact = {
   source: string; finding: string;
-  metric_code?: string; origin?: 'measurement' | 'calculation' | 'baseline';
+  metric_code?: string; origin?: 'measurement' | 'calculation' | 'laboratory' | 'baseline';
   numeric_value?: number | null; unit?: string | null; recorded_at?: string | null;
   consultation_date?: string; method?: string;
 };

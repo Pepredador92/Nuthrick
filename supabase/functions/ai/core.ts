@@ -207,11 +207,12 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
     await store.settle(generation.id,'failed',{ input_tokens: 0, output_tokens: 0, cached_tokens: 0 });
     throw error;
   }
-  if (request.feature === 'pes_diagnosis' && config.prompt_version === 'pes_diagnosis@5') result = { ...result, output: normalizePesOutput(result.output) };
+  const structuredPes = request.feature === 'pes_diagnosis' && ['pes_diagnosis@5', 'pes_diagnosis@6'].includes(config.prompt_version);
+  if (structuredPes) result = { ...result, output: normalizePesOutput(result.output) };
   let valid = false;
   try {
     if (request.feature === 'intervention_strategy' && validOutput(adapter.schema,result.output)) result = { ...result, output: normalizeInterventionOutput(result.output,adapter.context as InterventionContext) };
-    valid = result.status === 'completed' && validOutput(adapter.schema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (request.feature !== 'intervention_strategy' || interventionEvidenceValid(result.output,adapter.context as InterventionContext,generation.id)) && (request.feature !== 'pes_diagnosis' || config.prompt_version !== 'pes_diagnosis@5' || pesClinicalStructureValid(result.output)) && (!store.validateOutput || store.validateOutput(result.output));
+    valid = result.status === 'completed' && validOutput(adapter.schema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (request.feature !== 'intervention_strategy' || interventionEvidenceValid(result.output,adapter.context as InterventionContext,generation.id)) && (!structuredPes || pesClinicalStructureValid(result.output)) && (!store.validateOutput || store.validateOutput(result.output));
     if (!valid && request.feature === 'intervention_strategy') console.warn(JSON.stringify({event:'strategy_output_rejected',generationId:generation.id,codes:result.status!=='completed'?['provider_incomplete']:!validOutput(adapter.schema,result.output)?['schema']:interventionValidationIssues(result.output,adapter.context as InterventionContext,generation.id)}));
     await store.recordResult?.(generation.id,result,valid);
   } catch {
