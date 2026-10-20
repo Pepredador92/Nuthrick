@@ -943,8 +943,14 @@ export function PatientDetailPage() {
     const email = String(form.get("email") || "").trim();
     const localPhone = String(form.get("phone") || "").trim();
     const countryCode = String(form.get("country_code") || "");
+    const heightInput = String(form.get("height_cm") || "").trim();
+    const heightCm = heightInput ? Number(heightInput) : null;
     if (localPhone && localPhone.replace(/\D/g, "").length < 7) {
       setError("Escribe un número de teléfono válido.");
+      return;
+    }
+    if (heightCm !== null && (!Number.isFinite(heightCm) || heightCm < 20 || heightCm > 300)) {
+      setError("La estatura debe estar entre 20 y 300 cm.");
       return;
     }
     await run(async () => {
@@ -955,6 +961,7 @@ export function PatientDetailPage() {
         phone: localPhone ? normalizePhone(countryCode, localPhone) : null,
         timezone: String(form.get("timezone") || patient.timezone),
         birth_date: String(form.get("birth_date") || "") || null,
+        height_cm: heightCm,
         gender: String(form.get("gender") || "") || null,
         equation_sex: (String(form.get("equation_sex") || "") ||
           null) as Patient["equation_sex"],
@@ -1178,7 +1185,7 @@ export function PatientDetailPage() {
             <button
               type="button"
               className="rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold"
-              onClick={() => setEditing(true)}
+              onClick={() => { setError(""); setEditing(true); }}
             >
               <Edit3 size={16} />
               Editar datos
@@ -1268,6 +1275,19 @@ export function PatientDetailPage() {
                 defaultValue={patient.birth_date ?? ""}
               />
             </Field>
+            <Field label="Estatura (cm)" name="edit-height">
+              <Input
+                id="edit-height"
+                name="height_cm"
+                type="number"
+                min="20"
+                max="300"
+                step="0.1"
+                inputMode="decimal"
+                defaultValue={patient.height_cm ?? ""}
+                disabled={busy}
+              />
+            </Field>
             <Field label="Género" name="edit-gender">
               <select
                 name="gender"
@@ -1313,6 +1333,7 @@ export function PatientDetailPage() {
               </span>
             </span>
           </label>
+          {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] p-3 text-sm text-[#963f32]">{error}</p>}
           <div className="mt-4 flex gap-3">
             <button className="nuth-button" disabled={busy}>
               {busy ? (
@@ -1325,7 +1346,7 @@ export function PatientDetailPage() {
             <button
               type="button"
               className="nuth-button-secondary"
-              onClick={() => setEditing(false)}
+              onClick={() => { setError(""); setEditing(false); }}
             >
               Cancelar
             </button>
@@ -1355,6 +1376,12 @@ export function PatientDetailPage() {
                   {patient.birth_date
                     ? formatPatientDate(patient.birth_date)
                     : "No indicada"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[#82908a]">Estatura</dt>
+                <dd className="mt-1 font-semibold">
+                  {patient.height_cm != null ? `${patient.height_cm} cm` : "Sin registrar"}
                 </dd>
               </div>
               <div>

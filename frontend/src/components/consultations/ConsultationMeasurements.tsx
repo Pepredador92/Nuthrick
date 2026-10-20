@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, LoaderCircle, Plus, Save, Search, Settings2, X } from "lucide-react";
 import type { Consultation, Patient } from "@/src/types/domain";
+import { updatePatient } from "@/src/services/patients";
 import { calculateAge } from "@/src/features/patients/patientUtils";
 import { loadConsultationMeasurements, saveConsultationMeasurements, saveMeasurementWorkspace, savePatientMeasurementFollowup, type CatalogMeasurement, type PreviousMeasurement } from "@/src/services/consultationMeasurements";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
@@ -61,6 +62,7 @@ function MeasurementField({ measurement, value, previous, onChange, disabled }: 
   return <label htmlFor={id} className="block min-w-0 rounded-2xl border border-[#e1e8e3] bg-white p-3.5">
     <span className="block text-sm font-semibold text-[#173d36]">{measurement.display_name || measurement.name}</span>
     <span className="mt-1 block text-xs leading-5 text-[#718176]">{measurement.description}</span>
+    {measurement.code === "height" && <span className="mt-1 block text-xs leading-5 text-[#60766a]">Al guardar mediciones se actualiza también la estatura de la ficha. Dejar este campo vacío la retira de la ficha.</span>}
     {previous && <span className="mt-2 block text-xs font-medium text-[#52705f]">Anterior: {previousValueLabel(previous, measurement)}</span>}
     <span className="mt-3 flex min-w-0 items-center gap-2">
       {measurement.data_type === "boolean" ? <input disabled={disabled} id={id} type="checkbox" checked={value === true} onChange={(event) => onChange(event.target.checked)} className="h-5 w-5 accent-[#315e4f]" />
@@ -81,7 +83,7 @@ function equationSexLabel(value: Patient["equation_sex"]) {
   return "Sin registrar";
 }
 
-export function ConsultationMeasurements({ consultation, patient, onPendingChange }: { consultation: Consultation; patient: Patient; onPendingChange?: (pending: boolean) => void }) {
+export function ConsultationMeasurements({ consultation, patient, onPendingChange, onPatientChange }: { consultation: Consultation; patient: Patient; onPendingChange?: (pending: boolean) => void; onPatientChange?: (patient: Patient) => void }) {
   const [catalog, setCatalog] = useState<CatalogMeasurement[]>([]);
   const [calculationCatalog, setCalculationCatalog] = useState<CalculationCatalogItem[]>([]);
   const [references, setReferences] = useState<InterpretationReference[]>([]);
@@ -95,6 +97,7 @@ export function ConsultationMeasurements({ consultation, patient, onPendingChang
   const [hasFollowup, setHasFollowup] = useState(false);
   const [previousValues, setPreviousValues] = useState<Record<string, PreviousMeasurement>>({});
   const [values, setValues] = useState<RawValues>({});
+  const [heightTouched, setHeightTouched] = useState(false);
   const [query, setQuery] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
   const [draftWorkspace, setDraftWorkspace] = useState<string[]>([]);
@@ -110,7 +113,7 @@ export function ConsultationMeasurements({ consultation, patient, onPendingChang
   useEffect(() => { onPendingChange?.(edited || saving || savingWorkspace || savingFollowup || loading || bioPending); }, [edited, saving, savingWorkspace, savingFollowup, loading, bioPending, onPendingChange]);
   const load = useCallback(async () => {
     setLoading(true); setError("");
-    try { const [loaded, loadedCalculations, interpretationData] = await Promise.all([loadConsultationMeasurements(consultation), loadCalculationCatalog(), loadInterpretationData(consultation.id)]); setReferences(interpretationData.references); setSavedCalculations(interpretationData.saved); setHasSavedResults(interpretationData.saved.length > 0); setPregnant(interpretationData.pregnant); setPregnancyFromInterview(interpretationData.pregnancyFromInterview); setEdited(false); setCatalog(loaded.catalog.filter((item) => item.category !== "laboratory" && item.category !== "bioimpedance")); setCalculationCatalog(loadedCalculations); setWorkspace(loaded.workspaceIds); setFollowup(loaded.followupIds); setHasFollowup(loaded.hasFollowup); setPreviousValues(loaded.previousValues); setValues(Object.fromEntries(loaded.values.map((item) => [item.measurement_type_id, displayValue(item.value)]))); }
+    try { const [loaded, loadedCalculations, interpretationData] = await Promise.all([loadConsultationMeasurements(consultation), loadCalculationCatalog(), loadInterpretationData(consultation.id)]); setReferences(interpretationData.references); setSavedCalculations(interpretationData.saved); setHasSavedResults(interpretationData.saved.length > 0); setPregnant(interpretationData.pregnant); setPregnancyFromInterview(interpretationData.pregnancyFromInterview); setEdited(false); setHeightTouched(false); setCatalog(loaded.catalog.filter((item) => item.category !== "laboratory" && item.category !== "bioimpedance")); setCalculationCatalog(loadedCalculations); setWorkspace(loaded.workspaceIds); setFollowup(loaded.followupIds); setHasFollowup(loaded.hasFollowup); setPreviousValues(loaded.previousValues); setValues(Object.fromEntries(loaded.values.map((item) => [item.measurement_type_id, displayValue(item.value)]))); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "No pudimos cargar las mediciones."); }
     finally { setLoading(false); }
   }, [consultation]);
@@ -119,16 +122,18 @@ export function ConsultationMeasurements({ consultation, patient, onPendingChang
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const results = useMemo(() => !normalizedQuery ? [] : catalog.filter((item) => [item.name, item.display_name, item.clinical_name, ...item.synonyms].join(" ").toLocaleLowerCase().includes(normalizedQuery)).slice(0, 12), [catalog, normalizedQuery]);
   const workspaceMeasurements = workspace.map((id) => byId.get(id)).filter((item): item is CatalogMeasurement => Boolean(item));
-  const activeMeasurementIds = hasFollowup ? workspace.filter((id) => followup.includes(id)) : workspace;
-  const visibleWorkspaceMeasurements = activeMeasurementIds.map((id) => byId.get(id)).filter((item): item is CatalogMeasurement => Boolean(item)).filter((item) => item.code !== "height");
+  const visibleWorkspaceMeasurements = workspace.filter((id) => !hasFollowup || followup.includes(id) || byId.get(id)?.code === "height").map((id) => byId.get(id)).filter((item): item is CatalogMeasurement => Boolean(item));
+  const heightMeasurement = catalog.find((item) => item.code === "height");
+  const capturedHeight = heightMeasurement ? parseMeasurementNumber(values[heightMeasurement.id], heightMeasurement).value : undefined;
+  const previewPatient = useMemo(() => heightTouched ? { ...patient, height_cm: capturedHeight !== undefined && capturedHeight >= 20 && capturedHeight <= 300 ? capturedHeight : null } : patient, [patient, heightTouched, capturedHeight]);
   const age = calculateAge(patient.birth_date, new Date(consultation.consultation_date));
-  const calculationEvaluations = useMemo(() => evaluateCalculationCatalog({ catalog: calculationCatalog, measurementCatalog: catalog, values, workspaceIds: workspace, consultation, patient }), [calculationCatalog, catalog, values, workspace, consultation, patient]);
+  const calculationEvaluations = useMemo(() => evaluateCalculationCatalog({ catalog: calculationCatalog, measurementCatalog: catalog, values, workspaceIds: workspace, consultation, patient: previewPatient }), [calculationCatalog, catalog, values, workspace, consultation, previewPatient]);
   const hasCalculatedResultsToPersist = calculationEvaluations.some((evaluation) => evaluation.state === "calculated" && !savedCalculations.some((saved) => saved.calculation_code === evaluation.item.code));
   const visibleEvaluations = !edited && hasSavedResults ? restoreSavedCalculations(calculationEvaluations, savedCalculations) : calculationEvaluations;
-  const currentContext = interpretationContext(patient, consultation, calculationEvaluations.find((e) => e.item.code === "bmi")?.rawResult, pregnant);
+  const currentContext = interpretationContext(previewPatient, consultation, calculationEvaluations.find((e) => e.item.code === "bmi")?.rawResult, pregnant);
   const savedByCalculationCode = new Map(savedCalculations.map((saved) => [saved.calculation_code, saved]));
   const interpretations = Object.fromEntries(visibleEvaluations.filter((e) => e.state === "calculated" && e.rawResult !== undefined).map((e) => { const saved = !edited ? savedByCalculationCode.get(e.item.code) : undefined; const context = extendInterpretationContext(currentContext, e.dependencyResults); return [e.item.code, saved ? saved.interpretation_snapshot : interpretResult(e.item.code, e.rawResult!, e.item.definition.unit, context, references, consultation.id)]; }));
-  const setValue = (id: string, value: string | boolean) => { setValues((current) => ({ ...current, [id]: value })); setEdited(true); setNotice(""); };
+  const setValue = (id: string, value: string | boolean) => { setValues((current) => ({ ...current, [id]: value })); if (byId.get(id)?.code === "height") setHeightTouched(true); setEdited(true); setNotice(""); };
   const persistWorkspace = async (next: string[], closeEditor = false) => {
     setSavingWorkspace(true); setError("");
     try { const saved = await saveMeasurementWorkspace(next); setWorkspace(saved); setDraftWorkspace(saved); if (closeEditor) setEditorOpen(false); setNotice("Espacio de trabajo actualizado."); return true; }
@@ -141,8 +146,42 @@ export function ConsultationMeasurements({ consultation, patient, onPendingChang
     if (!edited && hasSavedResults && !hasCalculatedResultsToPersist) { setNotice("Los resultados guardados conservan su interpretación original. No hay cambios pendientes."); return; }
     const invalid = catalog.find((item) => ["number", "percentage", "ratio"].includes(item.data_type) && parseMeasurementNumber(values[item.id], item).error);
     if (invalid) { setError(`Revisa ${invalid.display_name || invalid.name}: ${parseMeasurementNumber(values[invalid.id], invalid).error}`); document.getElementById(`measurement-${invalid.code}`)?.focus(); return; }
+    if (heightTouched && capturedHeight !== undefined && (capturedHeight < 20 || capturedHeight > 300)) {
+      setError("La estatura debe estar entre 20 y 300 cm.");
+      document.getElementById("measurement-height")?.focus();
+      return;
+    }
     setSaving(true); setError("");
-    try { const payload = Object.fromEntries(catalog.flatMap((measurement) => { const value = toPayloadValue(measurement, values[measurement.id]); return value === undefined ? [] : [[measurement.id, value]]; })); const saved = await saveConsultationMeasurements(consultation, payload); const savedValues = Object.fromEntries(saved.map((item) => [item.measurement_type_id, displayValue(item.value)])); setValues(savedValues); const savedEvaluations = evaluateCalculationCatalog({ catalog: calculationCatalog, measurementCatalog: catalog, values: savedValues, workspaceIds: workspace, consultation, patient, savedMeasurements: saved }); const persisted = await saveConsultationCalculationResults(consultation.id, calculationResultPayload(savedEvaluations, patient, consultation), pregnant); setSavedCalculations(persisted as SavedCalculationResult[]); setHasSavedResults(true); setEdited(false); const proposedFollowup = saved.map((item) => item.measurement_type_id).filter((id) => workspace.includes(id)); if (!hasFollowup && proposedFollowup.length) { const savedFollowup = await savePatientMeasurementFollowup(patient.id, proposedFollowup); setFollowup(savedFollowup); setHasFollowup(true); setNotice("Mediciones y cálculos guardados. El seguimiento de este paciente se creó con las mediciones registradas hoy."); } else setNotice(hasCalculatedResultsToPersist && !edited ? "Resultados calculados guardados." : saved.length ? "Mediciones y cálculos guardados." : "No hay mediciones registradas en esta consulta."); }
+    try {
+      const payload = Object.fromEntries(catalog.flatMap((measurement) => {
+        const value = toPayloadValue(measurement, values[measurement.id]);
+        return value === undefined ? [] : [[measurement.id, value]];
+      }));
+      const saved = await saveConsultationMeasurements(consultation, payload);
+      const savedValues = Object.fromEntries(saved.map((item) => [item.measurement_type_id, displayValue(item.value)]));
+      setValues(savedValues);
+      let calculationPatient = patient;
+      if (heightTouched) {
+        try {
+          calculationPatient = await updatePatient(patient.id, { height_cm: capturedHeight ?? null });
+        } catch {
+          throw new Error("Las mediciones se guardaron, pero no pudimos actualizar la estatura de la ficha. Vuelve a guardar para completar el cambio.");
+        }
+        onPatientChange?.(calculationPatient);
+      }
+      const savedEvaluations = evaluateCalculationCatalog({ catalog: calculationCatalog, measurementCatalog: catalog, values: savedValues, workspaceIds: workspace, consultation, patient: calculationPatient, savedMeasurements: saved });
+      const persisted = await saveConsultationCalculationResults(consultation.id, calculationResultPayload(savedEvaluations, calculationPatient, consultation), pregnant);
+      setSavedCalculations(persisted as SavedCalculationResult[]);
+      setHasSavedResults(true);
+      const proposedFollowup = saved.map((item) => item.measurement_type_id).filter((id) => workspace.includes(id));
+      if (!hasFollowup && proposedFollowup.length) {
+        const savedFollowup = await savePatientMeasurementFollowup(patient.id, proposedFollowup);
+        setFollowup(savedFollowup); setHasFollowup(true);
+        setNotice("Mediciones y cálculos guardados. El seguimiento de este paciente se creó con las mediciones registradas hoy.");
+      } else setNotice(hasCalculatedResultsToPersist && !edited ? "Resultados calculados guardados." : saved.length ? "Mediciones y cálculos guardados." : "No hay mediciones registradas en esta consulta.");
+      setHeightTouched(false);
+      setEdited(false);
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : "No pudimos guardar las mediciones."); }
     finally { setSaving(false); }
   };
@@ -166,8 +205,8 @@ export function ConsultationMeasurements({ consultation, patient, onPendingChang
     <div className="mt-5 flex flex-col gap-3 sm:flex-row"><div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-[#d6e2d9] bg-white px-3"><Search size={17} className="shrink-0 text-[#60766a]" /><input id="measurement-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar una medición…" className="min-w-0 flex-1 bg-transparent py-3 text-sm outline-none" aria-label="Buscar una medición" /></div><button type="button" className="nuth-button-secondary shrink-0" onClick={openFollowupEditor}><Settings2 size={16} /> Editar seguimiento</button><button type="button" className="nuth-button-secondary shrink-0" onClick={openEditor}><Settings2 size={16} /> Editar espacio</button></div>
     {normalizedQuery && <div className="mt-3 space-y-2 rounded-2xl border border-[#dfe5e1] bg-[#f8fbf8] p-3">{results.length ? results.map((item) => <CatalogRow key={item.id} measurement={item} selected={workspace.includes(item.id)} onAdd={() => addToWorkspace(item.id)} />) : <p className="p-2 text-sm text-[#718176]">No encontramos una medición disponible. Los laboratorios se registrarán en su propio módulo.</p>}</div>}
     {notice && <p role="status" className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]">{notice}</p>}{error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{error}</p>}
-    <section className="mt-6 rounded-2xl border border-[#dfe8e1] bg-[#f8fbf8] p-4" aria-label="Datos del expediente"><h3 className="text-base font-semibold text-[#173d36]">Datos del expediente</h3><p className="mt-1 text-sm leading-6 text-[#718176]">Se cargan automáticamente; no es necesario volver a registrarlos en esta consulta.</p><dl className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4"><div><dt className="text-xs font-semibold text-[#60766a]">Peso inicial</dt><dd className="mt-1 text-sm font-semibold text-[#173d36]">{patient.weight_kg != null ? `${patient.weight_kg} kg` : "Sin registrar"}</dd></div><div><dt className="text-xs font-semibold text-[#60766a]">Estatura</dt><dd className="mt-1 text-sm font-semibold text-[#173d36]">{patient.height_cm != null ? `${patient.height_cm} cm` : "Sin registrar"}</dd></div><div><dt className="text-xs font-semibold text-[#60766a]">Edad en esta consulta</dt><dd className="mt-1 text-sm font-semibold text-[#173d36]">{age != null ? `${age} años` : "Sin registrar"}</dd></div><div><dt className="text-xs font-semibold text-[#60766a]">Sexo para ecuaciones</dt><dd className="mt-1 text-sm font-semibold text-[#173d36]">{equationSexLabel(patient.equation_sex)}</dd></div></dl></section>
-    <section className="mt-6"><div className="flex flex-wrap items-end justify-between gap-2"><div><h3 className="text-base font-semibold text-[#173d36]">{hasFollowup ? "Seguimiento de este paciente" : "Espacio de trabajo"}</h3><p className="mt-1 text-sm text-[#718176]">{hasFollowup ? "Estos campos se preparan para este paciente según su seguimiento habitual." : "Aún no hay seguimiento personalizado; se muestran tus mediciones habituales."}</p></div></div>{visibleWorkspaceMeasurements.length ? <MeasurementGrid measurements={visibleWorkspaceMeasurements} disabled={savingWorkspace} onMove={(from, to) => { const next = reorderMeasurements(workspace, catalog, from, to); if (next !== workspace) void persistWorkspace(next); }} renderField={(item) => <MeasurementField disabled={saving} measurement={item} value={values[item.id]} previous={previousValues[item.id]} onChange={(value) => setValue(item.id, value)} />} /> : <p className="mt-3 rounded-xl border border-dashed border-[#cbd9ce] p-4 text-sm text-[#718176]">No hay mediciones activas para este paciente. Edita su seguimiento o agrega una medición al espacio.</p>}</section>
+    <section className="mt-6 rounded-2xl border border-[#dfe8e1] bg-[#f8fbf8] p-4" aria-label="Datos del expediente"><h3 className="text-base font-semibold text-[#173d36]">Datos del expediente</h3><p className="mt-1 text-sm leading-6 text-[#718176]">La estatura se conserva en la ficha del paciente y se utiliza en los cálculos de esta consulta. Puedes registrarla o corregirla desde el campo {heightMeasurement?.display_name || "Estatura"} del espacio de trabajo.</p><dl className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4"><div><dt className="text-xs font-semibold text-[#60766a]">Peso inicial</dt><dd className="mt-1 text-sm font-semibold text-[#173d36]">{patient.weight_kg != null ? `${patient.weight_kg} kg` : "Sin registrar"}</dd></div><div><dt className="text-xs font-semibold text-[#60766a]">Estatura actual en la ficha</dt><dd className="mt-1 text-sm font-semibold text-[#173d36]">{patient.height_cm != null ? `${patient.height_cm} cm` : "Sin registrar"}</dd></div><div><dt className="text-xs font-semibold text-[#60766a]">Edad en esta consulta</dt><dd className="mt-1 text-sm font-semibold text-[#173d36]">{age != null ? `${age} años` : "Sin registrar"}</dd></div><div><dt className="text-xs font-semibold text-[#60766a]">Sexo para ecuaciones</dt><dd className="mt-1 text-sm font-semibold text-[#173d36]">{equationSexLabel(patient.equation_sex)}</dd></div></dl></section>
+    <section className="mt-6"><div className="flex flex-wrap items-end justify-between gap-2"><div><h3 className="text-base font-semibold text-[#173d36]">{hasFollowup ? "Seguimiento de este paciente" : "Espacio de trabajo"}</h3><p className="mt-1 text-sm text-[#718176]">{hasFollowup ? "Estos campos se preparan para este paciente según su seguimiento habitual." : "Aún no hay seguimiento personalizado; se muestran tus mediciones habituales."}</p></div></div>{visibleWorkspaceMeasurements.length ? <MeasurementGrid measurements={visibleWorkspaceMeasurements} disabled={savingWorkspace} onMove={(from, to) => { const next = reorderMeasurements(workspace, catalog, from, to); if (next !== workspace) void persistWorkspace(next); }} renderField={(item) => <MeasurementField disabled={saving} measurement={item} value={item.code === "height" && values[item.id] === undefined && patient.height_cm != null ? String(patient.height_cm) : values[item.id]} previous={previousValues[item.id]} onChange={(value) => setValue(item.id, value)} />} /> : <p className="mt-3 rounded-xl border border-dashed border-[#cbd9ce] p-4 text-sm text-[#718176]">No hay mediciones activas para este paciente. Edita su seguimiento o agrega una medición al espacio.</p>}</section>
     <div className="mt-5 text-sm text-[#60766a]">{pregnancyFromInterview !== null ? <p>Situación de gestación: {pregnancyFromInterview ? "Embarazo" : "Sin gestación"} · de la entrevista.</p> : <label className="flex flex-wrap items-center gap-2">Situación de gestación en esta consulta<select disabled={saving} aria-label="Situación de gestación" className="nuth-input !w-auto max-w-full" value={pregnant === null ? "" : pregnant ? "yes" : "no"} onChange={(e) => { setPregnant(e.target.value === "" ? null : e.target.value === "yes"); setEdited(true); }}><option value="">Sin registrar</option><option value="no">Sin gestación / no aplica</option><option value="yes">Embarazo</option></select><span className="text-xs">Se necesita para comprobar si las referencias son aplicables.</span></label>}</div>
     <BioimpedanceCapture consultation={consultation} onPendingChange={setBioPending} />
     <CalculationCatalog evaluations={visibleEvaluations} interpretations={interpretations} adding={savingWorkspace} onAddMissing={(ids) => void addCalculationMissing(ids)} />

@@ -3,10 +3,11 @@ import {fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {MemoryRouter,Route,Routes,useLocation} from 'react-router-dom';
 import {PatientDetailPage} from './PatientDetailPage';
 import {deleteConsultationRecord,renameConsultation} from '@/src/services/consultations';
-import {listConsultations,updatePatient} from '@/src/services/patients';
+import {getPatient,listConsultations,updatePatient} from '@/src/services/patients';
 import {EvolutionExportDialog} from '@/src/components/patients/EvolutionExportDialog';
 import {loadProfessionalDocumentProfile} from '@/src/services/profile';
 import {getSignedMediaUrl} from '@/src/services/media';
+import type {Patient} from '@/src/types/domain';
 vi.mock('@/src/lib/supabase',()=>({supabase:{}}));
 vi.mock('@/src/features/auth/AuthProvider',()=>({useAuth:()=>({user:{id:'owner'}})}));
 vi.mock('@/src/components/patients/EvolutionCharts',()=>({PatientEvolutionCharts:()=>null}));
@@ -17,15 +18,64 @@ vi.mock('@/src/services/media',()=>({getSignedMediaUrl:vi.fn(),getSignedPatientP
 vi.mock('@/src/components/consultations/SnapshotHistory',()=>({SnapshotHistory:()=> <p>Cuestionario conservado de solo lectura</p>}));
 vi.mock('@/src/services/consultations',()=>({deleteConsultationRecord:vi.fn(),renameConsultation:vi.fn(),getSnapshot:vi.fn(),listAnswers:vi.fn()}));
 vi.mock('@/src/services/patients',()=>({
- getPatient:async()=>({id:'patient',full_name:'Paciente de prueba',status:'active',birth_date:null,email:null,phone:null,gender:null,timezone:'America/Mexico_City'}),
+ getPatient:vi.fn(async()=>({id:'patient',full_name:'Paciente de prueba',status:'active',birth_date:null,email:null,phone:null,gender:null,height_cm:null,timezone:'America/Mexico_City'})),
  listConsultations:vi.fn(async()=>[{id:'completed',patient_id:'patient',professional_id:'owner',consultation_date:'2026-09-15T10:00:00Z',consultation_type:'initial',sequence_number:1,status:'completed',summary:null}]),
  listPatientNotes:async()=>[],listNutritionPlans:async()=>[],listProgressPhotos:async()=>[],
  archivePatient:vi.fn(),createPatientNote:vi.fn(),deletePatientNote:vi.fn(),deletePatient:vi.fn(),registerProgressPhoto:vi.fn(),restorePatient:vi.fn(),updatePatient:vi.fn(),updatePatientNote:vi.fn(),
 }));
+const heightTestPatient={id:'patient',full_name:'Paciente de prueba',status:'active',birth_date:null,email:null,phone:null,gender:null,height_cm:null,timezone:'America/Mexico_City'} as Patient;
 beforeEach(()=>{
  vi.clearAllMocks();
+ vi.mocked(getPatient).mockResolvedValue({id:'patient',full_name:'Paciente de prueba',status:'active',birth_date:null,email:null,phone:null,gender:null,height_cm:null,timezone:'America/Mexico_City'} as Awaited<ReturnType<typeof getPatient>>);
+ vi.mocked(updatePatient).mockImplementation(async(_id,input)=>({...heightTestPatient,...input} as Patient));
  HTMLDialogElement.prototype.showModal=function(){this.open=true;};
  HTMLDialogElement.prototype.close=function(){this.open=false;};
+});
+describe('patient height editing',()=>{
+ async function editHeight() {
+  render(<MemoryRouter initialEntries={['/patients/patient']}><Routes><Route path="/patients/:patientId" element={<PatientDetailPage/>}/></Routes></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button',{name:'Editar datos'}));
+  return screen.getByRole('spinbutton',{name:'Estatura (cm)'});
+ }
+ it('prefills, saves, displays, and reopens the updated height',async()=>{
+  vi.mocked(getPatient).mockResolvedValue({...heightTestPatient,height_cm:168.5});
+  const height=await editHeight();
+  expect(height).toHaveValue(168.5);
+  fireEvent.change(height,{target:{value:'174.5'}});
+  fireEvent.submit(height.closest('form')!);
+  await waitFor(()=>expect(updatePatient).toHaveBeenCalledWith('patient',expect.objectContaining({height_cm:174.5})));
+  expect(await screen.findByText('174.5 cm')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button',{name:'Editar datos'}));
+  expect(screen.getByRole('spinbutton',{name:'Estatura (cm)'})).toHaveValue(174.5);
+ });
+ it('captures a missing height and rejects invalid values without updating the patient',async()=>{
+  const height=await editHeight();
+  expect(height).toHaveValue(null);
+  fireEvent.change(height,{target:{value:'19'}});
+  fireEvent.submit(height.closest('form')!);
+  expect(await screen.findByText('La estatura debe estar entre 20 y 300 cm.')).toBeInTheDocument();
+  expect(updatePatient).not.toHaveBeenCalled();
+  fireEvent.change(height,{target:{value:'170'}});
+  fireEvent.submit(height.closest('form')!);
+  expect(await screen.findByText('170 cm')).toBeInTheDocument();
+ });
+ it('allows an existing height to be explicitly cleared',async()=>{
+  vi.mocked(getPatient).mockResolvedValue({...heightTestPatient,height_cm:170});
+  const height=await editHeight();
+  fireEvent.change(height,{target:{value:''}});
+  fireEvent.submit(height.closest('form')!);
+  await waitFor(()=>expect(updatePatient).toHaveBeenCalledWith('patient',expect.objectContaining({height_cm:null})));
+ });
+ it('preserves the entered height when the save fails and allows retry',async()=>{
+  vi.mocked(updatePatient).mockRejectedValueOnce(new Error('No pudimos guardar los datos.'));
+  const height=await editHeight();
+  fireEvent.change(height,{target:{value:'175.5'}});
+  fireEvent.submit(height.closest('form')!);
+  expect(await screen.findByText('No pudimos guardar los datos.')).toBeInTheDocument();
+  expect(height).toHaveValue(175.5);
+  fireEvent.submit(height.closest('form')!);
+  expect(await screen.findByText('175.5 cm')).toBeInTheDocument();
+ });
 });
 function CurrentLocation() { const location=useLocation(); return <output aria-label="Ruta actual">{location.pathname}{location.search}</output>; }
 async function openDelete() {

@@ -2,23 +2,38 @@ import type { LongitudinalSeries } from "@/src/features/evolution/longitudinal";
 import refs from "@/src/features/interpretations/references.json";
 import { interpretResult } from "@/src/features/interpretations/engine";
 import type { InterpretationReference } from "@/src/features/interpretations/types";
-export const patient = { id: "visual-patient", full_name: "Paciente de demostración", height_cm: 174, weight_kg: 80, birth_date: "1992-06-10", equation_sex: "male" };
+import type { Patient } from "@/src/types/domain";
+import type { CalculationCatalogItem } from "@/src/features/calculations/catalog";
+export * from "../../src/services/patients";
+export * from "../../src/services/appointments";
+export * from "../../src/features/admin/api";
+export const supabase = {};
+export const useAuth = () => ({ user: { id: "visual-owner" } });
+export const useAccess = () => ({ data: null });
+export const patient = { id: "visual-patient", professional_id: "visual-owner", full_name: "Paciente de demostración", height_cm: 174, weight_kg: 80, birth_date: "1992-06-10", equation_sex: "male", status: "active", timezone: "America/Mexico_City", email: null, phone: null, country_code: "+52", gender: null, portal_access_enabled: false } as Patient;
+let currentPatient = { ...patient };
+export const getPatient = async () => structuredClone(currentPatient);
+export const updatePatient = async (_id: string, input: Partial<Patient>) => { currentPatient = { ...currentPatient, ...input }; return structuredClone(currentPatient); };
+export const listConsultations = async () => [];
+export const listPatientNotes = async () => [];
+export const listProgressPhotos = async () => [];
+export const listAppointments = async () => ({ appointments: [] });
 export const consultation = { id: "visual-consultation", patient_id: patient.id, consultation_date: "2026-09-20T12:00:00Z", status: "draft" };
-const measurements = [["weight", "Peso corporal", "general", "kg"], ["waist", "Cintura", "circumference", "cm"], ["hip", "Cadera", "circumference", "cm"], ["triceps", "Tricipital", "skinfold", "mm"], ["subscapular", "Subescapular", "skinfold", "mm"], ["humerus", "Diámetro de húmero", "bone_breadth", "cm"]];
-export const catalog = measurements.map(([id, name, category, unit], i) => ({ id, code: id, name, display_name: name, clinical_name: name, category, subcategory: "", unit, data_type: "number", min_value: 0.001, max_value: 1000, decimal_places: 2, description: "Medición registrada durante esta consulta.", synonyms: [], display_order: i, source_kind: "direct", choice_options: [] }));
+const measurements = [["weight", "Peso corporal", "general", "kg"], ["height", "Altura", "general", "cm"], ["waist", "Cintura", "circumference", "cm"], ["hip", "Cadera", "circumference", "cm"], ["triceps", "Tricipital", "skinfold", "mm"], ["subscapular", "Subescapular", "skinfold", "mm"], ["humerus", "Diámetro de húmero", "bone_breadth", "cm"]];
+export const catalog = measurements.map(([id, name, category, unit], i) => ({ id, code: id, name, display_name: name, clinical_name: name, category, subcategory: "", unit, data_type: "number", min_value: 0.001, max_value: id === "height" ? 300 : 1000, decimal_places: 2, description: "Medición registrada durante esta consulta.", synonyms: [], display_order: i, source_kind: "direct", choice_options: [] }));
 let workspace = catalog.map((item) => item.id);
 let values = [{ id: "weight-value", measurement_type_id: "weight", value: 87.6 }];
-export async function loadConsultationMeasurements() { return { catalog, workspaceIds: workspace, values, hasFollowup: false, followupIds: [], previousValues: {} }; }
+export async function loadConsultationMeasurements() { return { catalog, workspaceIds: workspace, values, hasFollowup: true, followupIds: workspace.filter(id => id !== "height"), previousValues: {} }; }
 export async function saveMeasurementWorkspace(ids: string[]) { workspace = ids; return ids; }
 export async function savePatientMeasurementFollowup(_id: string, ids: string[]) { return ids; }
 export async function saveConsultationMeasurements(_c: unknown, payload: Record<string, number>) { values = Object.entries(payload).map(([measurement_type_id, value]) => ({ id: measurement_type_id, measurement_type_id, value })); return values; }
-export async function loadCalculationCatalog() { return []; }
+export async function loadCalculationCatalog(): Promise<CalculationCatalogItem[]> { return [{ code: "bmi", name: "Índice de masa corporal", category: "index", method_version: "1.0.0", status: "implemented", display_order: 10, definition: { catalogVersion: 1, resultKey: "bmi", resultName: "Índice de masa corporal", methodName: "IMC", summary: "Peso y estatura.", unit: "kg/m²", decimalPlaces: 1, inputs: [{ key: "weight", label: "Peso", source: "consultation_measurement", measurementCode: "weight" }, { key: "height", label: "Estatura", source: "patient_record", patientField: "height_cm" }], dependencies: [], references: [], limitations: "No distingue grasa de músculo." } }]; }
 export async function saveConsultationCalculationResults() { return []; }
 export async function loadInterpretationData() { return { references: refs, saved: [], pregnant: false, pregnancyFromInterview: false }; }
 export async function loadConsultationDeviceData() { return { devices: [], sessions: [] }; }
 export async function saveDeviceMeasurements() { return {}; }
 async function baseHistory() {
-  return { consultations: [], series: catalog.map<LongitudinalSeries>((item, i) => ({ id: item.id, label: item.name, concept: item.name, conceptCode: item.code, category: "measurements", unit: item.unit, sourceType: "manual_measurement", method: null, provenance: null, graphable: true, points: [0, 1, 2].map((j) => ({ consultation_id: String(j), consultation_date: `2026-09-${String(1 + j * 9).padStart(2, "0")}T12:00:00Z`, raw_value: 80 - j + i, display_value: String(80 - j + i), unit: item.unit, source_reference: {}, ...(i === 0 ? { referenceWeight: { value: 65, method: "Referencia registrada" } } : {}) })) })).concat([{ id: "bmi", label: "IMC", concept: "IMC", conceptCode: "bmi", category: "calculations", unit: "kg/m²", sourceType: "calculation", method: "IMC", provenance: "IMC", graphable: true, points: [28, 27.5, 27].map((raw_value, j) => ({ consultation_id: String(j), consultation_date: `2026-09-${String(1 + j * 9).padStart(2, "0")}T12:00:00Z`, raw_value, display_value: String(raw_value), unit: "kg/m²", source_reference: {}, interpretation: interpretResult("bmi", raw_value, "kg/m²", { age: 34, sex: "male", pregnant: false }, refs as InterpretationReference[], String(j)) })) }]) };
+  return { consultations: [], series: catalog.map<LongitudinalSeries>((item, i) => ({ id: item.id, label: item.name, concept: item.name, conceptCode: item.code, category: "measurements", unit: item.unit, sourceType: "manual_measurement", method: null, provenance: null, graphable: true, points: [0, 1, 2].map((j) => ({ consultation_id: String(j), consultation_date: `2026-09-${String(1 + j * 9).padStart(2, "0")}T12:00:00Z`, raw_value: item.code === "height" ? 173 + j * 0.5 : 80 - j + i, display_value: String(item.code === "height" ? 173 + j * 0.5 : 80 - j + i), unit: item.unit, source_reference: {}, ...(i === 0 ? { referenceWeight: { value: 65, method: "Referencia registrada" } } : {}) })) })).concat([{ id: "bmi", label: "IMC", concept: "IMC", conceptCode: "bmi", category: "calculations", unit: "kg/m²", sourceType: "calculation", method: "IMC", provenance: "IMC", graphable: true, points: [28, 27.5, 27].map((raw_value, j) => ({ consultation_id: String(j), consultation_date: `2026-09-${String(1 + j * 9).padStart(2, "0")}T12:00:00Z`, raw_value, display_value: String(raw_value), unit: "kg/m²", source_reference: {}, interpretation: interpretResult("bmi", raw_value, "kg/m²", { age: 34, sex: "male", pregnant: false }, refs as InterpretationReference[], String(j)) })) }]) };
 }
 
 export async function loadLongitudinalHistory() {

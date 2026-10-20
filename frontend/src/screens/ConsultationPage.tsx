@@ -1081,7 +1081,7 @@ function ConsultationEditor() {
       </div>}
       {measurementsOpened && (
         <div className="mt-6" hidden={module !== "measurements"}>
-          <ConsultationMeasurements key={consultation.id} consultation={consultation} patient={patient} onPendingChange={setMeasurementsPending} />
+          <ConsultationMeasurements key={consultation.id} consultation={consultation} patient={patient} onPatientChange={setPatient} onPendingChange={setMeasurementsPending} />
         </div>
       )}
       {laboratoriesOpened && (

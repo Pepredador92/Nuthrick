@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useState } from "react";
+import type { Consultation, Patient } from "@/src/types/domain";
 import { ConsultationMeasurements } from "./ConsultationMeasurements";
 import references from "@/src/features/interpretations/references.json";
 const interpretationsApi = vi.hoisted(() => ({ load: vi.fn() }));
@@ -8,6 +10,8 @@ vi.mock("@/src/services/interpretations", () => ({ loadInterpretationData: inter
 const api = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn(), saveWorkspace: vi.fn(), saveFollowup: vi.fn() }));
 const calculationApi = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
 const bioimpedanceApi = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
+const patientApi = vi.hoisted(() => ({ update: vi.fn() }));
+vi.mock("@/src/services/patients", () => ({ updatePatient: patientApi.update }));
 vi.mock("@/src/services/consultationMeasurements", async () => ({
   loadConsultationMeasurements: api.load,
   saveConsultationMeasurements: api.save,
@@ -36,15 +40,16 @@ const calculations = [
   { code: "waist_hip_ratio", name: "Índice cintura/cadera", category: "index", method_version: "1.0.0", status: "implemented", display_order: 20, definition: { catalogVersion: 1, resultKey: "waist_hip_ratio", resultName: "Índice cintura/cadera", methodName: "Relación cintura/cadera", summary: "Cintura y cadera.", unit: "razón", decimalPlaces: 2, inputs: [{ key: "waist", label: "Cintura", source: "consultation_measurement", measurementCode: "waist_circumference" }, { key: "hip", label: "Cadera", source: "consultation_measurement", measurementCode: "hip_circumference" }], dependencies: [], references: [], limitations: "Sin clasificación." } },
   { code: "density_jackson_pollock_7", name: "Densidad corporal", category: "density", method_version: "pending", status: "not_implemented", display_order: 110, definition: { catalogVersion: 1, resultKey: "body_density", resultName: "Densidad corporal", methodName: "Jackson & Pollock 7", summary: "Pendiente.", unit: "g/cm³", decimalPlaces: 5, inputs: [{ key: "sex", label: "Sexo para ecuaciones", source: "patient_record", patientField: "equation_sex" }, { key: "age", label: "Edad en esta consulta", source: "patient_derived", derivation: "age_at_consultation" }], dependencies: [], references: [], limitations: "Pendiente." } },
 ];
-const consultation = { id: "consultation", patient_id: "patient", consultation_date: "2026-09-04T12:00:00Z" } as never;
-const patient = { id: "patient", full_name: "Paciente de prueba", weight_kg: 80, height_cm: 174, birth_date: "1992-06-10", equation_sex: "male" } as never;
+const consultation = { id: "consultation", patient_id: "patient", consultation_date: "2026-09-04T12:00:00Z" } as Consultation;
+const patient = { id: "patient", full_name: "Paciente de prueba", weight_kg: 80, height_cm: 174, birth_date: "1992-06-10", equation_sex: "male" } as Patient;
 
 describe("ConsultationMeasurements", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     interpretationsApi.load.mockResolvedValue({ references, saved: [], pregnant: false, pregnancyFromInterview: false });
     api.load.mockResolvedValue({ catalog, values: [], workspaceIds: ["weight", "height"], hasFollowup: false, followupIds: [], previousValues: {} });
-    api.save.mockResolvedValue([{ id: "measurement-weight", measurement_type_id: "weight", value: 82.4 }]);
+    api.save.mockImplementation(async (_consultation, payload: Record<string, number>) => Object.entries(payload).map(([measurement_type_id, value]) => ({ id: `measurement-${measurement_type_id}`, measurement_type_id, value })));
+    patientApi.update.mockImplementation(async (_id, input: Partial<Patient>) => ({ ...patient, ...input }));
     api.saveWorkspace.mockImplementation(async (ids: string[]) => ids);
     api.saveFollowup.mockResolvedValue(["weight"]);
     calculationApi.load.mockResolvedValue(calculations);
@@ -58,14 +63,94 @@ describe("ConsultationMeasurements", () => {
     expect(screen.getByText("174 cm")).toBeInTheDocument();
     expect(screen.getByText("Masculino")).toBeInTheDocument();
     expect(screen.getByLabelText(/peso corporal/i, { selector: "input" })).toBeInTheDocument();
-    expect(screen.queryByLabelText(/estatura/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/^estatura/i, { selector: "input" })).toHaveValue("174");
     fireEvent.change(screen.getByLabelText(/peso corporal/i, { selector: "input" }), { target: { value: "82.4" } });
     expect(screen.getByText("27.2")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /guardar mediciones/i }));
     await waitFor(() => expect(api.save).toHaveBeenCalledWith(expect.anything(), { weight: 82.4 }));
     await waitFor(() => expect(calculationApi.save).toHaveBeenCalledWith("consultation", expect.objectContaining({ bmi: expect.objectContaining({ displayedResult: "27.2" }) }), false));
+    expect(patientApi.update).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText(/buscar una medición/i), { target: { value: "hemoglobina" } });
     expect(await screen.findByText(/no encontramos una medición disponible/i)).toBeInTheDocument();
+  });
+  it("shows selected Altura in workspace order even when the patient follow-up excludes it", async () => {
+    api.load.mockResolvedValue({ catalog: catalog.map(item => item.code === "height" ? { ...item, display_name: "Altura" } : item), values: [], workspaceIds: ["height", "weight", "waist_circumference"], hasFollowup: true, followupIds: ["weight"], previousValues: {} });
+    render(<ConsultationMeasurements consultation={consultation} patient={patient} />);
+    const basics = await screen.findByRole("region", { name: "Mediciones básicas" });
+    expect(within(basics).getByLabelText(/^altura/i, { selector: "input" })).toHaveValue("174");
+    expect(Array.from(basics.querySelectorAll("input")).map(input => input.id)).toEqual(["measurement-height", "measurement-weight"]);
+    expect(screen.queryByLabelText(/^cintura/i, { selector: "input" })).not.toBeInTheDocument();
+    expect(api.save).not.toHaveBeenCalled();
+    expect(patientApi.update).not.toHaveBeenCalled();
+  });
+  it("captures a missing height, updates the patient, and calculates with the new height before and after saving", async () => {
+    const changedPatient = vi.fn();
+    function Visit() {
+      const [currentPatient, setCurrentPatient] = useState({ ...patient, height_cm: null } as Patient);
+      return <ConsultationMeasurements consultation={consultation} patient={currentPatient} onPatientChange={next => { changedPatient(next); setCurrentPatient(next); }} />;
+    }
+    render(<Visit />);
+    const height = await screen.findByLabelText(/^estatura/i, { selector: "input" });
+    expect(height).toHaveValue("");
+    fireEvent.change(screen.getByLabelText(/^peso corporal/i, { selector: "input" }), { target: { value: "82.4" } });
+    fireEvent.change(height, { target: { value: "175,5 cm" } });
+    expect(screen.getByText("26.8")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /guardar mediciones/i }));
+    await waitFor(() => expect(api.save).toHaveBeenCalledWith(consultation, { weight: 82.4, height: 175.5 }));
+    await waitFor(() => expect(patientApi.update).toHaveBeenCalledWith("patient", { height_cm: 175.5 }));
+    await waitFor(() => expect(calculationApi.save).toHaveBeenCalledWith("consultation", expect.objectContaining({ bmi: expect.objectContaining({ displayedResult: "26.8", inputs: expect.objectContaining({ height: expect.objectContaining({ value: "175.5" }) }) }) }), false));
+    await waitFor(() => expect(changedPatient).toHaveBeenCalledWith(expect.objectContaining({ height_cm: 175.5 })));
+    expect(screen.getByText("175.5 cm")).toBeInTheDocument();
+    expect(screen.getByText("26.8")).toBeInTheDocument();
+    expect(height).toHaveValue("175.5");
+  });
+  it("loads this consultation's saved height without changing the patient on opening", async () => {
+    api.load.mockResolvedValue({ catalog, values: [{ measurement_type_id: "height", value: 168 }], workspaceIds: ["weight", "height"], hasFollowup: true, followupIds: ["weight"], previousValues: {} });
+    render(<ConsultationMeasurements consultation={consultation} patient={patient} />);
+    expect(await screen.findByLabelText(/^estatura/i, { selector: "input" })).toHaveValue("168");
+    expect(screen.getByText("174 cm")).toBeInTheDocument();
+    expect(patientApi.update).not.toHaveBeenCalled();
+    expect(api.save).not.toHaveBeenCalled();
+  });
+  it("rejects heights outside the patient's range before saving any data", async () => {
+    render(<ConsultationMeasurements consultation={consultation} patient={patient} />);
+    const height = await screen.findByLabelText(/^estatura/i, { selector: "input" });
+    fireEvent.change(height, { target: { value: "19" } });
+    fireEvent.click(screen.getByRole("button", { name: /guardar mediciones/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("La estatura debe estar entre 20 y 300 cm.");
+    expect(height).toHaveFocus();
+    expect(api.save).not.toHaveBeenCalled();
+    expect(patientApi.update).not.toHaveBeenCalled();
+    expect(calculationApi.save).not.toHaveBeenCalled();
+  });
+  it("keeps a failed height update pending and retries before persisting calculations", async () => {
+    const onPendingChange = vi.fn();
+    patientApi.update.mockRejectedValueOnce(new Error("No connection"));
+    render(<ConsultationMeasurements consultation={consultation} patient={patient} onPendingChange={onPendingChange} />);
+    const height = await screen.findByLabelText(/^estatura/i, { selector: "input" });
+    fireEvent.change(height, { target: { value: "180" } });
+    fireEvent.click(screen.getByRole("button", { name: /guardar mediciones/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("no pudimos actualizar la estatura de la ficha");
+    expect(height).toHaveValue("180");
+    expect(calculationApi.save).not.toHaveBeenCalled();
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
+    fireEvent.click(screen.getByRole("button", { name: /guardar mediciones/i }));
+    await waitFor(() => expect(patientApi.update).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(onPendingChange).toHaveBeenLastCalledWith(false));
+    expect(patientApi.update).toHaveBeenLastCalledWith("patient", { height_cm: 180 });
+    expect(calculationApi.save).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+  it("removes height from the patient only when the field is explicitly cleared", async () => {
+    const onPatientChange = vi.fn();
+    render(<ConsultationMeasurements consultation={consultation} patient={patient} onPatientChange={onPatientChange} />);
+    const height = await screen.findByLabelText(/^estatura/i, { selector: "input" });
+    fireEvent.change(height, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: /guardar mediciones/i }));
+    await waitFor(() => expect(patientApi.update).toHaveBeenCalledWith("patient", { height_cm: null }));
+    expect(api.save).toHaveBeenCalledWith(consultation, {});
+    expect(onPatientChange).toHaveBeenCalledWith(expect.objectContaining({ height_cm: null }));
+    await waitFor(() => expect(calculationApi.save).toHaveBeenCalledWith("consultation", {}, false));
   });
   it("normalizes commas and units, calculates immediately, and prevents invalid saves", async () => {
     render(<ConsultationMeasurements consultation={consultation} patient={patient} />);
