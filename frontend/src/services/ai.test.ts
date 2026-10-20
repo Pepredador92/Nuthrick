@@ -17,6 +17,15 @@ it('does not expose a provider error body',async()=>{
   vi.mocked(supabase.functions.invoke).mockResolvedValue({data:null,error:{context:{json:async()=>({error:'raw-provider-private-message'})}}} as never);
   await expect(runAIRequest({feature:'core_check',idempotencyKey:'logical-key'})).rejects.toThrow('No se pudo generar. Inténtalo más tarde.');
 });
+it.each([
+  ['invalid_output_refunded','Los créditos de este intento se reintegraron'],
+  ['invalid_output_refund_pending','El reintegro de los créditos está pendiente'],
+])('reports the confirmed refund state for %s and refreshes the balance',async(code,message)=>{
+  vi.mocked(supabase.functions.invoke).mockResolvedValue({data:null,error:{context:{json:async()=>({error:code})}}} as never);
+  const changed=vi.fn();window.addEventListener('nuthrick:ai-balance',changed);
+  await expect(runAIRequest({feature:'pes_diagnosis',idempotencyKey:'logical-key'})).rejects.toThrow(message);
+  expect(changed).toHaveBeenCalledOnce();window.removeEventListener('nuthrick:ai-balance',changed);
+});
 it('opens the consent notice and blocks the request before invoking AI',async()=>{
   vi.mocked(supabase.rpc).mockResolvedValue({data:{eligible:true,accepted:false,version:'pilot-v1'},error:null} as never);
   const prompt=vi.fn();window.addEventListener('nuthrick:ai-consent-manage',prompt);

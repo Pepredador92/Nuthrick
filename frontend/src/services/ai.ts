@@ -21,6 +21,8 @@ export const aiMessages: Record<string,string> = {
   provider_outcome_unknown: 'La solicitud está pendiente de revisión. No la vuelvas a generar para evitar un consumo duplicado.',
   service_unavailable: 'No pudimos verificar el resultado. Consulta su estado antes de volver a generar.',
   invalid_output: 'La respuesta no pasó la validación. No se modificó el expediente.',
+  invalid_output_refunded: 'No pudimos obtener un PES válido. Los créditos de este intento se reintegraron y el expediente se conserva. Puedes reintentar o redactarlo manualmente.',
+  invalid_output_refund_pending: 'No pudimos obtener un PES válido. El reintegro de los créditos está pendiente de comprobación. Puedes continuar manualmente; contacta a soporte.',
   provider_credit_exhausted: 'La IA no está disponible temporalmente. Contacta a soporte.',
   ai_consent_required: 'Antes de usar IA, revisa y acepta el aviso de tratamiento de datos.',
   ai_consent_unavailable: 'No pudimos verificar tu autorización para usar IA. Intenta de nuevo.',

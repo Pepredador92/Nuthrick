@@ -168,6 +168,14 @@ Deno.serve(async request => {
       claim: async id => (await rpc<{ claimed: boolean }>('claim',{ generation_id: id })).claimed,
       settle: (id,status,usage,responseId) => rpc<Generation>('settle',{ generation_id: id,status,...usage,provider_response_id: responseId }),
       uncertain: async id => { await rpc('uncertain',{ generation_id: id }); },
+      refundInvalidPes: async id => {
+        for (let attempt=0; attempt<2; attempt++) {
+          const {data,error}=await db.rpc('ai_refund_invalid_pes',{p_owner:owner,p_generation:id});
+          if (!error && data!==null && data!==undefined && Number.isFinite(Number(data)) && Number(data)>=0) return Number(data);
+        }
+        console.warn(JSON.stringify({event:'pes_validation_refund_pending',generationId:id}));
+        throw new AIError('invalid_output_refund_pending');
+      },
       validateOutput: output => {
         if(textSnapshot){textDraft=validateTextDietOutput(output,textSnapshot);return !!textDraft;}
         if(dietSnapshot) { dietValidation=validateSnapshot(output,dietSnapshot); return dietValidation.status!=='invalid'; }

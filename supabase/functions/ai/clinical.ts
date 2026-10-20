@@ -4,6 +4,7 @@ import type { ObjectivePlan } from '../_shared/objectives.ts';
 import { isRecallEstimate } from './diet-generation-domain.js';
 import { composePesStatement, pesStatementMatches, unsupportedPesNumbers, type ClinicalMeasurementFact } from '../_shared/pes.ts';
 import { pesSynthesisInstructions } from './pes-synthesis.ts';
+import { referencedPesSchema, pesReferenceInstructions } from './pes-references.ts';
 const text = { type: "string", maxLength: 2000 };
 const strings = { type: "array", items: text, maxItems: 30 };
 const object = (properties: Record<string, unknown>) => ({
@@ -97,6 +98,9 @@ const boundary =
 const historyBoundary = " Prioriza la consulta actual. El historial es un resumen de los registros disponibles con sus fechas, no una historia completa ni datos actuales; no infieras valores intermedios ni tendencias continuas.";
 const comprehensivePesReview = " Para esta versión, examina TODOS los facts disponibles antes de formular el diagnóstico: entrevista, antropometría, mediciones de equipo, cálculos, estudios de laboratorio, recordatorio confirmado, ficha e historial pertinente. No decidas basándote solo en la entrevista ni descartes una categoría porque otra ya aporte una etiología. Distingue cada hecho actual de cada antecedente fechado. En una consulta inicial usa todos los datos actuales; no inventes antecedentes. En seguimiento prioriza los datos de la consulta actual y contrástalos con los antecedentes disponibles. Integra en signosSymptoms cada medición, cálculo o resultado clínicamente pertinente que respalde el problema; cita su fact exacto en evidence, con valor, unidad y fecha tal como aparecen. No dejes una medición pertinente únicamente en evidence si debe formar parte de S. Si hay hallazgos clínicamente importantes que no encajan en el PES principal, menciónalos en uncertainties para revisión profesional en vez de omitirlos. No fuerces datos inconexos dentro de un solo diagnóstico. El IMC, el peso o la grasa corporal pueden ser signos o indicadores, pero no prueban por sí solos una etiología ni autorizan a inventar una clasificación; conserva el valor medido y su fuente, y distingue lo que requiere interpretación profesional. Nunca afirmes que un dato fue considerado si no está en facts.";
 export function clinicalAdapter(feature: string, version: string) {
+  if (feature === 'pes_diagnosis' && version === 'pes_diagnosis@8') {
+    return { schema: referencedPesSchema(pesSchema), instructions: `${boundary}${pesSynthesisInstructions}${historyBoundary}${pesReferenceInstructions}` };
+  }
   if (feature === 'pes_diagnosis' && version === 'pes_diagnosis@7') {
     return { schema: pesSchema, instructions: `${boundary}${pesSynthesisInstructions}${historyBoundary}` };
   }

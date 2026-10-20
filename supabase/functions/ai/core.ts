@@ -4,7 +4,8 @@ import {isTextDietGuidance,type TextDietGuidance} from '../_shared/text-diet.ts'
 import {textDietAdapter} from './text-diet-contract.ts';
 import { Ajv } from 'ajv';
 import { pesSynthesisEvidenceValid } from './pes-synthesis.ts';
-import { clinicalAdapter, clinicalEvidenceValid, conservativeRecallQuantities, normalizePesOutput, pesClinicalStructureValid } from './clinical.ts';
+import { normalizeReferencedPes, referencedPesContext } from './pes-references.ts';
+import { clinicalAdapter, clinicalEvidenceValid, conservativeRecallQuantities, normalizePesOutput, pesClinicalStructureValid, pesSchema } from './clinical.ts';
 import { dietDraftAdapter, dietDraftAdapterV1, dietDraftAdapterV3 } from './diet-contract.ts';
 
 export type FeatureConfig = {
@@ -150,6 +151,7 @@ export interface AIStore {
   bindContext?(id: string, request: AIRequest, stamp: string): Promise<void>;
   validateOutput?(output: unknown): boolean;
   recordResult?(id: string, result: ProviderResult, valid: boolean): Promise<void>;
+  refundInvalidPes?(id: string): Promise<number>;
 }
 export type AIRequest = { textGuidance?: TextDietGuidance; guidance?: DietGuidance; strategyFeedback?: string; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -185,12 +187,15 @@ export function parseRequest(value: unknown): AIRequest {
 }
 export async function runAIRequest(request: AIRequest, store: AIStore, provider: AIProvider) {
   const config = await store.config(request.feature);
+  const referencedPes = request.feature === 'pes_diagnosis' && config.prompt_version === 'pes_diagnosis@8';
+  if (referencedPes && !store.refundInvalidPes) throw new AIError('configuration_required');
   if (!config.enabled || config.provider !== 'openai') throw new AIError('feature_disabled');
   const adapter = featureAdapter(request.feature, config.prompt_version,!!request.textGuidance);
   const clinical = ['pes_diagnosis','recall_24h','consultation_support','patient_instructions','intervention_strategy','diet_draft'].includes(request.feature);
   if (clinical && (!store.context || !store.bindContext)) throw new AIError('context_unavailable');
   const hydrated = clinical ? await store.context!(request) : null;
   if (hydrated) adapter.context = hydrated.context;
+  if (referencedPes) adapter.context = referencedPesContext(adapter.context);
   const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : []), ...(request.feature==='intervention_strategy'?[request.strategyFeedback??null]:[])]);
   const fingerprint = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical))), b => b.toString(16).padStart(2,'0')).join('');
   const { generation, created } = await store.reserve(config,request,fingerprint);
@@ -209,11 +214,17 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
     throw error;
   }
   const structuredPes = request.feature === 'pes_diagnosis' && ['pes_diagnosis@5', 'pes_diagnosis@6', 'pes_diagnosis@7'].includes(config.prompt_version);
+  if (referencedPes) {
+    result = { ...result, output: result.status === 'completed' && validOutput(adapter.schema,result.output)
+      ? normalizeReferencedPes(result.output,adapter.context) : null };
+  }
+  const outputSchema = referencedPes ? pesSchema : adapter.schema;
   if (structuredPes) result = { ...result, output: normalizePesOutput(result.output) };
   let valid = false;
   try {
     if (request.feature === 'intervention_strategy' && validOutput(adapter.schema,result.output)) result = { ...result, output: normalizeInterventionOutput(result.output,adapter.context as InterventionContext) };
-    valid = result.status === 'completed' && validOutput(adapter.schema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (request.feature !== 'intervention_strategy' || interventionEvidenceValid(result.output,adapter.context as InterventionContext,generation.id)) && (!structuredPes || pesClinicalStructureValid(result.output)) && (request.feature !== 'pes_diagnosis' || config.prompt_version !== 'pes_diagnosis@7' || pesSynthesisEvidenceValid(result.output)) && (!store.validateOutput || store.validateOutput(result.output));
+    valid = result.status === 'completed' && validOutput(outputSchema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (request.feature !== 'intervention_strategy' || interventionEvidenceValid(result.output,adapter.context as InterventionContext,generation.id)) && (!structuredPes || pesClinicalStructureValid(result.output)) && (request.feature !== 'pes_diagnosis' || config.prompt_version !== 'pes_diagnosis@7' || pesSynthesisEvidenceValid(result.output)) && (!store.validateOutput || store.validateOutput(result.output));
+    if (!valid && request.feature === 'pes_diagnosis') console.warn(JSON.stringify({event:'pes_output_rejected',generationId:generation.id,promptVersion:config.prompt_version,codes:result.status!=='completed'?['provider_incomplete']:!validOutput(outputSchema,result.output)?['schema_or_references']:['evidence_or_structure']}));
     if (!valid && request.feature === 'intervention_strategy') console.warn(JSON.stringify({event:'strategy_output_rejected',generationId:generation.id,codes:result.status!=='completed'?['provider_incomplete']:!validOutput(adapter.schema,result.output)?['schema']:interventionValidationIssues(result.output,adapter.context as InterventionContext,generation.id)}));
     await store.recordResult?.(generation.id,result,valid);
   } catch {
@@ -223,6 +234,13 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
     throw new AIError('result_unavailable');
   }
   await store.settle(generation.id, valid ? 'succeeded' : 'invalid_output',result.usage,result.responseId);
-  if (!valid) throw new AIError('invalid_output');
+  if (!valid) {
+    if (referencedPes) {
+      try { await store.refundInvalidPes!(generation.id); }
+      catch { throw new AIError('invalid_output_refund_pending'); }
+      throw new AIError('invalid_output_refunded');
+    }
+    throw new AIError('invalid_output');
+  }
   return { generationId: generation.id, status: 'succeeded', output: request.feature==='recall_24h' && config.prompt_version==='recall_24h@1'?conservativeRecallQuantities(result.output):result.output, replay: false };
 }
