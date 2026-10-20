@@ -35,6 +35,7 @@ const fragment = (value:string) => value.trim().replace(/^(Posibles?|Barreras?|L
 
 export function normalizeConcisePes(output:unknown, context:unknown) {
   const raw=output as ConcisePes;
+  if ([raw.problem,raw.etiology,...raw.signsSymptoms].some(value=>value.trim()) && !raw.evidenceFactIds.length) return null;
   const parts={...raw,etiology:fragment(raw.etiology),signsSymptoms:raw.signsSymptoms.map(fragment)};
   const draft=normalizeReferencedPes({...parts,pesStatement:'',uncertainties:[]},context);
   if (!draft) return null;
@@ -50,7 +51,7 @@ export function normalizeConcisePes(output:unknown, context:unknown) {
   });
   const notes:string[]=[];
   const prioritySources=resolve(raw.priority);
-  if(raw.priority.text.trim() && supported(raw.priority,prioritySources)) {
+  if(draft.problem.trim() && raw.priority.text.trim() && supported(raw.priority,prioritySources)) {
     notes.push(pesPriorityPrefix+raw.priority.text.trim());addEvidence(prioritySources);
   } else if(draft.problem.trim()) {
     notes.push(pesPriorityPendingPrefix+'Confirma qué evidencia hace prioritario este problema frente a los otros hallazgos de la consulta. La justificación generada no pudo verificarse.');

@@ -28,7 +28,7 @@ conforme a la preferencia del usuario. No se agrega una segunda generación.
 - ESLint de los tres archivos de interfaz modificados y compilación de producción.
 - Revisión del código de aprobación: el compositor compartido y su equivalente
   SQL mantienen el mismo formato; la evidencia y las notas ya se almacenan.
-- Edge Function `ai` versión 41 activa, con sus archivos remotos comparados.
+- Edge Function `ai` versión 42 activa, con sus archivos remotos comparados.
 - Migración `20261020194256` aplicada. Consulta de configuración y permisos:
   PES @9, modelo Luna, límites conservados y reintegro accesible solo al servidor.
 - Los avisos de seguridad de Supabase conservan los conteos previos.
