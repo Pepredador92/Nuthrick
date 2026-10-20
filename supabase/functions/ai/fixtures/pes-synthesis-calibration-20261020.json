@@ -1,0 +1,239 @@
+{
+  "synthetic": true,
+  "clinicalTruth": false,
+  "model": "gpt-5.6-luna",
+  "baseline": {
+    "case": "behavioral",
+    "promptVersion": "pes_diagnosis@6",
+    "model": "gpt-5.6-luna",
+    "purpose": "Prioritize supported eating behaviors, distinguish causal hypotheses, retain adiposity as an additional finding, avoid invented emotions and routine laboratory requirements.",
+    "generations": 1,
+    "providerStatus": "completed",
+    "schemaValid": true,
+    "evidenceValid": true,
+    "structureValid": true,
+    "usage": {
+      "input_tokens": 1473,
+      "output_tokens": 682,
+      "cached_tokens": 0
+    },
+    "latency_ms": 10748,
+    "semanticReviewRequired": true,
+    "output": {
+      "problem": "Ingesta irregular de comidas",
+      "etiology": "Omisión de comidas para compensar lo consumido previamente, en el contexto de horarios laborales variables y tiempo limitado para organizar las comidas; la relación causal de las restricciones de horario con las omisiones aún no está confirmada.",
+      "signsSymptoms": [
+        "Habitualmente realiza desayuno y comida; refiere omitir comidas para compensar lo consumido previamente.",
+        "Refiere comer rápidamente y en ocasiones continuar hasta sentir plenitud incómoda.",
+        "Refiere reconocer solo a veces hambre y saciedad."
+      ],
+      "pesStatement": "Ingesta irregular de comidas relacionado con Omisión de comidas para compensar lo consumido previamente, en el contexto de horarios laborales variables y tiempo limitado para organizar las comidas; la relación causal de las restricciones de horario con las omisiones aún no está confirmada, evidenciado por Habitualmente realiza desayuno y comida; refiere omitir comidas para compensar lo consumido previamente; Refiere comer rápidamente y en ocasiones continuar hasta sentir plenitud incómoda; Refiere reconocer solo a veces hambre y saciedad.",
+      "evidence": [
+        {
+          "source": "Entrevista · usual pattern",
+          "finding": "Habitualmente realiza desayuno y comida; refiere omitir comidas para compensar lo consumido previamente."
+        },
+        {
+          "source": "Entrevista · eating speed",
+          "finding": "Refiere comer rápidamente y en ocasiones continuar hasta sentir plenitud incómoda."
+        },
+        {
+          "source": "Entrevista · hunger recognition",
+          "finding": "Refiere reconocer solo a veces hambre y saciedad."
+        },
+        {
+          "source": "Entrevista · schedule constraints",
+          "finding": "Horarios laborales variables y tiempo limitado para organizar las comidas. No se ha confirmado su relación causal con las omisiones."
+        }
+      ],
+      "missingContext": [
+        "Confirmar frecuencia, duración y distribución de las omisiones de comidas.",
+        "Precisar la ingesta habitual completa, incluyendo colaciones, bebidas y cantidades, mediante un recordatorio confirmado o registro representativo.",
+        "Explorar estrés, culpa y ansiedad, ya que no se han evaluado.",
+        "Confirmar si los horarios laborales variables y el tiempo limitado son factores causales actuales de las omisiones."
+      ],
+      "uncertainties": [
+        "El peso de 96 kg, la estatura de 170 cm, el IMC registrado de 33.2 kg/m² y la grasa corporal de 41 % por bioimpedancia corresponden a mediciones de la consulta del 2026-10-01; requieren interpretación profesional y no establecen por sí solos la etiología del patrón de ingesta.",
+        "La relación causal entre los horarios laborales variables, el tiempo limitado para organizar las comidas y la omisión de comidas no está confirmada.",
+        "El alcance clínico de la plenitud incómoda y la frecuencia de los episodios descritos requieren уточación profesional."
+      ]
+    }
+  },
+  "cases": {
+    "behavioral": {
+      "case": "behavioral",
+      "promptVersion": "pes_diagnosis@7",
+      "model": "gpt-5.6-luna",
+      "purpose": "Prioritize supported eating behaviors, distinguish causal hypotheses, retain adiposity as an additional finding, avoid invented emotions and routine laboratory requirements.",
+      "generations": 1,
+      "providerStatus": "completed",
+      "schemaValid": true,
+      "evidenceValid": true,
+      "structureValid": true,
+      "usage": {
+        "input_tokens": 1904,
+        "output_tokens": 745,
+        "cached_tokens": 1474
+      },
+      "latency_ms": 8361,
+      "semanticReviewRequired": true,
+      "output": {
+        "problem": "Patrón alimentario irregular",
+        "etiology": "Posible influencia de horarios laborales variables y tiempo limitado para organizar las comidas; la relación causal con las omisiones aún no está confirmada.",
+        "signsSymptoms": [
+          "Refiere realizar habitualmente desayuno y comida y omitir comidas para compensar lo consumido previamente.",
+          "Refiere comer rápidamente y, en ocasiones, continuar hasta sentir plenitud incómoda.",
+          "Refiere reconocer solo a veces las señales de hambre y saciedad."
+        ],
+        "pesStatement": "Patrón alimentario irregular relacionado con Posible influencia de horarios laborales variables y tiempo limitado para organizar las comidas; la relación causal con las omisiones aún no está confirmada, evidenciado por Refiere realizar habitualmente desayuno y comida y omitir comidas para compensar lo consumido previamente; Refiere comer rápidamente y, en ocasiones, continuar hasta sentir plenitud incómoda; Refiere reconocer solo a veces las señales de hambre y saciedad.",
+        "evidence": [
+          {
+            "source": "Entrevista · usual pattern",
+            "finding": "Habitualmente realiza desayuno y comida; refiere omitir comidas para compensar lo consumido previamente."
+          },
+          {
+            "source": "Entrevista · eating speed",
+            "finding": "Refiere comer rápidamente y en ocasiones continuar hasta sentir plenitud incómoda."
+          },
+          {
+            "source": "Entrevista · hunger recognition",
+            "finding": "Refiere reconocer solo a veces hambre y saciedad."
+          },
+          {
+            "source": "Entrevista · schedule constraints",
+            "finding": "Horarios laborales variables y tiempo limitado para organizar las comidas. No se ha confirmado su relación causal con las omisiones."
+          },
+          {
+            "source": "Antropometría · Peso",
+            "finding": "96 kg · consulta 2026-10-01"
+          },
+          {
+            "source": "Antropometría · Estatura",
+            "finding": "170 cm · consulta 2026-10-01"
+          },
+          {
+            "source": "Cálculo registrado · IMC",
+            "finding": "33.2 kg/m² · consulta 2026-10-01"
+          },
+          {
+            "source": "Antropometría · Grasa corporal",
+            "finding": "41 % · método de bioimpedancia registrado · consulta 2026-10-01"
+          }
+        ],
+        "missingContext": [
+          "¿Con qué frecuencia semanal omite comidas, durante cuánto tiempo ocurre y en qué horarios o situaciones se concentra?",
+          "¿Qué cantidad y tipo de alimentos consume habitualmente en las comidas y en los episodios de comer hasta la plenitud incómoda?",
+          "¿La persona identifica hambre, saciedad o malestar digestivo antes, durante o después de comer rápidamente?"
+        ],
+        "uncertainties": [
+          "La relación causal entre los horarios laborales variables, el tiempo limitado para organizar las comidas y las omisiones debe confirmarse.",
+          "Otro hallazgo: peso de 96 kg y estatura de 170 cm, ambos medidos en la consulta del 2026-10-01; estos datos contextualizan la valoración, pero no demuestran por sí mismos la causa del patrón alimentario.",
+          "Otro hallazgo: IMC registrado de 33.2 kg/m² en la consulta del 2026-10-01; requiere interpretación clínica contextual y no demuestra por sí solo exceso actual de ingesta energética.",
+          "Otro hallazgo: grasa corporal de 41 %, medida mediante bioimpedancia en la consulta del 2026-10-01; su interpretación depende del método y contexto clínico."
+        ]
+      }
+    },
+    "anthropometry_only": {
+      "case": "anthropometry_only",
+      "promptVersion": "pes_diagnosis@7",
+      "model": "gpt-5.6-luna",
+      "purpose": "An isolated BMI and body-fat measurement cannot establish current excess energy intake or its etiology.",
+      "generations": 1,
+      "providerStatus": "completed",
+      "schemaValid": true,
+      "evidenceValid": true,
+      "structureValid": true,
+      "usage": {
+        "input_tokens": 1599,
+        "output_tokens": 252,
+        "cached_tokens": 1474
+      },
+      "latency_ms": 3842,
+      "semanticReviewRequired": true,
+      "output": {
+        "problem": "",
+        "etiology": "",
+        "signsSymptoms": [],
+        "pesStatement": "",
+        "evidence": [
+          {
+            "source": "Cálculo registrado · IMC",
+            "finding": "33.2 kg/m² · consulta 2026-10-01"
+          },
+          {
+            "source": "Antropometría · Grasa corporal",
+            "finding": "41 % · método de bioimpedancia registrado · consulta 2026-10-01"
+          }
+        ],
+        "missingContext": [
+          "¿Cuál es el motivo de consulta actual y qué cambios o dificultades relacionados con la alimentación, el estado nutricional o el peso se desean abordar?",
+          "¿Se dispone de peso, talla, evolución antropométrica y antecedentes clínicos actuales que permitan interpretar el IMC y el porcentaje de grasa corporal?",
+          "¿Cómo es la ingesta habitual y qué factores modificables podrían estar relacionados con los hallazgos antropométricos?"
+        ],
+        "uncertainties": [
+          "El IMC registrado es 33.2 kg/m² y el porcentaje de grasa corporal es 41 % por bioimpedancia, ambos correspondientes a la consulta del 2026-10-01; estos datos describen composición corporal, pero no demuestran por sí solos un problema actual de ingesta ni su etiología."
+        ]
+      }
+    },
+    "intake": {
+      "case": "intake",
+      "promptVersion": "pes_diagnosis@7",
+      "model": "gpt-5.6-luna",
+      "purpose": "Select an intake problem when direct current intake evidence and a documented barrier are stronger than an old behavioral diagnosis.",
+      "generations": 1,
+      "providerStatus": "completed",
+      "schemaValid": true,
+      "evidenceValid": true,
+      "structureValid": false,
+      "usage": {
+        "input_tokens": 1683,
+        "output_tokens": 725,
+        "cached_tokens": 0
+      },
+      "latency_ms": 9913,
+      "semanticReviewRequired": true,
+      "output": {
+        "problem": "Ingesta energética insuficiente",
+        "etiology": "Posible influencia del dolor al masticar, con menor tolerancia a los alimentos sólidos",
+        "signsSymptoms": [
+          "Refiere dolor al masticar desde hace 3 semanas y menor consumo de alimentos sólidos por este dolor.",
+          "El profesional documentó un consumo habitual aproximado del 60 % del requerimiento estimado durante 3 semanas, mediante un registro alimentario revisado de 7 días."
+        ],
+        "pesStatement": "Ingesta energética insuficiente relacionado con Posible influencia del dolor al masticar, con menor tolerancia a los alimentos sólidos, evidenciado por Refiere dolor al masticar desde hace 3 semanas y menor consumo de alimentos sólidos por este dolor; El profesional documentó un consumo habitual aproximado del 60 % del requerimiento estimado durante 3 semanas, mediante un registro alimentario revisado de 7 días.",
+        "evidence": [
+          {
+            "source": "Entrevista · general symptoms",
+            "finding": "Refiere dolor al masticar desde hace 3 semanas y menor consumo de alimentos sólidos por ese dolor."
+          },
+          {
+            "source": "Entrevista · professional notes",
+            "finding": "El profesional documentó consumo habitual aproximado del 60 % del requerimiento estimado durante 3 semanas, mediante registro alimentario revisado de 7 días."
+          },
+          {
+            "source": "Entrevista · usual pattern",
+            "finding": "Mantiene sus horarios habituales; niega omisiones compensatorias y dificultades de organización alimentaria actuales."
+          },
+          {
+            "source": "Antropometría · Peso",
+            "finding": "62 kg · consulta 2026-10-01"
+          },
+          {
+            "source": "PES previo aprobado · 2026-06-01 · pes statement",
+            "finding": "Se registró previamente un patrón alimentario desorganizado relacionado con horarios laborales."
+          }
+        ],
+        "missingContext": [
+          "¿Cuál es la causa, localización y evolución del dolor al masticar, y ha sido valorado por un profesional de salud?",
+          "¿Puede cubrir sus necesidades mediante líquidos o alimentos de textura modificada, y qué cantidad consume actualmente por esa vía?",
+          "¿Se dispone de una medición actual del consumo o del requerimiento estimado para reevaluar la ingesta tras una intervención de textura y tolerancia?"
+        ],
+        "uncertainties": [
+          "La relación entre el dolor al masticar y la reducción global de la ingesta está referida por la persona y es clínicamente plausible, pero debe confirmarse mediante la valoración de la causa del dolor y el seguimiento de la ingesta.",
+          "Otro hallazgo: peso de 62 kg en la consulta del 2026-10-01; no se dispone de peso habitual, tendencia ponderal ni contexto suficiente para interpretarlo como cambio nutricional actual.",
+          "El PES previo del 2026-06-01 describe desorganización alimentaria relacionada con horarios laborales, pero la entrevista actual refiere horarios habituales y niega dificultades de organización alimentaria actuales."
+        ]
+      }
+    }
+  },
+  "validationNote": "The intake report was captured before numeric provenance accepted dates in exact source labels. Its recorded structureValid=false is retained. Regression tests reevaluate all outputs against the current validator."
+}

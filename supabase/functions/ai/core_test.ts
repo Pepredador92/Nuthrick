@@ -23,8 +23,8 @@ Deno.test('PES uses server context and the same reserve/settle pipeline',async()
   const result=await runAIRequest({...request,feature:'pes_diagnosis',revision:1},store,{run:i=>{assert.equal(bound,true);assert.deepEqual(i.context,{facts});return Promise.resolve({...ok,output});}});
   assert.deepEqual(result.output,output);assert.equal(store.settlements.length,1);
 });
-Deno.test('PES @5 and @6 derive one coherent statement and reject uncited numeric claims before returning a draft',async()=>{
-  for(const prompt_version of ['pes_diagnosis@5','pes_diagnosis@6']) for(const invented of [false,true]) {
+Deno.test('PES @5, @6 and @7 derive one coherent statement and reject uncited numeric claims before returning a draft',async()=>{
+  for(const prompt_version of ['pes_diagnosis@5','pes_diagnosis@6','pes_diagnosis@7']) for(const invented of [false,true]) {
     const store:AIStore & Store=new Store();store.config=()=>Promise.resolve({...config,feature:'pes_diagnosis',prompt_version});
     const facts=[{source:'Antropometría · Peso',finding:'92 kg'}];
     store.context=()=>Promise.resolve({context:{facts},stamp:'v1'});store.bindContext=()=>Promise.resolve();
@@ -39,6 +39,17 @@ Deno.test('foreign clinical context rejects before reservation and provider',asy
   const store:AIStore & Store=new Store();store.config=()=>Promise.resolve({...config,feature:'pes_diagnosis',prompt_version:'pes_diagnosis@1'});
   store.context=()=>Promise.reject(new AIError('context_unavailable'));store.bindContext=()=>Promise.resolve();
   await assert.rejects(()=>runAIRequest({...request,feature:'pes_diagnosis'},store,{run:()=>{throw new Error('must never dispatch');}}),/context_unavailable/);assert.equal(store.generation,null);
+});
+Deno.test('PES @7 requires cited numbers for additional findings without changing @6 behavior',async()=>{
+  for (const prompt_version of ['pes_diagnosis@6','pes_diagnosis@7']) {
+    const store:AIStore & Store=new Store();store.config=()=>Promise.resolve({...config,feature:'pes_diagnosis',prompt_version});
+    const facts=[{source:'Antropometría · Peso',finding:'92 kg'}];
+    store.context=()=>Promise.resolve({context:{facts},stamp:'v1'});store.bindContext=()=>Promise.resolve();
+    const output={problem:'Problema registrado',etiology:'Factor documentado',signsSymptoms:['Peso de 92 kg'],pesStatement:'',evidence:facts,missingContext:[],uncertainties:['Otro hallazgo: grasa corporal de 41 %.']};
+    const operation=()=>runAIRequest({...request,feature:'pes_diagnosis',revision:1},store,{run:()=>Promise.resolve({...ok,output})});
+    if(prompt_version==='pes_diagnosis@7') await assert.rejects(operation,/invalid_output/);
+    else assert.equal((await operation()).status,'succeeded');
+  }
 });
 
 Deno.test('insufficient credits means zero provider calls',async () => {
