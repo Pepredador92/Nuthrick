@@ -6,6 +6,7 @@ import {
 import {
   clinicalObjective as previewObjective,
   reviewFacts,
+  runAIRequest as previewAIRequest,
 } from "./clinical-copilot-fixtures";
 import { initialInterview } from "../../src/features/consultations/interviewTemplate";
 import type { AnswerWrite } from "../../src/features/consultations/answerAutosave";
@@ -213,3 +214,53 @@ export const syncConsultationAnswers = async (
   }
   return { version: answerVersion, answers: structuredClone(answers) };
 };
+
+// Rich objective proposals for the compact-list and modal review walkthrough.
+export async function runAIRequest(
+  request: Parameters<typeof previewAIRequest>[0],
+) {
+  if (!designPreview || request.feature !== "consultation_support") {
+    return previewAIRequest(request);
+  }
+  const goals = [
+    {
+      outcome: "Organizar las comidas durante la jornada laboral",
+      target:
+        "Registrar las comidas de cuatro días para identificar el momento más difícil de organizar",
+    },
+    {
+      outcome: "Reconocer qué facilita la organización de las comidas",
+      target: "Identificar una alternativa práctica y revisarla con la persona",
+    },
+  ];
+  return {
+    generationId: crypto.randomUUID(),
+    status: "succeeded",
+    replay: false,
+    output: {
+      objectives: goals.map((goal) => ({
+        goal: {
+          ...previewPlan.goals[0],
+          ...goal,
+          textStyle: "patient_v1",
+          targetOrigin: "proposed",
+          timeframeOrigin: "proposed",
+          timeframe: "Revisar el registro en la próxima consulta",
+          feasibility: "Conversar las opciones que encajen con su horario",
+          agreement: "pending",
+        },
+        evidence: [{
+          source: "PES aprobado · Causa",
+          finding: pesParts.pes_etiology,
+        }, {
+          source: "Entrevista · Expectativas",
+          finding: "Organizar las comidas durante la jornada laboral",
+        }],
+        references: [{
+          title: "Referencia de demostración",
+          url: "https://www.eatrightpro.org/practice/nutrition-care-process",
+        }],
+      })),
+    },
+  };
+}

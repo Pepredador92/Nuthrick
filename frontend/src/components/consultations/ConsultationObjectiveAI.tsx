@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ArrowRight, Check } from "lucide-react";
 import {
   composeObjective,
   emptyObjective,
@@ -13,7 +14,52 @@ import {
 } from "@/src/services/ai";
 
 type Evidence = { source: string; finding: string };
-type Suggestion = { text: string; evidence: Evidence[]; goal?: ObjectiveGoal; references?: {title:string;url:string}[] };
+type Suggestion = {
+  text: string;
+  evidence: Evidence[];
+  goal?: ObjectiveGoal;
+  references?: { title: string; url: string }[];
+};
+
+function SuggestionEvidence({ suggestion }: { suggestion: Suggestion }) {
+  return (
+    <>
+      {suggestion.evidence.length > 0 && (
+        <details className="mt-2 text-xs text-[#52675f]">
+          <summary className="cursor-pointer">Datos utilizados</summary>
+          <ul className="mt-2 space-y-1.5">
+            {suggestion.evidence.map((fact, index) => (
+              <li key={`${fact.source}-${index}`}>
+                <strong>{fact.source}:</strong> {fact.finding}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {!!suggestion.references?.length && (
+        <details className="mt-2 text-xs text-[#52675f]">
+          <summary className="cursor-pointer">
+            Fuentes para revisar la propuesta
+          </summary>
+          <ul className="mt-2 space-y-1.5">
+            {suggestion.references.map((reference) => (
+              <li key={reference.url}>
+                <a
+                  className="underline"
+                  href={reference.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {reference.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </>
+  );
+}
 
 type SuggestionProps = {
   patientId: string;
@@ -75,7 +121,7 @@ export function ClinicalSuggestionsAI({
         patientId,
         consultationId,
         revision,
-        ...(!instructions ? { objectiveTextStyle: 'patient_v1' as const } : {}),
+        ...(!instructions ? { objectiveTextStyle: "patient_v1" as const } : {}),
       });
       if (result.status !== "succeeded" || !result.output) {
         setState("uncertain");
@@ -111,12 +157,21 @@ export function ClinicalSuggestionsAI({
                 !!entry &&
                 typeof entry === "object" &&
                 typeof (entry as Evidence).source === "string" &&
-                typeof (entry as Evidence).finding === "string",
+                typeof (entry as Evidence).finding === "string" &&
+                !!(entry as Evidence).source.trim() &&
+                !!(entry as Evidence).finding.trim(),
             )
             : [];
-          const references = Array.isArray(candidate.references) ? candidate.references.filter(reference =>
-            reference && typeof reference.title === 'string' && typeof reference.url === 'string' && /^https:\/\//.test(reference.url)) : [];
-          return evidence.length ? [{ text: text.trim(), evidence, goal, references }] : [];
+          const references = Array.isArray(candidate.references)
+            ? candidate.references.filter((reference) =>
+              reference && typeof reference.title === "string" &&
+              !!reference.title.trim() && typeof reference.url === "string" &&
+              /^https:\/\//.test(reference.url)
+            )
+            : [];
+          return evidence.length
+            ? [{ text: text.trim(), evidence, goal, references }]
+            : [];
         })
         : [];
       sessionStorage.removeItem(storageKey);
@@ -175,6 +230,7 @@ export function ClinicalSuggestionsAI({
     }
   }
 
+  const pendingCount = suggestions.length - applied.length;
   return (
     <section className="clinical-ai-assistance">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -185,7 +241,7 @@ export function ClinicalSuggestionsAI({
           <p className="mt-1 max-w-2xl text-xs leading-5 text-[#52675f]">
             {instructions
               ? "Borradores basados en lo registrado."
-              : "Parte del PES aprobado y propone la meta, el plazo y un texto sencillo para el paciente. Revisa y adapta cada objetivo antes de acordarlo."}
+              : "Propuestas basadas en el PES aprobado. Agrégalas para revisarlas paso a paso."}
             {" "}
             Usa créditos de IA según el consumo real.
           </p>
@@ -216,70 +272,103 @@ export function ClinicalSuggestionsAI({
           {message}
         </p>
       )}
-      {suggestions.length > 0 && (
+      {suggestions.length > 0 && (instructions || pendingCount > 0) && (
         <div className="mt-3 space-y-3">
           <p className="text-xs font-semibold text-[#315e4f]">
-            Revisa, conversa y acuerda cada propuesta antes de agregarla.
+            {instructions
+              ? "Revisa cada propuesta antes de agregarla."
+              : `${pendingCount} ${
+                pendingCount === 1
+                  ? "propuesta por revisar"
+                  : "propuestas por revisar"
+              }`}
           </p>
-          {suggestions.map((suggestion, index) => (
-            <article
-              key={`${suggestion.text}-${index}`}
-              className="rounded-lg border border-blue-100 bg-white p-3"
-            >
-              <p className="text-sm leading-6 text-[#29483f]">
-                {suggestion.text}
-              </p>
-              {suggestion.goal && (
-                <p className="mt-2 text-xs text-[#52675f]">
-                  {!suggestion.goal.target || !suggestion.goal.timeframe
-                    ? "Meta o plazo pendientes de definir. "
-                    : suggestion.goal.targetOrigin === 'proposed' || suggestion.goal.timeframeOrigin === 'proposed'
-                    ? "La meta o el plazo son propuestas editables. " : ""}Acuerdo con el paciente pendiente.
-                </p>
-              )}
-              {suggestion.evidence.length > 0 && (
-                <details className="mt-2 text-xs text-[#52675f]">
-                  <summary className="cursor-pointer">Datos utilizados</summary>
-                  <ul className="mt-2 space-y-1.5">
-                    {suggestion.evidence.map((fact, evidenceIndex) => (
-                      <li key={`${fact.source}-${evidenceIndex}`}>
-                        <strong>{fact.source}:</strong> {fact.finding}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-              {!!suggestion.references?.length && (
-                <details className="mt-2 text-xs text-[#52675f]">
-                  <summary className="cursor-pointer">Fuentes para revisar la propuesta</summary>
-                  <p className="mt-2">Orientación general para planear metas y seguimiento. Ajusta el criterio y el plazo al caso.</p>
-                  <ul className="mt-2 space-y-1.5">
-                    {suggestion.references.map(reference => <li key={reference.url}><a className="underline" href={reference.url} target="_blank" rel="noopener noreferrer">{reference.title}</a></li>)}
-                  </ul>
-                </details>
-              )}
-              <button
-                type="button"
-                className="mt-3 rounded-lg border border-[#c9d9ce] px-3 py-2 text-xs font-semibold text-[#315e4f] hover:bg-[#f4f8f5]"
-                disabled={disabled || applied.includes(index)}
-                onClick={() => {
-                  if (suggestion.goal && onApplyGoal) {
-                    onApplyGoal(suggestion.goal);
-                  } else onApply(suggestion.text);
-                  setApplied((items) => [...items, index]);
-                }}
+          {suggestions.map((suggestion, index) => {
+            if (!instructions && applied.includes(index)) return null;
+            return (
+              <article
+                key={`${suggestion.text}-${index}`}
+                className={`rounded-lg border border-blue-100 bg-white p-3${
+                  instructions ? "" : " clinical-objective-suggestion"
+                }`}
               >
-                {applied.includes(index)
-                  ? "Agregado · puedes editarlo"
-                  : instructions
-                  ? "Agregar a indicaciones"
-                  : onApplyGoal
-                  ? "Revisar objetivo SMART"
-                  : "Agregar a la entrevista"}
-              </button>
-            </article>
-          ))}
+                {instructions
+                  ? (
+                    <>
+                      <p className="text-sm leading-6 text-[#29483f]">
+                        {suggestion.text}
+                      </p>
+                      <SuggestionEvidence suggestion={suggestion} />
+                    </>
+                  )
+                  : (
+                    <>
+                      <h5>{suggestion.goal?.outcome || suggestion.text}</h5>
+                      {suggestion.goal && (
+                        <dl className="clinical-goal-summary-facts">
+                          <div>
+                            <dt>Meta propuesta</dt>
+                            <dd>
+                              {suggestion.goal.target ||
+                                "Por definir con la persona"}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Revisión</dt>
+                            <dd>
+                              {suggestion.goal.timeframe || "Plazo por acordar"}
+                            </dd>
+                          </div>
+                        </dl>
+                      )}
+                      <details className="clinical-suggestion-preview">
+                        <summary>Vista previa y datos utilizados</summary>
+                        <p>{suggestion.text}</p>
+                        <SuggestionEvidence suggestion={suggestion} />
+                      </details>
+                    </>
+                  )}
+                <div className="clinical-suggestion-actions">
+                  {!instructions && (
+                    <span>Acuerdo con el paciente pendiente</span>
+                  )}
+                  <button
+                    type="button"
+                    className="mt-3 rounded-lg border border-[#c9d9ce] px-3 py-2 text-xs font-semibold text-[#315e4f] hover:bg-[#f4f8f5]"
+                    disabled={disabled || applied.includes(index)}
+                    onClick={() => {
+                      if (suggestion.goal && onApplyGoal) {
+                        onApplyGoal(suggestion.goal);
+                      } else onApply(suggestion.text);
+                      setApplied((items) => [...items, index]);
+                    }}
+                  >
+                    {applied.includes(index)
+                      ? "Agregado · puedes editarlo"
+                      : instructions
+                      ? "Agregar a indicaciones"
+                      : onApplyGoal
+                      ? (
+                        <>
+                          Agregar y revisar<ArrowRight
+                            size={14}
+                            aria-hidden="true"
+                          />
+                        </>
+                      )
+                      : "Agregar a la entrevista"}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
         </div>
+      )}
+      {!instructions && suggestions.length > 0 && pendingCount === 0 && (
+        <p role="status" className="clinical-suggestions-complete">
+          <Check size={16} aria-hidden="true" />Propuestas agregadas. Continúa
+          con la revisión de tus objetivos.
+        </p>
       )}
     </section>
   );

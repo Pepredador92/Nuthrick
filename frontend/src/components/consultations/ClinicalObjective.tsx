@@ -8,6 +8,7 @@ import {
   firstIncompleteObjectivePart,
   objectiveCompletedFields,
   ObjectiveGoalEditor,
+  ObjectiveGoalSummary,
 } from "./ObjectiveGoalEditor";
 import {
   clinicalObjective,
@@ -82,8 +83,9 @@ export function ClinicalObjective(props: Props) {
   const [workspace, setWorkspace] = useState<ObjectiveWorkspace | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [activeGoal, setActiveGoal] = useState(0);
-  const [activePart, setActivePart] = useState<number | null>(0);
+  const [activeGoal, setActiveGoal] = useState<number | null>(null);
+  const [activePart, setActivePart] = useState(0);
+  const reviewButtons = useRef<(HTMLButtonElement | null)[]>([]);
   const editorId = useId();
   const text = plan.goals.map(composeObjective).filter(Boolean).join("\n\n");
   const legacy = typeof value === "string"
@@ -150,16 +152,6 @@ export function ClinicalObjective(props: Props) {
           pesApprovedAt: saved.pesApprovedAt,
           goals: saved.goals,
         });
-        if (saved.goals.length) {
-          setActiveGoal(0);
-          setActivePart(
-            firstIncompleteObjectivePart(
-              saved.goals[0],
-              w.pes?.signsSymptoms.split("\n").map((sign) => sign.trim())
-                .filter(Boolean) ?? [],
-            ),
-          );
-        }
       }
     }).catch((error) => {
       if (alive) setMessage(error.message);
@@ -205,7 +197,7 @@ export function ClinicalObjective(props: Props) {
       sign: goal.sign || (signs.length === 1 ? signs[0] : ""),
     };
     setActiveGoal(plan.goals.length);
-    setActivePart(firstIncompleteObjectivePart(goal, signs));
+    setActivePart(0);
     change({
       ...plan,
       pesApprovedAt: plan.goals.length
@@ -249,12 +241,14 @@ export function ClinicalObjective(props: Props) {
           ? "Borrador guardado. Puedes continuar y revisarlo después."
           : "Objetivos pendientes de revisión.",
       );
+      return true;
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
           : "No pudimos guardar los objetivos.",
       );
+      return false;
     } finally {
       setBusy(false);
     }
@@ -267,14 +261,19 @@ export function ClinicalObjective(props: Props) {
     const part = firstIncompleteObjectivePart(plan.goals[index], signs);
     setActiveGoal(index);
     setActivePart(part);
+    setMessage("");
+  }
+  function closeEditor() {
+    const index = activeGoal;
+    setActiveGoal(null);
     requestAnimationFrame(() => {
-      const heading = document.getElementById(
-        `${editorId}-${index}-part-${part}`,
-      );
-      heading?.scrollIntoView?.({ behavior: "smooth", block: "center" });
-      heading?.focus();
+      if (index !== null) reviewButtons.current[index]?.focus();
     });
   }
+  async function saveEditor() {
+    if (!dirty || await persist("save")) closeEditor();
+  }
+
   return (
     <section
       aria-label="Revisión del objetivo"
@@ -285,10 +284,10 @@ export function ClinicalObjective(props: Props) {
           <Target size={22} aria-hidden="true" />
         </span>
         <div>
-          <h3>Un cambio concreto, un objetivo a la vez</h3>
+          <h3>Un objetivo a la vez</h3>
           <p>
-            Define hasta tres objetivos por prioridad. Completa cada uno en tres
-            partes.
+            Elige hasta tres prioridades. Abre cada objetivo para revisar la
+            meta y acordarla con la persona.
           </p>
         </div>
         <ClinicalStatusBadge status={status}>
@@ -383,28 +382,25 @@ export function ClinicalObjective(props: Props) {
       )}
       <fieldset disabled={busy} className="clinical-goals-list">
         {plan.goals.map((goal, index) => (
-          <ObjectiveGoalEditor
+          <ObjectiveGoalSummary
             key={index}
-            id={`${editorId}-${index}`}
             goal={goal}
             index={index}
             signs={signs}
             approved={approved}
-            expanded={activeGoal === index}
-            activePart={activePart}
-            onExpand={() => {
-              setActiveGoal(activeGoal === index ? -1 : index);
-              setActivePart(firstIncompleteObjectivePart(goal, signs));
+            reviewRef={(element) => {
+              reviewButtons.current[index] = element;
             }}
-            onPartChange={setActivePart}
-            onChange={(patch) => update(index, patch)}
+            onOpen={() => {
+              setActiveGoal(index);
+              setActivePart(firstIncompleteObjectivePart(goal, signs));
+              setMessage("");
+            }}
             onRemove={() => {
               change({
                 ...plan,
                 goals: plan.goals.filter((_, i) => i !== index),
               });
-              setActiveGoal(Math.max(0, index - 1));
-              setActivePart(0);
             }}
             onMoveUp={index > 0
               ? () => {
@@ -414,8 +410,6 @@ export function ClinicalObjective(props: Props) {
                   goals[index - 1],
                 ];
                 change({ ...plan, goals });
-                setActiveGoal(index - 1);
-                setActivePart(firstIncompleteObjectivePart(goal, signs));
               }
               : undefined}
           />
@@ -445,6 +439,23 @@ export function ClinicalObjective(props: Props) {
           onApply={(text) =>
             add({ ...emptyObjective(), outcome: text.slice(0, 400) })}
           onApplyGoal={(goal) => add(goal)}
+        />
+      )}
+      {activeGoal !== null && plan.goals[activeGoal] && (
+        <ObjectiveGoalEditor
+          key={activeGoal}
+          id={`${editorId}-${activeGoal}`}
+          goal={plan.goals[activeGoal]}
+          index={activeGoal}
+          signs={signs}
+          initialPart={activePart}
+          busy={busy}
+          message={message}
+          dirty={dirty}
+          saveDisabled={text.length > maxLength}
+          onChange={(patch) => update(activeGoal, patch)}
+          onClose={closeEditor}
+          onSave={() => void saveEditor()}
         />
       )}
       <details className="clinical-support-details">
