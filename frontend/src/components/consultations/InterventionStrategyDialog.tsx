@@ -10,6 +10,7 @@ import {
 } from "../../../../supabase/functions/_shared/interventions";
 import {
   InterventionStrategyForm,
+  strategyContextEligible,
   strategyLabels,
   strategyIssueMessages,
   strategyStepIssues,
@@ -84,10 +85,13 @@ export function InterventionStrategyDialog(
   const [step, setStep] = useState(initialStep);
   const [attempted, setAttempted] = useState(initialApprovalAttempt);
   const issues = strategyIssues(document.strategy);
+  const eligibleContext = strategyContextEligible(workspace);
   const initialFocus = useRef(initialApprovalAttempt ? (!linked ? "context" : issues[0]) : undefined);
-  const complete = strategyRequiredFields.filter((field) =>
+  const completedTextRequirements = strategyRequiredFields.filter((field) =>
     document.strategy[field].trim()
-  ).length + Number(linked && document.strategy.goalIndexes.length > 0);
+  ).length;
+  const hasLinkedGoal = linked && document.strategy.goalIndexes.length > 0;
+  const complete = completedTextRequirements + Number(hasLinkedGoal);
   const saveLabel = busy ? "Guardando…" : clean ? "Listo" : "Guardar y cerrar";
   useEffect(() => {
     const element = dialog.current;
@@ -203,6 +207,23 @@ export function InterventionStrategyDialog(
             />
             <span>{complete} de 3 requisitos</span>
           </div>
+          <ul className="clinical-strategy-requirements" aria-label="Requisitos para aprobar">
+            <li data-complete={!!document.strategy.title.trim()}>
+              {document.strategy.title.trim() ? "✓" : "○"} Nombre de la estrategia
+            </li>
+            <li data-complete={!!document.strategy.action.trim()}>
+              {document.strategy.action.trim() ? "✓" : "○"} Acción concreta
+            </li>
+            <li data-complete={hasLinkedGoal}>
+              {hasLinkedGoal ? "✓" : "○"} {!eligibleContext
+                ? "Objetivos aprobados para el PES vigente"
+                : !linked
+                ? "Estrategia vinculada a las aprobaciones vigentes"
+                : document.strategy.goalIndexes.length
+                ? "Objetivo vigente seleccionado"
+                : "Al menos un objetivo seleccionado"}
+            </li>
+          </ul>
           <section
             className="clinical-objective-step"
             id={`${id}-panel`}

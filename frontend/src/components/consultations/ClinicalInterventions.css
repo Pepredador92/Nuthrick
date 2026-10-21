@@ -90,6 +90,24 @@ html[data-nuthrick-theme='night'] .clinical-strategies-workspace {
   line-height: 1.65;
   min-height: 36px;
 }
+.clinical-strategy-requirements {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 14px;
+  margin: -6px 0 18px;
+  color: var(--nuth-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  list-style: none;
+}
+.clinical-strategy-requirements li[data-complete='true'] {
+  color: var(--clinical-complete);
+}
+@media (max-width: 640px) {
+  .clinical-strategy-requirements {
+    grid-template-columns: 1fr;
+  }
+}
 .clinical-strategy-action-dialog {
   width: min(580px, calc(100vw - 32px));
 }

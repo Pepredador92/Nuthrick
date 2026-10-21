@@ -38,6 +38,8 @@ import {
 } from "../../../../supabase/functions/_shared/interventions";
 import {
   firstIncompleteStrategyStep,
+  strategyContextEligible,
+  strategyIsLinked,
   strategyLabels,
 } from "./InterventionStrategyForm";
 
@@ -389,23 +391,22 @@ export function ClinicalInterventions(props: Props) {
     ...items.map((item) => item.id),
     ...Object.keys(local).filter((id) => !items.some((item) => item.id === id)),
   ];
-  const eligible = !!workspace?.pes && !!workspace.objective?.smart_plan &&
-    workspace.objective.pes_statement === workspace.pes.pesStatement;
   const planningObjective=workspace?.objective??workspace?.planningObjective;
+  const eligible = strategyContextEligible(workspace);
   const activeItem = items.find((item) => item.id === activeId);
   const activeDocument = activeId
     ? local[activeId]?.document ?? activeItem?.draft ??
       activeItem?.approved?.document
     : undefined;
-  const activeLinked = !!activeDocument && eligible &&
-    activeDocument.pesApprovedAt === workspace?.pes?.approved_at &&
-    activeDocument.objectiveApprovedAt === workspace?.objective?.approved_at;
+  const activeLinked = !!activeDocument && strategyIsLinked(activeDocument, workspace);
   const approvalContextMessage = workspace?.archived
     ? "Esta revisión pertenece al historial y no admite nuevas aprobaciones."
     : !workspace?.pes
     ? "Primero revisa y aprueba el diagnóstico PES."
+    : !planningObjective?.smart_plan
+    ? "Primero guarda y aprueba los objetivos SMART de este PES."
     : !eligible
-    ? "Primero revisa y aprueba los objetivos de este PES."
+    ? "Los objetivos guardados no están vinculados a este PES. En Objetivos, vincúlalos al PES actual y apruébalos una vez; después podrás aprobar la estrategia."
     : "Vuelve a vincular esta estrategia con el PES y los objetivos actuales.";
   function openEditor(id: string, document: StrategyDocument, linked: boolean, attempt = false) {
     setInitialStep(firstIncompleteStrategyStep(document.strategy, linked));
@@ -673,9 +674,7 @@ export function ClinicalInterventions(props: Props) {
           const current = !workspace?.archived && !!item?.approved &&
             !item.requiresReview && !local[id] &&
             ["approved", "executing"].includes(item.state);
-          const linked = eligible &&
-            document.pesApprovedAt === workspace?.pes?.approved_at &&
-            document.objectiveApprovedAt === workspace?.objective?.approved_at;
+          const linked = strategyIsLinked(document, workspace);
           const issues = strategyIssues(s);
           const readyToApprove = linked && !issues.length;
           const status = editing || item?.requiresReview

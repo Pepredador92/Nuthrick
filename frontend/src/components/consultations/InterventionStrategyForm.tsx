@@ -123,6 +123,22 @@ export function firstIncompleteStrategyStep(
   return step < 0 ? 0 : step;
 }
 
+export function strategyContextEligible(workspace: InterventionWorkspace | null) {
+  const objective = workspace?.objective ?? workspace?.planningObjective;
+  return !!workspace?.pes && !!objective?.smart_plan &&
+    objective.pes_statement === workspace.pes.pesStatement;
+}
+
+export function strategyIsLinked(
+  document: StrategyDocument,
+  workspace: InterventionWorkspace | null,
+) {
+  const objective = workspace?.objective ?? workspace?.planningObjective;
+  return strategyContextEligible(workspace) && !!workspace?.pes && !!objective &&
+    document.pesApprovedAt === workspace.pes.approved_at &&
+    document.objectiveApprovedAt === objective.approved_at;
+}
+
 export function InterventionStrategyForm(
   { document, workspace, disabled, step, showErrors = false, onChange }: {
     document: StrategyDocument;
@@ -137,9 +153,8 @@ export function InterventionStrategyForm(
   const s = document.strategy;
   const objective=workspace?.objective??workspace?.planningObjective;
   const goals = objective?.smart_plan?.goals ?? [];
-  const linked = !!workspace?.pes && !!objective &&
-    document.pesApprovedAt === workspace.pes.approved_at &&
-    document.objectiveApprovedAt === objective.approved_at;
+  const eligible = strategyContextEligible(workspace);
+  const linked = strategyIsLinked(document, workspace);
   const change = (patch: Partial<Strategy>) =>
     onChange({ ...document, strategy: { ...s, ...patch } });
   const issues = strategyIssues(s);
@@ -219,11 +234,13 @@ export function InterventionStrategyForm(
         <>
           {!linked && (
             <div className="clinical-notice is-warning" data-strategy-field="context" tabIndex={-1}>
-              <p>Revisa el vínculo con el PES y los objetivos vigentes.</p>
-              <button
+              <p>{eligible
+                ? "La estrategia conserva un vínculo anterior. Actualízalo y vuelve a elegir al menos un objetivo vigente."
+                : "Los objetivos guardados no están vinculados a este PES. Ve a Objetivos y actualiza su vínculo antes de aprobar la estrategia."}</p>
+              {eligible && <button
                 type="button"
                 className="nuth-button-secondary mt-2 !text-xs"
-                disabled={!workspace?.pes || !objective?.smart_plan}
+                disabled={disabled}
                 onClick={() =>
                   onChange({
                     ...document,
@@ -233,7 +250,8 @@ export function InterventionStrategyForm(
                   })}
               >
                 Vincular a los objetivos actuales
-              </button>
+              </button>}
+              {eligible && <small>Al vincular, se reinicia la selección para que elijas objetivos de esta versión.</small>}
             </div>
           )}
           {field("title", true)}
