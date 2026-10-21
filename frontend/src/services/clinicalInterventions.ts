@@ -34,6 +34,7 @@ export type InterventionWorkspace = {
   stamp: string;
   pes: ObjectiveWorkspace["pes"];
   objective: ObjectiveWorkspace["objective"];
+  planningObjective?: ObjectiveWorkspace["objective"];
   items: InterventionItem[];
   facts: ObjectiveWorkspace["facts"];
 };

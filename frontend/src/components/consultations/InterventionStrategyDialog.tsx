@@ -1,3 +1,4 @@
+import {SaveConsultationDraftButton} from './ConsultationDrafts';
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import type { InterventionWorkspace } from "@/src/services/clinicalInterventions";
@@ -30,6 +31,7 @@ export function InterventionStrategyDialog(
     onClose,
     onSave,
     onApprove,
+    onStepChange,
   }: {
     id: string;
     document: StrategyDocument;
@@ -45,6 +47,7 @@ export function InterventionStrategyDialog(
     onClose: () => void;
     onSave: () => void;
     onApprove: () => void;
+    onStepChange?: (step:number) => void;
   },
 ) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -74,6 +77,7 @@ export function InterventionStrategyDialog(
   }, []);
   function goToStep(next: number) {
     setStep(next);
+    onStepChange?.(next);
     requestAnimationFrame(() => {
       if (body.current) body.current.scrollTop = 0;
       heading.current?.focus();
@@ -233,6 +237,7 @@ export function InterventionStrategyDialog(
           </p>}
         </div>
         <footer className="clinical-objective-dialog-footer">
+          <SaveConsultationDraftButton/>
           <button
             type="button"
             className="clinical-text-action"

@@ -9,6 +9,7 @@ import {
 import type { ClinicalTaskStatus } from "./ClinicalTaskCard";
 import { ClinicalStatusBadge } from "./ClinicalTaskCard";
 import { InterventionStrategyDialog } from "./InterventionStrategyDialog";
+import {useConsultationDraft,useConsultationDraftContext,useDurableAIProposal} from './ConsultationDrafts';
 import "./ClinicalInterventions.css";
 import { AIButton } from "@/src/components/ai/AIControls";
 import {
@@ -86,7 +87,9 @@ export function ClinicalInterventions(props: Props) {
   const cacheKey = `intervention-drafts:${consultationId}:${revision}`;
   const pendingKey =
     `clinical-pending:${consultationId}:${revision}:intervention_strategy`;
-  const [local, setLocal] = useState<Record<string, LocalDraft>>(() => {
+  const checkpoints=useConsultationDraftContext();
+  const [pendingRequest,setPendingRequest]=useConsultationDraft<string|null>('request:intervention_strategy',()=>sessionStorage.getItem(pendingKey),true);
+  const [local, setLocal] = useConsultationDraft<Record<string, LocalDraft>>('strategies',() => {
     if (readOnly) return {};
     try {
       const saved = JSON.parse(
@@ -106,13 +109,14 @@ export function ClinicalInterventions(props: Props) {
   const [workspace, setWorkspace] = useState<InterventionWorkspace | null>(
     null,
   );
+  useEffect(()=>{if(checkpoints&&Object.keys(local).length&&!Object.hasOwn(checkpoints.values,'strategies'))setLocal(local);},[checkpoints,local,setLocal]);
   const [busy, setBusy] = useState(false), [message, setMessage] = useState("");
   const [state, setState] = useState<AIState>(() =>
-    sessionStorage.getItem(pendingKey) ? "uncertain" : "idle"
+    (pendingRequest||sessionStorage.getItem(pendingKey)) ? "uncertain" : "idle"
   );
-  const [proposals, setProposals] = useState<StrategyDocument[]>([]),
-    [feedback, setFeedback] = useState("");
-  const [execution, setExecution] = useState<
+  const [proposals, setProposals] = useConsultationDraft<StrategyDocument[]>('strategy-proposals',[]),
+    [feedback, setFeedback] = useConsultationDraft('strategy-feedback',"");
+  const [execution, setExecution] = useConsultationDraft<
     {
       id: string;
       action: "start" | "communicate" | "complete" | "withdraw";
@@ -121,9 +125,14 @@ export function ClinicalInterventions(props: Props) {
       recipient: string;
       reason: string;
     } | null
-  >(null);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [initialStep, setInitialStep] = useState(0);
+  >('strategy-execution',null);
+  const [activeId, setActiveId] = useConsultationDraft<string | null>('strategy-editor',null);
+  const [initialStep, setInitialStep] = useConsultationDraft('strategy-step',0);
+  useDurableAIProposal('intervention_strategy',(output)=>{
+    const documents=output.strategies;
+    if(!Array.isArray(documents)||!documents.every(isStrategyDocument))return;
+    setProposals(documents);setState('ready');setPendingRequest(null);sessionStorage.removeItem(pendingKey);setMessage('Propuestas recuperadas para revisión.');
+  });
   const reviewButtons = useRef<Record<string, HTMLButtonElement | null>>({});
   const pendingRef = useRef(onPendingChange);
   useEffect(() => {
@@ -267,7 +276,7 @@ export function ClinicalInterventions(props: Props) {
   }
   async function generate() {
     if (readOnly || busy || state === "generating" || execution) return;
-    if (sessionStorage.getItem(pendingKey)) {
+    if (pendingRequest||sessionStorage.getItem(pendingKey)) {
       setState("uncertain");
       setMessage("Comprueba primero la solicitud pendiente.");
       return;
@@ -281,13 +290,15 @@ export function ClinicalInterventions(props: Props) {
       }
       const fresh = await clinicalInterventions(consultationId, revision);
       setWorkspace(fresh);
-      if (!fresh.pes || !fresh.objective?.smart_plan) {
+      if (!fresh.pes || !(fresh.objective?.smart_plan || fresh.planningObjective?.smart_plan)) {
         throw new Error(
-          "Aprueba el PES y los objetivos SMART antes de proponer estrategias.",
+          "Para una propuesta vinculada necesitas un PES aprobado y al menos un objetivo guardado. También puedes escribir una estrategia manual o continuar sin estrategias.",
         );
       }
       const key = crypto.randomUUID();
       sessionStorage.setItem(pendingKey, key);
+      setPendingRequest(key);
+      if(checkpoints&&!await checkpoints.flush())throw new Error('Guarda el avance antes de solicitar una nueva propuesta.');
       const result = await runAIRequest({
         feature: "intervention_strategy",
         idempotencyKey: key,
@@ -313,6 +324,7 @@ export function ClinicalInterventions(props: Props) {
         );
       }
       sessionStorage.removeItem(pendingKey);
+      setPendingRequest(null);checkpoints?.set('handled:intervention_strategy',result.generationId);
       setProposals(documents);
       setState("ready");
       if (!documents.length) {
@@ -325,7 +337,7 @@ export function ClinicalInterventions(props: Props) {
         ["provider_outcome_unknown", "service_unavailable"].includes(
           error.code,
         );
-      if (!uncertain) sessionStorage.removeItem(pendingKey);
+      if (!uncertain) {sessionStorage.removeItem(pendingKey);setPendingRequest(null);}
       setState(
         uncertain ? "uncertain" : error instanceof AIRequestError &&
             error.code === "insufficient_credits"
@@ -338,15 +350,17 @@ export function ClinicalInterventions(props: Props) {
     }
   }
   async function checkRequest() {
-    const key = sessionStorage.getItem(pendingKey);
+    const key = pendingRequest||sessionStorage.getItem(pendingKey);
     if (!key) return;
     try {
       const result = await getAIGenerationStatus(key);
+      if(result?.status==='succeeded'&&checkpoints){await checkpoints.refresh();setMessage('Recuperando las propuestas guardadas.');return;}
       if (
         !result ||
         ["succeeded", "failed", "invalid_output"].includes(result.status)
       ) {
         sessionStorage.removeItem(pendingKey);
+        setPendingRequest(null);
         setState("idle");
         setMessage(
           result?.status === "succeeded"
@@ -367,6 +381,7 @@ export function ClinicalInterventions(props: Props) {
   ];
   const eligible = !!workspace?.pes && !!workspace.objective?.smart_plan &&
     workspace.objective.pes_statement === workspace.pes.pesStatement;
+  const planningObjective=workspace?.objective??workspace?.planningObjective;
   const activeItem = items.find((item) => item.id === activeId);
   const activeDocument = activeId
     ? local[activeId]?.document ?? activeItem?.draft ??
@@ -425,7 +440,7 @@ export function ClinicalInterventions(props: Props) {
             {workspace.pes.pesStatement}
           </p>
           <ol className="mt-3 list-decimal space-y-2 pl-5">
-            {workspace.objective?.smart_plan?.goals.map((g, i) => (
+            {planningObjective?.smart_plan?.goals.map((g, i) => (
               <li key={i}>
                 <strong>{g.outcome}</strong>
                 <p className="text-xs text-[var(--nuth-muted)]">
@@ -438,8 +453,9 @@ export function ClinicalInterventions(props: Props) {
       )}
       {!eligible && !readOnly && (
         <p className="mt-3 text-sm text-[var(--nuth-muted)]">
-          Puedes guardar borradores. Aprueba el PES y los objetivos SMART para
-          aprobar estrategias o solicitar propuestas de IA.
+          Esta sección es opcional. Puedes guardar y continuar sin estrategias.
+          La IA puede usar objetivos en borrador; para aprobar una estrategia,
+          revisa y aprueba antes el PES y los objetivos vinculados.
         </p>
       )}
       {!readOnly && (
@@ -457,7 +473,7 @@ export function ClinicalInterventions(props: Props) {
             <AIButton
               capability="ai.consultation_support"
               state={state}
-              disabled={busy || execution !== null || !eligible ||
+              disabled={busy || execution !== null ||
                 ids.length >= 30}
               onClick={() => void generate()}
             >
@@ -596,7 +612,7 @@ export function ClinicalInterventions(props: Props) {
                 </div>
                 <ClinicalStatusBadge status={status}>
                   {local[id]
-                    ? "Cambios sin guardar"
+                    ? "Borrador en edición"
                     : item?.requiresReview
                     ? "Requiere revisión"
                     : item?.draft
@@ -654,7 +670,7 @@ export function ClinicalInterventions(props: Props) {
                           disabled={busy || execution !== null}
                           onClick={() => discardLocal(id)}
                         >
-                          Descartar cambios sin guardar
+                          Descartar edición actual
                         </button>
                       )}
                       {item?.draft && (
@@ -952,6 +968,7 @@ export function ClinicalInterventions(props: Props) {
           document={activeDocument}
           workspace={workspace}
           initialStep={initialStep}
+          onStepChange={setInitialStep}
           busy={busy}
           message={message}
           linked={activeLinked}

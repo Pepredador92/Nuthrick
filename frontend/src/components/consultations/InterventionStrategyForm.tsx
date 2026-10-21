@@ -116,10 +116,11 @@ export function InterventionStrategyForm(
   },
 ) {
   const s = document.strategy;
-  const goals = workspace?.objective?.smart_plan?.goals ?? [];
-  const linked = !!workspace?.pes && !!workspace.objective &&
+  const objective=workspace?.objective??workspace?.planningObjective;
+  const goals = objective?.smart_plan?.goals ?? [];
+  const linked = !!workspace?.pes && !!objective &&
     document.pesApprovedAt === workspace.pes.approved_at &&
-    document.objectiveApprovedAt === workspace.objective.approved_at;
+    document.objectiveApprovedAt === objective.approved_at;
   const change = (patch: Partial<Strategy>) =>
     onChange({ ...document, strategy: { ...s, ...patch } });
   const issues = strategyIssues(s);
@@ -189,12 +190,12 @@ export function InterventionStrategyForm(
               <button
                 type="button"
                 className="nuth-button-secondary mt-2 !text-xs"
-                disabled={!workspace?.pes || !workspace.objective?.smart_plan}
+                disabled={!workspace?.pes || !objective?.smart_plan}
                 onClick={() =>
                   onChange({
                     ...document,
                     pesApprovedAt: workspace!.pes!.approved_at,
-                    objectiveApprovedAt: workspace!.objective!.approved_at,
+                    objectiveApprovedAt: objective!.approved_at,
                     strategy: { ...s, goalIndexes: [] },
                   })}
               >

@@ -10,6 +10,7 @@ export const aiMessages: Record<string,string> = {
   context_unavailable: 'La consulta cambió o ya no está disponible para esta solicitud. Guarda los cambios y actualiza la página. Puedes continuar manualmente.',
   instruction_agreements_required: 'Esta consulta no tiene objetivos o acciones registrados para redactar indicaciones. Puedes escribirlas manualmente.',
   pes_approval_required: 'Revisa y aprueba el PES antes de pedir objetivos vinculados al diagnóstico.',
+  strategy_planning_required: 'Para proponer estrategias necesitas un PES aprobado y al menos un objetivo guardado, que puede estar en borrador. También puedes escribir estrategias manuales o continuar sin ellas.',
   strategy_approvals_required: 'Revisa y aprueba el PES y los objetivos SMART antes de proponer estrategias.',
   strategy_approval_required: 'Revisa y aprueba una estrategia vigente antes de generar indicaciones.',
   insufficient_credits: 'No tienes saldo disponible suficiente para esta solicitud. Recarga créditos de IA para continuar.',

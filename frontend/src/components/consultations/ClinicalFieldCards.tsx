@@ -1,3 +1,4 @@
+import {useConsultationDraft} from './ConsultationDrafts';
 import { useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, FileText, Pencil } from "lucide-react";
 import { AIButton } from "@/src/components/ai/AIControls";
@@ -36,8 +37,9 @@ export function ClinicalFieldCards(
   },
 ) {
   const editor = useRef<HTMLFieldSetElement>(null);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [mode, setMode] = useState<"edit" | "preview" | "ai">("edit");
+  const draftSlot=`clinical-fields:${questions.map(item=>item.question_key).join("_").slice(0,150)}`;
+  const [selected, setSelected] = useConsultationDraft<string | null>(`${draftSlot}:selected`,null);
+  const [mode, setMode] = useConsultationDraft<"edit" | "preview" | "ai">(`${draftSlot}:mode`,"edit");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const question = questions.find((item) => item.question_key === selected);
@@ -186,7 +188,7 @@ export function ClinicalFieldCards(
       >
         <div hidden={mode !== "ai"}>
           {ai && instruction && (
-            <ClinicalSuggestionsAI
+            <ClinicalSuggestionsAI draftKey={instruction.question_key}
               {...ai}
               kind="instructions"
               compactInstructions

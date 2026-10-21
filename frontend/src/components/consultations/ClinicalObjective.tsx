@@ -15,6 +15,7 @@ import {
   type ObjectiveWorkspace,
 } from "@/src/services/clinicalCopilot";
 import { ConsultationObjectiveAI } from "./ConsultationObjectiveAI";
+import {useConsultationDraft,useConsultationDraftContext} from './ConsultationDrafts';
 import {
   composeObjective,
   emptyObjective,
@@ -47,6 +48,7 @@ const blankPlan = (): ObjectivePlan => ({
   goals: [],
 });
 export function ClinicalObjective(props: Props) {
+  const checkpoint=useConsultationDraftContext();
   const {
     consultationId,
     revision,
@@ -61,7 +63,7 @@ export function ClinicalObjective(props: Props) {
   } = props;
   const cacheKey =
     `objective-draft:${consultationId}:${revision}:${questionKey}`;
-  const [plan, setPlan] = useState<ObjectivePlan>(() => {
+  const [plan, setPlan] = useConsultationDraft<ObjectivePlan>(`objective:${questionKey}`,() => {
     try {
       const cached: unknown = JSON.parse(
         sessionStorage.getItem(cacheKey) || "null",
@@ -71,7 +73,7 @@ export function ClinicalObjective(props: Props) {
       return blankPlan();
     }
   });
-  const [dirty, setDirty] = useState(() => {
+  const [dirty, setDirty] = useConsultationDraft(`objective-dirty:${questionKey}`,() => {
     try {
       return isObjectivePlan(
         JSON.parse(sessionStorage.getItem(cacheKey) || "null"),
@@ -81,11 +83,14 @@ export function ClinicalObjective(props: Props) {
     }
   });
   const dirtyRef = useRef(dirty);
+  useEffect(()=>{
+    if(dirtyRef.current&&checkpoint&&!Object.hasOwn(checkpoint.values,`objective:${questionKey}`)){setPlan(plan);setDirty(true);}
+  },[checkpoint,questionKey,plan,setPlan,setDirty]);
   const [workspace, setWorkspace] = useState<ObjectiveWorkspace | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [activeGoal, setActiveGoal] = useState<number | null>(null);
-  const [activePart, setActivePart] = useState(0);
+  const [activeGoal, setActiveGoal] = useConsultationDraft<number | null>(`objective-editor:${questionKey}`,null);
+  const [activePart, setActivePart] = useConsultationDraft(`objective-step:${questionKey}`,0);
   const reviewButtons = useRef<(HTMLButtonElement | null)[]>([]);
   const editorId = useId();
   const text = plan.goals.map(composeObjective).filter(Boolean).join("\n\n");
@@ -160,7 +165,7 @@ export function ClinicalObjective(props: Props) {
     return () => {
       alive = false;
     };
-  }, [consultationId, revision, questionKey, active, props.contextVersion]);
+  }, [consultationId, revision, questionKey, active, props.contextVersion,setPlan]);
   // Recovered drafts also restore the existing interview answer, which remains
   // the canonical text used by closure, exports and explicit portal publication.
   const onChangeRef = useRef(props.onChangeText);
@@ -296,7 +301,7 @@ export function ClinicalObjective(props: Props) {
           {approved
             ? "Aprobados"
             : dirty
-            ? "Borrador sin guardar"
+            ? "Borrador por revisar"
             : ready
             ? "Listos para revisar"
             : "Pendientes de revisión"}
@@ -431,7 +436,7 @@ export function ClinicalObjective(props: Props) {
         </button>
       </fieldset>
       {patientId && (
-        <ConsultationObjectiveAI
+        <ConsultationObjectiveAI draftKey={questionKey}
           key={workspace?.pes?.approved_at ?? "no-pes"}
           patientId={patientId}
           consultationId={consultationId}

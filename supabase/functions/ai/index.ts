@@ -137,7 +137,7 @@ Deno.serve(async request => {
         const clinical = r.feature==='recall_24h' ? source as ClinicalSource : withConfirmedRecall(source as ClinicalSource);
         if (r.feature === 'intervention_strategy') {
           interventionContext = buildInterventionContext(clinical, r.strategyFeedback);
-          if (!interventionContext.binding.pesApprovedAt || !interventionContext.binding.objectiveApprovedAt) throw new AIError('strategy_approvals_required');
+          if (!interventionContext.binding.pesApprovedAt || !interventionContext.approvedGoals.length) throw new AIError('strategy_planning_required');
           return {stamp:clinical.stamp, context:interventionContext};
         }
         const supportContext = ['consultation_support','patient_instructions'].includes(r.feature) ? buildConsultationSupportContext(clinical,r.feature==='patient_instructions',smartObjectives) : null;
@@ -193,8 +193,19 @@ Deno.serve(async request => {
           model:result.model??null,latencyMs:result.latencyMs??null,usage:result.usage}});
       },
     };
+    async function respondClinicalResult(result: {generationId:string;status:string;output?:unknown;replay:boolean}) {
+      if (result.status==='succeeded' && result.output && ['pes_diagnosis','recall_24h','consultation_support','patient_instructions','intervention_strategy'].includes(input.feature)) {
+        let saved=false;
+        for(let attempt=0;attempt<2;attempt++) {
+          const outcome=await db.rpc('ai_store_consultation_proposal',{p_owner:owner,p_generation:result.generationId,p_result:result});
+          if(!outcome.error){saved=true;break;}
+        }
+        if(!saved)throw new AIError('service_unavailable');
+      }
+      return respond(result);
+    }
     const result=await runAIRequest(input,store,new DietRoutingProvider(simulated ? new SimulatedDietProvider() : new OpenAIResponsesProvider(apiKey!)));
-    if (input.feature === 'intervention_strategy' && result.output && interventionContext) return respond({ ...result, output: hydrateInterventionOutput(result.output, interventionContext, result.generationId) });
+    if (input.feature === 'intervention_strategy' && result.output && interventionContext) return respondClinicalResult({ ...result, output: hydrateInterventionOutput(result.output, interventionContext, result.generationId) });
     if(input.textGuidance&&result.status==='succeeded'){const saved=await dietRpc('get',{generationId:result.generationId},true);await verifyTextDietSnapshot(saved.snapshot);return respond({...result,output:{textDraft:saved.result.textDraft},decision:saved.decision});}
     if(input.feature==='diet_draft' && !input.textGuidance && ['succeeded','invalid_output'].includes(result.status)) {
       const saved=await dietRpc('get',{generationId:result.generationId});
@@ -204,7 +215,7 @@ Deno.serve(async request => {
     if(['consultation_support','patient_instructions'].includes(input.feature) && result.output && consultationSupportFacts) {
       const key=input.feature==='patient_instructions'?'instructions':'objectives';
       const output=result.output as Record<typeof key,{text:string;evidenceFactIds:string[]}[]>;
-      return respond({...result,output:{
+      return respondClinicalResult({...result,output:{
         [key]:output[key].map(objective=>({
           ...(smartObjectives ? { goal: {
             ...Object.fromEntries(objectiveFields.filter(key => key !== 'baseline').map(key => [key, (objective as unknown as Record<string, string>)[key]])),
@@ -225,7 +236,7 @@ Deno.serve(async request => {
         })),
       }});
     }
-    return respond(result);
+    return respondClinicalResult(result);
   } catch (error) {
     // Never log/request-echo raw exceptions, provider body, key, prompt or clinical output.
     const code = error instanceof AIError ? error.code : 'service_unavailable';

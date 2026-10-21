@@ -1,3 +1,4 @@
+import {SaveConsultationDraftButton} from './ConsultationDrafts';
 import { type ReactNode, useEffect, useId, useRef } from "react";
 import { X } from "lucide-react";
 import "./ClinicalNextSteps.css";
@@ -63,7 +64,7 @@ export function ClinicalTaskDialog(
           </button>
         </header>
         <div className="clinical-objective-dialog-body">{children}</div>
-        <footer className="clinical-objective-dialog-footer">{footer}</footer>
+        <footer className="clinical-objective-dialog-footer"><SaveConsultationDraftButton/>{footer}</footer>
       </div>
     </dialog>
   );

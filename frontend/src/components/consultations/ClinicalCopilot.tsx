@@ -60,6 +60,7 @@ import {
   RecallEstimateSummary,
 } from "./RecallEstimateReview";
 import type { FoodItem } from "@/src/types/domain";
+import {useConsultationDraft,useConsultationDraftContext,useDurableAIProposal} from './ConsultationDrafts';
 
 type Props = {
   patientId: string;
@@ -77,13 +78,15 @@ type Props = {
 const input = "nuth-input mt-1 w-full !text-sm";
 const secondary = "nuth-button-secondary !text-sm disabled:opacity-50";
 function useClinical(props: Props, feature: "pes_diagnosis" | "recall_24h") {
+  const checkpoints=useConsultationDraftContext();
   const storageKey = `clinical-pending:${props.consultationId}:${feature}`;
+  const [pendingRequest,setPendingRequest]=useConsultationDraft<string|null>(`request:${feature}`,()=>sessionStorage.getItem(storageKey),true);
   const [workspace, setWorkspace] = useState<ClinicalWorkspace | null>(null);
   const [state, setState] = useState<AIState>(() =>
-    sessionStorage.getItem(storageKey) ? "uncertain" : "idle"
+    (pendingRequest||sessionStorage.getItem(storageKey)) ? "uncertain" : "idle"
   );
   const [message, setMessage] = useState("");
-  const [generation, setGeneration] = useState<string>();
+  const [generation, setGeneration] = useConsultationDraft<string|undefined>(`generation:${feature}`,undefined);
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -107,7 +110,7 @@ function useClinical(props: Props, feature: "pes_diagnosis" | "recall_24h") {
     return w;
   }
   async function generate(narrative?: string) {
-    if (sessionStorage.getItem(storageKey)) {
+    if (pendingRequest||sessionStorage.getItem(storageKey)) {
       setState("uncertain");
       setMessage("Comprueba primero la solicitud pendiente.");
       return null;
@@ -118,6 +121,8 @@ function useClinical(props: Props, feature: "pes_diagnosis" | "recall_24h") {
       await refresh();
       const key = crypto.randomUUID();
       sessionStorage.setItem(storageKey, key);
+      setPendingRequest(key);
+      if(checkpoints&&!await checkpoints.flush())throw new Error("Guarda el avance antes de solicitar una nueva propuesta.");
       const result = await runAIRequest({
         feature,
         idempotencyKey: key,
@@ -132,13 +137,14 @@ function useClinical(props: Props, feature: "pes_diagnosis" | "recall_24h") {
         return null;
       }
       sessionStorage.removeItem(storageKey);
+      setPendingRequest(null);checkpoints?.set(`handled:${feature}`,result.generationId);
       setGeneration(result.generationId);
       setState("ready");
       return result.output;
     } catch (e) {
       const uncertain = e instanceof AIRequestError &&
         ["provider_outcome_unknown", "service_unavailable"].includes(e.code);
-      if (!uncertain) sessionStorage.removeItem(storageKey);
+      if (!uncertain) {sessionStorage.removeItem(storageKey);setPendingRequest(null);}
       setState(
         uncertain
           ? "uncertain"
@@ -158,15 +164,21 @@ function useClinical(props: Props, feature: "pes_diagnosis" | "recall_24h") {
     }
   }
   async function check() {
-    const key = sessionStorage.getItem(storageKey);
+    const key = pendingRequest||sessionStorage.getItem(storageKey);
     if (!key) return;
     try {
       const result = await getAIGenerationStatus(key);
+      if(result?.status==='succeeded'&&checkpoints){
+        const recovered=await checkpoints.refresh();
+        const proposal=recovered[`proposal:${feature}`] as {generationId?:string}|undefined;
+        setMessage(proposal?.generationId===result.generationId?'Propuesta recuperada. Puedes continuar su revisión.':'La solicitud terminó. Comprueba de nuevo en unos segundos para recuperar la propuesta.');
+        return;
+      }
       if (
         !result ||
         ["succeeded", "failed", "invalid_output"].includes(result.status)
       ) {
-        sessionStorage.removeItem(storageKey);
+        sessionStorage.removeItem(storageKey);setPendingRequest(null);
         setState("idle");
         setMessage(
           result?.status === "succeeded"
@@ -231,10 +243,11 @@ function useClinical(props: Props, feature: "pes_diagnosis" | "recall_24h") {
   }
   return {
     removeRecall,
+    restoreResult(id:string){setGeneration(id);setPendingRequest(null);sessionStorage.removeItem(storageKey);setState('ready');setMessage('Propuesta recuperada para revisión.');},
     resetPes() {
       setGeneration(undefined);
       setMessage("PES descartado y campos limpios.");
-      setState(sessionStorage.getItem(storageKey) ? "uncertain" : "idle");
+      setState((pendingRequest||sessionStorage.getItem(storageKey)) ? "uncertain" : "idle");
       setWorkspace((current) => {
         if (!current) return current;
         const records = { ...current.records };
@@ -287,13 +300,20 @@ function PesPriorityReview({ notes }: { notes: string[] }) {
 }
 export function PesCopilot(props: Props) {
   const clinical = useClinical(props, "pes_diagnosis");
-  const [draft, setDraft] = useState<PesDraft | null>(null);
-  const [replacement, setReplacement] = useState<PesDraft | null>(null);
-  const [previousGeneration, setPreviousGeneration] = useState<string>();
-  const [editing, setEditing] = useState(true);
+  const [draft, setDraft] = useConsultationDraft<PesDraft | null>('pes',null);
+  const [replacement, setReplacement] = useConsultationDraft<PesDraft | null>('pes-replacement',null);
+  const [previousGeneration, setPreviousGeneration] = useConsultationDraft<string|undefined>('pes-previous-generation',undefined);
+  const [editing, setEditing] = useConsultationDraft('pes-editing',true);
   const [discarding, setDiscarding] = useState(false);
   const discardLock = useRef(false);
   const busy = clinical.saving || discarding;
+  useDurableAIProposal('pes_diagnosis',(output,id)=>{
+    if(typeof output.problem!=='string'||typeof output.etiology!=='string'||!Array.isArray(output.signsSymptoms))return;
+    const restored=output as unknown as PesDraft;
+    const composed={...restored,pesStatement:composePesStatement(restored)};
+    if(draft)setReplacement(composed);else setDraft(composed);
+    clinical.restoreResult(id);
+  });
   const { onPendingChange, onStatusChange } = props;
   const savedRecord = clinical.workspace?.records.pes;
   const savedDraft = {
@@ -783,22 +803,27 @@ export type RecallNavigation = { open: boolean; stage: number; nextDisabled: boo
 export type RecallNavigationActions = { next: () => void; previous: () => void };
 export function RecallCopilot(props: Props & { navigationRef?: Ref<RecallNavigationActions>; onNavigationChange?: (navigation: RecallNavigation | null) => void }) {
   const clinical = useClinical(props, "recall_24h");
-  const [stage, setStage] = useState(0);
-  const [open, setOpen] = useState(false);
-  const [narrative, setNarrative] = useState("");
+  const [stage, setStage] = useConsultationDraft('recall-stage',0);
+  const [open, setOpen] = useConsultationDraft('recall-open',false);
+  const [narrative, setNarrative] = useConsultationDraft('recall-narrative',"");
   const [dictating, setDictating] = useState(false);
   const [foods, setFoods] = useState<FoodItem[]>([]);
-  const [rows, setRows] = useState<RecallRow[]>([]);
-  const [ambiguities, setAmbiguities] = useState<string[]>([]);
+  const [rows, setRows] = useConsultationDraft<RecallRow[]>('recall-rows',[]);
+  const [ambiguities, setAmbiguities] = useConsultationDraft<string[]>('recall-ambiguities',[]);
   const [creating, setCreating] = useState(false);
   const [creatingBusy, setCreatingBusy] = useState(false);
-  const [replacement, setReplacement] = useState<RecallEstimate | null>(null);
-  const [previousGeneration, setPreviousGeneration] = useState<string>();
-  const [mode, setMode] = useState<'ai' | 'manual'>('ai');
-  const [estimate, setEstimate] = useState<RecallEstimate | null>(null);
-  const [reviewedEstimate, setReviewedEstimate] = useState(false);
+  const [replacement, setReplacement] = useConsultationDraft<RecallEstimate | null>('recall-replacement',null);
+  const [previousGeneration, setPreviousGeneration] = useConsultationDraft<string|undefined>('recall-previous-generation',undefined);
+  const [mode, setMode] = useConsultationDraft<'ai' | 'manual'>('recall-mode','ai');
+  const [estimate, setEstimate] = useConsultationDraft<RecallEstimate | null>('recall-estimate',null);
+  const [reviewedEstimate, setReviewedEstimate] = useConsultationDraft('recall-reviewed-estimate',false);
   const [removeRequested, setRemoveRequested] = useState(false);
-  const [estimateNarrative, setEstimateNarrative] = useState('');
+  const [estimateNarrative, setEstimateNarrative] = useConsultationDraft('recall-estimate-narrative','');
+  useDurableAIProposal('recall_24h',(output,id)=>{
+    if(!isRecallEstimate(output))return;
+    if(estimate)setReplacement(output);else apply(output);
+    setOpen(true);clinical.restoreResult(id);
+  });
   const baseline = useRef('');
   const { onPendingChange } = props;
   useEffect(() => {

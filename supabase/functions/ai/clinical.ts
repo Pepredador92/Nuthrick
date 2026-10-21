@@ -150,6 +150,7 @@ export type ClinicalSource = {
   records?: unknown;
   recall?: unknown;
   approvedObjective?: { approved_at: string; pes_approved_at: string; smart_plan?: ObjectivePlan } | null;
+  planningObjective?: { approved_at: string; pes_approved_at: string; smart_plan?: ObjectivePlan } | null;
   approvedStrategies?: { document: StrategyDocument }[];
   strategyRequired?: boolean;
   approvedPes?: { approved_at: string; problem: string; etiology: string; signsSymptoms: string; pesStatement: string } | null;

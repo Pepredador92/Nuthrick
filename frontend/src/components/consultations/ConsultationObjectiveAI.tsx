@@ -1,3 +1,4 @@
+import {useConsultationDraft,useConsultationDraftContext,useDurableAIProposal} from './ConsultationDrafts';
 import { useState } from "react";
 import { ArrowRight, Check } from "lucide-react";
 import {
@@ -69,75 +70,10 @@ type SuggestionProps = {
   onApply: (text: string) => void;
   disabled?: boolean;
   onApplyGoal?: (goal: ObjectiveGoal) => void;
+  draftKey?: string;
 };
 
-export function ConsultationObjectiveAI(props: SuggestionProps) {
-  return <ClinicalSuggestionsAI {...props} kind="objectives" />;
-}
-
-export function ClinicalSuggestionsAI({
-  patientId,
-  consultationId,
-  revision,
-  before,
-  onApply,
-  kind,
-  disabled = false,
-  onApplyGoal,
-  compactInstructions = false,
-}: SuggestionProps & {
-  kind: "objectives" | "instructions";
-  compactInstructions?: boolean;
-}) {
-  const instructions = kind === "instructions";
-  const feature = instructions
-    ? "patient_instructions"
-    : "consultation_support";
-  const label = instructions ? "indicaciones" : "objetivos";
-  const storageKey = `clinical-pending:${consultationId}:${feature}`;
-  const [state, setState] = useState<AIState>(() =>
-    sessionStorage.getItem(storageKey) ? "uncertain" : "idle"
-  );
-  const [message, setMessage] = useState("");
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [applied, setApplied] = useState<number[]>([]);
-
-  async function generate() {
-    if (disabled || state === "generating") return;
-    if (sessionStorage.getItem(storageKey)) {
-      setState("uncertain");
-      setMessage("Comprueba primero el estado de la solicitud pendiente.");
-      return;
-    }
-    setState("generating");
-    setMessage("");
-    setSuggestions([]);
-    setApplied([]);
-    try {
-      if (!(await before())) {
-        throw new Error("Guarda la entrevista antes de continuar.");
-      }
-      const idempotencyKey = crypto.randomUUID();
-      sessionStorage.setItem(storageKey, idempotencyKey);
-      const result = await runAIRequest({
-        feature,
-        idempotencyKey,
-        patientId,
-        consultationId,
-        revision,
-        ...(!instructions ? { objectiveTextStyle: "patient_v1" as const } : {}),
-      });
-      if (result.status !== "succeeded" || !result.output) {
-        setState("uncertain");
-        setMessage(
-          "Comprueba el estado antes de volver a solicitar una propuesta.",
-        );
-        return;
-      }
-      const output = result.output as {
-        objectives?: unknown;
-        instructions?: unknown;
-      };
+function parseSuggestions(output: {objectives?:unknown;instructions?:unknown},kind:"objectives"|"instructions"):Suggestion[]{
       const drafts = output[kind];
       const next = Array.isArray(drafts)
         ? drafts.flatMap((item) => {
@@ -178,7 +114,87 @@ export function ClinicalSuggestionsAI({
             : [];
         })
         : [];
-      sessionStorage.removeItem(storageKey);
+
+return next;
+}
+
+export function ConsultationObjectiveAI(props: SuggestionProps) {
+  return <ClinicalSuggestionsAI {...props} kind="objectives" />;
+}
+
+export function ClinicalSuggestionsAI({
+  patientId,
+  consultationId,
+  revision,
+  before,
+  onApply,
+  kind,
+  disabled = false,
+  onApplyGoal,
+  compactInstructions = false,
+  draftKey,
+}: SuggestionProps & {
+  kind: "objectives" | "instructions";
+  compactInstructions?: boolean;
+}) {
+  const instructions = kind === "instructions";
+  const feature = instructions
+    ? "patient_instructions"
+    : "consultation_support";
+  const label = instructions ? "indicaciones" : "objetivos";
+  const storageKey = `clinical-pending:${consultationId}:${feature}`;
+  const checkpoints=useConsultationDraftContext();
+  const slot=`suggestions:${kind}:${draftKey??'main'}`;
+  const [pendingRequest,setPendingRequest]=useConsultationDraft<string|null>(`request:${feature}`,()=>sessionStorage.getItem(storageKey),true);
+  const [state, setState] = useState<AIState>(() =>
+    (pendingRequest||sessionStorage.getItem(storageKey)) ? "uncertain" : "idle"
+  );
+  const [message, setMessage] = useState("");
+  const [suggestions, setSuggestions] = useConsultationDraft<Suggestion[]>(slot,[]);
+  const [applied, setApplied] = useConsultationDraft<number[]>(`${slot}:applied`,[]);
+
+  useDurableAIProposal(feature,(output)=>{setSuggestions(parseSuggestions(output,kind));setApplied([]);setPendingRequest(null);sessionStorage.removeItem(storageKey);setState('ready');setMessage('Propuestas recuperadas para revisión.');},slot);
+
+  async function generate() {
+    if (disabled || state === "generating") return;
+    if (pendingRequest||sessionStorage.getItem(storageKey)) {
+      setState("uncertain");
+      setMessage("Comprueba primero el estado de la solicitud pendiente.");
+      return;
+    }
+    setState("generating");
+    setMessage("");
+    setSuggestions([]);
+    setApplied([]);
+    try {
+      if (!(await before())) {
+        throw new Error("Guarda la entrevista antes de continuar.");
+      }
+      const idempotencyKey = crypto.randomUUID();
+      sessionStorage.setItem(storageKey, idempotencyKey);
+      setPendingRequest(idempotencyKey);checkpoints?.set(`destination:${feature}`,slot);
+      if(checkpoints&&!await checkpoints.flush())throw new Error('Guarda el avance antes de solicitar una nueva propuesta.');
+      const result = await runAIRequest({
+        feature,
+        idempotencyKey,
+        patientId,
+        consultationId,
+        revision,
+        ...(!instructions ? { objectiveTextStyle: "patient_v1" as const } : {}),
+      });
+      if (result.status !== "succeeded" || !result.output) {
+        setState("uncertain");
+        setMessage(
+          "Comprueba el estado antes de volver a solicitar una propuesta.",
+        );
+        return;
+      }
+      const output = result.output as {
+        objectives?: unknown;
+        instructions?: unknown;
+      };
+      const next=parseSuggestions(output,kind);
+      sessionStorage.removeItem(storageKey);setPendingRequest(null);checkpoints?.set(`handled:${feature}`,result.generationId);
       setSuggestions(next);
       setState("ready");
       if (!next.length) {
@@ -191,7 +207,7 @@ export function ClinicalSuggestionsAI({
         ["provider_outcome_unknown", "service_unavailable"].includes(
           error.code,
         );
-      if (!uncertain) sessionStorage.removeItem(storageKey);
+      if (!uncertain) {sessionStorage.removeItem(storageKey);setPendingRequest(null);}
       setState(
         uncertain ? "uncertain" : error instanceof AIRequestError &&
             error.code === "insufficient_credits"
@@ -205,15 +221,16 @@ export function ClinicalSuggestionsAI({
   }
 
   async function checkStatus() {
-    const key = sessionStorage.getItem(storageKey);
+    const key = pendingRequest||sessionStorage.getItem(storageKey);
     if (!key) return;
     try {
       const result = await getAIGenerationStatus(key);
+      if(result?.status==='succeeded'&&checkpoints){await checkpoints.refresh();setMessage('Recuperando las propuestas guardadas.');return;}
       if (
         !result ||
         ["succeeded", "failed", "invalid_output"].includes(result.status)
       ) {
-        sessionStorage.removeItem(storageKey);
+        sessionStorage.removeItem(storageKey);setPendingRequest(null);
         setState("idle");
         setMessage(
           result?.status === "succeeded"

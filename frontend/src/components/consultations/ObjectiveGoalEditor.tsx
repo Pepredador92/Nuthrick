@@ -1,3 +1,4 @@
+import {SaveConsultationDraftButton} from './ConsultationDrafts';
 import { type Ref, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -495,6 +496,7 @@ export function ObjectiveGoalEditor(
           </p>}
         </div>
         <footer className="clinical-objective-dialog-footer">
+          <SaveConsultationDraftButton/>
           <button
             type="button"
             className="clinical-text-action"

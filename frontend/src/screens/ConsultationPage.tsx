@@ -1,3 +1,4 @@
+import {ConsultationDrafts,ConsultationDraftPosition,type ConsultationDraftController} from '@/src/components/consultations/ConsultationDrafts';
 import {ClinicalStepNotice,type ClinicalCompletion} from '@/src/components/consultations/ClinicalStepNotice';
 import {ClinicalFollowUp} from '@/src/components/consultations/ClinicalFollowUp';
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -212,6 +213,7 @@ function ConsultationEditor() {
   const heading = useRef<HTMLHeadingElement>(null);
   const closed = useRef(false);
   const [autosave] = useState(() => createAnswerAutosave());
+  const draftController = useRef<ConsultationDraftController|null>(null);
   useEffect(() => {autosave.configure({
     read: signal => { const t=saveTarget.current; if(!t) throw new Error('Consulta no disponible.'); return syncConsultationAnswers(t.id,t.revision,undefined,signal); },
     write: (request,signal) => { const t=saveTarget.current; if(!t) throw new Error('Consulta no disponible.'); return syncConsultationAnswers(t.id,t.revision,request,signal); },
@@ -431,6 +433,23 @@ function ConsultationEditor() {
     [consultation, snapshot, autosave],
   );
 
+  const saveAll = useCallback(async ():Promise<boolean> => {
+    try {
+      if (draftController.current && !await draftController.current.flush()) {
+        setError('No pudimos guardar el avance completo. Reintenta antes de salir.');return false;
+      }
+      if (!await save()) return false;
+      if(consultation&&clinicalDate!==dateInZone(new Date(consultation.consultation_date),patient?.timezone)) {
+        const updated=await updateConsultationDate(consultation.id,clinicalDate,patient?.timezone);
+        consultationHistory.current=withConsultationDisplayNumbers([...consultationHistory.current.filter(item=>item.id!==updated.id),updated]);
+        setConsultation(consultationHistory.current.find(item=>item.id===updated.id)!);
+      }
+      return true;
+    } catch(cause) {
+      setError(cause instanceof Error?cause.message:'No pudimos guardar el avance completo. Reintenta antes de salir.');return false;
+    }
+  },[save,consultation,clinicalDate,patient]);
+
   useEffect(() => {
     if (busy || loading || saveError || JSON.stringify(values) === lastSaved.current) return;
     const timer = window.setTimeout(() => {
@@ -496,7 +515,7 @@ function ConsultationEditor() {
   const exitConsultation = async (discard: boolean) => {
     if (blocker.state !== "blocked" || exitLock.current || busy || loading) return;
     if (!consultation) { blocker.proceed(); return; }
-    if (!discard && pendingModules.length) return;
+    if (!discard && pendingModules.some(item=>item.key!=="clinical")) return;
     exitLock.current = true;
     setBusy(true);
     setExitError("");
@@ -506,19 +525,17 @@ function ConsultationEditor() {
         // Stop autosave and drain writes before retiring the draft.
         closed.current = true;
         await autosave.stop();
+        await draftController.current?.stop();
         await discardConsultationDraft(consultation.id);
         clearWorkspace(consultation.id);
       } else {
-        if (!await save()) throw new Error("No pudimos guardar el borrador. Tus respuestas siguen aquí; vuelve a intentarlo.");
-        if (clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient?.timezone)) {
-          await updateConsultationDate(consultation.id, clinicalDate, patient?.timezone);
-        }
+        if (!await saveAll()) throw new Error("No pudimos guardar el borrador. Tus respuestas siguen aquí; vuelve a intentarlo.");
         closed.current = true;
       }
       blocker.proceed();
     } catch (cause) {
       closed.current = false;
-      if(discard) autosave.resume();
+      if(discard) {autosave.resume();draftController.current?.resume();}
       setExitError(cause instanceof Error ? cause.message : "No pudimos completar la acción. Continúa aquí e inténtalo de nuevo.");
     } finally {
       exitLock.current = false;
@@ -590,7 +607,7 @@ function ConsultationEditor() {
   const reviewing = active === sections.length;
   const current = sections[active];
   const goTo = async (index: number) => {
-    if(!saveError) void save();
+    if(!saveError) void saveAll();
     setActive(Math.max(0, Math.min(index, sections.length)));
     setNotice("");
     requestAnimationFrame(() => {
@@ -640,7 +657,7 @@ function ConsultationEditor() {
   };
   const complete = async () => {
     if (!consultation || !snapshot || !reviewed || closing.current) return;
-    if (recallPending || pesPending || hasObjectivePending || strategyPending || measurementsPending || laboratoriesPending || clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient?.timezone)) {
+    if (recallPending || measurementsPending || laboratoriesPending || clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient?.timezone)) {
       setCloseDialogOpen(true);
       return;
     }
@@ -649,13 +666,13 @@ function ConsultationEditor() {
       section.questions.some(
         (q) =>
           matchesCondition(q.visibility_condition, valuesRef.current) &&
-          questionErrors(q, valuesRef.current[q.question_key]).length,
+          (questionModule(q.question_key)!=="clinical" && questionErrors(q, valuesRef.current[q.question_key]).length),
       ),
     );
     if (firstInvalid >= 0) {
       setCloseDialogOpen(false);
       const invalidSection = allSections[firstInvalid];
-      const invalidQuestion = invalidSection.questions.find(question => matchesCondition(question.visibility_condition, valuesRef.current) && questionErrors(question, valuesRef.current[question.question_key]).length)!;
+      const invalidQuestion = invalidSection.questions.find(question => matchesCondition(question.visibility_condition, valuesRef.current) && questionModule(question.question_key)!=="clinical" && questionErrors(question, valuesRef.current[question.question_key]).length)!;
       const invalidModule = questionModule(invalidQuestion.question_key);
       setModule(invalidModule);
       if (invalidModule === 'recall') setRecallOpened(true);
@@ -669,8 +686,8 @@ function ConsultationEditor() {
     closing.current = true;
     setBusy(true);
     try {
-      if (!(await save())) return;
-      if (allSections.some(section=>section.questions.some(q=>matchesCondition(q.visibility_condition,valuesRef.current) && questionErrors(q,valuesRef.current[q.question_key]).length))) {
+      if (!(await saveAll())) return;
+      if (allSections.some(section=>section.questions.some(q=>matchesCondition(q.visibility_condition,valuesRef.current) && questionModule(q.question_key)!=="clinical" && questionErrors(q,valuesRef.current[q.question_key]).length))) {
         setCloseDialogOpen(false);setError('La información sincronizada tiene campos pendientes. Revisa los campos señalados antes de cerrar.');return;
       }
       const answered = allSections
@@ -732,13 +749,13 @@ function ConsultationEditor() {
       setError('Guarda las mediciones y los estudios pendientes, y confirma los cambios del recordatorio antes de generar una propuesta clínica.');
       return false;
     }
-    return save();
+    return saveAll();
   };
   const goModule = async (next: ConsultationModule) => {
     if (next === 'clinical' && (measurementsPending || laboratoriesPending || recallPending)) {
       setError('Guarda las mediciones y los estudios pendientes, y confirma los cambios del recordatorio antes de generar una propuesta clínica.');return;
     }
-    if(!saveError) void save();
+    if(!saveError) void saveAll();
     if (next === 'measurements') setMeasurementsOpened(true);
     if (next === 'laboratories') setLaboratoriesOpened(true);
     if (next === 'recall') setRecallOpened(true);
@@ -768,7 +785,7 @@ function ConsultationEditor() {
     return goModule(consultationSteps[index - 1].key);
   };
   const goClinicalStage = async (next: number) => {
-    if(!saveError) void save();
+    if(!saveError) void saveAll();
     setClinicalStage(next);
     requestAnimationFrame(() => document.getElementById('consultation-clinical-heading')?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }));
   };
@@ -806,7 +823,7 @@ function ConsultationEditor() {
     return { ...step, status, statusLabel: status === 'approved' ? 'Aprobado' : status === 'complete' ? index === 0 ? 'Revisado' : index>=4?'Completado':'Listo para revisar' : status === 'progress' ? 'En curso' : undefined };
   });
 
-  const exitDialog = blocker.state === "blocked" && <ConsultationExitDialog busy={busy || loading} canDiscard={!consultation || canDiscardDraft(consultation)} pending={pendingModules.map(item => item.label)} error={exitError} onSave={() => void exitConsultation(false)} onDiscard={() => void exitConsultation(true)} onContinue={continueConsultation} onReview={() => {
+  const exitDialog = blocker.state === "blocked" && <ConsultationExitDialog busy={busy || loading} canDiscard={!consultation || canDiscardDraft(consultation)} pending={pendingModules.filter(item=>item.key!=="clinical").map(item => item.label)} error={exitError} onSave={() => void exitConsultation(false)} onDiscard={() => void exitConsultation(true)} onContinue={continueConsultation} onReview={() => {
     const pendingModule = pendingModules[0];
     continueConsultation();
     if (pendingModule) {
@@ -1016,8 +1033,8 @@ function ConsultationEditor() {
         snapshot.template_version < latest.template.version);
   const dirty = JSON.stringify(values) !== savedEncoded;
   return (
-    <div className="consultation-workspace">
-      {exitDialog}
+    <>{exitDialog}<ConsultationDrafts key={`${consultation.id}:${snapshot.revision}`} consultationId={consultation.id} revision={snapshot.revision} controllerRef={draftController} onSave={saveAll}><div className="consultation-workspace">
+      <ConsultationDraftPosition value={{module,active,clinicalStage}} onRestore={position=>{if(consultationSteps.some(step=>step.key===position.module)){setModule(position.module as ConsultationModule);setActive(Math.max(0,position.active));setClinicalStage(Math.max(0,Math.min(clinicalStages.length-1,position.clinicalStage)));setRecallOpened(position.module==="recall");setClinicalOpened(position.module==="clinical");setMeasurementsOpened(position.module==="measurements");setLaboratoriesOpened(position.module==="laboratories");}}}/>
       <header className="rounded-[24px] bg-[#173d36] p-5 text-white sm:p-7">
         <Link
           to={"/app/patients/" + patient.id}
@@ -1076,7 +1093,7 @@ function ConsultationEditor() {
               className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold"
               disabled={busy || saving}
               onClick={() =>
-                void save().then((ok) => {
+                void saveAll().then((ok) => {
                   if (ok) setNotice("Borrador guardado.");
                 })
               }
@@ -1091,8 +1108,8 @@ function ConsultationEditor() {
           </div>
         </div>
       </header>
-      {closeDialogOpen && <ConsultationCloseDialog busy={busy || saving} reviewed={reviewed} pending={[pesPending && "la propuesta PES", hasObjectivePending && "los objetivos sin guardar", strategyPending && "las estrategias sin guardar o propuestas pendientes", recallPending && "Recordatorio de 24 horas", measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error || saveError} onReview={setReviewed} onCancel={() => setCloseDialogOpen(false)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
-      <div className="sticky top-0 z-20 mt-4 flex justify-end rounded-xl bg-[#f7faf8]/95 p-2 backdrop-blur"><button type="button" className="nuth-button-secondary" disabled={busy || saving} onClick={() => { setReviewed(false); setError(""); setCloseDialogOpen(true); }}><ClipboardCheck size={16} />Revisar cierre de consulta</button></div>
+      {closeDialogOpen && <ConsultationCloseDialog busy={busy || saving} reviewed={reviewed} pending={[recallPending && "Recordatorio de 24 horas", measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error || saveError} onReview={setReviewed} onCancel={() => setCloseDialogOpen(false)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
+      <div className="sticky top-0 z-20 mt-4 flex flex-wrap justify-end gap-2 rounded-xl bg-[#f7faf8]/95 p-2 backdrop-blur"><button type="button" className="nuth-button" disabled={busy || saving} onClick={()=>void saveAll().then(ok=>{if(ok)setNotice("Avance de la consulta guardado.");})}><Save size={16}/>Guardar consulta</button><button type="button" className="nuth-button-secondary" disabled={busy || saving} onClick={() => { setReviewed(false); setError(""); setCloseDialogOpen(true); }}><ClipboardCheck size={16} />Revisar cierre de consulta</button></div>
       <nav className="consultation-step-nav" aria-label="Módulos de la consulta">
         {consultationSteps.map((step, index) => <button key={step.key} type="button" aria-current={module === step.key ? 'page' : undefined} disabled={busy} onClick={() => void goModule(step.key)}><span aria-hidden="true">{index + 1}</span>{step.label}</button>)}
         <Link to={`/app/diet-workshop?patientId=${patient.id}&consultationId=${consultation.id}`}><Salad size={15} />Taller de dietas</Link>
@@ -1107,7 +1124,7 @@ function ConsultationEditor() {
         {recallSections.map(section => <details key={section.section_key} className="recall-supported-fields" open={showErrors && section.questions.some(question => matchesCondition(question.visibility_condition, values) && questionErrors(question, values[question.question_key]).length > 0)}><summary>{section.title === "Recordatorio de 24 horas" ? "Registro detallado del día y preguntas de apoyo" : section.title}</summary><p>{section.title === "Recordatorio de 24 horas" ? 'Aquí puedes registrar la fecha, horarios, preparación y posibles olvidos. Este registro complementa los alimentos confirmados arriba.' : section.description}</p>{renderQuestions(section.questions)}</details>)}
       </section>}
       {clinicalOpened && <div className="consultation-guided-workspace clinical-decision-workspace mt-6" hidden={module !== 'clinical'}>
-        <header className="consultation-guided-intro" id="consultation-clinical-heading"><p className="nuth-eyebrow">05 · Revisa y acuerda</p><h2>De los datos a los siguientes pasos</h2><p>Avanza por partes: revisa, formula el diagnóstico y acuerda qué sigue.</p></header>
+        <header className="consultation-guided-intro" id="consultation-clinical-heading"><p className="nuth-eyebrow">05 · Revisa y acuerda</p><h2>De los datos a los siguientes pasos</h2><p>Estas secciones son opcionales. Puedes guardar el avance, continuar o cerrar la consulta sin completarlas.</p></header>
         <ConsultationGuide label="Pasos de la revisión clínica" steps={clinicalStepsWithProgress} active={clinicalStage} onChange={next => void goClinicalStage(next)} busy={busy} />
         <div hidden={clinicalStage !== 0}><ClinicalReview onReviewed={(message,all)=>reportCompletion(message,all?1:undefined)} consultationId={consultation.id} snapshot={snapshot} values={values} active={module === 'clinical' && clinicalStage === 0} before={saveForClinical} onStatusChange={status => updateClinicalProgress('review', status)} onOpenModule={next => void goModule(next)} /></div>
         <section hidden={clinicalStage !== 1} className="clinical-stage" aria-label="Diagnóstico PES">
@@ -1280,6 +1297,6 @@ function ConsultationEditor() {
           <button type="button" className="nuth-button !px-3 !text-xs sm:!text-sm" disabled={busy || (module === 'measurements' && measurementsPending) || (module === 'laboratories' && laboratoriesPending) || (module === 'recall' && recallNavigation?.open && recallNavigation.nextDisabled)} onClick={() => void nextStep()}>{module === 'evolution' ? 'Revisar cierre de consulta' : module === 'recall' && recallNavigation?.open && recallNavigation.stage === 2 ? recallNavigation.saving ? 'Guardando…' : 'Confirmar recordatorio' : 'Siguiente'}<ChevronRight size={15} /></button>
         </div>
       </footer>
-    </div>
+    </div></ConsultationDrafts></>
   );
 }
