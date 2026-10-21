@@ -5,6 +5,7 @@ import {
   emptyValue,
   inputValue,
   isRecord,
+  questionTextMaxLength,
   repeatableFields,
   stringList,
   toggleChoice,
@@ -292,10 +293,7 @@ export function QuestionField({
       </div>
     );
   } else {
-    const maxLength =
-      typeof question.configuration.max_length === "number"
-        ? question.configuration.max_length
-        : 2000;
+    const maxLength = questionTextMaxLength(question);
     const type = ["number", "time", "date"].includes(question.question_type)
       ? question.question_type
       : "text";

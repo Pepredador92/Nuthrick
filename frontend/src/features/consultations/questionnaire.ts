@@ -1,8 +1,20 @@
 import type { ConsultationSnapshotStructure } from "@/src/types/domain";
+import { PATIENT_INSTRUCTIONS_DOCUMENT_MAX_LENGTH } from "../../../../supabase/functions/_shared/patient-instructions";
 
 export type Answers = Record<string, unknown>;
 export type Question =
   ConsultationSnapshotStructure["sections"][number]["questions"][number];
+
+/** Older snapshots keep their original configuration. Give the instruction
+ * editor room for several complete proposals without rewriting that history. */
+export function questionTextMaxLength(question: Question): number {
+  const configured = typeof question.configuration.max_length === 'number'
+    ? question.configuration.max_length : 2000;
+  return question.question_type === 'long_text' &&
+      ['first_actions', 'patient_instructions', 'recommendations'].includes(question.question_key)
+    ? Math.max(configured, PATIENT_INSTRUCTIONS_DOCUMENT_MAX_LENGTH)
+    : configured;
+}
 export type RepeatableField = {
   key: string;
   label: string;

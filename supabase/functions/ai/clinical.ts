@@ -7,9 +7,10 @@ import { pesSynthesisInstructions } from './pes-synthesis.ts';
 import { referencedPesSchema, pesReferenceInstructions } from './pes-references.ts';
 import { concisePesSchema, concisePesInstructions } from './pes-concise.ts';
 import { objectiveProposalsSchema, objectiveProposalInstructions, objectiveProposalsValid } from './objective-proposals.ts';
+import { PATIENT_INSTRUCTION_MAX_LENGTH } from '../_shared/patient-instructions.ts';
 const text = { type: "string", maxLength: 2000 };
 const strings = { type: "array", items: text, maxItems: 30 };
-const object = (properties: Record<string, unknown>) => ({
+const object = <P extends Record<string, unknown>>(properties: P) => ({
   type: "object",
   properties,
   required: Object.keys(properties),
@@ -44,7 +45,21 @@ export const consultationSupportSchema = object({
     }),
   },
 });
-export const patientInstructionsSchema = object({ instructions: consultationSupportSchema.properties.objectives });
+const legacyPatientInstructionsSchema = object({ instructions: consultationSupportSchema.properties.objectives });
+export const patientInstructionsSchema = object({
+  instructions: {
+    ...consultationSupportSchema.properties.objectives,
+    items: object({
+      ...consultationSupportSchema.properties.objectives.items.properties,
+      text: {
+        type: 'string', minLength: 8, maxLength: PATIENT_INSTRUCTION_MAX_LENGTH,
+        // A completed JSON response can still contain a sentence cut off by a
+        // string limit. Require an ending in the generated text as well.
+        pattern: '[^.\\s…][.!?]["»”)]*\\s*$',
+      },
+    }),
+  },
+});
 export const smartObjectivesSchema = object({ objectives: {
   type: 'array', maxItems: 3, items: object({
     ...Object.fromEntries(['outcome','etiology','sign','indicator','target','timeframe','monitoring','feasibility'].map(key => [key, { type: 'string', maxLength: 400 }])),
@@ -126,10 +141,10 @@ export function clinicalAdapter(feature: string, version: string) {
       schema: consultationSupportSchema,
       instructions: version === "consultation_support@3" ? `${boundary} Sugiere de 0 a 3 borradores de objetivos conductuales para que el profesional los converse y acuerde con la persona. Prioriza lo que la persona expresó como importante y las acciones que ya constan en facts. Usa primero la información de la consulta actual. Si interviewOrigin es historical, no se registró entrevista actual: puedes apoyarte en entrevistas y acuerdos históricos fechados, indicando que su vigencia debe confirmarse; nunca presentes esos acuerdos como actuales. No conviertas una medición en una meta. El recordatorio y su consumo estimado aportan contexto de UN día: no infieras hábitos ni prescribas metas a partir de él. No inventes frecuencia, plazo, capacidad, diagnóstico, conducta, preferencias ni resultados. No indiques pérdida de peso ni metas numéricas, kcal, macros, suplementos o cambios de tratamiento salvo que consten literalmente como acuerdo y aun así pide revisión. Redacta en lenguaje sencillo, concreto y respetuoso, centrado en acciones bajo control de la persona. Cada objetivo debe citar de 1 a 3 evidenceFactIds existentes. Si no hay base explícita para una propuesta, devuelve objectives vacío. No apruebes ni guardes objetivos.${historyBoundary}` : `${boundary} Sugiere de 0 a 3 borradores de objetivos conductuales para que el profesional los converse y acuerde con la persona. Prioriza lo que la persona expresó como importante y las acciones que ya constan en facts; usa el historial solo como contexto, nunca conviertas una medición en una meta. El recordatorio y su consumo estimado aportan contexto de UN día: no infieras hábitos ni prescribas metas a partir de él. No inventes frecuencia, plazo, capacidad, diagnóstico, conducta, preferencias ni resultados. No indiques pérdida de peso ni metas numéricas, kcal, macros, suplementos o cambios de tratamiento salvo que consten literalmente como acuerdo y aun así pide revisión. Redacta en lenguaje sencillo, concreto y respetuoso, centrado en acciones bajo control de la persona. Cada objetivo debe citar de 1 a 3 evidenceFactIds existentes. Si no hay base explícita para una propuesta, devuelve objectives vacío. No apruebes ni guardes objetivos.`,
     };
-  if (feature === "patient_instructions" && ["patient_instructions@1", "patient_instructions@2"].includes(version))
+  if (feature === "patient_instructions" && ["patient_instructions@1", "patient_instructions@2", "patient_instructions@3"].includes(version))
     return {
-      schema: patientInstructionsSchema,
-      instructions: `${version === "patient_instructions@2" ? "Cuando existan Estrategias aprobadas, deriva las indicaciones de esas acciones vigentes y cita al menos una por indicación. Mantén cantidad, frecuencia y duración solo cuando estén explícitas. No conviertas una aprobación en evidencia de ejecución. Conserva coordinación profesional cuando se haya documentado. " : ""}${boundary} Redacta de 0 a 3 borradores breves de indicaciones nutricionales en lenguaje sencillo para revisión del profesional antes de compartir con el paciente. Reformula SOLO acciones, objetivos o acuerdos registrados en facts. Cuando estén documentados, incluye qué hacer, cuándo y cómo revisarlo; omite los datos faltantes. Usa el recordatorio confirmado y su consumo estimado únicamente para contextualizar esos acuerdos, sin inferir hábitos a partir de UN día. No inventes ni calcules dietas, alimentos nuevos, cantidades, frecuencias, metas de peso/kcal/macros, diagnósticos, tratamientos, suplementos o plazos. Respeta las alergias y limitaciones documentadas; ante contradicciones omite la propuesta. Nunca presentes propuestas pendientes como acuerdos ya aceptados. Cada indicación debe citar 1 a 3 evidenceFactIds y al menos uno debe corresponder a una estrategia aprobada o, cuando no existen estrategias registradas, a un acuerdo/objetivo/acción de la entrevista; el recordatorio solo no basta. Si no hay acuerdos suficientes devuelve instructions vacío. No incluyas identidad, diagnósticos privados ni notas internas en el texto destinado al paciente. No guardes ni publiques.`,
+      schema: version === 'patient_instructions@3' ? patientInstructionsSchema : legacyPatientInstructionsSchema,
+      instructions: `${version !== "patient_instructions@1" ? "Cuando existan Estrategias aprobadas, deriva las indicaciones de esas acciones vigentes y cita al menos una por indicación. Mantén cantidad, frecuencia y duración solo cuando estén explícitas. No conviertas una aprobación en evidencia de ejecución. Conserva coordinación profesional cuando se haya documentado. " : ""}${boundary} Redacta de 0 a 3 borradores breves de indicaciones nutricionales en lenguaje sencillo para revisión del profesional antes de compartir con el paciente. ${version === 'patient_instructions@3' ? `Dirígete al paciente de tú, como si su profesional le explicara qué hacer. Escribe cada indicación con oraciones completas, claras y suficientemente explicativas; termina con punto u otro signo de cierre. Dispones de hasta ${PATIENT_INSTRUCTION_MAX_LENGTH} caracteres por indicación: no intentes llenar ese espacio. Si necesitas sintetizar, reformula la idea completa antes de responder; nunca cortes palabras, dejes frases abiertas ni uses puntos suspensivos para ocultar contenido faltante. Revisa el cierre de cada indicación antes de entregar el JSON. ` : ''}Reformula SOLO acciones, objetivos o acuerdos registrados en facts. Cuando estén documentados, incluye qué hacer, cuándo y cómo revisarlo; omite los datos faltantes. Usa el recordatorio confirmado y su consumo estimado únicamente para contextualizar esos acuerdos, sin inferir hábitos a partir de UN día. No inventes ni calcules dietas, alimentos nuevos, cantidades, frecuencias, metas de peso/kcal/macros, diagnósticos, tratamientos, suplementos o plazos. Respeta las alergias y limitaciones documentadas; ante contradicciones omite la propuesta. Nunca presentes propuestas pendientes como acuerdos ya aceptados. Cada indicación debe citar 1 a 3 evidenceFactIds y al menos uno debe corresponder a una estrategia aprobada o, cuando no existen estrategias registradas, a un acuerdo/objetivo/acción de la entrevista; el recordatorio solo no basta. Si no hay acuerdos suficientes devuelve instructions vacío. No incluyas identidad, diagnósticos privados ni notas internas en el texto destinado al paciente. No guardes ni publiques.`,
     };
   if (feature === "recall_24h" && version === "recall_24h@3") return {
     schema: recallEstimateSchema,
