@@ -1,6 +1,6 @@
 import {SaveConsultationDraftButton} from './ConsultationDrafts';
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Eraser, Trash2, X } from "lucide-react";
 import type { InterventionWorkspace } from "@/src/services/clinicalInterventions";
 import {
   type StrategyDocument,
@@ -11,11 +11,24 @@ import {
 import {
   InterventionStrategyForm,
   strategyLabels,
+  strategyIssueMessages,
   strategyStepIssues,
   strategyStepHasDetails,
   strategySteps,
 } from "./InterventionStrategyForm";
 import { ClinicalStatusBadge } from "./ClinicalTaskCard";
+
+function focusStrategyField(root: HTMLElement | null, field: string) {
+  const group = root?.querySelector<HTMLElement>(`[data-strategy-field="${field}"]`);
+  if (!group) return false;
+  for (let parent = group.parentElement; parent && parent !== root; parent = parent.parentElement) {
+    if (parent.tagName === "DETAILS") (parent as HTMLDetailsElement).open = true;
+  }
+  group.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  const input = group.querySelector<HTMLElement>("[data-strategy-prerequisite]") ?? group.querySelector<HTMLElement>("input:not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled)");
+  (input ?? group).focus();
+  return true;
+}
 
 export function InterventionStrategyDialog(
   {
@@ -29,6 +42,12 @@ export function InterventionStrategyDialog(
     clean,
     alreadyApproved,
     canApprove,
+    initialApprovalAttempt = false,
+    approvalContextMessage,
+    onReviewPrerequisite,
+    onClear,
+    onRemove,
+    removeLabel,
     onChange,
     onClose,
     onSave,
@@ -45,6 +64,12 @@ export function InterventionStrategyDialog(
     clean: boolean;
     alreadyApproved: boolean;
     canApprove: boolean;
+    initialApprovalAttempt?: boolean;
+    approvalContextMessage?: string;
+    onReviewPrerequisite?: () => void;
+    onClear?: () => void;
+    onRemove?: () => void;
+    removeLabel?: string;
     onChange: (document: StrategyDocument) => void;
     onClose: () => void;
     onSave: () => void;
@@ -57,7 +82,9 @@ export function InterventionStrategyDialog(
   const body = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const [step, setStep] = useState(initialStep);
+  const [attempted, setAttempted] = useState(initialApprovalAttempt);
   const issues = strategyIssues(document.strategy);
+  const initialFocus = useRef(initialApprovalAttempt ? (!linked ? "context" : issues[0]) : undefined);
   const complete = strategyRequiredFields.filter((field) =>
     document.strategy[field].trim()
   ).length + Number(linked && document.strategy.goalIndexes.length > 0);
@@ -65,31 +92,40 @@ export function InterventionStrategyDialog(
   useEffect(() => {
     const element = dialog.current;
     const previous = globalThis.document.activeElement as HTMLElement | null;
-    const overflow = globalThis.document.body.style.overflow;
+    const pageStyle = element?.ownerDocument.body.style;
+    const overflow = pageStyle?.overflow ?? "";
     element?.showModal?.();
-    globalThis.document.body.style.overflow = "hidden";
+    pageStyle?.setProperty("overflow", "hidden");
     title.current?.focus();
+    const frame = requestAnimationFrame(() => {
+      if (initialFocus.current) focusStrategyField(element, initialFocus.current);
+    });
     return () => {
+      cancelAnimationFrame(frame);
       if (element?.open) element.close?.();
-      globalThis.document.body.style.overflow = overflow;
+      pageStyle?.setProperty("overflow", overflow);
       if (previous?.isConnected) previous.focus();
     };
   }, []);
-  function goToStep(next: number) {
+  function goToStep(next: number, field?: string) {
     setStep(next);
     onStepChange?.(next);
     requestAnimationFrame(() => {
+      if (field && focusStrategyField(dialog.current, field)) return;
       if (body.current) body.current.scrollTop = 0;
       heading.current?.focus();
     });
   }
-  function showPending() {
-    const next = !linked
-      ? 0
-      : strategySteps.findIndex((_, index) =>
-        strategyStepIssues(document.strategy, index).length > 0
-      );
-    goToStep(Math.max(0, next));
+  function showPending(field = !linked ? "context" : issues[0]) {
+    if (!field) return;
+    setAttempted(true);
+    const next = strategySteps.findIndex((item) => (item.keys as readonly string[]).includes(field));
+    goToStep(Math.max(0, next), field);
+  }
+  function approve() {
+    setAttempted(true);
+    if (!canApprove) { showPending(); return; }
+    onApprove();
   }
   return (
     <dialog
@@ -182,6 +218,7 @@ export function InterventionStrategyDialog(
                 workspace={workspace}
                 disabled={busy}
                 step={step}
+                showErrors={attempted}
                 onChange={onChange}
               />
             </div>
@@ -203,33 +240,33 @@ export function InterventionStrategyDialog(
             )}
             {issues.length > 0 || !linked
               ? (
-                <div className="clinical-notice">
+                <div className="clinical-notice" data-strategy-field={!linked ? "context" : undefined} tabIndex={-1}>
                   <p>
                     {issues.length
                       ? "Revisa estos requisitos para aprobar. Puedes guardar el borrador sin completarlos."
-                      : "Para aprobar, vincula la estrategia al PES y a los objetivos vigentes aprobados."}
+                      : approvalContextMessage ?? "Para aprobar, vincula la estrategia al PES y a los objetivos vigentes aprobados."}
                   </p>
                   <button
                     type="button"
                     className="clinical-text-action mt-2"
                     disabled={busy}
-                    onClick={showPending}
+                    onClick={() => showPending()}
                   >
                     Ir al siguiente pendiente<ArrowRight size={15} />
                   </button>
-                  <details className="clinical-approval-details">
-                    <summary>Ver pendientes</summary>
-                    <ul>
+                  <div className="clinical-approval-details">
+                    <ul aria-label="Pendientes para aprobar">
                       {!linked && (
                         <li>
-                          Vinculación con el PES y los objetivos actuales
+                          {approvalContextMessage ?? "Vinculación con el PES y los objetivos actuales"}
+                          {onReviewPrerequisite && <button type="button" className="clinical-text-action" data-strategy-prerequisite disabled={busy} onClick={onReviewPrerequisite}>{workspace?.pes ? "Ir a objetivos" : "Ir al diagnóstico PES"}<ArrowRight size={15}/></button>}
                         </li>
                       )}
                       {issues.map((key) => (
-                        <li key={key}>{strategyLabels[key] ?? key}</li>
+                        <li key={key}><button type="button" className="clinical-text-action" disabled={busy} onClick={() => showPending(key)}>{strategyIssueMessages[key] ?? strategyLabels[key] ?? key}<ArrowRight size={15}/></button></li>
                       ))}
                     </ul>
-                  </details>
+                  </div>
                 </div>
               )
               : (
@@ -238,6 +275,10 @@ export function InterventionStrategyDialog(
                   persona y el inicio de ejecución se registran por separado.
                 </p>
               )}
+            {(onClear || onRemove) && <div className="clinical-strategy-editor-actions">
+              {onClear && <button type="button" className="clinical-text-action" disabled={busy} onClick={onClear}><Eraser size={15}/>Limpiar campos</button>}
+              {onRemove && <button type="button" className="clinical-text-action" disabled={busy} onClick={onRemove}><Trash2 size={15}/>{removeLabel}</button>}
+            </div>}
           </section>
           {message && <p role="status" className="clinical-notice">{message}
           </p>}
@@ -284,8 +325,8 @@ export function InterventionStrategyDialog(
                 <button
                   type="button"
                   className="nuth-button"
-                  disabled={busy || !canApprove}
-                  onClick={onApprove}
+                  disabled={busy || !!workspace?.archived}
+                  onClick={approve}
                 >
                   {busy ? "Guardando…" : "Aprobar estrategia"}
                 </button>

@@ -1,5 +1,9 @@
 .clinical-strategies-workspace {
   margin-top: 18px;
+  --clinical-strategy-error: #a02f38;
+}
+html[data-nuthrick-theme='night'] .clinical-strategies-workspace {
+  --clinical-strategy-error: #fda4af;
 }
 .clinical-strategy-list {
   display: grid;
@@ -56,6 +60,47 @@
 }
 .clinical-strategy-card-actions > button {
   min-height: 40px;
+}
+.clinical-strategy-approval-help {
+  margin-top: 14px;
+  color: var(--nuth-muted);
+  font-size: 12px;
+  line-height: 1.75;
+}
+.clinical-strategy-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 22px;
+}
+.clinical-strategy-field-error {
+  color: var(--clinical-strategy-error);
+  font-size: 12px;
+  line-height: 1.6;
+  margin-top: 6px;
+}
+.clinical-strategy-fields [aria-invalid='true'] {
+  border-color: var(--clinical-strategy-error);
+}
+.clinical-strategy-dialog .clinical-approval-details li {
+  margin-top: 10px;
+}
+.clinical-strategy-dialog .clinical-approval-details button {
+  text-align: left;
+  line-height: 1.65;
+  min-height: 36px;
+}
+.clinical-strategy-action-dialog {
+  width: min(580px, calc(100vw - 32px));
+}
+.clinical-strategy-action-dialog > form {
+  display: flex;
+  flex-direction: column;
+  max-height: 85dvh;
+}
+.clinical-strategy-action-dialog .clinical-objective-dialog-body {
+  font-size: 14px;
+  line-height: 1.75;
 }
 .clinical-strategy-draft-options {
   color: var(--nuth-muted);

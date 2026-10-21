@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
+  Check,
   ClipboardList,
+  Eraser,
   Pencil,
   Plus,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import type { ClinicalTaskStatus } from "./ClinicalTaskCard";
 import { ClinicalStatusBadge } from "./ClinicalTaskCard";
 import { InterventionStrategyDialog } from "./InterventionStrategyDialog";
+import { InterventionStrategyActionDialog, type StrategyDraftAction } from "./InterventionStrategyActionDialog";
 import {useConsultationDraft,useConsultationDraftContext,useDurableAIProposal} from './ConsultationDrafts';
 import "./ClinicalInterventions.css";
 import { AIButton } from "@/src/components/ai/AIControls";
@@ -54,6 +58,7 @@ type Props = {
   onInstructions?: (text: string) => void;
   workshopUrl?: string;
   readOnly?: boolean;
+  onReviewPrerequisite?: (stage: 1 | 2) => void;
 };
 const stateLabels = {
   draft: "Borrador",
@@ -128,6 +133,9 @@ export function ClinicalInterventions(props: Props) {
   >('strategy-execution',null);
   const [activeId, setActiveId] = useConsultationDraft<string | null>('strategy-editor',null);
   const [initialStep, setInitialStep] = useConsultationDraft('strategy-step',0);
+  const [approvalAttempt, setApprovalAttempt] = useState(false);
+  const [draftAction, setDraftAction] = useState<{ id: string; action: StrategyDraftAction; returnToEditor: boolean } | null>(null);
+  const [actionBusy, setActionBusy] = useState(false), [actionError, setActionError] = useState("");
   useDurableAIProposal('intervention_strategy',(output)=>{
     const documents=output.strategies;
     if(!Array.isArray(documents)||!documents.every(isStrategyDocument))return;
@@ -184,6 +192,7 @@ export function ClinicalInterventions(props: Props) {
       };
     const id = crypto.randomUUID();
     edit(id, next);
+    setApprovalAttempt(false);
     setInitialStep(0);
     setActiveId(id);
   }
@@ -253,22 +262,23 @@ export function ClinicalInterventions(props: Props) {
       discardLocal(id);
       setExecution(null);
       onChanged?.();
+      const checkpointSaved = !checkpoints || await checkpoints.flush();
       setMessage(
-        action === "approve"
+        (action === "approve"
           ? "Estrategia aprobada. El inicio de ejecución se registra por separado."
           : action === "save"
-          ? "Borrador guardado."
+          ? "Borrador guardado. Pulsa «Aprobar estrategia» para cambiar su estado."
           : action === "delete"
           ? "Borrador eliminado."
           : action === "withdraw"
           ? "Estrategia retirada. Su historial se conserva."
-          : "Cambio registrado.",
+          : "Cambio registrado.") + (checkpointSaved ? "" : " El cambio se registró, pero falta guardar el avance de la pantalla. Reintenta el guardado antes de salir."),
       );
       return true;
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "No pudimos guardar.",
-      );
+      const errorMessage = error instanceof Error ? error.message : "No pudimos guardar.";
+      setMessage(errorMessage);
+      if (draftAction?.id === id) setActionError(errorMessage);
       return false;
     } finally {
       setBusy(false);
@@ -390,6 +400,84 @@ export function ClinicalInterventions(props: Props) {
   const activeLinked = !!activeDocument && eligible &&
     activeDocument.pesApprovedAt === workspace?.pes?.approved_at &&
     activeDocument.objectiveApprovedAt === workspace?.objective?.approved_at;
+  const approvalContextMessage = workspace?.archived
+    ? "Esta revisión pertenece al historial y no admite nuevas aprobaciones."
+    : !workspace?.pes
+    ? "Primero revisa y aprueba el diagnóstico PES."
+    : !eligible
+    ? "Primero revisa y aprueba los objetivos de este PES."
+    : "Vuelve a vincular esta estrategia con el PES y los objetivos actuales.";
+  function openEditor(id: string, document: StrategyDocument, linked: boolean, attempt = false) {
+    setInitialStep(firstIncompleteStrategyStep(document.strategy, linked));
+    setApprovalAttempt(attempt);
+    setMessage("");
+    setActiveId(id);
+  }
+  function approveCard(id: string, document: StrategyDocument, linked: boolean) {
+    if (!linked || strategyIssues(document.strategy).length) {
+      openEditor(id, document, linked, true);
+      return;
+    }
+    void mutate(id, "approve");
+  }
+  function requestDraftAction(id: string, action: StrategyDraftAction) {
+    setDraftAction({ id, action, returnToEditor: activeId === id });
+    setActionError("");
+    setActiveId(null);
+  }
+  function cancelDraftAction() {
+    if (actionBusy || busy) return;
+    const previous = draftAction;
+    setDraftAction(null);
+    if (previous?.returnToEditor) setActiveId(previous.id);
+    else requestAnimationFrame(() => { if (previous) reviewButtons.current[previous.id]?.focus(); });
+  }
+  async function confirmDraftAction(reason: string) {
+    if (!draftAction || actionBusy || busy) return;
+    const { id, action, returnToEditor } = draftAction;
+    const item = items.find(entry => entry.id === id);
+    const document = local[id]?.document ?? item?.draft ?? item?.approved?.document;
+    if (!document && action === "clear") return;
+    setActionBusy(true);
+    setActionError("");
+    try {
+      if (action === "clear") {
+        if (!document) return;
+        edit(id, {
+          version: 1,
+          pesApprovedAt: document.pesApprovedAt,
+          objectiveApprovedAt: document.objectiveApprovedAt,
+          strategy: { ...emptyStrategy(), category: document.strategy.category, priority: document.strategy.priority },
+        });
+        if (checkpoints && !await checkpoints.flush()) {
+          setActionError("Los campos se limpiaron en esta pantalla, pero falta guardar el cambio. Reintenta antes de salir.");
+          return;
+        }
+        setInitialStep(0);
+        setApprovalAttempt(false);
+        setDraftAction(null);
+        setActiveId(id);
+        setMessage("Campos limpios. La tarjeta se conserva como borrador para completar después.");
+        return;
+      }
+      if ((action === "delete" && item) || action === "withdraw" || (action === "discard" && item?.approved && item.draft)) {
+        if (!await mutate(id, action === "discard" ? "revert" : action, action === "withdraw" ? { reason } : {})) return;
+      } else {
+        discardLocal(id);
+        if (checkpoints && !await checkpoints.flush()) {
+          setActionError("El cambio está en esta pantalla, pero falta guardarlo. Reintenta antes de salir.");
+          return;
+        }
+        setMessage(action === "delete" ? "Borrador eliminado." : "Cambios descartados.");
+      }
+      setDraftAction(null);
+      if (action === "discard" && returnToEditor) setActiveId(id);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "No pudimos guardar el cambio. Reintenta antes de salir.");
+    } finally {
+      setActionBusy(false);
+    }
+  }
   function closeEditor() {
     const id = activeId;
     setActiveId(null);
@@ -418,8 +506,9 @@ export function ClinicalInterventions(props: Props) {
         <div>
           <h3 className="font-semibold">Del objetivo a la acción</h3>
           <p className="mt-2 text-sm text-[var(--nuth-muted)]">
-            Abre una estrategia para definir la acción, organizar su aplicación
-            y acordarla con la persona.
+            Cada estrategia se aprueba por separado. Basta con su nombre, una
+            acción concreta y al menos un objetivo aprobado vinculado. Los demás
+            detalles pueden quedar pendientes.
           </p>
         </div>
         <button
@@ -577,16 +666,18 @@ export function ClinicalInterventions(props: Props) {
       <div className="clinical-strategy-list">
         {ids.map((id) => {
           const item = items.find((item) => item.id === id),
-            document = local[id]?.document ?? item?.draft ??
+            document = (item?.state === "withdrawn" ? item.approved?.document : null) ?? local[id]?.document ?? item?.draft ??
               item?.approved?.document;
           if (!document) return null;
-          const s = document.strategy, editing = !!local[id] || !!item?.draft;
+          const s = document.strategy, editing = item?.state !== "withdrawn" && (!!local[id] || !!item?.draft);
           const current = !workspace?.archived && !!item?.approved &&
             !item.requiresReview && !local[id] &&
             ["approved", "executing"].includes(item.state);
           const linked = eligible &&
             document.pesApprovedAt === workspace?.pes?.approved_at &&
             document.objectiveApprovedAt === workspace?.objective?.approved_at;
+          const issues = strategyIssues(s);
+          const readyToApprove = linked && !issues.length;
           const status = editing || item?.requiresReview
             ? "progress"
             : item?.state === "completed"
@@ -611,12 +702,14 @@ export function ClinicalInterventions(props: Props) {
                   <h4>{s.title || "Nueva estrategia"}</h4>
                 </div>
                 <ClinicalStatusBadge status={status}>
-                  {local[id]
-                    ? "Borrador en edición"
+                  {item?.state === "withdrawn"
+                    ? "Retirada"
+                    : editing && item?.approved
+                    ? "Cambios pendientes de aprobar"
                     : item?.requiresReview
                     ? "Requiere revisión"
-                    : item?.draft
-                    ? "Borrador guardado"
+                    : editing
+                    ? readyToApprove ? "Lista para aprobar" : "Borrador · faltan requisitos"
                     : stateLabels[item?.state ?? "draft"]}
                 </ClinicalStatusBadge>
               </header>
@@ -633,8 +726,14 @@ export function ClinicalInterventions(props: Props) {
                   <dd>{s.reviewAt || "Por definir"}</dd>
                 </div>
               </dl>
+              {(editing || item?.requiresReview) && !readOnly && <p className="clinical-strategy-approval-help">
+                {readyToApprove
+                  ? "Ya tiene los requisitos mínimos. Pulsa «Aprobar estrategia» para confirmar esta versión."
+                  : !linked ? approvalContextMessage
+                  : `Falta revisar: ${issues.map(key => strategyLabels[key] ?? key).join(", ")}. Pulsa «Aprobar estrategia» para ir al primer pendiente.`}
+              </p>}
               <div className="clinical-strategy-card-actions">
-                {!readOnly && (
+                {!readOnly && item?.state !== "withdrawn" && (
                   <button
                     ref={(element) => {
                       reviewButtons.current[id] = element;
@@ -646,11 +745,7 @@ export function ClinicalInterventions(props: Props) {
                       s.title || "Nueva estrategia"
                     }`}
                     aria-haspopup="dialog"
-                    onClick={() => {
-                      setInitialStep(firstIncompleteStrategyStep(s, linked));
-                      setMessage("");
-                      setActiveId(id);
-                    }}
+                    onClick={() => openEditor(id, document, linked)}
                   >
                     <Pencil size={15} aria-hidden="true" />
                     {editing || item?.requiresReview
@@ -659,39 +754,14 @@ export function ClinicalInterventions(props: Props) {
                     <ArrowRight size={15} aria-hidden="true" />
                   </button>
                 )}
-                {editing && !readOnly && (
-                  <details className="clinical-strategy-draft-options">
-                    <summary>Opciones del borrador</summary>
-                    <div>
-                      {local[id] && (
-                        <button
-                          type="button"
-                          className="clinical-text-action"
-                          disabled={busy || execution !== null}
-                          onClick={() => discardLocal(id)}
-                        >
-                          Descartar edición actual
-                        </button>
-                      )}
-                      {item?.draft && (
-                        <button
-                          type="button"
-                          className="clinical-text-action"
-                          disabled={busy || execution !== null}
-                          onClick={() =>
-                            void mutate(
-                              id,
-                              item.approved ? "revert" : "delete",
-                            )}
-                        >
-                          {item.approved
-                            ? "Descartar borrador guardado"
-                            : "Eliminar borrador"}
-                        </button>
-                      )}
-                    </div>
-                  </details>
-                )}
+                {(editing || item?.requiresReview) && !readOnly && !workspace?.archived && <>
+                  <button type="button" className="nuth-button !text-xs" disabled={busy || execution !== null} onClick={() => approveCard(id, document, linked)}><Check size={15}/>Aprobar estrategia</button>
+                  <button type="button" className="clinical-text-action" disabled={busy || execution !== null} onClick={() => requestDraftAction(id, "clear")}><Eraser size={15}/>Limpiar campos</button>
+                  {(local[id] && item || item?.approved && item.draft) && <button type="button" className="clinical-text-action" disabled={busy || execution !== null} onClick={() => requestDraftAction(id, "discard")}>Descartar cambios</button>}
+                  {!item?.approved && <button type="button" className="clinical-text-action" disabled={busy || execution !== null} onClick={() => requestDraftAction(id, "delete")}><Trash2 size={15}/>Eliminar borrador</button>}
+                </>}
+                {!readOnly && !workspace?.archived && item?.approved && ["approved", "executing"].includes(item.state) &&
+                  <button type="button" className="clinical-text-action" disabled={busy || execution !== null} onClick={() => requestDraftAction(id, "withdraw")}><Trash2 size={15}/>Retirar estrategia</button>}
               </div>
               <details className="clinical-support-details">
                 <summary>
@@ -772,7 +842,6 @@ export function ClinicalInterventions(props: Props) {
                           "start",
                           "communicate",
                           "complete",
-                          "withdraw",
                         ] as const).filter((action) =>
                           action !== "start" || item?.state === "approved"
                         ).map((action) => (
@@ -799,25 +868,6 @@ export function ClinicalInterventions(props: Props) {
                             }[action]}
                           </button>
                         ))}
-                      {item?.requiresReview &&
-                        ["approved", "executing"].includes(item.state) && (
-                        <button
-                          type="button"
-                          className="nuth-button-secondary !text-xs"
-                          disabled={busy || execution !== null}
-                          onClick={() =>
-                            setExecution({
-                              id,
-                              action: "withdraw",
-                              executor: "",
-                              startDate: "",
-                              recipient: "",
-                              reason: "",
-                            })}
-                        >
-                          Retirar conservando historial
-                        </button>
-                      )}
                     </div>
                   )}
                 </details>
@@ -969,7 +1019,7 @@ export function ClinicalInterventions(props: Props) {
           );
         })}
       </div>
-      {activeId && activeDocument && !readOnly && (
+      {activeId && activeDocument && !readOnly && activeItem?.state !== "withdrawn" && (
         <InterventionStrategyDialog
           key={activeId}
           id={`strategy-${activeId}`}
@@ -985,12 +1035,31 @@ export function ClinicalInterventions(props: Props) {
             !!activeItem?.approved && !activeItem.requiresReview}
           canApprove={activeLinked && !workspace?.archived &&
             !strategyIssues(activeDocument.strategy).length}
+          initialApprovalAttempt={approvalAttempt}
+          approvalContextMessage={approvalContextMessage}
+          onReviewPrerequisite={!eligible && !workspace?.archived && props.onReviewPrerequisite ? () => {
+            closeEditor();
+            props.onReviewPrerequisite?.(workspace?.pes ? 2 : 1);
+          } : undefined}
+          onClear={!workspace?.archived ? () => requestDraftAction(activeId, "clear") : undefined}
+          onRemove={!workspace?.archived && (!activeItem?.approved || ["approved", "executing"].includes(activeItem.state))
+            ? () => requestDraftAction(activeId, activeItem?.approved ? "withdraw" : "delete") : undefined}
+          removeLabel={activeItem?.approved ? "Retirar estrategia" : "Eliminar borrador"}
           onChange={(document) => edit(activeId, document)}
           onClose={closeEditor}
           onSave={() => void saveEditor()}
           onApprove={() => void approveEditor()}
         />
       )}
+      {draftAction && <InterventionStrategyActionDialog
+        key={`${draftAction.id}:${draftAction.action}`}
+        action={draftAction.action}
+        strategyTitle={(local[draftAction.id]?.document ?? items.find(item => item.id === draftAction.id)?.draft ?? items.find(item => item.id === draftAction.id)?.approved?.document)?.strategy.title ?? ""}
+        busy={busy || actionBusy}
+        error={actionError}
+        onCancel={cancelDraftAction}
+        onConfirm={reason => void confirmDraftAction(reason)}
+      />}
       {!ids.length && (
         <p className="mt-5 text-sm text-[var(--nuth-muted)]">
           Aún no hay estrategias registradas en esta revisión.

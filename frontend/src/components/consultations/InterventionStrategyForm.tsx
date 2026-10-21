@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { useId } from "react";
 import {
   type Strategy,
   strategyCategories,
@@ -38,6 +39,13 @@ export const strategyLabels: Record<string, string> = {
   referenceUrl: "Enlace de la referencia",
   referenceVersion: "Versión o año",
   referenceNotes: "Fundamento y justificación clínica",
+};
+export const strategyIssueMessages: Record<string, string> = {
+  title: "Escribe el nombre de la estrategia.",
+  action: "Describe la acción concreta que se realizará.",
+  goalIndexes: "Elige al menos un objetivo que apoyará esta estrategia.",
+  route: "Selecciona una vía que corresponda al tipo de estrategia.",
+  referenceUrl: "Escribe un enlace que comience con https:// o deja el campo vacío.",
 };
 export const strategySteps = [
   {
@@ -116,14 +124,16 @@ export function firstIncompleteStrategyStep(
 }
 
 export function InterventionStrategyForm(
-  { document, workspace, disabled, step, onChange }: {
+  { document, workspace, disabled, step, showErrors = false, onChange }: {
     document: StrategyDocument;
     workspace: InterventionWorkspace | null;
     disabled: boolean;
     step: number;
+    showErrors?: boolean;
     onChange: (document: StrategyDocument) => void;
   },
 ) {
+  const errorPrefix = useId();
   const s = document.strategy;
   const objective=workspace?.objective??workspace?.planningObjective;
   const goals = objective?.smart_plan?.goals ?? [];
@@ -137,9 +147,12 @@ export function InterventionStrategyForm(
     const value = s[key as keyof Strategy] as string;
     const label = strategyLabels[key];
     const required = strategyRequiredFields.some((field) => field === key);
+    const invalid = showErrors && issues.includes(key);
+    const errorId = `${errorPrefix}-${key}`;
     return (
       <label
         key={key}
+        data-strategy-field={key}
         className={`clinical-goal-field${
           value.trim() && !issues.includes(key) ? " is-complete" : ""
         }`}
@@ -156,6 +169,8 @@ export function InterventionStrategyForm(
             <input
               aria-label={label}
               aria-required={required}
+              aria-invalid={invalid || undefined}
+              aria-describedby={invalid ? errorId : undefined}
               className="nuth-input"
               maxLength={1500}
               value={value}
@@ -166,6 +181,8 @@ export function InterventionStrategyForm(
             <textarea
               aria-label={label}
               aria-required={required}
+              aria-invalid={invalid || undefined}
+              aria-describedby={invalid ? errorId : undefined}
               className="nuth-input"
               rows={2}
               maxLength={1500}
@@ -176,6 +193,9 @@ export function InterventionStrategyForm(
                 : undefined}
             />
           )}
+        {invalid && <small id={errorId} className="clinical-strategy-field-error">
+          {strategyIssueMessages[key] ?? `Revisa: ${label}.`}
+        </small>}
       </label>
     );
   }
@@ -198,7 +218,7 @@ export function InterventionStrategyForm(
       {step === 0 && (
         <>
           {!linked && (
-            <div className="clinical-notice is-warning">
+            <div className="clinical-notice is-warning" data-strategy-field="context" tabIndex={-1}>
               <p>Revisa el vínculo con el PES y los objetivos vigentes.</p>
               <button
                 type="button"
@@ -260,7 +280,9 @@ export function InterventionStrategyForm(
               />
             </label>
           </div>
-          <fieldset className="clinical-strategy-goals">
+          <fieldset className="clinical-strategy-goals" data-strategy-field="goalIndexes" tabIndex={-1}
+            aria-invalid={showErrors && issues.includes("goalIndexes") || undefined}
+            aria-describedby={showErrors && issues.includes("goalIndexes") ? `${errorPrefix}-goalIndexes` : undefined}>
             <legend>Objetivos que apoya · elige al menos uno para aprobar</legend>
             {goals.length
               ? goals.map((goal, index) => (
@@ -285,6 +307,8 @@ export function InterventionStrategyForm(
                   Aprueba los objetivos SMART para vincularlos.
                 </p>
               )}
+            {showErrors && issues.includes("goalIndexes") &&
+              <p id={`${errorPrefix}-goalIndexes`} className="clinical-strategy-field-error">{strategyIssueMessages.goalIndexes}</p>}
           </fieldset>
         </>
       )}
@@ -292,11 +316,13 @@ export function InterventionStrategyForm(
         ["action", "method", "etiologyLink"].map((key) => field(key))}
       {step === 2 && (
         <>
-          {["food", "supplementation"].includes(s.category) && (
-            <label className="clinical-goal-field">
+          {(["food", "supplementation"].includes(s.category) || issues.includes("route")) && (
+            <label className="clinical-goal-field" data-strategy-field="route">
               <span>Vía de administración · opcional</span>
               <select
                 className="nuth-input"
+                aria-invalid={showErrors && issues.includes("route") || undefined}
+                aria-describedby={showErrors && issues.includes("route") ? `${errorPrefix}-route` : undefined}
                 value={s.route}
                 onChange={(e) =>
                   change({
@@ -306,11 +332,14 @@ export function InterventionStrategyForm(
                       : {}),
                   })}
               >
-                <option value="not_applicable">Por definir</option>
-                <option value="oral">Oral</option>
-                <option value="enteral">Enteral</option>
-                <option value="parenteral">Parenteral</option>
+                <option value="not_applicable">{["food", "supplementation"].includes(s.category) ? "Por definir" : "No aplica"}</option>
+                {["food", "supplementation"].includes(s.category) && <>
+                  <option value="oral">Oral</option>
+                  <option value="enteral">Enteral</option>
+                  <option value="parenteral">Parenteral</option>
+                </>}
               </select>
+              {showErrors && issues.includes("route") && <small id={`${errorPrefix}-route`} className="clinical-strategy-field-error">{strategyIssueMessages.route}</small>}
             </label>
           )}
           {[...new Set(resourceFields)].map((key) => field(key))}
