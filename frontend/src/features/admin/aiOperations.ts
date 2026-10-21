@@ -34,6 +34,11 @@ export type AiOperations = {
     executions: number;
     unsettled: number;
     unsettled_usd: number;
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
+    cached_tokens?: number;
+    cache_write_tokens?: number;
   };
   cost_since_balance: number;
   unsettled_total: number;

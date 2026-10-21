@@ -16,11 +16,15 @@ export type FeatureConfig = {
   reasoning_level: string | null; temperature: number | null;
   execution_mode?: 'real' | 'simulated';
   max_provider_attempts?: number;
+  token_policy?: 'fixed' | 'model_capacity';
 };
-export type Usage = { input_tokens: number; output_tokens: number; cached_tokens: number };
+export type Usage = { input_tokens: number; output_tokens: number; cached_tokens: number; cache_write_tokens?: number; cache_write_12h_tokens?: number };
 export type ProviderResult = { status: string; output: unknown; usage: Usage; responseId: string; model?: string; latencyMs?: number; requestId?: string };
-export type ProviderInput = { config: FeatureConfig; instructions: string; context: unknown; schema: Record<string, unknown>; generationId: string };
-export interface AIProvider { run(input: ProviderInput): Promise<ProviderResult> }
+export type ProviderInput = { config: FeatureConfig; instructions: string; context: unknown; schema: Record<string, unknown>; generationId: string; countedInputTokens?: number };
+export interface AIProvider {
+  countInput?(input: Omit<ProviderInput, 'generationId'>): Promise<number>;
+  run(input: ProviderInput): Promise<ProviderResult>;
+}
 export class AIError extends Error {
   constructor(public code: string, public uncertain = false) { super(code); }
 }
@@ -56,20 +60,47 @@ export function readUsage(value: unknown): Usage {
   const u = value as Record<string, unknown>;
   const details = u.input_tokens_details as Record<string, unknown> | undefined;
   const input = u.input_tokens, output = u.output_tokens, cached = details?.cached_tokens ?? 0;
+  const writes = details?.cache_write_tokens ?? 0;
+  const lifetimes = details?.cache_write_tokens_details as Record<string, unknown> | undefined;
+  const longWrites = lifetimes?.ttl_12h_tokens ?? 0;
   if (![input, output, cached, u.total_tokens].every(n => typeof n === 'number' && Number.isSafeInteger(n) && n >= 0)
     || Number(cached) > Number(input) || u.total_tokens !== Number(input) + Number(output)) throw new AIError('usage_unknown', true);
-  return { input_tokens: Number(input), output_tokens: Number(output), cached_tokens: Number(cached) };
+  if (![writes,longWrites].every(n => typeof n === 'number' && Number.isSafeInteger(n) && n >= 0)
+    || Number(cached) + Number(writes) > Number(input) || Number(longWrites) > Number(writes)
+    || (lifetimes && Number(lifetimes.ttl_30m_tokens) + Number(longWrites) !== Number(writes))) throw new AIError('usage_unknown', true);
+  return { input_tokens: Number(input), output_tokens: Number(output), cached_tokens: Number(cached),
+    ...(details?.cache_write_tokens !== undefined ? {cache_write_tokens:Number(writes),cache_write_12h_tokens:Number(longWrites)} : {}) };
 }
 
 export class OpenAIResponsesProvider implements AIProvider {
   constructor(private key: string, private transport: typeof fetch = fetch, private pause = (ms: number) => new Promise(r => setTimeout(r, ms))) {}
-  async run({ config, instructions, context, schema, generationId }: ProviderInput): Promise<ProviderResult> {
+  async countInput({config,instructions,context,schema}: Omit<ProviderInput,'generationId'>): Promise<number> {
+    if (!this.key) throw new AIError('configuration_required');
+    try {
+      // Count the exact server-owned prompt and schema before reserving credits.
+      // This endpoint does not generate a response or consume generation credits.
+      const response = await this.transport('https://api.openai.com/v1/responses/input_tokens', {
+        method:'POST',signal:AbortSignal.timeout(15000),
+        headers:{Authorization:`Bearer ${this.key}`,'Content-Type':'application/json'},
+        body:JSON.stringify({model:config.model,instructions,input:JSON.stringify(context),truncation:'disabled',
+          text:{format:{type:'json_schema',name:'nuthrick_result',strict:true,schema}}}),
+      });
+      if (!response.ok) throw new Error('count_unavailable');
+      const tokens = (await response.json()).input_tokens;
+      if (!Number.isSafeInteger(tokens) || tokens < 1) throw new Error('invalid_count');
+      if (tokens > config.max_input_tokens) throw new AIError('input_too_large');
+      return tokens;
+    } catch (error) {
+      if (error instanceof AIError) throw error;
+      throw new AIError('input_count_unavailable');
+    }
+  }
+  async run({ config, instructions, context, schema, generationId, countedInputTokens }: ProviderInput): Promise<ProviderResult> {
     const started = performance.now();
     if (!this.key) throw new AIError('configuration_required');
     const input = JSON.stringify(context);
-    // A byte bound proves small inputs fit, but is not a token count. Clinical
-    // records that exceed it get an exact count before any generation, keeping
-    // the configured credit reservation instead of raising the spending limit.
+    // Bytes are only a conservative fast path for legacy fixed budgets. Clinical
+    // model-capacity requests already have an exact count and a funded output budget.
     const bytes = new TextEncoder().encode(instructions + input + JSON.stringify(schema)).length;
     const body = {
       model: config.model, instructions, input, store: false, background: false,
@@ -79,24 +110,10 @@ export class OpenAIResponsesProvider implements AIProvider {
       ...(config.temperature !== null ? { temperature: config.temperature } : {}),
     };
     const signal = AbortSignal.timeout(config.timeout_ms);
-    if (bytes + 2048 > config.max_input_tokens) {
-      if (!['pes_diagnosis','consultation_support','patient_instructions','intervention_strategy','diet_draft'].includes(config.feature) || bytes > 65536) throw new AIError('input_too_large');
-      let tokens: unknown;
-      try {
-        const count = await this.transport('https://api.openai.com/v1/responses/input_tokens', {
-          method: 'POST', signal: AbortSignal.any([signal, AbortSignal.timeout(10000)]),
-          headers: { Authorization: `Bearer ${this.key}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({model: body.model, instructions, input, text: body.text, truncation: 'disabled'}),
-        });
-        if (!count.ok) throw new Error('count_unavailable');
-        tokens = (await count.json()).input_tokens;
-        if (!Number.isSafeInteger(tokens) || Number(tokens) < 1) throw new Error('invalid_count');
-      } catch {
-        // No generation was dispatched: release the reservation, never mark
-        // this as uncertain usage or expose a provider response body.
-        throw new AIError('input_count_unavailable');
-      }
-      if (Number(tokens) > config.max_input_tokens) throw new AIError('input_too_large');
+    if (countedInputTokens !== undefined) {
+      if (!Number.isSafeInteger(countedInputTokens) || countedInputTokens < 1 || countedInputTokens > config.max_input_tokens) throw new AIError('input_too_large');
+    } else if (config.token_policy === 'model_capacity' || bytes + 2048 > config.max_input_tokens) {
+      await this.countInput({config,instructions,context,schema});
     }
     // Only an explicit rate-limit rejection is retried once. Never replay timeout/5xx/network uncertainty.
     const attempts = config.max_provider_attempts === 1 || config.feature === 'diet_draft' ? 1 : 2;
@@ -117,10 +134,11 @@ export class OpenAIResponsesProvider implements AIProvider {
           const raw = await response.text();
           const parsed = JSON.parse(raw) as { error?: { code?: unknown; type?: unknown } };
           const candidate = parsed.error?.code ?? parsed.error?.type;
-          if (typeof candidate === 'string' && ['credit_balance_exhausted','insufficient_quota','rate_limit_exceeded','invalid_api_key','invalid_request_error','server_error'].includes(candidate)) providerCode = candidate;
+          if (typeof candidate === 'string' && ['context_length_exceeded','credit_balance_exhausted','insufficient_quota','rate_limit_exceeded','invalid_api_key','invalid_request_error','server_error'].includes(candidate)) providerCode = candidate;
         } catch { /* A non-JSON body is intentionally ignored. */ }
         console.warn(JSON.stringify({ event: 'provider_rejected', status: response.status, model: config.model, code: providerCode }));
         if (providerCode === 'credit_balance_exhausted') throw new AIError('provider_credit_exhausted');
+        if (providerCode === 'context_length_exceeded') throw new AIError('input_too_large');
         if (response.status === 429 && attempt + 1 < attempts) { await this.pause(250); continue; }
         if ([400,401,403,404,422,429].includes(response.status)) throw new AIError('provider_rejected');
         throw new AIError('provider_outcome_unknown', true);
@@ -142,10 +160,10 @@ export class OpenAIResponsesProvider implements AIProvider {
   }
 }
 
-export type Generation = { id: string; status: string; charged_credits: number };
+export type Generation = { id: string; status: string; charged_credits: number; config_snapshot?: { allocated_output_tokens?: number } };
 export interface AIStore {
   config(feature: string): Promise<FeatureConfig>;
-  reserve(config: FeatureConfig, request: AIRequest, fingerprint: string): Promise<{ generation: Generation; created: boolean }>;
+  reserve(config: FeatureConfig, request: AIRequest, fingerprint: string, inputTokens?: number): Promise<{ generation: Generation; created: boolean }>;
   claim(id: string): Promise<boolean>;
   settle(id: string, status: string, usage: Usage, responseId?: string): Promise<Generation>;
   uncertain(id: string): Promise<void>;
@@ -203,13 +221,23 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   if (referencedPes) adapter.context = referencedPesContext(adapter.context);
   const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : []), ...(request.feature==='intervention_strategy'?[request.strategyFeedback??null]:[]), ...(request.objectiveTextStyle ? [request.objectiveTextStyle] : [])]);
   const fingerprint = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical))), b => b.toString(16).padStart(2,'0')).join('');
-  const { generation, created } = await store.reserve(config,request,fingerprint);
+  let countedInputTokens: number | undefined;
+  if (config.token_policy === 'model_capacity') {
+    if (!provider.countInput) throw new AIError('configuration_required');
+    countedInputTokens = await provider.countInput({config,...adapter});
+  }
+  const { generation, created } = await store.reserve(config,request,fingerprint,countedInputTokens);
   if (!created) return { generationId: generation.id, status: generation.status, replay: true };
+  const allocatedOutput = generation.config_snapshot?.allocated_output_tokens;
+  if (config.token_policy === 'model_capacity' && (!Number.isSafeInteger(allocatedOutput) || allocatedOutput! < 16 || allocatedOutput! > config.max_output_tokens)) {
+    await store.settle(generation.id,'failed',{input_tokens:0,output_tokens:0,cached_tokens:0});
+    throw new AIError('configuration_required');
+  }
   try { if (hydrated) await store.bindContext!(generation.id,request,hydrated.stamp); }
   catch { await store.settle(generation.id,'failed',{input_tokens:0,output_tokens:0,cached_tokens:0}); throw new AIError('context_unavailable'); }
   if (!await store.claim(generation.id)) return { generationId: generation.id, status: generation.status, replay: true };
   let result: ProviderResult;
-  try { result = await provider.run({ config, ...adapter, generationId: generation.id }); }
+  try { result = await provider.run({ config:allocatedOutput ? {...config,max_output_tokens:allocatedOutput} : config, ...adapter, generationId: generation.id, countedInputTokens }); }
   catch (error) {
     if (!(error instanceof AIError) || error.uncertain) {
       await store.uncertain(generation.id);

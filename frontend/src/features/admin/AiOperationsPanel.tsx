@@ -170,6 +170,23 @@ export function AiOperationsPanel() {
           </small>
         </article>
       </div>
+      {data.usage.total_tokens !== undefined && (
+        <section className="admin-card" aria-labelledby="ai-token-usage-title">
+          <h2 id="ai-token-usage-title">Tokens registrados · 30 días</h2>
+          <div className="ai-reserve-values">
+            <div><span>Entrada</span><strong>{n(data.usage.input_tokens ?? 0)}</strong></div>
+            <div><span>Salida</span><strong>{n(data.usage.output_tokens ?? 0)}</strong></div>
+            <div><span>Total utilizado</span><strong>{n(data.usage.total_tokens)}</strong></div>
+          </div>
+          <p className="admin-note">
+            La salida incluye los tokens de razonamiento reportados por el proveedor.
+            De la entrada, {n(data.usage.cached_tokens ?? 0)} tokens se leyeron de caché
+            y {n(data.usage.cache_write_tokens ?? 0)} se escribieron en caché.
+            Son parte de la entrada y no se suman otra vez al total.
+            Las escrituras se registran desde esta actualización.
+          </p>
+        </section>
+      )}
       <section
         className="admin-card ai-reserve"
         aria-labelledby="ai-reserve-title"

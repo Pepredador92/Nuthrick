@@ -5,14 +5,14 @@ import { supabase } from '@/src/lib/supabase';
 export type AIBalance = { available_credits: number; reserved_credits: number };
 export type AIState = 'idle' | 'generating' | 'ready' | 'error' | 'insufficient' | 'uncertain';
 export const aiMessages: Record<string,string> = {
-  input_too_large: 'El contexto supera el límite de esta función de IA. No se cobró esta solicitud. Puedes redactar y cerrar la consulta manualmente; contacta a soporte para revisar el contexto.',
+  input_too_large: 'El expediente supera la capacidad técnica del modelo de IA. No se cobró esta solicitud. Contacta a soporte; puedes continuar la consulta manualmente.',
   input_count_unavailable: 'No pudimos comprobar el tamaño del contexto. No se generó una propuesta ni se cobró esta solicitud. Puedes reintentar o continuar manualmente.',
   context_unavailable: 'La consulta cambió o ya no está disponible para esta solicitud. Guarda los cambios y actualiza la página. Puedes continuar manualmente.',
   instruction_agreements_required: 'Esta consulta no tiene objetivos o acciones registrados para redactar indicaciones. Puedes escribirlas manualmente.',
   pes_approval_required: 'Revisa y aprueba el PES antes de pedir objetivos vinculados al diagnóstico.',
   strategy_approvals_required: 'Revisa y aprueba el PES y los objetivos SMART antes de proponer estrategias.',
   strategy_approval_required: 'Revisa y aprueba una estrategia vigente antes de generar indicaciones.',
-  insufficient_credits: 'Ya utilizaste los créditos de IA incluidos en tu plan.',
+  insufficient_credits: 'No tienes saldo disponible suficiente para esta solicitud. Recarga créditos de IA para continuar.',
   feature_disabled: 'Esta función de IA aún no está habilitada.',
   pilot_limit_reached: 'Se alcanzó el límite de uso de esta función.',
   pilot_daily_limit: 'Alcanzaste el límite diario de generaciones. Intenta mañana.',

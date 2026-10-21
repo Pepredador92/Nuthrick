@@ -7,7 +7,7 @@ type ReferencedPes = {
   evidenceFactIds: string[]; missingContext: string[];
   uncertainties: { text: string; evidenceFactIds: string[] }[];
 };
-const ids = (maxItems: number) => ({type:'array',maxItems,items:{type:'string',pattern:'^f[1-9][0-9]{0,2}$'}});
+const ids = (maxItems: number) => ({type:'array',maxItems,items:{type:'string',pattern:'^f[1-9][0-9]*$'}});
 
 /** Provider references server-owned facts; the browser still receives the PES
  * contract with literal source/finding evidence and plain-text notes. */

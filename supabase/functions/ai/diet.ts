@@ -75,8 +75,8 @@ export function validateSnapshot(output: unknown, snapshot: DietSnapshot) {
 export class OpenAIDietGenerator {
   result?: ProviderResult;
   constructor(private provider: AIProvider, private config: FeatureConfig) {}
-  async generate(request: {feature:'diet_draft';idempotencyKey:string;generationId:string;payload:Prepared['payload']}) {
-    this.result = await this.provider.run({config:this.config,...featureAdapter('diet_draft',this.config.prompt_version),context:request.payload,generationId:request.generationId});
+  async generate(request: {feature:'diet_draft';idempotencyKey:string;generationId:string;payload:Prepared['payload'];countedInputTokens?:number}) {
+    this.result = await this.provider.run({config:this.config,...featureAdapter('diet_draft',this.config.prompt_version),context:request.payload,generationId:request.generationId,countedInputTokens:request.countedInputTokens});
     return this.result.output;
   }
 }
@@ -84,10 +84,14 @@ export class OpenAIDietGenerator {
  * second reservation or a second provider call. */
 export class DietRoutingProvider implements AIProvider {
   constructor(private provider: AIProvider) {}
+  countInput(input: Omit<ProviderInput,'generationId'>) {
+    if (!this.provider.countInput) throw new AIError('configuration_required');
+    return this.provider.countInput(input);
+  }
   async run(input: ProviderInput) {
     if (input.config.feature!=='diet_draft'||(input.context as {format?:string})?.format==='text_diet') return this.provider.run(input);
     const generator = new OpenAIDietGenerator(this.provider,input.config);
-    await generator.generate({feature:'diet_draft',idempotencyKey:input.generationId,generationId:input.generationId,payload:input.context as Prepared['payload']});
+    await generator.generate({feature:'diet_draft',idempotencyKey:input.generationId,generationId:input.generationId,payload:input.context as Prepared['payload'],countedInputTokens:input.countedInputTokens});
     return generator.result!;
   }
 }

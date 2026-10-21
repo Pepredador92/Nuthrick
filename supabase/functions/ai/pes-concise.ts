@@ -13,7 +13,7 @@ type ConcisePes = {
   problem:string;etiology:string;signsSymptoms:string[];evidenceFactIds:string[];missingContext:string[];
   priority:Note;uncertainties:(Note & {topic:keyof typeof topics})[];
 };
-const ids = (maxItems:number) => ({type:'array',maxItems,items:{type:'string',pattern:'^f[1-9][0-9]{0,2}$'}});
+const ids = (maxItems:number) => ({type:'array',maxItems,items:{type:'string',pattern:'^f[1-9][0-9]*$'}});
 const shortText = (maxLength:number) => ({type:'string',maxLength});
 const object = (properties:Record<string,unknown>) => ({type:'object',additionalProperties:false,required:Object.keys(properties),properties});
 

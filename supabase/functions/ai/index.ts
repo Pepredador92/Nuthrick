@@ -17,7 +17,7 @@ const baseHeaders = { 'Content-Type': 'application/json', 'Cache-Control': 'no-s
   'Access-Control-Allow-Origin': site, 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 
 const technicalCodes = new Set(['insufficient_credits','feature_disabled','account_disabled','too_many_requests','rate_limited','provider_credit_exhausted',
-  'pilot_limit_reached','pilot_daily_limit','pilot_daily_budget','config_changed','context_unavailable','idempotency_conflict','generation_unavailable','invalid_request']);
+  'pilot_limit_reached','pilot_daily_limit','pilot_daily_budget','input_too_large','config_changed','context_unavailable','idempotency_conflict','generation_unavailable','invalid_request']);
 
 Deno.serve(async request => {
   const origin = request.headers.get('origin');
@@ -165,7 +165,7 @@ Deno.serve(async request => {
         if(feature==='diet_draft' && (c.execution_mode==='simulated')!==simulated)throw new AIError('feature_disabled');
         return c;
       },
-      reserve: (config,r,hash) => rpc('reserve',{ config, feature: r.feature, idempotency_key: r.idempotencyKey, request_hash: hash, patient_id: r.patientId ?? null, consultation_id: r.consultationId ?? null }),
+      reserve: (config,r,hash,inputTokens) => rpc('reserve',{ config, feature: r.feature, idempotency_key: r.idempotencyKey, request_hash: hash, patient_id: r.patientId ?? null, consultation_id: r.consultationId ?? null, counted_input_tokens:inputTokens }),
       claim: async id => (await rpc<{ claimed: boolean }>('claim',{ generation_id: id })).claimed,
       settle: (id,status,usage,responseId) => rpc<Generation>('settle',{ generation_id: id,status,...usage,provider_response_id: responseId }),
       uncertain: async id => { await rpc('uncertain',{ generation_id: id }); },
