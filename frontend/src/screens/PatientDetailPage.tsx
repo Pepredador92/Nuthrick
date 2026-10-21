@@ -1,3 +1,5 @@
+import {PdfExportDialog} from "@/src/components/documents/PdfExportDialog";
+import type {PdfDesign} from "@/src/components/documents/PdfDesignSelector";
 import {loadConsultationDocumentData} from '@/src/services/consultationDocuments';
 import { ScheduleAppointmentButton } from "@/src/components/agenda/ScheduleAppointmentButton";
 import "./PatientsPage.css";
@@ -813,6 +815,7 @@ export function PatientDetailPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const [pdfConsultation,setPdfConsultation] = useState<Consultation | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [renamingConsultation, setRenamingConsultation] = useState<Consultation | null>(null);
@@ -1026,8 +1029,7 @@ export function PatientDetailPage() {
       );
     }, "Documento de texto preparado.");
   };
-  const exportConsultationPdf = async (consultation: Consultation) => {
-    await run(async () => {
+  const exportConsultationPdf = async (consultation: Consultation, design:PdfDesign) => {
       const snapshot = await getSnapshot(consultation.id);
       if (!snapshot)
         throw new Error(
@@ -1047,8 +1049,9 @@ export function PatientDetailPage() {
         values,
         await professionalDocumentInfo(),
         clinical,
+        design,
       );
-    }, "PDF preparado.");
+      setNotice("PDF preparado.");
   };
   const deleteConsultation = async () => {
     if (!confirm?.consultation) return;
@@ -1572,9 +1575,7 @@ export function PatientDetailPage() {
           onExportConsultation={(consultation) =>
             void exportConsultation(consultation)
           }
-          onExportConsultationPdf={(consultation) =>
-            void exportConsultationPdf(consultation)
-          }
+          onExportConsultationPdf={setPdfConsultation}
           onDeleteConsultation={(consultation) =>
             setConfirm({ action: "consultation-delete", consultation })
           }
@@ -1604,6 +1605,7 @@ export function PatientDetailPage() {
           }}
         />
       )}
+      {pdfConsultation && <PdfExportDialog title="Exportar consulta" description={`${patient.full_name} · ${consultationLabel(pdfConsultation)}`} onClose={()=>setPdfConsultation(null)} onDownload={design=>exportConsultationPdf(pdfConsultation,design)} />}
       {evolutionExportOpen && (
         <EvolutionExportDialog
           patient={patient}

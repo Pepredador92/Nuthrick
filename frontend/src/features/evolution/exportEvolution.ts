@@ -1,3 +1,4 @@
+import type {PdfDesign} from "../../../../supabase/functions/agenda/document-design";
 import { formatPatientDate } from "@/src/features/patients/patientUtils";
 import type { ProfessionalDocumentInfo } from "@/src/features/consultations/exportText";
 import type { LongitudinalHistory, LongitudinalSeries } from "@/src/features/evolution/longitudinal";
@@ -160,8 +161,9 @@ export async function downloadEvolutionPdf(
   history: LongitudinalHistory,
   selection: EvolutionExportSelection,
   professional: ProfessionalDocumentInfo,
+  design: PdfDesign = "current",
 ) {
   const { buildEvolutionPdf } = await import("./evolutionPdf");
-  const pdf = await buildEvolutionPdf(patient, history, selection, professional);
+  const pdf = await buildEvolutionPdf(patient, history, selection, professional, design);
   downloadBlob(filename, pdf.output("blob"));
 }

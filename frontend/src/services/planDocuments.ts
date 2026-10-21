@@ -1,7 +1,8 @@
+import type {PdfDesign} from "../../../supabase/functions/agenda/document-design";
 import {portalAction,type PortalAccess} from '@/src/services/patientPortal';
 export type PublishedPlanSummary={id:string;title:string;version_number:number;published_at:string};
-export async function downloadPublishedPlan(access:PortalAccess,format:'pdf'|'tex',versionId?:string){
- const result=await portalAction<{filename:string;mime:string;base64:string}>(access,'export_plan',{format,...(versionId?{versionId}:{})});
+export async function downloadPublishedPlan(access:PortalAccess,format:'pdf'|'tex',versionId?:string,design:PdfDesign='current'){
+ const result=await portalAction<{filename:string;mime:string;base64:string}>(access,'export_plan',{format,...(format==='pdf'&&design==='formal'?{design}:{}),...(versionId?{versionId}:{})});
  const binary=atob(result.base64),bytes=new Uint8Array(binary.length);
  for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
  const url=URL.createObjectURL(new Blob([bytes],{type:result.mime})),a=document.createElement('a');

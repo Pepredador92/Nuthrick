@@ -1,0 +1,206 @@
+.pdf-export-dialog {
+  width: min(650px,calc(100vw - 28px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--nuth-line);
+  border-radius: 24px;
+  color: var(--nuth-ink);
+  background: var(--nuth-surface);
+  box-shadow: 0 24px 80px #102d2740;
+}
+.pdf-export-dialog::backdrop {
+  background: #102d2780;
+  backdrop-filter: blur(3px);
+}
+.pdf-export-shell {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 34px);
+}
+.pdf-export-shell > header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 24px;
+}
+.pdf-export-shell h2 {
+  font-size: 23px;
+  font-weight: 650;
+  line-height: 1.4;
+  margin-top: 5px;
+}
+.pdf-export-shell h2:focus {
+  outline: none;
+}
+.pdf-export-shell header p:last-child {
+  font-size: 13px;
+  color: var(--nuth-muted);
+  line-height: 1.6;
+  margin-top: 8px;
+}
+.pdf-export-shell > header > button {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border: 1px solid var(--nuth-line);
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+}
+.pdf-export-body {
+  padding: 0 24px 24px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.pdf-export-shell > footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 18px 24px;
+  border-top: 1px solid var(--nuth-line);
+}
+.pdf-design-selector {
+  min-width: 0;
+}
+.pdf-design-selector legend {
+  font-size: 13px;
+  font-weight: 650;
+  margin-bottom: 12px;
+}
+.pdf-design-options {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 12px;
+}
+.pdf-design-options > label {
+  padding: 12px;
+  border: 1px solid var(--nuth-line);
+  border-radius: 15px;
+  cursor: pointer;
+  min-width: 0;
+}
+.pdf-design-options > label[data-selected='true'] {
+  border-color: var(--nuth-action);
+  box-shadow: inset 0 0 0 1px var(--nuth-action);
+  background: var(--nuth-surface-soft);
+}
+.pdf-design-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+}
+.pdf-design-choice input {
+  margin-top: 4px;
+  accent-color: var(--nuth-action);
+}
+.pdf-design-choice strong {
+  display: block;
+  color: var(--nuth-ink);
+  font-size: 13px;
+}
+.pdf-design-choice small,
+.pdf-design-selector > p {
+  display: block;
+  color: var(--nuth-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin-top: 5px;
+}
+.pdf-design-selector > p {
+  margin-top: 14px;
+}
+.pdf-design-sample {
+  height: 146px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--nuth-line);
+  border-radius: 8px;
+  background: #eaf0ef;
+  overflow: hidden;
+}
+.pdf-design-sample > div {
+  width: 100px;
+  height: 128px;
+  padding: 10px;
+  background: #fff;
+  box-shadow: 0 2px 8px #102d2720;
+  color: #252525;
+}
+.pdf-design-sample b {
+  display: block;
+  text-align: center;
+  font-size: 8px;
+}
+.pdf-design-sample i {
+  display: block;
+  width: 65%;
+  height: 2px;
+  margin: 4px auto;
+  background: #b4b4b4;
+}
+.pdf-design-sample hr {
+  border-color: #b4b4b4;
+  margin: 6px 0;
+}
+.pdf-design-sample strong {
+  display: block;
+  font-size: 6px;
+}
+.pdf-design-sample span {
+  display: block;
+  height: 9px;
+  margin-top: 6px;
+  border-bottom: 1px solid #c7c7c7;
+}
+.pdf-design-sample[data-design='current'] > div {
+  border: 4px solid #eaf2f1;
+  border-radius: 4px;
+}
+.pdf-design-sample[data-design='current'] b {
+  color: #147e86;
+  background: #edf5fa;
+  padding: 5px 0;
+}
+.pdf-design-sample[data-design='current'] span {
+  background: #edf6f0;
+  border: 1px solid #dce6e8;
+  border-radius: 3px;
+}
+.pdf-design-sample[data-design='formal'] > div {
+  font-family: Georgia,serif;
+}
+.pdf-export-error {
+  padding: 12px;
+  margin-top: 16px;
+  border-radius: 10px;
+  background: var(--nuth-surface-soft);
+  color: var(--nuth-ink);
+  font-size: 13px;
+}
+@media (max-width:480px) {
+  .pdf-export-shell > header {
+    padding: 20px 16px;
+  }
+  .pdf-export-body {
+    padding: 0 16px 20px;
+  }
+  .pdf-export-shell > footer {
+    padding: 14px 16px;
+    flex-wrap: wrap;
+  }
+  .pdf-design-options {
+    gap: 8px;
+  }
+  .pdf-design-options > label {
+    padding: 9px;
+  }
+  .pdf-design-sample {
+    height: 126px;
+  }
+  .pdf-design-sample > div {
+    transform: scale(.85);
+  }
+}

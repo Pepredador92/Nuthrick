@@ -28,6 +28,18 @@ function dependencies() {
   };
 }
 describe("patient-only portal boundary", () => {
+  it('accepts only named PDF designs, without changing the authorized patient or professional',async()=>{
+    for(const design of ['current','formal']){
+      const d={...dependencies(),document:vi.fn(async()=>({base64:'SAFE'}))};
+      d.rpc.mockImplementation(async data=>data.p_action==='view'?{revision:1,shared:{}}:{plan:{versionNumber:2},professional:{fullName:'Authorized professional'}});
+      await portalRequest(req,{op:'portal_patient',session:secretToken(),action:'export_plan',format:'pdf',design,professional:{fullName:'Injected'}},d);
+      expect(d.document).toHaveBeenCalledWith({versionNumber:2},{fullName:'Authorized professional'},'pdf',design);
+    }
+    const d=dependencies();
+    await expect(portalRequest(req,{op:'portal_patient',session:secretToken(),action:'export_plan',format:'pdf',design:'https://example.invalid/template'},d)).rejects.toThrow('invalid_input');
+    expect(d.rpc).not.toHaveBeenCalled();
+  });
+
   it('rejects patient version injection and TEX before reading a plan',async()=>{
     for(const data of [{format:'tex'},{format:'pdf',versionId:owner},{format:'pdf',planId:owner}]){
       const d=dependencies();await expect(portalRequest(req,{op:'portal_patient',session:secretToken(),action:'export_plan',...data},d)).rejects.toThrow('invalid_action');expect(d.rpc).not.toHaveBeenCalled();

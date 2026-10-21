@@ -11,10 +11,11 @@ import type {
   Patient,
 } from "@/src/types/domain";
 
-import {DocumentLayout} from "../../../../supabase/functions/agenda/document-layout";
+import {pdfLayout,pdfFooters} from "../../../../supabase/functions/agenda/pdf-layout";
+import type {PdfDesign} from "../../../../supabase/functions/agenda/document-design";
 
 export type { ProfessionalDocumentInfo } from "../../../../supabase/functions/agenda/document-letterhead";
-import {drawPrivateFooters,type ProfessionalDocumentInfo} from "../../../../supabase/functions/agenda/document-letterhead";
+import {type ProfessionalDocumentInfo} from "../../../../supabase/functions/agenda/document-letterhead";
 
 export function consultationTextExport(
   patient: Patient,
@@ -141,27 +142,33 @@ export async function buildConsultationPdf(
   values: Record<string, unknown>,
   professional: ProfessionalDocumentInfo,
   clinical?: ConsultationDocumentData,
+  design: PdfDesign = "current",
 ) {
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
   const logo = professional.logoUrl ? await imageData(professional.logoUrl) : null;
-  const layout = new DocumentLayout(pdf, professional, logo, { contacts: true });
-  layout.section("Informe de consulta nutricional", "Registro clínico para revisión del profesional.");
-  layout.card(patient.full_name, [
+  const formal = design === "formal";
+  const layout = pdfLayout(pdf, professional, logo, design, { contacts: true });
+  layout.section(formal ? "Registro de consulta nutricional" : "Informe de consulta nutricional", formal ? undefined : "Registro clínico para revisión del profesional.");
+  layout.card(formal ? "Datos del paciente y la consulta" : patient.full_name, [
+    ...(formal ? [{label:"Paciente",value:patient.full_name}] : []),
     { label: "Consulta", value: consultationLabel(consultation) },
+    { label: "Plantilla", value: `${snapshot.template_name} · v${snapshot.template_version}` },
     ...(snapshot.revision ? [{label:"Revisión del registro",value:String(snapshot.revision)}] : []),
     { label: "Fecha y tipo", value: `${formatPatientDate(consultation.consultation_date)} · ${consultation.consultation_type === "initial" ? "Consulta inicial" : "Consulta de seguimiento"}` },
     ...patientBasics(patient).slice(1).map(value => ({ value })),
   ], { tone: "blue", columns: 2 });
   // The closing summary gives the reader an orientation before the complete record.
-  if (consultation.summary) layout.card("Resumen de cierre", [{ value: consultation.summary }], { tone: "mint", eyebrow: "VISTA GENERAL" });
+  if (!formal && consultation.summary) layout.card("Resumen de cierre", [{ value: consultation.summary }], { tone: "mint", eyebrow: "VISTA GENERAL" });
   let sectionNumber = 0;
+  let formalInterviewStarted = false;
   for (const section of snapshot.structure.sections) {
     const entries = section.questions
       .filter(question => !clinical?.coveredKeys.includes(question.question_key) && matchesCondition(question.visibility_condition, values) && !emptyValue(values[question.question_key]))
       .map(question => ({ label: question.label, value: formatAnswer(question, values[question.question_key]) }))
       .filter(entry => entry.value.trim());
     if (!entries.length) continue;
+    if (formal) { if (!formalInterviewStarted) { layout.section("Entrevista clínica y hábitos"); formalInterviewStarted = true; } layout.card(section.title, entries, {flow:true}); continue; }
     sectionNumber++;
     layout.section(`${String(sectionNumber).padStart(2, "0")} · ${section.title}`);
     // Pair short answers, while giving narratives the full width of their own card.
@@ -183,8 +190,9 @@ export async function buildConsultationPdf(
     layout.section(section.title);
     for (const card of section.cards) layout.card(card.title, card.fields.filter(field => field.value.trim()), {flow: true});
   }
+  if (formal && consultation.summary) { layout.section("Cierre de consulta"); layout.card("Resumen de cierre", [{value:consultation.summary}], {flow:true}); }
   layout.contacts();
-  drawPrivateFooters(pdf);
+  pdfFooters(pdf,design);
   return pdf;
 }
 
@@ -196,7 +204,8 @@ export async function downloadConsultationPdf(
   values: Record<string, unknown>,
   professional: ProfessionalDocumentInfo,
   clinical?: ConsultationDocumentData,
+  design: PdfDesign = "current",
 ): Promise<void> {
-  const pdf = await buildConsultationPdf(patient, consultation, snapshot, values, professional, clinical);
+  const pdf = await buildConsultationPdf(patient, consultation, snapshot, values, professional, clinical, design);
   downloadBlob(filename, pdf.output("blob"));
 }

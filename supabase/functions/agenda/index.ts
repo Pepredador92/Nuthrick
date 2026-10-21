@@ -1,3 +1,4 @@
+import type {PdfDesign} from './document-design.ts';
 import { productOriginAllowed, siteOrigin } from '../_shared/site.ts';
 import { createClient } from '@supabase/supabase-js';
 import { codeHash, decrypt, encrypt, gmailMessage, normalizeEmail, overlaps, parseInstant, readFreeBusy, secretToken, sha256 } from './security.ts';
@@ -28,7 +29,7 @@ type MailContext = {sender_email:string;reply_to:string;can_manage:boolean;test_
 const mailContext = (actor?: string) => rpc<MailContext>('operational_mail_context',{p_actor:actor??null});
 const key = () => env('AGENDA_ENCRYPTION_KEY');
 const base64Bytes=(bytes:Uint8Array)=>{let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(text);};
-async function planDocument(plan:unknown,professional:unknown,format:'pdf'|'tex'):Promise<Json> {
+async function planDocument(plan:unknown,professional:unknown,format:'pdf'|'tex',design:PdfDesign='current'):Promise<Json> {
   const {buildPlanDocument,renderPlanPdf,renderPlanTex,planFileName}=await import('./plan-document.ts');
   const {loadPlanDocumentContext}=await import('./plan-document-context.ts');
   const model=buildPlanDocument(plan,professional,await loadPlanDocumentContext(plan,db));
@@ -45,7 +46,7 @@ async function planDocument(plan:unknown,professional:unknown,format:'pdf'|'tex'
       } catch { /* Optional malformed or oversized branding never hides the plan. */ }
     }
   }
-  const bytes=format==='pdf'?renderPlanPdf(model,logo):new TextEncoder().encode(renderPlanTex(model,logo));
+  const bytes=format==='pdf'?renderPlanPdf(model,logo,design):new TextEncoder().encode(renderPlanTex(model,logo));
   if(bytes.length>8*1024*1024)throw new Error('document_too_large');
   return {filename:planFileName(model,format),mime:format==='pdf'?'application/pdf':'application/x-tex;charset=utf-8',base64:base64Bytes(bytes)};
 }

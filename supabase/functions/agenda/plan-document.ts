@@ -1,9 +1,11 @@
 import {sharedObjectiveLabels,sharedStrategyLabels,clinicalRouteLabels,type ClinicalGuidance} from '../_shared/clinical-guidance.ts';
 import {groupGroceries} from '../_shared/grocery-categories.ts';
 import {projectPortalPlan,type PortalPlan} from './portal-plan.ts';
-import {drawPrivateFooters,type ProfessionalDocumentInfo} from './document-letterhead.ts';
+import {type ProfessionalDocumentInfo} from './document-letterhead.ts';
 import {jsPDF} from 'jspdf';
-import {DocumentLayout,type DocumentField} from './document-layout.ts';
+import {type DocumentField} from './document-layout.ts';
+import {pdfLayout,pdfFooters} from './pdf-layout.ts';
+import type {PdfDesign} from './document-design.ts';
 export type PlanDocumentContext = ClinicalGuidance & {
  birthDate?:string;sex?:string;recordReference?:string;
  consultationLabel?:string;consultationDate?:string;
@@ -120,10 +122,10 @@ export function planGuidanceCards(model:PublishedNutritionPlanDocumentModel):{ti
   ...(c.strategies??[]).map((strategy,index)=>({title:`Estrategia ${index+1} · ${strategy.title}`,fields:[...fields(sharedStrategyLabels,strategy),...(clinicalRouteLabels[strategy.route]?[{label:'Vía',value:clinicalRouteLabels[strategy.route]}]:[])]})),
  ];
 }
-export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:string|null=null):Uint8Array {
- const pdf=new jsPDF({unit:'mm',format:'a4'}),layout=new DocumentLayout(pdf,model.professional,logo,{contacts:true,continuation:`${model.patientName} · Plan de alimentación · Versión ${model.plan.versionNumber}`});
+export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:string|null=null,design:PdfDesign='current'):Uint8Array {
+ const pdf=new jsPDF({unit:'mm',format:'a4'}),layout=pdfLayout(pdf,model.professional,logo,design,{contacts:true,continuation:`${model.patientName} · Plan de alimentación · Versión ${model.plan.versionNumber}`});
  layout.section('Plan de alimentación','Documento nutricional personalizado');
- layout.card(model.patientName,planIdentityFields(model),{tone:'blue',columns:2,eyebrow:'IDENTIFICACIÓN DEL PACIENTE Y DEL DOCUMENTO'});
+ layout.card(design==='formal'?'Datos del paciente y del plan':model.patientName,[...(design==='formal'?[{label:'Paciente',value:model.patientName}]:[]),...planIdentityFields(model)],{tone:'blue',columns:2,eyebrow:'IDENTIFICACIÓN DEL PACIENTE Y DEL DOCUMENTO'});
  const clinical=planClinicalFields(model);
  if(clinical.length)layout.card('Objetivo y cuidados acordados',clinical,{tone:'violet',eyebrow:'GUÍA DE TU ATENCIÓN',flow:true});
  for(const card of planGuidanceCards(model))layout.card(card.title,card.fields,{tone:'mint',flow:true});
@@ -163,7 +165,7 @@ export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:str
   layout.card('Antes de comprar',[{value:'Revisa lo que ya tienes en casa. Las cantidades corresponden a las porciones del plan y conservan el estado indicado, crudo o cocido; no son conversiones a peso de compra ni a tamaños de envase.'}],{tone:'mint'});
   for(const group of groupGroceries(list.items))for(let i=0;i<group.items.length;i+=12)layout.card(group.label+(i>0?' · continuación':''),group.items.slice(i,i+12).map(item=>({label:item.name,value:`${amount(item.quantity)} ${item.unit}`})),{tone:'mint',columns:2});
  }
- layout.flushSection();drawPrivateFooters(pdf);return new Uint8Array(pdf.output('arraybuffer'));
+ layout.flushSection();pdfFooters(pdf,design);return new Uint8Array(pdf.output('arraybuffer'));
 }
 export function escapeLatex(text:string):string {
  const escapes:Record<string,string>={'\\':'\\textbackslash{}','{':'\\{','}':'\\}','#':'\\#','$':'\\$','%':'\\%','&':'\\&','_':'\\_','~':'\\textasciitilde{}','^':'\\textasciicircum{}'};

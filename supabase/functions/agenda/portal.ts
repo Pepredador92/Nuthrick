@@ -1,3 +1,4 @@
+import {pdfDesign,type PdfDesign} from './document-design.ts';
 import { codeHash, encrypt, decrypt, secretToken, sha256, normalizeEmail } from './security.ts';
 import { sanitizePortalContent, uuid } from './portal-content.ts';
 import { projectPortalPlan } from './portal-plan.ts';
@@ -10,7 +11,7 @@ type Dependencies = {
   mail: (to: string, subject: string, message: string, id: string) => Promise<string>;
   presence?: (data: Json) => Promise<Json>;
   key: string;
-  document?: (plan:unknown,professional:unknown,format:'pdf'|'tex')=>Promise<Json>;
+  document?: (plan:unknown,professional:unknown,format:'pdf'|'tex',design?:PdfDesign)=>Promise<Json>;
 };
 const token = (v: unknown) => {
   if (typeof v !== 'string' || !/^[A-Za-z0-9_-]{40,100}$/.test(v)) throw new Error('portal_unavailable');
@@ -91,6 +92,8 @@ export async function portalRequest(req: Request, body: Json, deps: Dependencies
   if(action==='plan_version')data={versionId:uuid(body.versionId)};
   if(action==='export_plan') {
     const owner=body.op==='portal_owner';
+    if(body.format==='pdf')pdfDesign(body.design);
+    else if(body.design!==undefined)throw new Error('invalid_input');
     if(body.format!=='pdf' && !(owner&&body.format==='tex'))throw new Error('invalid_action');
     if(!owner && ('planId' in body || 'versionId' in body))throw new Error('invalid_action');
     data={format:body.format,...(owner?{versionId:uuid(body.versionId)}:{})};
@@ -135,7 +138,7 @@ export async function portalRequest(req: Request, body: Json, deps: Dependencies
     if(!deps.document)throw new Error('document_unavailable');
     const guidance = await call('view', actor);
     let document:Json;
-    try { document=await deps.document(result.plan,result.professional,body.format as 'pdf'|'tex'); }
+    try { document=await deps.document(result.plan,result.professional,body.format as 'pdf'|'tex',pdfDesign(body.design)); }
     catch(error) {
       // Operational diagnostics only: never log document data or error messages,
       // which can contain user-provided text or storage identifiers.

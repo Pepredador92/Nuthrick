@@ -1,3 +1,4 @@
+import {PdfDesignSelector,type PdfDesign} from "@/src/components/documents/PdfDesignSelector";
 import { requireEntitlement } from '@/src/features/admin/api';
 import { useEffect, useMemo, useState } from "react";
 import { Check, FileDown, FileText, LoaderCircle, X } from "lucide-react";
@@ -60,6 +61,7 @@ export function EvolutionExportDialog({
   references?: ProgressReferenceOptions;
   onReferencesChange?: (value: ProgressReferenceOptions) => void;
 }) {
+  const [design,setDesign] = useState<PdfDesign>("current");
   const [localReferences, setLocalReferences] = useState(emptyProgressReferences);
   const currentReferences = references ?? localReferences;
   const [history, setHistory] = useState<LongitudinalHistory | null>(null);
@@ -110,7 +112,7 @@ export function EvolutionExportDialog({
         downloadEvolutionText(`${name}.txt`, evolutionTextExport(patient, history, selection, professional));
       } else {
         await requireEntitlement('exports.advanced');
-        await downloadEvolutionPdf(`${name}.pdf`, patient, history, selection, professional);
+        await downloadEvolutionPdf(`${name}.pdf`, patient, history, selection, professional, design);
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo preparar la exportación.");
@@ -169,6 +171,7 @@ export function EvolutionExportDialog({
                 })}
               </div>
               {error && <p role="alert" className="mt-4 rounded-xl bg-[#fff1ed] p-3 text-sm text-[#934938]">{error}</p>}
+              <div className="mt-6"><PdfDesignSelector value={design} onChange={setDesign} disabled={busy!==null}/></div>
               <div className="mt-6 grid gap-2">
                 <button type="button" disabled={!selectedSeries.length || busy !== null} className="nuth-button w-full justify-center" onClick={() => void exportDocument("pdf")}>
                   {busy === "pdf" ? <LoaderCircle size={16} className="animate-spin" /> : <FileDown size={16} />}
