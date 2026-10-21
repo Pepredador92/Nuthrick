@@ -288,12 +288,12 @@ function Feedback({ clinical }: { clinical: ReturnType<typeof useClinical> }) {
     </>
   );
 }
-function PesPriorityReview({ notes }: { notes: string[] }) {
+function PesPriorityReview({ notes, approved = false }: { notes: string[]; approved?: boolean }) {
   const review = pesReviewNotes(notes);
   if (!review.priority) return null;
   return (
-    <aside aria-label="Prioridad clínica de la propuesta" className={`clinical-notice${review.priorityPending ? ' is-warning' : ''}`}>
-      <h4 className="font-semibold">{review.priorityPending ? 'Prioridad pendiente de revisar' : 'Por qué se propone este problema'}</h4>
+    <aside aria-label="Prioridad clínica de la propuesta" className={`clinical-notice${review.priorityPending && !approved ? ' is-warning' : ''}`}>
+      <h4 className="font-semibold">{approved ? 'Prioridad revisada al aprobar' : review.priorityPending ? 'Prioridad pendiente de revisar' : 'Por qué se propone este problema'}</h4>
       <p className="mt-2">{review.priority}</p>
     </aside>
   );
@@ -405,7 +405,7 @@ export function PesCopilot(props: Props) {
               <p>{savedDraft.pesStatement}</p>
             </div>
           )}
-          {hasSavedParts && <PesPriorityReview notes={savedDraft.uncertainties} />}
+          {hasSavedParts && <details className="clinical-support-details"><summary>Detalle de la revisión del PES</summary><PesPriorityReview notes={savedDraft.uncertainties} approved={status === 'approved'} /></details>}
           <div className="clinical-pes-start-actions">
             <div>
               <FilePenLine size={20} aria-hidden="true" />

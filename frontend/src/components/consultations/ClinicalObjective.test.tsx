@@ -104,7 +104,34 @@ it("restores approval from JSONB regardless of object property order", async () 
     },
   );
   expect(screen.queryByText("Aprobados")).not.toBeInTheDocument();
-  expect(screen.getByText("Borrador sin guardar")).toBeVisible();
+  expect(screen.getByText("Borrador por revisar")).toBeVisible();
+});
+it('restores an approved two-goal follow-up plan even if a stale working-copy dirty flag remains',async()=>{
+  const plan=smartPlan();plan.goals.push({...plan.goals[0],outcome:'Revisar tus señales de hambre'});
+  const key='next_objectives';
+  const rows=plan.goals.map(goal=>({objetivo:composeObjective(goal),prioridad:'Principal'}));
+  const server={...objectiveWorkspace(plan,true),plans:{[key]:plan}};
+  server.objective={...server.objective!,question_key:key,value:rows.map(row=>({prioridad:row.prioridad,objetivo:row.objetivo}))};
+  api.review.mockResolvedValue(server);
+  sessionStorage.setItem(`objective-draft:c:1:${key}`,JSON.stringify(plan));
+  const renderSubject=()=>render(<ClinicalObjective {...props} questionKey={key} value={rows}/>);
+  const first=renderSubject();
+  await screen.findByText('Aprobados');
+  expect(screen.getAllByText('Aprobado')).toHaveLength(2);
+  expect(screen.getByRole('button',{name:'Aprobar objetivos'})).toBeDisabled();
+  expect(screen.queryByText('Qué falta para aprobar')).not.toBeInTheDocument();
+  first.unmount();renderSubject();await screen.findByText('Aprobados');
+  expect(screen.queryByText('Listo para aprobar')).not.toBeInTheDocument();
+});
+it('preserves the full plan and editable text when objective approval fails',async()=>{
+  const {plan}=await mountSaved();
+  api.review.mockResolvedValueOnce(objectiveWorkspace(plan)).mockRejectedValueOnce(new Error('No se pudo registrar la aprobación.'));
+  fireEvent.click(screen.getByRole('button',{name:'Aprobar objetivos'}));
+  await screen.findByText('No se pudo registrar la aprobación.');
+  expect(screen.queryByText('Aprobados')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button',{name:'Revisar objetivo 1'}));
+  expect(screen.getByLabelText('Resultado esperado · objetivo 1')).toHaveValue(plan.goals[0].outcome);
+  expect(screen.getByRole('button',{name:'Aprobar objetivos'})).toBeEnabled();
 });
 it("shows approved PES and assessment evidence without generating or approving automatically", async () => {
   render(<Subject />);
@@ -189,7 +216,7 @@ it("marks an edited approved objective as an unsaved draft", async () => {
     target: { value: "Resultado revisado" },
   });
   expect(screen.queryByText("Aprobados")).not.toBeInTheDocument();
-  expect(screen.getByText("Borrador sin guardar")).toBeVisible();
+  expect(screen.getByText("Borrador por revisar")).toBeVisible();
   expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
     .toBeEnabled();
   expect(api.pending).toHaveBeenLastCalledWith(true);
@@ -282,7 +309,7 @@ it("recovers an unsaved plan and restores its canonical interview text", async (
   );
   render(<Subject />);
   await screen.findByRole("button", { name: "Revisar objetivo 1" });
-  expect(screen.getByText("Borrador sin guardar")).toBeVisible();
+  expect(screen.getByText("Borrador por revisar")).toBeVisible();
   expect(api.changed).toHaveBeenCalledWith(composeObjective(plan.goals[0]), [
     composeObjective(plan.goals[0]),
   ]);

@@ -16,6 +16,7 @@ import {
 } from "@/src/services/clinicalCopilot";
 import { ConsultationObjectiveAI } from "./ConsultationObjectiveAI";
 import {useConsultationDraft,useConsultationDraftContext} from './ConsultationDrafts';
+import {changedAnswers} from '@/src/features/consultations/answerAutosave';
 import {
   composeObjective,
   emptyObjective,
@@ -107,11 +108,19 @@ export function ClinicalObjective(props: Props) {
         : ""
     ).join("\n\n")
     : "";
-  const approved = !dirty && !!workspace?.objective?.smart_plan &&
+  const approved = !!workspace?.objective?.smart_plan &&
     workspace?.pes?.approved_at === plan.pesApprovedAt &&
+    (workspace.objective.pes_approved_at ?? workspace.objective.smart_plan.pesApprovedAt) === workspace.pes.approved_at &&
     workspace.objective.question_key === questionKey &&
-    JSON.stringify(workspace.objective.value) === JSON.stringify(value) &&
+    !Object.keys(changedAnswers({value:workspace.objective.value},{value})).length &&
     objectivePlansEqual(workspace.objective.smart_plan, plan);
+  useEffect(() => {
+    if (approved && dirty) {
+      dirtyRef.current = false;
+      setDirty(false);
+      sessionStorage.removeItem(cacheKey);
+    }
+  }, [approved, dirty, setDirty, cacheKey]);
   const issues = plan.goals.flatMap((goal, index) =>
     objectiveIssues(goal).map((issue) => `Objetivo ${index + 1}: ${issue}`)
   );
@@ -213,6 +222,7 @@ export function ClinicalObjective(props: Props) {
     });
   }
   async function persist(action: "save" | "approve" | "revoke") {
+    if (busy) return false;
     setBusy(true);
     setMessage("");
     try {
@@ -237,16 +247,17 @@ export function ClinicalObjective(props: Props) {
         action === "revoke" ? undefined : plan,
       );
       setWorkspace(saved);
-      if (action === "approve") props.onCompleted?.();
       dirtyRef.current = false;
       setDirty(false);
       sessionStorage.removeItem(cacheKey);
+      const checkpointSaved = !checkpoint || await checkpoint.flush();
+      if (action === "approve") props.onCompleted?.();
       setMessage(
-        action === "approve"
+        (action === "approve"
           ? "Objetivos aprobados para seguimiento."
           : action === "save"
           ? "Borrador guardado. Puedes continuar y revisarlo después."
-          : "Objetivos pendientes de revisión.",
+          : "Objetivos pendientes de revisión.") + (checkpointSaved ? '' : ' La aprobación se guardó, pero falta guardar el avance de la pantalla. Reintenta el guardado antes de salir.'),
       );
       return true;
     } catch (error) {
@@ -395,6 +406,7 @@ export function ClinicalObjective(props: Props) {
             index={index}
             signs={signs}
             approved={approved}
+            contextReady={!!workspace?.pes && !pesChanged}
             reviewRef={(element) => {
               reviewButtons.current[index] = element;
             }}
@@ -551,7 +563,7 @@ export function ClinicalObjective(props: Props) {
               </button>
             )}
           </div>
-          <details className="clinical-approval-details">
+          {!approved && (!ready || issues.length > 0) && <details className="clinical-approval-details">
             <summary>Qué falta para aprobar</summary>
             <ul>
               {issues.map((issue, index) => <li key={index}>{issue}</li>)}
@@ -568,7 +580,7 @@ export function ClinicalObjective(props: Props) {
                   </li>
                 )}
             </ul>
-          </details>
+          </details>}
         </div>
       )}
       {message && <p role="status" className="clinical-notice">{message}</p>}

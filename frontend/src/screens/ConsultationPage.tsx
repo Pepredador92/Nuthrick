@@ -593,7 +593,7 @@ function ConsultationEditor() {
   const replaceObjectiveText = (question: Question, text: string, texts: string[]) => {
     if (question.question_type === 'repeatable_group') {
       const fields = repeatableFields(question.configuration);
-      const objectiveField = fields.find(field => /objetivo|goal/i.test(`${field.key} ${field.label}`));
+      const objectiveField = fields.find(field => /objetivo|objective|goal/i.test(`${field.key} ${field.label}`));
       if (!objectiveField) return;
       const existing = valuesRef.current[question.question_key];
       const rows = Array.isArray(existing) ? existing.filter(isRecord) : [];

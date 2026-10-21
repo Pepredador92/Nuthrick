@@ -24,6 +24,7 @@ export type ObjectiveWorkspace = {
   } | null;
   objective: {
     approved_at: string;
+    pes_approved_at?: string;
     question_key: string;
     value: unknown;
     content: string;
@@ -51,7 +52,13 @@ export async function clinicalObjective(
   });
   if (error)
     throw new Error(
-      error.message === 'objective_plan_required' || error.message === 'objective_smart_required'
+        error.message === 'invalid_request'
+        ? 'No pudimos aprobar el formato de estos objetivos. Tus cambios se conservan; vuelve a guardar los objetivos e intenta aprobarlos.'
+        : error.message === 'context_unavailable'
+        ? 'Esta consulta cambió de revisión o ya está cerrada. Actualiza la consulta para continuar con la versión vigente.'
+        : error.message === 'account_read_only' || error.message === 'entitlement_required'
+        ? 'Tu acceso actual permite consultar esta revisión. Revisa el acceso de la cuenta para guardar aprobaciones.'
+        : error.message === 'objective_plan_required' || error.message === 'objective_smart_required'
         ? 'Completa resultado, relación con el PES, indicador, situación inicial, meta, plazo, seguimiento y viabilidad.'
         : error.message === 'objective_agreement_required'
         ? 'Registra si el objetivo se acordó con el paciente o cuidador.'

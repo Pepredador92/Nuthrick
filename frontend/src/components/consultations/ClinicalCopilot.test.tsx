@@ -106,7 +106,7 @@ describe("PES copilot", () => {
     render(<PesCopilot {...props} answers={{ pes_problem: "P", pes_etiology: "E", pes_evidence: "Dato registrado", pes_statement: "P relacionado con E, evidenciado por Dato registrado." }} />);
     await screen.findByText("Antropometría disponible");
     fireEvent.click(screen.getByText("Generar borrador"));
-    await screen.findByText(/Puedes redactar y cerrar la consulta manualmente/);
+    await screen.findByText(/puedes continuar la consulta manualmente/);
     fireEvent.click(screen.getByText("Revisar PES escrito"));
     fireEvent.click(screen.getByText("Aprobar"));
     await waitFor(() => expect(props.onPes).toHaveBeenCalledWith(expect.objectContaining({ pesStatement: "P relacionado con E, evidenciado por Dato registrado." })));
@@ -259,7 +259,7 @@ describe("PES copilot", () => {
     render(<PesCopilot {...props} />);
     await screen.findByText("Antropometría disponible");
     fireEvent.click(screen.getByText("Generar borrador"));
-    await screen.findByText(/Ya utilizaste los créditos/);
+    await screen.findByText(/No tienes saldo disponible suficiente/);
     expect(screen.getByText(/Puedes redactar el PES manualmente/)).toBeTruthy();
     expect(props.onPes).not.toHaveBeenCalled();
   });

@@ -9,6 +9,7 @@ import {
   strategyRequiredFields,
 } from "../../../../supabase/functions/_shared/interventions";
 import type { InterventionWorkspace } from "@/src/services/clinicalInterventions";
+import { objectivePlansEqual } from '../../../../supabase/functions/_shared/objectives';
 
 export const strategyLabels: Record<string, string> = {
   title: "Nombre de la estrategia",
@@ -124,19 +125,39 @@ export function firstIncompleteStrategyStep(
 }
 
 export function strategyContextEligible(workspace: InterventionWorkspace | null) {
-  const objective = workspace?.objective ?? workspace?.planningObjective;
+  const objective = workspace?.objective;
   return !!workspace?.pes && !!objective?.smart_plan &&
+    !!objective.approved_at && !objective.approved_at.startsWith('draft:') &&
+    objective.smart_plan.goals.length > 0 &&
+    (objective.pes_approved_at ?? objective.smart_plan.pesApprovedAt) === workspace.pes.approved_at &&
     objective.pes_statement === workspace.pes.pesStatement;
+}
+
+// A strategy proposed against a draft can follow that exact plan's approval.
+// A changed plan still needs an explicit choice from the current goal list.
+export function strategyDocumentForWorkspace(document: StrategyDocument, workspace: InterventionWorkspace | null) {
+  const approved = workspace?.objective;
+  const planning = workspace?.planningObjective;
+  if (strategyContextEligible(workspace) && approved?.smart_plan && planning?.smart_plan &&
+    document.pesApprovedAt === workspace?.pes?.approved_at &&
+    document.objectiveApprovedAt === planning.approved_at &&
+    planning.approved_at.startsWith('draft:') &&
+    objectivePlansEqual(approved.smart_plan, planning.smart_plan)) {
+    return {...document, objectiveApprovedAt: approved.approved_at};
+  }
+  return document;
 }
 
 export function strategyIsLinked(
   document: StrategyDocument,
   workspace: InterventionWorkspace | null,
 ) {
-  const objective = workspace?.objective ?? workspace?.planningObjective;
+  const objective = workspace?.objective;
+  const current = strategyDocumentForWorkspace(document, workspace);
   return strategyContextEligible(workspace) && !!workspace?.pes && !!objective &&
-    document.pesApprovedAt === workspace.pes.approved_at &&
-    document.objectiveApprovedAt === objective.approved_at;
+    current.pesApprovedAt === workspace.pes.approved_at &&
+    current.objectiveApprovedAt === objective.approved_at &&
+    current.strategy.goalIndexes.every(index => Number.isInteger(index) && index >= 0 && index < objective.smart_plan!.goals.length);
 }
 
 export function InterventionStrategyForm(
@@ -150,13 +171,14 @@ export function InterventionStrategyForm(
   },
 ) {
   const errorPrefix = useId();
-  const s = document.strategy;
+  const currentDocument = strategyDocumentForWorkspace(document, workspace);
+  const s = currentDocument.strategy;
   const objective=workspace?.objective??workspace?.planningObjective;
   const goals = objective?.smart_plan?.goals ?? [];
   const eligible = strategyContextEligible(workspace);
   const linked = strategyIsLinked(document, workspace);
   const change = (patch: Partial<Strategy>) =>
-    onChange({ ...document, strategy: { ...s, ...patch } });
+    onChange({ ...currentDocument, strategy: { ...s, ...patch } });
   const issues = strategyIssues(s);
   function field(key: keyof typeof strategyLabels, short = false) {
     const value = s[key as keyof Strategy] as string;
@@ -232,26 +254,9 @@ export function InterventionStrategyForm(
     <fieldset disabled={disabled} className="clinical-strategy-fields">
       {step === 0 && (
         <>
-          {!linked && (
+          {!linked && eligible && (
             <div className="clinical-notice is-warning" data-strategy-field="context" tabIndex={-1}>
-              <p>{eligible
-                ? "La estrategia conserva un vínculo anterior. Actualízalo y vuelve a elegir al menos un objetivo vigente."
-                : "Los objetivos guardados no están vinculados a este PES. Ve a Objetivos y actualiza su vínculo antes de aprobar la estrategia."}</p>
-              {eligible && <button
-                type="button"
-                className="nuth-button-secondary mt-2 !text-xs"
-                disabled={disabled}
-                onClick={() =>
-                  onChange({
-                    ...document,
-                    pesApprovedAt: workspace!.pes!.approved_at,
-                    objectiveApprovedAt: objective!.approved_at,
-                    strategy: { ...s, goalIndexes: [] },
-                  })}
-              >
-                Vincular a los objetivos actuales
-              </button>}
-              {eligible && <small>Al vincular, se reinicia la selección para que elijas objetivos de esta versión.</small>}
+              <p>El PES o los objetivos cambiaron. Revisa la estrategia y elige al menos un objetivo de la lista actual.</p>
             </div>
           )}
           {field("title", true)}
@@ -307,13 +312,17 @@ export function InterventionStrategyForm(
                 <label key={index}>
                   <input
                     type="checkbox"
-                    checked={s.goalIndexes.includes(index)}
-                    onChange={(e) =>
-                      change({
-                        goalIndexes: e.target.checked
-                          ? [...s.goalIndexes, index].sort()
-                          : s.goalIndexes.filter((i) => i !== index),
-                      })}
+                    checked={(!eligible || linked) && s.goalIndexes.includes(index)}
+                    onChange={(e) => {
+                      const selected = eligible && !linked ? [] : s.goalIndexes;
+                      onChange({...currentDocument,
+                        pesApprovedAt: workspace?.pes?.approved_at ?? '',
+                        objectiveApprovedAt: objective?.approved_at ?? '',
+                        strategy: {...s, goalIndexes: e.target.checked
+                          ? [...new Set([...selected, index])].sort()
+                          : selected.filter(i => i !== index)},
+                      });
+                    }}
                   />
                   <span>
                     <strong>{index + 1}. {goal.outcome}</strong>

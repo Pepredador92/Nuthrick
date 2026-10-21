@@ -40,7 +40,7 @@ export function featureAdapter(feature: string, promptVersion: string, textMode=
   if (feature === 'diet_draft' && promptVersion === 'diet_draft@1') return { ...dietDraftAdapterV1 };
   if (feature === 'diet_draft' && promptVersion === 'diet_draft@2') return { ...dietDraftAdapter };
   if (feature === 'diet_draft' && promptVersion === 'diet_draft@3') return { ...dietDraftAdapterV3 };
-  if (feature === 'intervention_strategy' && ['intervention_strategy@1','intervention_strategy@2'].includes(promptVersion)) return { ...interventionAdapter, context: {} as unknown };
+  if (feature === 'intervention_strategy' && ['intervention_strategy@1','intervention_strategy@2','intervention_strategy@3'].includes(promptVersion)) return { ...interventionAdapter, context: {} as unknown };
   const clinical = clinicalAdapter(feature,promptVersion);
   if (clinical) return { ...clinical, context: {} as unknown };
   if (feature !== 'core_check' || promptVersion !== 'core_check@1') throw new AIError('feature_not_implemented');

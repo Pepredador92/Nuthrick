@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Check,
@@ -14,6 +14,7 @@ import { ClinicalStatusBadge } from "./ClinicalTaskCard";
 import { InterventionStrategyDialog } from "./InterventionStrategyDialog";
 import { InterventionStrategyActionDialog, type StrategyDraftAction } from "./InterventionStrategyActionDialog";
 import {useConsultationDraft,useConsultationDraftContext,useDurableAIProposal} from './ConsultationDrafts';
+import {changedAnswers} from '@/src/features/consultations/answerAutosave';
 import "./ClinicalInterventions.css";
 import { AIButton } from "@/src/components/ai/AIControls";
 import {
@@ -39,6 +40,7 @@ import {
 import {
   firstIncompleteStrategyStep,
   strategyContextEligible,
+  strategyDocumentForWorkspace,
   strategyIsLinked,
   strategyLabels,
 } from "./InterventionStrategyForm";
@@ -165,12 +167,12 @@ export function ClinicalInterventions(props: Props) {
       alive = false;
     };
   }, [consultationId, revision, active]);
-  function setDrafts(next: Record<string, LocalDraft>) {
+  const setDrafts = useCallback((next: Record<string, LocalDraft>) => {
     setLocal(next);
     if (Object.keys(next).length) {
       sessionStorage.setItem(cacheKey, JSON.stringify(next));
     } else sessionStorage.removeItem(cacheKey);
-  }
+  }, [setLocal, cacheKey]);
   function edit(id: string, document: StrategyDocument) {
     const item = workspace?.items.find((item) => item.id === id);
     setDrafts({
@@ -203,6 +205,20 @@ export function ClinicalInterventions(props: Props) {
     delete next[id];
     setDrafts(next);
   }
+  useEffect(() => {
+    if (!workspace) return;
+    const next = {...local};
+    let changed = false;
+    for (const item of workspace.items) {
+      const draft = next[item.id];
+      if (draft && item.approved && !item.draft && !item.requiresReview &&
+        !Object.keys(changedAnswers({document:item.approved.document},
+          {document:strategyDocumentForWorkspace(draft.document,workspace)})).length) {
+        delete next[item.id];changed = true;
+      }
+    }
+    if (changed) setDrafts(next);
+  }, [workspace, local, setDrafts]);
   const currentItems=workspace?.items.filter(item=>item.state!=='withdrawn')??[];
   const progressStatus:ClinicalTaskStatus=currentItems.length&&currentItems.every(item=>item.approved&&!item.draft&&!item.requiresReview)&&!Object.keys(local).length?'approved':currentItems.length||Object.keys(local).length?'progress':'pending';
   useEffect(()=>{onStatusChange?.(progressStatus);},[onStatusChange,progressStatus]);
@@ -244,8 +260,24 @@ export function ClinicalInterventions(props: Props) {
         throw new Error("Guarda la consulta antes de continuar.");
       }
       const item = workspace?.items.find((item) => item.id === id);
-      const doc = local[id]?.document ?? item?.draft ??
+      let doc = local[id]?.document ?? item?.draft ??
         item?.approved?.document;
+      if (action === 'approve' && doc) {
+        const fresh = await clinicalInterventions(consultationId, revision);
+        setWorkspace(fresh);
+        doc = strategyDocumentForWorkspace(doc, fresh);
+        if (!strategyContextEligible(fresh)) {
+          throw new Error(fresh.pes
+            ? 'Los objetivos aún no están aprobados. Ve a Objetivos y aprueba el conjunto para continuar.'
+            : 'Aprueba el diagnóstico PES para continuar.');
+        }
+        if (!strategyIsLinked(doc, fresh)) {
+          setInitialStep(0);
+          setApprovalAttempt(true);
+          setActiveId(id);
+          throw new Error('Los objetivos cambiaron. Elige de la lista actual el objetivo que apoya esta estrategia.');
+        }
+      }
       const updated = await clinicalInterventions(
         consultationId,
         revision,
@@ -267,7 +299,7 @@ export function ClinicalInterventions(props: Props) {
       const checkpointSaved = !checkpoints || await checkpoints.flush();
       setMessage(
         (action === "approve"
-          ? "Estrategia aprobada. El inicio de ejecución se registra por separado."
+          ? "Estrategia aprobada."
           : action === "save"
           ? "Borrador guardado. Pulsa «Aprobar estrategia» para cambiar su estado."
           : action === "delete"
@@ -407,7 +439,7 @@ export function ClinicalInterventions(props: Props) {
     ? "Primero guarda y aprueba los objetivos SMART de este PES."
     : !eligible
     ? "Los objetivos guardados no están vinculados a este PES. En Objetivos, vincúlalos al PES actual y apruébalos una vez; después podrás aprobar la estrategia."
-    : "Vuelve a vincular esta estrategia con el PES y los objetivos actuales.";
+    : "Revisa la estrategia y selecciona al menos un objetivo de la lista actual.";
   function openEditor(id: string, document: StrategyDocument, linked: boolean, attempt = false) {
     setInitialStep(firstIncompleteStrategyStep(document.strategy, linked));
     setApprovalAttempt(attempt);
@@ -509,7 +541,7 @@ export function ClinicalInterventions(props: Props) {
           <p className="mt-2 text-sm text-[var(--nuth-muted)]">
             Cada estrategia se aprueba por separado. Basta con su nombre, una
             acción concreta y al menos un objetivo aprobado vinculado. Los demás
-            detalles pueden quedar pendientes.
+            detalles son opcionales.
           </p>
         </div>
         <button
@@ -541,12 +573,11 @@ export function ClinicalInterventions(props: Props) {
           </ol>
         </details>
       )}
-      {!eligible && !readOnly && (
-        <p className="mt-3 text-sm text-[var(--nuth-muted)]">
-          Esta sección es opcional. Puedes guardar y continuar sin estrategias.
-          La IA puede usar objetivos en borrador; para aprobar una estrategia,
-          revisa y aprueba antes el PES y los objetivos vinculados.
-        </p>
+      {!eligible && !readOnly && ids.length > 0 && (
+        <div className="clinical-notice">
+          <p>{approvalContextMessage}</p>
+          {props.onReviewPrerequisite && <button type="button" className="clinical-text-action mt-2" onClick={()=>props.onReviewPrerequisite?.(workspace?.pes ? 2 : 1)}>{workspace?.pes ? 'Ir a objetivos' : 'Ir al diagnóstico PES'}<ArrowRight size={15}/></button>}
+        </div>
       )}
       {!readOnly && (
         <>
@@ -708,7 +739,7 @@ export function ClinicalInterventions(props: Props) {
                     : item?.requiresReview
                     ? "Requiere revisión"
                     : editing
-                    ? readyToApprove ? "Lista para aprobar" : "Borrador · faltan requisitos"
+                    ? readyToApprove ? "Lista para aprobar" : !eligible ? workspace?.pes ? 'Falta aprobar objetivos' : 'Falta aprobar PES' : "Borrador · faltan requisitos"
                     : stateLabels[item?.state ?? "draft"]}
                 </ClinicalStatusBadge>
               </header>
@@ -716,16 +747,16 @@ export function ClinicalInterventions(props: Props) {
                 {s.action || "Define qué se hará con la persona."}
               </p>
               <dl className="clinical-goal-summary-facts">
-                <div>
+                {(s.responsible || editing) && <div>
                   <dt>Responsable previsto</dt>
                   <dd>{s.responsible || "Por definir"}</dd>
-                </div>
-                <div>
+                </div>}
+                {(s.reviewAt || editing) && <div>
                   <dt>Revisión</dt>
                   <dd>{s.reviewAt || "Por definir"}</dd>
-                </div>
+                </div>}
               </dl>
-              {(editing || item?.requiresReview) && !readOnly && <p className="clinical-strategy-approval-help">
+              {(editing || item?.requiresReview) && !readOnly && eligible && <p className="clinical-strategy-approval-help">
                 {readyToApprove
                   ? "Ya tiene los requisitos mínimos. Pulsa «Aprobar estrategia» para confirmar esta versión."
                   : !linked ? approvalContextMessage
@@ -785,7 +816,7 @@ export function ClinicalInterventions(props: Props) {
                   <div>
                     <dt>Acuerdo con la persona</dt>
                     <dd>{s.agreement === "pending"
-                      ? "Pendiente de conversar"
+                      ? "Sin acuerdo registrado"
                       : s.agreement === "patient"
                       ? "Acordado con el paciente"
                       : "Acordado con cuidador o representante"}</dd>

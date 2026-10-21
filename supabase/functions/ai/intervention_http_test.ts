@@ -77,7 +77,8 @@ Deno.test("HTTP strategy proposals retain long SMART evidence and reject unusabl
       }
       if (
         url.endsWith("ai_bind_clinical_context") ||
-        url.endsWith("ai_provider_metadata")
+        url.endsWith("ai_provider_metadata") ||
+        url.endsWith("ai_store_consultation_proposal")
       ) return json(null);
       assert.ok(url.endsWith("ai_server"), url);
       switch (body.p_action) {
@@ -87,7 +88,7 @@ Deno.test("HTTP strategy proposals retain long SMART evidence and reject unusabl
             enabled: true,
             provider: "openai",
             model: "synthetic",
-            prompt_version: "intervention_strategy@1",
+            prompt_version: "intervention_strategy@3",
             max_input_tokens: 8192,
             max_output_tokens: 4500,
             timeout_ms: 2000,

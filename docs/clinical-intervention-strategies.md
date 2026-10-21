@@ -1,5 +1,33 @@
 # Estrategia de intervención en la consulta
 
+## Corrección del flujo de aprobación · 21 de octubre de 2026
+
+La aprobación SMART fallaba en consultas de seguimiento al leer la lista de objetivos: la concatenación de la clave y etiqueta JSONB necesitaba paréntesis alrededor de cada extracción. La regresión SQL reproduce el error `42883` antes de la corrección y verifica el guardado de dos objetivos tanto en texto como en listas de cadenas y de objetos con campos en español o inglés.
+
+Las aprobaciones idénticas del PES, objetivos y estrategias conservan su identidad. Guardar el mismo plan conserva su aprobación; una modificación real requiere revisión. Repetir la aprobación de una estrategia conserva su versión y ejecución. Las aprobaciones siguen validando propietario, acceso, revisión, PES vigente y objetivos aprobados.
+
+La interfaz distingue objetivos en borrador de objetivos aprobados: solo estos últimos permiten mostrar la estrategia lista para aprobar. Una estrategia creada con un borrador reconoce la aprobación posterior de ese mismo plan mediante su referencia de borrador y comparación de contenido; los planes diferentes requieren seleccionar el objetivo vigente. Elegir un objetivo vigente actualiza su vínculo en el mismo paso. Las copias de trabajo idénticas a contenido ya aprobado se concilian al recuperar la consulta.
+
+Después de aprobar se ocultan los avisos de requisitos ya resueltos. La nota de prioridad del PES queda dentro del detalle de la revisión y no se presenta como otra aprobación pendiente. Los errores del modal se llevan a la vista. Guardar, salir y cerrar la consulta conservan las secciones clínicas opcionales sin exigir su aprobación.
+
+`intervention_strategy@3` conserva Luna y redacta las nuevas propuestas en segunda persona, con acciones sencillas y explicativas para el paciente. Los parámetros clínicos siguen sujetos a evidencia y revisión profesional. Una evaluación real con un caso sintético devolvió, por ejemplo, «Anota en tu teléfono cuándo haces cada comida y cómo te sientes después»; la respuesta superó la validación del adaptador. El consumo de esa evaluación fue de 2023 tokens de entrada y 555 de salida; no se utilizaron datos de pacientes.
+
+Verificación reproducible:
+
+```sh
+# PostgreSQL local por socket /tmp; las fixtures y el esquema se revierten.
+node scripts/test-connected-clinical-approvals.mjs
+# Debe reproducir el error original con objetivos en lista.
+node scripts/test-connected-clinical-approvals.mjs --without-fix
+deno test --allow-env --allow-net=127.0.0.1 --config supabase/functions/ai/deno.json supabase/functions/ai/intervention_test.ts supabase/functions/ai/intervention_http_test.ts
+# Desde frontend:
+npm test -- src/components/consultations/ClinicalObjective.test.tsx src/components/consultations/ClinicalInterventions.test.tsx src/components/consultations/ClinicalCopilot.test.tsx src/screens/ConsultationPage.test.tsx
+npm run typecheck
+npm run build
+```
+
+La batería SQL comprueba 36 condiciones en consulta inicial, seguimiento y formatos alternativos: dos objetivos, aprobación mínima de estrategia, reintentos idénticos, guardado, recarga e invalidación por cambios reales. La batería de interfaz comprueba 100 casos, incluida recuperación con claves JSONB reordenadas, copias de trabajo antiguas, aprobación fallida sin pérdida de texto y guardado/cierre con borradores clínicos opcionales. La función `ai` se publica junto con las migraciones `connected_clinical_approvals` y `patient_directed_intervention_language`.
+
 ## Flujo y decisiones
 
 Se incorpora el paso **Estrategia** entre Objetivos e Indicaciones: Datos → PES → Objetivos → Estrategia → Indicaciones. El editor trabaja con el PES único y los objetivos SMART aprobados de la revisión. Las relaciones usan el identificador propio de estrategia, la revisión, las fechas de aprobación del PES/objetivos y los índices de objetivos dentro de esa versión inmutable. Un cambio de orden o de objetivos requiere una nueva vinculación explícita; no se reasignan metas silenciosamente.

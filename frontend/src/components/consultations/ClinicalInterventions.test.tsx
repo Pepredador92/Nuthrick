@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { ClinicalInterventions } from "./ClinicalInterventions";
+import {approvedPes,smartPlan} from '@/src/test/clinicalFixtures';
 import {
   emptyStrategy,
   type StrategyDocument,
@@ -40,6 +41,7 @@ vi.mock(
   }),
 );
 const pes = {
+  ...approvedPes,
   approved_at: "2026-10-18T12:00:00Z",
   pesStatement: "PES sintético",
 };
@@ -48,8 +50,9 @@ const workspace = {
   pes,
   objective: {
     approved_at: "2026-10-18T12:10:00Z",
+    pes_approved_at: pes.approved_at,
     pes_statement: pes.pesStatement,
-    smart_plan: { goals: [] },
+    smart_plan: smartPlan(),
   },
   items: [],
   facts: [],
@@ -218,6 +221,53 @@ function mount(overrides = {}) {
     />,
   );
 }
+it('keeps draft objectives out of strategy approval requirements and routes to the actual prerequisite',async()=>{
+  const doc=fullDocument();doc.objectiveApprovedAt='draft:saved-goals';
+  api.workspace.mockResolvedValue({...workspace,objective:null,
+    planningObjective:{...workspace.objective,approved_at:doc.objectiveApprovedAt},
+    items:[{...approvedItem(doc),draft:doc,approved:null,state:'draft'}],
+  });
+  const navigate=vi.fn();mount({onReviewPrerequisite:navigate});
+  fireEvent.click(await screen.findByRole('button',{name:'Aprobar estrategia'}));
+  const dialog=within(screen.getByRole('dialog'));
+  expect(dialog.getByText('2 de 3 requisitos')).toBeVisible();
+  expect(dialog.getByText(/Objetivos aprobados para el PES vigente/)).toBeVisible();
+  fireEvent.click(dialog.getByRole('button',{name:'Ir a objetivos'}));
+  expect(navigate).toHaveBeenCalledWith(2);
+  expect(api.workspace.mock.calls.some(call=>call[2]==='approve')).toBe(false);
+});
+it('promotes a strategy against the exact approved draft and restores its approved state after remount',async()=>{
+  const doc=fullDocument();doc.objectiveApprovedAt='draft:exact-plan';
+  let saved:ReturnType<typeof approvedItem>|undefined;
+  api.workspace.mockImplementation(async(_c,_r,action='read',data)=>{
+    if(action==='approve') saved=approvedItem(data.document);
+    return {...workspace,planningObjective:{...workspace.objective,approved_at:'draft:exact-plan'},
+      items:saved?[saved]:[{...approvedItem(doc),draft:doc,approved:null,state:'draft'}]};
+  });
+  const first=mount();
+  fireEvent.click(await screen.findByRole('button',{name:'Aprobar estrategia'}));
+  await screen.findByText('Estrategia aprobada.');
+  expect(api.workspace).toHaveBeenLastCalledWith('c',1,'approve',expect.objectContaining({document:expect.objectContaining({objectiveApprovedAt:workspace.objective.approved_at})}));
+  expect(screen.getByText('Aprobada')).toBeVisible();
+  expect(screen.queryByRole('button',{name:'Aprobar estrategia'})).not.toBeInTheDocument();
+  first.unmount();
+  sessionStorage.setItem('intervention-drafts:c:1',JSON.stringify({[saved!.id]:{document:doc,expectedUpdatedAt:'current'}}));
+  mount();
+  await screen.findByText('Aprobada');
+  expect(screen.queryByText('Lista para aprobar')).not.toBeInTheDocument();
+  expect(screen.queryByText(/faltan requisitos/)).not.toBeInTheDocument();
+  expect(sessionStorage.getItem('intervention-drafts:c:1')).toBeNull();
+});
+it('binds an explicitly selected current objective without requiring a separate link button',async()=>{
+  const doc=fullDocument();doc.objectiveApprovedAt='old-approval';
+  api.workspace.mockResolvedValue({...workspace,items:[{...approvedItem(doc),draft:doc,approved:null,state:'draft'}]});
+  mount();fireEvent.click(await screen.findByRole('button',{name:'Aprobar estrategia'}));
+  const dialog=within(screen.getByRole('dialog'));
+  const goal=dialog.getAllByRole('checkbox')[0];expect(goal).not.toBeChecked();
+  fireEvent.click(goal);expect(dialog.getByText('3 de 3 requisitos')).toBeVisible();
+  expect(dialog.queryByRole('button',{name:'Vincular a los objetivos actuales'})).not.toBeInTheDocument();
+  expect(api.workspace.mock.calls.some(call=>call[2]==='approve')).toBe(false);
+});
 it("opens a manual strategy in steps and preserves edits when the dialog closes", async () => {
   mount();
   fireEvent.click(
@@ -298,7 +348,7 @@ it("keeps the draft editor open when saving the consultation fails", async () =>
   );
   expect(api.workspace).toHaveBeenCalledOnce();
 });
-it("requires explicit agreement before approving an AI strategy and never starts execution automatically", async () => {
+it("allows approving an AI strategy with agreement pending and never starts execution automatically", async () => {
   const doc = fullDocument();
   doc.strategy.agreement = "pending";
   await generate({ strategies: [doc] });
@@ -308,14 +358,9 @@ it("requires explicit agreement before approving an AI strategy and never starts
   expect(screen.queryByRole("button", { name: "Revisar y editar estrategia" }))
     .not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /^Acuerdo/ }));
-  expect(screen.getByRole("button", { name: "Aprobar estrategia" }))
-    .toBeDisabled();
-  fireEvent.change(screen.getByLabelText("Acuerdo con la persona"), {
-    target: { value: "patient" },
-  });
-  expect(screen.getByRole("button", { name: "Aprobar estrategia" }))
+  expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Aprobar estrategia" }))
     .toBeEnabled();
-  fireEvent.click(screen.getByRole("button", { name: "Aprobar estrategia" }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Aprobar estrategia" }));
   await waitFor(() =>
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   );
@@ -325,7 +370,7 @@ it("requires explicit agreement before approving an AI strategy and never starts
     "approve",
     expect.objectContaining({
       document: expect.objectContaining({
-        strategy: expect.objectContaining({ agreement: "patient" }),
+        strategy: expect.objectContaining({ agreement: "pending" }),
       }),
     }),
   );
@@ -352,12 +397,11 @@ it("blocks approval when the strategy is linked to earlier objective approvals",
       name: `Revisar estrategia: ${doc.strategy.title}`,
     }),
   );
-  expect(
-    screen.getByRole("button", { name: "Vincular a los objetivos actuales" }),
-  ).toBeEnabled();
+  expect(within(screen.getByRole('dialog')).getAllByRole('checkbox')[0]).not.toBeChecked();
   fireEvent.click(screen.getByRole("button", { name: /^Acuerdo/ }));
-  expect(screen.getByRole("button", { name: "Aprobar estrategia" }))
-    .toBeDisabled();
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Aprobar estrategia" }));
+  expect(within(screen.getByRole('dialog')).getAllByRole('checkbox')[0]).toBeVisible();
+  expect(api.workspace.mock.calls.some(call=>call[2]==='approve')).toBe(false);
   expect(api.workspace).toHaveBeenCalledOnce();
 });
 it("allows reviewing an approved strategy without creating a draft or changing its approval", async () => {

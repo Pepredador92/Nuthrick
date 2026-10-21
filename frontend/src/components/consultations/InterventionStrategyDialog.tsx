@@ -82,17 +82,24 @@ export function InterventionStrategyDialog(
   const title = useRef<HTMLHeadingElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
+  const messageRef = useRef<HTMLParagraphElement>(null);
   const [step, setStep] = useState(initialStep);
   const [attempted, setAttempted] = useState(initialApprovalAttempt);
   const issues = strategyIssues(document.strategy);
   const eligibleContext = strategyContextEligible(workspace);
-  const initialFocus = useRef(initialApprovalAttempt ? (!linked ? "context" : issues[0]) : undefined);
+  const initialFocus = useRef(initialApprovalAttempt ? (!linked ? eligibleContext ? 'goalIndexes' : "context" : issues[0]) : undefined);
   const completedTextRequirements = strategyRequiredFields.filter((field) =>
     document.strategy[field].trim()
   ).length;
   const hasLinkedGoal = linked && document.strategy.goalIndexes.length > 0;
   const complete = completedTextRequirements + Number(hasLinkedGoal);
   const saveLabel = busy ? "Guardando…" : clean ? "Listo" : "Guardar y cerrar";
+  useEffect(() => {
+    if (message) {
+      messageRef.current?.scrollIntoView?.({block:'nearest'});
+      messageRef.current?.focus({preventScroll:true});
+    }
+  }, [message]);
   useEffect(() => {
     const element = dialog.current;
     const previous = globalThis.document.activeElement as HTMLElement | null;
@@ -120,7 +127,7 @@ export function InterventionStrategyDialog(
       heading.current?.focus();
     });
   }
-  function showPending(field = !linked ? "context" : issues[0]) {
+  function showPending(field = !linked ? eligibleContext ? 'goalIndexes' : "context" : issues[0]) {
     if (!field) return;
     setAttempted(true);
     const next = strategySteps.findIndex((item) => (item.keys as readonly string[]).includes(field));
@@ -259,7 +266,7 @@ export function InterventionStrategyDialog(
                 </details>
               </>
             )}
-            {issues.length > 0 || !linked
+            {issues.length > 0 || (!linked && !eligibleContext)
               ? (
                 <div className="clinical-notice" data-strategy-field={!linked ? "context" : undefined} tabIndex={-1}>
                   <p>
@@ -277,7 +284,7 @@ export function InterventionStrategyDialog(
                   </button>
                   <div className="clinical-approval-details">
                     <ul aria-label="Pendientes para aprobar">
-                      {!linked && (
+                      {!linked && !eligibleContext && (
                         <li>
                           {approvalContextMessage ?? "Vinculación con el PES y los objetivos actuales"}
                           {onReviewPrerequisite && <button type="button" className="clinical-text-action" data-strategy-prerequisite disabled={busy} onClick={onReviewPrerequisite}>{workspace?.pes ? "Ir a objetivos" : "Ir al diagnóstico PES"}<ArrowRight size={15}/></button>}
@@ -292,8 +299,7 @@ export function InterventionStrategyDialog(
               )
               : (
                 <p className="clinical-strategy-review-note">
-                  Puedes aprobar con detalles pendientes. El acuerdo con la
-                  persona y el inicio de ejecución se registran por separado.
+                  {alreadyApproved ? 'Esta versión de la estrategia está aprobada.' : 'Los demás detalles son opcionales. Puedes aprobar esta versión.'}
                 </p>
               )}
             {(onClear || onRemove) && <div className="clinical-strategy-editor-actions">
@@ -301,7 +307,7 @@ export function InterventionStrategyDialog(
               {onRemove && <button type="button" className="clinical-text-action" disabled={busy} onClick={onRemove}><Trash2 size={15}/>{removeLabel}</button>}
             </div>}
           </section>
-          {message && <p role="status" className="clinical-notice">{message}
+          {message && <p ref={messageRef} role="status" tabIndex={-1} className="clinical-notice">{message}
           </p>}
         </div>
         <footer className="clinical-objective-dialog-footer">

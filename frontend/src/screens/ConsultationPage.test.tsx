@@ -22,7 +22,15 @@ const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
   interventions: vi.fn(),
   answerState: {version:0,answers:{} as Record<string,unknown>},
+  draftState: {version:0,answers:{} as Record<string,unknown>},
 }));
+vi.mock("@/src/lib/supabase", () => ({supabase:{rpc:(name:string,args:Record<string,unknown>)=>{
+  if(name==='sync_consultation_drafts' && args.p_changes) {
+    mocks.draftState={version:mocks.draftState.version+1,answers:{...mocks.draftState.answers,...args.p_changes as Record<string,unknown>}};
+  }
+  const request=Promise.resolve({data: name==='sync_consultation_drafts'?structuredClone(mocks.draftState):null,error:null});
+  return Object.assign(request,{abortSignal:()=>request});
+}}}));
 vi.mock("@/src/services/clinicalCopilot", async (original) => ({
   ...(await original<object>()),
   clinicalObjective: mocks.objective,
@@ -226,6 +234,7 @@ beforeEach(() => {
   window.sessionStorage.clear();
   mocks.save.mockResolvedValue(undefined);
   mocks.answerState={version:0,answers:{}};
+  mocks.draftState={version:0,answers:{}};
   mocks.discard.mockResolvedValue(undefined);
   mocks.finish.mockResolvedValue(fixtures.c);
   fixtures.c.status = "draft";
@@ -260,13 +269,13 @@ describe("consultation save and review workflow", () => {
     await screen.findByText('PES descartado y campos limpios.');
     expect(mocks.answerState.answers).toMatchObject({ ...cleared, note: 'Conservar entrevista' });
     expect(screen.queryByText(/Problema anterior relacionado con/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Redactar PES manualmente' }));
+    if (!screen.queryByLabelText('Problema')) fireEvent.click(screen.getByRole('button', { name: 'Redactar PES manualmente' }));
     for (const label of ['Problema', 'Etiología', 'Signos y síntomas']) expect(screen.getByLabelText(label)).toHaveValue('');
     first.unmount();
     mount();
     await openModule('Revisión clínica, PES y objetivos');
     fireEvent.click(screen.getByRole('button', { name: /PES Formula el diagnóstico/ }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Redactar PES manualmente' }));
+    if (!screen.queryByLabelText('Problema')) fireEvent.click(await screen.findByRole('button', { name: 'Redactar PES manualmente' }));
     for (const label of ['Problema', 'Etiología', 'Signos y síntomas']) expect(screen.getByLabelText(label)).toHaveValue('');
     expect(mocks.answerState.answers).toMatchObject({ ...cleared, note: 'Conservar entrevista' });
   });
@@ -323,7 +332,7 @@ describe("consultation save and review workflow", () => {
     expect(screen.queryByRole('button', { name: 'Redactar PES manualmente' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
     await screen.findByRole('heading', { name: 'Del objetivo a la acción' });
-    expect(screen.getByRole('button', { name: 'Proponer estrategias con IA' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Proponer estrategias con IA' })).toBeEnabled();
   });
 
   it('requires saving measurement edits before entering the clinical proposal step', async () => {
@@ -387,7 +396,7 @@ describe("consultation save and review workflow", () => {
     expect(savedPlan?.goals[0]).toMatchObject({ outcome: 'Resultado revisado por el profesional', agreement: 'pending', sign: approvedPes.signsSymptoms });
     expect(mocks.save).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'draft' }), expect.objectContaining({ revision: 1 }), expect.objectContaining({ treatment_objective: composeObjective(savedPlan!.goals[0]) }));
     fireEvent.click(screen.getByRole('button', { name: /Estrategia Define las acciones y responsables/ }));
-    expect(await screen.findByRole('button', { name: 'Proponer estrategias con IA' })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Proponer estrategias con IA' })).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: /Objetivos Acuerda/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Revisar objetivo 1' }));
     fireEvent.change(await screen.findByLabelText('Acuerdo · objetivo 1'), { target: { value: 'patient' } });
@@ -755,19 +764,12 @@ describe("consultation save and review workflow", () => {
       fireEvent.click(screen.getByRole('button', { name: /Objetivos Acuerda/ }));
       await screen.findByRole("heading", { name: "Un objetivo a la vez" });
       if (objective) {
+        await waitFor(()=>expect(screen.getByRole('button',{name:'Agregar objetivo'})).toBeEnabled());
         fireEvent.click(screen.getByRole('button', { name: 'Agregar objetivo' }));
-        fireEvent.change(screen.getByLabelText('Resultado esperado · objetivo 1'), { target: { value: objective } });
+        fireEvent.change(await screen.findByLabelText('Resultado esperado · objetivo 1'), { target: { value: objective } });
         fireEvent.click(screen.getByRole('button', { name: 'Cerrar revisión del objetivo' }));
-        fireEvent.click(screen.getByRole('button', { name: 'Revisar cierre de consulta' }));
-        const pending = await screen.findByRole('dialog');
-        fireEvent.click(within(pending).getByRole('checkbox'));
-        expect(within(pending).getByRole('status')).toHaveTextContent('los objetivos sin guardar');
-        expect(within(pending).getByRole('button', { name: 'Confirmar cierre' })).toBeDisabled();
-        expect(mocks.finish).not.toHaveBeenCalled();
-        fireEvent.click(within(pending).getAllByRole('button', { name: 'Volver a la consulta' }).at(-1)!);
-        fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
-        await screen.findByText('Borrador guardado. Puedes continuar y revisarlo después.');
-        expect(mocks.objective).toHaveBeenCalledWith('draft', 1, 'save', 's', 'treatment_objective', expect.objectContaining({ goals: [expect.objectContaining({ outcome: objective, agreement: 'pending' })] }));
+        fireEvent.click(screen.getByRole('button', { name: 'Guardar consulta' }));
+        await waitFor(()=>expect(mocks.draftState.answers['objective:treatment_objective']).toEqual(expect.objectContaining({goals:[expect.objectContaining({outcome:objective})]})));
       }
       fireEvent.click(screen.getByRole('button', { name: 'Revisar cierre de consulta' }));
       const dialog = await screen.findByRole('dialog');
@@ -933,20 +935,23 @@ describe("consultation exit decisions", () => {
 });
 
 describe("consultation exit edge cases", () => {
-  it("keeps an unapproved PES proposal and returns to its exact review step", async () => {
-    mount();
+  it("saves an unapproved PES and restores its editor from the server after returning", async () => {
+    const first=mount();
     await screen.findByRole("heading", { name: "Apertura de prueba" });
     await openModule("Revisión clínica, PES y objetivos");
-    await waitFor(() => expect(screen.getByRole("button", { name: /PES Formula el diagnóstico/ })).toBeEnabled());
-    fireEvent.click(screen.getByRole("button", { name: /PES Formula el diagnóstico/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /PES Formula el diagnóstico/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Redactar PES manualmente" }));
     fireEvent.change(screen.getByLabelText("Problema"), { target: { value: "Propuesta escrita por revisar" } });
     await openModule("Entrevista");
     const dialog = await requestExit();
-    expect(within(dialog).getByRole("button", { name: "Guardar borrador y salir" })).toBeDisabled();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Revisar cambios pendientes" }));
-    expect(screen.getByLabelText("Problema")).toBeVisible();
-    expect(screen.getByLabelText("Problema")).toHaveValue("Propuesta escrita por revisar");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Guardar borrador y salir" }));
+    await screen.findByRole('heading',{name:'Mensajes del paciente'});
+    first.unmount();sessionStorage.clear();mount();
+    await screen.findByRole('heading',{name:'Apertura de prueba'});
+    await openModule('Revisión clínica, PES y objetivos');
+    fireEvent.click(await screen.findByRole('button',{name:/PES Formula el diagnóstico/}));
+    expect(await screen.findByLabelText('Problema')).toHaveValue('Propuesta escrita por revisar');
+    expect(mocks.clinical.mock.calls.some(args=>args[2]==='pes')).toBe(false);
   });
   it("preserves a reopened clinical history instead of offering deletion", async () => {
     mocks.listConsultations.mockResolvedValue([{ ...fixtures.c, draft_discard_protected: true }]);

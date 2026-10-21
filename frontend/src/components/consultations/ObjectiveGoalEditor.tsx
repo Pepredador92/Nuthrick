@@ -113,18 +113,19 @@ export function objectiveCompletedFields(goal: ObjectiveGoal, signs: string[]) {
 }
 
 export function ObjectiveGoalSummary(
-  { goal, index, signs, approved, onOpen, onRemove, onMoveUp, reviewRef }: {
+  { goal, index, signs, approved, contextReady = true, onOpen, onRemove, onMoveUp, reviewRef }: {
     goal: ObjectiveGoal;
     index: number;
     signs: string[];
     approved: boolean;
+    contextReady?: boolean;
     onOpen: () => void;
     onRemove: () => void;
     onMoveUp?: () => void;
     reviewRef?: Ref<HTMLButtonElement>;
   },
 ) {
-  const complete = objectiveCompletedFields(goal, signs) === 10 &&
+  const complete = contextReady && objectiveCompletedFields(goal, signs) === 10 &&
     !objectiveIssues(goal).length;
   const status = approved ? "approved" : complete ? "complete" : "progress";
   return (
@@ -144,6 +145,8 @@ export function ObjectiveGoalSummary(
         <ClinicalStatusBadge status={status}>
           {approved
             ? "Aprobado"
+            : !contextReady
+            ? 'Revisar vínculo con el PES'
             : complete
             ? "Listo para aprobar"
             : goal.agreement === "pending" &&

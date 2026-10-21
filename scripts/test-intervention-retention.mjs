@@ -2,6 +2,7 @@
 // and rollback. Unrelated billing and diet integrations are outside this suite.
 import { readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 const root = new URL('../', import.meta.url);
 const read = path => readFileSync(new URL(path, root), 'utf8');
 const migration = suffix => {
@@ -10,6 +11,7 @@ const migration = suffix => {
   return read(`supabase/migrations/${name}`);
 };
 const strip = sql => sql.replace(/^begin;\s*/i, '').replace(/commit;\s*$/i, '');
+export function clinicalFixtureSQL({retentionFix=true}={}) {
 let setup = read('scripts/test-clinical-copilot.sql').split('-- AI CORE --')[0]
   .replace(/create role (\w+)[^;]*;/g, statement => `do $$ begin ${statement} exception when duplicate_object then null; end $$;`)
   .replace('returns void language plpgsql as $$', () => "returns void language plpgsql set search_path='' as $$");
@@ -36,9 +38,15 @@ const strategies = migration('clinical_intervention_strategies');
 setup += '\n' + strategies.slice(strategies.indexOf('create table public.consultation_interventions'), strategies.indexOf('-- Reuse the same owner-scoped source'));
 const retention = migration('retention_backup_plan');
 setup += '\n' + retention.slice(retention.indexOf('create function private.require_retention_patient('), retention.indexOf('create function private.enforce_retention_patient_write()'));
-if (!process.argv.includes('--without-fix')) setup += '\n' + strip(migration('enforce_intervention_retention_patient'));
+if (retentionFix) setup += '\n' + strip(migration('enforce_intervention_retention_patient'));
+return setup;
+}
+if (process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
+const setup=clinicalFixtureSQL({retentionFix:!process.argv.includes('--without-fix')});
 const sql = setup + '\n' + read('scripts/test-intervention-retention.sql') + '\nrollback;';
 const result = spawnSync('psql', ['-X','-q','-h','/tmp','-d','postgres','-v','ON_ERROR_STOP=1'], { input: sql, encoding:'utf8', maxBuffer:8*1024*1024 });
 if (result.error) throw result.error;
 process.stdout.write(result.stdout ?? ''); process.stderr.write(result.stderr ?? '');
 process.exitCode = result.status ?? 1;
+
+}
