@@ -1013,7 +1013,7 @@ export function PatientDetailPage() {
       const values = Object.fromEntries(
         answers.map((answer) => [answer.question_key, answer.value]),
       );
-      const clinical = await loadConsultationDocumentData(patient.id, snapshot);
+      const clinical = await loadConsultationDocumentData(patient.id, snapshot, values);
       const filename = `nuthrick-${patient.full_name.toLowerCase().replace(/[^a-z0-9]+/gi, "-")}-${consultation.id.slice(0, 8)}.txt`;
       const professional = await professionalDocumentInfo();
       downloadConsultationText(
@@ -1039,7 +1039,7 @@ export function PatientDetailPage() {
       const values = Object.fromEntries(
         answers.map((answer) => [answer.question_key, answer.value]),
       );
-      const clinical = await loadConsultationDocumentData(patient.id, snapshot);
+      const clinical = await loadConsultationDocumentData(patient.id, snapshot, values);
       const filename = `nuthrick-${patient.full_name.toLowerCase().replace(/[^a-z0-9]+/gi, "-")}-${consultation.id.slice(0, 8)}.pdf`;
       await downloadConsultationPdf(
         filename,

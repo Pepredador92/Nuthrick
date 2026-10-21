@@ -1,6 +1,6 @@
 import type { jsPDF } from "jspdf";
 import type { ProfessionalDocumentInfo } from "./document-letterhead.ts";
-import { type DocumentField, documentText } from "./document-layout.ts";
+import { type CardOptions, type DocumentField, documentText, documentFieldLines, drawDocumentTextLine } from "./document-layout.ts";
 
 const margin = 25.4;
 const lineHeight = 5.2;
@@ -205,7 +205,7 @@ export class FormalDocumentLayout {
       sub = subtitle ? this.lines(subtitle, this.width, 10) : [];
     this.ensure(
       lines.length * 7 + sub.length * lineHeight + 8 +
-        Math.min(followingHeight, 35),
+        Math.min(followingHeight, this.bottom - 50),
     );
     this.y += 2;
     for (const line of lines) {
@@ -235,18 +235,28 @@ export class FormalDocumentLayout {
   card(
     title: string,
     fields: DocumentField[],
-    options: {
-      eyebrow?: string;
-      columns?: 1 | 2;
-      flow?: boolean;
-      tone?: "mint" | "blue" | "violet";
-    } = {},
+    options: CardOptions = {},
   ) {
-    this.flushSection();
     const heading = this.sections
       ? `${this.sections}.${++this.subsections} ${title}`
       : title;
     const headings = this.lines(heading, this.width, 12, true);
+    const eyebrowHeight = options.eyebrow ? this.lines(options.eyebrow, this.width, 9).length * lineHeight + 1 : 0;
+    const contentHeight = options.metrics ? 20 * Math.ceil(fields.length / (options.columns ?? 3)) : fields.reduce((height, field) => {
+      if (!field.value.trim()) return height;
+      const label = field.label ? `${field.label}: ` : "";
+      this.pdf.setFont("times", "bold"); this.pdf.setFontSize(11);
+      const labelWidth = this.pdf.getTextWidth(documentText(label));
+      this.pdf.setFont("times", "normal");
+      const inline = !!label && !field.value.includes("\n") && labelWidth + this.pdf.getTextWidth(documentText(field.value)) <= this.width;
+      const labelLines = label && !field.inlineLabel && (options.justify || !inline) ? this.lines(label, this.width, 11, true).length : 0;
+      const bodyLines = options.justify || field.inlineLabel ? documentFieldLines(this.pdf, field, this.width, "times", 11, options.justify).length : inline ? 1 : this.lines(field.value, this.width).length;
+      return height + (field.spaceBefore ?? 0) + (labelLines + bodyLines) * lineHeight + 1.3;
+    }, 0);
+    const totalHeight = headings.length * lineHeight + 2 + eyebrowHeight + contentHeight + (options.spaceAfter ?? 4);
+    const keepTogether = !options.flow && totalHeight < this.bottom - 50;
+    this.flushSection(keepTogether ? totalHeight : 18);
+    if (keepTogether) this.ensure(totalHeight);
     this.ensure(headings.length * lineHeight + 17);
     this.paragraph(heading, 12, true);
     this.y += 2;
@@ -254,9 +264,39 @@ export class FormalDocumentLayout {
       this.paragraph(options.eyebrow, 9);
       this.y += 1;
     }
+    if (options.metrics) {
+      const columns = options.columns ?? 3, width = this.width / columns;
+      const rows = fields.map(field => ({field, labels: this.lines(field.label ?? "", width - 5, 10, true), values: this.lines(field.value, width - 5, 15)}));
+      for (let start = 0; start < rows.length; start += columns) {
+        const row = rows.slice(start, start + columns), labelHeight = Math.max(...row.map(cell => cell.labels.length)) * lineHeight;
+        const height = labelHeight + Math.max(...row.map(cell => cell.values.length)) * 7 + 5;
+        this.ensure(height);
+        row.forEach((cell, index) => { this.text(cell.labels, this.x + index * width, this.y, 10, true); this.text(cell.values, this.x + index * width, this.y + labelHeight + 1, 15); });
+        this.y += height;
+      }
+      this.y += options.spaceAfter ?? 4;
+      return;
+    }
     for (const field of fields) {
       if (!field.value.trim()) continue;
+      this.ensure((field.spaceBefore ?? 0) + lineHeight * 2);
+      this.y += field.spaceBefore ?? 0;
       const label = field.label ? `${field.label}: ` : "";
+      if (options.justify || field.inlineLabel) {
+        if (label && !field.inlineLabel) {
+          this.ensure(this.lines(label, this.width, 11, true).length * lineHeight + lineHeight * 2);
+          this.paragraph(label, 11, true);
+        }
+        const lines = documentFieldLines(this.pdf, field, this.width, "times", 11, options.justify);
+        for (const line of lines) {
+          this.ensure(lineHeight);
+          this.pdf.setTextColor(25, 25, 25);
+          drawDocumentTextLine(this.pdf, line, this.x, this.y, this.width, "times", 11);
+          this.y += lineHeight;
+        }
+        this.y += 1.3;
+        continue;
+      }
       this.pdf.setFont("times", "bold");
       this.pdf.setFontSize(11);
       const labelWidth = label ? this.pdf.getTextWidth(documentText(label)) : 0;
@@ -281,7 +321,7 @@ export class FormalDocumentLayout {
       }
       this.y += 1.3;
     }
-    this.y += 4;
+    this.y += options.spaceAfter ?? 4;
   }
   contacts() {
     /* The complete contact block is already in the first-page letterhead. */

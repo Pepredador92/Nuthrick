@@ -4,8 +4,47 @@ import { drawProfessionalHeader, type ProfessionalDocumentInfo } from "./documen
 export const documentColors = { ink: "#203d48", muted: "#627681", teal: "#147e86", mint: "#edf6f0", violet: "#f2eff8", blue: "#edf5fa", line: "#dce6e8" };
 export const documentRgb = (hex: string): [number, number, number] => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
 export const documentText = (value: string) => value.replace(/[−–—]/g, "-").replace(/→/g, ">").replace(/×/g, "x").replace(/≤/g, "<=").replace(/≥/g, ">=");
-export type DocumentField = { label?: string; value: string };
-type CardOptions = { eyebrow?: string; tone?: "mint" | "violet" | "blue"; columns?: 1 | 2; flow?: boolean };
+export type DocumentField = { label?: string; value: string; inlineLabel?: boolean; spaceBefore?: number };
+export type CardOptions = { eyebrow?: string; tone?: "mint" | "violet" | "blue"; columns?: 1 | 2 | 3; flow?: boolean; justify?: boolean; metrics?: boolean; spaceAfter?: number };
+export type DocumentTextLine = { value: string; words?: { value: string; bold: boolean; width: number }[]; justify?: boolean };
+
+/** Wrap styled labels and paragraphs together, retaining explicit line breaks. */
+export function documentFieldLines(pdf: jsPDF, field: DocumentField, width: number, font: string, size: number, justify = false): DocumentTextLine[] {
+  pdf.setFont(font, "normal"); pdf.setFontSize(size);
+  if (!justify && !field.inlineLabel) return (pdf.splitTextToSize(documentText(field.value), width) as string[]).map(value => ({value}));
+  const result: DocumentTextLine[] = [];
+  const measure = (value: string, bold = false) => { pdf.setFont(font, bold ? "bold" : "normal"); return pdf.getTextWidth(value); };
+  const space = measure(" ");
+  for (const [index, paragraph] of documentText(field.value).split(/\r?\n/).entries()) {
+    const words = [
+      ...(index === 0 && field.inlineLabel && field.label ? `${field.label.replace(/:$/, "")}:`.split(/\s+/).map(value => ({value, bold: true})) : []),
+      ...(paragraph.match(/\S+/g) ?? []).map(value => ({value, bold: false})),
+    ].flatMap(word => {
+      pdf.setFont(font, word.bold ? "bold" : "normal");
+      return (pdf.splitTextToSize(word.value, width) as string[]).map(value => ({value, bold: word.bold, width: measure(value, word.bold)}));
+    });
+    const lines: NonNullable<DocumentTextLine["words"]>[] = [[]];
+    let used = 0;
+    for (const word of words) {
+      const line = lines[lines.length - 1], gap = line.length ? space : 0;
+      if (line.length && used + gap + word.width > width) { lines.push([word]); used = word.width; }
+      else { line.push(word); used += gap + word.width; }
+    }
+    lines.forEach((line, i) => result.push({value: line.map(word => word.value).join(" "), words: line, justify: justify && i < lines.length - 1 && !/^\s*(?:[•*-]|\d+[.)])\s/.test(paragraph)}));
+  }
+  return result;
+}
+
+export function drawDocumentTextLine(pdf: jsPDF, line: DocumentTextLine, x: number, y: number, width: number, font: string, size: number) {
+  pdf.setFont(font, "normal"); pdf.setFontSize(size);
+  if (!line.words) { pdf.text(line.value, x, y); return; }
+  const space = pdf.getTextWidth(" "), count = line.words.length;
+  const extra = line.justify && count > 1 ? Math.max(0, (width - line.words.reduce((sum, word) => sum + word.width, 0) - space * (count - 1)) / (count - 1)) : 0;
+  for (const word of line.words) {
+    pdf.setFont(font, word.bold ? "bold" : "normal"); pdf.text(word.value, x, y);
+    x += word.width + space + extra;
+  }
+}
 
 /** Measured cards split at row/line boundaries; every answer remains in the PDF. */
 export class DocumentLayout {
@@ -57,22 +96,24 @@ export class DocumentLayout {
     const colWidth = (this.width - padding * 2 - gutter * (columns - 1)) / columns;
     const titleLines = this.lines(title, this.width - padding * 2, 12, true);
     const headerHeight = 8 + titleLines.length * 5.9 + (options.eyebrow ? 5 : 0);
-    const rowGap = 4;
-    const rows: Array<Array<{ label: string[]; body: string[] }>> = [];
+    const rowGap = 4, bodySize = options.metrics ? 15 : 10, bodyHeight = options.metrics ? 7 : 4.95;
+    const rows: Array<Array<{ label: string[]; body: DocumentTextLine[]; spaceBefore: number }>> = [];
     for (let index = 0; index < fields.length; index += columns) {
       rows.push(fields.slice(index, index + columns).map(field => ({
-        label: field.label ? this.lines(field.label, colWidth, 8, true) : [],
-        body: this.lines(field.value, colWidth, 10),
+        label: field.label && !field.inlineLabel ? this.lines(field.label, colWidth, 8, true) : [],
+        body: documentFieldLines(this.pdf, field, colWidth, "helvetica", bodySize, options.justify),
+        spaceBefore: field.spaceBefore ?? 0,
       })));
     }
-    if (!rows.length) rows.push([{ label: [], body: [] }]);
+    if (!rows.length) rows.push([{ label: [], body: [], spaceBefore: 0 }]);
+    const cellHeight = (cell: (typeof rows)[number][number]) => cell.spaceBefore + cell.label.length * 4 + cell.body.length * bodyHeight;
     const attachedToHeading = Boolean(this.pendingSection);
-    const totalHeight = rows.reduce((sum, row) => sum + Math.max(...row.map(cell => cell.label.length * 4 + cell.body.length * 4.95)) + rowGap, 0) + headerHeight + padding;
+    const totalHeight = rows.reduce((sum, row) => sum + Math.max(...row.map(cellHeight)) + rowGap, 0) + headerHeight + padding;
     this.flushSection(options.flow ? Math.min(totalHeight, 70) : totalHeight);
     let rowIndex = 0, continuation = false;
     while (rowIndex < rows.length) {
       // Move a normal card as a whole when it fits a fresh page.
-      const remainingHeight = rows.slice(rowIndex).reduce((sum, row) => sum + Math.max(...row.map(cell => cell.label.length * 4 + cell.body.length * 4.95)) + rowGap, 0) + headerHeight + padding;
+      const remainingHeight = rows.slice(rowIndex).reduce((sum, row) => sum + Math.max(...row.map(cellHeight)) + rowGap, 0) + headerHeight + padding;
       const newPageCapacity = this.bottom - 30;
       if (!options.flow && (!attachedToHeading || continuation) && remainingHeight <= newPageCapacity && this.y + remainingHeight > this.bottom) this.newPage();
       this.ensure(headerHeight + 22);
@@ -81,16 +122,16 @@ export class DocumentLayout {
       let used = 0;
       while (rowIndex < rows.length) {
         const row = rows[rowIndex];
-        const height = Math.max(...row.map(cell => cell.label.length * 4 + cell.body.length * 4.95)) + rowGap;
+        const height = Math.max(...row.map(cellHeight)) + rowGap;
         if (used + height <= available) { chunks.push(row); used += height; rowIndex++; continue; }
         if (chunks.length && height <= newPageCapacity - headerHeight - padding) break;
         // A long answer gets continuation cards instead of clipping or shrinking.
-        const labelHeight = Math.max(...row.map(cell => cell.label.length * 4));
-        const count = Math.max(1, Math.floor((available - used - labelHeight - rowGap) / 4.95));
+        const labelHeight = Math.max(...row.map(cell => cell.spaceBefore + cell.label.length * 4));
+        const count = Math.max(1, Math.floor((available - used - labelHeight - rowGap) / bodyHeight));
         if (chunks.length && count < 3) break;
-        chunks.push(row.map(cell => ({ label: cell.label, body: cell.body.slice(0, count) })));
-        rows[rowIndex] = row.map(cell => ({ label: cell.label, body: cell.body.slice(count) }));
-        used += labelHeight + Math.max(...chunks.at(-1)!.map(cell => cell.body.length)) * 4.95 + rowGap;
+        chunks.push(row.map(cell => ({ ...cell, body: cell.body.slice(0, count) })));
+        rows[rowIndex] = row.map(cell => ({ ...cell, spaceBefore: 0, body: cell.body.slice(count) }));
+        used += Math.max(...chunks.at(-1)!.map(cellHeight)) + rowGap;
         if (rows[rowIndex].every(cell => !cell.body.length)) rowIndex++;
         break;
       }
@@ -106,12 +147,14 @@ export class DocumentLayout {
       for (const row of chunks) {
         row.forEach((cell, index) => {
           const x = this.x + padding + index * (colWidth + gutter);
-          if (cell.label.length) this.text(cell.label, x, atY, 8, true, documentColors.muted);
-          this.text(cell.body, x, atY + cell.label.length * 4, 10);
+          const y = atY + cell.spaceBefore;
+          if (cell.label.length) this.text(cell.label, x, y, 8, true, documentColors.muted);
+          this.pdf.setTextColor(...documentRgb(documentColors.ink));
+          cell.body.forEach((line, i) => drawDocumentTextLine(this.pdf, line, x, y + cell.label.length * 4 + i * bodyHeight, colWidth, "helvetica", bodySize));
         });
-        atY += Math.max(...row.map(cell => cell.label.length * 4 + cell.body.length * 4.95)) + rowGap;
+        atY += Math.max(...row.map(cellHeight)) + rowGap;
       }
-      this.y += height + 7;
+      this.y += height + (options.spaceAfter ?? 7);
       if (rowIndex < rows.length) { this.newPage(); continuation = true; }
     }
   }

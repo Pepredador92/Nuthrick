@@ -120,6 +120,7 @@ export function buildClinicalDocumentData(
   snapshot: ConsultationSnapshot,
   interventions: InterventionItem[] = [],
   history?: LongitudinalHistory,
+  answers: Record<string, unknown> = {},
 ): ConsultationDocumentData {
   const records = row(snapshot.clinical_records),
     sections: ClinicalDocumentSection[] = [],
@@ -197,30 +198,21 @@ export function buildClinicalDocumentData(
     });
   }
   const pes = row(records.pes);
-  if (text(pes.approved_at)) {
+  const pesFields = fields({
+    pes_problem: "Problema (P)",
+    pes_etiology: "Etiología (E)",
+    pes_evidence: "Signos y síntomas (S)",
+  }, answers);
+  const statement = text(answers.pes_statement);
+  if (statement || pesFields.length || text(pes.approved_at)) {
+    if (statement || pesFields.length) coveredKeys.push("pes_problem", "pes_etiology", "pes_evidence", "pes_statement");
     sections.push({
       title: "Revisión del diagnóstico PES",
-      cards: [{
-        title: "Aprobación clínica",
-        fields: [
-          {
-            label: "Estado",
-            value: `PES aprobado · ${stamp(pes.approved_at)}`,
-          },
-          ...(Array.isArray(pes.evidence)
-            ? pes.evidence.map((fact) => ({
-              label: text(row(fact).source) || "Evidencia",
-              value: text(row(fact).finding),
-            })).filter((fact) => fact.value)
-            : []),
-          ...(Array.isArray(pes.uncertainties)
-            ? [{
-              label: "Aspectos por confirmar",
-              value: pes.uncertainties.map(String).join("\n"),
-            }]
-            : []),
-        ],
-      }],
+      cards: [
+        ...(statement ? [{ title: "Enunciado PES completo", fields: [{value: statement}] }] : []),
+        ...(pesFields.length ? [{ title: "Componentes del diagnóstico", fields: pesFields }] : []),
+        { title: "Estado de revisión", fields: [{ label: "Estado", value: text(pes.approved_at) ? `PES aprobado · ${stamp(pes.approved_at)}` : "Borrador guardado · aprobación pendiente" }] },
+      ],
     });
   }
   const approved = row(records.objective), plans = {...row(records.objective_plans)};

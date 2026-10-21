@@ -42,7 +42,7 @@ export const planFileName=(model:PublishedNutritionPlanDocumentModel,format:'pdf
  const name=model.patientName.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,80)||'paciente';
  return `plan_nutricional_${name}_v${model.plan.versionNumber}_${model.plan.publishedAt.slice(0,10)}.${format}`;
 };
-export const planDate=(value:string)=>new Date(value).toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric',timeZone:'America/Mexico_City'});
+export const planDate=(value:string)=>new Date(/^\d{4}-\d{2}-\d{2}$/.test(value)?`${value}T12:00:00Z`:value).toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric',timeZone:'America/Mexico_City'});
 const amount=(value:number)=>new Intl.NumberFormat('es-MX',{maximumFractionDigits:3}).format(value);
 const macroAmount=(value:number)=>new Intl.NumberFormat('es-MX',{maximumFractionDigits:1}).format(value);
 export type PlanDocumentBlock={kind:'day'|'meal'|'title'|'text'|'label'|'supplement-heading'|'supplement-title'|'supplement-text';text:string};
@@ -96,13 +96,12 @@ export function birthDateDetails(birthDate:string|undefined,reference:string):st
 }
 export function planIdentityFields(model:PublishedNutritionPlanDocumentModel):DocumentField[] {
  const c=model.context??{},birth=birthDateDetails(c.birthDate,c.consultationDate??model.plan.publishedAt);
+ const [birthDate,age]=birth?.split(' · ')??[];
  return [
-  ...(birth?[{label:c.consultationDate?'Nacimiento · edad en la consulta':'Nacimiento · edad al publicar',value:birth}]:[]),
+  ...(birthDate?[{label:'Fecha de nacimiento',value:birthDate},{label:c.consultationDate?'Edad en la consulta':'Edad al publicar',value:age}]:[]),
   ...(c.sex?[{label:'Sexo registrado',value:c.sex}]:[]),
-  ...(c.recordReference?[{label:'Referencia de expediente Nuthrick',value:c.recordReference}]:[]),
-  {label:'Consulta de origen',value:[c.consultationLabel,c.consultationDate?planDate(c.consultationDate):null].filter(Boolean).join(' · ')||'Sin consulta asociada'},
+  {label:'Consulta de origen',value:c.consultationDate?planDate(c.consultationDate):'Sin consulta asociada'},
   {label:'Plan de alimentación',value:model.plan.title},
-  {label:'Versión y publicación',value:`Versión ${model.plan.versionNumber} · ${planDate(model.plan.publishedAt)}`},
  ];
 }
 export function planClinicalFields(model:PublishedNutritionPlanDocumentModel):DocumentField[] {
@@ -122,31 +121,44 @@ export function planGuidanceCards(model:PublishedNutritionPlanDocumentModel):{ti
   ...(c.strategies??[]).map((strategy,index)=>({title:`Estrategia ${index+1} · ${strategy.title}`,fields:[...fields(sharedStrategyLabels,strategy),...(clinicalRouteLabels[strategy.route]?[{label:'Vía',value:clinicalRouteLabels[strategy.route]}]:[])]})),
  ];
 }
+/** Recognize the saved text-diet format without changing its clinical wording. */
+function textDietCards(text:string):{title:string;fields:DocumentField[]}[] {
+ return text.split(/\n\s*\n/).filter(part=>part.trim()).map(part=>{
+  const lines=part.split(/\r?\n/);
+  const preparation=lines.findIndex(line=>/^\s*Preparaci[oó]n\s*:/i.test(line));
+  const meal=preparation>1&&lines.slice(1,preparation).some(line=>/^\s*[•*-]\s/.test(line));
+  const start=meal?1:0;
+  if(preparation<0)return {title:'Indicaciones del día',fields:[{value:part}]};
+  const before=lines.slice(start,preparation).join('\n');
+  const body=lines.slice(preparation).join('\n').replace(/^\s*Preparaci[oó]n\s*:\s*/i,'');
+  return {title:meal?lines[0]:'Indicaciones del día',fields:[...(before.trim()?[{value:before}]:[]),{label:'Preparación',value:body,inlineLabel:true,spaceBefore:3}]};
+ });
+}
 export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:string|null=null,design:PdfDesign='current'):Uint8Array {
- const pdf=new jsPDF({unit:'mm',format:'a4'}),layout=pdfLayout(pdf,model.professional,logo,design,{contacts:true,continuation:`${model.patientName} · Plan de alimentación · Versión ${model.plan.versionNumber}`});
+ const pdf=new jsPDF({unit:'mm',format:'a4'}),layout=pdfLayout(pdf,model.professional,logo,design,{contacts:true,continuation:`${model.patientName} · Plan de alimentación`});
  layout.section('Plan de alimentación','Documento nutricional personalizado');
  layout.card(design==='formal'?'Datos del paciente y del plan':model.patientName,[...(design==='formal'?[{label:'Paciente',value:model.patientName}]:[]),...planIdentityFields(model)],{tone:'blue',columns:2,eyebrow:'IDENTIFICACIÓN DEL PACIENTE Y DEL DOCUMENTO'});
  const clinical=planClinicalFields(model);
- if(clinical.length)layout.card('Objetivo y cuidados acordados',clinical,{tone:'violet',eyebrow:'GUÍA DE TU ATENCIÓN',flow:true});
- for(const card of planGuidanceCards(model))layout.card(card.title,card.fields,{tone:'mint',flow:true});
+ if(clinical.length)layout.card('Objetivo y cuidados acordados',clinical,{tone:'violet',eyebrow:'GUÍA DE TU ATENCIÓN',flow:true,justify:true});
+ for(const card of planGuidanceCards(model))layout.card(card.title,card.fields,{tone:'mint',flow:true,justify:true});
  const n=model.nutrition;
  if(n?.energy&&n.energy>0){
-  const macros=[['Carbohidratos',n.carbohydrate],['Proteínas',n.protein],['Grasas',n.fat]].filter(([,value])=>value!==undefined).map(([label,value])=>`${label}: ${macroAmount(value as number)} g`).join(' · ');
-  layout.card('Prescripción diaria',[{label:'Energía total',value:`${amount(n.energy)} kcal / día`},...(macros?[{label:'Macronutrientes totales · alimentos y suplementos',value:macros}]:[])],{columns:2});
+  layout.card('Prescripción diaria',[{label:'Energía total',value:`${amount(n.energy)} kcal / día`}]);
+  const macros=[['Carbohidratos',n.carbohydrate],['Proteínas',n.protein],['Grasas',n.fat]].filter(([,value])=>value!==undefined).map(([label,value])=>({label:label as string,value:`${macroAmount(value as number)} g`}));
+  if(macros.length)layout.card('Macronutrientes totales',macros,{eyebrow:'Alimentos y suplementos',columns:3,metrics:true,tone:'mint'});
  }
  for(const day of model.plan.days){
   layout.section(day.name);
   if(day.text!==undefined){
-   // Preserve the reviewed text exactly. Paragraphs make even free-text diets readable.
-   layout.card('Indicaciones del día',day.text.split(/\n\s*\n/).map(value=>({value})),{eyebrow:day.name,flow:true});
+   for(const card of textDietCards(day.text))layout.card(card.title,card.fields,{justify:true,spaceAfter:8});
    continue;
   }
   for(const meal of day.meals){
    const fields:DocumentField[]=[{label:'Ingredientes y porciones',value:meal.ingredients.map(i=>`${amount(i.amount)} ${i.unit} - ${i.name}`).join('\n')}];
-   if(meal.instructions.length)fields.push({label:'Preparación',value:meal.instructions.join('\n\n')});
+   if(meal.instructions.length)fields.push({label:'Preparación',value:meal.instructions.join('\n\n'),inlineLabel:true,spaceBefore:3});
    const alternatives=meal.ingredients.filter(i=>i.alternatives.length);
    if(alternatives.length)fields.push({label:'Puedes sustituir',value:'Elige una alternativa; no la agregues a la porción.\n'+alternatives.map(i=>`${i.name}: ${i.alternatives.map(a=>`${amount(a.amount)} ${a.unit} de ${a.name}`).join(' o ')}.`).join('\n')});
-   layout.card(meal.title,fields,{eyebrow:[day.name,meal.name,meal.time].filter(Boolean).join(' · ')});
+   layout.card(meal.title,fields,{eyebrow:[day.name,meal.name,meal.time].filter(Boolean).join(' · '),justify:true,spaceAfter:8});
   }
  }
  if(model.plan.supplements?.length){
@@ -156,13 +168,13 @@ export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:str
    const brand=[item.brand,item.presentation].filter(Boolean).join(' · ');
    if(brand)fields.push({label:'Producto',value:brand});
    if(item.instructions)fields.push({label:'Cómo tomarlo',value:item.instructions});
-   layout.card(item.name,fields,{tone:'mint',eyebrow:'SUPLEMENTO',flow:true});
+   layout.card(item.name,fields,{tone:'mint',eyebrow:'SUPLEMENTO',flow:true,justify:true});
   }
  }
  if(model.plan.shoppingList){
   const list=model.plan.shoppingList;
   layout.section('Tu carrito del súper',groceryPeriod(list));
-  layout.card('Antes de comprar',[{value:'Revisa lo que ya tienes en casa. Las cantidades corresponden a las porciones del plan y conservan el estado indicado, crudo o cocido; no son conversiones a peso de compra ni a tamaños de envase.'}],{tone:'mint'});
+  layout.card('Antes de comprar',[{value:'Revisa lo que ya tienes en casa. Las cantidades corresponden a las porciones del plan y conservan el estado indicado, crudo o cocido; no son conversiones a peso de compra ni a tamaños de envase.'}],{tone:'mint',justify:true});
   for(const group of groupGroceries(list.items))for(let i=0;i<group.items.length;i+=12)layout.card(group.label+(i>0?' · continuación':''),group.items.slice(i,i+12).map(item=>({label:item.name,value:`${amount(item.quantity)} ${item.unit}`})),{tone:'mint',columns:2});
  }
  layout.flushSection();pdfFooters(pdf,design);return new Uint8Array(pdf.output('arraybuffer'));
