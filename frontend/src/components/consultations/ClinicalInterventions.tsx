@@ -713,6 +713,14 @@ export function ClinicalInterventions(props: Props) {
                         .join(" · ") || "Por definir"}
                     </dd>
                   </div>
+                  <div>
+                    <dt>Acuerdo con la persona</dt>
+                    <dd>{s.agreement === "pending"
+                      ? "Pendiente de conversar"
+                      : s.agreement === "patient"
+                      ? "Acordado con el paciente"
+                      : "Acordado con cuidador o representante"}</dd>
+                  </div>
                 </dl>
               </details>
               {item?.approved && (

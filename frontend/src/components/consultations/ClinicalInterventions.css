@@ -214,3 +214,7 @@ html[data-nuthrick-theme='night'] :is(.clinical-strategy-card-actions, .clinical
     flex-wrap: wrap;
   }
 }
+.clinical-strategy-dialog .clinical-objective-dialog-footer,
+.clinical-strategy-dialog .clinical-objective-dialog-footer > div {
+  flex-wrap: wrap;
+}

@@ -136,47 +136,18 @@ export function isStrategyDocument(value: unknown): value is StrategyDocument {
       typeof note === "string" && note.length <= 400
     ) && withinDocumentByteLimit(d);
 }
+// Approval confirms a plan, not its execution or the patient's agreement.
+// Keep this minimum aligned with private.validate_intervention_document.
+export const strategyRequiredFields = ["title", "action"] as const;
 export function strategyIssues(s: Strategy): string[] {
-  const required: typeof strategyFields[number][] = [
-    "title",
-    "action",
-    "etiologyLink",
-    "method",
-    "frequency",
-    "duration",
-    "startDate",
-    "responsible",
-    "executor",
-    "adaptations",
-    "monitoring",
-    "reviewAt",
-    "adjustmentCriteria",
-  ];
-  if (["food", "supplementation"].includes(s.category)) {
-    required.push("composition", "dose");
-  }
-  if (["enteral", "parenteral"].includes(s.route)) {
-    required.push("access", "coordinationWith");
-  }
-  if (["education", "counseling"].includes(s.category)) {
-    required.push("educationTopic", "materials", "comprehensionCheck");
-  }
-  if (s.category === "coordination") {
-    required.push("coordinationWith", "coordinationReason");
-  }
   return [
-    ...required.filter((field) => !s[field].trim()).map((field) => field),
+    ...strategyRequiredFields.filter((field) => !s[field].trim()),
     ...(!s.goalIndexes.length ? ["goalIndexes"] : []),
-    ...(["food", "supplementation"].includes(s.category) &&
-        s.route === "not_applicable"
-      ? ["route"]
-      : []),
     ...(!["food", "supplementation"].includes(s.category) &&
         s.route !== "not_applicable"
       ? ["route"]
       : []),
-    ...(s.agreement === "pending" ? ["agreement"] : []),
-    ...(s.referenceUrl && !/^https:\/\/[^\s]+$/.test(s.referenceUrl)
+    ...(s.referenceUrl.trim() && !/^https:\/\/[^\s]+$/.test(s.referenceUrl)
       ? ["referenceUrl"]
       : []),
   ];
@@ -199,13 +170,25 @@ export function approvedStrategyFacts(
     const s = entry.document.strategy;
     return [{
       source: `Estrategia aprobada · ${index + 1}`,
-      finding: `${s.title}\n${
-        strategySummary(s)
-      }\nInicio previsto: ${s.startDate}\nVía: ${s.route}\nAcceso: ${s.access}\nComposición: ${
-        ["food", "supplementation"].includes(s.category) ? s.composition : ""
-      }\nCantidad: ${
-        ["food", "supplementation"].includes(s.category) ? s.dose : ""
-      }\nAdaptaciones: ${s.adaptations}`,
+      finding: [
+        s.title,
+        strategySummary(s),
+        s.startDate && `Inicio previsto: ${s.startDate}`,
+        s.route !== "not_applicable" && `Vía: ${s.route}`,
+        s.access && `Acceso: ${s.access}`,
+        ["food", "supplementation"].includes(s.category) && s.composition &&
+        `Composición: ${s.composition}`,
+        ["food", "supplementation"].includes(s.category) && s.dose &&
+        `Cantidad: ${s.dose}`,
+        s.adaptations && `Adaptaciones: ${s.adaptations}`,
+        `Acuerdo: ${
+          s.agreement === "pending"
+            ? "pendiente de conversar"
+            : s.agreement === "patient"
+            ? "acordado con el paciente"
+            : "acordado con cuidador o representante"
+        }`,
+      ].filter(Boolean).join("\n"),
     }];
   });
 }

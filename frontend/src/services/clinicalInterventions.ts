@@ -73,9 +73,7 @@ export async function clinicalInterventions(
       strategy_approvals_required:
         "Revisa y aprueba el PES y los objetivos SMART antes de aprobar una estrategia.",
       strategy_incomplete:
-        "Completa los campos de la estrategia y vincula al menos un objetivo.",
-      strategy_agreement_required:
-        "Registra el acuerdo con el paciente o cuidador.",
+        "Para aprobar, escribe el nombre y la acción concreta, y vincula al menos un objetivo. Los demás detalles son opcionales.",
       strategy_execution_required:
         "Completa la fecha y el responsable de ejecución, el destinatario o el motivo de cierre según la acción.",
       approved_strategy_retire_required:

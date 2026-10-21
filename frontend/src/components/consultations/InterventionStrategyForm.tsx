@@ -5,6 +5,7 @@ import {
   type StrategyDocument,
   strategyIssues,
   strategyReferences,
+  strategyRequiredFields,
 } from "../../../../supabase/functions/_shared/interventions";
 import type { InterventionWorkspace } from "@/src/services/clinicalInterventions";
 
@@ -57,7 +58,7 @@ export const strategySteps = [
     title: "Recursos",
     heading: "¿Qué necesitan para llevarla a cabo?",
     description:
-      "Completa los detalles de este tipo de intervención y las adaptaciones necesarias.",
+      "Añade los detalles que conozcas. Puedes dejar los demás pendientes.",
     keys: [
       "composition",
       "dose",
@@ -87,13 +88,21 @@ export const strategySteps = [
   {
     title: "Acuerdo",
     heading: "Revisa y acuerda la estrategia",
-    description: "Confirma que representa lo conversado antes de aprobarla.",
+    description: "Registra el acuerdo si ya lo conversaron. Puede quedar pendiente al aprobar.",
     keys: ["agreement", "referenceUrl"],
   },
 ] as const;
 export function strategyStepIssues(strategy: Strategy, step: number) {
   const keys: readonly string[] = strategySteps[step].keys;
   return strategyIssues(strategy).filter((key) => keys.includes(key));
+}
+export function strategyStepHasDetails(strategy: Strategy, step: number) {
+  return strategySteps[step].keys.some((key) => {
+    const value = strategy[key];
+    if (key === "agreement") return value !== "pending";
+    if (key === "route") return value !== "not_applicable";
+    return Array.isArray(value) ? value.length > 0 : value.trim().length > 0;
+  });
 }
 export function firstIncompleteStrategyStep(
   strategy: Strategy,
@@ -127,6 +136,7 @@ export function InterventionStrategyForm(
   function field(key: keyof typeof strategyLabels, short = false) {
     const value = s[key as keyof Strategy] as string;
     const label = strategyLabels[key];
+    const required = strategyRequiredFields.some((field) => field === key);
     return (
       <label
         key={key}
@@ -140,10 +150,12 @@ export function InterventionStrategyForm(
             <Check size={14} aria-hidden="true" />
           )}
         </span>
+        <small>{required ? "Obligatorio para aprobar" : "Opcional"}</small>
         {short
           ? (
             <input
               aria-label={label}
+              aria-required={required}
               className="nuth-input"
               maxLength={1500}
               value={value}
@@ -153,6 +165,7 @@ export function InterventionStrategyForm(
           : (
             <textarea
               aria-label={label}
+              aria-required={required}
               className="nuth-input"
               rows={2}
               maxLength={1500}
@@ -248,7 +261,7 @@ export function InterventionStrategyForm(
             </label>
           </div>
           <fieldset className="clinical-strategy-goals">
-            <legend>Objetivos que apoya</legend>
+            <legend>Objetivos que apoya · elige al menos uno para aprobar</legend>
             {goals.length
               ? goals.map((goal, index) => (
                 <label key={index}>
@@ -281,7 +294,7 @@ export function InterventionStrategyForm(
         <>
           {["food", "supplementation"].includes(s.category) && (
             <label className="clinical-goal-field">
-              <span>Vía de administración</span>
+              <span>Vía de administración · opcional</span>
               <select
                 className="nuth-input"
                 value={s.route}
@@ -316,7 +329,7 @@ export function InterventionStrategyForm(
       {step === 5 && (
         <>
           <label className="clinical-goal-field">
-            <span>Acuerdo con la persona</span>
+            <span>Acuerdo con la persona · opcional</span>
             <select
               className="nuth-input"
               aria-label="Acuerdo con la persona"

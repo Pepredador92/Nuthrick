@@ -6,11 +6,13 @@ import {
   type StrategyDocument,
   strategyFields,
   strategyIssues,
+  strategyRequiredFields,
 } from "../../../../supabase/functions/_shared/interventions";
 import {
   InterventionStrategyForm,
   strategyLabels,
   strategyStepIssues,
+  strategyStepHasDetails,
   strategySteps,
 } from "./InterventionStrategyForm";
 import { ClinicalStatusBadge } from "./ClinicalTaskCard";
@@ -56,11 +58,9 @@ export function InterventionStrategyDialog(
   const heading = useRef<HTMLHeadingElement>(null);
   const [step, setStep] = useState(initialStep);
   const issues = strategyIssues(document.strategy);
-  const complete =
-    strategySteps.filter((_, index) =>
-      !strategyStepIssues(document.strategy, index).length &&
-      (index !== 0 || linked)
-    ).length;
+  const complete = strategyRequiredFields.filter((field) =>
+    document.strategy[field].trim()
+  ).length + Number(linked && document.strategy.goalIndexes.length > 0);
   const saveLabel = busy ? "Guardando…" : clean ? "Listo" : "Guardar y cerrar";
   useEffect(() => {
     const element = dialog.current;
@@ -109,10 +109,12 @@ export function InterventionStrategyDialog(
           <div>
             <p className="nuth-eyebrow">Estrategia de intervención</p>
             <h2 ref={title} id={`${id}-title`} tabIndex={-1}>
-              De la idea a una acción acordada
+              Revisa y aprueba la estrategia
             </h2>
             <p id={`${id}-help`}>
-              Revisa por partes. Puedes guardar un borrador y continuar después.
+              Para aprobar, completa el nombre, la acción concreta y al menos un
+              objetivo vinculado. Los demás detalles son opcionales. Puedes
+              guardar un borrador en cualquier momento.
             </p>
           </div>
           <button
@@ -129,7 +131,10 @@ export function InterventionStrategyDialog(
           aria-label="Pasos de la estrategia"
         >
           {strategySteps.map((item, index) => {
-            const done = !strategyStepIssues(document.strategy, index).length &&
+            const optional = index >= 2;
+            const hasDetails = strategyStepHasDetails(document.strategy, index);
+            const done = (!optional || hasDetails) &&
+              !strategyStepIssues(document.strategy, index).length &&
               (index !== 0 || linked);
             return (
               <button
@@ -146,7 +151,7 @@ export function InterventionStrategyDialog(
                 </span>
                 <span>{item.title}</span>
                 <span className="sr-only">
-                  {done ? "Completo" : "Pendiente"}
+                  {done ? "Completo" : optional ? "Opcional" : "Pendiente"}
                 </span>
               </button>
             );
@@ -157,9 +162,10 @@ export function InterventionStrategyDialog(
             <span>Paso {step + 1} de {strategySteps.length}</span>
             <progress
               value={complete}
-              max={strategySteps.length}
-              aria-label="Avance de la estrategia"
+              max={3}
+              aria-label="Requisitos para aprobar la estrategia"
             />
+            <span>{complete} de 3 requisitos</span>
           </div>
           <section
             className="clinical-objective-step"
@@ -193,45 +199,45 @@ export function InterventionStrategyDialog(
                       ))}
                   </dl>
                 </details>
-                {issues.length > 0 || !linked
-                  ? (
-                    <div className="clinical-notice">
-                      <p>
-                        {issues.length
-                          ? `${issues.length} componentes pendientes para aprobar.`
-                          : "Revisa el vínculo con el PES y los objetivos vigentes."}
-                      </p>
-                      <button
-                        type="button"
-                        className="clinical-text-action mt-2"
-                        disabled={busy}
-                        onClick={showPending}
-                      >
-                        Ir al siguiente pendiente<ArrowRight size={15} />
-                      </button>
-                      <details className="clinical-approval-details">
-                        <summary>Ver pendientes</summary>
-                        <ul>
-                          {!linked && (
-                            <li>
-                              Vinculación con el PES y los objetivos actuales
-                            </li>
-                          )}
-                          {issues.map((key) => (
-                            <li key={key}>{strategyLabels[key] ?? key}</li>
-                          ))}
-                        </ul>
-                      </details>
-                    </div>
-                  )
-                  : (
-                    <p className="clinical-strategy-review-note">
-                      Al aprobar confirmas la estrategia y el acuerdo. El inicio
-                      de ejecución se registra después.
-                    </p>
-                  )}
               </>
             )}
+            {issues.length > 0 || !linked
+              ? (
+                <div className="clinical-notice">
+                  <p>
+                    {issues.length
+                      ? "Revisa estos requisitos para aprobar. Puedes guardar el borrador sin completarlos."
+                      : "Para aprobar, vincula la estrategia al PES y a los objetivos vigentes aprobados."}
+                  </p>
+                  <button
+                    type="button"
+                    className="clinical-text-action mt-2"
+                    disabled={busy}
+                    onClick={showPending}
+                  >
+                    Ir al siguiente pendiente<ArrowRight size={15} />
+                  </button>
+                  <details className="clinical-approval-details">
+                    <summary>Ver pendientes</summary>
+                    <ul>
+                      {!linked && (
+                        <li>
+                          Vinculación con el PES y los objetivos actuales
+                        </li>
+                      )}
+                      {issues.map((key) => (
+                        <li key={key}>{strategyLabels[key] ?? key}</li>
+                      ))}
+                    </ul>
+                  </details>
+                </div>
+              )
+              : (
+                <p className="clinical-strategy-review-note">
+                  Puedes aprobar con detalles pendientes. El acuerdo con la
+                  persona y el inicio de ejecución se registran por separado.
+                </p>
+              )}
           </section>
           {message && <p role="status" className="clinical-notice">{message}
           </p>}
@@ -260,14 +266,15 @@ export function InterventionStrategyDialog(
               ? (
                 <button
                   type="button"
-                  className="nuth-button"
+                  className="nuth-button-secondary"
                   disabled={busy}
                   onClick={() => goToStep(step + 1)}
                 >
                   Continuar<ArrowRight size={15} aria-hidden="true" />
                 </button>
               )
-              : alreadyApproved
+              : null}
+            {alreadyApproved
               ? (
                 <ClinicalStatusBadge status="approved">
                   Aprobada
