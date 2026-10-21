@@ -17,6 +17,7 @@ import {
 import { ConsultationObjectiveAI } from "./ConsultationObjectiveAI";
 import {useConsultationDraft,useConsultationDraftContext} from './ConsultationDrafts';
 import {changedAnswers} from '@/src/features/consultations/answerAutosave';
+import { hasUsablePesEtiology } from '../../../../supabase/functions/_shared/pes';
 import {
   composeObjective,
   emptyObjective,
@@ -42,6 +43,7 @@ type Props = {
   maxLength?: number;
   onStatusChange?: (status: ClinicalTaskStatus) => void;
   onCompleted?: () => void;
+  onReviewPes?: () => void;
 };
 const blankPlan = (): ObjectivePlan => ({
   version: 1,
@@ -448,17 +450,20 @@ export function ClinicalObjective(props: Props) {
         </button>
       </fieldset>
       {patientId && (
+        <>
+        {workspace?.pes && !hasUsablePesEtiology(workspace.pes.etiology) && <aside role="status" className="clinical-notice is-warning"><p>Completa la causa del PES para poder proponer objetivos vinculados. «NA» no aporta información clínica. No se solicitará IA ni se consumirán créditos mientras falte este dato.</p>{props.onReviewPes&&<button type="button" className="clinical-text-action" onClick={props.onReviewPes}>Completar etiología del PES<ArrowRight size={15}/></button>}</aside>}
         <ConsultationObjectiveAI draftKey={questionKey}
           key={workspace?.pes?.approved_at ?? "no-pes"}
           patientId={patientId}
           consultationId={consultationId}
           revision={revision}
           before={before}
-          disabled={busy || !workspace?.pes || plan.goals.length >= 3}
+          disabled={busy || !workspace?.pes || !hasUsablePesEtiology(workspace.pes.etiology) || plan.goals.length >= 3}
           onApply={(text) =>
             add({ ...emptyObjective(), outcome: text.slice(0, 400) })}
           onApplyGoal={(goal) => add(goal)}
         />
+        </>
       )}
       {activeGoal !== null && plan.goals[activeGoal] && (
         <ObjectiveGoalEditor

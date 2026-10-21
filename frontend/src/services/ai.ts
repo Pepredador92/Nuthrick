@@ -10,6 +10,12 @@ export const aiMessages: Record<string,string> = {
   context_unavailable: 'La consulta cambió o ya no está disponible para esta solicitud. Guarda los cambios y actualiza la página. Puedes continuar manualmente.',
   instruction_agreements_required: 'Esta consulta no tiene objetivos o acciones registrados para redactar indicaciones. Puedes escribirlas manualmente.',
   pes_approval_required: 'Revisa y aprueba el PES antes de pedir objetivos vinculados al diagnóstico.',
+  pes_etiology_required: 'El PES no tiene una etiología con información clínica: «NA» o «No aplica» no son suficientes. Confirma la causa, completa y aprueba el PES antes de generar objetivos. No se consumieron créditos en esta solicitud.',
+  pes_signs_required: 'Completa los signos y síntomas del PES antes de generar objetivos. No se consumieron créditos en esta solicitud.',
+  objective_output_empty_refunded: 'La IA no encontró base suficiente para proponer objetivos. Los créditos de este intento se reintegraron. Revisa la causa y los signos del PES, completa los acuerdos o redacta los objetivos manualmente.',
+  objective_output_invalid_refunded: 'No pudimos entregar objetivos válidos. Los créditos de este intento se reintegraron y tu consulta se conserva. Puedes continuar manualmente o reintentar.',
+  objective_output_refunded: 'Esta solicitud no entregó objetivos utilizables. Los créditos se reintegraron. Revisa el PES antes de volver a generar.',
+  objective_output_refund_pending: 'No pudimos entregar objetivos. El reintegro de créditos está pendiente de comprobación. No repitas la solicitud; puedes continuar manualmente y contactar a soporte.',
   strategy_planning_required: 'Para proponer estrategias necesitas un PES aprobado y al menos un objetivo guardado, que puede estar en borrador. También puedes escribir estrategias manuales o continuar sin ellas.',
   strategy_approvals_required: 'Revisa y aprueba el PES y los objetivos SMART antes de proponer estrategias.',
   strategy_approval_required: 'Revisa y aprueba una estrategia vigente antes de generar indicaciones.',
@@ -42,7 +48,7 @@ export async function getAIGenerationStatus(idempotencyKey: string) {
   return data as { generationId: string; status: string; chargedCredits: number; errorCode: string | null } | null;
 }
 // Reuse the same key when checking/retrying a logical request. Never supply owner/model/prompt/prices.
-export async function runAIRequest(request: { objectiveTextStyle?: 'patient_v1'; strategyFeedback?: string; textGuidance?:TextDietGuidance; guidance?: DietGuidance; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean }> {
+export async function runAIRequest(request: { objectiveTextStyle?: 'patient_v1'; strategyFeedback?: string; textGuidance?:TextDietGuidance; guidance?: DietGuidance; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean; draftSaved?:boolean }> {
   try {
     const consent = await supabase.rpc('my_ai_processing_consent');
     if (consent.error || !consent.data) throw new AIRequestError('ai_consent_unavailable');

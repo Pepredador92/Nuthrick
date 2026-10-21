@@ -7,6 +7,7 @@ import { pesSynthesisEvidenceValid } from './pes-synthesis.ts';
 import { normalizeReferencedPes, referencedPesContext } from './pes-references.ts';
 import { normalizeConcisePes } from './pes-concise.ts';
 import { normalizeObjectiveProposals, normalizedObjectiveProposalsSchema } from './objective-proposals.ts';
+import { hasUsablePesEtiology } from '../_shared/pes.ts';
 import { clinicalAdapter, clinicalEvidenceValid, conservativeRecallQuantities, normalizePesOutput, normalizeSmartObjectivesOutput, pesClinicalStructureValid, pesSchema, smartObjectiveValidationIssues } from './clinical.ts';
 import { dietDraftAdapter, dietDraftAdapterV1, dietDraftAdapterV3 } from './diet-contract.ts';
 
@@ -172,6 +173,7 @@ export interface AIStore {
   validateOutput?(output: unknown): boolean;
   recordResult?(id: string, result: ProviderResult, valid: boolean): Promise<void>;
   refundInvalidPes?(id: string): Promise<number>;
+  refundInvalidObjectives?(id: string): Promise<number>;
 }
 export type AIRequest = { objectiveTextStyle?: 'patient_v1'; textGuidance?: TextDietGuidance; guidance?: DietGuidance; strategyFeedback?: string; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -208,16 +210,23 @@ export function parseRequest(value: unknown): AIRequest {
 }
 export async function runAIRequest(request: AIRequest, store: AIStore, provider: AIProvider) {
   const config = await store.config(request.feature);
-  const referencedPes = request.feature === 'pes_diagnosis' && ['pes_diagnosis@8','pes_diagnosis@9'].includes(config.prompt_version);
-  const proposedObjectives = request.feature === 'consultation_support' && config.prompt_version === 'consultation_support@5';
+  const referencedPes = request.feature === 'pes_diagnosis' && ['pes_diagnosis@8','pes_diagnosis@9','pes_diagnosis@10'].includes(config.prompt_version);
+  const proposedObjectives = request.feature === 'consultation_support' && ['consultation_support@5','consultation_support@6'].includes(config.prompt_version);
   if (referencedPes && !store.refundInvalidPes) throw new AIError('configuration_required');
+  if (proposedObjectives && config.prompt_version==='consultation_support@6' && !store.refundInvalidObjectives) throw new AIError('configuration_required');
   if (!config.enabled || config.provider !== 'openai') throw new AIError('feature_disabled');
   const adapter = featureAdapter(request.feature, config.prompt_version,!!request.textGuidance);
   const clinical = ['pes_diagnosis','recall_24h','consultation_support','patient_instructions','intervention_strategy','diet_draft'].includes(request.feature);
   if (clinical && (!store.context || !store.bindContext)) throw new AIError('context_unavailable');
   const hydrated = clinical ? await store.context!(request) : null;
   if (hydrated) adapter.context = hydrated.context;
-  if (proposedObjectives) adapter.context = { ...(adapter.context as object), objectiveFormat: 'smart@2' };
+  if (proposedObjectives) {
+    const pes = (adapter.context as {approvedPes?:{etiology?:unknown;signsSymptoms?:string}|null}).approvedPes;
+    if (!pes) throw new AIError('pes_approval_required');
+    if (!hasUsablePesEtiology(pes.etiology)) throw new AIError('pes_etiology_required');
+    if (!pes.signsSymptoms?.trim()) throw new AIError('pes_signs_required');
+    adapter.context = { ...(adapter.context as object), objectiveFormat: 'smart@2' };
+  }
   if (referencedPes) adapter.context = referencedPesContext(adapter.context);
   const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : []), ...(request.feature==='intervention_strategy'?[request.strategyFeedback??null]:[]), ...(request.objectiveTextStyle ? [request.objectiveTextStyle] : [])]);
   const fingerprint = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical))), b => b.toString(16).padStart(2,'0')).join('');
@@ -249,30 +258,41 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   const structuredPes = request.feature === 'pes_diagnosis' && ['pes_diagnosis@5', 'pes_diagnosis@6', 'pes_diagnosis@7'].includes(config.prompt_version);
   if (referencedPes) {
     result = { ...result, output: result.status === 'completed' && validOutput(adapter.schema,result.output)
-      ? (config.prompt_version === 'pes_diagnosis@9' ? normalizeConcisePes : normalizeReferencedPes)(result.output,adapter.context) : null };
+      ? (['pes_diagnosis@9','pes_diagnosis@10'].includes(config.prompt_version) ? normalizeConcisePes : normalizeReferencedPes)(result.output,adapter.context) : null };
   }
   const outputSchema = referencedPes ? pesSchema : proposedObjectives ? normalizedObjectiveProposalsSchema : adapter.schema;
   if (structuredPes) result = { ...result, output: normalizePesOutput(result.output) };
   let valid = false;
+  const emptyObjectives = proposedObjectives && result.status==='completed' && validOutput(adapter.schema,result.output) && (result.output as {objectives:unknown[]}).objectives.length===0;
   try {
     const smartObjectives = request.feature === 'consultation_support' && config.prompt_version === 'consultation_support@4';
     if (proposedObjectives) result = { ...result, output: result.status === 'completed' && validOutput(adapter.schema,result.output) ? normalizeObjectiveProposals(result.output,adapter.context) : null };
     if (smartObjectives && result.status === 'completed' && validOutput(adapter.schema,result.output)) result = { ...result, output: normalizeSmartObjectivesOutput(result.output,adapter.context) };
     if (request.feature === 'intervention_strategy' && validOutput(adapter.schema,result.output)) result = { ...result, output: normalizeInterventionOutput(result.output,adapter.context as InterventionContext) };
-    valid = result.status === 'completed' && validOutput(outputSchema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (request.feature !== 'intervention_strategy' || interventionEvidenceValid(result.output,adapter.context as InterventionContext,generation.id)) && (!structuredPes || pesClinicalStructureValid(result.output)) && (request.feature !== 'pes_diagnosis' || config.prompt_version !== 'pes_diagnosis@7' || pesSynthesisEvidenceValid(result.output)) && (!store.validateOutput || store.validateOutput(result.output));
+    valid = !emptyObjectives && result.status === 'completed' && validOutput(outputSchema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (request.feature !== 'intervention_strategy' || interventionEvidenceValid(result.output,adapter.context as InterventionContext,generation.id)) && (!structuredPes || pesClinicalStructureValid(result.output)) && (request.feature !== 'pes_diagnosis' || config.prompt_version !== 'pes_diagnosis@7' || pesSynthesisEvidenceValid(result.output)) && (!store.validateOutput || store.validateOutput(result.output));
     if (!valid && request.feature === 'pes_diagnosis') console.warn(JSON.stringify({event:'pes_output_rejected',generationId:generation.id,promptVersion:config.prompt_version,codes:result.status!=='completed'?['provider_incomplete']:!validOutput(outputSchema,result.output)?['schema_or_references']:['evidence_or_structure']}));
     if (!valid && smartObjectives) console.warn(JSON.stringify({event:'objective_output_rejected',generationId:generation.id,codes:result.status!=='completed'?['provider_incomplete']:!validOutput(adapter.schema,result.output)?['schema']:smartObjectiveValidationIssues(result.output,adapter.context)}));
-    if (!valid && proposedObjectives) console.warn(JSON.stringify({event:'objective_output_rejected',generationId:generation.id,promptVersion:config.prompt_version,codes:result.status!=='completed'?['provider_incomplete']:!validOutput(outputSchema,result.output)?['schema_or_references']:['evidence_or_proposal']}));
+    if (!valid && proposedObjectives) console.warn(JSON.stringify({event:'objective_output_rejected',generationId:generation.id,promptVersion:config.prompt_version,codes:emptyObjectives?['empty_output']:result.status!=='completed'?['provider_incomplete']:!validOutput(outputSchema,result.output)?['schema_or_references']:['evidence_or_proposal']}));
     if (!valid && request.feature === 'intervention_strategy') console.warn(JSON.stringify({event:'strategy_output_rejected',generationId:generation.id,codes:result.status!=='completed'?['provider_incomplete']:!validOutput(adapter.schema,result.output)?['schema']:interventionValidationIssues(result.output,adapter.context as InterventionContext,generation.id)}));
     await store.recordResult?.(generation.id,result,valid);
   } catch {
     // Confirmed provider usage remains billable even if domain validation or
     // snapshot persistence fails afterwards. Never settle these as zero usage.
     await store.settle(generation.id,'failed',result.usage,result.responseId);
+    if (proposedObjectives && store.refundInvalidObjectives) {
+      try { await store.refundInvalidObjectives(generation.id); }
+      catch { throw new AIError('objective_output_refund_pending'); }
+      throw new AIError('objective_output_invalid_refunded');
+    }
     throw new AIError('result_unavailable');
   }
   await store.settle(generation.id, valid ? 'succeeded' : 'invalid_output',result.usage,result.responseId);
   if (!valid) {
+    if (proposedObjectives && store.refundInvalidObjectives) {
+      try { await store.refundInvalidObjectives(generation.id); }
+      catch { throw new AIError('objective_output_refund_pending'); }
+      throw new AIError(emptyObjectives?'objective_output_empty_refunded':'objective_output_invalid_refunded');
+    }
     if (referencedPes) {
       try { await store.refundInvalidPes!(generation.id); }
       catch { throw new AIError('invalid_output_refund_pending'); }

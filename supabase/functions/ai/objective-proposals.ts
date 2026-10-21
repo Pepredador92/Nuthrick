@@ -98,3 +98,8 @@ Escribe outcome, target, timeframe y monitoring con palabras cotidianas, trato d
 
 indicator describe claramente qué observarán. feasibility usa únicamente barreras, preferencias y apoyos documentados; si no constan, deja ese campo vacío para conversar. El resumen compartido al paciente no incluye la etiología ni el texto clínico de la situación inicial; esos datos siguen en el editor profesional. Conserva las cifras históricas y los hechos fechados como antecedentes. No apruebes, guardes ni publiques los objetivos. Si falta PES aprobado o no hay base para un objetivo pertinente, devuelve objectives vacío.
 `;
+
+export const objectiveFollowupInstructions = `
+OBJETIVOS EN SEGUIMIENTO
+El servidor ya comprobó que existe un PES aprobado con etiología y signos. Basa las propuestas en esa causa y en los hallazgos actuales, contrastando los antecedentes cuando aporten información. Si no se conoce la frecuencia inicial de una conducta, puedes proponer observarla y registrarla para establecer el punto de partida, con un criterio de registro y plazo propuestos. No confundas la ausencia de una meta numérica previa con falta de base para cualquier objetivo. No exijas un recordatorio completo para objetivos que se sostienen con otros hechos. Evita repetir objetivos ya logrados o atribuir al paciente conductas no documentadas. Si realmente no hay una propuesta sustentable, devuelve la lista vacía; nunca inventes una para llenar el esquema.
+`;

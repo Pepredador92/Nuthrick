@@ -1,6 +1,6 @@
 import { normalizeFoodName } from "@/src/services/foodCatalog";
 import type { FoodItem, FoodSnapshot } from "@/src/types/domain";
-import { composePesStatement, pesStatementMatches, pesReviewNotes } from '../../../../supabase/functions/_shared/pes';
+import { composePesStatement, pesStatementMatches, pesReviewNotes, hasUsablePesEtiology } from '../../../../supabase/functions/_shared/pes';
 export { composePesStatement, pesStatementMatches, pesReviewNotes, unsupportedPesNumbers } from '../../../../supabase/functions/_shared/pes';
 export type { ClinicalMeasurementFact } from '../../../../supabase/functions/_shared/pes';
 
@@ -32,7 +32,7 @@ export function canApprovePes(draft: PesDraft) {
   return (
     draft.problem.trim().length > 0 &&
     draft.problem.length <= 500 &&
-    draft.etiology.trim().length > 0 &&
+    hasUsablePesEtiology(draft.etiology) &&
     draft.etiology.length <= 1500 &&
     draft.pesStatement.trim().length > 0 &&
     draft.pesStatement.length <= 2000 &&

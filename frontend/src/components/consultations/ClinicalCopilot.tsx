@@ -61,6 +61,7 @@ import {
 } from "./RecallEstimateReview";
 import type { FoodItem } from "@/src/types/domain";
 import {useConsultationDraft,useConsultationDraftContext,useDurableAIProposal} from './ConsultationDrafts';
+import { hasUsablePesEtiology } from '../../../../supabase/functions/_shared/pes';
 
 type Props = {
   patientId: string;
@@ -140,6 +141,7 @@ function useClinical(props: Props, feature: "pes_diagnosis" | "recall_24h") {
       setPendingRequest(null);checkpoints?.set(`handled:${feature}`,result.generationId);
       setGeneration(result.generationId);
       setState("ready");
+      if(result.draftSaved===false)setMessage('La propuesta está disponible en esta pestaña. Guarda el avance antes de salir; no necesitas generarla otra vez.');
       return result.output;
     } catch (e) {
       const uncertain = e instanceof AIRequestError &&
@@ -329,7 +331,7 @@ export function PesCopilot(props: Props) {
       savedDraft.pesStatement.trim());
   const status: ClinicalTaskStatus = draft
     ? "progress"
-    : hasSavedParts && clinical.workspace?.records.pes
+    : hasSavedParts && clinical.workspace?.records.pes && hasUsablePesEtiology(savedDraft.etiology)
     ? "approved"
     : hasSavedParts
     ? "progress"
@@ -398,6 +400,7 @@ export function PesCopilot(props: Props) {
       </div>
       {!draft && (
         <>
+          {hasSavedParts && !hasUsablePesEtiology(savedDraft.etiology) && <div role="status" className="clinical-notice is-warning"><p>La etiología sigue pendiente. «NA» o «No aplica» no explican la causa. Abre «Revisar PES escrito» para completarla con información confirmada antes de pedir objetivos con IA.</p>{savedDraft.missingContext.length>0&&<ul>{savedDraft.missingContext.map((question,index)=><li key={index}>{question}</li>)}</ul>}</div>}
           <PesDiagnosisCards draft={savedDraft} />
           {savedDraft.pesStatement.trim() && (
             <div className="clinical-pes-statement">
@@ -466,12 +469,13 @@ export function PesCopilot(props: Props) {
               faltantes antes de completar o aprobar el diagnóstico.
             </p>
           )}
-          {!draft.etiology.trim() && (
+          {!hasUsablePesEtiology(draft.etiology) && (
             <div role="status" className="clinical-notice is-warning">
               <p>
-                Falta completar la etiología con sustento clínico antes de
-                aprobar el PES. Confirma con el paciente los factores que siguen
-                vigentes.
+                Los datos disponibles sustentan un borrador parcial, pero falta
+                identificar la causa. Las mediciones pueden respaldar el problema
+                sin explicar su origen. Confirma las preguntas siguientes y completa
+                Etiología con tu valoración; «NA» no sustituye esa información.
               </p>
               {draft.missingContext.length > 0 && (
                 <ul>

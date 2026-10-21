@@ -161,7 +161,7 @@ Deno.serve(async request => {
       },
       config: async feature => {
         const c=await rpc<FeatureConfig>('config',{feature});
-        smartObjectives = feature === 'consultation_support' && ['consultation_support@4','consultation_support@5'].includes(c.prompt_version);
+        smartObjectives = feature === 'consultation_support' && ['consultation_support@4','consultation_support@5','consultation_support@6'].includes(c.prompt_version);
         if(feature==='diet_draft' && (c.execution_mode==='simulated')!==simulated)throw new AIError('feature_disabled');
         return c;
       },
@@ -176,6 +176,14 @@ Deno.serve(async request => {
         }
         console.warn(JSON.stringify({event:'pes_validation_refund_pending',generationId:id}));
         throw new AIError('invalid_output_refund_pending');
+      },
+      refundInvalidObjectives: async id => {
+        for (let attempt=0; attempt<2; attempt++) {
+          const {data,error}=await db.rpc('ai_refund_objective_output',{p_owner:owner,p_generation:id});
+          if (!error && data!==null && data!==undefined && Number.isFinite(Number(data)) && Number(data)>=0) return Number(data);
+        }
+        console.warn(JSON.stringify({event:'objective_output_refund_pending',generationId:id}));
+        throw new AIError('objective_output_refund_pending');
       },
       validateOutput: output => {
         if(textSnapshot){textDraft=validateTextDietOutput(output,textSnapshot);return !!textDraft;}
@@ -200,7 +208,10 @@ Deno.serve(async request => {
           const outcome=await db.rpc('ai_store_consultation_proposal',{p_owner:owner,p_generation:result.generationId,p_result:result});
           if(!outcome.error){saved=true;break;}
         }
-        if(!saved)throw new AIError('service_unavailable');
+        // Deliver a valid proposal even if the recovery checkpoint is down.
+        // Hiding it would charge for a response the professional never sees.
+        // The browser retains its local draft and can retry the ordinary save.
+        if(!saved)return respond({...result,draftSaved:false});
       }
       return respond(result);
     }

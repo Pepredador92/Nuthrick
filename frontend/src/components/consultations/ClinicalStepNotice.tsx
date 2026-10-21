@@ -1,4 +1,5 @@
 import { ArrowRight, CheckCircle2, X } from "lucide-react";
+import { useEffect, useRef } from 'react';
 import "./ClinicalStepNotice.css";
 export type ClinicalCompletion = {
   id: number;
@@ -12,6 +13,13 @@ export function ClinicalStepNotice(
     onContinue: (stage: number) => void;
   },
 ) {
+  const close = useRef(onClose);
+  useEffect(() => { close.current = onClose; }, [onClose]);
+  useEffect(() => {
+    if (!completion) return;
+    const timer = window.setTimeout(() => close.current(), 3000);
+    return () => window.clearTimeout(timer);
+  }, [completion]);
   if (!completion) return null;
   return (
     <aside className="clinical-step-notice" aria-label="Avance de la consulta">

@@ -153,7 +153,7 @@ export function ClinicalSuggestionsAI({
   const [suggestions, setSuggestions] = useConsultationDraft<Suggestion[]>(slot,[]);
   const [applied, setApplied] = useConsultationDraft<number[]>(`${slot}:applied`,[]);
 
-  useDurableAIProposal(feature,(output)=>{setSuggestions(parseSuggestions(output,kind));setApplied([]);setPendingRequest(null);sessionStorage.removeItem(storageKey);setState('ready');setMessage('Propuestas recuperadas para revisión.');},slot);
+  useDurableAIProposal(feature,(output)=>{const next=parseSuggestions(output,kind);setSuggestions(next);setApplied([]);setPendingRequest(null);sessionStorage.removeItem(storageKey);setState(next.length?'ready':'error');setMessage(next.length?'Propuestas recuperadas para revisión.':'Esta solicitud no contiene propuestas utilizables. Revisa los datos antes de generar otra.');},slot);
 
   async function generate() {
     if (disabled || state === "generating") return;
@@ -197,6 +197,7 @@ export function ClinicalSuggestionsAI({
       sessionStorage.removeItem(storageKey);setPendingRequest(null);checkpoints?.set(`handled:${feature}`,result.generationId);
       setSuggestions(next);
       setState("ready");
+      if(next.length && result.draftSaved===false)setMessage('La propuesta está disponible en esta pestaña. Guarda el avance antes de salir; no necesitas generarla otra vez.');
       if (!next.length) {
         setMessage(
           `No hay acuerdos suficientes para proponer ${label}. Puedes completar lo conversado con el paciente o redactar manualmente.`,
@@ -233,7 +234,9 @@ export function ClinicalSuggestionsAI({
         sessionStorage.removeItem(storageKey);setPendingRequest(null);
         setState("idle");
         setMessage(
-          result?.status === "succeeded"
+          result?.errorCode==='objective_output_refunded'
+            ? new AIRequestError('objective_output_refunded').message
+            : result?.status === "succeeded"
             ? "La solicitud terminó y no se recuperó la propuesta. Generar otra puede consumir créditos de nuevo."
             : "Solicitud resuelta. Puedes seguir manualmente o generar una propuesta nueva.",
         );

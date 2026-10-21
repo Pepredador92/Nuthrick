@@ -52,7 +52,9 @@ export async function clinicalObjective(
   });
   if (error)
     throw new Error(
-        error.message === 'invalid_request'
+        error.message === 'pes_etiology_required'
+        ? 'Completa y aprueba una etiología con sustento clínico en el PES. «NA» no sustituye la causa; tus objetivos guardados se conservan.'
+        : error.message === 'invalid_request'
         ? 'No pudimos aprobar el formato de estos objetivos. Tus cambios se conservan; vuelve a guardar los objetivos e intenta aprobarlos.'
         : error.message === 'context_unavailable'
         ? 'Esta consulta cambió de revisión o ya está cerrada. Actualiza la consulta para continuar con la versión vigente.'
@@ -112,7 +114,9 @@ export async function clinicalWorkspace(
   });
   if (error)
     throw new Error(
-      error.message === 'pes_statement_mismatch'
+      error.message === 'pes_etiology_required'
+        ? 'Completa la etiología con información clínica. «NA», «No aplica» o «Pendiente» no permiten aprobar el PES; puedes conservar el borrador y continuar la consulta.'
+        : error.message === 'pes_statement_mismatch'
         ? 'El enunciado no coincide con P, E y S. Actualiza el enunciado antes de aprobar.'
         : error.message === 'pes_evidence_review_required'
           ? 'Confirma la revisión de P, E y S y de sus fuentes antes de aprobar.'

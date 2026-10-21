@@ -1,4 +1,4 @@
-import { pesPriorityPrefix, pesPriorityPendingPrefix, unsupportedPesNumbers } from '../_shared/pes.ts';
+import { hasUsablePesEtiology, pesPriorityPrefix, pesPriorityPendingPrefix, unsupportedPesNumbers } from '../_shared/pes.ts';
 import { normalizeReferencedPes } from './pes-references.ts';
 
 const topics = {
@@ -36,7 +36,7 @@ const fragment = (value:string) => value.trim().replace(/^(Posibles?|Barreras?|L
 export function normalizeConcisePes(output:unknown, context:unknown) {
   const raw=output as ConcisePes;
   if ([raw.problem,raw.etiology,...raw.signsSymptoms].some(value=>value.trim()) && !raw.evidenceFactIds.length) return null;
-  const parts={...raw,etiology:fragment(raw.etiology),signsSymptoms:raw.signsSymptoms.map(fragment)};
+  const parts={...raw,etiology:hasUsablePesEtiology(raw.etiology)?fragment(raw.etiology):'',signsSymptoms:raw.signsSymptoms.map(fragment)};
   const draft=normalizeReferencedPes({...parts,pesStatement:'',uncertainties:[]},context);
   if (!draft) return null;
   const facts=(context as {facts:Fact[]}).facts;
@@ -94,4 +94,11 @@ priority contiene una justificación clínica breve, de una o dos frases, con ev
 Cita los facts por id: evidenceFactIds para P/E/S y referencias propias para priority y cada nota. El servidor incorpora source y finding literalmente. uncertainties recoge solo otros hallazgos relevantes o incertidumbres concretas, una nota breve por tema; topic debe corresponder a su contenido. Evita repetir S y advertencias genéricas. Separa medicación, sueño o mediciones en notas distintas si harían falta más de tres fuentes. Conserva los valores, unidades y fechas que importen para interpretarlos, sin rellenar todo el expediente. Todas las cifras y datos de cada nota deben estar sustentados por sus propias referencias. missingContext conserva hasta tres preguntas que puedan cambiar el diagnóstico, su causa o su seguimiento; no solicites estudios por rutina.
 
 No dejes una medición pertinente únicamente en las referencias si debe integrar S. Si una medición importante no respalda el problema elegido, recógela como otro hallazgo para revisión en su propio dominio. Evita llenar las notas con datos normales o avisos repetidos sobre causalidad. No afirmes que consideraste un dato ausente. No propongas objetivos, tratamiento ni indicaciones. Devuelve solo el JSON del esquema. La aprobación sigue correspondiendo al profesional.
+`;
+
+export const followupEtiologyInstructions = `
+ETIOLOGÍA EN SEGUIMIENTO
+No confundas la falta de un recordatorio confirmado o de cantidades de alimentos con la ausencia de toda información etiológica. Revisa los factores específicos de la entrevista actual y los antecedentes fechados pertinentes, junto con las mediciones y estudios. Una barrera concreta o un patrón de ingesta documentado puede permitir una hipótesis por confirmar, aunque no haya una medición exacta de ingesta. Un PES previo no confirma por sí mismo esa hipótesis ni su vigencia.
+Solo formula esa hipótesis si hay un factor específico registrado y una relación plausible con el problema elegido; usa lenguaje de incertidumbre y cita su fuente. «Adherencia parcial», una respuesta «Otra» sin detalle, «sin cambios», el deseo de perder peso o una cifra antropométrica aislada no identifican una causa. No rellenes E con NA, N/A, no aplica, pendiente o sin información.
+Si no puedes sustentar E, conserva el problema y los signos demostrados. Deja E vacío y dedica primero missingContext a una o dos preguntas concretas sobre la causa que falta (por ejemplo, cuál es la barrera marcada como «Otra»). Explica brevemente en uncertainties qué información falta para relacionar un factor con ese problema. No presentes la falta de etiología como si las mediciones hubieran sido ignoradas. No conviertas una pregunta o un posible tratamiento en una causa confirmada.
 `;

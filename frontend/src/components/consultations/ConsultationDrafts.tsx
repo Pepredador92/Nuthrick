@@ -53,7 +53,15 @@ export function ConsultationDrafts({consultationId,revision,controllerRef,onSave
   const set=useCallback((name:string,value:unknown)=>{
     const normalized=value===undefined?null:value;
     if(!Object.keys(changedAnswers({[name]:current.current[name]},{[name]:normalized})).length)return;
-    const next={...current.current,[name]:normalized};current.current=next;writer.update(next);setValues(next);backup();
+    const next={...current.current,[name]:normalized};
+    // A fresh response must not make an older server proposal look unhandled.
+    // Remember both the response just received and the proposal already shown.
+    if(name.startsWith('handled:')&&typeof normalized==='string'&&normalized){
+      const feature=name.slice('handled:'.length),historyKey=`handled-history:${feature}`;
+      const previous=current.current[historyKey],proposal=current.current[`proposal:${feature}`] as {generationId?:unknown}|undefined;
+      next[historyKey]=[...new Set([...(Array.isArray(previous)?previous.filter((id):id is string=>typeof id==='string'):[]),current.current[name],proposal?.generationId,normalized].filter((id):id is string=>typeof id==='string'&&!!id))].slice(-100);
+    }
+    current.current=next;writer.update(next);setValues(next);backup();
   },[writer,backup]);
   if(!ready)return <section className="nuth-card p-5" role="status">{loadError||'Recuperando el avance de la consulta…'}</section>;
   return <Context value={{values,set,flush,refresh,save:onSave}}>
@@ -83,10 +91,12 @@ export function useDurableAIProposal(feature:string,onRestore:(output:Record<str
   const callback=useRef(onRestore);useLayoutEffect(()=>{callback.current=onRestore;},[onRestore]);
   const proposal=context?.values[`proposal:${feature}`] as {generationId?:string;output?:Record<string,unknown>}|undefined;
   const target=context?.values[`destination:${feature}`];
+  const savedHistory=context?.values[`handled-history:${feature}`];
+  const history=Array.isArray(savedHistory)?savedHistory:undefined;
   useEffect(()=>{
-    if(!proposal?.generationId||!proposal.output||handled===proposal.generationId||(destination&&target&&target!==destination))return;
+    if(!proposal?.generationId||!proposal.output||handled===proposal.generationId||history?.includes(proposal.generationId)||(destination&&target&&target!==destination))return;
     callback.current(proposal.output,proposal.generationId);setHandled(proposal.generationId);
-  },[proposal,handled,destination,target,setHandled]);
+  },[proposal,handled,history,destination,target,setHandled]);
   return (generationId:string)=>setHandled(generationId);
 }
 

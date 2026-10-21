@@ -1,5 +1,6 @@
 import { ClinicalStatusBadge } from "./ClinicalTaskCard";
 import type { PesDraft } from "@/src/features/consultations/clinicalCopilot";
+import { hasUsablePesEtiology } from '../../../../supabase/functions/_shared/pes';
 
 export function PesDiagnosisCards({ draft, editable = false, onChange }: {
   draft: PesDraft;
@@ -35,7 +36,7 @@ export function PesDiagnosisCards({ draft, editable = false, onChange }: {
   return (
     <div className="clinical-pes-parts">
       {parts.map((part) => {
-        const complete = !!part.value.trim() && part.value.length <= part.limit;
+        const complete = (part.key==='etiology'?hasUsablePesEtiology(part.value):!!part.value.trim()) && part.value.length <= part.limit;
         return (
           <section
             key={part.key}
@@ -59,7 +60,7 @@ export function PesDiagnosisCards({ draft, editable = false, onChange }: {
                   rows={5}
                   maxLength={part.limit}
                   readOnly={!editable}
-                  aria-invalid={part.key === "etiology" && !part.value.trim()
+                  aria-invalid={part.key === "etiology" && !hasUsablePesEtiology(part.value)
                     ? true
                     : undefined}
                   value={part.value}
