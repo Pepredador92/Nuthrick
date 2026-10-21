@@ -1,0 +1,178 @@
+@import "./ClinicalWorkspace.css";
+
+.clinical-next-workspace {
+  display: grid;
+  gap: 18px;
+}
+.clinical-next-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.clinical-next-toolbar > span {
+  color: var(--nuth-muted);
+  font-size: 13px;
+}
+.clinical-next-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(min(100%,280px),1fr));
+  gap: 14px;
+}
+.clinical-next-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--nuth-line);
+  border-radius: 18px;
+  background: var(--nuth-surface);
+}
+.clinical-next-card[data-status='complete'] {
+  border-color: color-mix(in srgb,var(--clinical-complete)
+    45%,var(--nuth-line));
+  background: var(--clinical-complete-soft);
+}
+.clinical-next-card header {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: var(--nuth-ink);
+}
+.clinical-next-card header > svg {
+  flex: none;
+  margin-top: 3px;
+}
+.clinical-next-card h3 {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.clinical-next-card > .clinical-text-action {
+  margin-top: auto;
+  min-height: 44px;
+}
+.clinical-next-excerpt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--nuth-muted);
+}
+.clinical-next-facts {
+  display: grid;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.clinical-next-facts dt {
+  color: var(--nuth-muted);
+  font-size: 11px;
+}
+.clinical-next-facts dd {
+  color: var(--nuth-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.clinical-next-dialog .clinical-objective-dialog-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 24px 24px;
+  margin: 0;
+}
+.clinical-next-dialog .clinical-objective-dialog-body > [hidden] {
+  display: none;
+}
+.clinical-next-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.clinical-next-tabs > button {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid var(--nuth-line);
+  border-radius: 10px;
+  color: var(--nuth-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.clinical-next-tabs > button[aria-current='step'] {
+  color: var(--nuth-ink);
+  border-color: var(--nuth-action);
+  background: var(--nuth-surface-soft);
+  box-shadow: inset 0 0 0 1px var(--nuth-action);
+}
+.clinical-next-preview {
+  border: 1px solid var(--nuth-line);
+  border-radius: 14px;
+  padding: 18px;
+  background: var(--nuth-surface-soft);
+}
+.clinical-next-preview h3 {
+  font-size: 12px;
+  color: var(--nuth-muted);
+  margin-bottom: 10px;
+}
+.clinical-next-preview p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.clinical-next-dialog fieldset {
+  min-width: 0;
+}
+.clinical-next-dialog textarea {
+  min-height: 190px;
+}
+.clinical-next-dialog .clinical-text-action {
+  min-height: 44px;
+}
+.clinical-next-dialog .clinical-ai-assistance {
+  margin: 0;
+}
+.clinical-instruction-suggestion > .clinical-next-excerpt {
+  font-weight: 500;
+}
+.clinical-followup-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  color: var(--nuth-muted);
+  font-size: 13px;
+}
+html[data-nuthrick-theme='night'] :is(.clinical-next-card,.clinical-next-dialog) .clinical-text-action {
+  color: var(--nuth-accent);
+}
+html[data-nuthrick-theme='night'] .clinical-next-dialog .clinical-ai-assistance :is(h4,p,details) {
+  color: var(--nuth-muted);
+}
+@media (max-width:600px) {
+  .clinical-next-card {
+    padding: 16px;
+  }
+  .clinical-next-toolbar > button {
+    width: 100%;
+  }
+  .clinical-next-dialog .clinical-objective-dialog-body {
+    padding: 0 16px 20px;
+  }
+  .clinical-next-dialog .clinical-objective-dialog-footer {
+    gap: 8px;
+  }
+  .clinical-next-dialog .clinical-objective-dialog-footer > .nuth-button {
+    margin-left: auto;
+  }
+}

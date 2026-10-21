@@ -25,7 +25,7 @@ import { InterviewReview } from "@/src/components/consultations/InterviewReview"
 import { PesCopilot, RecallCopilot, type RecallNavigation, type RecallNavigationActions } from "@/src/components/consultations/ClinicalCopilot";
 import { ClinicalReview } from "@/src/components/consultations/ClinicalReview";
 import { ConsultationGuide } from "@/src/components/consultations/ConsultationGuide";
-import { ClinicalSuggestionsAI } from "@/src/components/consultations/ConsultationObjectiveAI";
+import { ClinicalFieldCards } from "@/src/components/consultations/ClinicalFieldCards";
 import { consultationSteps, objectiveKeys, followupKeys, questionModule, workflowSections, type ConsultationModule } from "@/src/features/consultations/consultationWorkflow";
 import { ClinicalInterventions } from "@/src/components/consultations/ClinicalInterventions";
 import { ClinicalObjective } from "@/src/components/consultations/ClinicalObjective";
@@ -792,7 +792,8 @@ function ConsultationEditor() {
   const recommendationQuestions=clinicalSections.flatMap(section=>section.questions).filter(question=>!followupKeys.includes(question.question_key)&&!question.question_key.startsWith('pes_')&&!objectiveKeys.includes(question.question_key)&&!['nutrition_assessment','clinical_notes','measurement_notes','indicator_progress'].includes(question.question_key)&&matchesCondition(question.visibility_condition,values));
   const recommendationSignature=JSON.stringify(recommendationQuestions.map(question=>[question.question_key,values[question.question_key]]));
   const hasRecommendations=recommendationQuestions.some(question=>!['professional_notes','clinical_notes'].includes(question.question_key)&&!emptyValue(values[question.question_key]));
-  const followupValues=clinicalSections.flatMap(section=>section.questions).filter(question=>followupKeys.includes(question.question_key)&&matchesCondition(question.visibility_condition,values)).map(question=>[question.question_key,values[question.question_key]]);
+  const followupQuestions=clinicalSections.flatMap(section=>section.questions).filter(question=>followupKeys.includes(question.question_key)&&matchesCondition(question.visibility_condition,values));
+  const followupValues=followupQuestions.map(question=>[question.question_key,values[question.question_key]]);
   const followupSignature=JSON.stringify([followupReady.signature,followupValues]);
   const hasFollowup=Boolean(followupReady.signature)&&(followupReady.ready||followupValues.some(([,value])=>!emptyValue(value)));
   async function completeClinicalStage(kind:'recommendations'|'followup') {
@@ -1127,16 +1128,15 @@ function ConsultationEditor() {
         </section>
         <section hidden={clinicalStage !== 4} className="consultation-clinical-card" aria-label="Recomendaciones">
           <p className="nuth-eyebrow">05 · Deja claros los siguientes pasos</p><h2>Recomendaciones</h2>
-          <p className="consultation-clinical-description">Registra las indicaciones acordadas y revisa el texto que recibirá el paciente.</p>
-          {renderClinicalFields('recommendations')}
-          <ClinicalSuggestionsAI key={`instructions:${clinicalRefresh}`} kind="instructions" patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} before={saveForClinical} onApply={text => setAnswer('first_actions', appendComposedText(valuesRef.current.first_actions, text))} />
+          <p className="consultation-clinical-description">Deja indicaciones sencillas y revisa lo acordado antes de compartirlo.</p>
+          <ClinicalFieldCards key={`${consultation.id}:${snapshot.revision}:recommendations:${clinicalRefresh}`} questions={recommendationQuestions} values={values} busy={busy} showErrors={showErrors} before={saveForClinical} onChange={setAnswer} ai={{patientId:patient.id,consultationId:consultation.id,revision:snapshot.revision}} />
           <button type="button" className="nuth-button mt-4" disabled={busy||saving||!hasRecommendations} onClick={()=>void completeClinicalStage('recommendations')}>Guardar y completar recomendaciones</button>
           <p className="consultation-guided-hint">Al cerrar la consulta, podrás copiar las indicaciones al Super Link, revisarlas y publicarlas para el paciente.</p>
         </section>
         <section hidden={clinicalStage!==5} className="clinical-stage" aria-label="Seguimiento">
-          <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">06 · Prepara la próxima revisión</p><h2>Seguimiento</h2><p>Revisa los indicadores, las metas y los plazos que acordaron.</p></div></header>
-          <ClinicalFollowUp key={`${consultation.id}:${snapshot.revision}:followup`} consultationId={consultation.id} revision={snapshot.revision} active={module==='clinical'&&clinicalStage===5} onReady={receiveFollowup}/>
-          {renderClinicalFields('followup')}
+          <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">06 · Prepara la próxima revisión</p><h2>Seguimiento</h2><p>Confirma qué observarán, cuándo lo revisarán y si hace falta ajustar algo.</p></div></header>
+          <ClinicalFollowUp key={`${consultation.id}:${snapshot.revision}:followup`} consultationId={consultation.id} revision={snapshot.revision} active={module==='clinical'&&clinicalStage===5} answers={values} onReady={receiveFollowup} onEdit={stage=>void goClinicalStage(stage)}/>
+          {followupQuestions.length>0 && <ClinicalFieldCards questions={followupQuestions} values={values} busy={busy} showErrors={showErrors} before={saveForClinical} onChange={setAnswer} />}
           <button type="button" className="nuth-button mt-4" disabled={busy||saving||!hasFollowup} onClick={()=>void completeClinicalStage('followup')}>Completar revisión del seguimiento</button>
         </section>
         <ClinicalStepNotice completion={completion} onClose={()=>setCompletion(null)} onContinue={stage=>{setCompletion(null);if(stage===6)void goModule('evolution');else void goClinicalStage(stage);}}/>

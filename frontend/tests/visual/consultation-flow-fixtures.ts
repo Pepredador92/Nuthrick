@@ -219,6 +219,13 @@ export const syncConsultationAnswers = async (
 export async function runAIRequest(
   request: Parameters<typeof previewAIRequest>[0],
 ) {
+  if (designPreview && request.feature === "patient_instructions") return {
+    generationId: crypto.randomUUID(), status: "succeeded", replay: false,
+    output: { instructions: [
+      { text: "Prepara la colación acordada antes de salir. Si tu horario cambia, registra qué alternativa te resultó práctica para conversarlo en la próxima consulta.", evidence: [{ source: "Objetivos aprobados", finding: "Organizar los momentos de comida durante la jornada laboral." }] },
+      { text: "Lleva el registro que acordamos y anota qué momento del día fue más difícil de organizar. Revisaremos juntos las barreras en la próxima consulta.", evidence: [{ source: "Estrategia aprobada", finding: "Registrar el avance y conversar las barreras con el profesional." }] },
+    ] },
+  };
   if (!designPreview || request.feature !== "consultation_support") {
     return previewAIRequest(request);
   }

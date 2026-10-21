@@ -84,7 +84,11 @@ export function ClinicalSuggestionsAI({
   kind,
   disabled = false,
   onApplyGoal,
-}: SuggestionProps & { kind: "objectives" | "instructions" }) {
+  compactInstructions = false,
+}: SuggestionProps & {
+  kind: "objectives" | "instructions";
+  compactInstructions?: boolean;
+}) {
   const instructions = kind === "instructions";
   const feature = instructions
     ? "patient_instructions"
@@ -272,10 +276,11 @@ export function ClinicalSuggestionsAI({
           {message}
         </p>
       )}
-      {suggestions.length > 0 && (instructions || pendingCount > 0) && (
+      {suggestions.length > 0 &&
+        ((instructions && !compactInstructions) || pendingCount > 0) && (
         <div className="mt-3 space-y-3">
           <p className="text-xs font-semibold text-[#315e4f]">
-            {instructions
+            {instructions && !compactInstructions
               ? "Revisa cada propuesta antes de agregarla."
               : `${pendingCount} ${
                 pendingCount === 1
@@ -284,21 +289,39 @@ export function ClinicalSuggestionsAI({
               }`}
           </p>
           {suggestions.map((suggestion, index) => {
-            if (!instructions && applied.includes(index)) return null;
+            if (
+              (!instructions || compactInstructions) && applied.includes(index)
+            ) return null;
             return (
               <article
                 key={`${suggestion.text}-${index}`}
                 className={`rounded-lg border border-blue-100 bg-white p-3${
-                  instructions ? "" : " clinical-objective-suggestion"
+                  instructions
+                    ? compactInstructions
+                      ? " clinical-instruction-suggestion"
+                      : ""
+                    : " clinical-objective-suggestion"
                 }`}
               >
                 {instructions
                   ? (
                     <>
-                      <p className="text-sm leading-6 text-[#29483f]">
+                      <p
+                        className={compactInstructions
+                          ? "clinical-next-excerpt"
+                          : "text-sm leading-6 text-[#29483f]"}
+                      >
                         {suggestion.text}
                       </p>
-                      <SuggestionEvidence suggestion={suggestion} />
+                      {compactInstructions
+                        ? (
+                          <details className="clinical-suggestion-preview">
+                            <summary>Ver texto completo y fuentes</summary>
+                            <p>{suggestion.text}</p>
+                            <SuggestionEvidence suggestion={suggestion} />
+                          </details>
+                        )
+                        : <SuggestionEvidence suggestion={suggestion} />}
                     </>
                   )
                   : (
@@ -346,7 +369,9 @@ export function ClinicalSuggestionsAI({
                     {applied.includes(index)
                       ? "Agregado · puedes editarlo"
                       : instructions
-                      ? "Agregar a indicaciones"
+                      ? compactInstructions
+                        ? "Agregar y revisar"
+                        : "Agregar a indicaciones"
                       : onApplyGoal
                       ? (
                         <>
@@ -364,10 +389,13 @@ export function ClinicalSuggestionsAI({
           })}
         </div>
       )}
-      {!instructions && suggestions.length > 0 && pendingCount === 0 && (
+      {(!instructions || compactInstructions) && suggestions.length > 0 &&
+        pendingCount === 0 && (
         <p role="status" className="clinical-suggestions-complete">
-          <Check size={16} aria-hidden="true" />Propuestas agregadas. Continúa
-          con la revisión de tus objetivos.
+          <Check size={16} aria-hidden="true" />
+          {instructions
+            ? "Propuestas agregadas. Revisa y guarda tus indicaciones."
+            : "Propuestas agregadas. Continúa con la revisión de tus objetivos."}
         </p>
       )}
     </section>
