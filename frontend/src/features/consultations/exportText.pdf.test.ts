@@ -1,3 +1,5 @@
+import {buildClinicalDocumentData} from './clinicalDocument';
+import {clinicalFixturePatient,clinicalFixtureConsultation,clinicalFixtureSnapshot,clinicalFixtureValues,clinicalFixtureGoal,clinicalFixtureItem} from '../../../tests/fixtures/clinical-guidance';
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -197,4 +199,20 @@ describe("downloadConsultationPdf", () => {
     expect(click).toHaveBeenCalledOnce();
     expect(downloadedFilename).toBe("consulta.pdf");
   });
+});
+
+it('exports the same saved SMART detail, strategy planning and explicit execution in PDF and text',async()=>{
+ vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>undefined);
+ mocks.text.mockClear();
+ const item={...clinicalFixtureItem,state:'executing' as const,execution:{executor:'Ejecutor registrado',startDate:'2026-10-22'},history:[{id:'event',action:'start',version:1,recorded_at:'2026-10-22T12:00:00Z',payload:{executor:'Ejecutor registrado'}}]};
+ const draft={...clinicalFixtureItem,id:'draft',approved:null,state:'draft' as const,draft:clinicalFixtureItem.approved!.document};
+ const clinical=buildClinicalDocumentData(clinicalFixtureSnapshot,[item,draft]);
+ const professional={fullName:'Profesional sintético'};
+ await downloadConsultationPdf('consulta.pdf',clinicalFixturePatient,clinicalFixtureConsultation,clinicalFixtureSnapshot,clinicalFixtureValues,professional,clinical);
+ const pdf=mocks.text.mock.calls.flatMap(([text])=>Array.isArray(text)?text:[text]).join('\n');
+ const txt=consultationTextExport(clinicalFixturePatient,clinicalFixtureConsultation,clinicalFixtureSnapshot,clinicalFixtureValues,professional,clinical);
+ for(const output of [pdf,txt]){
+  for(const value of [clinicalFixtureGoal.outcome,clinicalFixtureGoal.baseline,clinicalFixtureGoal.target,clinicalFixtureGoal.timeframe,clinicalFixtureGoal.monitoring,clinicalFixtureItem.approved!.document.strategy.frequency,clinicalFixtureItem.approved!.document.strategy.reviewAt,'En ejecución','Ejecutor registrado','Borrador guardado'])expect(output).toContain(value);
+  expect(output).not.toContain(clinicalFixtureValues.treatment_objective);
+ }
 });

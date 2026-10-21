@@ -1,3 +1,4 @@
+import type {ConsultationDocumentData} from './clinicalDocument';
 import { consultationLabel, formatPatientDate } from "@/src/features/patients/patientUtils";
 import {
   emptyValue,
@@ -21,6 +22,7 @@ export function consultationTextExport(
   snapshot: ConsultationSnapshot,
   values: Record<string, unknown>,
   professional?: ProfessionalDocumentInfo,
+  clinical?: ConsultationDocumentData,
 ): string {
   const lines = [
     "Nuthrick · Registro de consulta",
@@ -45,13 +47,14 @@ export function consultationTextExport(
     `Fecha: ${formatPatientDate(consultation.consultation_date)}`,
     `Tipo: ${consultation.consultation_type === "initial" ? "Consulta inicial" : "Consulta de seguimiento"}`,
     `Plantilla: ${snapshot.template_name} · v${snapshot.template_version}`,
+    ...(snapshot.revision ? [`Revisión de la consulta: ${snapshot.revision}`] : []),
     "",
   ];
   for (const section of snapshot.structure.sections) {
     const entries = section.questions
       .filter(
         (question) =>
-          matchesCondition(question.visibility_condition, values) &&
+          !clinical?.coveredKeys.includes(question.question_key) && matchesCondition(question.visibility_condition, values) &&
           !emptyValue(values[question.question_key]),
       )
       .map(
@@ -67,10 +70,18 @@ export function consultationTextExport(
     for (const [label, answer] of entries) lines.push(`- ${label}: ${answer}`);
     lines.push("");
   }
+  for (const section of clinical?.sections ?? []) {
+    lines.push(section.title);
+    for (const card of section.cards) {
+      lines.push(card.title);
+      for (const field of card.fields) if (field.value.trim()) lines.push(field.label ? `- ${field.label}: ${field.value}` : field.value);
+      lines.push('');
+    }
+  }
   if (consultation.summary)
     lines.push("Resumen de cierre", consultation.summary, "");
   lines.push(
-    "Documento privado. Contiene información clínica registrada durante la entrevista.",
+    "Documento privado. Contiene información clínica guardada de la consulta. Los borradores se identifican por separado.",
   );
   return lines.join("\n");
 }
@@ -129,6 +140,7 @@ export async function buildConsultationPdf(
   snapshot: ConsultationSnapshot,
   values: Record<string, unknown>,
   professional: ProfessionalDocumentInfo,
+  clinical?: ConsultationDocumentData,
 ) {
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
@@ -137,6 +149,7 @@ export async function buildConsultationPdf(
   layout.section("Informe de consulta nutricional", "Registro clínico para revisión del profesional.");
   layout.card(patient.full_name, [
     { label: "Consulta", value: consultationLabel(consultation) },
+    ...(snapshot.revision ? [{label:"Revisión del registro",value:String(snapshot.revision)}] : []),
     { label: "Fecha y tipo", value: `${formatPatientDate(consultation.consultation_date)} · ${consultation.consultation_type === "initial" ? "Consulta inicial" : "Consulta de seguimiento"}` },
     ...patientBasics(patient).slice(1).map(value => ({ value })),
   ], { tone: "blue", columns: 2 });
@@ -145,7 +158,7 @@ export async function buildConsultationPdf(
   let sectionNumber = 0;
   for (const section of snapshot.structure.sections) {
     const entries = section.questions
-      .filter(question => matchesCondition(question.visibility_condition, values) && !emptyValue(values[question.question_key]))
+      .filter(question => !clinical?.coveredKeys.includes(question.question_key) && matchesCondition(question.visibility_condition, values) && !emptyValue(values[question.question_key]))
       .map(question => ({ label: question.label, value: formatAnswer(question, values[question.question_key]) }))
       .filter(entry => entry.value.trim());
     if (!entries.length) continue;
@@ -165,6 +178,11 @@ export async function buildConsultationPdf(
     }
     flush();
   }
+  for (const section of clinical?.sections ?? []) {
+    if (!section.cards.length) continue;
+    layout.section(section.title);
+    for (const card of section.cards) layout.card(card.title, card.fields.filter(field => field.value.trim()), {flow: true});
+  }
   layout.contacts();
   drawPrivateFooters(pdf);
   return pdf;
@@ -177,7 +195,8 @@ export async function downloadConsultationPdf(
   snapshot: ConsultationSnapshot,
   values: Record<string, unknown>,
   professional: ProfessionalDocumentInfo,
+  clinical?: ConsultationDocumentData,
 ): Promise<void> {
-  const pdf = await buildConsultationPdf(patient, consultation, snapshot, values, professional);
+  const pdf = await buildConsultationPdf(patient, consultation, snapshot, values, professional, clinical);
   downloadBlob(filename, pdf.output("blob"));
 }

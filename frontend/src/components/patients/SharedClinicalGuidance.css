@@ -1,0 +1,146 @@
+.shared-guidance-group > header {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  color: var(--nuth-ink);
+}
+.shared-guidance-group h2 {
+  font-size: 1rem;
+  font-weight: 700;
+}
+.shared-guidance-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.shared-guidance-item {
+  min-width: 0;
+  border: 1px solid var(--nuth-line);
+  border-radius: 16px;
+  padding: 1rem;
+  background: var(--nuth-surface);
+}
+.shared-guidance-item h3 {
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--nuth-ink);
+  overflow-wrap: anywhere;
+}
+.shared-guidance-item.is-goal {
+  border-top: 3px solid var(--nuth-accent);
+}
+.shared-guidance-fields {
+  display: grid;
+  gap: .8rem;
+  margin-top: 1rem;
+}
+.shared-guidance-fields > div {
+  min-width: 0;
+}
+.shared-guidance-fields dt {
+  font-size: .73rem;
+  font-weight: 700;
+  color: var(--nuth-muted);
+}
+.shared-guidance-fields dd,
+.shared-guidance-action {
+  font-size: .88rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--nuth-ink);
+}
+.shared-guidance-action {
+  margin-top: .5rem;
+}
+.shared-guidance-item details {
+  border-top: 1px solid var(--nuth-line);
+  margin-top: 1rem;
+  padding-top: .75rem;
+}
+.shared-guidance-item summary {
+  cursor: pointer;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--nuth-action);
+}
+.shared-guidance-intro,
+.shared-guidance-route {
+  margin-top: .65rem;
+  font-size: .82rem;
+  line-height: 1.6;
+  color: var(--nuth-muted);
+}
+.clinical-share-heading {
+  display: flex;
+  gap: .5rem;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: .7rem;
+}
+.clinical-share-count {
+  font-size: .75rem;
+  color: var(--nuth-action);
+  font-weight: 600;
+}
+.clinical-share-choice {
+  border: 1px solid var(--nuth-line);
+  border-radius: 16px;
+  margin-top: .8rem;
+  overflow: hidden;
+}
+.clinical-share-choice.is-selected {
+  border-color: var(--nuth-action);
+  box-shadow: 0 0 0 1px var(--nuth-action);
+}
+.clinical-share-choice > label {
+  display: flex;
+  gap: .6rem;
+  align-items: center;
+  padding: .8rem 1rem;
+  background: var(--nuth-surface-soft);
+  font-size: .83rem;
+  font-weight: 600;
+  color: var(--nuth-ink);
+}
+.clinical-share-choice .shared-guidance-item {
+  border: 0;
+  border-radius: 0;
+}
+.clinical-share-selection {
+  margin-top: 1rem;
+  font-size: .8rem;
+  color: var(--nuth-muted);
+}
+.clinical-share-selection li {
+  display: flex;
+  justify-content: space-between;
+  gap: .7rem;
+  padding: .7rem 0;
+  border-bottom: 1px solid var(--nuth-line);
+}
+.clinical-share-selection button {
+  color: var(--nuth-action);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+@media (min-width:640px) {
+  .shared-guidance-fields {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+}
+
+.portal-home-clinical {
+  grid-column: 1/-1;
+  order: 2;
+}
+.patient-portal .portal-home .portal-home-clinical .shared-guidance-group {
+  padding: 1.25rem;
+}
+
+.shared-guidance-group > header svg {color:var(--nuth-action)}
+html[data-nuthrick-theme='night'] .shared-guidance-group > header svg,
+html[data-nuthrick-theme='night'] .shared-guidance-item summary,
+html[data-nuthrick-theme='night'] .clinical-share-count,
+html[data-nuthrick-theme='night'] .clinical-share-selection button {color:var(--nuth-accent)}

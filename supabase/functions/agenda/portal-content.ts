@@ -1,3 +1,4 @@
+import {sharedObjectiveLabels,sharedStrategyLabels,type ClinicalGuidance,type ClinicalSource,type SharedObjective,type SharedStrategy} from '../_shared/clinical-guidance.ts';
 export type SharedClassificationRule = {
   id: string; label: string; lower: number | null; upper: number | null;
 };
@@ -21,7 +22,7 @@ export type SharedResult = {
   presentation?: SharedResultPresentation;
   points: { consultationId: string; date: string; value: string; classificationLabel?: string }[];
 };
-export type PortalContent = {
+export type PortalContent = ClinicalGuidance & {
   goal: string; instructions: string; results: SharedResult[];
   goalSource?: {consultationId:string;revision:number;questionKey:string}|null;
   consultations: { id: string; date: string; title: string; summary: string }[];
@@ -96,6 +97,7 @@ function resultPresentation(value: unknown): SharedResultPresentation {
 export function sanitizePortalContent(value: unknown): PortalContent {
   const content = obj(value);
   return {
+    ...sanitizeClinicalGuidance(content),
     goal: str(content.goal, 12000), instructions: str(content.instructions, 12000),
     ...(content.goalSource ? {goalSource:goalSource(content.goalSource)} : {}),
     results: arr(content.results, 60).map(value => {
@@ -121,4 +123,24 @@ function goalSource(value:unknown) {
  const source=obj(value);
  if(!Number.isInteger(source.revision)||Number(source.revision)<1||!['objectives','treatment_objective','next_objectives'].includes(String(source.questionKey)))throw new Error('invalid_input');
  return {consultationId:uuid(source.consultationId),revision:Number(source.revision),questionKey:String(source.questionKey)};
+}
+
+/** Validate field limits without changing the approved text being selected. */
+export function sanitizeClinicalGuidance(content: Record<string,unknown>): ClinicalGuidance {
+ const field = (value: unknown, max: number) => { if(typeof value!=='string'||value.length>max)throw new Error('invalid_input'); return value; };
+ const source = (value: unknown, kind: 'objective'|'strategy'): ClinicalSource => {
+  const s=obj(value);
+  if(!Number.isInteger(s.revision)||Number(s.revision)<1)throw new Error('invalid_input');
+  const base={consultationId:uuid(s.consultationId),revision:Number(s.revision),approvedAt:date(s.approvedAt)};
+  if(kind==='objective'){
+   if(!['objectives','treatment_objective','next_objectives'].includes(String(s.questionKey))||!Number.isInteger(s.goalIndex)||Number(s.goalIndex)<0||Number(s.goalIndex)>2)throw new Error('invalid_input');
+   return {...base,questionKey:String(s.questionKey),goalIndex:Number(s.goalIndex)};
+  }
+  if(!Number.isInteger(s.version)||Number(s.version)<1)throw new Error('invalid_input');
+  return {...base,strategyId:uuid(s.strategyId),version:Number(s.version)};
+ };
+ return {
+  ...(content.objectives!==undefined?{objectives:arr(content.objectives,12).map(value=>{const g=obj(value);return {...Object.fromEntries(Object.keys(sharedObjectiveLabels).map(k=>[k,field(g[k],400)])),source:source(g.source,'objective')} as SharedObjective;})}:{}),
+  ...(content.strategies!==undefined?{strategies:arr(content.strategies,30).map(value=>{const s=obj(value);if(!['not_applicable','oral','enteral','parenteral'].includes(String(s.route)))throw new Error('invalid_input');return {...Object.fromEntries(Object.keys(sharedStrategyLabels).map(k=>[k,field(s[k],1500)])),route:String(s.route),source:source(s.source,'strategy')} as SharedStrategy;})}:{}),
+ };
 }

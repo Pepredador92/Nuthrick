@@ -6,6 +6,7 @@ import {
   Plus,
   RefreshCw,
 } from "lucide-react";
+import type { ClinicalTaskStatus } from "./ClinicalTaskCard";
 import { ClinicalStatusBadge } from "./ClinicalTaskCard";
 import { InterventionStrategyDialog } from "./InterventionStrategyDialog";
 import "./ClinicalInterventions.css";
@@ -47,6 +48,8 @@ type Props = {
   before: () => Promise<boolean>;
   onPendingChange?: (pending: boolean) => void;
   onChanged?: () => void;
+  onCompleted?: (allApproved:boolean) => void;
+  onStatusChange?: (status:ClinicalTaskStatus) => void;
   onInstructions?: (text: string) => void;
   workshopUrl?: string;
   readOnly?: boolean;
@@ -75,6 +78,7 @@ export function ClinicalInterventions(props: Props) {
     before,
     onPendingChange,
     onChanged,
+    onStatusChange,
     onInstructions,
     workshopUrl,
     readOnly = false,
@@ -179,6 +183,9 @@ export function ClinicalInterventions(props: Props) {
     delete next[id];
     setDrafts(next);
   }
+  const currentItems=workspace?.items.filter(item=>item.state!=='withdrawn')??[];
+  const progressStatus:ClinicalTaskStatus=currentItems.length&&currentItems.every(item=>item.approved&&!item.draft&&!item.requiresReview)&&!Object.keys(local).length?'approved':currentItems.length||Object.keys(local).length?'progress':'pending';
+  useEffect(()=>{onStatusChange?.(progressStatus);},[onStatusChange,progressStatus]);
   async function refresh() {
     try {
       if (!(await before())) {
@@ -233,6 +240,7 @@ export function ClinicalInterventions(props: Props) {
         },
       );
       setWorkspace(updated);
+      if (action === 'approve') props.onCompleted?.(updated.items.filter(entry=>entry.state!=='withdrawn').every(entry=>entry.approved&&!entry.draft&&!entry.requiresReview) && !Object.keys(local).some(key=>key!==id));
       discardLocal(id);
       setExecution(null);
       onChanged?.();

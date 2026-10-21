@@ -41,6 +41,7 @@ export type MessagePage = {
   before: { id: string; at: string } | null;
 };
 const errors: Record<string, string> = {
+  invalid_clinical_guidance: "Un objetivo o una estrategia cambió o requiere revisión. Actualiza la selección antes de publicar.",
   invalid_goal: "El objetivo de la consulta cambió o ya no está disponible. Actualiza la selección antes de publicar.",
   document_too_large: "El plan es demasiado extenso para exportarlo. Revisa su contenido con tu nutriólogo.",
   invalid_plan:

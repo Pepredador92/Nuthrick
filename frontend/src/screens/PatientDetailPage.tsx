@@ -1,3 +1,4 @@
+import {loadConsultationDocumentData} from '@/src/services/consultationDocuments';
 import { ScheduleAppointmentButton } from "@/src/components/agenda/ScheduleAppointmentButton";
 import "./PatientsPage.css";
 import { UpcomingAppointments } from "@/src/components/agenda/UpcomingAppointments";
@@ -1009,6 +1010,7 @@ export function PatientDetailPage() {
       const values = Object.fromEntries(
         answers.map((answer) => [answer.question_key, answer.value]),
       );
+      const clinical = await loadConsultationDocumentData(patient.id, snapshot);
       const filename = `nuthrick-${patient.full_name.toLowerCase().replace(/[^a-z0-9]+/gi, "-")}-${consultation.id.slice(0, 8)}.txt`;
       const professional = await professionalDocumentInfo();
       downloadConsultationText(
@@ -1019,6 +1021,7 @@ export function PatientDetailPage() {
           snapshot,
           values,
           professional,
+          clinical,
         ),
       );
     }, "Documento de texto preparado.");
@@ -1034,6 +1037,7 @@ export function PatientDetailPage() {
       const values = Object.fromEntries(
         answers.map((answer) => [answer.question_key, answer.value]),
       );
+      const clinical = await loadConsultationDocumentData(patient.id, snapshot);
       const filename = `nuthrick-${patient.full_name.toLowerCase().replace(/[^a-z0-9]+/gi, "-")}-${consultation.id.slice(0, 8)}.pdf`;
       await downloadConsultationPdf(
         filename,
@@ -1042,6 +1046,7 @@ export function PatientDetailPage() {
         snapshot,
         values,
         await professionalDocumentInfo(),
+        clinical,
       );
     }, "PDF preparado.");
   };

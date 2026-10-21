@@ -1,3 +1,4 @@
+import {PortalClinicalSharing} from '@/src/components/patients/PortalClinicalSharing';
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -389,8 +390,9 @@ function OwnerPortal({ patientId }: { patientId: string }) {
         <PortalPlanSharing patientId={patientId} suggestedPlanId={searchParams.get("planId")}/>
         <div className="owner-content-grid">
           <section className="portal-card owner-guide-card">
-            <div className="owner-card-heading"><span className="owner-card-icon is-violet"><ClipboardList size={21}/></span><div><p>01 · Guía</p><h2 className="font-semibold">Su guía nutricional</h2><small>El objetivo y las indicaciones que acordaste con el paciente.</small></div></div>
-            <PortalGoal patientId={patientId} content={draft} onChange={setDraft}/>
+            <div className="owner-card-heading"><span className="owner-card-icon is-violet"><ClipboardList size={21}/></span><div><p>01 · Guía</p><h2 className="font-semibold">Su guía nutricional</h2><small>Los objetivos, estrategias e indicaciones que acordaste con el paciente.</small></div></div>
+            <PortalClinicalSharing patientId={patientId} content={draft} onChange={setDraft} disabled={busy}/>
+            <details className="owner-details mt-4"><summary>Objetivo de texto y consultas anteriores</summary><PortalGoal patientId={patientId} content={draft} onChange={setDraft}/></details>
             <label
               htmlFor="share-instructions"
               className="mb-2 mt-5 block text-sm font-semibold"

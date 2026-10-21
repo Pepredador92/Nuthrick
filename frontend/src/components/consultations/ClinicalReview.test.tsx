@@ -66,6 +66,8 @@ it("marks a source only by explicit review and removes its mark when the answers
   expect(api.status).toHaveBeenLastCalledWith("pending");
   fireEvent.click(screen.getByRole("button", { name: /Lo conversado/ }));
   fireEvent.click(screen.getByRole("button", { name: "Marcar como revisado" }));
+  expect(screen.getByRole("button", {name:/Lo conversado/})).toHaveAttribute("aria-expanded","false");
+  fireEvent.click(screen.getByRole("button", {name:/Lo conversado/}));
   expect(screen.getByRole("button", { name: "Revisado · quitar marca" }))
     .toHaveAttribute("aria-pressed", "true");
   expect(api.status).toHaveBeenLastCalledWith("complete");
@@ -113,6 +115,7 @@ it("invalidates a source check after refreshing changed measurements", async () 
   });
   fireEvent.click(screen.getByRole("button", { name: "Actualizar revisión" }));
   await waitFor(() => expect(api.status).toHaveBeenLastCalledWith("pending"));
+  fireEvent.click(screen.getByRole("button",{name:/Mediciones y estudios/}));
   expect(screen.getByRole("button", { name: "Marcar como revisado" }))
     .toHaveAttribute("aria-pressed", "false");
   expect(api.before).toHaveBeenCalledOnce();

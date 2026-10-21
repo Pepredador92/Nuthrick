@@ -1,9 +1,10 @@
+import {sharedObjectiveLabels,sharedStrategyLabels,clinicalRouteLabels,type ClinicalGuidance} from '../_shared/clinical-guidance.ts';
 import {groupGroceries} from '../_shared/grocery-categories.ts';
 import {projectPortalPlan,type PortalPlan} from './portal-plan.ts';
 import {drawPrivateFooters,type ProfessionalDocumentInfo} from './document-letterhead.ts';
 import {jsPDF} from 'jspdf';
 import {DocumentLayout,type DocumentField} from './document-layout.ts';
-export type PlanDocumentContext = {
+export type PlanDocumentContext = ClinicalGuidance & {
  birthDate?:string;sex?:string;recordReference?:string;
  consultationLabel?:string;consultationDate?:string;
  pes?:string;objective?:string;instructions?:string;sharedAt?:string;
@@ -106,9 +107,17 @@ export function planClinicalFields(model:PublishedNutritionPlanDocumentModel):Do
  const c=model.context??{};
  return [
   ...(c.pes?[{label:'Diagnóstico nutricional PES · aprobado',value:c.pes}]:[]),
-  ...(c.objective?[{label:'Objetivo acordado',value:c.objective}]:[]),
+  ...(c.objective&&!c.objectives?.length?[{label:'Objetivo acordado',value:c.objective}]:[]),
   ...(c.instructions?[{label:'Indicaciones para ti',value:c.instructions}]:[]),
   ...(c.sharedAt?[{label:'Objetivo e indicaciones compartidos',value:planDate(c.sharedAt)}]:[]),
+ ];
+}
+export function planGuidanceCards(model:PublishedNutritionPlanDocumentModel):{title:string;fields:DocumentField[]}[] {
+ const c=model.context??{};
+ const fields=(labels:Record<string,string>,value:Record<string,unknown>)=>Object.entries(labels).flatMap(([key,label])=>typeof value[key]==='string'&&String(value[key]).trim()?[{label,value:String(value[key])}]:[]);
+ return [
+  ...(c.objectives??[]).map((goal,index)=>({title:`Objetivo ${index+1} · ${goal.outcome}`,fields:fields(sharedObjectiveLabels,goal)})),
+  ...(c.strategies??[]).map((strategy,index)=>({title:`Estrategia ${index+1} · ${strategy.title}`,fields:[...fields(sharedStrategyLabels,strategy),...(clinicalRouteLabels[strategy.route]?[{label:'Vía',value:clinicalRouteLabels[strategy.route]}]:[])]})),
  ];
 }
 export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:string|null=null):Uint8Array {
@@ -117,6 +126,7 @@ export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:str
  layout.card(model.patientName,planIdentityFields(model),{tone:'blue',columns:2,eyebrow:'IDENTIFICACIÓN DEL PACIENTE Y DEL DOCUMENTO'});
  const clinical=planClinicalFields(model);
  if(clinical.length)layout.card('Objetivo y cuidados acordados',clinical,{tone:'violet',eyebrow:'GUÍA DE TU ATENCIÓN',flow:true});
+ for(const card of planGuidanceCards(model))layout.card(card.title,card.fields,{tone:'mint',flow:true});
  const n=model.nutrition;
  if(n?.energy&&n.energy>0){
   const macros=[['Carbohidratos',n.carbohydrate],['Proteínas',n.protein],['Grasas',n.fat]].filter(([,value])=>value!==undefined).map(([label,value])=>`${label}: ${macroAmount(value as number)} g`).join(' · ');
@@ -223,6 +233,7 @@ Documento nutricional personalizado\\par
 ${planIdentityFields(model).map(f=>field(f.label!,f.value)).join('\n')}
 \\end{nuthcard}
 ${planClinicalFields(model).length?card('Objetivo y cuidados acordados',planClinicalFields(model).map(f=>field(f.label!,f.value)).join('\n')):''}
+${planGuidanceCards(model).map(item=>card(item.title,item.fields.map(f=>field(f.label||'',f.value)).join('\n'))).join('\n')}
 ${model.nutrition?.energy?card('Prescripción diaria',field('Energía total',`${amount(model.nutrition.energy)} kcal / día`)+field('Macronutrientes totales · alimentos y suplementos',[['Carbohidratos',model.nutrition.carbohydrate],['Proteínas',model.nutrition.protein],['Grasas',model.nutrition.fat]].filter(([,v])=>v!==undefined).map(([k,v])=>`${k}: ${macroAmount(v as number)} g`).join(' · '))):''}
 ${blocks.join('\n')}
 \\label{LastPage}\\end{document}

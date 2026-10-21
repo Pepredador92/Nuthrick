@@ -39,6 +39,7 @@ type Props = {
   onPendingChange?: (pending: boolean) => void;
   maxLength?: number;
   onStatusChange?: (status: ClinicalTaskStatus) => void;
+  onCompleted?: () => void;
 };
 const blankPlan = (): ObjectivePlan => ({
   version: 1,
@@ -231,6 +232,7 @@ export function ClinicalObjective(props: Props) {
         action === "revoke" ? undefined : plan,
       );
       setWorkspace(saved);
+      if (action === "approve") props.onCompleted?.();
       dirtyRef.current = false;
       setDirty(false);
       sessionStorage.removeItem(cacheKey);

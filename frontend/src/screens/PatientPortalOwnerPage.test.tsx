@@ -7,6 +7,7 @@ import { runAIRequest } from "@/src/services/ai";
 import { getClinicalRevision } from "@/src/services/clinicalCopilot";
 import { loadLongitudinalHistory } from "@/src/services/longitudinalHistory";
 vi.mock("@/src/services/ai", async (original) => ({ ...(await original<object>()), runAIRequest: vi.fn() }));
+vi.mock("@/src/services/consultations",()=>({loadPatientAgreements:vi.fn(async()=>({revision:1,text:""}))}));
 vi.mock("@/src/services/clinicalCopilot", () => ({ getClinicalRevision: vi.fn(async () => 1) }));
 vi.mock("@/src/components/ai/AIControls", () => ({ AIButton: ({ children, onClick, disabled }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button type="button" disabled={disabled} onClick={onClick}>{children}</button> }));
 vi.mock("@/src/services/patientPortal", () => ({
@@ -78,6 +79,7 @@ it("requires deliberate preview/publication and never imports the private consul
   expect(
     screen.getByRole("textbox", { name: /Resumen para el paciente/ }),
   ).toHaveValue("");
+  fireEvent.click(screen.getByText('Objetivo de texto y consultas anteriores'));
   fireEvent.click(await screen.findByRole('checkbox',{name:'Compartir objetivo'}));
   expect(
     vi.mocked(portalAction).mock.calls.some((c) => c[1] === "publish"),

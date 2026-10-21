@@ -31,3 +31,13 @@ Se revisó también el recorrido de estrategias con un borrador manual y una pro
 Vista local: `frontend/tests/visual/consultation-flow.html?clinical-design=1`. Comprobación adaptable: `frontend/tests/visual/consultation-flow-responsive.html`. Ambas se sirven con `frontend/tests/visual/consultation-flow.vite.config.ts`.
 
 No requiere migraciones ni despliegue de Edge Functions.
+
+
+## Exportaciones, Superlink y confirmaciones · 20 de octubre de 2026
+
+- El PDF y el texto de la consulta leen el mismo conjunto de bloques de datos guardados: recordatorio confirmado (incluida estimación revisada), resultados de esta consulta, revisión del PES, objetivos SMART completos y estrategias. Los borradores, aprobaciones, revisiones pendientes y eventos de ejecución conservan sus estados explícitos. Las propuestas abiertas en el navegador no se exportan.
+- La exportación profesional identifica la revisión de la consulta y conserva las respuestas visibles, indicaciones, notas y seguimiento del cuestionario. Los objetivos estructurados sustituyen su texto compuesto para evitar duplicarlo.
+- La navegación clínica tiene seis pasos: datos, PES, objetivos, estrategia, indicaciones y seguimiento. El último reúne indicadores y plazos de objetivos y estrategias aprobados. Las fechas adicionales de la plantilla se muestran allí.
+- Un aviso accesible confirma cada fuente revisada, la aprobación del PES, objetivos y estrategias, y la finalización explícita de indicaciones y seguimiento. Ofrece continuar; la navegación espera la acción del usuario. Cargar datos previamente aprobados no dispara avisos. Las marcas de revisión y de los dos últimos pasos son ayudas de la sesión, independientes de las aprobaciones clínicas persistidas.
+- Superlink ofrece una selección de tarjetas aprobadas de consultas finalizadas. La vista previa y Mi guía usan los mismos componentes. El profesional publica explícitamente los campos del paciente; evidencia, etiología, notas internas e historial de ejecución no se copian.
+- Los PDF y LaTeX del plan añaden las tarjetas expresamente compartidas de la misma consulta únicamente para la versión actualmente compartida. Se identifica la fecha de publicación de la guía; las versiones anteriores del menú no incorporan selecciones de una versión posterior.

@@ -1,3 +1,4 @@
+import {SharedClinicalGuidance} from './SharedClinicalGuidance';
 import { Target, ClipboardList, Activity, CalendarDays } from "lucide-react";
 import type { PortalContent } from "@/src/services/patientPortal";
 
@@ -22,7 +23,8 @@ export function PortalContentView({
     <div className="space-y-5">
       {(section === "all" || section === "today") && (
         <>
-          <section className="portal-card portal-goal">
+          <SharedClinicalGuidance content={content}/>
+          {(content.goal || !content.objectives?.length) && <section className="portal-card portal-goal">
             <div className="flex items-center gap-2 text-[#416955]">
               <Target size={19} />
               <h2 className="font-semibold">Mi objetivo</h2>
@@ -31,7 +33,7 @@ export function PortalContentView({
               {content.goal ||
                 "Tu nutriólogo compartirá aquí el objetivo que acuerden."}
             </p>
-          </section>
+          </section>}
           <section className="portal-card">
             <div className="flex items-center gap-2">
               <ClipboardList size={19} />

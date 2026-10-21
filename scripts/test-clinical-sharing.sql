@@ -1,0 +1,58 @@
+create function pg_temp.assert(ok boolean,label text) returns void language plpgsql as $$begin if ok is distinct from true then raise exception 'Assertion: %',label;end if;end$$;
+do $$
+declare owner_id uuid:='00000000-0000-0000-0000-000000000001';pid uuid:='10000000-0000-0000-0000-000000000001';cid uuid:='20000000-0000-0000-0000-000000000001';snap uuid;goal jsonb;strategy jsonb;approved_at text:='2026-10-20T16:00:00+00:00';
+begin
+ goal:='{"outcome":"Organizar las comidas","indicator":"Días registrados","baseline":"1 día","target":"4 días","timeframe":"7 días","monitoring":"Registro diario","feasibility":"Usar el teléfono","agreement":"patient","etiology":"PRIVATE ETIOLOGY","sign":"PRIVATE SIGN"}';
+ insert into public.consultation_snapshots(consultation_id,patient_id,professional_id,revision,structure,clinical_records) values(cid,pid,owner_id,1,'{}',jsonb_build_object('pes',jsonb_build_object('approved_at',approved_at),'objective',jsonb_build_object('approved_at',approved_at,'pes_approved_at',approved_at,'question_key','treatment_objective','smart_plan',jsonb_build_object('version',1,'goals',jsonb_build_array(goal))))) returning id into snap;
+ strategy:='{"title":"Organizar la colación","action":"Preparar una opción para la tarde","method":"Practicar juntos","frequency":"4 días por semana","duration":"2 semanas","startDate":"2026-10-21","responsible":"Nutrióloga","executor":"Paciente","adaptations":"Usar una opción disponible","monitoring":"Registro diario","reviewAt":"En 14 días","composition":"","dose":"","educationTopic":"Organización","materials":"Guía de opciones","comprehensionCheck":"Explicarlo con sus palabras","coordinationWith":"","coordinationReason":"","access":"","route":"not_applicable","priority":1,"evidence":[{"source":"PRIVATE SOURCE","finding":"PRIVATE EVIDENCE"}],"referenceNotes":"PRIVATE NOTE"}';
+ insert into public.consultation_interventions(snapshot_id,professional_id,state,approved) values(snap,owner_id,'approved',jsonb_build_object('approvedAt',approved_at,'document',jsonb_build_object('pesApprovedAt',approved_at,'objectiveApprovedAt',approved_at,'strategy',strategy)));
+ insert into public.consultation_interventions(snapshot_id,professional_id,state,draft) values(snap,owner_id,'draft',jsonb_build_object('strategy',strategy||'{"title":"PRIVATE DRAFT STRATEGY"}'));
+end $$;
+grant select on public.consultation_snapshots,public.consultation_interventions to service_role;
+set local role service_role;
+do $$
+declare owner jsonb:='{"owner":"00000000-0000-0000-0000-000000000001","patientId":"10000000-0000-0000-0000-000000000001"}'; actor jsonb:='{"sessionHash":"clinical-session"}'; candidates jsonb;selected jsonb;result jsonb;obj jsonb;strategy jsonb;
+begin
+ perform pg_temp.assert(not has_function_privilege('authenticated','private.portal_clinical_entries(uuid,uuid,uuid,integer)','execute'),'No direct authenticated clinical access');
+ perform pg_temp.assert(not has_function_privilege('anon','public.patient_portal(text,jsonb)','execute'),'No anonymous RPC access');
+ candidates:=public.patient_portal('clinical_candidates',owner);
+ perform pg_temp.assert(jsonb_array_length(candidates->'consultations')=1,'Only own completed consultation offered');
+ perform pg_temp.assert(jsonb_array_length(candidates#>'{consultations,0,objectives}')=1,'Approved structured objective');
+ perform pg_temp.assert(jsonb_array_length(candidates#>'{consultations,0,strategies}')=1,'Draft strategies excluded');
+ perform pg_temp.assert(candidates::text not like '%PRIVATE%','Clinical rationale and evidence stay private');
+ obj:=candidates#>'{consultations,0,objectives,0}';strategy:=candidates#>'{consultations,0,strategies,0}';
+ perform pg_temp.assert(obj->>'baseline'='1 día' and obj->>'target'='4 días','Structured detail retained');
+ perform pg_temp.assert(public.patient_portal('clinical_candidates',owner||'{"owner":"00000000-0000-0000-0000-000000000002"}')->>'error'='portal_unavailable','Cross-owner candidates denied');
+ perform pg_temp.assert(public.patient_portal('view',owner)->'shared'->'objectives' is null,'No automatic publication');
+ selected:=jsonb_build_object('goal','','instructions','Indicación publicada','results','[]'::jsonb,'consultations','[]'::jsonb,'objectives',jsonb_build_array(obj),'strategies',jsonb_build_array(strategy));
+ result:=public.patient_portal('publish',owner||jsonb_build_object('revision',0,'shared',selected));
+ perform pg_temp.assert(result->>'revision'='1','Explicit publication');
+ result:=public.patient_portal('publish',owner||jsonb_build_object('revision',1,'shared',jsonb_set(selected,'{objectives,0,target}','"FORGED"')));
+ perform pg_temp.assert(result->>'error'='invalid_clinical_guidance','Forged text rejected');
+ result:=public.patient_portal('publish',owner||jsonb_build_object('revision',1,'shared',jsonb_set(selected,'{objectives,0}',obj-'baseline')));
+ perform pg_temp.assert(result->>'error'='invalid_clinical_guidance','Partial projection rejected');
+ result:=public.patient_portal('publish',owner||jsonb_build_object('revision',1,'shared',jsonb_set(selected,'{strategies,0,referenceNotes}','"PRIVATE"')));
+ perform pg_temp.assert(result->>'error'='invalid_clinical_guidance','Private field rejected');
+ result:=public.patient_portal('publish',owner||jsonb_build_object('revision',1,'shared',jsonb_set(selected,'{objectives,0,source,revision}','2')));
+ perform pg_temp.assert(result->>'error'='invalid_clinical_guidance','Different revision rejected');
+ perform public.patient_portal('link',owner||'{"linkHash":"clinical-link","encryptedLink":"fixture"}');
+ insert into private.portal_sessions(token_hash,patient_id,link_hash,email) values('clinical-session',(owner->>'patientId')::uuid,'clinical-link','patient@example.invalid');
+ result:=public.patient_portal('view',actor);
+ perform pg_temp.assert(result->'shared'->'objectives'=selected->'objectives' and result->'shared'->'strategies'=selected->'strategies','Patient sees selected snapshot only');
+ perform pg_temp.assert(public.patient_portal('clinical_candidates',actor)->>'error'='invalid_action','Patient cannot enumerate candidates');
+ perform set_config('nuthrick.test.readonly','true',true);
+ perform public.patient_portal('clinical_candidates',owner);
+ perform set_config('nuthrick.test.readonly','false',true);
+end $$;
+reset role;
+update public.consultations set status='draft' where id='20000000-0000-0000-0000-000000000001';
+set local role service_role;
+select pg_temp.assert(jsonb_array_length(public.patient_portal('view','{"sessionHash":"clinical-session"}')->'shared'->'objectives')=0,'Reopening retracts objectives');
+select pg_temp.assert(jsonb_array_length(public.patient_portal('view','{"sessionHash":"clinical-session"}')->'shared'->'strategies')=0,'Reopening retracts strategies');
+reset role;
+update public.consultations set status='completed' where id='20000000-0000-0000-0000-000000000001';
+update public.consultation_interventions set state='withdrawn' where approved is not null;
+set local role service_role;
+select pg_temp.assert(jsonb_array_length(public.patient_portal('view','{"sessionHash":"clinical-session"}')->'shared'->'strategies')=0,'Withdrawn strategy retracted');
+select pg_temp.assert(jsonb_array_length(public.patient_portal('view','{"sessionHash":"clinical-session"}')->'shared'->'objectives')=1,'Unchanged approved objective remains');
+reset role;

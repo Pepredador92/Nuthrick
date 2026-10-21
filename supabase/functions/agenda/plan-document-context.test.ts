@@ -31,3 +31,19 @@ Deno.test('birth date keeps its calendar day and age is measured on the consulta
  assert.equal(birthDateDetails('1981-02-30','2026-07-13T12:00:00Z'),undefined);
  assert.deepEqual(projectPlanDocumentContext({snapshot:{}},rows()),{});
 });
+
+Deno.test('structured cards follow the explicitly shared plan version and consultation',async()=>{
+ const {sharedObjectiveLabels,sharedStrategyLabels}=await import('../_shared/clinical-guidance.ts');
+ const {buildPlanDocument,planGuidanceCards,renderPlanTex}=await import('./plan-document.ts');
+ const source={consultationId,revision:2,approvedAt:'2026-10-03T19:00:00Z'};
+ const goal={...Object.fromEntries(Object.keys(sharedObjectiveLabels).map(k=>[k,`${k} acordado`])),source:{...source,questionKey:'treatment_objective',goalIndex:0}};
+ const strategy={...Object.fromEntries(Object.keys(sharedStrategyLabels).map(k=>[k,`${k} acordado`])),route:'not_applicable',source:{...source,strategyId:planId,version:1}};
+ const data=rows();data.sharedPlan=raw;data.portal={enabled:true,publishedAt:'2026-10-05T10:00:00Z',shared:{objectives:[goal],strategies:[strategy]}};
+ const context=projectPlanDocumentContext(raw,data);
+ assert.equal(context.objectives?.[0].target,'target acordado');assert.equal(context.strategies?.[0].reviewAt,'reviewAt acordado');
+ const fakeModel={templateVersion:'clinical-letterhead-v1',context,patientName:'Paciente sintético',professional:{fullName:'Profesional'},plan:{versionNumber:3,publishedAt:'2026-10-04T20:00:00Z',title:'Plan sintético',days:[]}} as ReturnType<typeof buildPlanDocument>;
+ assert.equal(planGuidanceCards(fakeModel).length,2);assert.ok(renderPlanTex(fakeModel).includes('target acordado'));assert.ok(renderPlanTex(fakeModel).includes('frequency acordado'));
+ data.sharedPlan={...raw,versionNumber:2};assert.equal(projectPlanDocumentContext(raw,data).strategies,undefined);
+ data.sharedPlan=raw;data.portal={...data.portal,shared:{objectives:[{...goal,source:{...goal.source,consultationId:owner}}],strategies:[]}};
+ assert.deepEqual(projectPlanDocumentContext(raw,data).objectives,[]);
+});

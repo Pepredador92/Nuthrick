@@ -1,3 +1,4 @@
+import {SharedClinicalGuidance} from './SharedClinicalGuidance';
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, CalendarDays, ClipboardList, MessageCircle, Target, Utensils } from "lucide-react";
 import { formatFoodQuantity } from "@/src/features/menu/units";
@@ -31,6 +32,7 @@ export function PortalHomeSummary({
   view: PortalView;
   onOpenTab: (tab: string) => void;
 }) {
+  const [agreementsOpen,setAgreementsOpen]=useState(false);
   const [plan, setPlan] = useState<PortalPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -83,7 +85,8 @@ export function PortalHomeSummary({
         <section className="portal-card portal-home-goal">
           <PortalCardHeading icon={Target} title="Mi objetivo" subtitle="Lo que acordamos trabajar" tone="amber" />
           <div className="portal-card-body">
-            <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-[#53685e]">{view.shared.goal || "Tu nutriólogo compartirá aquí el objetivo que acuerden."}</p>
+            <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-[#53685e]">{view.shared.objectives?.[0]?.outcome || view.shared.goal || "Tu nutriólogo compartirá aquí el objetivo que acuerden."}</p>
+            {Boolean(view.shared.objectives?.length || view.shared.strategies?.length) && <><p className="mt-3 text-xs text-[var(--nuth-muted)]">{view.shared.objectives?.length??0} {view.shared.objectives?.length===1?"objetivo":"objetivos"} y {view.shared.strategies?.length??0} {view.shared.strategies?.length===1?"estrategia acordada":"estrategias acordadas"}.</p><button type="button" className="portal-card-action mt-3" aria-expanded={agreementsOpen} onClick={()=>setAgreementsOpen(open=>!open)}>{agreementsOpen?'Ocultar detalles de mis acuerdos':'Ver mis acuerdos completos'} <ArrowRight size={16}/></button></>}
             <h3 className="mt-5 border-t border-[#edf1ed] pt-4 text-sm font-semibold text-[#416955]">Mis indicaciones</h3>
             <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-[#53685e]">{view.shared.instructions || "Todavía no hay indicaciones compartidas."}</p>
           </div>
@@ -103,6 +106,7 @@ export function PortalHomeSummary({
           </div>
         </section>
       </div>
+      {agreementsOpen&&<div className="portal-home-clinical space-y-5"><SharedClinicalGuidance content={view.shared}/></div>}
     </div>
   );
 }

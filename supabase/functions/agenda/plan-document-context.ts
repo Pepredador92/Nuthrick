@@ -1,3 +1,4 @@
+import {sanitizeClinicalGuidance} from './portal-content.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {PlanDocumentContext} from './plan-document.ts';
 
@@ -47,6 +48,12 @@ export function projectPlanDocumentContext(raw: unknown, data: DocumentContextRo
       context.objective = objective ?? context.objective;
       context.sharedAt = text(portal.publishedAt, 50);
     }
+  }
+  if (portal.enabled === true && sharedPlan.versionNumber === published.versionNumber && sharedPlan.publishedAt === published.publishedAt && row(sharedSnapshot.plan).id === plan.id && row(sharedSnapshot.patient).id === patientId && row(sharedSnapshot.professional).id === owner) {
+    const selected = sanitizeClinicalGuidance(shared);
+    context.objectives = selected.objectives?.filter(goal => goal.source.consultationId === consultationId);
+    context.strategies = selected.strategies?.filter(strategy => strategy.source.consultationId === consultationId);
+    if (context.objectives?.length || context.strategies?.length) context.sharedAt = text(portal.publishedAt, 50);
   }
   return context;
 }

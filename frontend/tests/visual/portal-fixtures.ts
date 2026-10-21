@@ -1,3 +1,4 @@
+import {clinicalFixtureSharedGoal,clinicalFixtureSharedStrategy} from '../fixtures/clinical-guidance';
 // In-memory visual fixtures. No Supabase, Gmail, patient records or network writes.
 import type { PortalView, PortalContent, PortalMessage, PortalNote } from '../../src/services/patientPortal';
 export * from '../../src/services/appointments';
@@ -14,7 +15,10 @@ export const hasSupabaseConfig = false;
 const cid = '20000000-0000-0000-0000-000000000001';
 const plan = {title:'Mi semana de alimentación',versionNumber:2,publishedAt:'2026-09-21',days:[{name:'Lunes',meals:[{name:'Desayuno',time:'08:00',title:'Huevos con frijoles y tortilla',ingredients:[{name:'Huevo entero',amount:2,unit:'pieza',alternatives:[{name:'Pollo cocido',amount:60,unit:'g'},{name:'Pescado cocido',amount:60,unit:'g'}]},{name:'Tortilla de maíz',amount:2,unit:'tortilla',alternatives:[]},{name:'Frijoles cocidos',amount:0.5,unit:'taza',alternatives:[]},{name:'Plátano',amount:0.5,unit:'pieza',alternatives:[]},{name:'Agua natural',amount:240,unit:'ml',alternatives:[]}],instructions:['Cocina los huevos y acompaña con frijoles y tortillas. Sirve la fruta y el agua al lado.']}]}]};
 let selectedPlanId: string|null = 'plan-fixture';
+const fixtureGoal={...clinicalFixtureSharedGoal,source:{...clinicalFixtureSharedGoal.source,consultationId:cid,revision:1}};
+const fixtureStrategy={...clinicalFixtureSharedStrategy,source:{...clinicalFixtureSharedStrategy.source,consultationId:cid,revision:1}};
 const shared: PortalContent = {
+  objectives:[fixtureGoal],strategies:[fixtureStrategy],
   goal: 'Construir una rutina de alimentación que se adapte a mis horarios y me ayude a sentirme con más energía.',
   instructions: 'Mantén tus tres comidas principales y lleva una colación cuando tengas una jornada larga.\n\nIncluye verduras en comida y cena. Ten agua a la mano durante el día.\n\nEn nuestra próxima consulta revisaremos cómo te sentiste con estos cambios.',
   results: [
@@ -34,6 +38,7 @@ export async function portalApi(op: string, data: Record<string, unknown>) {
   return {};
 }
 export async function portalAction(access: Record<string, unknown>, action: string, data: Record<string, unknown> = {}) {
+  if(action==='clinical_candidates')return {consultations:[{id:cid,date:'2026-09-21',revision:1,objectives:[fixtureGoal],strategies:[fixtureStrategy]}]};
   if(action==='goal_candidates')return {goals:[{consultationId:cid,date:'2026-09-21',revision:1,questionKey:'objectives',content:'Organizar mis horarios de alimentación.'}]};
   if(action==='plan_history')return {versions:[{id:'version-fixture',title:plan.title,version_number:2,published_at:plan.publishedAt}]};
   if(action==='plan_version')return {plan};

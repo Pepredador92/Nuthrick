@@ -61,3 +61,17 @@ Desde `frontend`: `npx vite --config tests/visual/portal.vite.config.ts` y abrir
 - Migración `20260921202541_patient_portal_plan_and_manual_code` aplicada en Nuthrick. RPC sigue siendo invoker, sin ejecución para anon/authenticated y con ejecución para service_role. Edge `agenda` v5 ACTIVE. Advisors mantiene exactamente las categorías y cantidades anteriores, sin nuevos avisos.
 - No se compartieron planes ni se generaron códigos para pacientes reales durante la validación.
 - Frontend del commit `dc4ab84` publicado desde copia aislada: Vercel `dpl_BXEATRPLrPiMh8BFog8Cmrq2tuWL` READY, alias `https://nuthrick.vercel.app`, URL inmutable `https://nuthrick-6puzwzz7a-pepredador92.vercel.app`. Navegador de producción comprobó ambos métodos y el formulario de ocho dígitos sin correo, con enlace sintético y sin enviar un código. Edge rechazó emisión sin autenticar (`unauthorized`) y acceso con enlace ficticio (`portal_unavailable`).
+
+
+## Objetivos estructurados y estrategias · 20 de octubre de 2026
+
+En Contenido → Su guía nutricional se elige la consulta de origen y se seleccionan objetivos y estrategias por tarjeta. Cada objetivo conserva meta, indicador, punto de partida, plazo, seguimiento y adaptación. Cada estrategia presenta acción, forma de aplicación, frecuencia, duración, recursos y revisión. Los detalles se despliegan bajo cada resumen. El objetivo de texto anterior y el texto personalizado siguen disponibles en un apartado secundario.
+
+`clinical_candidates` ofrece hasta 50 consultas finalizadas con aprobaciones vigentes. La publicación permite hasta 12 objetivos y 30 estrategias dentro del límite total existente de 120 KB. SQL comprueba pertenencia, revisión, aprobación y coincidencia exacta de todos los campos seleccionados; Edge reconstruye una proyección explícita para el paciente. No se comparten borradores, evidencia, notas, razonamiento clínico ni datos de ejecución. Reabrir o retirar una consulta, cambiar la aprobación o retirar una estrategia invalida su selección visible. La versión guardada del contenido compartido no se sustituye automáticamente al agregar una consulta nueva.
+
+Mi guía muestra un resumen del objetivo y permite abrir los acuerdos completos. Las tarjetas usan la misma presentación que la vista previa profesional, con detalles progresivos y soporte de los dos temas. El PDF/LaTeX del plan compartido incorpora la misma selección, acotada a su consulta y versión de plan. La autorización, la versión y la guía se vuelven a comprobar después de generar el archivo.
+
+Validación de esta entrega: pruebas focales del frontend y Edge; integración SQL en PostgreSQL local con datos sintéticos, ejecutada como service_role y rollback; exportaciones PDF/TXT de ejemplo y revisión de paginación; recorrido local del profesional y del paciente en escritorio y un marco móvil de 390 px. No se publican contenidos ni se generan accesos para pacientes reales durante estas comprobaciones.
+
+
+Despliegue de la ampliación: migración `20261021044847_clinical_documents_and_shared_guidance`, Edge `agenda` v35 ACTIVE. El RPC y los dos helpers nuevos son SECURITY INVOKER, ejecutables solo por service_role; la revisión remota de permisos y los advisors no detectaron cambios en las alertas existentes. La petición HTTP sin sesión sigue siendo rechazada por la autenticación propia de Agenda.

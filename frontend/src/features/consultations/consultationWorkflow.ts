@@ -12,7 +12,8 @@ export const consultationSteps: { key: ConsultationModule; label: string }[] = [
   { key: 'evolution', label: 'Evolución' },
 ];
 export const objectiveKeys = ['objectives', 'treatment_objective', 'next_objectives'];
-const clinicalKeys = new Set([...objectiveKeys, 'nutrition_assessment', 'clinical_notes', 'first_actions', 'adjustments', 'professional_notes', 'recommendations', 'patient_instructions', 'next_appointment', 'measurement_notes', 'indicator_progress']);
+export const followupKeys = ['next_appointment','followup_indicators','followup_plan'];
+const clinicalKeys = new Set([...objectiveKeys, ...followupKeys, 'nutrition_assessment', 'clinical_notes', 'first_actions', 'adjustments', 'professional_notes', 'recommendations', 'patient_instructions', 'next_appointment', 'measurement_notes', 'indicator_progress']);
 
 export function questionModule(key: string): 'interview' | 'recall' | 'clinical' {
   if (key.startsWith('recall_')) return 'recall';

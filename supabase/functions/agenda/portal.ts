@@ -74,7 +74,7 @@ export async function portalRequest(req: Request, body: Json, deps: Dependencies
     return result;
   }
   const allowed = body.op === 'portal_owner'
-    ? ['view', 'link', 'revoke', 'publish', 'messages', 'message', 'read', 'issue_code', 'plan', 'plan_options', 'plan_preview', 'share_plan','goal_candidates','plan_history','plan_version','export_plan']
+    ? ['view', 'link', 'revoke', 'publish', 'messages', 'message', 'read', 'issue_code', 'plan', 'plan_options', 'plan_preview', 'share_plan','goal_candidates','clinical_candidates','plan_history','plan_version','export_plan']
     : ['view', 'messages', 'message', 'read', 'notes', 'note', 'delete_note', 'logout', 'plan','export_plan'];
   if (!allowed.includes(action)) throw new Error('invalid_action');
   // Whitelist each payload; never spread untrusted JSON into actor fields.
@@ -133,6 +133,7 @@ export async function portalRequest(req: Request, body: Json, deps: Dependencies
   if (action === 'plan' || action === 'plan_preview' || action==='plan_version') return {plan:projectPortalPlan(result.plan)};
   if(action==='export_plan') {
     if(!deps.document)throw new Error('document_unavailable');
+    const guidance = await call('view', actor);
     let document:Json;
     try { document=await deps.document(result.plan,result.professional,body.format as 'pdf'|'tex'); }
     catch(error) {
@@ -145,6 +146,8 @@ export async function portalRequest(req: Request, body: Json, deps: Dependencies
     // during generation cannot deliver a stale document.
     const current=await call(action,{...actor,...data});
     if(JSON.stringify(current.plan)!==JSON.stringify(result.plan))throw new Error('invalid_plan');
+    const latestGuidance = await call('view', actor);
+    if (guidance.revision !== latestGuidance.revision || JSON.stringify(guidance.shared) !== JSON.stringify(latestGuidance.shared)) throw new Error('invalid_plan');
     return document;
   }
   if (action === 'view') {

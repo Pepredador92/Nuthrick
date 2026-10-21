@@ -114,3 +114,7 @@
 .pes-final-statement { display: block; min-height: 100px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; font-weight: 400; }
 
 .pes-evidence-review-note { padding: 12px; border-left: 3px solid var(--nuth-action); color: var(--nuth-muted); font-size: 12px; line-height: 1.7; }
+@media (max-width: 640px) {
+  .clinical-decision-workspace > .consultation-guide-steps {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .clinical-decision-workspace > .consultation-guide-steps strong {white-space:normal;overflow-wrap:anywhere}
+}

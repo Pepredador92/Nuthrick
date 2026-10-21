@@ -42,6 +42,7 @@ export function ClinicalReview(
     active,
     before,
     onStatusChange,
+    onReviewed,
     onOpenModule,
   }: {
     consultationId: string;
@@ -49,6 +50,7 @@ export function ClinicalReview(
     values: Answers;
     active: boolean;
     before: () => Promise<boolean>;
+    onReviewed?: (message:string,complete:boolean)=>void;
     onStatusChange?: (status: ClinicalTaskStatus) => void;
     onOpenModule?: (module: ConsultationModule) => void;
   },
@@ -260,6 +262,7 @@ export function ClinicalReview(
           return (
             <ClinicalTaskCard
               key={source.key}
+              id={`clinical-source-${consultationId}-${source.key}`}
               marker={<Icon size={20} />}
               title={source.title}
               description={context
@@ -378,6 +381,7 @@ export function ClinicalReview(
                   aria-pressed={reviewed}
                   disabled={loading || !!error}
                   onClick={() => {
+                    if (!reviewed) onReviewed?.(reviewedCount + 1 === available.length ? 'Revisión clínica completada.' : `${source.title}: revisión completada.`, reviewedCount + 1 === available.length);
                     setReviewedSources((current) => ({
                       ...current,
                       [source.key]: reviewed ? "" : source.signature,
@@ -386,6 +390,7 @@ export function ClinicalReview(
                       ...current,
                       [source.key]: false,
                     }));
+                    requestAnimationFrame(()=>document.getElementById(`clinical-source-${consultationId}-${source.key}`)?.focus({preventScroll:true}));
                   }}
                 >
                   <Check size={16} />

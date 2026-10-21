@@ -837,7 +837,7 @@ html[data-nuthrick-theme='night'] :is(.clinical-stage, .clinical-objectives-work
 }
 .clinical-decision-workspace .consultation-guide-steps {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
   border: 0;
   background: transparent;

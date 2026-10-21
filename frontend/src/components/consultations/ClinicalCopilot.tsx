@@ -72,6 +72,7 @@ type Props = {
   active?: boolean;
   onPendingChange?: (pending: boolean) => void;
   onStatusChange?: (status: ClinicalTaskStatus) => void;
+  onCompleted?: () => void;
 };
 const input = "nuth-input mt-1 w-full !text-sm";
 const secondary = "nuth-button-secondary !text-sm disabled:opacity-50";
@@ -607,6 +608,7 @@ export function PesCopilot(props: Props) {
                   }).then((ok) => {
                     if (ok) {
                       props.onPes?.(approved);
+                      props.onCompleted?.();
                       setDraft(null);
                     }
                   });

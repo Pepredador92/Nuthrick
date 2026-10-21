@@ -35,10 +35,16 @@ describe("patient-only portal boundary", () => {
   });
   it('revalidates authorization and the shared version after rendering before returning bytes',async()=>{
     const d={...dependencies(),document:vi.fn(async()=>({base64:'SAFE'}))};
-    d.rpc.mockResolvedValueOnce({plan:{versionNumber:2},professional:{}}).mockResolvedValueOnce({error:'portal_unavailable'});
+    d.rpc.mockResolvedValueOnce({plan:{versionNumber:2},professional:{}}).mockResolvedValueOnce({revision:1,shared:{}}).mockResolvedValueOnce({error:'portal_unavailable'});
     await expect(portalRequest(req,{op:'portal_patient',session:secretToken(),action:'export_plan',format:'pdf'},d)).rejects.toThrow('portal_unavailable');expect(d.document).toHaveBeenCalledOnce();
-    d.rpc.mockResolvedValueOnce({plan:{versionNumber:2},professional:{}}).mockResolvedValueOnce({plan:{versionNumber:3},professional:{}});
+    d.rpc.mockResolvedValueOnce({plan:{versionNumber:2},professional:{}}).mockResolvedValueOnce({revision:1,shared:{}}).mockResolvedValueOnce({plan:{versionNumber:3},professional:{}});
     await expect(portalRequest(req,{op:'portal_patient',session:secretToken(),action:'export_plan',format:'pdf'},d)).rejects.toThrow('invalid_plan');
+  });
+  it('rejects document bytes if shared clinical guidance changes while rendering',async()=>{
+    const d={...dependencies(),document:vi.fn(async()=>({base64:'SAFE'}))};let reads=0;
+    d.rpc.mockImplementation(async data=>data.p_action==='view'?{revision:++reads,shared:{instructions:'Selected guide'}}:{plan:{versionNumber:2},professional:{}});
+    await expect(portalRequest(req,{op:'portal_patient',session:secretToken(),action:'export_plan',format:'pdf'},d)).rejects.toThrow('invalid_plan');
+    expect(d.document).toHaveBeenCalledOnce();
   });
   it("issues a random manual code only after verified owner and identity acknowledgement, never emails it", async () => {
     const d = dependencies(),
