@@ -1,4 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  ArrowRight,
+  ClipboardList,
+  Pencil,
+  Plus,
+  RefreshCw,
+} from "lucide-react";
+import { ClinicalStatusBadge } from "./ClinicalTaskCard";
+import { InterventionStrategyDialog } from "./InterventionStrategyDialog";
+import "./ClinicalInterventions.css";
 import { AIButton } from "@/src/components/ai/AIControls";
 import {
   AIRequestError,
@@ -21,7 +31,7 @@ import {
   strategySummary,
 } from "../../../../supabase/functions/_shared/interventions";
 import {
-  InterventionStrategyForm,
+  firstIncompleteStrategyStep,
   strategyLabels,
 } from "./InterventionStrategyForm";
 
@@ -108,6 +118,9 @@ export function ClinicalInterventions(props: Props) {
       reason: string;
     } | null
   >(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [initialStep, setInitialStep] = useState(0);
+  const reviewButtons = useRef<Record<string, HTMLButtonElement | null>>({});
   const pendingRef = useRef(onPendingChange);
   useEffect(() => {
     pendingRef.current = onPendingChange;
@@ -156,7 +169,10 @@ export function ClinicalInterventions(props: Props) {
         objectiveApprovedAt: workspace?.objective?.approved_at ?? "",
         strategy: emptyStrategy(),
       };
-    edit(crypto.randomUUID(), next);
+    const id = crypto.randomUUID();
+    edit(id, next);
+    setInitialStep(0);
+    setActiveId(id);
   }
   function discardLocal(id: string) {
     const next = { ...local };
@@ -183,6 +199,7 @@ export function ClinicalInterventions(props: Props) {
     action: InterventionAction,
     extra: Record<string, unknown> = {},
   ) {
+    if (busy || readOnly) return false;
     if (
       execution &&
       (execution.id !== id ||
@@ -191,7 +208,7 @@ export function ClinicalInterventions(props: Props) {
       setMessage(
         "Registra o cancela el evento de ejecución abierto antes de guardar otra acción.",
       );
-      return;
+      return false;
     }
     setBusy(true);
     setMessage("");
@@ -230,15 +247,18 @@ export function ClinicalInterventions(props: Props) {
           ? "Estrategia retirada. Su historial se conserva."
           : "Cambio registrado.",
       );
+      return true;
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "No pudimos guardar.",
       );
+      return false;
     } finally {
       setBusy(false);
     }
   }
   async function generate() {
+    if (readOnly || busy || state === "generating" || execution) return;
     if (sessionStorage.getItem(pendingKey)) {
       setState("uncertain");
       setMessage("Comprueba primero la solicitud pendiente.");
@@ -276,8 +296,10 @@ export function ClinicalInterventions(props: Props) {
         return;
       }
       const documents = (result.output as { strategies?: unknown }).strategies;
-      if (!Array.isArray(documents) || documents.length > 3 ||
-        !documents.every(isStrategyDocument)) {
+      if (
+        !Array.isArray(documents) || documents.length > 3 ||
+        !documents.every(isStrategyDocument)
+      ) {
         throw new Error(
           "La propuesta de IA llegó incompleta o con datos incompatibles. No se pudo abrir para revisión. Puedes continuar manualmente o contactar a soporte.",
         );
@@ -337,33 +359,57 @@ export function ClinicalInterventions(props: Props) {
   ];
   const eligible = !!workspace?.pes && !!workspace.objective?.smart_plan &&
     workspace.objective.pes_statement === workspace.pes.pesStatement;
+  const activeItem = items.find((item) => item.id === activeId);
+  const activeDocument = activeId
+    ? local[activeId]?.document ?? activeItem?.draft ??
+      activeItem?.approved?.document
+    : undefined;
+  const activeLinked = !!activeDocument && eligible &&
+    activeDocument.pesApprovedAt === workspace?.pes?.approved_at &&
+    activeDocument.objectiveApprovedAt === workspace?.objective?.approved_at;
+  function closeEditor() {
+    const id = activeId;
+    setActiveId(null);
+    requestAnimationFrame(() => {
+      if (id) reviewButtons.current[id]?.focus();
+    });
+  }
+  async function saveEditor() {
+    if (!activeId) return;
+    if (
+      (!local[activeId] && !activeItem?.draft) || await mutate(activeId, "save")
+    ) closeEditor();
+  }
+  async function approveEditor() {
+    if (activeId && await mutate(activeId, "approve")) closeEditor();
+  }
   return (
     <section
-      className="clinical-assistant"
+      className="clinical-strategies-workspace clinical-objectives-workspace"
       aria-label="Estrategias de intervención"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="clinical-objective-overview">
+        <span className="clinical-stage-icon">
+          <ClipboardList size={22} aria-hidden="true" />
+        </span>
         <div>
           <h3 className="font-semibold">Del objetivo a la acción</h3>
           <p className="mt-2 text-sm text-[var(--nuth-muted)]">
-            Define qué se hará, cómo, durante cuánto tiempo y quién participará.
-            Ordena las estrategias por prioridad clínica.
+            Abre una estrategia para definir la acción, organizar su aplicación
+            y acordarla con la persona.
           </p>
         </div>
         <button
           type="button"
           className="nuth-button-secondary !text-xs"
-          disabled={busy}
+          disabled={busy || execution !== null}
           onClick={() => void refresh()}
         >
-          Actualizar contexto
+          <RefreshCw size={14} aria-hidden="true" />Actualizar contexto
         </button>
       </div>
       {workspace?.pes && (
-        <details
-          className="mt-4 rounded-xl border border-[var(--nuth-line)] p-3 text-sm"
-          open
-        >
+        <details className="mt-4 rounded-xl border border-[var(--nuth-line)] p-3 text-sm">
           <summary className="font-semibold">
             PES y objetivos de referencia
           </summary>
@@ -394,30 +440,36 @@ export function ClinicalInterventions(props: Props) {
             <button
               type="button"
               className="nuth-button-secondary !text-sm"
-              disabled={busy || ids.length >= 30}
+              disabled={busy || execution !== null || ids.length >= 30}
               onClick={() => add()}
             >
-              Agregar estrategia manualmente
+              <Plus size={16} aria-hidden="true" />Agregar estrategia
+              manualmente
             </button>
             <AIButton
               capability="ai.consultation_support"
               state={state}
-              disabled={busy || !eligible || ids.length >= 30}
+              disabled={busy || execution !== null || !eligible ||
+                ids.length >= 30}
               onClick={() => void generate()}
             >
               Proponer estrategias con IA
             </AIButton>
           </div>
-          <label className="mt-3 block text-xs text-[var(--nuth-muted)]">
-            Qué cambiarías en otra propuesta · opcional<textarea
-              className="nuth-input mt-1 w-full !text-sm"
-              rows={2}
-              maxLength={600}
-              placeholder="Por ejemplo, priorizar educación y recursos disponibles."
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-            />
-          </label>
+          <details className="clinical-support-details">
+            <summary>Ajustar la próxima propuesta · opcional</summary>
+            <label className="mt-3 block text-xs text-[var(--nuth-muted)]">
+              Qué cambiarías en otra propuesta · opcional<textarea
+                className="nuth-input mt-1 w-full !text-sm"
+                rows={2}
+                maxLength={600}
+                placeholder="Por ejemplo, priorizar educación y recursos disponibles."
+                disabled={busy || state === "generating"}
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+              />
+            </label>
+          </details>
           <p className="mt-2 text-xs text-[var(--nuth-muted)]">
             La generación usa créditos según el consumo real. Revisa, adapta y
             acuerda cada propuesta.
@@ -434,7 +486,7 @@ export function ClinicalInterventions(props: Props) {
         </button>
       )}
       {!!proposals.length && (
-        <div className="mt-4 space-y-3">
+        <div className="clinical-strategy-proposals">
           <h4 className="font-semibold">Propuestas para revisar</h4>
           {proposals.map((doc, i) => (
             <article
@@ -442,12 +494,24 @@ export function ClinicalInterventions(props: Props) {
               className="rounded-xl border border-[var(--nuth-line)] p-3 text-sm"
             >
               <h5 className="font-semibold">{doc.strategy.title}</h5>
-              <p className="mt-2 whitespace-pre-line">
-                {strategySummary(doc.strategy)}
+              <p className="clinical-strategy-summary-action">
+                {doc.strategy.action}
               </p>
-              <p className="mt-2 text-xs">
-                Relación con la causa: {doc.strategy.etiologyLink}
-              </p>
+              <dl className="clinical-goal-summary-facts">
+                <div>
+                  <dt>Tipo</dt>
+                  <dd>{strategyCategories[doc.strategy.category]}</dd>
+                </div>
+                <div>
+                  <dt>Revisión prevista</dt>
+                  <dd>{doc.strategy.reviewAt || "Por acordar"}</dd>
+                </div>
+              </dl>
+              <details className="clinical-suggestion-preview">
+                <summary>Vista previa completa</summary>
+                <p>{strategySummary(doc.strategy)}</p>
+                <p>Relación con la causa: {doc.strategy.etiologyLink}</p>
+              </details>
               <details className="mt-2 text-xs">
                 <summary>Datos utilizados y pendientes</summary>
                 {doc.strategy.evidence.map((e, j) => (
@@ -465,7 +529,7 @@ export function ClinicalInterventions(props: Props) {
                 <button
                   type="button"
                   className="nuth-button-secondary !text-xs"
-                  disabled={busy || ids.length >= 30}
+                  disabled={busy || execution !== null || ids.length >= 30}
                   onClick={() => {
                     add(doc);
                     setProposals(proposals.filter((_, index) => index !== i));
@@ -486,7 +550,7 @@ export function ClinicalInterventions(props: Props) {
           ))}
         </div>
       )}
-      <div className="mt-5 space-y-5">
+      <div className="clinical-strategy-list">
         {ids.map((id) => {
           const item = items.find((item) => item.id === id),
             document = local[id]?.document ?? item?.draft ??
@@ -499,22 +563,30 @@ export function ClinicalInterventions(props: Props) {
           const linked = eligible &&
             document.pesApprovedAt === workspace?.pes?.approved_at &&
             document.objectiveApprovedAt === workspace?.objective?.approved_at;
+          const status = editing || item?.requiresReview
+            ? "progress"
+            : item?.state === "completed"
+            ? "complete"
+            : item?.state === "withdrawn"
+            ? "pending"
+            : current
+            ? "approved"
+            : "pending";
           return (
             <article
               key={id}
-              className="min-w-0 rounded-2xl border border-[var(--nuth-line)] p-3 sm:p-5"
+              className="clinical-goal-card clinical-strategy-card"
+              data-status={status}
               aria-label={s.title || "Nueva estrategia"}
             >
-              <header className="mb-4 flex flex-wrap items-start justify-between gap-2">
+              <header className="clinical-strategy-card-heading">
                 <div>
-                  <p className="text-xs text-[var(--nuth-muted)]">
+                  <p>
                     Prioridad {s.priority} · {strategyCategories[s.category]}
                   </p>
-                  <h4 className="mt-1 font-semibold">
-                    {s.title || "Nueva estrategia"}
-                  </h4>
+                  <h4>{s.title || "Nueva estrategia"}</h4>
                 </div>
-                <span className="text-xs font-semibold">
+                <ClinicalStatusBadge status={status}>
                   {local[id]
                     ? "Cambios sin guardar"
                     : item?.requiresReview
@@ -522,40 +594,56 @@ export function ClinicalInterventions(props: Props) {
                     : item?.draft
                     ? "Borrador guardado"
                     : stateLabels[item?.state ?? "draft"]}
-                  {item?.version ? ` · versión ${item.version}` : ""}
-                </span>
+                </ClinicalStatusBadge>
               </header>
-              {editing && !readOnly
-                ? (
-                  <>
-                    <InterventionStrategyForm
-                      document={document}
-                      workspace={workspace}
-                      disabled={busy}
-                      onChange={(doc) => edit(id, doc)}
-                    />
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="nuth-button-secondary !text-sm"
-                        disabled={busy}
-                        onClick={() => void mutate(id, "save")}
-                      >
-                        Guardar borrador
-                      </button>
-                      <button
-                        type="button"
-                        className="nuth-button !text-sm"
-                        disabled={busy || !linked || !!strategyIssues(s).length}
-                        onClick={() => void mutate(id, "approve")}
-                      >
-                        Aprobar estrategia
-                      </button>
+              <p className="clinical-strategy-summary-action">
+                {s.action || "Define qué se hará con la persona."}
+              </p>
+              <dl className="clinical-goal-summary-facts">
+                <div>
+                  <dt>Responsable previsto</dt>
+                  <dd>{s.responsible || "Por definir"}</dd>
+                </div>
+                <div>
+                  <dt>Revisión</dt>
+                  <dd>{s.reviewAt || "Por definir"}</dd>
+                </div>
+              </dl>
+              <div className="clinical-strategy-card-actions">
+                {!readOnly && (
+                  <button
+                    ref={(element) => {
+                      reviewButtons.current[id] = element;
+                    }}
+                    type="button"
+                    className="clinical-text-action"
+                    disabled={busy || execution !== null}
+                    aria-label={`Revisar estrategia: ${
+                      s.title || "Nueva estrategia"
+                    }`}
+                    aria-haspopup="dialog"
+                    onClick={() => {
+                      setInitialStep(firstIncompleteStrategyStep(s, linked));
+                      setMessage("");
+                      setActiveId(id);
+                    }}
+                  >
+                    <Pencil size={15} aria-hidden="true" />
+                    {editing || item?.requiresReview
+                      ? "Revisar estrategia"
+                      : "Consultar o editar"}
+                    <ArrowRight size={15} aria-hidden="true" />
+                  </button>
+                )}
+                {editing && !readOnly && (
+                  <details className="clinical-strategy-draft-options">
+                    <summary>Opciones del borrador</summary>
+                    <div>
                       {local[id] && (
                         <button
                           type="button"
-                          className="nuth-button-secondary !text-xs"
-                          disabled={busy}
+                          className="clinical-text-action"
+                          disabled={busy || execution !== null}
                           onClick={() => discardLocal(id)}
                         >
                           Descartar cambios sin guardar
@@ -564,8 +652,8 @@ export function ClinicalInterventions(props: Props) {
                       {item?.draft && (
                         <button
                           type="button"
-                          className="nuth-button-secondary !text-xs"
-                          disabled={busy}
+                          className="clinical-text-action"
+                          disabled={busy || execution !== null}
                           onClick={() =>
                             void mutate(
                               id,
@@ -578,72 +666,56 @@ export function ClinicalInterventions(props: Props) {
                         </button>
                       )}
                     </div>
-                    <p className="mt-3 text-xs text-[var(--nuth-muted)]">
-                      Al aprobar confirmas el vínculo clínico, los componentes
-                      de implementación y el acuerdo documentado.
+                  </details>
+                )}
+              </div>
+              <details className="clinical-support-details">
+                <summary>
+                  Ver detalle de la estrategia{item?.version
+                    ? ` · versión ${item.version}`
+                    : ""}
+                </summary>
+                <dl className="clinical-strategy-detail-fields">
+                  {strategyFields.filter((field) => s[field]).map((field) => (
+                    <div key={field}>
+                      <dt>{strategyLabels[field] ?? field}</dt>
+                      <dd>{s[field]}</dd>
+                    </div>
+                  ))}
+                  <div>
+                    <dt>Objetivos vinculados</dt>
+                    <dd>
+                      {s.goalIndexes.map((index) => `Objetivo ${index + 1}`)
+                        .join(" · ") || "Por definir"}
+                    </dd>
+                  </div>
+                </dl>
+              </details>
+              {item?.approved && (
+                <details className="clinical-support-details">
+                  <summary>Ejecución y acciones</summary>
+                  {item?.execution.startDate && (
+                    <p className="mt-3 text-xs">
+                      Ejecución registrada desde {item.execution.startDate} ·
+                      {" "}
+                      {item.execution.executor}
                     </p>
-                  </>
-                )
-                : (
-                  <>
-                    <p className="whitespace-pre-line text-sm">
-                      {strategySummary(s)}
+                  )}
+                  {item?.execution.communication && (
+                    <p className="mt-2 text-xs">
+                      Comunicación registrada con{" "}
+                      {item.execution.communication.recipient} ·{" "}
+                      {new Date(item.execution.communication.recordedAt)
+                        .toLocaleString("es-MX")}
                     </p>
-                    <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-                      <div>
-                        <dt className="font-semibold">
-                          Relación con la etiología
-                        </dt>
-                        <dd>{s.etiologyLink}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-semibold">
-                          Responsable / ejecución prevista
-                        </dt>
-                        <dd>{s.responsible} / {s.executor}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-semibold">
-                          Inicio y revisión previstos
-                        </dt>
-                        <dd>{s.startDate} · {s.reviewAt}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-semibold">Adaptaciones</dt>
-                        <dd>{s.adaptations}</dd>
-                      </div>
-                    </dl>
-                    {item?.execution.startDate && (
-                      <p className="mt-3 text-xs">
-                        Ejecución registrada desde {item.execution.startDate} ·
-                        {" "}
-                        {item.execution.executor}
-                      </p>
-                    )}
-                    {item?.execution.communication && (
-                      <p className="mt-2 text-xs">
-                        Comunicación registrada con{" "}
-                        {item.execution.communication.recipient} ·{" "}
-                        {new Date(item.execution.communication.recordedAt)
-                          .toLocaleString("es-MX")}
-                      </p>
-                    )}
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {!readOnly && (
-                        <button
-                          type="button"
-                          className="nuth-button-secondary !text-xs"
-                          disabled={busy}
-                          onClick={() => edit(id, document)}
-                        >
-                          Editar estrategia
-                        </button>
-                      )}
+                  )}
+                  {!readOnly && (
+                    <div className="clinical-strategy-execution-actions">
                       {current && onInstructions && (
                         <button
                           type="button"
                           className="nuth-button-secondary !text-xs"
-                          disabled={busy}
+                          disabled={busy || execution !== null}
                           onClick={() => {
                             onInstructions(strategySummary(s));
                             setMessage(
@@ -676,7 +748,7 @@ export function ClinicalInterventions(props: Props) {
                             key={action}
                             type="button"
                             className="nuth-button-secondary !text-xs"
-                            disabled={busy}
+                            disabled={busy || execution !== null}
                             onClick={() =>
                               setExecution({
                                 id,
@@ -700,6 +772,7 @@ export function ClinicalInterventions(props: Props) {
                         <button
                           type="button"
                           className="nuth-button-secondary !text-xs"
+                          disabled={busy || execution !== null}
                           onClick={() =>
                             setExecution({
                               id,
@@ -714,8 +787,9 @@ export function ClinicalInterventions(props: Props) {
                         </button>
                       )}
                     </div>
-                  </>
-                )}
+                  )}
+                </details>
+              )}
               {execution?.id === id && (
                 <form
                   className="mt-4 space-y-3 rounded-xl border border-[var(--nuth-line)] p-3 text-sm"
@@ -863,6 +937,27 @@ export function ClinicalInterventions(props: Props) {
           );
         })}
       </div>
+      {activeId && activeDocument && !readOnly && (
+        <InterventionStrategyDialog
+          key={activeId}
+          id={`strategy-${activeId}`}
+          document={activeDocument}
+          workspace={workspace}
+          initialStep={initialStep}
+          busy={busy}
+          message={message}
+          linked={activeLinked}
+          clean={!local[activeId] && !activeItem?.draft}
+          alreadyApproved={!local[activeId] && !activeItem?.draft &&
+            !!activeItem?.approved && !activeItem.requiresReview}
+          canApprove={activeLinked && !workspace?.archived &&
+            !strategyIssues(activeDocument.strategy).length}
+          onChange={(document) => edit(activeId, document)}
+          onClose={closeEditor}
+          onSave={() => void saveEditor()}
+          onApprove={() => void approveEditor()}
+        />
+      )}
       {!ids.length && (
         <p className="mt-5 text-sm text-[var(--nuth-muted)]">
           Aún no hay estrategias registradas en esta revisión.

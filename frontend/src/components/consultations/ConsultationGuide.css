@@ -16,7 +16,6 @@
 .clinical-assistant :is(h3, h4, label) { color: var(--nuth-ink); }
 .clinical-assistant > p, .clinical-assistant > div > p { color: var(--nuth-muted); }
 .clinical-assistant input:not([type=checkbox]), .clinical-assistant textarea, .clinical-assistant select { color: var(--nuth-ink); background: var(--nuth-surface); border-color: var(--nuth-line); }
-.clinical-assistant button[title="Asistencia con inteligencia artificial"] { background: var(--nuth-action); }
 .recall-workspace { scroll-margin-top: 80px; padding: clamp(18px, 3vw, 26px); border: 1px solid var(--nuth-line); border-radius: 23px; background: var(--nuth-surface); box-shadow: 0 18px 38px -30px #173d3659; }
 .recall-workspace-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
 .recall-workspace-heading h3 { font-size: 19px; font-weight: 650; }
@@ -31,7 +30,6 @@
 .recall-narrative > p { margin-top: 9px; color: var(--nuth-muted); font-size: 12px; line-height: 1.6; }
 .recall-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 20px; }
 .recall-actions .nuth-button { min-height: 42px; }
-.recall-actions > button[title="Asistencia con inteligencia artificial"] { background: var(--nuth-action); }
 .recall-food-card { margin-top: 12px; padding: 17px; border: 1px solid var(--nuth-line); border-radius: 17px; background: var(--nuth-surface-soft); }
 .recall-food-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 13px; }
 .recall-food-heading > span { display: grid; place-items: center; width: 27px; height: 27px; flex: none; border-radius: 8px; background: var(--nuth-surface); color: var(--nuth-action); font-size: 12px; font-weight: 700; }

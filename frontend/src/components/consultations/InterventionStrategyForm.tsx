@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import {
   type Strategy,
   strategyCategories,
@@ -6,6 +7,7 @@ import {
   strategyReferences,
 } from "../../../../supabase/functions/_shared/interventions";
 import type { InterventionWorkspace } from "@/src/services/clinicalInterventions";
+
 export const strategyLabels: Record<string, string> = {
   title: "Nombre de la estrategia",
   action: "Acción concreta",
@@ -31,19 +33,88 @@ export const strategyLabels: Record<string, string> = {
   goalIndexes: "Objetivos vinculados",
   route: "Vía de administración",
   agreement: "Acuerdo con el paciente",
+  referenceTitle: "Guía o protocolo utilizado",
   referenceUrl: "Enlace de la referencia",
+  referenceVersion: "Versión o año",
+  referenceNotes: "Fundamento y justificación clínica",
 };
-export function InterventionStrategyForm({
-  document,
-  workspace,
-  disabled,
-  onChange,
-}: {
-  document: StrategyDocument;
-  workspace: InterventionWorkspace | null;
-  disabled: boolean;
-  onChange: (document: StrategyDocument) => void;
-}) {
+export const strategySteps = [
+  {
+    title: "Propósito",
+    heading: "¿Qué objetivo apoyará?",
+    description:
+      "Elige el tipo de estrategia y vincula el objetivo que quieres trabajar.",
+    keys: ["title", "goalIndexes"],
+  },
+  {
+    title: "Acción",
+    heading: "¿Qué se hará y cómo?",
+    description:
+      "Describe una acción concreta y cómo responde a la causa del PES.",
+    keys: ["action", "method", "etiologyLink"],
+  },
+  {
+    title: "Recursos",
+    heading: "¿Qué necesitan para llevarla a cabo?",
+    description:
+      "Completa los detalles de este tipo de intervención y las adaptaciones necesarias.",
+    keys: [
+      "composition",
+      "dose",
+      "route",
+      "access",
+      "educationTopic",
+      "materials",
+      "comprehensionCheck",
+      "coordinationWith",
+      "coordinationReason",
+      "adaptations",
+    ],
+  },
+  {
+    title: "Aplicación",
+    heading: "¿Cuándo comienza y quién participa?",
+    description: "Organiza los tiempos y las responsabilidades previstas.",
+    keys: ["frequency", "duration", "startDate", "responsible", "executor"],
+  },
+  {
+    title: "Seguimiento",
+    heading: "¿Cómo sabrán si está funcionando?",
+    description:
+      "Define qué revisarás y cuándo conviene ajustar la estrategia.",
+    keys: ["monitoring", "reviewAt", "adjustmentCriteria"],
+  },
+  {
+    title: "Acuerdo",
+    heading: "Revisa y acuerda la estrategia",
+    description: "Confirma que representa lo conversado antes de aprobarla.",
+    keys: ["agreement", "referenceUrl"],
+  },
+] as const;
+export function strategyStepIssues(strategy: Strategy, step: number) {
+  const keys: readonly string[] = strategySteps[step].keys;
+  return strategyIssues(strategy).filter((key) => keys.includes(key));
+}
+export function firstIncompleteStrategyStep(
+  strategy: Strategy,
+  linked: boolean,
+) {
+  if (!linked) return 0;
+  const step = strategySteps.findIndex((_, index) =>
+    strategyStepIssues(strategy, index).length > 0
+  );
+  return step < 0 ? 0 : step;
+}
+
+export function InterventionStrategyForm(
+  { document, workspace, disabled, step, onChange }: {
+    document: StrategyDocument;
+    workspace: InterventionWorkspace | null;
+    disabled: boolean;
+    step: number;
+    onChange: (document: StrategyDocument) => void;
+  },
+) {
   const s = document.strategy;
   const goals = workspace?.objective?.smart_plan?.goals ?? [];
   const linked = !!workspace?.pes && !!workspace.objective &&
@@ -51,270 +122,280 @@ export function InterventionStrategyForm({
     document.objectiveApprovedAt === workspace.objective.approved_at;
   const change = (patch: Partial<Strategy>) =>
     onChange({ ...document, strategy: { ...s, ...patch } });
-  const fields: (keyof Strategy)[] = [
-    "title",
-    "action",
-    "etiologyLink",
-    "method",
-    "frequency",
-    "duration",
-    "startDate",
-    "responsible",
-    "executor",
-    "adaptations",
-    "monitoring",
-    "reviewAt",
-    "adjustmentCriteria",
-  ];
-  if (["food", "supplementation"].includes(s.category)) {
-    fields.push("composition", "dose");
-  }
-  if (["enteral", "parenteral"].includes(s.route)) {
-    fields.push("access", "coordinationWith");
-  }
-  if (["education", "counseling"].includes(s.category)) {
-    fields.push("educationTopic", "materials", "comprehensionCheck");
-  }
-  if (["coordination", "supplementation"].includes(s.category)) {
-    fields.push("coordinationWith", "coordinationReason");
-  }
   const issues = strategyIssues(s);
-  return (
-    <fieldset disabled={disabled} className="min-w-0 space-y-4">
-      {!linked && (
-        <div className="rounded-xl border border-[var(--nuth-line)] p-3 text-sm">
-          <p>Revisa el vínculo con el PES y los objetivos vigentes.</p>
-          <button
-            type="button"
-            className="nuth-button-secondary mt-2 !text-xs"
-            disabled={!workspace?.pes || !workspace.objective?.smart_plan}
-            onClick={() =>
-              onChange({
-                ...document,
-                pesApprovedAt: workspace!.pes!.approved_at,
-                objectiveApprovedAt: workspace!.objective!.approved_at,
-                strategy: { ...s, goalIndexes: [] },
-              })}
-          >
-            Vincular a los objetivos actuales
-          </button>
-        </div>
-      )}
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <label className="min-w-0 text-sm">
-          Categoría<select
-            className="nuth-input mt-1 w-full"
-            value={s.category}
-            onChange={(e) =>
-              change({
-                category: e.target.value as Strategy["category"],
-                route: "not_applicable",
-                access: "",
-                dose: "",
-                composition: "",
-                educationTopic: "",
-                materials: "",
-                comprehensionCheck: "",
-                coordinationWith: "",
-                coordinationReason: "",
-              })}
-          >
-            {Object.entries(strategyCategories).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          Prioridad · 1 es la mayor<input
-            type="number"
-            className="nuth-input mt-1 w-full"
-            min={1}
-            max={10}
-            value={s.priority}
-            onChange={(e) =>
-              change({
-                priority: Math.min(
-                  10,
-                  Math.max(1, Number(e.target.value) || 1),
-                ),
-              })}
-          />
-        </label>
-      </div>
-      <fieldset className="rounded-xl border border-[var(--nuth-line)] p-3">
-        <legend className="px-1 text-sm font-semibold">
-          Objetivos que apoya
-        </legend>
-        {goals.length
-          ? goals.map((goal, index) => (
-            <label key={index} className="mb-2 flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={s.goalIndexes.includes(index)}
-                onChange={(e) =>
-                  change({
-                    goalIndexes: e.target.checked
-                      ? [...s.goalIndexes, index].sort()
-                      : s.goalIndexes.filter((i) =>
-                        i !== index
-                      ),
-                  })}
-              />
-              <span>
-                <strong>{index + 1}. {goal.outcome}</strong>
-                <span className="block text-xs text-[var(--nuth-muted)]">
-                  {goal.indicator} · Meta: {goal.target} · {goal.timeframe}
-                </span>
-              </span>
-            </label>
-          ))
-          : (
-            <p className="text-sm text-[var(--nuth-muted)]">
-              Aprueba los objetivos SMART para vincularlos.
-            </p>
+  function field(key: keyof typeof strategyLabels, short = false) {
+    const value = s[key as keyof Strategy] as string;
+    const label = strategyLabels[key];
+    return (
+      <label
+        key={key}
+        className={`clinical-goal-field${
+          value.trim() && !issues.includes(key) ? " is-complete" : ""
+        }`}
+      >
+        <span>
+          {label}
+          {value.trim() && !issues.includes(key) && (
+            <Check size={14} aria-hidden="true" />
           )}
-      </fieldset>
-      {["food", "supplementation"].includes(s.category) && (
-        <label className="block text-sm">
-          Vía de administración<select
-            className="nuth-input mt-1 w-full"
-            value={s.route}
-            onChange={(e) =>
-              change({
-                route: e.target.value as Strategy["route"],
-                ...(!["enteral", "parenteral"].includes(e.target.value)
-                  ? { access: "", coordinationWith: "" }
-                  : {}),
-              })}
-          >
-            <option value="not_applicable">Por definir</option>
-            <option value="oral">Oral</option>
-            <option value="enteral">Enteral</option>
-            <option value="parenteral">Parenteral</option>
-          </select>
-        </label>
-      )}
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-        {fields.map((field) => (
-          <label key={field} className="min-w-0 text-sm">
-            {strategyLabels[field]}
-            <textarea
-              className="nuth-input mt-1 w-full !text-sm"
-              rows={field === "action" || field === "method" ? 3 : 2}
+        </span>
+        {short
+          ? (
+            <input
+              aria-label={label}
+              className="nuth-input"
               maxLength={1500}
-              value={s[field] as string}
-              onChange={(e) => change({ [field]: e.target.value })}
-              placeholder={field === "startDate"
-                ? "Fecha o condición de inicio acordada"
-                : field === "adaptations"
-                ? "Considera recursos, preferencias, disposición y apoyos"
+              value={value}
+              onChange={(e) => change({ [key]: e.target.value })}
+            />
+          )
+          : (
+            <textarea
+              aria-label={label}
+              className="nuth-input"
+              rows={2}
+              maxLength={1500}
+              value={value}
+              onChange={(e) => change({ [key]: e.target.value })}
+              placeholder={key === "adaptations"
+                ? "Recursos, preferencias y apoyos que necesita la persona"
                 : undefined}
             />
-          </label>
-        ))}
-      </div>
-      <label className="block text-sm">
-        Acuerdo con la persona<select
-          className="nuth-input mt-1 w-full"
-          value={s.agreement}
-          onChange={(e) =>
-            change({ agreement: e.target.value as Strategy["agreement"] })}
-        >
-          <option value="pending">Pendiente de conversar</option>
-          <option value="patient">Acordado con el paciente</option>
-          <option value="caregiver">
-            Acordado con cuidador o representante
-          </option>
-        </select>
+          )}
       </label>
-      <details className="rounded-xl border border-[var(--nuth-line)] p-3 text-sm">
-        <summary className="font-semibold">Fundamento y referencias</summary>
-        <p className="mt-2 text-xs text-[var(--nuth-muted)]">
-          Los marcos generales describen el proceso de atención. Registra la
-          guía terapéutica o protocolo y la justificación clínica que
-          correspondan a tu estrategia.
-        </p>
-        {strategyReferences.map((ref) => (
-          <label key={ref.id} className="mt-3 flex items-start gap-2 text-xs">
-            <input
-              type="checkbox"
-              checked={s.referenceIds.includes(ref.id)}
-              onChange={(e) =>
-                change({
-                  referenceIds: e.target.checked
-                    ? [...s.referenceIds, ref.id]
-                    : s.referenceIds.filter((id) =>
-                      id !== ref.id
-                    ),
-                })}
-            />
-            <span>
-              <a
-                href={ref.url}
-                target="_blank"
-                rel="noreferrer"
-                className="underline"
+    );
+  }
+  const resourceFields: string[] = [];
+  if (["food", "supplementation"].includes(s.category)) {
+    resourceFields.push("composition", "dose");
+  }
+  if (["enteral", "parenteral"].includes(s.route)) {
+    resourceFields.push("access", "coordinationWith");
+  }
+  if (["education", "counseling"].includes(s.category)) {
+    resourceFields.push("educationTopic", "materials", "comprehensionCheck");
+  }
+  if (["coordination", "supplementation"].includes(s.category)) {
+    resourceFields.push("coordinationWith", "coordinationReason");
+  }
+  resourceFields.push("adaptations");
+  return (
+    <fieldset disabled={disabled} className="clinical-strategy-fields">
+      {step === 0 && (
+        <>
+          {!linked && (
+            <div className="clinical-notice is-warning">
+              <p>Revisa el vínculo con el PES y los objetivos vigentes.</p>
+              <button
+                type="button"
+                className="nuth-button-secondary mt-2 !text-xs"
+                disabled={!workspace?.pes || !workspace.objective?.smart_plan}
+                onClick={() =>
+                  onChange({
+                    ...document,
+                    pesApprovedAt: workspace!.pes!.approved_at,
+                    objectiveApprovedAt: workspace!.objective!.approved_at,
+                    strategy: { ...s, goalIndexes: [] },
+                  })}
               >
-                {ref.title}
-              </a>
-              <span className="block">{ref.scope}</span>
-            </span>
-          </label>
-        ))}
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {([
-            "referenceTitle",
-            "referenceUrl",
-            "referenceVersion",
-            "referenceNotes",
-          ] as const).map((field) => (
-            <label key={field} className="text-xs">
-              {{
-                referenceTitle: "Guía o protocolo utilizado",
-                referenceUrl: "Enlace HTTPS",
-                referenceVersion: "Versión o año",
-                referenceNotes: "Fundamento y justificación clínica",
-              }[field]}
-              <textarea
-                className="nuth-input mt-1 w-full !text-sm"
-                maxLength={1500}
-                value={s[field]}
-                onChange={(e) => change({ [field]: e.target.value })}
+                Vincular a los objetivos actuales
+              </button>
+            </div>
+          )}
+          {field("title", true)}
+          <div className="clinical-strategy-short-fields">
+            <label className="clinical-goal-field">
+              <span>Categoría</span>
+              <select
+                className="nuth-input"
+                value={s.category}
+                onChange={(e) =>
+                  change({
+                    category: e.target.value as Strategy["category"],
+                    route: "not_applicable",
+                    access: "",
+                    dose: "",
+                    composition: "",
+                    educationTopic: "",
+                    materials: "",
+                    comprehensionCheck: "",
+                    coordinationWith: "",
+                    coordinationReason: "",
+                  })}
+              >
+                {Object.entries(strategyCategories).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="clinical-goal-field">
+              <span>Prioridad · 1 es la mayor</span>
+              <input
+                type="number"
+                className="nuth-input"
+                min={1}
+                max={10}
+                value={s.priority}
+                onChange={(e) =>
+                  change({
+                    priority: Math.min(
+                      10,
+                      Math.max(1, Number(e.target.value) || 1),
+                    ),
+                  })}
               />
             </label>
-          ))}
+          </div>
+          <fieldset className="clinical-strategy-goals">
+            <legend>Objetivos que apoya</legend>
+            {goals.length
+              ? goals.map((goal, index) => (
+                <label key={index}>
+                  <input
+                    type="checkbox"
+                    checked={s.goalIndexes.includes(index)}
+                    onChange={(e) =>
+                      change({
+                        goalIndexes: e.target.checked
+                          ? [...s.goalIndexes, index].sort()
+                          : s.goalIndexes.filter((i) => i !== index),
+                      })}
+                  />
+                  <span>
+                    <strong>{index + 1}. {goal.outcome}</strong>
+                  </span>
+                </label>
+              ))
+              : (
+                <p className="clinical-notice">
+                  Aprueba los objetivos SMART para vincularlos.
+                </p>
+              )}
+          </fieldset>
+        </>
+      )}
+      {step === 1 &&
+        ["action", "method", "etiologyLink"].map((key) => field(key))}
+      {step === 2 && (
+        <>
+          {["food", "supplementation"].includes(s.category) && (
+            <label className="clinical-goal-field">
+              <span>Vía de administración</span>
+              <select
+                className="nuth-input"
+                value={s.route}
+                onChange={(e) =>
+                  change({
+                    route: e.target.value as Strategy["route"],
+                    ...(!["enteral", "parenteral"].includes(e.target.value)
+                      ? { access: "", coordinationWith: "" }
+                      : {}),
+                  })}
+              >
+                <option value="not_applicable">Por definir</option>
+                <option value="oral">Oral</option>
+                <option value="enteral">Enteral</option>
+                <option value="parenteral">Parenteral</option>
+              </select>
+            </label>
+          )}
+          {[...new Set(resourceFields)].map((key) => field(key))}
+        </>
+      )}
+      {step === 3 && (
+        <div className="clinical-strategy-short-fields">
+          {["frequency", "duration", "startDate", "responsible", "executor"]
+            .map((key) => field(key, true))}
         </div>
-      </details>
-      {!!s.evidence.length && (
-        <details className="text-xs">
-          <summary>Datos del expediente utilizados por la propuesta</summary>
-          <ul className="mt-2 space-y-2">
-            {s.evidence.map((e, i) => (
-              <li key={i}>
-                <strong>{e.source}:</strong> {e.finding}
-              </li>
+      )}
+      {step === 4 &&
+        ["monitoring", "reviewAt", "adjustmentCriteria"].map((key) =>
+          field(key)
+        )}
+      {step === 5 && (
+        <>
+          <label className="clinical-goal-field">
+            <span>Acuerdo con la persona</span>
+            <select
+              className="nuth-input"
+              aria-label="Acuerdo con la persona"
+              value={s.agreement}
+              onChange={(e) =>
+                change({ agreement: e.target.value as Strategy["agreement"] })}
+            >
+              <option value="pending">Pendiente de conversar</option>
+              <option value="patient">Acordado con el paciente</option>
+              <option value="caregiver">
+                Acordado con cuidador o representante
+              </option>
+            </select>
+            <small>Registra el acuerdo después de conversarlo.</small>
+          </label>
+          <details className="clinical-support-details">
+            <summary>Fundamento y referencias</summary>
+            <p className="mt-3 text-xs">
+              Registra la guía o protocolo que corresponde a esta estrategia.
+            </p>
+            {strategyReferences.map((ref) => (
+              <label key={ref.id} className="clinical-strategy-reference">
+                <input
+                  type="checkbox"
+                  checked={s.referenceIds.includes(ref.id)}
+                  onChange={(e) =>
+                    change({
+                      referenceIds: e.target.checked
+                        ? [...s.referenceIds, ref.id]
+                        : s.referenceIds.filter((id) =>
+                          id !== ref.id
+                        ),
+                    })}
+                />
+                <span>
+                  <a
+                    href={ref.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    {ref.title}
+                  </a>
+                  <small>{ref.scope}</small>
+                </span>
+              </label>
             ))}
-          </ul>
-        </details>
+            <div className="clinical-strategy-fields mt-4">
+              {[
+                "referenceTitle",
+                "referenceUrl",
+                "referenceVersion",
+                "referenceNotes",
+              ].map((key) => field(key))}
+            </div>
+          </details>
+          {!!s.evidence.length && (
+            <details className="clinical-support-details">
+              <summary>
+                Datos del expediente utilizados por la propuesta
+              </summary>
+              <ul className="mt-3 space-y-2 text-xs">
+                {s.evidence.map((e, i) => (
+                  <li key={i}>
+                    <strong>{e.source}:</strong> {e.finding}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {!!s.missingContext.length && (
+            <details className="clinical-support-details">
+              <summary>Datos pendientes en la propuesta original</summary>
+              <ul className="mt-3 list-disc pl-4 text-xs">
+                {s.missingContext.map((note, i) => <li key={i}>{note}</li>)}
+              </ul>
+            </details>
+          )}
+        </>
       )}
-      {!!s.missingContext.length && (
-        <details className="text-xs">
-          <summary>Datos pendientes en la propuesta original</summary>
-          <ul className="mt-2 list-disc space-y-1 pl-4">
-            {s.missingContext.map((note, i) => <li key={i}>{note}</li>)}
-          </ul>
-        </details>
-      )}
-      <details className="text-xs text-[var(--nuth-muted)]">
-        <summary>
-          {issues.length
-            ? `${issues.length} componentes pendientes para aprobar`
-            : "Componentes documentados para revisión profesional"}
-        </summary>
-        <ul className="mt-2 list-disc pl-4">
-          {issues.map((key) => <li key={key}>{strategyLabels[key] ?? key}</li>)}
-        </ul>
-      </details>
     </fieldset>
   );
 }

@@ -51,6 +51,8 @@ export async function clinicalObjective(
     const value = localStorage.getItem("qa-goal-text") || "";
     objective = {
       question_key: questionKey,
+      pes_statement: pes.pesStatement,
+      pes_approved_at: pes.approved_at,
       smart_plan: plan,
       value,
       content: value,
