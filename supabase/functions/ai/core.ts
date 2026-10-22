@@ -86,13 +86,24 @@ export class OpenAIResponsesProvider implements AIProvider {
         body:JSON.stringify({model:config.model,instructions,input:JSON.stringify(context),truncation:'disabled',
           text:{format:{type:'json_schema',name:'nuthrick_result',strict:true,schema}}}),
       });
-      if (!response.ok) throw new Error('count_unavailable');
+      if (!response.ok) {
+        let providerCode: string | undefined;
+        try {
+          const payload = await response.json();
+          const error = payload?.error as Record<string, unknown> | undefined;
+          providerCode = [error?.code,error?.type].find((value): value is string => typeof value === 'string');
+        } catch { /* The status and request id are enough for a safe diagnostic. */ }
+        console.warn(JSON.stringify({event:'ai_input_count_failed',model:config.model,status:response.status,providerCode:providerCode ?? null,requestId:response.headers.get('x-request-id')}));
+        if (response.status === 413 || ['context_length_exceeded','input_too_large','tokens_limit_exceeded'].includes(providerCode ?? '')) throw new AIError('input_too_large');
+        throw new AIError('input_count_unavailable');
+      }
       const tokens = (await response.json()).input_tokens;
       if (!Number.isSafeInteger(tokens) || tokens < 1) throw new Error('invalid_count');
       if (tokens > config.max_input_tokens) throw new AIError('input_too_large');
       return tokens;
     } catch (error) {
       if (error instanceof AIError) throw error;
+      console.warn(JSON.stringify({event:'ai_input_count_transport_failed',model:config.model,errorKind:error instanceof DOMException ? error.name : 'request_failed'}));
       throw new AIError('input_count_unavailable');
     }
   }
@@ -233,7 +244,17 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   let countedInputTokens: number | undefined;
   if (config.token_policy === 'model_capacity') {
     if (!provider.countInput) throw new AIError('configuration_required');
-    countedInputTokens = await provider.countInput({config,...adapter});
+    try {
+      countedInputTokens = await provider.countInput({config,...adapter});
+    } catch (error) {
+      if (request.feature !== 'intervention_strategy' || !(error instanceof AIError) || error.code !== 'input_count_unavailable') throw error;
+      // Keep strategy generation available if OpenAI's separate token-count
+      // endpoint is down. UTF-8 bytes conservatively bound the text token count;
+      // actual usage from the generation response remains the billed/admin value.
+      const serializedBytes = new TextEncoder().encode(adapter.instructions + JSON.stringify(adapter.context) + JSON.stringify(adapter.schema)).length;
+      countedInputTokens = Math.min(config.max_input_tokens,Math.max(1,serializedBytes + 2048));
+      console.warn(JSON.stringify({event:'ai_input_count_fallback',feature:request.feature,model:config.model,estimatedInputTokens:countedInputTokens}));
+    }
   }
   const { generation, created } = await store.reserve(config,request,fingerprint,countedInputTokens);
   if (!created) return { generationId: generation.id, status: generation.status, replay: true };
