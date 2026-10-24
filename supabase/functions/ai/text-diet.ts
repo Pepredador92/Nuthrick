@@ -7,17 +7,17 @@ import {isTextDietGuidance,isTextDiet,type TextDietGuidance,type TextDiet} from 
 export type TextDietSource=DietSource;
 export function textDietContext(loaded:TextDietSource,guidance:TextDietGuidance,instructions='') {
   if(!isTextDietGuidance(guidance))throw new AIError('invalid_request');
-  const freePlan=loaded.source.plan.patient_id===null&&loaded.source.plan.consultation_id===null;
-  if(freePlan&&loaded.source.consultation)throw new AIError('context_mismatch');
+  const withoutConsultation=loaded.source.plan.consultation_id===null;
+  if(withoutConsultation&&loaded.source.consultation)throw new AIError('context_mismatch');
   const clean=(s:string)=>redactClinicalText(s,loaded.identifiers.filter((v):v is string=>typeof v==='string'&&!!v));
   const reviewedSource=textDietReviewSource(loaded.source);
   const {context,blockers}=buildDietGenerationContext({...reviewedSource.source,catalog:undefined,additionalInstructions:instructions,
     guidance:{version:1,objective:guidance.objective,contextReviewed:guidance.contextReviewed,reactionReview:'recorded',
       meals:guidance.meals.map(m=>({...m,type:'CUSTOM' as const,options:1}))}},clean);
-  const reasons=blockers.filter(b=>['draft_required','consultation_required','context_mismatch','energy_required','macros_required','prescription_inconsistent','strategy_review_required','instructions_too_long'].includes(b)&&!(freePlan&&b==='consultation_required')).map(code=>({code}));
-  if(!freePlan&&(!guidance.contextReviewed||!guidance.objective.trim()))reasons.push({code:'context_review_required'});
-  if(!freePlan&&(!guidance.restrictionsReviewed||!guidance.restrictions.trim()))reasons.push({code:'text_restrictions_required'});
-  const payload={format:'text_diet' as const,mode:freePlan?'template' as const:'patient' as const,diet_count:guidance.dietCount,
+  const reasons=blockers.filter(b=>['draft_required','consultation_required','context_mismatch','energy_required','macros_required','prescription_inconsistent','strategy_review_required','instructions_too_long'].includes(b)&&!(withoutConsultation&&b==='consultation_required')).map(code=>({code}));
+  if(!withoutConsultation&&(!guidance.contextReviewed||!guidance.objective.trim()))reasons.push({code:'context_review_required'});
+  if(!withoutConsultation&&(!guidance.restrictionsReviewed||!guidance.restrictions.trim()))reasons.push({code:'text_restrictions_required'});
+  const payload={format:'text_diet' as const,mode:withoutConsultation?loaded.source.plan.patient_id?'patient_without_consultation' as const:'template' as const:'patient' as const,diet_count:guidance.dietCount,
     meal_schedule:guidance.meals.map(m=>({name:clean(m.name),time:m.time})),
     clinical:{...context.clinical,...(reviewedSource.suggestionOrigin&&context.clinical.objective.fact.state!=='known'?{objectiveSuggestionOrigin:reviewedSource.suggestionOrigin}:{})},prescription:context.prescription,
     restrictions:{reaction_status:context.restrictions.reaction_status,reactions:context.restrictions.reactions,professional_review:clean(guidance.restrictions)},
