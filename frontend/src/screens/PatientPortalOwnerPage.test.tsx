@@ -4,11 +4,10 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { PatientPortalOwnerPage } from "./PatientPortalOwnerPage";
 import { portalAction } from "@/src/services/patientPortal";
 import { runAIRequest } from "@/src/services/ai";
-import { getClinicalRevision } from "@/src/services/clinicalCopilot";
+import { loadPatientAgreements } from "@/src/services/consultations";
 import { loadLongitudinalHistory } from "@/src/services/longitudinalHistory";
 vi.mock("@/src/services/ai", async (original) => ({ ...(await original<object>()), runAIRequest: vi.fn() }));
 vi.mock("@/src/services/consultations",()=>({loadPatientAgreements:vi.fn(async()=>({revision:1,text:""}))}));
-vi.mock("@/src/services/clinicalCopilot", () => ({ getClinicalRevision: vi.fn(async () => 1) }));
 vi.mock("@/src/components/ai/AIControls", () => ({ AIButton: ({ children, onClick, disabled }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button type="button" disabled={disabled} onClick={onClick}>{children}</button> }));
 vi.mock("@/src/services/patientPortal", () => ({
   portalAction: vi.fn(),
@@ -43,6 +42,7 @@ vi.mock("qrcode", () => ({
 }));
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(loadPatientAgreements).mockResolvedValue({ revision: 1, text: "" });
   vi.mocked(portalAction).mockImplementation(async (_access, action) =>
     action === "goal_candidates" ? {goals:[{consultationId:"complete",date:"2026-09-10",revision:1,questionKey:"objectives",content:"Objetivo autorizado"}]} : action === "plan_options"
       ? { plans: [], selectedPlanId: null }
@@ -202,23 +202,26 @@ it("muestra el QR del enlace protegido cuando el acceso está habilitado", async
 });
 
 
-it("uses the selected completed consultation and appends reviewed instructions without publishing", async () => {
-  vi.mocked(runAIRequest).mockResolvedValue({ generationId: "g", status: "succeeded", replay: false, output: {
-    instructions: [{ text: "Prepara la colación que acordamos.", evidence: [{ source: "Entrevista · first actions", finding: "Preparar colación" }] }],
-  } });
+it("shares saved consultation instructions without generating with AI or publishing before review", async () => {
+  vi.mocked(loadPatientAgreements).mockResolvedValue({ revision: 1, text: "Indicaciones acordadas\nPrepara la colación que acordamos." });
   render(<MemoryRouter initialEntries={["/app/patients/p1/portal?tab=share"]}><Routes><Route path="/app/patients/:patientId/portal" element={<PatientPortalOwnerPage />} /></Routes></MemoryRouter>);
   await screen.findByText("Su guía nutricional");
-  expect(getClinicalRevision).not.toHaveBeenCalled();
   fireEvent.change(screen.getByLabelText("Indicaciones nutricionales"), { target: { value: "Acuerdo previo." } });
-  fireEvent.click(screen.getByRole("button", { name: "Preparar indicaciones con IA" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Proponer indicaciones" }));
-  expect(getClinicalRevision).toHaveBeenCalledWith("p1", "c1");
-  expect(screen.getByLabelText("Consulta de origen").children).toHaveLength(1);
-  await screen.findByText("Prepara la colación que acordamos.");
+  expect(loadPatientAgreements).toHaveBeenCalledWith("p1", "c1");
+  expect(screen.queryByRole("button", { name: "Preparar indicaciones con IA" })).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Consulta de origen de las indicaciones").children).toHaveLength(1);
+  await screen.findByText(/Prepara la colación que acordamos/);
   expect(screen.getByLabelText("Indicaciones nutricionales")).toHaveValue("Acuerdo previo.");
-  fireEvent.click(screen.getByRole("button", { name: "Agregar a indicaciones" }));
-  expect(screen.getByLabelText("Indicaciones nutricionales")).toHaveValue("Acuerdo previo.\n\nPrepara la colación que acordamos.");
+  fireEvent.click(screen.getByRole("button", { name: "Agregar al borrador del Superlink" }));
+  const instructions = "Acuerdo previo.\n\nIndicaciones acordadas\nPrepara la colación que acordamos.";
+  expect(screen.getByLabelText("Indicaciones nutricionales")).toHaveValue(instructions);
+  expect(screen.getByRole("button", { name: "Ya agregadas al borrador" })).toBeDisabled();
+  expect(runAIRequest).not.toHaveBeenCalled();
   expect(vi.mocked(portalAction).mock.calls.some(call => call[1] === "publish")).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Revisar antes de publicar" }));
+  expect(within(screen.getByRole("region", { name: "Vista previa del paciente" })).getByText(/Prepara la colación que acordamos/)).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Publicar para el paciente" }));
+  await waitFor(() => expect(portalAction).toHaveBeenCalledWith({ patientId: "p1" }, "publish", expect.objectContaining({ shared: expect.objectContaining({ instructions }) })));
 });
 
 

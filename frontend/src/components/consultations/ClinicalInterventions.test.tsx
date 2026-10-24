@@ -221,6 +221,17 @@ function mount(overrides = {}) {
     />,
   );
 }
+it("requests the consultation closing flow when taking an approved food strategy to the workshop", async () => {
+  const doc = fullDocument();
+  doc.strategy.category = "food";
+  doc.strategy.route = "oral";
+  api.workspace.mockResolvedValue({ ...workspace, items: [approvedItem(doc)] });
+  const onOpenWorkshop = vi.fn();
+  mount({ onOpenWorkshop });
+  fireEvent.click(await screen.findByRole("button", { name: "Llevar al Taller de dietas" }));
+  expect(onOpenWorkshop).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("link", { name: "Llevar al Taller de dietas" })).not.toBeInTheDocument();
+});
 it('keeps draft objectives out of strategy approval requirements and routes to the actual prerequisite',async()=>{
   const doc=fullDocument();doc.objectiveApprovedAt='draft:saved-goals';
   api.workspace.mockResolvedValue({...workspace,objective:null,

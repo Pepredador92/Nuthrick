@@ -219,6 +219,7 @@ const mount = (entry = "/app/patients/patient/consultations/draft", previous?: s
       <Route path="/app/patients/patient" element={<h1>Ficha guardada</h1>} />
       <Route path="/app/patients" element={<h1>Lista de pacientes</h1>} />
       <Route path="/app/messages" element={<h1>Mensajes del paciente</h1>} />
+      <Route path="/app/diet-workshop" element={<h1>Taller de dietas preparado</h1>} />
     </Route>,
   ), { initialEntries: previous ? [previous, entry] : [entry] });
   return { ...render(<RouterProvider router={router} />), router };
@@ -435,10 +436,7 @@ describe("consultation save and review workflow", () => {
     expect(screen.getByRole("button", { name: "Mediciones" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Laboratorios" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Evolución" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Taller de dietas" })).toHaveAttribute(
-      "href",
-      "/app/diet-workshop?patientId=patient&consultationId=draft",
-    );
+    expect(screen.getByRole("button", { name: "Taller de dietas" })).toBeEnabled();
   });
 
   it("restores the exact section and unsaved answer after a remount", async () => {
@@ -803,6 +801,123 @@ describe("consultation save and review workflow", () => {
 });
 
 const exitTitle = "¿Qué quieres hacer con esta consulta?";
+const workshopCloseTitle = "Cerrar consulta y abrir el Taller de dietas";
+async function requestWorkshop() {
+  const button = await screen.findByRole("button", { name: "Taller de dietas" });
+  await waitFor(() => expect(button).toBeEnabled());
+  fireEvent.click(button);
+  return screen.findByRole("dialog", { name: workshopCloseTitle });
+}
+
+describe("closing a consultation before the diet workshop", () => {
+  it("saves the last answer, requires review and waits for a successful closure before opening the same consultation in the workshop", async () => {
+    mocks.answerState.answers = { review: "Revisado" };
+    let resolveFinish!: (value: typeof fixtures.c) => void;
+    mocks.finish.mockImplementationOnce(() => new Promise(resolve => { resolveFinish = resolve; }));
+    const { router } = mount();
+    fireEvent.change(await screen.findByLabelText("Detalle breve de prueba"), { target: { value: "Último cambio antes del Taller" } });
+    const dialog = await requestWorkshop();
+    expect(screen.queryByRole("dialog", { name: exitTitle })).not.toBeInTheDocument();
+    const confirm = within(dialog).getByRole("button", { name: "Cerrar y abrir el Taller" });
+    expect(confirm).toBeDisabled();
+    expect(mocks.finish).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    fireEvent.click(confirm);
+    await waitFor(() => expect(mocks.finish).toHaveBeenCalledOnce());
+    expect(mocks.save).toHaveBeenLastCalledWith(expect.objectContaining({ id: "draft" }), expect.anything(), { note: "Último cambio antes del Taller" });
+    expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(mocks.finish.mock.invocationCallOrder[0]);
+    expect(router.state.location.pathname).toBe("/app/patients/patient/consultations/draft");
+    expect(within(dialog).getByRole("button", { name: "Cerrando…" })).toBeDisabled();
+    await act(async () => { resolveFinish({ ...fixtures.c, status: "completed" }); });
+    await screen.findByRole("heading", { name: "Taller de dietas preparado" });
+    expect(router.state.location.pathname + router.state.location.search).toBe("/app/diet-workshop?patientId=patient&consultationId=draft");
+    expect(mocks.discard).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem("nuthrick:consultation-workspace:draft")).toBeNull();
+  });
+
+  it("cancels the workshop destination and requires a fresh review for a normal closure", async () => {
+    mocks.answerState.answers = { review: "Revisado" };
+    mount();
+    const workshopDialog = await requestWorkshop();
+    fireEvent.click(within(workshopDialog).getByRole("checkbox"));
+    fireEvent.click(within(workshopDialog).getAllByRole("button", { name: "Volver a la consulta" })[0]);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(mocks.finish).not.toHaveBeenCalled();
+    expect(mocks.discard).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Revisar cierre de consulta" }));
+    const dialog = await screen.findByRole("dialog", { name: "Cerrar entrevista" });
+    expect(within(dialog).getByRole("checkbox")).not.toBeChecked();
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar cierre" }));
+    await screen.findByRole("heading", { name: "Ficha guardada" });
+    expect(screen.queryByRole("heading", { name: "Taller de dietas preparado" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the consultation open when the closing review is dismissed with Escape", async () => {
+    const { router } = mount();
+    const dialog = await requestWorkshop();
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/app/patients/patient/consultations/draft");
+    expect(mocks.finish).not.toHaveBeenCalled();
+    expect(mocks.discard).not.toHaveBeenCalled();
+  });
+
+  it.each(["save", "finish"] as const)("preserves the consultation and the workshop destination when %s fails, then allows retrying", async failure => {
+    mocks.answerState.answers = { review: "Revisado" };
+    const { router } = mount();
+    fireEvent.change(await screen.findByLabelText("Detalle breve de prueba"), { target: { value: "Conservar al fallar" } });
+    const dialog = await requestWorkshop();
+    if (failure === "save") mocks.save.mockRejectedValue(new Error("No hay conexión para guardar"));
+    else mocks.finish.mockRejectedValueOnce(new Error("No pudimos cerrar la consulta"));
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar y abrir el Taller" }));
+    await within(dialog).findByRole("alert");
+    expect(router.state.location.pathname).toBe("/app/patients/patient/consultations/draft");
+    expect(screen.getByLabelText("Detalle breve de prueba")).toHaveValue("Conservar al fallar");
+    expect(sessionStorage.getItem("nuthrick:consultation-workspace:draft")).not.toBeNull();
+    if (failure === "save") expect(mocks.finish).not.toHaveBeenCalled();
+    mocks.save.mockResolvedValue(undefined);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar y abrir el Taller" }));
+    await screen.findByRole("heading", { name: "Taller de dietas preparado" });
+    expect(router.state.location.search).toBe("?patientId=patient&consultationId=draft");
+    expect(mocks.discard).not.toHaveBeenCalled();
+  });
+
+  it("returns to a missing required answer and opens the workshop only after correcting it and reviewing again", async () => {
+    const { router } = mount();
+    let dialog = await requestWorkshop();
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar y abrir el Taller" }));
+    await screen.findByRole("heading", { name: "Cierre de prueba" });
+    expect(mocks.finish).not.toHaveBeenCalled();
+    expect(router.state.location.pathname).toBe("/app/patients/patient/consultations/draft");
+    fireEvent.change(screen.getByRole("combobox", { name: /Confirmación de prueba/ }), { target: { value: "Revisado" } });
+    dialog = await requestWorkshop();
+    expect(within(dialog).getByRole("checkbox")).not.toBeChecked();
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar y abrir el Taller" }));
+    await screen.findByRole("heading", { name: "Taller de dietas preparado" });
+  });
+
+  it.each(["Mediciones", "Laboratorios", "Recordatorio de 24 horas"])("protects unconfirmed changes in %s before closing for the workshop", async moduleName => {
+    mocks.answerState.answers = { review: "Revisado" };
+    mount();
+    await openModule(moduleName);
+    if (moduleName === "Mediciones") fireEvent.change(screen.getByLabelText("Peso de prueba"), { target: { value: "72.5" } });
+    else if (moduleName === "Laboratorios") fireEvent.click(screen.getByRole("button", { name: "Editar laboratorio de prueba" }));
+    else {
+      fireEvent.click(screen.getByRole("button", { name: "Capturar recordatorio" }));
+      fireEvent.change(screen.getByLabelText("Texto capturado"), { target: { value: "Recordatorio por confirmar" } });
+    }
+    const dialog = await requestWorkshop();
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    expect(within(dialog).getByRole("button", { name: "Cerrar y abrir el Taller" })).toBeDisabled();
+    expect(mocks.finish).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "Taller de dietas preparado" })).not.toBeInTheDocument();
+  });
+});
+
 async function requestExit() {
   fireEvent.click(screen.getByRole("button", { name: "Abrir mensaje" }));
   return screen.findByRole("dialog", { name: exitTitle });

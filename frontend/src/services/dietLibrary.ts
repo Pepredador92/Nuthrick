@@ -7,8 +7,10 @@ import {
   type LibraryContent,
   type LibraryTargetMode,
   referenceMacros,
+  makeLibraryContent,
 } from "@/src/features/diet-library/model";
 import type { NutritionPlan } from "@/src/types/domain";
+import { isTextDiet, textDietPrescriptionMatches } from "../../../supabase/functions/_shared/text-diet";
 
 const fail = (error: { message?: string; code?: string }) =>
   new Error(
@@ -89,6 +91,15 @@ export async function archiveDietLibrary(
   if (error) throw fail(error);
   if (!data) throw new Error("La base cambió. Actualiza la biblioteca.");
 }
+/** One reusable entry per free workspace; retries and later saves update it. */
+export async function saveFreeDietLibrary(plan: NutritionPlan): Promise<DietLibraryItem> {
+  if (plan.patient_id || plan.consultation_id || !isTextDiet(plan.text_diet) || !plan.text_diet.reviewed_at || !textDietPrescriptionMatches(plan.text_diet, plan))
+    throw new Error("Revisa y aprueba las dietas del plan libre antes de guardarlas en tu biblioteca.");
+  const { data, error } = await supabase.from("diet_library_items").select("id,owner_id,revision,archived").eq("id", plan.id).maybeSingle();
+  if (error) throw fail(error);
+  if (data && (!data.owner_id || data.archived)) throw new Error("La base está archivada o no está disponible para actualizarla.");
+  return saveDietLibrary(plan.id, plan.title, makeLibraryContent(plan), data?.revision);
+}
 export async function applyDietLibrary(
   item: DietLibraryItem,
   plan: NutritionPlan,
@@ -146,6 +157,8 @@ export async function createDietLibraryEditingDraft(
   const content = (source.data as DietLibraryItem).content;
   const target = content.reference_targets;
   const macro = referenceMacros(target);
+  const workspace = copyLibraryWorkspace(content, target && macro ? { ...target, energy_kcal: macro.target_energy_kcal } : undefined);
+  if (workspace.text_diet) workspace.text_diet.prescription = { target_calories: macro?.target_energy_kcal ?? null, macro_distribution: macro };
   const { data, error } = await supabase
     .from("nutrition_plans")
     .insert({
@@ -155,7 +168,7 @@ export async function createDietLibraryEditingDraft(
       status: "draft",
       target_calories: macro?.target_energy_kcal ?? null,
       macro_distribution: macro,
-      ...copyLibraryWorkspace(content, target && macro ? { ...target, energy_kcal: macro.target_energy_kcal } : undefined),
+      ...workspace,
     })
     .select("*")
     .single();

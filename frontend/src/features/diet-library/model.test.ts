@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { weeklyFixture } from "../../../tests/fixtures/weeklyMenu";
+import { freeTextDietPlan } from "../../../tests/fixtures/freeTextDiet";
 import { createMacroDistribution, patchMacroInput } from "../macros/model";
 import {
   compareLibrary,
@@ -9,6 +10,7 @@ import {
   libraryNutrition,
   libraryReady,
   libraryRestrictions,
+  libraryPreview,
   makeLibraryContent,
   prepareLibraryBase,
   editLibraryTexts,
@@ -67,6 +69,24 @@ function fixture() {
   return { plan, content, item };
 }
 describe("reusable library boundaries", () => {
+  it("preserves complete text diets and schedules without copying formula inputs, approvals or patient data", () => {
+    const plan = freeTextDietPlan();
+    const content = makeLibraryContent(plan);
+    expect(content.text_diet?.diets.map(d => d.text)).toEqual(plan.text_diet!.diets.map(d => d.text));
+    expect(content.text_diet?.meals).toEqual(plan.text_diet!.meals);
+    expect(libraryDays(content)).toBe(2);
+    expect(libraryReady(content)).toBe(true);
+    for (const field of ["patient_id", "consultation_id", "macro_distribution", "reference_weight_kg", "reviewed_at", "energy_calculation"]) expect(JSON.stringify(content)).not.toContain(field);
+    expect(libraryNutrition(content).every(day => day.totals === null)).toBe(true);
+    expect(libraryPreview({ name: "Base libre", content }).days.map(d => d.text)).toEqual(plan.text_diet!.diets.map(d => d.text));
+    const item = { ...fixture().item, content };
+    const original = JSON.stringify(content);
+    const copy = prepareLibraryBase(item, { ...plan, patient_id: "patient", consultation_id: "visit" });
+    expect(copy.text_diet?.reviewed_at).toBeNull();
+    expect(copy.text_diet?.prescription.macro_distribution).toEqual(plan.macro_distribution);
+    copy.text_diet!.diets[0].text = "Cambio solo para este paciente";
+    expect(JSON.stringify(content)).toBe(original);
+  });
   it("accepts coherent reference targets without copying weight or changing portions", () => {
     const { plan, item } = fixture();
     const original = JSON.stringify(item.content);
@@ -146,6 +166,7 @@ describe("reusable library boundaries", () => {
       "diet_menu",
       "exchange_prescription",
       "meal_distribution",
+      "text_diet",
     ]);
     expect(patch.exchange_prescription.target_snapshot).toEqual(
       currentTargets(plan),

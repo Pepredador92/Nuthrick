@@ -25,7 +25,7 @@ Deno.test('text HTTP preflight and recovery stay scoped, private and do not rege
       if(mode==='apply-stale')return json({code:'P0001',message:'context_changed'},400);
       return json({ok:true,plan:fixtures.A.source.plan});
     }
-    if(url.endsWith('ai_text_diet_source')){assert.equal(body.p_owner,owner);const source=structuredClone(fixtures.A);if(mode==='guided'){source.source.plan.updated_at='2026-10-03T12:00:00Z';source.source.plan.exchange_prescription=null as never;source.source.plan.meal_distribution=null as never;source.source.consultation.pes=null as never;source.source.consultation.objective=null as never;}return mode==='foreign'?json({message:'context_unavailable'},403):json(source);}
+    if(url.endsWith('ai_text_diet_source')){assert.equal(body.p_owner,owner);const source=structuredClone(fixtures.A);if(mode==='free'){Object.assign(source.source,{consultation:null,answers:{}});Object.assign(source.source.plan,{patient_id:null,consultation_id:null});source.identifiers=[];}if(mode==='guided'){source.source.plan.updated_at='2026-10-03T12:00:00Z';source.source.plan.exchange_prescription=null as never;source.source.plan.meal_distribution=null as never;source.source.consultation.pes=null as never;source.source.consultation.objective=null as never;}return mode==='foreign'?json({message:'context_unavailable'},403):json(source);}
     if(url.endsWith('ai_server')){assert.equal(body.p_action,'config');assert.equal(body.p_data.feature,'diet_draft');return json({enabled:mode!=='disabled',prompt_version:'diet_draft@4'});}
     if(url.endsWith('ai_balance')){assert.equal(new Headers(init?.headers).get('authorization'),'Bearer valid');return json({available_credits:mode==='budget'?0:100});}
     throw Error('Unexpected external request '+url);
@@ -43,6 +43,10 @@ Deno.test('text HTTP preflight and recovery stay scoped, private and do not rege
     mode='budget';assert.ok((await send(request)).data.reasons.some((r:{code:string})=>r.code==='insufficient_credits'));
     mode='disabled';assert.ok((await send(request)).data.reasons.some((r:{code:string})=>r.code==='feature_disabled'));
     mode='foreign';assert.equal((await send(request)).status,409);
+    mode='free';
+    const freeRequest={...request,patientId:undefined,consultationId:undefined,textGuidance:{...guidance,objective:'',contextReviewed:false,restrictions:'',restrictionsReviewed:false}};
+    const free=await send(freeRequest);assert.equal(free.status,200);assert.equal(free.data.eligible,true);assert.equal(free.data.context.mode,'template');
+    assert.equal((await send({...freeRequest,patientId:plan.patient_id})).status,409,'a client cannot change the context of an unassigned plan');
     const apply={action:'apply_text_diet',generationId:crypto.randomUUID(),acceptDifferences:true};
     mode='apply-permission';const failed=await send(apply);assert.equal(failed.status,503);assert.deepEqual(failed.data,{error:'draft_save_failed'});
     mode='apply-stale';const stale=await send(apply);assert.equal(stale.status,409);assert.deepEqual(stale.data,{error:'context_changed'});

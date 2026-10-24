@@ -3,7 +3,7 @@ import {AIRequestError,getAIGenerationStatus,runAIRequest} from './ai';
 import {isTextDiet,type TextDiet,type TextDietGuidance} from '../../../supabase/functions/_shared/text-diet';
 import type {NutritionPlan} from '@/src/types/domain';
 import type {DietGenerationContext} from '@/src/features/diet-workshop/generationContext';
-export type TextDietPreflight={eligible:boolean;contextToken:string;reasons:Array<{code:string}>;context:{clinical:DietGenerationContext['clinical'];prescription:DietGenerationContext['prescription'];restrictions:Pick<DietGenerationContext['restrictions'],'reaction_status'|'reactions'>;preferences:Pick<DietGenerationContext['preferences'],'eating_pattern'|'foods'>}};
+export type TextDietPreflight={eligible:boolean;contextToken:string;reasons:Array<{code:string}>;context:{mode?:'template'|'patient';clinical:DietGenerationContext['clinical'];prescription:DietGenerationContext['prescription'];restrictions:Pick<DietGenerationContext['restrictions'],'reaction_status'|'reactions'>;preferences:Pick<DietGenerationContext['preferences'],'eating_pattern'|'foods'>}};
 export type TextDietProposal={generationId:string;textDraft:TextDiet};
 const fields=(p:NutritionPlan,g:TextDietGuidance,n:string)=>({feature:'diet_draft',idempotencyKey:crypto.randomUUID(),planId:p.id,patientId:p.patient_id??undefined,consultationId:p.consultation_id??undefined,revision:p.draft_revision??1,textGuidance:g,narrative:n});
 async function invoke(body:Record<string,unknown>) {

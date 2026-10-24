@@ -63,6 +63,7 @@ export async function portalAction(access: Record<string, unknown>, action: stri
   return { ok: true };
 }
 export async function getPatient() { return { email: 'valeria@example.invalid' }; }
+export async function loadPatientAgreements() { return { revision: 1, text: 'Indicaciones acordadas\nLleva una colación los días que tengas una jornada larga.\n\nAnota cómo te sentiste para revisarlo en nuestra próxima consulta.' }; }
 export async function loadLongitudinalHistory() { return {
   consultations: [{ id: cid, status: 'completed', consultation_type: 'follow_up', sequence_number: 2, consultation_date: '2026-09-15', summary: 'Never share this private field.' }],
   series: shared.results.map(r => ({ ...r, method: r.method, category: 'measurements', catalogCategory: 'Mediciones básicas', points: r.points.map(p => ({ consultation_id: p.consultationId, consultation_date: p.date, display_value: p.value })) })),

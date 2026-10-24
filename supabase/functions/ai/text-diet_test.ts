@@ -8,6 +8,18 @@ import type {TextDietGuidance} from '../_shared/text-diet.ts';
 
 const guidance=(count:number):TextDietGuidance=>({version:1,dietCount:count,objective:'Organizar comidas prácticas',contextReviewed:true,restrictionsReviewed:true,restrictions:'Sin alergias confirmadas; conservar restricciones documentadas.',meals:[{name:'Desayuno',time:'08:00'},{name:'Comida',time:'14:00'},{name:'Cena',time:null}]});
 const output=(count:number)=>({diets:Array.from({length:count},(_,i)=>({meals:['Desayuno','Comida','Cena'].map((_,j)=>({title:`Platillo ${i}-${j}`,ingredients:[`1 taza de ${['frijoles','lentejas','garbanzos','arroz','calabacitas','zanahoria','chayote'][i]}`,`${j+1} tortillas de maíz`],preparation:'Calentar y servir.'}))}))});
+Deno.test('free plans use their prescription without clinical review, fabricated allergy confirmations or patient identifiers',async()=>{
+ const f:TextDietSource=structuredClone(fixtures.A);
+ f.source={...f.source,plan:{...f.source.plan,patient_id:null,consultation_id:null},consultation:null,answers:{},datedContext:undefined,objectiveSuggestion:undefined,interventionStrategies:undefined};f.identifiers=[];
+ const g={...guidance(3),objective:'',contextReviewed:false,restrictions:'',restrictionsReviewed:false};
+ const checked=await textDietPreflight(f,g,'');assert.equal(checked.eligible,true);assert.equal(checked.context.mode,'template');
+ assert.equal(checked.context.clinical.pes.fact.state,'unavailable');assert.equal(checked.context.restrictions.reaction_status.fact.state,'unavailable');
+ const snapshot=await prepareTextDietSnapshot(f,g,'');await verifyTextDietSnapshot(snapshot);
+ assert.deepEqual(snapshot.prescription,{target_calories:f.source.plan.target_calories,macro_distribution:f.source.plan.macro_distribution});
+ assert.equal(validateTextDietOutput(output(3),snapshot)?.diets.length,3);
+ assert.equal((await textDietPreflight(fixtures.A,g,'')).eligible,false,'patient plans still require explicit clinical review');
+ f.source.plan.target_calories=null;await assert.rejects(()=>prepareTextDietSnapshot(f,g,''),/energy_required/);
+});
 for(const n of [1,3,7])Deno.test(`text diet ${n}: full days, no catalog, clinical privacy, immutable contract`,async()=>{
  const f=structuredClone(fixtures.A);f.source.plan.exchange_prescription=null as never;f.source.plan.meal_distribution=null as never;f.source.catalog=undefined as never;
  const s=await prepareTextDietSnapshot(f,guidance(n),'Ingredientes de abarrotes');await verifyTextDietSnapshot(s);
@@ -36,8 +48,10 @@ Deno.test('context review and restrictions required; client cannot replace serve
  assert.throws(()=>featureAdapter('diet_draft','diet_draft@3',true));
  assert.notDeepEqual(featureAdapter('diet_draft','diet_draft@4').schema,textDietAdapter.schema,'legacy sessions retain their schema');
 });
-Deno.test('new format uses strict real adapter path; retry does not dispatch or charge twice',async()=>{
- const g=guidance(7),snapshot=await prepareTextDietSnapshot(fixtures.A,g,'');
+for(const free of [false,true])Deno.test(`new format (${free?'free plan':'patient'}) uses strict real adapter path; retry does not dispatch or charge twice`,async()=>{
+ const f:TextDietSource=structuredClone(fixtures.A);
+ if(free)f.source={...f.source,plan:{...f.source.plan,patient_id:null,consultation_id:null},consultation:null,answers:{}};
+ const g={...guidance(7),...(free?{objective:'',contextReviewed:false,restrictions:'',restrictionsReviewed:false}:{})},snapshot=await prepareTextDietSnapshot(f,g,'');
  const config:FeatureConfig={feature:'diet_draft',enabled:true,provider:'openai',model:'gpt-5.6-terra',prompt_version:'diet_draft@4',max_input_tokens:24000,max_output_tokens:16000,timeout_ms:90000,reasoning_level:'low',temperature:null};
  let reserves=0,dispatches=0,settles=0;const usage={input_tokens:100,output_tokens:3000,cached_tokens:0};
  const store:AIStore={config:async()=>config,context:async()=>({stamp:snapshot.sourceStamp,context:snapshot.payload}),bindContext:async()=>{},reserve:async()=>({created:++reserves===1,generation:{id:'synthetic',status:reserves===1?'reserved':'succeeded',charged_credits:0}}),claim:async()=>true,settle:async(_id,status,u)=>{assert.equal(status,'succeeded');assert.deepEqual(u,usage);settles++;return{id:'synthetic',status,charged_credits:5};},uncertain:async()=>{throw Error('unexpected uncertainty');},validateOutput:o=>!!validateTextDietOutput(o,snapshot)};

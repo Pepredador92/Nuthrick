@@ -9,6 +9,7 @@ export default defineConfig({
     { find: '@/src/services/patientPortal', replacement: fixture },
     { find: '@/src/services/patients', replacement: fixture },
     { find: '@/src/services/longitudinalHistory', replacement: fixture },
+    { find: '@/src/services/consultations', replacement: fixture },
     { find: '@/src/services/appointments', replacement: fixture },
     { find: '@/src/lib/supabase', replacement: fixture },
     { find: '@', replacement: fileURLToPath(new URL('../../', import.meta.url)) },

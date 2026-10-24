@@ -33,6 +33,8 @@ import {
 } from "@/src/features/exchanges/catalog";
 import { patientPlanViewFromDraft } from "@/src/features/diet-review/model";
 import { createMacroDistribution, patchMacroInput } from "@/src/features/macros/model";
+import { isTextDiet, type TextDiet } from "../../../../supabase/functions/_shared/text-diet";
+import { foodTargetsFor } from "../supplements/targets";
 
 export type LibraryTargetMode = "preserve" | "reference";
 export function referenceMacros(target: ExchangeTargetSnapshot | null) {
@@ -47,6 +49,7 @@ export function referenceMacros(target: ExchangeTargetSnapshot | null) {
 
 export type LibraryContent = {
   schema_version: 1;
+  text_diet?: Pick<TextDiet, "schema_version" | "requested_count" | "diets" | "meals">;
   estimation?: DietMenu["library_estimation"];
   reference_targets: ExchangeTargetSnapshot | null;
   exchange_groups: ExchangePrescription["groups"];
@@ -73,7 +76,14 @@ const zero = (): ExchangeTargetSnapshot => ({
 export const libraryKind = (days: number) =>
   days > 1 ? "Plan de alimentación" : "Dieta";
 export const libraryDays = (content: LibraryContent) =>
-  content.menu.week_plan?.days.length ?? 0;
+  content.text_diet?.diets.length ?? content.menu.week_plan?.days.length ?? 0;
+function libraryTextDraft(content: LibraryContent): TextDiet | null {
+  if (!content.text_diet) return null;
+  const macro = referenceMacros(content.reference_targets);
+  const value = { ...structuredClone(content.text_diet), reviewed_at: null,
+    prescription: { target_calories: macro?.target_energy_kcal ?? null, macro_distribution: macro } };
+  return isTextDiet(value) ? value : null;
+}
 export function currentTargets(
   plan: Pick<NutritionPlan, "target_calories" | "macro_distribution">,
 ): ExchangeTargetSnapshot | null {
@@ -225,9 +235,20 @@ export function makeLibraryContent(
     | "exchange_prescription"
     | "meal_distribution"
     | "diet_menu"
-  >,
+  > & Pick<Partial<NutritionPlan>, "text_diet">,
   includeAlternatives = true,
 ): LibraryContent {
+  if (plan.text_diet) {
+    if (!isTextDiet(plan.text_diet)) throw new Error("Revisa las dietas antes de guardarlas en la biblioteca.");
+    const distribution = createMealDistribution();
+    distribution.meal_times = plan.text_diet.meals.map((meal, i) => ({ id: `meal-${i}`, meal_type: "CUSTOM", display_name: meal.name, time: meal.time, display_order: i }));
+    distribution.distribution = [];
+    return { schema_version: 1, reference_targets: currentTargets(plan) ? foodTargetsFor(plan) : null, exchange_groups: [], distribution,
+      menu: createDietMenu(distribution, () => "library-menu"),
+      text_diet: { schema_version: 1, requested_count: plan.text_diet.requested_count,
+        diets: plan.text_diet.diets.map((diet, i) => ({ id: `diet-${i + 1}`, title: diet.title, text: diet.text })),
+        meals: plan.text_diet.meals.map(meal => ({ name: meal.name, time: meal.time })) } };
+  }
   const original = plan.meal_distribution ?? createMealDistribution();
   const meals = new Map(original.meal_times.map((m, i) => [m.id, `meal-${i}`]));
   const distribution: MealDistribution = {
@@ -311,6 +332,8 @@ export function makeLibraryContent(
 }
 
 const editableKeys = new Set([
+  "title",
+  "text",
   "name",
   "name_snapshot",
   "display_name",
@@ -364,6 +387,7 @@ export function editLibraryTexts(
 }
 
 export function libraryNutrition(content: LibraryContent) {
+  if (content.text_diet) return content.text_diet.diets.map((_, i) => ({ day: (["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const)[i], totals: null, complete: !!libraryTextDraft(content) }));
   const groups = new Set(exchangeCatalog.map((g) => g.groupCode));
   return (content.menu.week_plan?.days ?? []).map((day) => {
     let complete =
@@ -469,6 +493,7 @@ export function libraryNutrition(content: LibraryContent) {
   });
 }
 export function libraryReady(content: LibraryContent) {
+  if (content.text_diet) return !!libraryTextDraft(content);
   const days = libraryNutrition(content);
   return (
     days.length > 0 &&
@@ -558,12 +583,16 @@ export function prepareLibraryBase(
     throw new Error(
       "La base incluye alimentos excluidos. Revísala antes de aplicarla.",
     );
-  return copyLibraryWorkspace(
+  const workspace = copyLibraryWorkspace(
     item.content,
     target,
     current.diet_menu?.food_preferences,
     idFactory,
   );
+  if (workspace.text_diet && targetMode === "preserve") workspace.text_diet.prescription = {
+    target_calories: current.target_calories, macro_distribution: structuredClone(current.macro_distribution),
+  };
+  return workspace;
 }
 /** Editing a reusable base is an unassigned draft; missing reference targets stay missing. */
 export function copyLibraryWorkspace(
@@ -650,6 +679,7 @@ export function copyLibraryWorkspace(
     exchange_prescription: exchange,
     meal_distribution: meal,
     diet_menu: copy.menu,
+    text_diet: libraryTextDraft(content),
   };
 }
 export function libraryPreview(
@@ -660,6 +690,7 @@ export function libraryPreview(
       title: item.name,
       meal_distribution: item.content.distribution,
       diet_menu: item.content.menu,
+      text_diet: libraryTextDraft(item.content),
     } as NutritionPlan,
     "Base reutilizable · sin paciente",
   );

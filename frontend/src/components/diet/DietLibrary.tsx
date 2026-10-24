@@ -103,7 +103,7 @@ function NutritionComparison({
       <table className="w-full min-w-[550px] text-left text-xs">
         <thead>
           <tr>
-            <th className="p-3">Día</th>
+            <th className="p-3">{content.text_diet ? "Dieta" : "Día"}</th>
             {fields.map(([k, label, unit]) => (
               <th key={k} className="p-3">
                 {label} · {unit}
@@ -117,9 +117,9 @@ function NutritionComparison({
           </tr>
         </thead>
         <tbody>
-          {rows.map((d) => (
+          {rows.map((d, index) => (
             <tr key={d.day} className="border-t border-[#e6ece7]">
-              <th className="p-3">{dayName(d.day)}</th>
+              <th className="p-3">{content.text_diet?.diets[index]?.title ?? dayName(d.day)}</th>
               {fields.map(([k]) => (
                 <td key={k} className="p-3">
                   {d.totals ? number(d.totals[k]) : "Sin verificar"}
@@ -333,7 +333,7 @@ export function DietLibrary({
       >
         <p className="text-xs text-[#6b7f73]">
           {item.owner_id ? "Mi biblioteca" : "Nuthrick"} · {count}{" "}
-          {count === 1 ? "día" : "días"} ·{" "}
+          {item.content.text_diet ? count === 1 ? "dieta" : "dietas" : count === 1 ? "día" : "días"} ·{" "}
           {libraryReady(item.content) ? libraryKind(count) : "Pendiente"}
         </p>
         <h3 className="mt-1 break-words font-semibold">{item.name}</h3>
@@ -362,7 +362,8 @@ export function DietLibrary({
             </div>;
           })}
         </div>}
-        {target && libraryReady(item.content) && (
+        {item.content.text_diet && <p className="mt-2 text-xs text-[#64786d]">Dietas en texto · aportes sin cálculo verificado</p>}
+        {target && libraryReady(item.content) && !item.content.text_diet && (
           <p className="mt-1 text-xs text-[#64786d]">
             Diferencia media del día más distante:{" "}
             {number(compareLibrary(item.content, target).worst * 100)} %
@@ -592,7 +593,7 @@ export function DietLibrary({
               <p className="text-sm">
                 {selected.owner_id ? "Mi biblioteca" : "Biblioteca de Nuthrick"}{" "}
                 · {libraryDays(selected.content)}{" "}
-                {libraryDays(selected.content) === 1 ? "día" : "días"} ·{" "}
+                {selected.content.text_diet ? libraryDays(selected.content) === 1 ? "dieta" : "dietas" : libraryDays(selected.content) === 1 ? "día" : "días"} ·{" "}
                 {libraryReady(selected.content) ? "Completa" : "Pendiente"}
               </p>
               <NutritionComparison content={selected.content} target={target} />
@@ -646,7 +647,7 @@ export function DietLibrary({
                     Usar una copia en este borrador
                   </h3>
                   <p className="mt-2">
-                    Reemplazará equivalentes, tiempos, opciones y calendario.
+                    {selected.content.text_diet ? "Cargará una copia editable de las dietas en texto." : "Reemplazará equivalentes, tiempos, opciones y calendario."}
                     Mantendrá paciente y consulta. Se guardará
                     el trabajo anterior para recuperarlo mientras no hagas nuevos
                     cambios.
@@ -671,7 +672,7 @@ export function DietLibrary({
                           await onApply!(selected, operation.current!, targetMode);
                           close();
                           setNotice(
-                            "Copia aplicada. Revisa equivalentes y confirma nuevamente las opciones.",
+                            selected.content.text_diet ? "Copia aplicada. Revisa y aprueba las dietas para este paciente." : "Copia aplicada. Revisa equivalentes y confirma nuevamente las opciones.",
                           );
                         })
                       }

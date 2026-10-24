@@ -176,7 +176,7 @@ function ConsultationEditor() {
   const enteringConsultation = useRef(false);
   const exitLock = useRef(false);
   const [reviewed, setReviewed] = useState(false);
-  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [closeIntent, setCloseIntent] = useState<"patient" | "workshop" | null>(null);
   const [recallOpened, setRecallOpened] = useState(false);
   const [clinicalOpened, setClinicalOpened] = useState(false);
   const [clinicalStage, setClinicalStage] = useState(0);
@@ -655,10 +655,14 @@ function ConsultationEditor() {
       setBusy(false);
     }
   };
+  const reviewClose = (intent: "patient" | "workshop" = "patient") => {
+    setReviewed(false);
+    setError("");
+    setCloseIntent(intent);
+  };
   const complete = async () => {
-    if (!consultation || !snapshot || !reviewed || closing.current) return;
+    if (!consultation || !snapshot || !reviewed || !closeIntent || closing.current) return;
     if (recallPending || measurementsPending || laboratoriesPending || clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient?.timezone)) {
-      setCloseDialogOpen(true);
       return;
     }
     setShowErrors(true);
@@ -670,7 +674,7 @@ function ConsultationEditor() {
       ),
     );
     if (firstInvalid >= 0) {
-      setCloseDialogOpen(false);
+      setCloseIntent(null);
       const invalidSection = allSections[firstInvalid];
       const invalidQuestion = invalidSection.questions.find(question => matchesCondition(question.visibility_condition, valuesRef.current) && questionModule(question.question_key)!=="clinical" && questionErrors(question, valuesRef.current[question.question_key]).length)!;
       const invalidModule = questionModule(invalidQuestion.question_key);
@@ -688,7 +692,7 @@ function ConsultationEditor() {
     try {
       if (!(await saveAll())) return;
       if (allSections.some(section=>section.questions.some(q=>matchesCondition(q.visibility_condition,valuesRef.current) && questionModule(q.question_key)!=="clinical" && questionErrors(q,valuesRef.current[q.question_key]).length))) {
-        setCloseDialogOpen(false);setError('La información sincronizada tiene campos pendientes. Revisa los campos señalados antes de cerrar.');return;
+        setCloseIntent(null);setError('La información sincronizada tiene campos pendientes. Revisa los campos señalados antes de cerrar.');return;
       }
       const answered = allSections
         .flatMap((s) => s.questions)
@@ -711,9 +715,11 @@ function ConsultationEditor() {
           " respuestas registradas.\n" +
           notes,
       );
-      window.sessionStorage.removeItem(workspaceKey(consultation.id));
       closed.current = true;
-      navigate("/app/patients/" + patientId);
+      clearWorkspace(consultation.id);
+      navigate(closeIntent === "workshop"
+        ? `/app/diet-workshop?patientId=${consultation.patient_id}&consultationId=${consultation.id}`
+        : "/app/patients/" + patientId);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -774,7 +780,7 @@ function ConsultationEditor() {
     if (module === 'recall' && recallNavigation?.open) return recallNavigationRef.current?.next();
     if (module === 'clinical' && clinicalStage < clinicalStages.length - 1) return goClinicalStage(clinicalStage + 1);
     const index = consultationSteps.findIndex(step => step.key === module);
-    if (index === consultationSteps.length - 1) { setReviewed(false); setError(''); setCloseDialogOpen(true); return; }
+    if (index === consultationSteps.length - 1) { reviewClose(); return; }
     return goModule(consultationSteps[index + 1].key);
   };
   const previousStep = async () => {
@@ -1108,11 +1114,11 @@ function ConsultationEditor() {
           </div>
         </div>
       </header>
-      {closeDialogOpen && <ConsultationCloseDialog busy={busy || saving} reviewed={reviewed} pending={[recallPending && "Recordatorio de 24 horas", measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error || saveError} onReview={setReviewed} onCancel={() => setCloseDialogOpen(false)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
-      <div className="sticky top-0 z-20 mt-4 flex flex-wrap justify-end gap-2 rounded-xl bg-[#f7faf8]/95 p-2 backdrop-blur"><button type="button" className="nuth-button" disabled={busy || saving} onClick={()=>void saveAll().then(ok=>{if(ok)setNotice("Avance de la consulta guardado.");})}><Save size={16}/>Guardar consulta</button><button type="button" className="nuth-button-secondary" disabled={busy || saving} onClick={() => { setReviewed(false); setError(""); setCloseDialogOpen(true); }}><ClipboardCheck size={16} />Revisar cierre de consulta</button></div>
+      {closeIntent && <ConsultationCloseDialog continueToWorkshop={closeIntent === "workshop"} busy={busy || saving} reviewed={reviewed} pending={[recallPending && "Recordatorio de 24 horas", measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error || saveError} onReview={setReviewed} onCancel={() => setCloseIntent(null)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
+      <div className="sticky top-0 z-20 mt-4 flex flex-wrap justify-end gap-2 rounded-xl bg-[#f7faf8]/95 p-2 backdrop-blur"><button type="button" className="nuth-button" disabled={busy || saving} onClick={()=>void saveAll().then(ok=>{if(ok)setNotice("Avance de la consulta guardado.");})}><Save size={16}/>Guardar consulta</button><button type="button" className="nuth-button-secondary" disabled={busy || saving} onClick={() => reviewClose()}><ClipboardCheck size={16} />Revisar cierre de consulta</button></div>
       <nav className="consultation-step-nav" aria-label="Módulos de la consulta">
         {consultationSteps.map((step, index) => <button key={step.key} type="button" aria-current={module === step.key ? 'page' : undefined} disabled={busy} onClick={() => void goModule(step.key)}><span aria-hidden="true">{index + 1}</span>{step.label}</button>)}
-        <Link to={`/app/diet-workshop?patientId=${patient.id}&consultationId=${consultation.id}`}><Salad size={15} />Taller de dietas</Link>
+        <button type="button" disabled={busy || saving} onClick={() => reviewClose("workshop")}><Salad size={15} />Taller de dietas</button>
       </nav>
       {backupWarning && <p role="alert" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">El respaldo local no está disponible en este navegador. Conserva esta pestaña abierta hasta confirmar el guardado.</p>}
       {saveError && <section aria-label="Estado del guardado" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-950"><p role="alert">{saveError}</p>{saveConflict && <details className="mt-3"><summary>Comparar los cambios antes de elegir</summary><dl className="mt-3 space-y-3">{autosave.differences().map(item => {const question=snapshot.structure.sections.flatMap(section=>section.questions).find(q=>q.question_key===item.key);return <div key={item.key}><dt className="font-semibold">{question?.label ?? 'Respuesta de la consulta'}</dt><dd>Tu borrador: {question ? formatAnswer(question,item.local) : String(item.local ?? '')}</dd><dd>En el servidor: {question ? formatAnswer(question,item.remote) : String(item.remote ?? '')}</dd></div>;})}</dl></details>}{saveConflict ? <div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={saving || busy} className="nuth-button-secondary" onClick={() => {autosave.resolveConflict(true);void save();}}>Conservar mis cambios y sincronizar</button><button type="button" disabled={saving || busy} className="nuth-button-secondary" onClick={() => {autosave.resolveConflict(false);void save();}}>Usar la versión guardada en el servidor</button><p>La primera opción conserva tus campos modificados y toma del servidor los demás. La segunda reemplaza el borrador local por lo que está guardado.</p></div> : <button type="button" disabled={saving || busy} className="nuth-button-secondary mt-3" onClick={() => void save()}>Reintentar guardado</button>}</section>}
@@ -1141,7 +1147,7 @@ function ConsultationEditor() {
         </section>
         <section hidden={clinicalStage !== 3} className="clinical-stage" aria-label="Estrategia de intervención">
           <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">04 · Define cómo se llevará a cabo</p><h2>Estrategia de intervención</h2><p>Organiza las acciones que llevarán los objetivos a la práctica.</p></div></header>
-          <ClinicalInterventions onReviewPrerequisite={stage=>void goClinicalStage(stage)} onCompleted={all=>reportCompletion(all?"Estrategias aprobadas. Puedes continuar a indicaciones.":"Estrategia aprobada.")} onStatusChange={status=>updateClinicalProgress("strategies",status)} key={`${consultation.id}:${snapshot.revision}:strategies`} consultationId={consultation.id} patientId={patient.id} revision={snapshot.revision} before={saveForClinical} active={module === 'clinical' && clinicalStage === 3} onPendingChange={setStrategyPending} onChanged={() => setClinicalRefresh(value => value + 1)} workshopUrl={`/app/diet-workshop?patientId=${patient.id}&consultationId=${consultation.id}`} onInstructions={text => { setAnswer('first_actions', appendComposedText(valuesRef.current.first_actions, text)); setClinicalStage(4); }} />
+          <ClinicalInterventions onReviewPrerequisite={stage=>void goClinicalStage(stage)} onCompleted={all=>reportCompletion(all?"Estrategias aprobadas. Puedes continuar a indicaciones.":"Estrategia aprobada.")} onStatusChange={status=>updateClinicalProgress("strategies",status)} key={`${consultation.id}:${snapshot.revision}:strategies`} consultationId={consultation.id} patientId={patient.id} revision={snapshot.revision} before={saveForClinical} active={module === 'clinical' && clinicalStage === 3} onPendingChange={setStrategyPending} onChanged={() => setClinicalRefresh(value => value + 1)} onOpenWorkshop={() => reviewClose("workshop")} onInstructions={text => { setAnswer('first_actions', appendComposedText(valuesRef.current.first_actions, text)); setClinicalStage(4); }} />
         </section>
         <section hidden={clinicalStage !== 4} className="consultation-clinical-card" aria-label="Recomendaciones">
           <p className="nuth-eyebrow">05 · Deja claros los siguientes pasos</p><h2>Recomendaciones</h2>

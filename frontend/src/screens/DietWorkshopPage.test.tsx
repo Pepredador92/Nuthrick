@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DietWorkshopPage } from "./DietWorkshopPage";
 import type { NutritionPlan } from "@/src/types/domain";
 import { createMacroDistribution, patchMacroInput } from "@/src/features/macros/model";
+import { freeTextDietPlan } from "../../tests/fixtures/freeTextDiet";
 
 const api = vi.hoisted(() => ({
   getPatient: vi.fn(),
@@ -19,6 +20,7 @@ const api = vi.hoisted(() => ({
   loadReference: vi.fn(),
   listFoods: vi.fn(),
   listRecipes: vi.fn(),
+  saveLibrary: vi.fn(),
 }));
 
 const patient = {
@@ -78,6 +80,7 @@ vi.mock("@/src/services/dietPlans", () => ({
   publishDietPlanVersion: api.publishVersion,
   loadDietReferenceData: api.loadReference,
 }));
+vi.mock("@/src/services/dietLibrary", async original => ({ ...await original<object>(), saveFreeDietLibrary: api.saveLibrary }));
 
 vi.mock("@/src/services/foodCatalog", () => ({
   listFoodItems: api.listFoods,
@@ -122,9 +125,20 @@ beforeEach(() => {
   });
   api.listFoods.mockResolvedValue([]);
   api.listRecipes.mockResolvedValue([]);
+  api.saveLibrary.mockResolvedValue({ id: "template" });
 });
 
 describe("DietWorkshopPage", () => {
+  it("finishes a reviewed free text plan by saving its own library entry without assigning a patient or publishing a clinical version", async () => {
+    const free = freeTextDietPlan();
+    api.getPlan.mockResolvedValue(free);
+    mount(`/app/diet-workshop/${free.id}`);
+    fireEvent.click(await screen.findByRole("button", { name: "Guardar en mi biblioteca" }));
+    await screen.findByText(/Plan guardado en tu biblioteca privada/);
+    expect(api.saveLibrary).toHaveBeenCalledWith(expect.objectContaining({ id: free.id, patient_id: null, consultation_id: null, text_diet: free.text_diet }));
+    expect(api.publishVersion).not.toHaveBeenCalled();
+    expect(api.getPatient).not.toHaveBeenCalled();
+  });
   it("resumes the last section and saves the newly selected section", async () => {
     api.getPlan.mockResolvedValue({ ...plan, last_workshop_step: "macros", target_calories: 1800 });
     mount("/app/diet-workshop/plan");

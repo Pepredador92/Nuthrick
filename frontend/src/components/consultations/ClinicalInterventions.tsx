@@ -60,7 +60,7 @@ type Props = {
   onCompleted?: (allApproved:boolean) => void;
   onStatusChange?: (status:ClinicalTaskStatus) => void;
   onInstructions?: (text: string) => void;
-  workshopUrl?: string;
+  onOpenWorkshop?: () => void;
   readOnly?: boolean;
   onReviewPrerequisite?: (stage: 1 | 2) => void;
 };
@@ -90,7 +90,7 @@ export function ClinicalInterventions(props: Props) {
     onChanged,
     onStatusChange,
     onInstructions,
-    workshopUrl,
+    onOpenWorkshop,
     readOnly = false,
   } = props;
   const cacheKey = `intervention-drafts:${consultationId}:${revision}`;
@@ -859,13 +859,15 @@ export function ClinicalInterventions(props: Props) {
                         </button>
                       )}
                       {current && s.category === "food" && s.route === "oral" &&
-                        workshopUrl && (
-                        <a
-                          href={workshopUrl}
+                        onOpenWorkshop && (
+                        <button
+                          type="button"
+                          onClick={onOpenWorkshop}
+                          disabled={busy || execution !== null}
                           className="nuth-button-secondary !text-xs"
                         >
                           Llevar al Taller de dietas
-                        </a>
+                        </button>
                       )}
                       {current &&
                         ([

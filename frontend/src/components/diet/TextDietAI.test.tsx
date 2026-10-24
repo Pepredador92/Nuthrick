@@ -1,14 +1,16 @@
 import {fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {beforeEach,describe,it,expect,vi} from 'vitest';
 import {TextDietAI} from './TextDietAI';
-import {TextDietEditor} from './TextDietReview';
+import {TextDietEditor,TextDietReviewStep} from './TextDietReview';
+import {freeTextDietPlan} from '../../../tests/fixtures/freeTextDiet';
 import {uxFixture} from '../../../tests/fixtures/dietCopilotUX';
 import {AIRequestError} from '../../services/ai';
 import type {TextDietTransport} from '../../services/textDietAI';
 import type {TextDiet} from '../../../../supabase/functions/_shared/text-diet';
 beforeEach(()=>sessionStorage.clear());
-function mount(){
+function mount(free=false){
  const f=uxFixture(),plan=f.input.source.plan;plan.exchange_prescription=null;plan.meal_distribution=null;plan.diet_menu=null;
+ if(free){plan.patient_id=null;plan.consultation_id=null;}
  const onApplied=vi.fn();let saved=plan;
  const transport:TextDietTransport={preflight:vi.fn(async(p,g,n)=>{const r=await f.transport.preflight(p,n);return{...r,context:r.context!,eligible:true,reasons:[],contextToken:JSON.stringify([g,n])};}),
  generate:vi.fn(async(p,g)=>{const textDraft:TextDiet={schema_version:1,requested_count:g.dietCount,meals:g.meals,reviewed_at:null,prescription:{target_calories:p.target_calories,macro_distribution:p.macro_distribution},diets:Array.from({length:g.dietCount},(_,i)=>({id:`diet-${i}`,title:`Dieta ${i+1}`,text:`Desayuno ${i+1}\n• 2 tortillas\n• Ingrediente que quitar`}))};saved={...p,text_diet:textDraft};return{generationId:'synthetic',textDraft};}),
@@ -17,6 +19,20 @@ function mount(){
 }
 async function summary(n=3){fireEvent.click(screen.getByRole('button',{name:'Generar con IA'}));await screen.findByLabelText('Objetivo de las dietas');fireEvent.change(screen.getByLabelText('Objetivo de las dietas'),{target:{value:'Organizar comidas accesibles'}});fireEvent.change(screen.getByLabelText('Alergias y restricciones revisadas'),{target:{value:'Sin alergias confirmadas'}});fireEvent.click(screen.getByRole('checkbox',{name:/Revisé alergias/}));fireEvent.click(screen.getByRole('checkbox',{name:/Revisé el contexto/}));fireEvent.click(screen.getByRole('button',{name:'Continuar'}));fireEvent.change(screen.getByLabelText('Dietas completas diferentes'),{target:{value:String(n)}});fireEvent.click(screen.getByRole('button',{name:'Continuar'}));fireEvent.click(screen.getByRole('button',{name:'Continuar'}));await waitFor(()=>expect(screen.getByRole('button',{name:`Generar ${n} dietas`})).toBeEnabled());}
 describe('text diet workflow',()=>{
+ it('generates a free diet with three steps and no clinical fields or invented review confirmations',async()=>{
+   const f=mount(true);fireEvent.click(screen.getByRole('button',{name:'Generar con IA'}));
+   await screen.findByLabelText('Dietas completas diferentes');
+   await waitFor(()=>expect(screen.getByRole('button',{name:'Continuar'})).toBeEnabled());
+   expect(screen.queryByLabelText('Objetivo de las dietas')).not.toBeInTheDocument();
+   expect(screen.queryByLabelText('Alergias y restricciones revisadas')).not.toBeInTheDocument();
+   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+   expect(screen.queryByRole('button',{name:'Atrás'})).not.toBeInTheDocument();
+   fireEvent.click(screen.getByRole('button',{name:'Continuar'}));
+   fireEvent.click(screen.getByRole('button',{name:'Continuar'}));
+   const generate=await screen.findByRole('button',{name:'Generar 3 dietas'});await waitFor(()=>expect(generate).toBeEnabled());
+   fireEvent.click(generate);await waitFor(()=>expect(f.onApplied).toHaveBeenCalledOnce());
+   expect(f.transport.generate).toHaveBeenCalledWith(expect.objectContaining({patient_id:null,consultation_id:null,target_calories:f.plan.target_calories}),expect.objectContaining({objective:'',contextReviewed:false,restrictions:'',restrictionsReviewed:false}),expect.any(String),expect.any(String));
+ });
  for(const n of [1,3,7])it(`sends ${n} complete diets and opens review only after saving`,async()=>{const f=mount();await summary(n);fireEvent.click(screen.getByRole('button',{name:`Generar ${n} dietas`}));await waitFor(()=>expect(f.onApplied).toHaveBeenCalled());expect(f.transport.generate).toHaveBeenCalledTimes(1);expect(f.onApplied.mock.calls[0][0].text_diet.diets).toHaveLength(n);expect(f.onApplied.mock.calls[0][0].text_diet.reviewed_at).toBeNull();});
  it('recovers a saved generation after reload without another paid request',async()=>{
  const f=mount();vi.mocked(f.transport.apply).mockRejectedValue(new AIRequestError('draft_save_failed'));await summary();fireEvent.click(screen.getByRole('button',{name:'Generar 3 dietas'}));await screen.findByText(/Se generaron 3 dietas/);const proposal=await vi.mocked(f.transport.generate).mock.results[0].value;f.unmount();
@@ -29,6 +45,16 @@ describe('text diet workflow',()=>{
  fireEvent.click(screen.getByRole('button',{name:'Anterior'}));await waitFor(()=>expect(screen.getByLabelText('Contenido editable')).toHaveValue('Desayuno revisado\n• 2 tortillas'));expect(save.mock.calls[0][0].reviewed_at).toBeNull();
  fireEvent.click(screen.getByRole('button',{name:'Siguiente dieta'}));await waitFor(()=>expect(screen.getByLabelText('Contenido editable')).toHaveValue('Desayuno 2\n• 2 tortillas\n• Ingrediente que quitar'));fireEvent.click(screen.getByRole('checkbox',{name:/Revisé esta dieta/}));fireEvent.click(screen.getByRole('button',{name:'Siguiente dieta'}));await waitFor(()=>expect(screen.getByLabelText('Contenido editable')).toHaveValue('Desayuno 3\n• 2 tortillas\n• Ingrediente que quitar'));fireEvent.click(screen.getByRole('checkbox',{name:/Revisé esta dieta/}));fireEvent.click(screen.getByRole('button',{name:'Aprobar 3 dietas'}));await waitFor(()=>expect(close).toHaveBeenCalled());const approved=save.mock.calls.at(-1)![0];expect(approved.reviewed_at).toBeTruthy();expect(approved.diets[0].text).toBe('Desayuno revisado\n• 2 tortillas');
  });
+});
+it('saves a reviewed free plan to the private library and keeps it available after an error',async()=>{
+ const plan=freeTextDietPlan(),saveLibrary=vi.fn().mockRejectedValueOnce(new Error('Sin conexión')).mockResolvedValue(undefined),publish=vi.fn();
+ render(<TextDietReviewStep plan={plan} patientName="Plan libre" versions={[]} publishing={false} onSave={async()=>plan} onPublish={publish} onSaveLibrary={saveLibrary}/>);
+ expect(screen.queryByRole('button',{name:'Publicar versión'})).not.toBeInTheDocument();
+ const save=screen.getByRole('button',{name:'Guardar en mi biblioteca'});fireEvent.click(save);
+ expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión');
+ fireEvent.click(save);await screen.findByText(/Plan guardado en tu biblioteca privada/);
+ expect(saveLibrary).toHaveBeenLastCalledWith(plan.text_diet);expect(publish).not.toHaveBeenCalled();
+ expect(screen.getByText('• 120 g de pollo',{exact:false})).toBeVisible();
 });
 it('prefills the recorded goal and dated restrictions, keeps review explicit, and can advance with optional preferences absent',async()=>{
  const f=mount(),fixture=uxFixture();const c=(await fixture.transport.preflight(fixture.input.source.plan,'')).context!;
