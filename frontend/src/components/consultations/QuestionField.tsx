@@ -342,6 +342,7 @@ export function QuestionField({
     <div
       id={`question-${question.question_key}`}
       data-question-key={question.question_key}
+      tabIndex={-1}
       className="min-w-0 space-y-3 scroll-mt-28"
     >
       {title}

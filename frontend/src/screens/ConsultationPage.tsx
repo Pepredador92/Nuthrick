@@ -21,6 +21,8 @@ import { Link, useBlocker, useNavigate, useParams, useSearchParams } from "react
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
 import { Field, Input } from "@/src/components/ui/FormField";
 import { QuestionField } from "@/src/components/consultations/QuestionField";
+import { PesContextNavigation, type PesContextNavigationHandle } from '@/src/components/consultations/PesContextNavigation';
+import { pesFieldTarget, type PesContextTarget } from '@/src/features/consultations/pesReadiness';
 import { InterviewWorkspace, InterviewQuestionCard } from "@/src/components/consultations/InterviewWorkspace";
 import { InterviewReview } from "@/src/components/consultations/InterviewReview";
 import { PesCopilot, RecallCopilot, type RecallNavigation, type RecallNavigationActions } from "@/src/components/consultations/ClinicalCopilot";
@@ -206,6 +208,8 @@ function ConsultationEditor() {
   const [showErrors, setShowErrors] = useState(false);
   const [savedEncoded, setSavedEncoded] = useState("{}");
   const [module, setModule] = useState<ConsultationModule>("interview");
+  const pesContextNavigation = useRef<PesContextNavigationHandle>(null);
+  const [pesFocus, setPesFocus] = useState<{ target: PesContextTarget; request: number } | null>(null);
   const valuesRef = useRef<Answers>({});
   const lastSaved = useRef("{}");
   const saveTarget = useRef<{id:string;revision:number}|null>(null);
@@ -795,6 +799,43 @@ function ConsultationEditor() {
     setClinicalStage(next);
     requestAnimationFrame(() => document.getElementById('consultation-clinical-heading')?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }));
   };
+  const openPesTarget = (requested: PesContextTarget) => {
+    const target = requested.questionKey && snapshot ? pesFieldTarget(snapshot.structure, valuesRef.current, requested.questionKey) ?? requested : requested;
+    if (target.questionKey) {
+      const section = sections.findIndex(item => item.questions.some(question => question.question_key === target.questionKey));
+      if (section >= 0) setActive(section);
+    } else if (target.module === 'interview') setActive(0);
+    if (target.module === 'measurements') setMeasurementsOpened(true);
+    if (target.module === 'laboratories') setLaboratoriesOpened(true);
+    if (target.module === 'recall') setRecallOpened(true);
+    if (target.module === 'clinical') {
+      setClinicalOpened(true);
+      setClinicalStage(target.questionKey ? clinicalStageFor(target.questionKey) : 0);
+    }
+    setModule(target.module); setError(''); setNotice(''); setCompletion(null);
+    setPesFocus(current => ({ target, request: (current?.request ?? 0) + 1 }));
+  };
+  useEffect(() => {
+    if (!pesFocus || pesFocus.target.module !== module) return;
+    let frame = 0, attempts = 0;
+    let highlighted: HTMLElement | null = null;
+    const focus = () => {
+      const target = pesFocus.target;
+      const element = target.questionKey ? document.getElementById(`question-${target.questionKey}`)
+        : target.module === 'clinical' ? document.getElementById('clinical-review-title')
+        : document.querySelector<HTMLElement>(`[data-consultation-module="${target.module}"]`);
+      if (!element || element.closest('[hidden]')) { if (++attempts < 30) frame = requestAnimationFrame(focus); return; }
+      let parent = element.parentElement;
+      while (parent) { if (parent instanceof HTMLDetailsElement) parent.open = true; parent = parent.parentElement; }
+      highlighted = element;
+      element.classList.add('pes-context-highlight');
+      element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      (element.querySelector<HTMLElement>('input:not([disabled]),select:not([disabled]),textarea:not([disabled]),button:not([disabled])') ?? element).focus({ preventScroll: true });
+    };
+    frame = requestAnimationFrame(focus);
+    const timeout = window.setTimeout(() => highlighted?.classList.remove('pes-context-highlight'), 6500);
+    return () => { cancelAnimationFrame(frame); clearTimeout(timeout); highlighted?.classList.remove('pes-context-highlight'); };
+  }, [pesFocus, module, active]);
   const renderQuestions = (questions: Question[]) => <fieldset disabled={busy} className="interview-question-grid">{questions.filter(question => matchesCondition(question.visibility_condition, values)).map(question => <InterviewQuestionCard key={question.question_key} question={question} className={['pes_problem', 'pes_etiology'].includes(question.question_key) ? 'clinical-pes-field' : ''}>
     {question.question_type === 'long_text' && composeInterviewDraft(question.question_key, values) && <button type="button" className="nuth-button-secondary mb-2 !text-xs" onClick={() => setAnswer(question.question_key, appendComposedText(valuesRef.current[question.question_key], composeInterviewDraft(question.question_key, values)))}><FileText size={15} />Redactar con datos registrados</button>}
     <QuestionField question={question} value={values[question.question_key]} errors={showErrors ? questionErrors(question, values[question.question_key]) : []} onChange={value => setAnswer(question.question_key, value)} />
@@ -1120,11 +1161,12 @@ function ConsultationEditor() {
         {consultationSteps.map((step, index) => <button key={step.key} type="button" aria-current={module === step.key ? 'page' : undefined} disabled={busy} onClick={() => void goModule(step.key)}><span aria-hidden="true">{index + 1}</span>{step.label}</button>)}
         <button type="button" disabled={busy || saving} onClick={() => reviewClose("workshop")}><Salad size={15} />Taller de dietas</button>
       </nav>
+      <PesContextNavigation ref={pesContextNavigation} atPes={module === 'clinical' && clinicalStage === 1} before={saveAll} beforeReturn={saveForClinical} onOpen={openPesTarget} onReturn={() => { setClinicalOpened(true); setModule('clinical'); setClinicalStage(1); setPesFocus(null); requestAnimationFrame(() => document.getElementById('consultation-clinical-heading')?.scrollIntoView({ block: 'start', behavior: 'smooth' })); }} />
       {backupWarning && <p role="alert" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">El respaldo local no está disponible en este navegador. Conserva esta pestaña abierta hasta confirmar el guardado.</p>}
       {saveError && <section aria-label="Estado del guardado" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-950"><p role="alert">{saveError}</p>{saveConflict && <details className="mt-3"><summary>Comparar los cambios antes de elegir</summary><dl className="mt-3 space-y-3">{autosave.differences().map(item => {const question=snapshot.structure.sections.flatMap(section=>section.questions).find(q=>q.question_key===item.key);return <div key={item.key}><dt className="font-semibold">{question?.label ?? 'Respuesta de la consulta'}</dt><dd>Tu borrador: {question ? formatAnswer(question,item.local) : String(item.local ?? '')}</dd><dd>En el servidor: {question ? formatAnswer(question,item.remote) : String(item.remote ?? '')}</dd></div>;})}</dl></details>}{saveConflict ? <div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={saving || busy} className="nuth-button-secondary" onClick={() => {autosave.resolveConflict(true);void save();}}>Conservar mis cambios y sincronizar</button><button type="button" disabled={saving || busy} className="nuth-button-secondary" onClick={() => {autosave.resolveConflict(false);void save();}}>Usar la versión guardada en el servidor</button><p>La primera opción conserva tus campos modificados y toma del servidor los demás. La segunda reemplaza el borrador local por lo que está guardado.</p></div> : <button type="button" disabled={saving || busy} className="nuth-button-secondary mt-3" onClick={() => void save()}>Reintentar guardado</button>}</section>}
       {notice && <p role="status" className="mt-4 rounded-xl bg-[#eaf3ec] px-4 py-3 text-sm text-[#315e4f]">{notice}</p>}
       {error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] px-4 py-3 text-sm text-[#963f32]">{error}</p>}
-      {recallOpened && <section className="consultation-guided-workspace mt-6" hidden={module !== 'recall'} aria-label="Paso de recordatorio de 24 horas">
+      {recallOpened && <section data-consultation-module="recall" tabIndex={-1} className="consultation-guided-workspace mt-6" hidden={module !== 'recall'} aria-label="Paso de recordatorio de 24 horas">
         <header className="consultation-guided-intro"><p className="nuth-eyebrow">02 · Registra el consumo</p><h2>Recordatorio de 24 horas</h2><p>Un día concreto, desde la primera comida hasta la última bebida.</p></header>
         <RecallCopilot key={`${consultation.id}:${snapshot.revision}:recall`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} active={module === 'recall'} before={save} onPendingChange={setRecallPending} navigationRef={recallNavigationRef} onNavigationChange={setRecallNavigation} />
         {recallSections.map(section => <details key={section.section_key} className="recall-supported-fields" open={showErrors && section.questions.some(question => matchesCondition(question.visibility_condition, values) && questionErrors(question, values[question.question_key]).length > 0)}><summary>{section.title === "Recordatorio de 24 horas" ? "Registro detallado del día y preguntas de apoyo" : section.title}</summary><p>{section.title === "Recordatorio de 24 horas" ? 'Aquí puedes registrar la fecha, horarios, preparación y posibles olvidos. Este registro complementa los alimentos confirmados arriba.' : section.description}</p>{renderQuestions(section.questions)}</details>)}
@@ -1135,7 +1177,7 @@ function ConsultationEditor() {
         <div hidden={clinicalStage !== 0}><ClinicalReview onReviewed={(message,all)=>reportCompletion(message,all?1:undefined)} consultationId={consultation.id} snapshot={snapshot} values={values} active={module === 'clinical' && clinicalStage === 0} before={saveForClinical} onStatusChange={status => updateClinicalProgress('review', status)} onOpenModule={next => void goModule(next)} /></div>
         <section hidden={clinicalStage !== 1} className="clinical-stage" aria-label="Diagnóstico PES">
           <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">02 · Formula el diagnóstico</p><h2>Diagnóstico PES</h2><p>Completa el problema, su causa y la evidencia. Después, revisa y aprueba el enunciado.</p></div></header>
-          <PesCopilot onCompleted={()=>reportCompletion("Diagnóstico PES aprobado. Paso completado.",2)} key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} active={module === 'clinical' && clinicalStage === 1} before={saveForClinical} answers={values} onPendingChange={setPesPending} onStatusChange={status => updateClinicalProgress('pes', status)} onDiscardPes={discardPes} onPes={draft => {
+          <PesCopilot structure={snapshot.structure} onOpenPesTarget={target => pesContextNavigation.current?.open(target) ?? Promise.resolve(false)} onCompleted={()=>reportCompletion("Diagnóstico PES aprobado. Paso completado.",2)} key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} active={module === 'clinical' && clinicalStage === 1} before={saveForClinical} answers={values} onPendingChange={setPesPending} onStatusChange={status => updateClinicalProgress('pes', status)} onDiscardPes={discardPes} onPes={draft => {
             setAnswer('pes_problem', draft.problem); setAnswer('pes_etiology', draft.etiology); setAnswer('pes_evidence', draft.signsSymptoms.join('\n')); setAnswer('pes_statement', draft.pesStatement); setClinicalRefresh(value => value + 1);
           }} />
           {renderClinicalFields('diagnosis')}
@@ -1165,12 +1207,12 @@ function ConsultationEditor() {
         <ClinicalStepNotice completion={completion} onClose={()=>setCompletion(null)} onContinue={stage=>{setCompletion(null);if(stage===6)void goModule('evolution');else void goClinicalStage(stage);}}/>
       </div>}
       {measurementsOpened && (
-        <div className="mt-6" hidden={module !== "measurements"}>
+        <div data-consultation-module="measurements" tabIndex={-1} className="mt-6" hidden={module !== "measurements"}>
           <ConsultationMeasurements key={consultation.id} consultation={consultation} patient={patient} onPatientChange={setPatient} onPendingChange={setMeasurementsPending} />
         </div>
       )}
       {laboratoriesOpened && (
-        <div className="mt-6" hidden={module !== "laboratories"}>
+        <div data-consultation-module="laboratories" tabIndex={-1} className="mt-6" hidden={module !== "laboratories"}>
           <LaboratoryReports key={consultation.id} consultation={consultation} onPendingChange={setLaboratoriesPending} />
         </div>
       )}
@@ -1186,7 +1228,7 @@ function ConsultationEditor() {
           />
         </div>
       )}
-      <div className="mt-5" hidden={module !== "interview"}>
+      <div data-consultation-module="interview" tabIndex={-1} className="mt-5" hidden={module !== "interview"}>
         {consultation.consultation_type === "initial" &&
           snapshot.template_version >= 2 && (
             <p className="mt-3 text-xs leading-5 text-[#74817d]">

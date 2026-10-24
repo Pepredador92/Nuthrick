@@ -62,6 +62,9 @@ import {
 import type { FoodItem } from "@/src/types/domain";
 import {useConsultationDraft,useConsultationDraftContext,useDurableAIProposal} from './ConsultationDrafts';
 import { hasUsablePesEtiology } from '../../../../supabase/functions/_shared/pes';
+import { PesContextDialog } from './PesContextDialog';
+import type { ConsultationSnapshotStructure } from '@/src/types/domain';
+import type { PesContextTarget } from '@/src/features/consultations/pesReadiness';
 
 type Props = {
   patientId: string;
@@ -75,6 +78,8 @@ type Props = {
   onPendingChange?: (pending: boolean) => void;
   onStatusChange?: (status: ClinicalTaskStatus) => void;
   onCompleted?: () => void;
+  structure?: ConsultationSnapshotStructure;
+  onOpenPesTarget?: (target: PesContextTarget) => Promise<boolean>;
 };
 const input = "nuth-input mt-1 w-full !text-sm";
 const secondary = "nuth-button-secondary !text-sm disabled:opacity-50";
@@ -302,6 +307,7 @@ function PesPriorityReview({ notes, approved = false }: { notes: string[]; appro
 }
 export function PesCopilot(props: Props) {
   const clinical = useClinical(props, "pes_diagnosis");
+  const [contextIntent, setContextIntent] = useState<'generate' | 'review' | null>(null);
   const [draft, setDraft] = useConsultationDraft<PesDraft | null>('pes',null);
   const [replacement, setReplacement] = useConsultationDraft<PesDraft | null>('pes-replacement',null);
   const [previousGeneration, setPreviousGeneration] = useConsultationDraft<string|undefined>('pes-previous-generation',undefined);
@@ -379,8 +385,15 @@ export function PesCopilot(props: Props) {
     if (draft) setReplacement(composed);
     else setDraft(composed);
   }
+  const canGuide = !!props.structure && !!props.onOpenPesTarget;
+  const requestGenerate = () => canGuide ? setContextIntent('generate') : void generate();
+  const contextButton = canGuide && <button type="button" className="nuth-button-secondary !text-sm" disabled={busy || clinical.state === 'generating'} onClick={() => setContextIntent('review')}>Revisar y completar información para el PES<ArrowRight size={16} aria-hidden="true" /></button>;
   return (
     <section aria-label="Asistencia PES" className="clinical-pes-workspace">
+      {contextIntent && props.structure && props.onOpenPesTarget && <PesContextDialog
+        consultationId={props.consultationId} revision={props.revision} structure={props.structure} answers={props.answers ?? {}}
+        missingContext={(draft ?? savedDraft).missingContext} missingEtiology={!!(draft || hasSavedParts) && !hasUsablePesEtiology((draft ?? savedDraft).etiology)}
+        intent={contextIntent} before={props.before} onOpenTarget={props.onOpenPesTarget} onGenerate={() => void generate()} onClose={() => setContextIntent(null)} />}
       <div className="clinical-pes-overview">
         <div>
           <h3>Construye el diagnóstico en tres partes</h3>
@@ -398,6 +411,7 @@ export function PesCopilot(props: Props) {
             : "Sin empezar"}
         </ClinicalStatusBadge>
       </div>
+      {(!draft || hasUsablePesEtiology(draft.etiology)) && contextButton}
       {!draft && (
         <>
           {hasSavedParts && !hasUsablePesEtiology(savedDraft.etiology) && <div role="status" className="clinical-notice is-warning"><p>La etiología sigue pendiente. «NA» o «No aplica» no explican la causa. Abre «Revisar PES escrito» para completarla con información confirmada antes de pedir objetivos con IA.</p>{savedDraft.missingContext.length>0&&<ul>{savedDraft.missingContext.map((question,index)=><li key={index}>{question}</li>)}</ul>}</div>}
@@ -447,7 +461,7 @@ export function PesCopilot(props: Props) {
                 capability="ai.pes"
                 state={clinical.state}
                 disabled={busy || !clinical.workspace}
-                onClick={() => void generate()}
+                onClick={requestGenerate}
               >
                 Generar borrador
               </AIButton>
@@ -484,6 +498,7 @@ export function PesCopilot(props: Props) {
                   ))}
                 </ul>
               )}
+              <div className="mt-3">{contextButton}</div>
             </div>
           )}
           <PesDiagnosisCards
@@ -652,7 +667,7 @@ export function PesCopilot(props: Props) {
                 capability="ai.pes"
                 state={clinical.state}
                 disabled={busy || !!replacement}
-                onClick={() => void generate()}
+                onClick={requestGenerate}
               >
                 Otra propuesta
               </AIButton>
