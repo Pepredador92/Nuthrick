@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useConsultationDraft, useConsultationDraftContext } from './ConsultationDrafts';
 import {
   ArrowRight,
@@ -63,6 +63,7 @@ export function ClinicalReview(
   const checkpoints = useConsultationDraftContext();
   const [savingReview, setSavingReview] = useState(false);
   const [reviewError, setReviewError] = useState('');
+  const reviewLock = useRef(false);
   // Persist the source contents in this consultation revision's checkpoint.
   // Approvals and navigation are excluded: only a change to a reviewed source
   // should ask the professional to review that source again.
@@ -209,20 +210,30 @@ export function ClinicalReview(
       setLoading(false);
     }
   }
-  async function markSource(source: typeof sources[number], reviewed: boolean) {
-    if (loading || savingReview) return;
+  async function markSources(selected: typeof sources, reviewed: boolean) {
+    if (loading || reviewLock.current || !context || error || !selected.length) return;
+    reviewLock.current = true;
     setSavingReview(true);
     setReviewError('');
+    let previous: Record<string, string> | null = null;
     try {
       if (!await before()) throw new Error('No pudimos guardar la consulta antes de confirmar la revisión.');
-      setReviewedSources(current => ({...current, [source.key]: reviewed ? '' : source.signature}));
+      setReviewedSources(current => {
+        previous = current;
+        return {...current, ...Object.fromEntries(selected.map(source => [source.key, reviewed ? '' : source.signature]))};
+      });
       if (checkpoints && !await checkpoints.flush()) throw new Error('La revisión sigue en esta pestaña. Reintenta guardar antes de salir.');
-      setExpandedSources(current => ({...current, [source.key]: false}));
-      if (!reviewed) onReviewed?.(reviewedCount + 1 === available.length ? 'Revisión clínica completada.' : `${source.title}: revisión completada.`, reviewedCount + 1 === available.length);
-      requestAnimationFrame(() => document.getElementById(`clinical-source-${consultationId}-${source.key}`)?.focus({preventScroll:true}));
+      setExpandedSources(current => ({...current, ...Object.fromEntries(selected.map(source => [source.key, false]))}));
+      const complete = available.every(source => selected.some(item => item.key === source.key)
+        ? !reviewed : reviewedSources[source.key] === source.signature);
+      if (!reviewed) onReviewed?.(complete ? 'Revisión clínica completada.' : `${selected[0].title}: revisión completada.`, complete);
+      const focusId = selected.length === 1 ? `clinical-source-${consultationId}-${selected[0].key}` : 'clinical-review-title';
+      requestAnimationFrame(() => document.getElementById(focusId)?.focus({preventScroll:true}));
     } catch (cause) {
+      if (previous) setReviewedSources(previous);
       setReviewError(cause instanceof Error ? cause.message : 'No pudimos guardar la revisión. Vuelve a intentarlo.');
     } finally {
+      reviewLock.current = false;
       setSavingReview(false);
     }
   }
@@ -231,7 +242,7 @@ export function ClinicalReview(
       <header className="clinical-stage-heading">
         <div>
           <p className="nuth-eyebrow">01 · Comprende la situación</p>
-          <h2 id="clinical-review-title">Revisión clínica</h2>
+          <h2 id="clinical-review-title" tabIndex={-1}>Revisión clínica</h2>
           <p>
             Revisa las fuentes y confirma qué datos siguen vigentes antes de
             formular el diagnóstico.
@@ -254,9 +265,18 @@ export function ClinicalReview(
         </span>
         <div>
           <strong>
-            Abre una fuente, revisa sus datos y márcala al terminar.
+            Revisa los datos y confirma todas las fuentes con un clic o márcalas por separado.
           </strong>
           <p>Tu revisión queda guardada. Solo tendrás que revisar de nuevo las fuentes cuyos datos cambien.</p>
+          <button
+            type="button"
+            className="nuth-button mt-3"
+            disabled={loading || savingReview || !context || !!error || !available.length || reviewedCount === available.length}
+            onClick={() => void markSources(available, false)}
+          >
+            <Check size={16} aria-hidden="true" />
+            {savingReview ? 'Guardando revisión…' : available.length > 0 && reviewedCount === available.length ? 'Todos los datos confirmados' : 'Confirmar todos los datos'}
+          </button>
         </div>
         <ClinicalStatusBadge status={status}>
           {context
@@ -408,7 +428,7 @@ export function ClinicalReview(
                   className="clinical-review-check"
                   aria-pressed={reviewed}
                   disabled={loading || savingReview || !!error}
-                  onClick={() => void markSource(source, reviewed)}
+                  onClick={() => void markSources([source], reviewed)}
                 >
                   <Check size={16} />
                   {reviewed
