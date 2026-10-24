@@ -1065,7 +1065,8 @@ export function PatientDetailPage() {
   };
   const addNote = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     await run(async () => {
       const created = await createPatientNote(
         patient.id,
@@ -1073,7 +1074,7 @@ export function PatientDetailPage() {
         String(form.get("consultation_id") || "") || null,
       );
       setNotes((current) => [created, ...current]);
-      event.currentTarget.reset();
+      formElement.reset();
     }, "Nota guardada.");
   };
   const editNote = async (note: PatientNote) => {
