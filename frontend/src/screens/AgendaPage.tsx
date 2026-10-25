@@ -7,7 +7,7 @@ import { useAuth } from "@/src/features/auth/AuthProvider";
 import { supabase } from "@/src/lib/supabase";
 import { PatientModal } from "./PatientsPage";
 import { listConsultations } from "@/src/services/patients";
-import { linkConsultationToAppointment } from "@/src/services/consultations";
+import { linkConsultationToAppointment, unlinkConsultationFromAppointment } from "@/src/services/consultations";
 import { consultationLabel, formatPatientDate } from "@/src/features/patients/patientUtils";
 import type { Consultation } from "@/src/types/domain";
 import {
@@ -32,10 +32,12 @@ function AgendaDialog({
   children,
   close,
   busy,
+  label = "Gestionar cita",
 }: {
   children: ReactNode;
   close: () => void;
   busy: boolean;
+  label?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -50,7 +52,7 @@ function AgendaDialog({
   return (
     <dialog
       ref={ref}
-      aria-label="Gestionar cita"
+      aria-label={label}
       aria-modal="true"
       onCancel={(event) => {
         event.preventDefault();
@@ -99,6 +101,7 @@ export function AgendaPage() {
   const [exception, setException] = useState(false);
   const [period, setPeriod] = useState<"upcoming" | "recent" | "all">("upcoming");
   const [consultationEntry, setConsultationEntry] = useState<AgendaEntry | null>(null);
+  const [unlinkEntry, setUnlinkEntry] = useState<AgendaEntry | null>(null);
   const [consultationOptions, setConsultationOptions] = useState<Consultation[]>([]);
   const [selectedConsultation, setSelectedConsultation] = useState("");
   const [currentTime, setCurrentTime] = useState(() => Date.now());
@@ -232,7 +235,7 @@ export function AgendaPage() {
           </button>
         ))}
       </nav>
-      {error && (
+      {error && !unlinkEntry && (
         <p
           role="alert"
           className="mt-5 rounded-xl bg-[#fff0e9] p-4 text-sm text-[#963f34]"
@@ -359,6 +362,20 @@ export function AgendaPage() {
                         setConsultationEntry(e);
                       })}>Vincular consulta existente</button>
                     </>
+                  )}
+                  {e.kind === "appointment" && e.consultation_id && (
+                    <button
+                      type="button"
+                      className="rounded-xl px-3 py-2 text-sm font-semibold text-[#963f34]"
+                      disabled={working}
+                      onClick={() => {
+                        setError("");
+                        setNotice("");
+                        setUnlinkEntry(e);
+                      }}
+                    >
+                      Desvincular consulta
+                    </button>
                   )}
                   {e.status === "confirmed" && e.consultation_status !== "completed" && <button
                     className="rounded-xl px-3 py-2 text-sm text-[#963f34]"
@@ -735,6 +752,33 @@ export function AgendaPage() {
             );
           }}
         />
+      )}
+      {unlinkEntry && (
+        <AgendaDialog label="Desvincular consulta" busy={working} close={() => setUnlinkEntry(null)}>
+          <h2 className="pr-16 text-xl font-semibold">¿Desvincular la consulta de esta cita?</h2>
+          <p className="mt-3 text-sm">{unlinkEntry.contact_name} · {agendaDate(unlinkEntry.starts_at, unlinkEntry.timezone)}</p>
+          <p className="mt-3 text-sm text-[#64786e]">
+            Se quitará la asociación entre esta cita y la consulta. Ambas se conservarán con toda su información y mantendrán su estado actual. La consulta seguirá disponible en el expediente del paciente.
+          </p>
+          {error && <p className="mt-4 text-sm text-[#963f34]" role="alert">{error}</p>}
+          <div className="mt-6 flex flex-wrap gap-3">
+            <button type="button" className="nuth-button-secondary" disabled={working} onClick={() => setUnlinkEntry(null)}>
+              Conservar vínculo
+            </button>
+            <button type="button" className="nuth-button" disabled={working} onClick={() => run(async () => {
+              const consultationId = unlinkEntry.consultation_id;
+              if (!consultationId) return;
+              await unlinkConsultationFromAppointment(consultationId, unlinkEntry.id);
+              setEntries((current) => current.map((entry) => entry.id === unlinkEntry.id
+                ? { ...entry, consultation_id: null, consultation_status: null }
+                : entry));
+              setUnlinkEntry(null);
+              setNotice("Consulta desvinculada. La cita y la consulta se conservaron con toda su información.");
+            })}>
+              {working ? "Desvinculando…" : "Desvincular consulta"}
+            </button>
+          </div>
+        </AgendaDialog>
       )}
       {consultationEntry && <AgendaDialog busy={working} close={() => setConsultationEntry(null)}>
         <h2 className="pr-16 text-xl font-semibold">Vincular consulta con esta cita</h2>

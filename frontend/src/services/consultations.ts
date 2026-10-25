@@ -199,6 +199,23 @@ export async function linkConsultationToAppointment(
   return data as Consultation;
 }
 
+export async function unlinkConsultationFromAppointment(
+  consultationId: string,
+  appointmentId: string,
+): Promise<void> {
+  const { error } = await supabase.rpc("unlink_consultation_from_appointment", {
+    p_consultation_id: consultationId,
+    p_appointment_id: appointmentId,
+  });
+  if (error?.message === "consultation_appointment_changed") {
+    throw new Error("La vinculación cambió en otra ventana. Cierra este aviso, actualiza la agenda y vuelve a intentarlo.");
+  }
+  if (error?.code === "42501" && !accessMessages[error.message]) {
+    throw new Error("No tienes permiso para desvincular esta consulta o la cita ya no está disponible.");
+  }
+  fail(error, "No pudimos desvincular la consulta. Vuelve a intentarlo.");
+}
+
 export async function updateConsultationDate(
   consultationId: string,
   date: string,
