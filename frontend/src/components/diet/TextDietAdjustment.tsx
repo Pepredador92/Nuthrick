@@ -318,6 +318,7 @@ export function TextDietAdjustment({
           aria-labelledby={`${id}-title`}
           onCancel={(event) => {
             event.preventDefault();
+            event.stopPropagation();
             close();
           }}
         >
