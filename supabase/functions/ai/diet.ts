@@ -89,7 +89,7 @@ export class DietRoutingProvider implements AIProvider {
     return this.provider.countInput(input);
   }
   async run(input: ProviderInput) {
-    if (input.config.feature!=='diet_draft'||(input.context as {format?:string})?.format==='text_diet') return this.provider.run(input);
+    if (input.config.feature!=='diet_draft'||['text_diet','text_diet_edit'].includes((input.context as {format?:string})?.format??'')) return this.provider.run(input);
     const generator = new OpenAIDietGenerator(this.provider,input.config);
     await generator.generate({feature:'diet_draft',idempotencyKey:input.generationId,generationId:input.generationId,payload:input.context as Prepared['payload'],countedInputTokens:input.countedInputTokens});
     return generator.result!;

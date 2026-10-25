@@ -2,6 +2,8 @@ import { interventionAdapter, interventionEvidenceValid, interventionValidationI
 import { isDietGuidance, type DietGuidance } from '../_shared/diet-guidance.ts';
 import {isTextDietGuidance,type TextDietGuidance} from '../_shared/text-diet.ts';
 import {textDietAdapter} from './text-diet-contract.ts';
+import {isTextDietEdit,type TextDietEdit} from '../_shared/text-diet-edit.ts';
+import {textDietEditAdapter,textDietEditSchema} from './text-diet-edit-contract.ts';
 import { Ajv } from 'ajv';
 import { pesSynthesisEvidenceValid } from './pes-synthesis.ts';
 import { normalizeReferencedPes, referencedPesContext } from './pes-references.ts';
@@ -35,7 +37,8 @@ export class AIError extends Error {
 const checkSchema = {
   type: 'object', properties: { ok: { type: 'boolean', enum: [true] } }, required: ['ok'], additionalProperties: false,
 };
-export function featureAdapter(feature: string, promptVersion: string, textMode=false) {
+export function featureAdapter(feature: string, promptVersion: string, textMode=false, textEdit=false) {
+  if(textEdit){if(feature==='diet_draft'&&promptVersion==='diet_draft@4')return {...textDietEditAdapter};throw new AIError('feature_not_implemented');}
   if(feature==='diet_draft'&&promptVersion==='diet_draft@4')return {...(textMode?textDietAdapter:dietDraftAdapterV3)};
   if(textMode)throw new AIError('feature_not_implemented');
   if (feature === 'diet_draft' && promptVersion === 'diet_draft@1') return { ...dietDraftAdapterV1 };
@@ -186,12 +189,12 @@ export interface AIStore {
   refundInvalidPes?(id: string): Promise<number>;
   refundInvalidObjectives?(id: string): Promise<number>;
 }
-export type AIRequest = { objectiveTextStyle?: 'patient_v1'; textGuidance?: TextDietGuidance; guidance?: DietGuidance; strategyFeedback?: string; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
+export type AIRequest = { textEdit?: TextDietEdit; objectiveTextStyle?: 'patient_v1'; textGuidance?: TextDietGuidance; guidance?: DietGuidance; strategyFeedback?: string; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function parseRequest(value: unknown): AIRequest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new AIError('invalid_request');
   const v = value as Record<string, unknown>;
-  if (Object.keys(v).some(k => !['feature','idempotencyKey','patientId','consultationId','revision','narrative','planId','previousProposalId','rejectedItems','guidance','textGuidance','strategyFeedback','objectiveTextStyle'].includes(k))
+  if (Object.keys(v).some(k => !['feature','idempotencyKey','patientId','consultationId','revision','narrative','planId','previousProposalId','rejectedItems','guidance','textGuidance','strategyFeedback','objectiveTextStyle','textEdit'].includes(k))
     || typeof v.feature !== 'string' || !/^[a-z][a-z0-9_]{1,63}$/.test(v.feature)
     || typeof v.idempotencyKey !== 'string' || !uuid.test(v.idempotencyKey)
     || [v.patientId,v.consultationId].some(id => id !== undefined && (typeof id !== 'string' || !uuid.test(id)))
@@ -199,6 +202,7 @@ export function parseRequest(value: unknown): AIRequest {
   if(v.objectiveTextStyle!==undefined && (v.feature!=='consultation_support' || v.objectiveTextStyle!=='patient_v1'))throw new AIError('invalid_request');
   if(v.feature==='diet_workshop')throw new AIError('feature_disabled'); // Retired; historical ledger remains immutable.
   const workshop = v.feature === 'diet_draft';
+  if(v.textEdit!==undefined && (!workshop || !isTextDietEdit(v.textEdit) || v.textGuidance!==undefined || v.guidance!==undefined || v.previousProposalId!==undefined))throw new AIError('invalid_request');
   if(v.textGuidance!==undefined && (!workshop || !isTextDietGuidance(v.textGuidance) || v.guidance!==undefined || v.previousProposalId!==undefined))throw new AIError('invalid_request');
   if(v.guidance!==undefined && (!workshop || !isDietGuidance(v.guidance)))throw new AIError('invalid_request');
   if(v.previousProposalId!==undefined && (!workshop || typeof v.previousProposalId!=='string' || !uuid.test(v.previousProposalId)))throw new AIError('invalid_request');
@@ -226,11 +230,12 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   if (referencedPes && !store.refundInvalidPes) throw new AIError('configuration_required');
   if (proposedObjectives && config.prompt_version==='consultation_support@6' && !store.refundInvalidObjectives) throw new AIError('configuration_required');
   if (!config.enabled || config.provider !== 'openai') throw new AIError('feature_disabled');
-  const adapter = featureAdapter(request.feature, config.prompt_version,!!request.textGuidance);
+  const adapter = featureAdapter(request.feature, config.prompt_version,!!request.textGuidance,!!request.textEdit);
   const clinical = ['pes_diagnosis','recall_24h','consultation_support','patient_instructions','intervention_strategy','diet_draft'].includes(request.feature);
   if (clinical && (!store.context || !store.bindContext)) throw new AIError('context_unavailable');
   const hydrated = clinical ? await store.context!(request) : null;
   if (hydrated) adapter.context = hydrated.context;
+  if(request.textEdit){const context=adapter.context as {meal_schedule:unknown[];selected_meal_indexes:number[]};adapter.schema=textDietEditSchema(context.meal_schedule.length,context.selected_meal_indexes);}
   if (proposedObjectives) {
     const pes = (adapter.context as {approvedPes?:{etiology?:unknown;signsSymptoms?:string}|null}).approvedPes;
     if (!pes) throw new AIError('pes_approval_required');
@@ -239,7 +244,7 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
     adapter.context = { ...(adapter.context as object), objectiveFormat: 'smart@2' };
   }
   if (referencedPes) adapter.context = referencedPesContext(adapter.context);
-  const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : []), ...(request.feature==='intervention_strategy'?[request.strategyFeedback??null]:[]), ...(request.objectiveTextStyle ? [request.objectiveTextStyle] : [])]);
+  const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : []), ...(request.textEdit ? [request.textEdit] : []), ...(request.feature==='intervention_strategy'?[request.strategyFeedback??null]:[]), ...(request.objectiveTextStyle ? [request.objectiveTextStyle] : [])]);
   const fingerprint = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical))), b => b.toString(16).padStart(2,'0')).join('');
   let countedInputTokens: number | undefined;
   if (config.token_policy === 'model_capacity') {

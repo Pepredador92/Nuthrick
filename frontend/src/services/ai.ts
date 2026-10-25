@@ -1,3 +1,4 @@
+import type {TextDietEdit} from '../../../supabase/functions/_shared/text-diet-edit';
 import type {TextDietGuidance} from '../../../supabase/functions/_shared/text-diet';
 import type { DietGuidance } from '../../../supabase/functions/_shared/diet-guidance';
 import { supabase } from '@/src/lib/supabase';
@@ -5,6 +6,8 @@ import { supabase } from '@/src/lib/supabase';
 export type AIBalance = { available_credits: number; reserved_credits: number };
 export type AIState = 'idle' | 'generating' | 'ready' | 'error' | 'insufficient' | 'uncertain';
 export const aiMessages: Record<string,string> = {
+  text_diet_required:'Guarda primero una dieta en texto para poder ajustarla con IA.',
+  meal_sections_unavailable:'No pudimos distinguir los tiempos de este texto. Conserva cada nombre de tiempo en una línea separada o elige ajustar la dieta completa.',
   input_too_large: 'El expediente supera la capacidad técnica del modelo de IA. No se cobró esta solicitud. Contacta a soporte; puedes continuar la consulta manualmente.',
   input_count_unavailable: 'No pudimos comprobar el tamaño del contexto. No se generó una propuesta ni se cobró esta solicitud. Puedes reintentar o continuar manualmente.',
   context_unavailable: 'La consulta cambió o ya no está disponible para esta solicitud. Guarda los cambios y actualiza la página. Puedes continuar manualmente.',
@@ -48,7 +51,7 @@ export async function getAIGenerationStatus(idempotencyKey: string) {
   return data as { generationId: string; status: string; chargedCredits: number; errorCode: string | null } | null;
 }
 // Reuse the same key when checking/retrying a logical request. Never supply owner/model/prompt/prices.
-export async function runAIRequest(request: { objectiveTextStyle?: 'patient_v1'; strategyFeedback?: string; textGuidance?:TextDietGuidance; guidance?: DietGuidance; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean; draftSaved?:boolean }> {
+export async function runAIRequest(request: { textEdit?:TextDietEdit; objectiveTextStyle?: 'patient_v1'; strategyFeedback?: string; textGuidance?:TextDietGuidance; guidance?: DietGuidance; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean; draftSaved?:boolean }> {
   try {
     const consent = await supabase.rpc('my_ai_processing_consent');
     if (consent.error || !consent.data) throw new AIRequestError('ai_consent_unavailable');

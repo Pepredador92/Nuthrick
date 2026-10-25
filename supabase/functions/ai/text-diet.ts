@@ -39,7 +39,7 @@ export async function prepareTextDietSnapshot(loaded:TextDietSource,guidance:Tex
   if(new TextEncoder().encode(JSON.stringify(payload)).length>48000)throw new AIError('input_too_large');
   return {...value,hash:await dietHash(value)};
 }
-export async function verifyTextDietSnapshot(value:TextDietSnapshot) {
+export async function verifyTextDietSnapshot(value:{version:number;format:string;hash:string}) {
   const {hash,...content}=value;
   if(value.format!=='text_diet'||value.version!==1||await dietHash(content)!==hash)throw new AIError('snapshot_invalid');
 }

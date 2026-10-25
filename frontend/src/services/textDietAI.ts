@@ -3,6 +3,7 @@ import {AIRequestError,getAIGenerationStatus,runAIRequest} from './ai';
 import {isTextDiet,type TextDiet,type TextDietGuidance} from '../../../supabase/functions/_shared/text-diet';
 import type {NutritionPlan} from '@/src/types/domain';
 import type {DietGenerationContext} from '@/src/features/diet-workshop/generationContext';
+import {isTextDietEditReport,type TextDietEdit,type TextDietEditReport} from '../../../supabase/functions/_shared/text-diet-edit';
 export type TextDietPreflight={eligible:boolean;contextToken:string;reasons:Array<{code:string}>;context:{mode?:'template'|'patient_without_consultation'|'patient';clinical:DietGenerationContext['clinical'];prescription:DietGenerationContext['prescription'];restrictions:Pick<DietGenerationContext['restrictions'],'reaction_status'|'reactions'>;preferences:Pick<DietGenerationContext['preferences'],'eating_pattern'|'foods'>}};
 export type TextDietProposal={generationId:string;textDraft:TextDiet};
 const fields=(p:NutritionPlan,g:TextDietGuidance,n:string)=>({feature:'diet_draft',idempotencyKey:crypto.randomUUID(),planId:p.id,patientId:p.patient_id??undefined,consultationId:p.consultation_id??undefined,revision:p.draft_revision??1,textGuidance:g,narrative:n});
@@ -26,3 +27,31 @@ export const textDietTransport={
   async discard(generationId:string){await invoke({action:'discard_text_diet',generationId});},
 };
 export type TextDietTransport=typeof textDietTransport;
+
+export type TextDietEditProposal = TextDietProposal & { adjustment: TextDietEditReport };
+const editFields = (plan:NutritionPlan,edit:TextDietEdit,instructions:string,key:string) => ({
+  feature:'diet_draft',idempotencyKey:key,planId:plan.id,patientId:plan.patient_id??undefined,
+  consultationId:plan.consultation_id??undefined,revision:plan.draft_revision??1,textEdit:edit,narrative:instructions,
+});
+function editProposal(value:unknown):TextDietEditProposal {
+  const result=value as TextDietEditProposal;
+  if(!result||typeof result.generationId!=='string'||!isTextDiet(result.textDraft)||!isTextDietEditReport(result.adjustment))throw new AIRequestError('invalid_output');
+  return result;
+}
+export const textDietEditTransport = {
+  async preflight(plan:NutritionPlan,edit:TextDietEdit,instructions:string):Promise<{eligible:boolean}> {
+    const result=await invoke({...editFields(plan,edit,instructions,crypto.randomUUID()),action:'text_diet_edit_preflight'});
+    if(!result.eligible)throw new AIRequestError(result.reasons?.[0]?.code??'feature_disabled');
+    return result;
+  },
+  async generate(plan:NutritionPlan,edit:TextDietEdit,instructions:string,key:string):Promise<TextDietEditProposal> {
+    const result=await runAIRequest(editFields(plan,edit,instructions,key));
+    if(result.status!=='succeeded')throw new AIRequestError('provider_outcome_unknown');
+    if(!result.output)return this.recover(result.generationId);
+    return editProposal({...result.output as object,generationId:result.generationId});
+  },
+  async recover(generationId:string):Promise<TextDietEditProposal> { return editProposal(await invoke({action:'text_diet_result',generationId})); },
+  apply:(generationId:string)=>textDietTransport.apply(generationId,true),
+  discard:textDietTransport.discard,
+  status:getAIGenerationStatus,
+};

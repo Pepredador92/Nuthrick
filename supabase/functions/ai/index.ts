@@ -9,6 +9,8 @@ import { withConfirmedRecall } from './recall-context.ts';
 import { prepareDietSnapshot, prepareDietAlternative, verifyDietSnapshot, validateSnapshot, parseDietDecision, DietRoutingProvider, type DietSnapshot } from './diet.ts';
 import {prepareTextDietSnapshot,verifyTextDietSnapshot,validateTextDietOutput,textDietPreflight,type TextDietSnapshot} from './text-diet.ts';
 import type {TextDiet} from '../_shared/text-diet.ts';
+import {editableTextDiet,prepareTextDietEditSnapshot,textDietEditPreflight,validateTextDietEditOutput,type TextDietEditSnapshot} from './text-diet-edit.ts';
+import type {TextDietEditReport} from '../_shared/text-diet-edit.ts';
 import { dietPreflight } from './diet-ux.ts';
 import { localDietTestMode, SimulatedDietProvider } from './diet-provider-test.ts';
 
@@ -50,20 +52,21 @@ Deno.serve(async request => {
     try { body = JSON.parse(new TextDecoder().decode(bytes)); } catch { throw new AIError('invalid_request'); }
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new AIError('invalid_request');
     const decision = body as {action?:string;payload?:string;signature?:string};
-    if (decision.action === 'diet_preflight' || decision.action === 'text_diet_preflight') {
+    if (decision.action === 'diet_preflight' || decision.action === 'text_diet_preflight' || decision.action === 'text_diet_edit_preflight') {
       const {action: _action, ...fields} = body as Record<string, unknown>;
       const r = parseRequest(fields);
-      if (r.feature !== 'diet_draft' || (decision.action==='text_diet_preflight')!==!!r.textGuidance) throw new AIError('invalid_request');
+      if (r.feature !== 'diet_draft' || (decision.action==='text_diet_preflight')!==!!r.textGuidance || (decision.action==='text_diet_edit_preflight')!==!!r.textEdit) throw new AIError('invalid_request');
       if (!dietEnabled || !Deno.env.get('OPENAI_API_KEY')) return respond({eligible:false,reasons:[{code:'feature_disabled'}]});
       const config = await db.rpc('ai_server',{p_action:'config',p_owner:owner,p_data:{feature:'diet_draft'}});
       if (config.error || config.data?.enabled !== true) return respond({eligible:false,reasons:[{code:'feature_disabled'}]});
-      const {data: loaded, error} = await db.rpc(r.textGuidance?'ai_text_diet_source':'ai_diet_source',{p_owner:owner,p_plan:r.planId,p_revision:r.revision});
+      const {data: loaded, error} = await db.rpc(r.textEdit?'ai_text_diet_edit_source':r.textGuidance?'ai_text_diet_source':'ai_diet_source',{p_owner:owner,p_plan:r.planId,p_revision:r.revision});
       if (error || !loaded || loaded.source.plan.patient_id !== (r.patientId ?? null) || loaded.source.plan.consultation_id !== (r.consultationId ?? null)) throw new AIError('context_unavailable');
       loaded.source.additionalInstructions = r.narrative ?? '';
       if(r.guidance) loaded.source.guidance = r.guidance;
       // Read balance with the caller's JWT; never impersonate an owner in a browser.
       const caller = createClient(url, serviceKey, {global:{headers:{Authorization:`Bearer ${token}`}},auth:{persistSession:false,autoRefreshToken:false}});
       const balance = await caller.rpc('ai_balance');
+      if(r.textEdit){if(balance.error||Number(balance.data?.available_credits)<=0)throw new AIError('insufficient_credits');return respond(await textDietEditPreflight(loaded,r.textEdit,r.narrative??''));}
       if(r.textGuidance)return respond(await textDietPreflight(loaded,r.textGuidance,r.narrative??'',config.data?.prompt_version==='diet_draft@4',!balance.error&&Number(balance.data?.available_credits)>0));
       return respond(await dietPreflight(loaded, !config.error && config.data?.enabled === true && dietEnabled && (testMode || !!Deno.env.get('OPENAI_API_KEY')),
         !balance.error && (testMode || Number(balance.data?.available_credits) > 0)));
@@ -78,7 +81,7 @@ Deno.serve(async request => {
       const saved=await dietRpc('get',{generationId:command.generationId},true);
       await verifyTextDietSnapshot(saved.snapshot);
       if(saved.status!=='succeeded'||!saved.result?.textDraft)throw new AIError('provider_outcome_unknown');
-      if(decision.action==='text_diet_result')return respond({generationId:command.generationId,textDraft:saved.result.textDraft});
+      if(decision.action==='text_diet_result')return respond({generationId:command.generationId,textDraft:saved.result.textDraft,...(saved.result.adjustment?{adjustment:saved.result.adjustment}:{})});
       return respond(await dietRpc(decision.action==='apply_text_diet'?'apply':'discard',command,true));
     }
     if (decision.action==='diet_result') {
@@ -114,14 +117,15 @@ Deno.serve(async request => {
     let consultationSupportFacts: ConsultationSupportFact[] | null = null;
     let smartObjectives = false;
     let interventionContext: InterventionContext | null = null;
-    let textSnapshot:TextDietSnapshot|null=null,textDraft:TextDiet|null=null;
+    let textSnapshot:TextDietSnapshot|TextDietEditSnapshot|null=null,textDraft:TextDiet|null=null,textEditBase:TextDiet|null=null,textEditReport:TextDietEditReport|null=null;
     let dietSnapshot: DietSnapshot | null=null;
     let dietValidation: ReturnType<typeof validateSnapshot> | null=null;
     const store: AIStore = {
       context: async r => {
         if(r.feature==='diet_draft') {
-          const {data:loaded,error}=await db.rpc(r.textGuidance?'ai_text_diet_source':'ai_diet_source',{p_owner:owner,p_plan:r.planId,p_revision:r.revision});
+          const {data:loaded,error}=await db.rpc(r.textEdit?'ai_text_diet_edit_source':r.textGuidance?'ai_text_diet_source':'ai_diet_source',{p_owner:owner,p_plan:r.planId,p_revision:r.revision});
           if(error||!loaded||loaded.source.plan.patient_id!==(r.patientId??null)||loaded.source.plan.consultation_id!==(r.consultationId??null)) throw new AIError('context_unavailable');
+          if(r.textEdit){textEditBase=editableTextDiet(loaded);textSnapshot=await prepareTextDietEditSnapshot(loaded,r.textEdit,r.narrative??'');return {stamp:textSnapshot.sourceStamp,context:textSnapshot.payload};}
           if(r.textGuidance){textSnapshot=await prepareTextDietSnapshot(loaded,r.textGuidance,r.narrative??'');return {stamp:textSnapshot.sourceStamp,context:textSnapshot.payload};}
           loaded.source.additionalInstructions = r.narrative ?? '';
       if(r.guidance) loaded.source.guidance = r.guidance;
@@ -151,7 +155,7 @@ Deno.serve(async request => {
         return {stamp:clinical.stamp,context};
       },
       bindContext: async (id,r,stamp) => {
-        if(r.textGuidance){await dietRpc('bind',{generationId:id,planId:r.planId,revision:r.revision,stamp,snapshot:textSnapshot},true);return;}
+        if(r.textGuidance||r.textEdit){await dietRpc('bind',{generationId:id,planId:r.planId,revision:r.revision,stamp,snapshot:textSnapshot},true);return;}
         if(r.feature==='diet_draft') {
           await dietRpc('bind',{generationId:id,planId:r.planId,revision:r.revision,stamp,snapshot:dietSnapshot});
           return;
@@ -186,14 +190,14 @@ Deno.serve(async request => {
         throw new AIError('objective_output_refund_pending');
       },
       validateOutput: output => {
-        if(textSnapshot){textDraft=validateTextDietOutput(output,textSnapshot);return !!textDraft;}
+        if(textSnapshot){if('edit' in textSnapshot){const result=textEditBase&&validateTextDietEditOutput(output,textSnapshot,textEditBase);textDraft=result?.textDraft??null;textEditReport=result?.adjustment??null;}else textDraft=validateTextDietOutput(output,textSnapshot);return !!textDraft;}
         if(dietSnapshot) { dietValidation=validateSnapshot(output,dietSnapshot); return dietValidation.status!=='invalid'; }
         return true;
       },
       recordResult: async (id,result,valid) => {
         const metadata=await db.rpc('ai_provider_metadata',{p_owner:owner,p_generation:id,p_request_id:result.requestId??null,p_model:result.model??null,p_latency:result.latencyMs??null});
         if(metadata.error)throw new AIError('result_unavailable');
-        if(textSnapshot){await dietRpc('result',{generationId:id,result:{textDraft:valid?textDraft:null,model:result.model??null,latencyMs:result.latencyMs??null,usage:result.usage}},true);return;}
+        if(textSnapshot){await dietRpc('result',{generationId:id,result:{textDraft:valid?textDraft:null,...(valid&&textEditReport?{adjustment:textEditReport}:{}),model:result.model??null,latencyMs:result.latencyMs??null,usage:result.usage}},true);return;}
         if(!dietSnapshot) return;
         // No raw malformed output is retained. All values below are scoped,
         // redacted snapshot-derived data or safe provider accounting metadata.
@@ -217,8 +221,8 @@ Deno.serve(async request => {
     }
     const result=await runAIRequest(input,store,new DietRoutingProvider(simulated ? new SimulatedDietProvider() : new OpenAIResponsesProvider(apiKey!)));
     if (input.feature === 'intervention_strategy' && result.output && interventionContext) return respondClinicalResult({ ...result, output: hydrateInterventionOutput(result.output, interventionContext, result.generationId) });
-    if(input.textGuidance&&result.status==='succeeded'){const saved=await dietRpc('get',{generationId:result.generationId},true);await verifyTextDietSnapshot(saved.snapshot);return respond({...result,output:{textDraft:saved.result.textDraft},decision:saved.decision});}
-    if(input.feature==='diet_draft' && !input.textGuidance && ['succeeded','invalid_output'].includes(result.status)) {
+    if((input.textGuidance||input.textEdit)&&result.status==='succeeded'){const saved=await dietRpc('get',{generationId:result.generationId},true);await verifyTextDietSnapshot(saved.snapshot);return respond({...result,output:{textDraft:saved.result.textDraft,...(saved.result.adjustment?{adjustment:saved.result.adjustment}:{})},decision:saved.decision});}
+    if(input.feature==='diet_draft' && !input.textGuidance && !input.textEdit && ['succeeded','invalid_output'].includes(result.status)) {
       const saved=await dietRpc('get',{generationId:result.generationId});
       await verifyDietSnapshot(saved.snapshot);
       return respond({...result,output:{validation:saved.result.validation,hasManualMenu:saved.snapshot.hasManualMenu,snapshotHash:saved.snapshot.hash},decision:saved.decision});

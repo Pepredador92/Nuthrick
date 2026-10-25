@@ -5,8 +5,9 @@ import {isTextDiet,textDietPrescriptionMatches,type TextDiet} from '../../../../
 import type {NutritionPlan,NutritionPlanVersion} from '@/src/types/domain';
 import {patientPlanViewFromDraft,patientPlanViewFromVersion} from '@/src/features/diet-review/model';
 import {PatientPlanPreview} from './PatientPlanPreview';
+import {TextDietAdjustment} from './TextDietAdjustment';
 
-export function TextDietEditor({plan,onSave,onClose}:{plan:NutritionPlan;onSave:(draft:TextDiet)=>Promise<NutritionPlan>;onClose:()=>void}) {
+export function TextDietEditor({plan,onSave,onClose,onPlanChange}:{plan:NutritionPlan;onSave:(draft:TextDiet)=>Promise<NutritionPlan>;onClose:()=>void;onPlanChange?:(plan:NutritionPlan)=>void}) {
   const id=useId(),dialog=useRef<HTMLDialogElement>(null),lock=useRef(false);
   const [draft,setDraft]=useState(()=>structuredClone(plan.text_diet!)),[page,setPage]=useState(0),[reviewed,setReviewed]=useState<boolean[]>(()=>plan.text_diet!.diets.map(()=>false));
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
@@ -16,8 +17,9 @@ export function TextDietEditor({plan,onSave,onClose}:{plan:NutritionPlan;onSave:
     try{const value={...draft,reviewed_at:approve?new Date().toISOString():null,
       prescription:approve?{target_calories:plan.target_calories,macro_distribution:plan.macro_distribution}:draft.prescription};
       if(!isTextDiet(value))throw Error('Cada dieta necesita un título y contenido antes de guardar.');
-      await onSave(value);setDraft(value);setNotice(approve?plan.patient_id?'Dietas aprobadas para publicación.':'Dietas aprobadas para guardar en tu biblioteca.':'Borrador guardado.');
+      const saved=await onSave(value);setDraft(value);setNotice(approve?plan.patient_id?'Dietas aprobadas para publicación.':'Dietas aprobadas para guardar en tu biblioteca.':'Borrador guardado.');
       if(nextPage!==undefined){setPage(nextPage);dialog.current?.scrollTo?.({top:0});}if(close)onClose();
+      return saved;
     }catch(e){setError(e instanceof Error?e.message:'No pudimos guardar. Tus cambios siguen en este diálogo.');}finally{lock.current=false;setBusy(false);}}
   function edit(field:'title'|'text',value:string){setDraft(d=>({...d,shopping_list:undefined,reviewed_at:null,diets:d.diets.map((row,i)=>i===page?{...row,[field]:value}:row)}));setReviewed(r=>r.map((v,i)=>i===page?false:v));setNotice('');}
   return <dialog ref={dialog} open={typeof HTMLDialogElement==='undefined'||!HTMLDialogElement.prototype.showModal} aria-labelledby={`${id}-title`} onCancel={e=>{e.preventDefault();void persist(undefined,true);}} className="m-auto max-h-[94dvh] w-[min(980px,calc(100vw-20px))] overflow-auto rounded-2xl border border-[#d4e2d8] bg-white p-4 text-[#173d36] shadow-xl backdrop:bg-[#173d36]/40 sm:p-6">
@@ -36,13 +38,20 @@ export function TextDietEditor({plan,onSave,onClose}:{plan:NutritionPlan;onSave:
       {page>0&&<button className="nuth-button-secondary" disabled={busy} onClick={()=>void persist(page-1)}>Anterior</button>}
       {page<draft.diets.length-1&&<button className="nuth-button" disabled={busy} onClick={()=>void persist(page+1)}>Siguiente dieta</button>}
       <button className="nuth-button-secondary" disabled={busy} onClick={()=>void persist()}>Guardar borrador</button>
+      <TextDietAdjustment plan={{...plan,text_diet:draft}} dietId={current.id} before={()=>persist()} onApplied={(updated,editedId)=>{
+        if(!updated.text_diet)return;
+        onPlanChange?.(updated);
+        setDraft(updated.text_diet);setReviewed(previous=>previous.map((value,index)=>draft.diets[index]?.id===editedId?false:value));
+        const index=updated.text_diet.diets.findIndex(diet=>diet.id===editedId);if(index>=0)setPage(index);
+        setNotice('Ajuste guardado. Revisa la dieta modificada antes de aprobar.');setError('');
+      }}/>
       <button className="nuth-button" disabled={busy||!complete} onClick={()=>void persist(undefined,true,true)}>{busy?<LoaderCircle className="animate-spin" size={16}/>:<CheckCircle2 size={16}/>}Aprobar {draft.diets.length} dietas</button>
       <span className="text-xs text-[#687870]">{reviewed.filter(Boolean).length} de {draft.diets.length} revisadas. {plan.patient_id?"La publicación es el paso siguiente.":"Después podrás guardarlas en tu biblioteca."}</span>
     </footer>
   </dialog>;
 }
 
-export function TextDietReviewStep({plan,patientName,versions,publishing,onSave,onPublish,onSaveLibrary,generateAction}:{plan:NutritionPlan;patientName:string;versions:NutritionPlanVersion[];publishing:boolean;onSave:(draft:TextDiet)=>Promise<NutritionPlan>;onPublish:(draft:TextDiet)=>Promise<boolean|void>|void;onSaveLibrary?:(draft:TextDiet)=>Promise<void>;generateAction?:React.ReactNode}) {
+export function TextDietReviewStep({plan,patientName,versions,publishing,onSave,onPublish,onSaveLibrary,generateAction,onPlanChange}:{plan:NutritionPlan;patientName:string;versions:NutritionPlanVersion[];publishing:boolean;onSave:(draft:TextDiet)=>Promise<NutritionPlan>;onPublish:(draft:TextDiet)=>Promise<boolean|void>|void;onSaveLibrary?:(draft:TextDiet)=>Promise<void>;generateAction?:React.ReactNode;onPlanChange?:(plan:NutritionPlan)=>void}) {
   const [editing,setEditing]=useState(!plan.text_diet?.reviewed_at),[confirming,setConfirming]=useState(false),[version,setVersion]=useState<NutritionPlanVersion|null>(null);
   const [libraryNotice,setLibraryNotice]=useState(''),[libraryError,setLibraryError]=useState(''),libraryLock=useRef(false);
   const freePlan=!plan.patient_id&&!plan.consultation_id;
@@ -54,7 +63,7 @@ export function TextDietReviewStep({plan,patientName,versions,publishing,onSave,
     <PatientPlanPreview value={patientPlanViewFromDraft(plan,patientName)}/>
     {freePlan?<section className="mt-5 rounded-xl border border-[#dfe6e1] p-4"><h2 className="font-semibold">Mi biblioteca</h2><p className="mt-2 text-sm text-[#687870]">Guarda las dietas con el nombre de este plan. Cada vez que las uses se creará una copia editable; la base original se conserva.</p><button className="nuth-button mt-3" disabled={!ready||publishing||!onSaveLibrary} onClick={()=>void saveLibrary()}>{publishing&&<LoaderCircle className="animate-spin" size={16}/>}Guardar en mi biblioteca</button>{libraryNotice&&<p role="status" className="mt-3 text-sm text-green-800">{libraryNotice}</p>}{libraryError&&<p role="alert" className="mt-3 text-sm text-red-800">{libraryError}</p>}</section>:<><section className="mt-5 rounded-xl border border-[#dfe6e1] p-4"><h2 className="font-semibold">Publicación</h2><p className="mt-2 text-sm text-[#687870]">Las metas prescritas son referencia. Las cantidades y el contenido de estas dietas han de ser revisados por ti antes de publicar.</p><button className="nuth-button mt-3" disabled={!ready||publishing||!plan.patient_id} onClick={()=>setConfirming(true)}>{publishing&&<LoaderCircle className="animate-spin" size={16}/>}Publicar versión</button></section>
     <section className="mt-5"><h2 className="font-semibold">Historial de publicaciones</h2><ul className="mt-2 space-y-2">{versions.map(v=><li key={v.id}><button className="nuth-button-secondary !py-2" onClick={()=>setVersion(v)}>Ver versión {v.version_number}{v.id===plan.current_version_id?' · vigente':''}</button></li>)}</ul></section></>}
-    {editing&&<TextDietEditor plan={plan} onSave={onSave} onClose={()=>setEditing(false)}/>}
+    {editing&&<TextDietEditor plan={plan} onSave={onSave} onPlanChange={onPlanChange} onClose={()=>setEditing(false)}/>}
     {confirming&&<GroceryPublicationDialog draft={draft} onClose={()=>setConfirming(false)} onPublish={onPublish}/>}
     {version&&<div role="dialog" aria-modal="true" aria-label="Versión publicada" className="fixed inset-0 z-50 overflow-auto bg-[#173d36]/40 p-4"><div className="mx-auto max-w-3xl rounded-2xl bg-white p-5"><button className="nuth-button-secondary mb-3" onClick={()=>setVersion(null)}>Cerrar versión</button><PatientPlanPreview historical value={patientPlanViewFromVersion(version.snapshot)}/></div></div>}
   </section>;
