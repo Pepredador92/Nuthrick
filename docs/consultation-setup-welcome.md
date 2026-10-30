@@ -2,6 +2,8 @@
 
 Al entrar al espacio profesional, las cuentas con perfil completo y permiso vigente para editar diseños de entrevista ven una bienvenida a pantalla completa. La ilustración original del bosque nocturno con luciérnagas se sirve como WebP local; el texto y las acciones siguen siendo HTML accesible. La bienvenida conserva su paleta nocturna también con el tema de día.
 
+La entrada oscurece progresivamente el espacio de trabajo durante 750 ms. El bosque aparece a partir de los 250 ms y el mensaje comienza a aparecer a los 450 ms, con un desplazamiento vertical de solo 8 px. La transición completa dura 1,25 segundos y no bloquea los botones. Con `prefers-reduced-motion: reduce` se muestra inmediatamente, sin animaciones.
+
 El texto aprobado es:
 
 > **Personaliza tu consulta**
