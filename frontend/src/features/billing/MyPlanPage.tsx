@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { BadgeCheck, CalendarClock, Coins, CreditCard, Repeat2, Sparkles, WalletCards } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 import { isSimulation } from '../simulator/state';
 import { useAccess } from "@/src/features/admin/AccessProvider";
@@ -140,13 +141,13 @@ export function MyPlanPage() {
             <h2>
               {s?.plan_name ?? data.access.plan_name ?? "Sin plan contratado"}
             </h2>
-            <dl className="billing-stats">
-              <div>
-                <dt>Estado</dt>
+            <dl className={`billing-stats plan-stats${s ? "" : " plan-stats--access"}`}>
+              <div className="plan-stat plan-stat--status">
+                <dt><BadgeCheck aria-hidden="true" />Estado</dt>
                 <dd>{s ? stateLabel(s.state) : data.access.status}</dd>
               </div>
-              <div>
-                <dt>Modalidad</dt>
+              <div className="plan-stat plan-stat--interval">
+                <dt><Repeat2 aria-hidden="true" />Modalidad</dt>
                 <dd>
                   {s
                     ? data.access.retention ? "Cada 30 días" : s.interval === "monthly" ? "Mensual" : "Anual"
@@ -157,15 +158,16 @@ export function MyPlanPage() {
               </div>
               {s && (
                 <>
-                  <div>
-                    <dt>Precio base contratado</dt>
+                  <div className="plan-stat plan-stat--price">
+                    <dt><WalletCards aria-hidden="true" />Precio base contratado</dt>
                     <dd>
-                      {money(s.amount, s.currency)} /{" "}
-                      {data.access.retention ? "30 días" : intervalLabel(s.interval)}
+                      {money(s.amount, s.currency)}{" "}
+                      <span className="plan-stat-unit">/ {data.access.retention ? "30 días" : intervalLabel(s.interval)}</span>
                     </dd>
                   </div>
-                  <div>
+                  <div className="plan-stat plan-stat--renewal">
                     <dt>
+                      <CalendarClock aria-hidden="true" />
                       {s.state === 'trial' ? (s.cancel_at_period_end ? 'Prueba disponible hasta' : 'Primer cobro') : s.cancel_at_period_end
                         ? "Acceso pagado hasta"
                         : "Próxima renovación"}
@@ -174,12 +176,12 @@ export function MyPlanPage() {
                   </div>
                 </>
               )}
-              <div>
-                <dt>Créditos del plan por mes</dt>
+              <div className="plan-stat plan-stat--monthly">
+                <dt><Sparkles aria-hidden="true" />Créditos del plan por mes</dt>
                 <dd>{String(data.access.values["ai.monthly_credits"] ?? 0)}</dd>
               </div>
-              <div>
-                <dt>Créditos disponibles</dt>
+              <div className="plan-stat plan-stat--available">
+                <dt><Coins aria-hidden="true" />Créditos disponibles</dt>
                 <dd>
                   {data.credits.available ?? (Number(data.credits.additional) < 0 ? 0 : Number(data.credits.included) +
                     Number(data.credits.additional))}
@@ -269,10 +271,11 @@ export function MyPlanPage() {
               <Link className="admin-button secondary" to="/app/credits">Ver créditos y recargar</Link>
               {s && (
                 <button
-                  className="admin-button"
+                  className="admin-button plan-payment-button"
                   disabled={busy}
                   onClick={() => void action("portal")}
                 >
+                  <CreditCard size={17} aria-hidden="true" />
                   Administrar pago y facturas
                 </button>
               )}

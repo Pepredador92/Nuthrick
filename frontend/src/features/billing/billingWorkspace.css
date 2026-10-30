@@ -40,20 +40,124 @@
   margin-bottom: 18px;
 }
 
-.billing-workspace .credits-balance-card .billing-stats,
-.billing-workspace .plan-summary-card .billing-stats {
+.billing-workspace .credits-balance-card .billing-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
 }
 
-.billing-workspace .credits-balance-card .billing-stats > div,
-.billing-workspace .plan-summary-card .billing-stats > div {
+.billing-workspace .credits-balance-card .billing-stats > div {
   min-width: 0;
   border: 1px solid #deebe8;
   border-radius: 16px;
   padding: 14px;
   background: #f6faf8;
+}
+
+.plan-workspace {
+  --admin-green: var(--nuth-action);
+  --admin-muted: var(--nuth-muted);
+}
+
+.plan-workspace .plan-summary-card .plan-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.plan-workspace .plan-summary-card .plan-stats--access {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.plan-workspace .plan-stat {
+  min-width: 0;
+  padding: 13px 15px;
+  border: 1px solid color-mix(in srgb, var(--plan-stat-accent) 25%, var(--nuth-line));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--plan-stat-accent) 12%, var(--nuth-surface));
+}
+
+.plan-workspace .plan-stat--status { --plan-stat-accent: #2e7a52; }
+.plan-workspace .plan-stat--interval { --plan-stat-accent: #8060ad; }
+.plan-workspace .plan-stat--price { --plan-stat-accent: #b57533; }
+.plan-workspace .plan-stat--renewal { --plan-stat-accent: #477caa; }
+.plan-workspace .plan-stat--monthly { --plan-stat-accent: #a2597e; }
+.plan-workspace .plan-stat--available { --plan-stat-accent: #829a22; }
+
+.plan-workspace .plan-stat dt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  color: var(--nuth-muted);
+  font-size: .73rem;
+  font-weight: 550;
+  line-height: 1.4;
+}
+
+.plan-workspace .plan-stat dt svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--plan-stat-accent);
+}
+
+.plan-workspace .plan-stat dd {
+  margin: 0;
+  color: var(--nuth-ink);
+  font-size: clamp(1.05rem, 1.7vw, 1.3rem);
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-workspace .plan-stat-unit,
+.plan-workspace .plan-stat small {
+  color: var(--nuth-muted);
+  font-size: .73rem;
+  font-weight: 450;
+  line-height: 1.5;
+}
+
+.plan-workspace .plan-stat small {
+  display: block;
+  margin-top: 4px;
+}
+
+.plan-workspace .plan-actions-card .admin-button {
+  min-height: 42px;
+  text-decoration: none;
+}
+
+.plan-workspace .plan-payment-button {
+  border: 1px solid var(--nuth-action);
+  background: var(--nuth-action);
+  color: #fff;
+}
+
+.plan-workspace .plan-payment-button:not(:disabled):hover {
+  border-color: var(--nuth-action-hover);
+  background: var(--nuth-action-hover);
+}
+
+.plan-workspace .admin-button:focus-visible {
+  outline: 3px solid var(--nuth-accent);
+  outline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  .plan-workspace .plan-summary-card .plan-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .plan-workspace .plan-stat { padding: 12px; }
+}
+
+@media (max-width: 380px) {
+  .plan-workspace .plan-summary-card .plan-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .billing-workspace .credits-pending-card,
@@ -144,11 +248,17 @@ html[data-nuthrick-theme='night'] .billing-workspace .credits-other-card {
   background: #192f38;
 }
 
-html[data-nuthrick-theme='night'] .billing-workspace .credits-balance-card .billing-stats > div,
-html[data-nuthrick-theme='night'] .billing-workspace .plan-summary-card .billing-stats > div {
+html[data-nuthrick-theme='night'] .billing-workspace .credits-balance-card .billing-stats > div {
   background: #233c43;
   border-color: #3b5960;
 }
+
+html[data-nuthrick-theme='night'] .plan-workspace .plan-stat--status { --plan-stat-accent: #81cba2; }
+html[data-nuthrick-theme='night'] .plan-workspace .plan-stat--interval { --plan-stat-accent: #baa0e3; }
+html[data-nuthrick-theme='night'] .plan-workspace .plan-stat--price { --plan-stat-accent: #e7b577; }
+html[data-nuthrick-theme='night'] .plan-workspace .plan-stat--renewal { --plan-stat-accent: #8cbbe4; }
+html[data-nuthrick-theme='night'] .plan-workspace .plan-stat--monthly { --plan-stat-accent: #e7a2c1; }
+html[data-nuthrick-theme='night'] .plan-workspace .plan-stat--available { --plan-stat-accent: #dcec79; }
 
 html[data-nuthrick-theme='night'] .billing-workspace .billing-step {
   color: #93d9cf;
