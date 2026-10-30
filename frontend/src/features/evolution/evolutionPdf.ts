@@ -1,6 +1,5 @@
 import { jsPDF } from "jspdf";
 import { documentColors, documentRgb } from "../../../../supabase/functions/agenda/document-layout";
-import { drawProfessionalHeader } from "../../../../supabase/functions/agenda/document-letterhead";
 import type { Patient } from "@/src/types/domain";
 import type { ProfessionalDocumentInfo } from "@/src/features/consultations/exportText";
 import { calculateAge, formatPatientDate } from "@/src/features/patients/patientUtils";
@@ -12,7 +11,6 @@ import { somatoBoundary, somatoColors, somatoProjection, somatoRegions } from ".
 import type { LongitudinalHistory, LongitudinalSeries } from "./longitudinal";
 
 import {pdfLayout,pdfFooters} from "../../../../supabase/functions/agenda/pdf-layout";
-import {drawFormalHeader} from "../../../../supabase/functions/agenda/formal-document-layout";
 import type {PdfDesign} from "../../../../supabase/functions/agenda/document-design";
 
 const ink = documentColors.ink, muted = documentColors.muted;
@@ -35,7 +33,7 @@ async function imageData(url: string) {
 export async function buildEvolutionPdf(patient: Patient, history: LongitudinalHistory, selection: EvolutionExportSelection, professional: ProfessionalDocumentInfo, design: PdfDesign = "current") {
   const pdf = new jsPDF({ unit: "mm", format: "a4", compress: true });
   const formal = design === "formal";
-  const margin = formal ? 25.4 : 16, width = 210 - margin * 2, pageHeight = 297;
+  const margin = 16, width = 210 - margin * 2;
   const series = reportSeries(exportableSeries(history, selection));
   const references = selection.references ?? emptyProgressReferences;
   let cursor = 18;
@@ -46,10 +44,10 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
     font(size, bold); color(hex); pdf.text(Array.isArray(value) ? value.map(plain) : plain(value), x, y, { align, lineHeightFactor: 1.3 });
   };
   const compactHeader = () => {
-    cursor = formal ? drawFormalHeader(pdf, professional, null, true) : drawProfessionalHeader(pdf, professional, null, true);
+    layout.newPage(); cursor = layout.y;
   };
   const ensureSpace = (height: number) => {
-    if (cursor + height > pageHeight - (formal ? 25.4 : 21)) { pdf.addPage(); compactHeader(); }
+    if (cursor + height > layout.bottom) compactHeader();
   };
   const flowText = (value: string, size = 8, hex = muted, bold = false) => {
     for (const line of lines(value, width, size)) {
@@ -57,9 +55,9 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
     }
   };
   const card = (height: number) => {
-    ensureSpace(height); if(formal) { pdf.setDrawColor(150,150,150); pdf.setLineWidth(.2); pdf.rect(margin,cursor,width,height,"S"); return; } pdf.setFillColor(222, 232, 235); pdf.roundedRect(margin + .6, cursor + 1.2, width, height, 3, 3, "F");
+    ensureSpace(height);
     pdf.setFillColor(255, 255, 255); pdf.setDrawColor(...documentRgb(documentColors.line)); pdf.setLineWidth(0.2);
-    pdf.roundedRect(margin, cursor, width, height, 3, 3, "FD");
+    pdf.roundedRect(margin, cursor, width, height, formal ? 1 : 2, formal ? 1 : 2, "FD");
   };
   const polygon = (points: Array<{ x: number; y: number }>, fill: string | null, project: { x: (value: number) => number; y: (value: number) => number }) => {
     if (fill) pdf.setFillColor(...hexToRgb(fill));
@@ -69,7 +67,7 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
   };
 
   const logo = professional.logoUrl ? await imageData(professional.logoUrl) : null;
-  const layout = pdfLayout(pdf, professional, logo, design, { contacts: true, strictLogo: true });
+  const layout = pdfLayout(pdf, professional, logo, design, { contacts: true, strictLogo: true, title: "Evolución nutricional", continuation: patient.full_name });
   layout.section("Reporte de progreso del paciente", "Tu evolución, consulta a consulta. Revisa los cambios con tu nutriólogo.");
   const dates = [...new Set(series.flatMap((item) => item.points.map((point) => point.consultation_date)))].sort();
   const visitCount = new Set(series.flatMap((item) => item.points.map((point) => point.consultation_id))).size;
@@ -77,13 +75,14 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
   const age = calculateAge(patient.birth_date, generatedAt);
   const birthDate = patient.birth_date && age !== null ? formatPatientDate(`${patient.birth_date}T12:00:00`) : "Sin registrar";
   layout.card(patient.full_name, [
-    { label: "Edad y nacimiento", value: `Edad al emitir: ${age === null ? "Sin registrar" : `${age} ${age === 1 ? "año" : "años"}`} · Nacimiento: ${birthDate}` },
+    { label: "Edad al emitir", value: age === null ? "Sin registrar" : `${age} ${age === 1 ? "año" : "años"}` },
+    { label: "Fecha de nacimiento", value: birthDate },
     { label: "Periodo del seguimiento", value: dates.length ? `${formatPatientDate(dates[0])} - ${formatPatientDate(dates.at(-1)!)}` : "Sin fechas clínicas disponibles" },
     { label: "Incluido en este reporte", value: `${visitCount} ${visitCount === 1 ? "consulta incluida" : "consultas incluidas"} · ${series.length} gráficas seleccionadas` },
     { label: "Emitido", value: formatPatientDate(generatedAt.toISOString()) },
-  ], { tone: "blue", eyebrow: "DATOS DEL PACIENTE" });
+  ], { tone: "blue", columns: 3, eyebrow: "DATOS DEL PACIENTE" });
   layout.section("Tus indicadores", "El valor destacado corresponde a tu registro más reciente.");
-  layout.flushSection(90);
+  layout.flushSection(75);
   cursor = layout.y;
   const appendix: Array<{ title: string; details: string[] }> = [];
 
@@ -108,7 +107,7 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
     const weightBarHeight = weight && (weight.recorded || weight.interval || weight.target) ? 11 : 0;
     const classificationLines = classification ? lines(`${classifications.isHistorical ? "Última clasificación registrada" : "Clasificación registrada"}: ${classification.label}`, width - 12, 8) : [];
     const detailHeight = classificationLines.length * 4 + bandHeight + weightBarHeight;
-    const height = headerHeight + detailHeight + 53;
+    const height = headerHeight + detailHeight + 49;
     card(height);
     text(title, margin + 6, cursor + 7, 10, true);
     text(`${latest.display_value} ${latest.unit ?? ""}`, margin + width - 6, cursor + 8, 11, true, ink, "right");
@@ -223,7 +222,6 @@ export async function buildEvolutionPdf(patient: Patient, history: LongitudinalH
   layout.y = cursor;
   layout.contacts();
   if (appendix.length) {
-    layout.newPage();
     layout.section("Métodos e historial de referencias", "Detalle de las mediciones y clasificaciones registradas por tu profesional.");
     for (const entry of appendix) layout.card(entry.title, entry.details.map(value => ({value})), {tone: "blue"});
   }

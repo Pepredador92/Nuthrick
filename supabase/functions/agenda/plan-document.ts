@@ -135,9 +135,9 @@ function textDietCards(text:string):{title:string;fields:DocumentField[]}[] {
  });
 }
 export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:string|null=null,design:PdfDesign='current'):Uint8Array {
- const pdf=new jsPDF({unit:'mm',format:'a4'}),layout=pdfLayout(pdf,model.professional,logo,design,{contacts:true,continuation:`${model.patientName} · Plan de alimentación`});
+ const pdf=new jsPDF({unit:'mm',format:'a4'}),layout=pdfLayout(pdf,model.professional,logo,design,{contacts:true,title:'Plan de alimentación',continuation:model.patientName});
  layout.section('Plan de alimentación','Documento nutricional personalizado');
- layout.card(design==='formal'?'Datos del paciente y del plan':model.patientName,[...(design==='formal'?[{label:'Paciente',value:model.patientName}]:[]),...planIdentityFields(model)],{tone:'blue',columns:2,eyebrow:'IDENTIFICACIÓN DEL PACIENTE Y DEL DOCUMENTO'});
+ layout.card(model.patientName,planIdentityFields(model),{tone:'blue',columns:3,eyebrow:'DATOS DEL PACIENTE Y DEL PLAN'});
  const clinical=planClinicalFields(model);
  if(clinical.length)layout.card('Objetivo y cuidados acordados',clinical,{tone:'violet',eyebrow:'GUÍA DE TU ATENCIÓN',flow:true,justify:true});
  for(const card of planGuidanceCards(model))layout.card(card.title,card.fields,{tone:'mint',flow:true,justify:true});

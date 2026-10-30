@@ -78,7 +78,7 @@ describe("evolution PDF export", () => {
       { fullName: "Lic. Andrea Nutri", professionalTitle: "Nutrióloga", licenseNumber: "12345", businessAddress: "Av. Salud 12", contactLines: ["WhatsApp: +52 555"] },
     );
     const text = mocks.text.mock.calls.flatMap(([value]) => Array.isArray(value) ? value : [value]).join("\n");
-    expect(text).toContain("NUTHRICK");
+    expect(text).toContain("Nuthrick");
     expect(text).toContain("Reporte de progreso del paciente");
     expect(text).toContain("Evolución nutricional");
     expect(text).toContain("Tus indicadores");
@@ -119,12 +119,13 @@ describe("evolution PDF export", () => {
     expect(image[1]).toBe("PNG");
     expect(image[4]).toBeGreaterThan(23);
     expect(image[4] / image[5]).toBe(2);
-    expect(image[2] + image[4]).toBeLessThan(72);
+    expect(image[2]).toBeGreaterThan(105);
+    expect(image[2] + image[4]).toBeLessThanOrEqual(194);
     const rendered = mocks.text.mock.calls.flatMap(([value]) => Array.isArray(value) ? value : [value]).join("\n");
     expect(rendered).toContain("DATOS DEL PACIENTE");
     expect(rendered).toContain("Ana Paciente");
-    expect(rendered).toContain("Edad al emitir: 33 años");
-    expect(rendered).toMatch(/Nacimiento: 27 sept? 1992/);
+    expect(rendered).toContain("Edad al emitir\n33 años");
+    expect(rendered).toMatch(/Fecha de nacimiento\n27 sept? 1992/);
   });
 
   it.each(["download", "image"])("reports a logo %s failure instead of downloading a report without the configured logo", async (failure) => {
@@ -139,7 +140,8 @@ describe("evolution PDF export", () => {
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
     await downloadEvolutionPdf("missing.pdf", { full_name: "Ana", birth_date: null } as never, { consultations: [], series: [] }, { seriesIds: [] }, { fullName: "Profesional" });
     const rendered = mocks.text.mock.calls.flatMap(([value]) => Array.isArray(value) ? value : [value]).join("\n");
-    expect(rendered).toContain("Edad al emitir: Sin registrar · Nacimiento: Sin registrar");
+    expect(rendered).toContain("Edad al emitir\nSin registrar");
+    expect(rendered).toContain("Fecha de nacimiento\nSin registrar");
   });
 
   it.each([null, false])("preserves BMI classification history and uses the matching visit for the scale (pregnant=%s)", async (pregnant) => {

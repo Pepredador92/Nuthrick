@@ -3,6 +3,7 @@ import { DocumentLayout } from "./document-layout.ts";
 import {
   drawDocumentFooters,
   type ProfessionalDocumentInfo,
+  type DocumentHeaderDetails,
 } from "./document-letterhead.ts";
 import {
   drawFormalFooters,
@@ -14,7 +15,7 @@ export function pdfLayout(
   professional: ProfessionalDocumentInfo,
   logo: string | null,
   design: PdfDesign,
-  details: { contacts?: boolean; continuation?: string; strictLogo?: boolean } =
+  details: DocumentHeaderDetails =
     {},
 ) {
   return design === "formal"
@@ -22,6 +23,6 @@ export function pdfLayout(
     : new DocumentLayout(pdf, professional, logo, details);
 }
 export function pdfFooters(pdf: jsPDF, design: PdfDesign, label?: string) {
-  if (design === "formal") drawFormalFooters(pdf);
+  if (design === "formal") drawFormalFooters(pdf, label);
   else drawDocumentFooters(pdf, label);
 }

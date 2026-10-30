@@ -18,12 +18,12 @@ export function PdfDesignSelector(
         {([{
           id: "current",
           title: "Actual",
-          description: "Tarjetas, color y bloques visuales.",
+          description: "Hoja membretada, acentos verdes y bloques enmarcados.",
         }, {
           id: "formal",
           title: "Tradicional formal",
           description:
-            "Fondo blanco, tipografía clásica y secciones numeradas.",
+            "Hoja membretada blanca, tipografía clásica y secciones numeradas.",
         }] as const).map((option) => (
           <label key={option.id} data-selected={value === option.id}>
             <div
@@ -32,7 +32,7 @@ export function PdfDesignSelector(
               aria-hidden="true"
             >
               <div>
-                <b>Consultorio</b>
+                <header><b>Consultorio</b><em /></header>
                 <i />
                 <i />
                 <hr />

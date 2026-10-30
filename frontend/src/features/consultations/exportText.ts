@@ -148,7 +148,7 @@ export async function buildConsultationPdf(
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
   const logo = professional.logoUrl ? await imageData(professional.logoUrl) : null;
   const formal = design === "formal";
-  const layout = pdfLayout(pdf, professional, logo, design, { contacts: true });
+  const layout = pdfLayout(pdf, professional, logo, design, { contacts: true, title: "Consulta nutricional", continuation: patient.full_name });
   layout.section(formal ? "Registro de consulta nutricional" : "Informe de consulta nutricional", formal ? undefined : "Registro clínico para revisión del profesional.");
   layout.card(formal ? "Datos del paciente y la consulta" : patient.full_name, [
     ...(formal ? [{label:"Paciente",value:patient.full_name}] : []),
@@ -157,7 +157,7 @@ export async function buildConsultationPdf(
     ...(snapshot.revision ? [{label:"Revisión del registro",value:String(snapshot.revision)}] : []),
     { label: "Fecha y tipo", value: `${formatPatientDate(consultation.consultation_date)} · ${consultation.consultation_type === "initial" ? "Consulta inicial" : "Consulta de seguimiento"}` },
     ...patientBasics(patient).slice(1).map(value => ({ value })),
-  ], { tone: "blue", columns: 2 });
+  ], { tone: "blue", columns: 3, eyebrow: "DATOS DEL PACIENTE" });
   // The closing summary gives the reader an orientation before the complete record.
   if (!formal && consultation.summary) layout.card("Resumen de cierre", [{ value: consultation.summary }], { tone: "mint", eyebrow: "VISTA GENERAL" });
   let sectionNumber = 0;

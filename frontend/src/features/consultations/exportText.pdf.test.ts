@@ -26,6 +26,7 @@ vi.mock("jspdf", () => ({
     setTextColor() {}
     setFont() {}
     setFontSize() {}
+    getTextWidth(text: string) { return text.length * 1.5; }
     text = mocks.text;
     addPage() {}
     splitTextToSize(text: string) {
@@ -209,7 +210,7 @@ it('exports the same saved SMART detail, strategy planning and explicit executio
  const clinical=buildClinicalDocumentData(clinicalFixtureSnapshot,[item,draft]);
  const professional={fullName:'Profesional sintético'};
  await downloadConsultationPdf('consulta.pdf',clinicalFixturePatient,clinicalFixtureConsultation,clinicalFixtureSnapshot,clinicalFixtureValues,professional,clinical);
- const pdf=mocks.text.mock.calls.flatMap(([text])=>Array.isArray(text)?text:[text]).join('\n');
+ const pdf=mocks.text.mock.calls.flatMap(([text])=>Array.isArray(text)?text:[text]).join(' ');
  const txt=consultationTextExport(clinicalFixturePatient,clinicalFixtureConsultation,clinicalFixtureSnapshot,clinicalFixtureValues,professional,clinical);
  for(const output of [pdf,txt]){
   for(const value of [clinicalFixtureGoal.outcome,clinicalFixtureGoal.baseline,clinicalFixtureGoal.target,clinicalFixtureGoal.timeframe,clinicalFixtureGoal.monitoring,clinicalFixtureItem.approved!.document.strategy.frequency,clinicalFixtureItem.approved!.document.strategy.reviewAt,'En ejecución','Ejecutor registrado','Borrador guardado'])expect(output).toContain(value);
