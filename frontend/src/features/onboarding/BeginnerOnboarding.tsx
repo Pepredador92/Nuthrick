@@ -46,6 +46,12 @@ export function BeginnerOnboarding({ includeAI }: { includeAI: boolean }) {
       action: "Abrir Perfil",
     },
     {
+      title: "Personaliza tu consulta",
+      description: "Revisa las preguntas del guion y elige lo que necesitas de acuerdo con el tiempo previsto para cada consulta.",
+      href: "/app/consultation-templates/initial",
+      action: "Personalizar mi consulta",
+    },
+    {
       title: "Registra a tu primer paciente",
       description: "Crea su ficha y organiza ahí su expediente y seguimiento.",
       href: "/app/patients",

@@ -15,6 +15,7 @@ import { SupportWidget } from '@/src/features/support/SupportWidget';
 import { AIProcessingConsent, openAIProcessingConsent } from '@/src/features/ai/AIProcessingConsent';
 import { BeginnerOnboarding, openBeginnerOnboarding } from '@/src/features/onboarding/BeginnerOnboarding';
 import { ThemeSwitcher } from '@/src/features/theme/ThemeSwitcher';
+import { ConsultationSetupProvider, useConsultationSetup } from '@/src/features/onboarding/ConsultationSetup';
 
 const nav = [
   { label: 'Dashboard', href: '/app', icon: LayoutDashboard, end: true },
@@ -31,7 +32,13 @@ const nav = [
 const SIDEBAR_STORAGE_KEY = 'nuthrick.sidebar-collapsed';
 
 export function PrivateLayout() {
+  const { user } = useAuth();
+  return <ConsultationSetupProvider key={user?.id}><PrivateWorkspace /></ConsultationSetupProvider>;
+}
+
+function PrivateWorkspace() {
   const { profile, user } = useAuth();
+  const { welcomePending } = useConsultationSetup();
   useProfessionalPresence(user?.id);
   const navigate = useNavigate();
   const { data: accessData } = useAccess();
@@ -111,7 +118,7 @@ export function PrivateLayout() {
 
   return (
     <SupportProvider><NotificationsProvider>
-    <EntryAnnouncements />
+    {!welcomePending && <EntryAnnouncements />}
     <div className="professional-shell min-h-screen bg-[#f6f7f3] text-[#17312c]">
       <aside id="professional-sidebar" className={`professional-sidebar fixed inset-y-0 left-0 z-30 hidden flex-col overflow-y-auto border-r border-[#e1e7e2] bg-white motion-safe:transition-[width] motion-safe:duration-200 lg:flex ${sidebarCollapsed ? 'w-[76px]' : 'w-[250px]'}`}>{renderSidebar(sidebarCollapsed)}</aside>
       {mobileOpen && <div className="fixed inset-0 z-40 lg:hidden"><button type="button" className="absolute inset-0 bg-[#102d27]/45" aria-label="Cerrar menú" onClick={() => setMobileOpen(false)} /><aside className="professional-sidebar relative flex h-full w-[280px] flex-col overflow-y-auto bg-white shadow-2xl">{renderSidebar()}</aside></div>}
@@ -129,7 +136,7 @@ export function PrivateLayout() {
       accessData?.access.values['ai.pes'],
       accessData?.access.values['ai.diet_draft'],
     ].some((value) => value === true)} />
-    <AIProcessingConsent />
+    {!welcomePending && <AIProcessingConsent />}
     <SupportWidget/>
     </NotificationsProvider></SupportProvider>
   );

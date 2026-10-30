@@ -41,6 +41,7 @@ import type {
   ConsultationTemplateQuestion,
 } from "@/src/types/domain";
 import "./ConsultationTemplateEditorPage.css";
+import { ConsultationSetupReview, useConsultationSetup } from "@/src/features/onboarding/ConsultationSetup";
 
 const types: Array<[ConsultationQuestionType, string]> = [
   ["select", "Una opción"],
@@ -57,6 +58,7 @@ const newKey = (prefix: string) =>
   prefix + "-" + crypto.randomUUID().replaceAll("-", "").slice(0, 16);
 
 export function ConsultationTemplateEditorPage() {
+  const setup = useConsultationSetup();
   const rawType = useParams().consultationType;
   const type: Consultation["consultation_type"] =
     rawType === "follow_up" ? "follow_up" : "initial";
@@ -263,6 +265,7 @@ export function ConsultationTemplateEditorPage() {
       setNotice(
         "Diseño guardado. Las consultas nuevas usarán esta versión; los borradores pueden actualizarse de forma explícita.",
       );
+      if (setup.pending) void setup.complete();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo guardar.");
     } finally {
@@ -292,6 +295,7 @@ export function ConsultationTemplateEditorPage() {
       await setDefaultTemplate(loaded.template.id);
       await load(loaded.template.id);
       setNotice("Diseño establecido como predeterminado.");
+      if (setup.pending) void setup.complete();
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "No se pudo actualizar.",
@@ -530,6 +534,7 @@ export function ConsultationTemplateEditorPage() {
       <aside className="design-purpose mt-4 rounded-2xl border border-[#dfe5e1] p-4 text-sm leading-6" aria-label="Dónde registrar los datos del paciente">
         <strong>Aquí configuras las preguntas de la entrevista.</strong> Para registrar las respuestas de un paciente, ve a <Link to="/app/patients" className="font-semibold underline">Pacientes</Link>, abre su ficha y selecciona <strong>Nueva consulta</strong>.
       </aside>
+      <ConsultationSetupReview disabled={dirty || saving} />
       {overview && notice && <p role="status" className="mt-4 rounded-xl bg-[#edf5ef] p-4 text-sm text-[#315e4f]">{notice}</p>}
       {overview && error && <p role="alert" className="mt-4 rounded-xl bg-[#fbe9e5] p-4 text-sm text-[#963f32]">{error}</p>}
       {overview && (

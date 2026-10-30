@@ -19,6 +19,7 @@ import { todayAppointments, unreadMessageCount, upcomingAppointments } from "@/s
 import { loadAgenda, type AgendaEntry, type AgendaRequest } from "@/src/services/agenda";
 import { listPatients } from "@/src/services/patients";
 import type { Patient } from "@/src/types/domain";
+import { ConsultationSetupReminder } from "@/src/features/onboarding/ConsultationSetup";
 import "./DashboardPage.css";
 
 type DashboardData = {
@@ -105,6 +106,8 @@ export function DashboardPage() {
           Actualizar
         </button>
       </header>
+
+      <ConsultationSetupReminder />
 
       {error && <p role="alert" className="dashboard-error"><AlertCircle size={16} />{error}</p>}
 

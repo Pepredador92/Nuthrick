@@ -6,6 +6,7 @@ import { canReadFeature } from '@/src/features/admin/api';
 import { openAIProcessingConsent } from '@/src/features/ai/AIProcessingConsent';
 import { getMyBilling, type MyBilling } from '@/src/features/billing/api';
 import { ThemeSwitcher } from '@/src/features/theme/ThemeSwitcher';
+import { ConsultationSetupReview } from '@/src/features/onboarding/ConsultationSetup';
 import './SettingsPage.css';
 
 export function SettingsPage() {
@@ -121,6 +122,7 @@ export function SettingsPage() {
           <p className="settings-purpose">Los diseños de entrevista no están incluidos en tu acceso actual. <Link to="/app/my-plan" className="font-semibold underline">Revisar mi plan</Link></p>
         )}
         <p className="settings-hint">Puedes partir de una base de Nuthrick o personalizar tus propios diseños. Los cambios se usan en nuevas consultas y conservan las consultas anteriores.</p>
+        {canDesign && <ConsultationSetupReview />}
       </section>
 
       {canReadFeature(data?.access, 'patients') && (
