@@ -20,10 +20,10 @@ export function LandingPage({ plans = [], supportEmail = null }: { plans?: Publi
         <div className="landing-hero-copy">
           <p className="landing-eyebrow">Software para nutriólogos</p>
           <h1 id="landing-title">¿Por qué no empecé<br /><em>a trabajar así desde antes?</em></h1>
+          <div className="landing-start-row"><a href="/planes" className="landing-start-free" data-cta="hero-start-free"><Sparkles size={19} aria-hidden="true" /><span>Comenzar gratis</span><span className="landing-start-arrow"><ArrowRight size={21} aria-hidden="true" /></span></a></div>
           <p className="landing-lead">Planes terminados, consultas eficientes y seguimientos organizados.</p>
           <div className="landing-actions">
-            <a href="#como-funciona" className="landing-cta">Sí me pasa <ArrowDown size={17} aria-hidden="true" /></a>
-            <a href="/planes" className="landing-text-link">Ver planes <ArrowRight size={17} aria-hidden="true" /></a>
+            <a href="#como-funciona" className="landing-text-link">Sí me pasa <ArrowDown size={17} aria-hidden="true" /></a>
           </div>
           <div className="landing-trust"><span className="landing-trust-mark" aria-hidden="true"><BrandMark size={30} /></span><div><span className="landing-trust-label">Ya es parte de otras consultas</span><p>Nutriólogos ya utilizan Nuthrick para mejorar su consulta.</p></div></div>
         </div>

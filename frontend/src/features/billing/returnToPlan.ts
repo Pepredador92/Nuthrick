@@ -1,3 +1,5 @@
+import { simulationPlanStorage } from '@/src/features/simulator/state';
+
 const key = "nuthrick:billing-selection";
 const uuid =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -22,4 +24,10 @@ export function clearPlanReturn() {
     simulationPlanStorage()?.removeItem(key);
   } catch { /* Optional preference only. */ }
 }
-import { simulationPlanStorage } from '@/src/features/simulator/state';
+// A signup confirmation may open in a different browser. This metadata carries
+// navigation intent only; the public catalog and billing server authorize plans.
+export function registrationPlanReturn(metadata:unknown):string|null {
+  const intent=(metadata as {registration_plan?:{id?:unknown;interval?:unknown}}|null)?.registration_plan;
+  if(!intent||typeof intent.id!=='string'||!uuid.test(intent.id)||(intent.interval!=='monthly'&&intent.interval!=='annual'))return null;
+  return `/planes?plan=${intent.id}&interval=${intent.interval}`;
+}

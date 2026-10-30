@@ -11,7 +11,7 @@ import { supabase } from '@/src/lib/supabase';
 
 const timezones = ['America/Mexico_City', 'America/Cancun', 'America/Tijuana', 'America/Bogota', 'America/Lima', 'America/Santiago', 'America/Argentina/Buenos_Aires', 'Europe/Madrid'];
 
-export function OnboardingPage() {
+export function OnboardingPage({embedded=false,onBusyChange}:{embedded?:boolean;onBusyChange?:(busy:boolean)=>void}={}) {
   const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [draft, setDraft, clearDraft] = usePersistentState(`nuthrick:${user?.id ?? 'anonymous'}:onboarding`, {
@@ -28,11 +28,11 @@ export function OnboardingPage() {
   const [error, setError] = useState('');
 
   const submit = async (event: FormEvent) => {
-    event.preventDefault(); setError(''); setBusy(true);
+    event.preventDefault(); setError(''); setBusy(true);onBusyChange?.(true);
     try {
       if (!user) throw new Error('No encontramos tu sesión. Vuelve a iniciar sesión.');
       await updateProfile(user.id, { full_name: name.trim(), professional_title: title.trim(), country: country.trim(), timezone, onboarding_completed: true });
-      if (accessCode.trim()) {
+      if (!embedded && accessCode.trim()) {
         const { error: codeError } = await supabase.rpc('redeem_access_code', { p_code: accessCode.trim().toUpperCase() });
         if (codeError) {
           const codeMessages: Record<string, string> = {
@@ -46,9 +46,23 @@ export function OnboardingPage() {
       }
       clearDraft();
       await refreshProfile();
-      navigate(billingReturn() ?? '/app', { replace: true });
-    } catch (caught) { setError(caught instanceof Error ? caught.message : 'No fue posible guardar tu perfil.'); } finally { setBusy(false); }
+      if(!embedded)navigate(billingReturn() ?? '/app', { replace: true });
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'No fue posible guardar tu perfil.'); } finally { setBusy(false);onBusyChange?.(false); }
   };
+
+  const form = (
+<form className="mt-9 grid gap-6 sm:grid-cols-2" onSubmit={submit}>
+              <Field label="Nombre" name="name"><Input id="name" required maxLength={120} value={name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></Field>
+              <Field label="Título profesional" name="title"><Input id="title" required maxLength={160} value={title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} /></Field>
+              <Field label="País" name="country"><Input id="country" required maxLength={80} value={country} onChange={(event) => setDraft((current) => ({ ...current, country: event.target.value }))} /></Field>
+              <Field label="Zona horaria" name="timezone"><select id="timezone" className="nuth-input" value={timezone} onChange={(event) => setDraft((current) => ({ ...current, timezone: event.target.value }))}>{timezones.map((zone) => <option key={zone}>{zone}</option>)}</select></Field>
+              {!embedded&&<><Field label="Código de acceso (opcional)" name="accessCode"><Input id="accessCode" maxLength={64} autoComplete="off" value={accessCode} onChange={(event) => setDraft((current) => ({ ...current, accessCode: event.target.value.toUpperCase() }))} placeholder="Por ejemplo, BETA5" /></Field>
+              <p className="sm:col-span-2 -mt-3 text-sm leading-6 text-[#687672]">Si recibiste un código de Beta, se aplicará al terminar y mostrará la fecha en que termina tu prueba. Si no tienes código, podrás elegir un plan desde tu espacio.</p></>}
+              {error && <p role="alert" className="sm:col-span-2 rounded-xl bg-[#fff1ed] p-3 text-sm text-[#934938]">{error}</p>}
+              <div className="sm:col-span-2 flex justify-end"><button disabled={busy} className="nuth-button px-6 py-3.5">{busy ? <LoaderCircle className="animate-spin" size={17} /> : <>{embedded?'Continuar con mi plan':'Entrar a Nuthrick'} <ArrowRight size={17} /></>}</button></div>
+            </form>
+  );
+  if(embedded)return <section className="plan-registration-profile"><p className="plan-registration-intro">Completa los datos básicos de tu espacio profesional. Podrás editarlos después.</p>{form}</section>;
 
   return (
     <main className="min-h-screen bg-[#f7f8f4] px-5 py-6 sm:px-8">
@@ -62,16 +76,7 @@ export function OnboardingPage() {
           </aside>
           <section className="p-8 sm:p-12">
             <div className="flex items-center justify-between"><div><p className="text-sm font-semibold text-[#507264]">Configuración inicial</p><h2 className="mt-2 text-3xl font-semibold tracking-[-.03em]">Cuéntanos sobre ti</h2></div><span className="rounded-full bg-[#edf4ef] px-3 py-1 text-xs font-semibold text-[#4b7163]">1 de 1</span></div>
-            <form className="mt-9 grid gap-6 sm:grid-cols-2" onSubmit={submit}>
-              <Field label="Nombre" name="name"><Input id="name" required maxLength={120} value={name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></Field>
-              <Field label="Título profesional" name="title"><Input id="title" required maxLength={160} value={title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} /></Field>
-              <Field label="País" name="country"><Input id="country" required maxLength={80} value={country} onChange={(event) => setDraft((current) => ({ ...current, country: event.target.value }))} /></Field>
-              <Field label="Zona horaria" name="timezone"><select id="timezone" className="nuth-input" value={timezone} onChange={(event) => setDraft((current) => ({ ...current, timezone: event.target.value }))}>{timezones.map((zone) => <option key={zone}>{zone}</option>)}</select></Field>
-              <Field label="Código de acceso (opcional)" name="accessCode"><Input id="accessCode" maxLength={64} autoComplete="off" value={accessCode} onChange={(event) => setDraft((current) => ({ ...current, accessCode: event.target.value.toUpperCase() }))} placeholder="Por ejemplo, BETA5" /></Field>
-              <p className="sm:col-span-2 -mt-3 text-sm leading-6 text-[#687672]">Si recibiste un código de Beta, se aplicará al terminar y mostrará la fecha en que termina tu prueba. Si no tienes código, podrás elegir un plan desde tu espacio.</p>
-              {error && <p role="alert" className="sm:col-span-2 rounded-xl bg-[#fff1ed] p-3 text-sm text-[#934938]">{error}</p>}
-              <div className="sm:col-span-2 flex justify-end"><button disabled={busy} className="nuth-button px-6 py-3.5">{busy ? <LoaderCircle className="animate-spin" size={17} /> : <>Entrar a Nuthrick <ArrowRight size={17} /></>}</button></div>
-            </form>
+            {form}
           </section>
         </div>
       </div>

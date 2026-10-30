@@ -1,0 +1,10 @@
+# Landing, comparación de planes y registro en un modal
+
+- La llamada principal **Comenzar gratis** aparece inmediatamente después del título de la landing. Enlaza a `/planes` y utiliza el verde amarillo luminoso de la marca, con brillo suave, estados de foco y movimiento reducido.
+- La comparación se titula **Elige el mejor plan para ti**. Las tarjetas se centran en un ancho acotado, conservan todos los beneficios devueltos por `plan_catalog` y los distribuyen en dos columnas internas. Los bloques de IA y biblioteca ocupan el ancho completo. Hay ajustes para escritorio de poca altura y para móvil.
+- **Elegir plan** abre `PlanRegistrationDialog`, sin desplazar la página. El diálogo mantiene el foco dentro, bloquea el scroll del fondo, permite desplazarse por su contenido y conserva visibles el encabezado, cierre y regreso a la comparación. Al cerrar, devuelve el foco al botón original sin mover la página.
+- El recorrido del modal es **Cuenta → Perfil → Plan**. Ofrece registro por email o Google, acceso para cuentas existentes y confirmación del correo. El perfil reutiliza el formulario de bienvenida; la confirmación reutiliza `CheckoutChoice`, sus condiciones de prueba y su aceptación legal.
+- Plan y modalidad quedan en la URL y en la selección comercial existente. El retorno de autenticación continúa en el modal, incluyendo cuentas cuyo perfil está pendiente. Para registros por email, `user_metadata.registration_plan` conserva únicamente el destino de navegación si el correo se confirma en otro navegador. No asigna permisos ni sustituye validaciones de contratación.
+- El simulador usa el mismo modal, la confirmación de correo simulada y su contratación de prueba. Los servicios de cobro, planes y permisos permanecen en sus límites existentes.
+
+Los precios, límites, disponibilidad de la prueba, condiciones de contratación y funciones incluidas siguen viniendo del servidor. El cambio se despliega únicamente en la interfaz; no requiere migraciones ni despliegue de funciones de IA.

@@ -15,10 +15,14 @@ export function SimulationCheckout({
   plan,
   interval,
   close,
+  embedded=false,
+  onBusyChange,
 }: {
   plan: Plan;
   interval: Interval;
   close: () => void;
+  embedded?: boolean;
+  onBusyChange?: (busy:boolean)=>void;
 }) {
   const { user } = useAuth(),
     { refresh } = useAccess(),
@@ -35,6 +39,7 @@ export function SimulationCheckout({
       return;
     }
     setBusy(true);
+    onBusyChange?.(true);
     setError("");
     try {
       await simulatorRequest("checkout", { plan_id: plan.id, interval });
@@ -49,6 +54,7 @@ export function SimulationCheckout({
       );
     } finally {
       setBusy(false);
+      onBusyChange?.(false);
     }
   }
   const button = (
@@ -76,13 +82,13 @@ export function SimulationCheckout({
             {plan.name} · {interval === "monthly" ? "Mensual" : "Anual"}
           </h2>
         </div>
-        <button
+        {!embedded && <button
           className="admin-button secondary"
           disabled={busy}
           onClick={close}
         >
           Cerrar
-        </button>
+        </button>}
       </div>
       <p className="my-4 text-2xl font-semibold">
         {money(amount * 100, plan.currency)} /{" "}
@@ -113,7 +119,7 @@ export function SimulationCheckout({
         </p>
       )}
       {user ? (
-        <LegalAcceptanceGate source="checkout">{button}</LegalAcceptanceGate>
+        <LegalAcceptanceGate source="checkout" embedded={embedded} onBusyChange={onBusyChange}>{button}</LegalAcceptanceGate>
       ) : (
         button
       )}

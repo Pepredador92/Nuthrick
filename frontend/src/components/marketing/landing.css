@@ -27,6 +27,15 @@
 .landing-actions { display:flex; flex-wrap:wrap; align-items:center; gap:25px; margin-top:30px; }
 .landing-cta { display:inline-flex; align-items:center; justify-content:center; gap:18px; padding:17px 24px; min-height:52px; border-radius:99px; color:#f8f5ed; background:#173f39; font-size:13px; font-weight:700; transition:transform .2s,background .2s; }
 .landing-cta:hover { transform:translateY(-2px); background:#285b4c; }
+.landing-start-row { margin-top:26px; }
+.landing-discovery .landing-start-free { position:relative; isolation:isolate; display:inline-flex; align-items:center; gap:13px; min-height:66px; padding:10px 12px 10px 25px; border:1px solid #efffb6; border-radius:99px; background:linear-gradient(115deg,#efffa3 0%,var(--nuth-lime,#dcec79) 58%,#d5f174 100%); color:#173f39; font-size:17px; font-weight:750; letter-spacing:-.025em; box-shadow:0 0 0 5px #dcec791c,0 12px 28px -13px #759a22a0,0 0 30px #dcec7938; transition:transform .2s,box-shadow .2s; }
+.landing-start-free > svg { flex-shrink:0; }
+.landing-discovery .landing-start-free:hover { transform:translateY(-3px); box-shadow:0 0 0 7px #dcec7926,0 16px 32px -12px #759a22a0,0 0 38px #dcec7960; }
+.landing-start-arrow { display:grid; place-items:center; width:42px; height:42px; margin-left:16px; border-radius:50%; background:#173f39; color:#eeffa3; transition:transform .2s; }
+.landing-start-free:hover .landing-start-arrow { transform:rotate(-35deg); }
+.landing-discovery .landing-start-free:focus-visible { outline:3px solid var(--ink); outline-offset:7px; }
+.landing-start-row ~ .landing-actions { margin-top:14px; }
+@media(max-width:380px) { .landing-discovery .landing-start-free { padding-left:20px; gap:9px; font-size:16px; } .landing-start-arrow { margin-left:9px; } }
 .landing-text-link { display:inline-flex; align-items:center; gap:12px; font-size:13px; font-weight:700; min-height:44px; text-underline-offset:5px; }
 .landing-text-link:hover { text-decoration:underline; }
 .landing-trust { display:flex; align-items:center; gap:15px; margin-top:32px!important; max-width:430px; padding:19px 20px; border:1px solid var(--line); border-radius:18px; background:#e9eee3; box-shadow:0 12px 24px -22px #173f3950; }

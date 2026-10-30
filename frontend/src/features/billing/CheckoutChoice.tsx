@@ -19,10 +19,12 @@ import { LegalAcceptanceGate } from "../legal/LegalAcceptanceGate";
 import { isSimulation } from '../simulator/state';
 import { SimulationCheckout } from '../simulator/SimulationCheckout';
 export function CheckoutChoice(
-  { plan, interval, close }: {
+  { plan, interval, close, embedded=false, onBusyChange }: {
     plan: Plan;
     interval: Interval;
     close: () => void;
+    embedded?: boolean;
+    onBusyChange?: (busy:boolean)=>void;
   },
 ) {
   const { user } = useAuth();
@@ -53,12 +55,14 @@ export function CheckoutChoice(
   const run = async (fn: () => Promise<void>) => {
     setError("");
     setBusy(true);
+    onBusyChange?.(true);
     try {
       await fn();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No pudimos continuar.");
     } finally {
       setBusy(false);
+      onBusyChange?.(false);
     }
   };
   const normal = Math.round(
@@ -93,7 +97,7 @@ export function CheckoutChoice(
       clearPlanReturn();
       goHosted(result.url, "checkout");
     });
-  if(isSimulation())return <SimulationCheckout plan={plan} interval={interval} close={close}/>;
+  if(isSimulation())return <SimulationCheckout plan={plan} interval={interval} close={close} embedded={embedded} onBusyChange={onBusyChange}/>;
   return (
     <section
       className="admin-card billing-choice"
@@ -104,13 +108,13 @@ export function CheckoutChoice(
           <p className="admin-eyebrow">TU SELECCIÓN</p>
           <h2>{plan.name} · {interval === "monthly" ? "Mensual" : "Anual"}</h2>
         </div>
-        <button
+        {!embedded && <button
           type="button"
           className="admin-button secondary"
           onClick={close}
         >
           Cerrar
-        </button>
+        </button>}
       </div>
       {billing?.mode === 'test' && <p className="billing-test">
         Entorno de prueba · Usa únicamente datos de tarjeta de prueba de Stripe.
@@ -183,7 +187,7 @@ export function CheckoutChoice(
         </p>
       )}
       {user ? (
-        <LegalAcceptanceGate source="checkout">
+        <LegalAcceptanceGate source="checkout" embedded={embedded} onBusyChange={onBusyChange}>
           {billing?.subscription && billing.subscription.state !== "cancelled"
             ? (
               <Link className="admin-button" to="/app/my-plan">

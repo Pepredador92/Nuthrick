@@ -4,7 +4,9 @@ import { supabase } from "@/src/lib/supabase";
 import { valueLabel, type Plan } from "./api";
 import "./admin.css";
 import "../billing/billing.css";
-import { CheckoutChoice } from '../billing/CheckoutChoice';
+import { PlanRegistrationDialog } from '../billing/PlanRegistrationDialog';
+import { clearPlanReturn, rememberPlan } from '../billing/returnToPlan';
+import './CommercialPlansPage.css';
 
 function formatPrice(amount: number | null, currency: string) {
   if (amount === null) return "Por definir";
@@ -17,12 +19,21 @@ function formatPrice(amount: number | null, currency: string) {
 
 // This endpoint only returns active public plans; no account or internal plan data.
 export function CommercialPlansPage() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const [selection, setSelection] = useState<string | null>(params.get("plan"));
   const [plans, setPlans] = useState<Plan[]>([]);
   const [interval, setInterval] = useState<"monthly" | "annual">(params.get("interval") === "annual" ? "annual" : "monthly");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  function selectPlan(id:string) {
+    rememberPlan(id,interval);
+    setSelection(id);
+    setParams(current=>{const next=new URLSearchParams(current);next.set('plan',id);next.set('interval',interval);return next;},{replace:true});
+  }
+  function closeRegistration() {
+    setSelection(null);clearPlanReturn();
+    setParams(current=>{const next=new URLSearchParams(current);next.delete('plan');return next;},{replace:true});
+  }
   useEffect(() => {
     let active = true;
     void supabase.rpc("plan_catalog").then(({ data, error }) => {
@@ -47,10 +58,9 @@ export function CommercialPlansPage() {
         <header className="commercial-plans-hero">
           <div className="commercial-plans-intro">
             <p className="admin-eyebrow">PLANES PARA NUTRIÓLOGOS</p>
-            <h1>Un plan para tu consulta<span>.</span></h1>
+            <h1>Elige el mejor plan para ti<span>.</span></h1>
             <p className="admin-description">
-              Conserva tus expedientes. Elige la capacidad que necesitas para
-              seguir atendiendo.
+              Compara lo que incluye cada plan y comienza a tu ritmo.
             </p>
           </div>
           <div className="commercial-plans-billing">
@@ -73,7 +83,7 @@ export function CommercialPlansPage() {
             </div>
           </div>
         </header>
-        {selection && plans.find(p=>p.id===selection) && <div className="commercial-plans-checkout"><CheckoutChoice key={`${selection}:${interval}`} plan={plans.find(p=>p.id===selection)!} interval={interval} close={()=>setSelection(null)} /></div>}
+        {selection && plans.find(p=>p.id===selection) && <PlanRegistrationDialog key={`${selection}:${interval}`} plan={plans.find(p=>p.id===selection)!} interval={interval} close={closeRegistration} />}
         {error && <p role="alert" className="commercial-plans-message">{error}</p>}
         {loading && <p role="status" className="commercial-plans-message">Cargando planes…</p>}
         {!loading && !error && !plans.length && (
@@ -84,7 +94,6 @@ export function CommercialPlansPage() {
             <section key={p.name} className="admin-card commercial-plan-card">
               {p.welcome_trial_days === 30 && <div className="commercial-plan-trial"><strong>30 días gratis</strong><span>Para nuevos usuarios · Con tarjeta</span></div>}
               <div className="commercial-plan-heading">
-                <p className="commercial-plan-label">PARA TU PRÁCTICA</p>
                 <h2 className="admin-plan-name">{p.name}</h2>
                 <p className="admin-note commercial-plan-description">{p.description}</p>
               </div>
@@ -112,13 +121,13 @@ export function CommercialPlansPage() {
                   .map(([key, label]) => (
                     <li key={key}>{label}</li>
                   ))}
-                <li>
+                <li className="commercial-plan-feature-wide">
                   {["ai.recall_24h", "ai.pes", "ai.diet_draft", "ai.consultation_support", "ai.patient_instructions"].some(key => p.values[key] === true)
                     ? <>IA: {[["ai.recall_24h", "R24h"], ["ai.pes", "PES"], ["ai.diet_draft", "Taller"], ["ai.consultation_support", "Objetivos de consulta"], ["ai.patient_instructions", "Indicaciones del paciente"]].filter(([key]) => p.values[key] === true).map(([, label]) => label).join(", ")} · {valueLabel(p.values["ai.monthly_credits"])} créditos incluidos por mes {p.credits_provisional && "(provisionales)"}</>
                     : "Funciones básicas · Sin IA"}
                 </li>
                 {p.values["diet_library"] === true && (
-                  <li>
+                  <li className="commercial-plan-feature-wide">
                     {p.values["diet_library.full"]
                       ? "Biblioteca compartida completa"
                       : "Biblioteca personal y selección inicial compartida"}
@@ -134,7 +143,7 @@ export function CommercialPlansPage() {
                     <li key={key}>{label}</li>
                   ))}
               </ul>
-              <button className="admin-button commercial-plan-action" disabled={!p.id || (interval === 'monthly' ? p.monthly_price : p.annual_price) === null} onClick={()=>{setSelection(p.id!);window.scrollTo({top:0,behavior:'smooth'});}}>Elegir {p.name}</button>
+              <button className="admin-button commercial-plan-action" disabled={!p.id || (interval === 'monthly' ? p.monthly_price : p.annual_price) === null} onClick={()=>selectPlan(p.id!)}>Elegir {p.name}</button>
             </section>
           ))}
         </div>

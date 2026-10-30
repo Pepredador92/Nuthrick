@@ -1,5 +1,5 @@
 import { authRedirectUrl } from '@/src/lib/site';
-import { billingReturn } from '@/src/features/billing/returnToPlan';
+import { billingReturn, registrationPlanReturn } from '@/src/features/billing/returnToPlan';
 import { ArrowLeft, Eye, EyeOff, LoaderCircle, MailCheck } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
@@ -35,7 +35,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [error, setError] = useState('');
   const [confirmationSent, setConfirmationSent] = useState(false);
 
-  if (user) return <Navigate to={profile?.onboarding_completed ? (billingReturn() ?? '/app') : '/onboarding'} replace />;
+  if (user) return <Navigate to={billingReturn() ?? (!profile?.onboarding_completed?registrationPlanReturn(user.user_metadata):null) ?? (profile?.onboarding_completed?'/app':'/onboarding')} replace />;
 
   const handleGoogle = async () => {
     setError('');
@@ -125,7 +125,7 @@ export function ResetPasswordPage() {
 export function AuthCallbackPage() {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
-  useEffect(() => { if (!loading && user) navigate(profile?.onboarding_completed ? (billingReturn() ?? '/app') : '/onboarding', { replace: true }); }, [loading, navigate, profile, user]);
+  useEffect(() => { if (!loading && user) navigate(billingReturn() ?? (!profile?.onboarding_completed?registrationPlanReturn(user.user_metadata):null) ?? (profile?.onboarding_completed?'/app':'/onboarding'), { replace: true }); }, [loading, navigate, profile, user]);
   if (!loading && !user) return <AuthShell title="No pudimos completar el acceso" subtitle="El enlace pudo haber vencido o ya fue utilizado."><p role="alert" className="mt-6 text-sm text-[#687672]">Abre el enlace más reciente de tu correo o solicita uno nuevo para recuperar el acceso.</p><Link to="/forgot-password" className="nuth-button mt-6 justify-center">Recuperar acceso</Link><Link to="/login" className="mt-4 block text-center text-sm font-semibold text-[#4a7465]">Ir a iniciar sesión</Link></AuthShell>;
   return <main className="grid min-h-screen place-items-center bg-[#f7f8f4]"><div className="text-center"><LoaderCircle className="mx-auto animate-spin text-[#4d7567]" /><p className="mt-4 text-sm text-[#687672]">Preparando tu cuenta…</p></div></main>;
 }

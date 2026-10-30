@@ -59,9 +59,13 @@ async function saveAcceptances(
 export function LegalAcceptanceGate({
   source,
   children,
+  embedded=false,
+  onBusyChange,
 }: {
   source: AcceptanceSource;
   children: React.ReactNode;
+  embedded?: boolean;
+  onBusyChange?: (busy:boolean)=>void;
 }) {
   const [state, setState] = useState<AcceptanceState | null>(null);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
@@ -100,6 +104,7 @@ export function LegalAcceptanceGate({
   const allChecked = state.required.every((document) => checked[document.key]);
   const accept = async () => {
     setBusy(true);
+    onBusyChange?.(true);
     setError("");
     try {
       await saveAcceptances(state.required, source);
@@ -108,11 +113,12 @@ export function LegalAcceptanceGate({
       setError("No pudimos registrar tu aceptación. Intenta nuevamente.");
     } finally {
       setBusy(false);
+      onBusyChange?.(false);
     }
   };
   return (
-    <main className="min-h-screen bg-[#f7f8f4] px-5 py-8 sm:px-8">
-      <section className="mx-auto max-w-3xl rounded-3xl border border-[#dfe5e1] bg-white p-6 sm:p-10" role="dialog" aria-labelledby="legal-acceptance-title">
+    <div className={embedded?'plan-registration-legal':'min-h-screen bg-[#f7f8f4] px-5 py-8 sm:px-8'}>
+      <section className={embedded?'plan-registration-legal-content':'mx-auto max-w-3xl rounded-3xl border border-[#dfe5e1] bg-white p-6 sm:p-10'} role={embedded?undefined:'dialog'} aria-labelledby="legal-acceptance-title">
         <p className="admin-eyebrow">REVISIÓN NECESARIA</p>
         <h1 id="legal-acceptance-title" className="mt-2 text-3xl font-semibold">Acepta los documentos vigentes</h1>
         <p className="mt-3 text-[#687b70]">Para continuar con tu espacio profesional y, cuando corresponda, contratar un plan, revisa y acepta cada versión indicada. Las páginas públicas siguen disponibles.</p>
@@ -140,6 +146,6 @@ export function LegalAcceptanceGate({
           {busy ? "Guardando aceptación…" : "Aceptar y continuar"}
         </button>
       </section>
-    </main>
+    </div>
   );
 }
