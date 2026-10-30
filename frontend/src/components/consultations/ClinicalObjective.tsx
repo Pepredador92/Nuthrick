@@ -460,7 +460,7 @@ export function ClinicalObjective(props: Props) {
           before={before}
           disabled={busy || !workspace?.pes || !hasUsablePesEtiology(workspace.pes.etiology) || plan.goals.length >= 3}
           onApply={(text) =>
-            add({ ...emptyObjective(), outcome: text.slice(0, 400) })}
+            add({ ...emptyObjective(), outcome: text })}
           onApplyGoal={(goal) => add(goal)}
         />
         </>

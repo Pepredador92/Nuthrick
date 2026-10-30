@@ -711,6 +711,9 @@ html[data-nuthrick-theme='night'] :is(.clinical-stage, .clinical-objectives-work
 }
 .clinical-goal-field textarea {
   min-height: 88px;
+  field-sizing: content;
+  max-height: 24rem;
+  overflow-y: auto;
   resize: vertical;
 }
 .clinical-goal-field.is-complete .nuth-input {

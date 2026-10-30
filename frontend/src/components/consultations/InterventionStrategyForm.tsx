@@ -201,35 +201,20 @@ export function InterventionStrategyForm(
           )}
         </span>
         <small>{required ? "Obligatorio para aprobar" : "Opcional"}</small>
-        {short
-          ? (
-            <input
-              aria-label={label}
-              aria-required={required}
-              aria-invalid={invalid || undefined}
-              aria-describedby={invalid ? errorId : undefined}
-              className="nuth-input"
-              maxLength={1500}
-              value={value}
-              onChange={(e) => change({ [key]: e.target.value })}
-            />
-          )
-          : (
-            <textarea
-              aria-label={label}
-              aria-required={required}
-              aria-invalid={invalid || undefined}
-              aria-describedby={invalid ? errorId : undefined}
-              className="nuth-input"
-              rows={2}
-              maxLength={1500}
-              value={value}
-              onChange={(e) => change({ [key]: e.target.value })}
-              placeholder={key === "adaptations"
-                ? "Recursos, preferencias y apoyos que necesita la persona"
-                : undefined}
-            />
-          )}
+        <textarea
+          aria-label={label}
+          aria-required={required}
+          aria-invalid={invalid || undefined}
+          aria-describedby={invalid ? errorId : undefined}
+          className="nuth-input"
+          rows={short ? 2 : 3}
+          maxLength={1500}
+          value={value}
+          onChange={(e) => change({ [key]: e.target.value })}
+          placeholder={key === "adaptations"
+            ? "Recursos, preferencias y apoyos que necesita la persona"
+            : undefined}
+        />
         {invalid && <small id={errorId} className="clinical-strategy-field-error">
           {strategyIssueMessages[key] ?? `Revisa: ${label}.`}
         </small>}

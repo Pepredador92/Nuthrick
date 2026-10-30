@@ -11,9 +11,13 @@ type Normalized = Omit<Proposal,'signFactId'> & {
 };
 const object = (properties:Record<string,unknown>)=>({type:'object',additionalProperties:false,required:Object.keys(properties),properties});
 const text = (maxLength:number, minLength=0)=>({type:'string',maxLength,minLength});
+// A completed JSON response may still contain prose cut to the string limit.
+// Use the editor's capacity and require an ending in newly generated prose.
+const sentenceEnding = '[^.\\s…][.!?]["»”)]*\\s*$';
+const sentence = (optional=false)=>({...text(400,optional?0:1),pattern:optional?`^$|${sentenceEnding}`:sentenceEnding});
 const reference = {type:'string',pattern:'^f[1-9][0-9]?$'};
 const properties = {
-  outcome:text(140,1),indicator:text(140,1),target:text(140,1),timeframe:text(80,1),monitoring:text(180,1),feasibility:text(400),
+  outcome:sentence(),indicator:sentence(),target:sentence(),timeframe:sentence(),monitoring:sentence(),feasibility:sentence(true),
   baselineFactId:{type:'string',pattern:'^(f[1-9][0-9]?)?$'},
   evidenceFactIds:{type:'array',minItems:1,maxItems:6,items:reference},
 };
@@ -23,6 +27,12 @@ export const normalizedObjectiveProposalsSchema=object({objectives:{type:'array'
   textStyle:{type:'string',enum:['patient_v1']},targetOrigin:{type:'string',enum:['documented','proposed']},timeframeOrigin:{type:'string',enum:['documented','proposed']},
 })}});
 const agreementFact=(fact:Fact)=>/^Entrevista · (objectives|next objectives|treatment objective|first actions|adjustments)(?: ·|$)/.test(fact.source);
+// Adding a closing period to a documented fragment does not change its numbers
+// or its status as an agreement. All other wording must remain literal.
+const containsAgreement=(fact:Fact,value:string)=>{
+  const fragment=value.trim().replace(/\.$/u,'');
+  return agreementFact(fact) && !!fragment && fact.finding.includes(fragment);
+};
 const unsupported=(value:string,facts:Fact[])=>unsupportedPesNumbers({problem:value,etiology:'',signsSymptoms:[]},facts).length>0;
 // A new behavioral proposal may contain planned frequencies and review dates.
 // Clinical prescriptions still require a documented agreement, never a baseline.
@@ -45,7 +55,7 @@ export function normalizeObjectiveProposals(output:unknown,context:unknown) {
     if(baseline)ids.add(baseline.id);
     const origins={} as Pick<Normalized,'targetOrigin'|'timeframeOrigin'>;
     for(const field of ['target','timeframe'] as const) {
-      const match=facts.find(f=>agreementFact(f) && raw[field].trim() && f.finding.includes(raw[field].trim()));
+      const match=facts.find(f=>containsAgreement(f,raw[field]));
       origins[`${field}Origin`]=match?'documented':'proposed';
       if(match)ids.add(match.id);
     }
@@ -70,10 +80,10 @@ export function objectiveProposalsValid(output:unknown,context:unknown):boolean 
     if(['outcome','indicator','target','timeframe','monitoring'].some(field=>!goal[field as keyof Normalized]?.toString().trim()))return false;
     if(goal.baselineFactId && !evidence.some(f=>f.id===goal.baselineFactId))return false;
     for(const field of ['target','timeframe'] as const) {
-      if(goal[`${field}Origin`]==='documented' && !evidence.some(f=>agreementFact(f) && f.finding.includes(goal[field])))return false;
+      if(goal[`${field}Origin`]==='documented' && !evidence.some(f=>containsAgreement(f,goal[field])))return false;
     }
     for(const field of ['outcome','indicator','target','timeframe','monitoring'] as const) {
-      if(clinicalPrescription(goal[field]) && !evidence.some(f=>agreementFact(f) && f.finding.includes(goal[field])))return false;
+      if(clinicalPrescription(goal[field]) && !evidence.some(f=>containsAgreement(f,goal[field])))return false;
     }
     return !unsupported(goal.feasibility,evidence);
   });
@@ -94,6 +104,7 @@ Para objetivos conductuales iniciales, considera seguimiento temprano a los 7–
 La meta puede consistir en completar un registro útil, identificar un patrón o practicar un cambio factible vinculado al PES. En un autorregistro, concreta qué se anotará y un criterio verificable de suficiencia; puede proponer días de observación alcanzables, sin convertirlos en frecuencia actual. Evita metas universales o exigencias de perfección. No presentes la omisión compensatoria como estrategia para lograr un objetivo. El registro de episodios no equivale a diagnosticar un trastorno alimentario. No propongas por tu cuenta metas de peso, grasa corporal, glucosa, presión, kcal/macros, líquidos, suplementos, tratamientos o reanálisis de laboratorio: esos valores requieren un acuerdo clínico documentado. No conviertas una medición en una meta.
 
 LENGUAJE QUE ENTENDERÁ EL PACIENTE
+Todos los campos que redactes deben terminar en una oración completa con punto u otro signo de cierre, incluidos target y timeframe. Dispones de hasta 400 caracteres por campo; es capacidad, no una longitud que debas alcanzar. Prioriza una oración breve por campo y evita repetir detalles entre campos. Si necesitas resumir, reformula toda la idea: nunca cortes una palabra, dejes una frase abierta, termines en un conector ni uses puntos suspensivos para ocultar contenido faltante. Revisa especialmente el final del plazo y del método de seguimiento antes de devolver el JSON. Puedes añadir un punto de cierre a un fragmento literal de una meta o plazo acordados, sin cambiar sus parámetros. Si retomas un borrador anterior con texto incompleto, consulta los hechos originales; no copies su corte ni inventes el fragmento faltante.
 Escribe outcome, target, timeframe y monitoring con palabras cotidianas, trato de tú, frases breves y una sola acción principal por objetivo. Explica qué hacer, qué anotar y cómo se revisará. Evita «la persona realizará», «autorregulación», «plenitud», «disponibilidad temporal», «correlacionar», «adherencia» y repeticiones. Por ejemplo, usa «sentirte demasiado lleno», «comer rápido», «anota en un registro sencillo» o «revisaremos juntos». No des por hecho que tiene teléfono, una aplicación, apoyo familiar o acceso a llamadas. No inventes emociones ni uses lenguaje culpabilizante. No repitas la misma idea en todos los campos: outcome expresa el cambio; target cómo reconocer el avance; timeframe cuándo revisar; monitoring un método breve y, si corresponde, el contacto temprano. No escribas prefijos como «Meta:» dentro de los campos; la interfaz los agrega.
 
 indicator describe claramente qué observarán. feasibility usa únicamente barreras, preferencias y apoyos documentados; si no constan, deja ese campo vacío para conversar. El resumen compartido al paciente no incluye la etiología ni el texto clínico de la situación inicial; esos datos siguen en el editor profesional. Conserva las cifras históricas y los hechos fechados como antecedentes. No apruebes, guardes ni publiques los objetivos. Si falta PES aprobado o no hay base para un objetivo pertinente, devuelve objectives vacío.

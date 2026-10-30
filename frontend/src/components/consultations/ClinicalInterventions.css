@@ -40,12 +40,9 @@ html[data-nuthrick-theme='night'] .clinical-strategies-workspace {
   line-height: 1.7;
   color: var(--nuth-muted);
 }
-.clinical-strategy-summary-action,
-.clinical-strategy-card-heading h4 {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
+.clinical-strategy-summary-action {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .clinical-strategy-card-actions {
   display: flex;
