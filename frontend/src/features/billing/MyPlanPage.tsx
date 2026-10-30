@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/src/lib/supabase";
+import { isSimulation } from '../simulator/state';
 import { useAccess } from "@/src/features/admin/AccessProvider";
 import type { Plan } from "../admin/api";
 import {
@@ -78,7 +79,7 @@ export function MyPlanPage() {
       }
       setConfirm(null);
       setNotice(
-        kind === "change"
+        isSimulation() ? 'Cambio de prueba aplicado. Tu acceso del simulador está actualizado.' : kind === "change"
           ? (result.timing === "immediate"
             ? "Cambio solicitado. El acceso se actualizará cuando el pago quede confirmado."
             : "Cambio programado para el final del período pagado.")
@@ -124,7 +125,7 @@ export function MyPlanPage() {
       </header>
       {params.get("checkout") === "success" && (
         <p role="status" className="billing-benefits">
-          {s?.state === 'trial' ? 'Tus 30 días de prueba están activos. Puedes ver la fecha del primer cobro y cancelar desde aquí.' : checkoutPayment
+          {isSimulation() ? 'Contratación de prueba confirmada. El plan está activo en este simulador; no se realizó ningún cobro.' : s?.state === 'trial' ? 'Tus 30 días de prueba están activos. Puedes ver la fecha del primer cobro y cancelar desde aquí.' : checkoutPayment
             ? (checkoutPayment.refunded_amount ? 'El reembolso de tu pago está registrado en el historial.' : 'Tu pago está confirmado. El estado de tu plan está actualizado.')
             : 'Estamos confirmando tu pago. El estado de tu plan se actualizará en unos momentos.'}
         </p>

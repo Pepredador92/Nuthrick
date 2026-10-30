@@ -4,12 +4,12 @@ const uuid =
 export function rememberPlan(id: string, interval: "monthly" | "annual") {
   if (!uuid.test(id)) return;
   try {
-    localStorage.setItem(key, JSON.stringify({ id, interval, at: Date.now() }));
+    simulationPlanStorage()?.setItem(key, JSON.stringify({ id, interval, at: Date.now() }));
   } catch { /* Login still works if storage is disabled. */ }
 }
 export function billingReturn() {
   try {
-    const v = JSON.parse(localStorage.getItem(key) ?? "null");
+    const v = JSON.parse(simulationPlanStorage()?.getItem(key) ?? "null");
     if (
       v && uuid.test(v.id) && ["monthly", "annual"].includes(v.interval) &&
       Date.now() - v.at < 86400000
@@ -19,6 +19,7 @@ export function billingReturn() {
 }
 export function clearPlanReturn() {
   try {
-    localStorage.removeItem(key);
+    simulationPlanStorage()?.removeItem(key);
   } catch { /* Optional preference only. */ }
 }
+import { simulationPlanStorage } from '@/src/features/simulator/state';

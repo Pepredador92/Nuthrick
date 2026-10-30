@@ -13,6 +13,7 @@ import {editableTextDiet,prepareTextDietEditSnapshot,textDietEditPreflight,valid
 import type {TextDietEditReport} from '../_shared/text-diet-edit.ts';
 import { dietPreflight } from './diet-ux.ts';
 import { localDietTestMode, SimulatedDietProvider } from './diet-provider-test.ts';
+import { SimulatorExampleProvider } from './simulator-provider.ts';
 
 const site = siteOrigin(Deno.env.get('AI_SITE_URL'));
 const baseHeaders = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
@@ -38,8 +39,13 @@ Deno.serve(async request => {
     const { data, error } = await db.auth.getUser(token);
     if (error || !data.user || data.user.is_anonymous) throw new AIError('unauthorized');
     const owner = data.user.id;
+    const simulationUser = data.user.app_metadata.nuthrick_simulation === true;
+    if(simulationUser){
+      const run=await db.rpc('simulator_server',{p_action:'status',p_actor:owner,p_data:{}});
+      if(run.error||!run.data?.purchased)throw new AIError('feature_disabled');
+    }
     const testMode = localDietTestMode(url,Deno.env.get('NUTHRICK_DIET_TEST_MODE'));
-    const dietEnabled = Deno.env.get('NUTHRICK_AI_ENABLED')==='true' && (testMode || Deno.env.get('NUTHRICK_DIET_REAL_PROVIDER_ENABLED')==='true');
+    const dietEnabled = simulationUser || Deno.env.get('NUTHRICK_AI_ENABLED')==='true' && (testMode || Deno.env.get('NUTHRICK_DIET_REAL_PROVIDER_ENABLED')==='true');
     // Bounded streaming read (Content-Length is untrusted/optional).
     const reader = request.body?.getReader();
     if (!reader) throw new AIError('invalid_request');
@@ -56,7 +62,7 @@ Deno.serve(async request => {
       const {action: _action, ...fields} = body as Record<string, unknown>;
       const r = parseRequest(fields);
       if (r.feature !== 'diet_draft' || (decision.action==='text_diet_preflight')!==!!r.textGuidance || (decision.action==='text_diet_edit_preflight')!==!!r.textEdit) throw new AIError('invalid_request');
-      if (!dietEnabled || !Deno.env.get('OPENAI_API_KEY')) return respond({eligible:false,reasons:[{code:'feature_disabled'}]});
+      if (!dietEnabled || (!simulationUser && !Deno.env.get('OPENAI_API_KEY'))) return respond({eligible:false,reasons:[{code:'feature_disabled'}]});
       const config = await db.rpc('ai_server',{p_action:'config',p_owner:owner,p_data:{feature:'diet_draft'}});
       if (config.error || config.data?.enabled !== true) return respond({eligible:false,reasons:[{code:'feature_disabled'}]});
       const {data: loaded, error} = await db.rpc(r.textEdit?'ai_text_diet_edit_source':r.textGuidance?'ai_text_diet_source':'ai_diet_source',{p_owner:owner,p_plan:r.planId,p_revision:r.revision});
@@ -101,9 +107,9 @@ Deno.serve(async request => {
     const input = parseRequest(body);
     // Fail before reservation if secret/kill switch isn't ready. No real requests enabled by default.
     const apiKey = Deno.env.get('OPENAI_API_KEY');
-    if (Deno.env.get('NUTHRICK_AI_ENABLED') !== 'true') throw new AIError('feature_disabled');
+    if (!simulationUser && Deno.env.get('NUTHRICK_AI_ENABLED') !== 'true') throw new AIError('feature_disabled');
     if(input.feature==='diet_draft' && !dietEnabled)throw new AIError('feature_disabled');
-    const simulated=input.feature==='diet_draft' && testMode;
+    const simulated=simulationUser || input.feature==='diet_draft' && testMode;
     if (!apiKey && !simulated) throw new AIError('configuration_required');
     async function rpc<T>(action: string, payload: Record<string, unknown>): Promise<T> {
       // Only safe idempotent database operations retried; never call the model from this retry.
@@ -219,7 +225,7 @@ Deno.serve(async request => {
       }
       return respond(result);
     }
-    const result=await runAIRequest(input,store,new DietRoutingProvider(simulated ? new SimulatedDietProvider() : new OpenAIResponsesProvider(apiKey!)));
+    const result=await runAIRequest(input,store,new DietRoutingProvider(simulationUser ? new SimulatorExampleProvider() : simulated ? new SimulatedDietProvider() : new OpenAIResponsesProvider(apiKey!)));
     if (input.feature === 'intervention_strategy' && result.output && interventionContext) return respondClinicalResult({ ...result, output: hydrateInterventionOutput(result.output, interventionContext, result.generationId) });
     if((input.textGuidance||input.textEdit)&&result.status==='succeeded'){const saved=await dietRpc('get',{generationId:result.generationId},true);await verifyTextDietSnapshot(saved.snapshot);return respond({...result,output:{textDraft:saved.result.textDraft,...(saved.result.adjustment?{adjustment:saved.result.adjustment}:{})},decision:saved.decision});}
     if(input.feature==='diet_draft' && !input.textGuidance && !input.textEdit && ['succeeded','invalid_output'].includes(result.status)) {

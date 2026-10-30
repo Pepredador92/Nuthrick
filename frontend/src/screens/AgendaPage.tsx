@@ -18,6 +18,7 @@ import {
   type AgendaRequest,
 } from "@/src/services/agenda";
 import "./AgendaPage.css";
+import { isSimulation } from '@/src/features/simulator/state';
 
 type Connection = {
   calendarConnected: boolean;
@@ -390,7 +391,7 @@ export function AgendaPage() {
                 <div className="mt-4 flex flex-wrap gap-3 border-t border-[#edf1ed] pt-3 text-xs text-[#64786e]">
                   <span>
                     Correo:{" "}
-                    {{
+                    {isSimulation() ? 'simulado · no se envía' : {
                       pending: "pendiente",
                       sent: "enviado",
                       failed: "no enviado",
@@ -400,7 +401,7 @@ export function AgendaPage() {
                   </span>
                   <span>
                     Google Calendar:{" "}
-                    {e.requires_confirmation ? 'se sincroniza al aceptar la reserva' : {
+                    {isSimulation() ? 'simulado · sin eventos externos' : e.requires_confirmation ? 'se sincroniza al aceptar la reserva' : {
                       not_connected: "sin conexión",
                       pending: "pendiente",
                       synced: "sincronizado",

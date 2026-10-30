@@ -1,4 +1,5 @@
 import { publicReferrer, publicVisitPath } from '../../../supabase/functions/_shared/site-analytics';
+import { isSimulation } from '@/src/features/simulator/state';
 const sessionKey = 'nuthrick:analytics-session';
 const sessionCookie = 'nuthrick_analytics_session';
 let memorySession: string | undefined;
@@ -49,6 +50,7 @@ function sessionId() {
 }
 
 export function trackSiteVisit(path: string) {
+  if (isSimulation()) return;
   const category = publicVisitPath(path);
   if (!category) return;
   void fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/site-analytics`, {

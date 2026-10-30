@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { isSimulation } from '../simulator/state';
 import { billingAction, dateLabel, goHosted, hostedUrl, money } from "./api";
 import {
   creditNumber as n,
@@ -68,6 +69,10 @@ export function MyCreditsPage() {
         },
       );
       if (action === "credit_checkout") {
+        if(isSimulation()){
+          operation.current=crypto.randomUUID();setQuote(null);setShowPackages(false);
+          await load();window.dispatchEvent(new Event('nuthrick:ai-balance'));return;
+        }
         goHosted(result.url, "checkout");
         return;
       }
@@ -296,7 +301,7 @@ export function MyCreditsPage() {
                         disabled={busy}
                         onClick={() => void run("credit_checkout")}
                       >
-                        {busy ? "Procesando…" : `Comprar en Stripe${data.mode === "test" ? " TEST" : ""}`}
+                        {busy ? "Procesando…" : isSimulation() ? 'Confirmar recarga simulada' : `Comprar en Stripe${data.mode === "test" ? " TEST" : ""}`}
                       </button>
                     </div>
                   )}

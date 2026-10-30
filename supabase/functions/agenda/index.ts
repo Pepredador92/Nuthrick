@@ -101,6 +101,13 @@ async function allowRecipient(email: string) {
 }
 async function oauthStart(owner: string,purpose: string) {
   if(!['calendar','gmail'].includes(purpose)) throw new Error('invalid_action');
+  const simulation=await db.rpc('simulation_delivery_check',{p_owner:owner});
+  if(simulation.error)throw new Error('temporarily_unavailable');
+  if(simulation.data===true){
+    const connected=await db.rpc('simulator_server',{p_action:'connect_google',p_actor:owner,p_data:{}});
+    if(connected.error)throw new Error('temporarily_unavailable');
+    return {url:`${site}/app/agenda?simulation=google`};
+  }
   const identity=purpose==='gmail'?await mailContext(owner):null;
   if(identity&&!identity.can_manage) throw new Error('unauthorized');
   if(identity) normalizeEmail(identity.sender_email);
@@ -213,6 +220,9 @@ async function deliverMail(job: Job): Promise<string> {
   return sendPortalMail(to,subject,message,job.id);
 }
 async function sendPortalMail(to: string, subject: string, message: string, id: string): Promise<string> {
+  const simulation=await db.rpc('simulation_delivery_check',{p_challenge:id});
+  if(simulation.error)throw new Error('temporarily_unavailable');
+  if(simulation.data===true)return `simulation:${id}`;
   await allowRecipient(to);
   const {sender}=await credentials();
   const identity=await mailContext();
@@ -383,6 +393,12 @@ async function handleAgenda(req: Request) {
       return respond(await server('resolve_local',{owner:user.id,localTime}));
     }
     if(op==='connection') {
+      if(user.app_metadata.nuthrick_simulation===true){
+        const simulation=await db.rpc('simulator_server',{p_action:'status',p_actor:user.id,p_data:{}});
+        if(simulation.error)throw new Error('temporarily_unavailable');
+        const connected=simulation.data.calendar_connected===true;
+        return respond({calendarConnected:connected,calendarActive:connected,busyCalendars:connected?['simulation']:[],writeCalendar:connected?'simulation':'',mailConnected:true,canConnectMail:false});
+      }
       const c=await credentials(user.id);
       const identity=await mailContext(user.id);
       return respond({calendarConnected:!!c.calendar,calendarActive:!!c.calendar?.active,busyCalendars:c.calendar?.busy_calendar_ids||[],writeCalendar:c.calendar?.write_calendar_id||'',mailConnected:!!c.sender&&c.sender.email===identity.sender_email,canConnectMail:identity.can_manage});
@@ -391,6 +407,11 @@ async function handleAgenda(req: Request) {
       return respond(await oauthStart(user.id,String(body.purpose)));
     }
     if(op==='calendar_list'||op==='calendar_save') {
+      if(user.app_metadata.nuthrick_simulation===true){
+        const simulation=await db.rpc('simulator_server',{p_action:'status',p_actor:user.id,p_data:{}});
+        if(simulation.error)throw new Error('temporarily_unavailable');
+        return respond(op==='calendar_list'?{calendars:[{id:'simulation',name:'Calendario de ejemplo · simulación',writable:true}]}:{saved:true});
+      }
       const {calendar}=await credentials(user.id);
       if(!calendar) throw new Error('google_unavailable');
       const access=await googleToken(calendar.encrypted_refresh_token);

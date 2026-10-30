@@ -7,6 +7,8 @@ import { Field, Input } from '@/src/components/ui/FormField';
 import { Logo } from '@/src/components/ui/Logo';
 import { supabase } from '@/src/lib/supabase';
 import { useAuth } from '@/src/features/auth/AuthProvider';
+import { isSimulation } from '@/src/features/simulator/state';
+import { signIntoSimulation } from '@/src/features/simulator/api';
 
 function AuthShell({ children, title, subtitle }: { children: React.ReactNode; title: string; subtitle: string }) {
   return (
@@ -37,6 +39,13 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
 
   const handleGoogle = async () => {
     setError('');
+    if (isSimulation()) {
+      setBusy(true);
+      try {await signIntoSimulation();navigate('/onboarding',{replace:true});}
+      catch(e){setError(e instanceof Error?e.message:'No pudimos simular el acceso.');}
+      finally{setBusy(false);}
+      return;
+    }
     if (!configurationReady) return setError('Conecta el nuevo proyecto de Supabase para habilitar el acceso.');
     const { error: authError } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: authRedirectUrl('/auth/callback') } });
     if (authError) setError(authError.message);
@@ -49,6 +58,11 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     if (password.length < 8) return setError('La contraseña debe tener al menos 8 caracteres.');
     setBusy(true);
     try {
+      if(isSimulation()) {
+        if(isLogin){await signIntoSimulation();navigate(billingReturn()??'/onboarding',{replace:true});}
+        else setConfirmationSent(true);
+        return;
+      }
       if (isLogin) {
         const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
         if (authError) throw authError;
@@ -68,7 +82,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     }
   };
 
-  if (confirmationSent) return <AuthShell title="Revisa tu correo" subtitle="Te enviamos un enlace para confirmar tu cuenta."><div className="mt-8 rounded-3xl border border-[#dce5df] bg-white p-7 text-center"><MailCheck className="mx-auto text-[#4a7867]" size={36} /><p className="mt-4 font-semibold">Confirma {email}</p><p className="mt-2 text-sm leading-6 text-[#6d7a76]">Al abrir el enlace podrás completar tu perfil inicial.</p></div></AuthShell>;
+  if (confirmationSent) return <AuthShell title="Revisa tu correo" subtitle={isSimulation()?'Confirmación de prueba: el correo se simula dentro de este recorrido.':'Te enviamos un enlace para confirmar tu cuenta.'}><div className="mt-8 rounded-3xl border border-[#dce5df] bg-white p-7 text-center"><MailCheck className="mx-auto text-[#4a7867]" size={36} /><p className="mt-4 font-semibold">Confirma {email}</p><p className="mt-2 text-sm leading-6 text-[#6d7a76]">Al abrir el enlace podrás completar tu perfil inicial.</p>{isSimulation()&&<button className="nuth-button mt-5" disabled={busy} onClick={()=>{setBusy(true);void signIntoSimulation().then(()=>navigate('/onboarding',{replace:true})).catch(e=>setError(e.message)).finally(()=>setBusy(false));}}>Simular confirmación del correo</button>}{error&&<p role="alert" className="mt-3 text-sm text-[#934938]">{error}</p>}</div></AuthShell>;
 
   return (
     <AuthShell title={isLogin ? 'Qué gusto verte de nuevo' : 'Crea tu espacio profesional'} subtitle={isLogin ? 'Inicia sesión para continuar con tu práctica.' : 'Empieza gratis. Sólo te tomará un momento.'}>
@@ -94,6 +108,7 @@ export function ForgotPasswordPage() {
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setError('');
     if (!configurationReady) return setError('Conecta el nuevo proyecto de Supabase para habilitar la recuperación.');
+    if(isSimulation()){setSent(true);return;}
     const { error: authError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: authRedirectUrl('/reset-password') });
     if (authError) setError(authError.message); else setSent(true);
   };

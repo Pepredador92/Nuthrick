@@ -1,5 +1,7 @@
 import { supabase } from "@/src/lib/supabase";
 import type { Access } from "../admin/api";
+import { isSimulation } from '../simulator/state';
+import { simulatorRequest } from '../simulator/api';
 export type Interval = "monthly" | "annual";
 export type Benefit = {
   type:
@@ -312,6 +314,7 @@ export async function billingAction<T = Record<string, unknown>>(
   action: string,
   input: Record<string, unknown> = {},
 ): Promise<T> {
+  if(isSimulation())return simulatorRequest<T>(action,input);
   const { data, error } = await supabase.functions.invoke("billing", {
     body: { action, ...input },
   });
@@ -380,6 +383,10 @@ export function hostedUrl(
   }
 }
 export function goHosted(value: unknown, kind: "checkout" | "portal") {
+  if(isSimulation()){
+    if(kind==='portal'){window.location.assign('/app/my-plan?simulation=portal');return;}
+    throw new Error('Los pagos se confirman dentro del simulador.');
+  }
   const url = hostedUrl(value, kind);
   if (!url) throw new Error("No pudimos validar el enlace de pago.");
   window.location.assign(url);

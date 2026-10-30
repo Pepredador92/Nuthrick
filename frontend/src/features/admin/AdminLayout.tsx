@@ -17,6 +17,7 @@ import {
   Headphones,
   GraduationCap,
   Megaphone,
+  FlaskConical,
 } from "lucide-react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/src/features/auth/AuthProvider";
@@ -25,6 +26,7 @@ import { SupportProvider, SupportUnread } from '@/src/features/support/SupportPr
 import { ThemeSwitcher } from '@/src/features/theme/ThemeSwitcher';
 const nav = [
   ["", "Inicio", LayoutDashboard],
+  ["simulator", "Simulador de usuario", FlaskConical],
   ["professionals", "Profesionales", Users],
   ["support", "Atención a nutriólogos", Headphones],
   ["training", "Capacitación", GraduationCap],

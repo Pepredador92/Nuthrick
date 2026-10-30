@@ -16,6 +16,8 @@ import {
 } from "./api";
 import { clearPlanReturn, rememberPlan } from "./returnToPlan";
 import { LegalAcceptanceGate } from "../legal/LegalAcceptanceGate";
+import { isSimulation } from '../simulator/state';
+import { SimulationCheckout } from '../simulator/SimulationCheckout';
 export function CheckoutChoice(
   { plan, interval, close }: {
     plan: Plan;
@@ -91,6 +93,7 @@ export function CheckoutChoice(
       clearPlanReturn();
       goHosted(result.url, "checkout");
     });
+  if(isSimulation())return <SimulationCheckout plan={plan} interval={interval} close={close}/>;
   return (
     <section
       className="admin-card billing-choice"

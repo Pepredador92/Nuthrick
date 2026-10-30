@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { hasSupabaseConfig, supabase } from '@/src/lib/supabase';
 import { ensureOwnProfile, fetchOwnProfile } from '@/src/services/profile';
 import type { ProfessionalProfile } from '@/src/types/domain';
+import { rememberSimulationSession, simulationAuthKey, simulationLaunch } from '@/src/features/simulator/state';
 
 interface AuthContextValue {
   user: User | null;
@@ -45,6 +46,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const bootstrap = async () => {
       try {
         const { data } = await supabase.auth.getSession();
+        const simulation=simulationLaunch();
+        if(data.session&&simulation&&(data.session.user.id!==simulation.run.professional_id||data.session.user.app_metadata.nuthrick_simulation!==true)){
+          await supabase.auth.signOut({scope:'local'});throw new Error('simulation_session_mismatch');
+        }
         if (!active) return;
         setSession(data.session);
         currentUserId.current = data.session?.user.id ?? null;
@@ -58,6 +63,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void bootstrap();
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      const simulation=simulationLaunch();
+      if(nextSession&&simulation&&(nextSession.user.id!==simulation.run.professional_id||nextSession.user.app_metadata.nuthrick_simulation!==true)){
+        queueMicrotask(()=>{void supabase.auth.signOut({scope:'local'});});return;
+      }
+      if(nextSession&&simulation)rememberSimulationSession(nextSession);
       const nextUserId = nextSession?.user.id ?? null;
       const sameUser = Boolean(nextUserId && nextUserId === currentUserId.current);
       setSession(nextSession);
@@ -89,6 +99,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadProfile, session]);
 
   const signOut = useCallback(async () => {
+    const simulation=simulationLaunch();
+    if(simulation){
+      // Signing out is itself part of the walkthrough. Retain only the prepared
+      // demo credentials so its Login screen can be explored again. Exit ends
+      // the run and revokes this isolated session through the normal Auth API.
+      supabase.auth.stopAutoRefresh();
+      sessionStorage.removeItem(`${simulationAuthKey}:${simulation.run.id}`);
+      setSession(null);setProfile(null);currentUserId.current=null;
+      window.location.assign('/login');return;
+    }
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
     setSession(null);

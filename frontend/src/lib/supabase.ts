@@ -1,7 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
+import { isSimulation, simulationAuthKey, simulationLaunch } from '@/src/features/simulator/state';
 
 const suppliedUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const suppliedKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+const simulation = isSimulation();
 
 export const hasSupabaseConfig = Boolean(suppliedUrl && suppliedKey);
 
@@ -15,6 +17,7 @@ export const supabase = createClient(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
+      ...(simulation ? {storageKey:`${simulationAuthKey}:${simulationLaunch()!.run.id}`,storage:window.sessionStorage,detectSessionInUrl:false} : {}),
     },
   },
 );

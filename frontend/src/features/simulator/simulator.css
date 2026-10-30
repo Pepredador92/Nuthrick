@@ -1,0 +1,81 @@
+.simulation-banner {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  background: #173d36;
+  color: #fff;
+  box-shadow: 0 2px 12px #0003;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.simulation-banner strong,
+.simulation-banner span {
+  display: block;
+}
+.simulation-banner span {
+  color: #d0e6dc;
+  font-size: 12px;
+}
+.simulation-banner nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.simulation-banner a,
+.simulation-banner button {
+  padding: 6px 10px;
+  border: 1px solid #ffffff50;
+  border-radius: 8px;
+  color: #fff;
+  background: transparent;
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+}
+.simulation-banner button {
+  background: #edf5ef;
+  color: #173d36;
+  font-weight: 700;
+}
+.simulation-banner :focus-visible {
+  outline: 3px solid #f2c47a;
+  outline-offset: 2px;
+}
+.simulation-banner button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.simulation-banner p {
+  color: #ffe1ce;
+}
+html[data-simulation="true"] body {
+  padding-top: var(--simulation-bar-height, 100px);
+}
+html[data-simulation="true"] .professional-shell > .fixed,
+html[data-simulation="true"] .professional-header {
+  top: var(--simulation-bar-height, 100px);
+}
+html[data-simulation="true"] .nuth-public-theme-control {
+  top: calc(var(--simulation-bar-height, 100px) + 16px);
+}
+@media (max-width: 600px) {
+  .simulation-banner {
+    padding: 9px 12px;
+    gap: 8px;
+  }
+  .simulation-banner nav {
+    gap: 5px;
+  }
+  .simulation-banner a,
+  .simulation-banner button {
+    padding: 4px 7px;
+    font-size: 12px;
+  }
+}

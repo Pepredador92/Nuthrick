@@ -56,6 +56,7 @@ import { ThemeSwitcher } from '@/src/features/theme/ThemeSwitcher';
 import { AcademyPage } from '@/src/features/training/AcademyPage';
 import { TrainingAdminPage } from '@/src/features/training/TrainingAdminPage';
 import { AnnouncementsAdminPage } from '@/src/features/announcements/AnnouncementsAdminPage';
+import { SimulatorAdminPage } from '@/src/features/simulator/SimulatorAdminPage';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -120,6 +121,7 @@ function BrowserApplication() {
           <Route element={<AdminGuard />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminHome />} />
+              <Route path="simulator" element={<SimulatorAdminPage />} />
               <Route path="support" element={<AdminSupportPage />} />
               <Route path="training" element={<TrainingAdminPage />} />
               <Route path="announcements" element={<AnnouncementsAdminPage />} />
