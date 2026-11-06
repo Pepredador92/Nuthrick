@@ -81,6 +81,7 @@ const messages: Record<string, string> = {
   reservation_pending: "El nutriólogo debe aceptar la reserva antes de confirmar asistencia.",
   invalid_range: "Elige una fecha dentro del periodo disponible.",
   invalid_patient: "Selecciona un paciente activo de tu expediente.",
+  invalid_contact_name: "Escribe el nombre del paciente nuevo (de 2 a 160 caracteres).",
   invalid_transition: "La cita cambió, ya fue confirmada o su fecha pasó. Actualiza la agenda.",
   not_found: "La cita ya no está disponible.",
   registration_required: 'Completa tus datos básicos y autoriza su registro para continuar.',

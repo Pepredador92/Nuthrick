@@ -4,10 +4,12 @@ import { listPatients } from '@/src/services/patients';
 
 export type PatientOption = { id: string; full_name: string; email?: string | null };
 
-export function PatientCombobox({ value, onChange, disabled }: {
+export function PatientCombobox({ value, onChange, disabled, onNewPatient, onSearchChange }: {
   value: PatientOption | null;
   onChange: (patient: PatientOption | null) => void;
   disabled?: boolean;
+  onNewPatient?: (name: string) => void;
+  onSearchChange?: (name: string) => void;
 }) {
   const id = useId();
   const [query, setQuery] = useState('');
@@ -49,7 +51,7 @@ export function PatientCombobox({ value, onChange, disabled }: {
         autoComplete="off" className="nuth-input pr-10" placeholder="Busca o selecciona un paciente"
         value={value?.full_name ?? query} disabled={disabled} required
         onFocus={() => setOpen(true)} onClick={() => setOpen(true)}
-        onChange={event => { onChange(null); setQuery(event.target.value); setActive(-1); setOpen(true); }}
+        onChange={event => { onChange(null); setQuery(event.target.value); onSearchChange?.(event.target.value); setActive(-1); setOpen(true); }}
         onKeyDown={event => {
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault(); setOpen(true);
@@ -72,7 +74,9 @@ export function PatientCombobox({ value, onChange, disabled }: {
         </li>)}
       </ul>
       {!rows.length && <p role="status" className="px-3 py-3 text-sm text-[#63796d]">{!current ? 'Buscando pacientes…' : current.error || 'No encontramos pacientes con ese nombre.'}</p>}
+      {onNewPatient && <button type="button" className="w-full rounded-lg px-3 py-3 text-left text-sm font-semibold text-[#173d36] hover:bg-[#f2f6f2]" disabled={disabled} onPointerDown={event=>event.preventDefault()} onClick={()=>{setOpen(false);onNewPatient(query);}}>Agendar como paciente nuevo</button>}
       {rows.length === 30 && <p className="px-3 py-2 text-xs text-[#63796d]">Escribe más caracteres para afinar la búsqueda.</p>}
     </div>}
+    <p className="mt-2 text-xs leading-relaxed text-[#63796d]">{value ? 'Ficha del paciente seleccionada.' : onNewPatient ? 'Selecciona una ficha de la lista. Si aún no está registrado, elige «Paciente nuevo».' : 'Selecciona una ficha de la lista para continuar.'}</p>
   </div>;
 }

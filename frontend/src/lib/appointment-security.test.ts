@@ -12,6 +12,17 @@ it('binds manual creation to the verified professional, validates UUIDs and chec
 it('recovers a committed operation before contacting Google again',async()=>{
  const call=vi.fn(async()=>({id})),busy=vi.fn();await appointmentRequest(new Request('https://example.invalid'),{op:'appointment_create',patientId:id,operationKey:id,start:'2099-10-01T16:00:00Z',modality:'online'},{call,busy,owner:async()=>id,key:secretToken(),site:'https://nuthrick.com'});expect(busy).not.toHaveBeenCalled();
 });
+it('binds a new contact to the verified owner and preserves schedule and retry checks',async()=>{
+ const call=vi.fn(async(action)=>action==='options'?{duration:30}:action==='replay_create'?null:{id}),busy=vi.fn(async()=>null);
+ await appointmentRequest(new Request('https://example.invalid'),{op:'appointment_create',owner:'forged',contactName:'  Persona nueva  ',operationKey:id,start:'2099-10-01T16:00:00Z',modality:'online',contactEmail:'ignored@example.test'},{call,busy,owner:async()=>id,key:secretToken(),site:'https://nuthrick.com'});
+ expect(call).toHaveBeenLastCalledWith('create',{owner:id,contactName:'Persona nueva',start:'2099-10-01T16:00:00.000Z',modality:'online',locationId:null,allowOutsideSchedule:false,operationKey:id,busyCheck:null});
+ expect(busy).toHaveBeenCalledWith(id,'2099-10-01T16:00:00.000Z','2099-10-01T16:30:00.000Z');
+});
+it.each([{}, {contactName:''}, {contactName:'A'}, {contactName:'A'.repeat(161)}, {contactName:'Nombre\ncontrol'}, {contactName:42}, {patientId:id,contactName:'Persona nueva'}])('rejects a missing, invalid or ambiguous patient before database writes: %j',async contact=>{
+ const call=vi.fn(),busy=vi.fn();
+ await expect(appointmentRequest(new Request('https://example.invalid'),{op:'appointment_create',...contact,operationKey:id,start:'2099-10-01T16:00:00Z',modality:'online'},{call,busy,owner:async()=>id,key:secretToken(),site:'https://nuthrick.com'})).rejects.toThrow(/invalid_(contact_name|input)/);
+ expect(call).not.toHaveBeenCalled();expect(busy).not.toHaveBeenCalled();
+});
 it('hashes a patient token and whitelists the payload without accepting a forged owner',async()=>{
  const token=secretToken(),call=vi.fn(async()=>({id}));const deps={call,busy:vi.fn(),owner:vi.fn(),key:secretToken(),site:'https://nuthrick.com'};
  await appointmentRequest(new Request('https://example.invalid'),{op:'appointment_confirm',token,owner:id,id},deps);expect(call).toHaveBeenCalledWith('patient_confirm',{tokenHash:await sha256(token)});expect(deps.owner).not.toHaveBeenCalled();

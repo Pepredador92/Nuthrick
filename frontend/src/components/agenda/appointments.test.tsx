@@ -27,6 +27,38 @@ it('keeps entered data and the operation key on a failed creation retry',async()
  vi.mocked(agendaApi).mockImplementation(async(...args)=>{if(args[0]==='appointment_create'&&failures++===0)throw new Error('Sin conexión');return base(...args);});
  render(<ScheduleAppointmentButton patient={{id:'p1',full_name:'Paciente prueba'}}/>);fireEvent.click(screen.getByRole('button',{name:'Agendar cita'}));fireEvent.click(await screen.findByRole('button',{name:/10:00/}));fireEvent.click(screen.getAllByRole('button',{name:'Agendar cita'}).at(-1)!);await screen.findByText('Sin conexión');fireEvent.click(screen.getAllByRole('button',{name:'Agendar cita'}).at(-1)!);await screen.findByText('Cita agendada');const calls=vi.mocked(agendaApi).mock.calls.filter(c=>c[0]==='appointment_create');expect(calls[0][1]).toEqual(calls[1][1]);
 });
+it('books a new patient by name without creating a chart or authorizing an outside-schedule appointment',async()=>{
+ render(<ScheduleAppointmentButton/>);
+ fireEvent.click(screen.getByRole('button',{name:'Agendar cita'}));
+ fireEvent.click(screen.getByRole('radio',{name:'Paciente nuevo'}));
+ fireEvent.change(screen.getByLabelText('Nombre del paciente nuevo'),{target:{value:'  Paciente nuevo de prueba  '}});
+ fireEvent.click(await screen.findByRole('button',{name:/10:00/}));
+ const submit=screen.getAllByRole('button',{name:'Agendar cita'}).at(-1)!;
+ expect(submit).toBeEnabled();
+ expect(screen.getByRole('checkbox',{name:/Autorizar fuera/})).not.toBeChecked();
+ fireEvent.click(submit);
+ await screen.findByText('Cita agendada');
+ expect(agendaApi).toHaveBeenCalledWith('appointment_create',expect.objectContaining({contactName:'Paciente nuevo de prueba',start:appointment.starts_at,allowOutsideSchedule:false}),true);
+ const payload=vi.mocked(agendaApi).mock.calls.find(c=>c[0]==='appointment_create')![1];
+ expect(payload).not.toHaveProperty('patientId');
+ expect(agendaApi).not.toHaveBeenCalledWith('resolve_time_private',expect.anything(),true);
+ expect(screen.getByText(/Puedes crear o vincular su ficha después/)).toBeVisible();
+});
+it('explains why an unselected name is blocked and carries it to the new-patient flow without losing the chosen hour',async()=>{
+ render(<ScheduleAppointmentButton/>);
+ fireEvent.click(screen.getByRole('button',{name:'Agendar cita'}));
+ fireEvent.click(await screen.findByRole('button',{name:/10:00/}));
+ fireEvent.change(screen.getByRole('combobox',{name:'Paciente'}),{target:{value:'Paciente nuevo de prueba'}});
+ expect(screen.getAllByRole('button',{name:'Agendar cita'}).at(-1)).toBeDisabled();
+ expect(screen.getByText('Selecciona una ficha de la lista o elige «Paciente nuevo».')).toBeVisible();
+ fireEvent.click(screen.getByRole('button',{name:'Agendar como paciente nuevo'}));
+ expect(screen.getByLabelText('Nombre del paciente nuevo')).toHaveValue('Paciente nuevo de prueba');
+ expect(screen.getByRole('button',{name:/10:00/})).toHaveAttribute('aria-pressed','true');
+ expect(screen.getAllByRole('button',{name:'Agendar cita'}).at(-1)).toBeEnabled();
+ fireEvent.change(screen.getByLabelText('Nombre del paciente nuevo'),{target:{value:' '}});
+ expect(screen.getAllByRole('button',{name:'Agendar cita'}).at(-1)).toBeDisabled();
+ expect(screen.getByText('Escribe el nombre del paciente nuevo (de 2 a 160 caracteres).')).toBeVisible();
+});
 it('distinguishes professional-only confirmation from both',()=>{const r=render(<AppointmentStatus appointment={{professional_confirmed_at:'date'}}/>);expect(screen.getByText('Falta confirmación del paciente')).toBeVisible();r.rerender(<AppointmentStatus appointment={{professional_confirmed_at:'date',patient_confirmed_at:'date'}}/>);expect(screen.getByText('Ambos confirmaron')).toBeVisible();r.rerender(<AppointmentStatus appointment={{professional_confirmed_at:'date',patient_confirmed_at:null,registration_consented_at:'old-consent'}}/>);expect(screen.getByText('Falta confirmación del paciente')).toBeVisible();});
 it('preserves explicit scheduling exceptions and server timezone resolution',async()=>{
  render(<ScheduleAppointmentButton patient={{id:'p1',full_name:'Paciente prueba'}}/>);
