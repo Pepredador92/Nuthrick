@@ -1,6 +1,7 @@
--- Run inside BEGIN/ROLLBACK with nuthrick.test_professional set to an existing
--- professional with agenda access. All appointments, jobs and audit rows are
--- rolled back; this never calls the delivery worker or an external calendar.
+-- Manual integration check with nuthrick.test_professional set to an existing
+-- professional with agenda access. A deliberate exception rolls back the whole
+-- block, including jobs and audit rows, even outside a caller's BEGIN/ROLLBACK.
+-- This never calls the delivery worker or an external calendar.
 do $test$
 declare
  owner_id uuid := current_setting('nuthrick.test_professional')::uuid;
@@ -67,5 +68,9 @@ begin
  result := public.agenda_appointment_action('create',(payload-'contactName')||jsonb_build_object('patientId',existing_patient,'start',slot->>'start','busyCheck',check_id,'operationKey',gen_random_uuid()));
  select * into entry from public.agenda_entries where id=(result->>'id')::uuid;
  if entry.patient_id is distinct from existing_patient then raise exception 'existing_patient_link_failed'; end if;
+ -- An EXCEPTION block is a subtransaction. Catch only our success marker so
+ -- assertion failures still propagate while successful writes are rolled back.
+ raise sqlstate 'P9090' using message='agenda_integration_verified';
+exception when sqlstate 'P9090' then null;
 end
 $test$;
