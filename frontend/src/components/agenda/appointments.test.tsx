@@ -27,22 +27,31 @@ it('keeps entered data and the operation key on a failed creation retry',async()
  vi.mocked(agendaApi).mockImplementation(async(...args)=>{if(args[0]==='appointment_create'&&failures++===0)throw new Error('Sin conexión');return base(...args);});
  render(<ScheduleAppointmentButton patient={{id:'p1',full_name:'Paciente prueba'}}/>);fireEvent.click(screen.getByRole('button',{name:'Agendar cita'}));fireEvent.click(await screen.findByRole('button',{name:/10:00/}));fireEvent.click(screen.getAllByRole('button',{name:'Agendar cita'}).at(-1)!);await screen.findByText('Sin conexión');fireEvent.click(screen.getAllByRole('button',{name:'Agendar cita'}).at(-1)!);await screen.findByText('Cita agendada');const calls=vi.mocked(agendaApi).mock.calls.filter(c=>c[0]==='appointment_create');expect(calls[0][1]).toEqual(calls[1][1]);
 });
-it('books a new patient by name without creating a chart or authorizing an outside-schedule appointment',async()=>{
+it('registers a new patient with the same chart fields and books an in-schedule appointment atomically',async()=>{
  render(<ScheduleAppointmentButton/>);
  fireEvent.click(screen.getByRole('button',{name:'Agendar cita'}));
  fireEvent.click(screen.getByRole('radio',{name:'Paciente nuevo'}));
- fireEvent.change(screen.getByLabelText('Nombre del paciente nuevo'),{target:{value:'  Paciente nuevo de prueba  '}});
+ fireEvent.change(screen.getByLabelText('Nombre completo'),{target:{value:'  Paciente nuevo de prueba  '}});
+ fireEvent.change(screen.getByLabelText('Correo electrónico (opcional)'),{target:{value:'registro@example.test'}});
+ fireEvent.change(screen.getByLabelText('Zona horaria'),{target:{value:'Europe/Madrid'}});
+ fireEvent.change(screen.getByLabelText('Teléfono (opcional)'),{target:{value:'5512345678'}});
+ fireEvent.change(screen.getByLabelText('Peso inicial (kg)'),{target:{value:'68.2'}});
+ fireEvent.change(screen.getByLabelText('Estatura (cm)'),{target:{value:'161.5'}});
+ fireEvent.change(screen.getByLabelText('Género (opcional)'),{target:{value:'female'}});
+ fireEvent.change(screen.getByLabelText('Sexo requerido por ecuaciones (opcional)'),{target:{value:'female'}});
+ fireEvent.change(screen.getByLabelText('Fecha de nacimiento'),{target:{value:'1992-04-03'}});
+ fireEvent.click(screen.getByRole('checkbox',{name:/Permitir acceso/}));
  fireEvent.click(await screen.findByRole('button',{name:/10:00/}));
  const submit=screen.getAllByRole('button',{name:'Agendar cita'}).at(-1)!;
  expect(submit).toBeEnabled();
  expect(screen.getByRole('checkbox',{name:/Autorizar fuera/})).not.toBeChecked();
  fireEvent.click(submit);
  await screen.findByText('Cita agendada');
- expect(agendaApi).toHaveBeenCalledWith('appointment_create',expect.objectContaining({contactName:'Paciente nuevo de prueba',start:appointment.starts_at,allowOutsideSchedule:false}),true);
+ expect(agendaApi).toHaveBeenCalledWith('appointment_create',expect.objectContaining({newPatient:{full_name:'Paciente nuevo de prueba',email:'registro@example.test',country_code:'+52',phone:'+525512345678',timezone:'Europe/Madrid',weight_kg:68.2,height_cm:161.5,gender:'female',equation_sex:'female',birth_date:'1992-04-03',portal_access_enabled:true},start:appointment.starts_at,allowOutsideSchedule:false}),true);
  const payload=vi.mocked(agendaApi).mock.calls.find(c=>c[0]==='appointment_create')![1];
  expect(payload).not.toHaveProperty('patientId');
  expect(agendaApi).not.toHaveBeenCalledWith('resolve_time_private',expect.anything(),true);
- expect(screen.getByText(/Puedes crear o vincular su ficha después/)).toBeVisible();
+ expect(screen.getByText(/Su ficha se guardó en Pacientes y quedó vinculada/)).toBeVisible();
 });
 it('explains why an unselected name is blocked and carries it to the new-patient flow without losing the chosen hour',async()=>{
  render(<ScheduleAppointmentButton/>);
@@ -52,12 +61,29 @@ it('explains why an unselected name is blocked and carries it to the new-patient
  expect(screen.getAllByRole('button',{name:'Agendar cita'}).at(-1)).toBeDisabled();
  expect(screen.getByText('Selecciona una ficha de la lista o elige «Paciente nuevo».')).toBeVisible();
  fireEvent.click(screen.getByRole('button',{name:'Agendar como paciente nuevo'}));
- expect(screen.getByLabelText('Nombre del paciente nuevo')).toHaveValue('Paciente nuevo de prueba');
+ expect(screen.getByLabelText('Nombre completo')).toHaveValue('Paciente nuevo de prueba');
  expect(screen.getByRole('button',{name:/10:00/})).toHaveAttribute('aria-pressed','true');
  expect(screen.getAllByRole('button',{name:'Agendar cita'}).at(-1)).toBeEnabled();
- fireEvent.change(screen.getByLabelText('Nombre del paciente nuevo'),{target:{value:' '}});
+ fireEvent.change(screen.getByLabelText('Nombre completo'),{target:{value:' '}});
  expect(screen.getAllByRole('button',{name:'Agendar cita'}).at(-1)).toBeDisabled();
  expect(screen.getByText('Escribe el nombre del paciente nuevo (de 2 a 160 caracteres).')).toBeVisible();
+});
+it('preserves registration data and the operation key when retrying, without a separate patient-create request',async()=>{
+ const base=vi.mocked(agendaApi).getMockImplementation()!;let calls=0;
+ vi.mocked(agendaApi).mockImplementation(async(...args)=>{if(args[0]==='appointment_create'&&calls++===0)throw new Error('Sin conexión');return base(...args);});
+ render(<ScheduleAppointmentButton/>);fireEvent.click(screen.getByRole('button',{name:'Agendar cita'}));
+ fireEvent.click(screen.getByRole('radio',{name:'Paciente nuevo'}));
+ fireEvent.change(screen.getByLabelText('Nombre completo'),{target:{value:'Persona de prueba'}});
+ fireEvent.change(screen.getByLabelText('Estatura (cm)'),{target:{value:'161.5'}});
+ fireEvent.click(await screen.findByRole('button',{name:/10:00/}));
+ fireEvent.click(screen.getAllByRole('button',{name:'Agendar cita'}).at(-1)!);
+ await screen.findByText('Sin conexión');
+ expect(screen.getByLabelText('Estatura (cm)')).toHaveValue(161.5);
+ fireEvent.click(screen.getAllByRole('button',{name:'Agendar cita'}).at(-1)!);
+ await screen.findByText('Cita agendada');
+ const attempts=vi.mocked(agendaApi).mock.calls.filter(c=>c[0]==='appointment_create');
+ expect(attempts).toHaveLength(2);expect(attempts[0][1]).toEqual(attempts[1][1]);
+ expect(vi.mocked(agendaApi).mock.calls.every(c=>['appointment_options','appointment_availability','appointment_create'].includes(c[0]))).toBe(true);
 });
 it('distinguishes professional-only confirmation from both',()=>{const r=render(<AppointmentStatus appointment={{professional_confirmed_at:'date'}}/>);expect(screen.getByText('Falta confirmación del paciente')).toBeVisible();r.rerender(<AppointmentStatus appointment={{professional_confirmed_at:'date',patient_confirmed_at:'date'}}/>);expect(screen.getByText('Ambos confirmaron')).toBeVisible();r.rerender(<AppointmentStatus appointment={{professional_confirmed_at:'date',patient_confirmed_at:null,registration_consented_at:'old-consent'}}/>);expect(screen.getByText('Falta confirmación del paciente')).toBeVisible();});
 it('preserves explicit scheduling exceptions and server timezone resolution',async()=>{

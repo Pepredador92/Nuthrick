@@ -17,6 +17,12 @@ declare
  existing_patient uuid;
  day_offset integer;
  invalid_name text;
+ registration jsonb;
+ registered_payload jsonb;
+ registered_id uuid;
+ chart public.patients;
+ baseline public.patient_measurements;
+ before_registration bigint;
 begin
  select * into settings from public.availability_settings where professional_id=owner_id;
  select * into choice from private.agenda_choices(owner_id) order by modality limit 1;
@@ -68,6 +74,40 @@ begin
  result := public.agenda_appointment_action('create',(payload-'contactName')||jsonb_build_object('patientId',existing_patient,'start',slot->>'start','busyCheck',check_id,'operationKey',gen_random_uuid()));
  select * into entry from public.agenda_entries where id=(result->>'id')::uuid;
  if entry.patient_id is distinct from existing_patient then raise exception 'existing_patient_link_failed'; end if;
+ -- The same editable data as the Patients module is registered and linked in
+ -- the appointment transaction, including the optional baseline measurement.
+ slot := public.agenda_appointment_availability(owner_id,((payload->>'start')::timestamptz at time zone settings.timezone)::date,choice.modality,choice.location_id)->'slots'->0;
+ registration := jsonb_build_object('full_name','Registro atómico de prueba '||gen_random_uuid()::text,
+  'email',gen_random_uuid()::text||'@example.invalid','country_code','+52','phone','+52'||(floor(random()*9000000000)+1000000000)::bigint::text,
+  'timezone','Europe/Madrid','weight_kg',68.2,'height_cm',161.5,'gender','female','equation_sex','female','birth_date','1992-04-03','portal_access_enabled',true);
+ registered_payload := (payload-'contactName')||jsonb_build_object('newPatient',registration,'operationKey',gen_random_uuid(),'start',slot->>'start');
+ select count(*) into before_registration from public.patients where professional_id=owner_id;
+ result := public.agenda_appointment_action('create',registered_payload||jsonb_build_object('busyCheck',check_id));
+ registered_id := (result->>'patient_id')::uuid;
+ select * into chart from public.patients where id=registered_id and professional_id=owner_id;
+ select * into entry from public.agenda_entries where id=(result->>'id')::uuid;
+ if registered_id is null or chart.id is null or entry.patient_id is distinct from chart.id
+  or chart.full_name is distinct from registration->>'full_name' or chart.email is distinct from registration->>'email'
+  or chart.phone is distinct from registration->>'phone' or chart.country_code is distinct from '+52'
+  or chart.timezone is distinct from 'Europe/Madrid' or chart.weight_kg is distinct from 68.2 or chart.height_cm is distinct from 161.5
+  or chart.gender is distinct from 'female' or chart.equation_sex is distinct from 'female' or chart.birth_date is distinct from date '1992-04-03'
+  or not chart.portal_access_enabled or chart.status is distinct from 'active' then raise exception 'registered_chart_fields_failed'; end if;
+ select * into baseline from public.patient_measurements where patient_id=registered_id and professional_id=owner_id;
+ if baseline.id is null or baseline.weight_kg is distinct from 68.2 or baseline.height_cm is distinct from 161.5 then raise exception 'registered_baseline_failed'; end if;
+ if public.agenda_appointment_action('replay_create',registered_payload)->>'patient_id' is distinct from registered_id::text then raise exception 'registration_replay_failed'; end if;
+ perform public.agenda_appointment_action('create',registered_payload||jsonb_build_object('busyCheck',check_id));
+ if (select count(*) from public.patients where professional_id=owner_id)<>before_registration+1
+  or (select count(*) from public.patient_measurements where patient_id=registered_id)<>1 then raise exception 'registration_retry_duplicated_chart'; end if;
+ slot := public.agenda_appointment_availability(owner_id,((payload->>'start')::timestamptz at time zone settings.timezone)::date,choice.modality,choice.location_id)->'slots'->0;
+ begin
+  perform public.agenda_appointment_action('create',registered_payload||jsonb_build_object('operationKey',gen_random_uuid(),'start',slot->>'start','busyCheck',check_id));
+  raise exception 'expected_patient_duplicate';
+ exception when others then if sqlerrm <> 'patient_duplicate' then raise; end if; end;
+ begin
+  perform public.agenda_appointment_action('create',registered_payload||jsonb_build_object('operationKey',gen_random_uuid(),'busyCheck',check_id));
+  raise exception 'expected_registration_slot_taken';
+ exception when others then if sqlerrm <> 'slot_taken' then raise; end if; end;
+ if (select count(*) from public.patients where professional_id=owner_id)<>before_registration+1 then raise exception 'failed_booking_created_chart'; end if;
  -- An EXCEPTION block is a subtransaction. Catch only our success marker so
  -- assertion failures still propagate while successful writes are rolled back.
  raise sqlstate 'P9090' using message='agenda_integration_verified';

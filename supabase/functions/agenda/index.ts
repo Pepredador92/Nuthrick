@@ -1,6 +1,7 @@
 import type {PdfDesign} from './document-design.ts';
 import { productOriginAllowed, siteOrigin } from '../_shared/site.ts';
 import { createClient } from '@supabase/supabase-js';
+import { patientRegistrationMessages } from '../_shared/patient-registration.ts';
 import { codeHash, decrypt, encrypt, gmailMessage, normalizeEmail, overlaps, parseInstant, readFreeBusy, secretToken, sha256 } from './security.ts';
 import { checkCalendarConflict } from './calendar-reconciliation.ts';
 import { appointmentRequest } from './appointments.ts';
@@ -460,7 +461,7 @@ async function handleAgenda(req: Request) {
     // responses. Return only a controlled vocabulary, not raw SQL/provider errors.
     const message=error instanceof Error?error.message:'';
     const known=['invalid_email','invalid_time','invalid_input','invalid_id','invalid_code','invalid_action','invalid_option','invalid_patient','invalid_calendars','invalid_request','invalid_transition','outside_schedule','not_found','slot_taken','google_unavailable','configuration_required','mail_not_connected','email_test_mode','rate_limited','unauthorized','profile_unavailable','booking_unavailable','verification_required','idempotency_mismatch','invalid_token','token_used','request_expired','authorization_required','authorization_cancelled','invalid_oauth_state','wrong_sender'];
-    const code=[...known,'invalid_range','confirmation_too_early','reservation_pending','registration_required','invalid_birth_date','invalid_phone','portal_unavailable','feature_disabled','account_suspended'].includes(message)?message:'temporarily_unavailable';
+    const code=[...known,...Object.keys(patientRegistrationMessages),'patients_limit_reached','retention_patient_limit','invalid_range','confirmation_too_early','reservation_pending','registration_required','invalid_birth_date','invalid_phone','portal_unavailable','feature_disabled','account_suspended'].includes(message)?message:'temporarily_unavailable';
     return respond({error:code},code==='unauthorized'?401:code==='rate_limited'?429:code==='slot_taken'?409:400);
   }
 }

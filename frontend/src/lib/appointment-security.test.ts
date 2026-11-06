@@ -18,6 +18,16 @@ it('binds a new contact to the verified owner and preserves schedule and retry c
  expect(call).toHaveBeenLastCalledWith('create',{owner:id,contactName:'Persona nueva',start:'2099-10-01T16:00:00.000Z',modality:'online',locationId:null,allowOutsideSchedule:false,operationKey:id,busyCheck:null});
  expect(busy).toHaveBeenCalledWith(id,'2099-10-01T16:00:00.000Z','2099-10-01T16:30:00.000Z');
 });
+it('whitelists patient registration and binds its atomic creation to the same trusted owner and retry receipt',async()=>{
+ const call=vi.fn(async(action)=>action==='options'?{duration:30}:action==='replay_create'?null:{id,patient_id:id}),busy=vi.fn(async()=>null);
+ await appointmentRequest(new Request('https://example.invalid'),{op:'appointment_create',owner:'forged',newPatient:{full_name:' Persona nueva ',timezone:'America/Mexico_City',portal_access_enabled:false,professional_id:'forged',id:'forged'},operationKey:id,start:'2099-10-01T16:00:00Z',modality:'online'},{call,busy,owner:async()=>id,key:secretToken(),site:'https://nuthrick.com'});
+ expect(call).toHaveBeenLastCalledWith('create',expect.objectContaining({owner:id,newPatient:{full_name:'Persona nueva',timezone:'America/Mexico_City',portal_access_enabled:false,email:null,phone:null,country_code:null,weight_kg:null,height_cm:null,gender:null,equation_sex:null,birth_date:null},operationKey:id,allowOutsideSchedule:false}));
+});
+it.each([{patientId:id},{contactName:'Persona nueva'}])('does not accept a patient registration mixed with another appointment identity: %j',async extra=>{
+ const call=vi.fn();
+ await expect(appointmentRequest(new Request('https://example.invalid'),{op:'appointment_create',...extra,newPatient:{full_name:'Nueva persona',timezone:'America/Mexico_City',portal_access_enabled:false},operationKey:id,start:'2099-10-01T16:00:00Z',modality:'online'},{call,busy:vi.fn(),owner:async()=>id,key:secretToken(),site:'https://nuthrick.com'})).rejects.toThrow('invalid_input');
+ expect(call).not.toHaveBeenCalled();
+});
 it.each([{}, {contactName:''}, {contactName:'A'}, {contactName:'A'.repeat(161)}, {contactName:'Nombre\ncontrol'}, {contactName:42}, {patientId:id,contactName:'Persona nueva'}])('rejects a missing, invalid or ambiguous patient before database writes: %j',async contact=>{
  const call=vi.fn(),busy=vi.fn();
  await expect(appointmentRequest(new Request('https://example.invalid'),{op:'appointment_create',...contact,operationKey:id,start:'2099-10-01T16:00:00Z',modality:'online'},{call,busy,owner:async()=>id,key:secretToken(),site:'https://nuthrick.com'})).rejects.toThrow(/invalid_(contact_name|input)/);

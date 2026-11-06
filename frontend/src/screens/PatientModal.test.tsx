@@ -1,0 +1,21 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, expect, it, vi } from 'vitest';
+import { PatientModal } from './PatientsPage';
+import { createPatient, listPatients } from '@/src/services/patients';
+vi.mock('@/src/services/patients',async original=>({...await original<typeof import('@/src/services/patients')>(),createPatient:vi.fn(),listPatients:vi.fn()}));
+beforeEach(()=>{vi.clearAllMocks();vi.mocked(listPatients).mockResolvedValue({rows:[],total:0});vi.mocked(createPatient).mockResolvedValue({id:'patient-created',full_name:'Persona de prueba'} as never);});
+it('keeps the standard patient registration fields and persists the shared normalized values',async()=>{
+ const saved=vi.fn();render(<PatientModal onClose={()=>{}} onSaved={saved}/>);
+ fireEvent.change(screen.getByLabelText('Nombre completo'),{target:{value:'Persona de prueba'}});
+ fireEvent.change(screen.getByLabelText('Correo electrónico (opcional)'),{target:{value:'registro@example.test'}});
+ fireEvent.change(screen.getByLabelText('Teléfono (opcional)'),{target:{value:'5512345678'}});
+ fireEvent.change(screen.getByLabelText('Peso inicial (kg)'),{target:{value:'68.2'}});
+ fireEvent.change(screen.getByLabelText('Estatura (cm)'),{target:{value:'161.5'}});
+ fireEvent.change(screen.getByLabelText('Género (opcional)'),{target:{value:'female'}});
+ fireEvent.change(screen.getByLabelText('Sexo requerido por ecuaciones (opcional)'),{target:{value:'female'}});
+ fireEvent.change(screen.getByLabelText('Fecha de nacimiento'),{target:{value:'1992-04-03'}});
+ fireEvent.click(screen.getByRole('checkbox',{name:/Permitir acceso/}));
+ fireEvent.click(screen.getByRole('button',{name:'Guardar paciente'}));
+ await waitFor(()=>expect(saved).toHaveBeenCalledOnce());
+ expect(createPatient).toHaveBeenCalledWith({full_name:'Persona de prueba',email:'registro@example.test',country_code:'+52',phone:'+525512345678',timezone:'America/Mexico_City',weight_kg:68.2,height_cm:161.5,gender:'female',equation_sex:'female',birth_date:'1992-04-03',portal_access_enabled:true});
+});

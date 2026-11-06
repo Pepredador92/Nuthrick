@@ -1,5 +1,6 @@
 import { decrypt, encrypt, parseInstant, secretToken, sha256 } from './security.ts';
 import { uuid } from './portal-content.ts';
+import { readPatientRegistration } from '../_shared/patient-registration.ts';
 type Json = Record<string, unknown>;
 type Dependencies = {
  owner: (request: Request) => Promise<string>;
@@ -35,10 +36,11 @@ export async function appointmentRequest(req: Request, body: Json, deps: Depende
   const start = parseInstant(body.start);
   if (!['online','in_person'].includes(String(body.modality))) throw new Error('invalid_option');
   const hasPatient = body.patientId != null;
-  if (hasPatient && body.contactName != null) throw new Error('invalid_input');
+  const hasRegistration = body.newPatient != null;
+  if ((hasPatient && (body.contactName != null || hasRegistration)) || (hasRegistration && body.contactName != null)) throw new Error('invalid_input');
   const name = typeof body.contactName === 'string' ? body.contactName.trim() : '';
-  if (!hasPatient && (name.length < 2 || name.length > 160 || /[\u0000-\u001f\u007f]/u.test(name))) throw new Error('invalid_contact_name');
-  const contact = hasPatient ? {patientId:uuid(body.patientId)} : {contactName:name};
+  if (!hasPatient && !hasRegistration && (name.length < 2 || name.length > 160 || /[\u0000-\u001f\u007f]/u.test(name))) throw new Error('invalid_contact_name');
+  const contact = hasPatient ? {patientId:uuid(body.patientId)} : hasRegistration ? {newPatient:readPatientRegistration(body.newPatient)} : {contactName:name};
   const data = { owner, ...contact, start, modality:body.modality,
    locationId: body.locationId ? uuid(body.locationId) : null,
    allowOutsideSchedule:body.allowOutsideSchedule === true, operationKey:uuid(body.operationKey) };

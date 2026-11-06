@@ -1,4 +1,5 @@
 import { supabase } from "@/src/lib/supabase";
+import { patientRegistrationMessages } from '../../../supabase/functions/_shared/patient-registration';
 
 export type AgendaSlot = {
   start: string;
@@ -77,6 +78,9 @@ export type AgendaRequest = {
   revision: number;
 };
 const messages: Record<string, string> = {
+  ...patientRegistrationMessages,
+  patients_limit_reached: 'Alcanzaste el límite de pacientes activos de tu plan. Revisa tus pacientes o tu plan antes de registrar otro.',
+  retention_patient_limit: 'Alcanzaste el límite de pacientes que admite tu modalidad actual.',
   confirmation_too_early: "La asistencia se puede confirmar desde 48 horas antes de la cita.",
   reservation_pending: "El nutriólogo debe aceptar la reserva antes de confirmar asistencia.",
   invalid_range: "Elige una fecha dentro del periodo disponible.",

@@ -32,27 +32,12 @@ import {
 import {
   calculateAge,
   formatPatientDate,
-  normalizePhone,
   patientInitials,
   patientStatusLabel,
 } from "@/src/features/patients/patientUtils";
-import type { Patient, PatientGender } from "@/src/types/domain";
+import type { Patient } from "@/src/types/domain";
 import "./PatientsPage.css";
-
-const countries = [
-  ["+52", "México (+52)"],
-  ["+1", "Estados Unidos / Canadá (+1)"],
-  ["+34", "España (+34)"],
-  ["+57", "Colombia (+57)"],
-  ["+54", "Argentina (+54)"],
-] as const;
-const timezones = [
-  "America/Mexico_City",
-  "America/Bogota",
-  "America/Santiago",
-  "Europe/Madrid",
-  "America/New_York",
-];
+import { createPatientRegistrationDraft, PatientRegistrationFields, patientRegistrationInput, patientRegistrationError } from '@/src/features/patients/PatientRegistrationFields';
 
 type StatusFilter = "all" | "active" | "archived";
 type PortalFilter = "all" | "enabled" | "disabled";
@@ -67,80 +52,23 @@ export function PatientModal({
   onSaved: (patient: Patient) => void;
   initialContact?: { name: string; email: string; timezone: string };
 }) {
-  const [draft, setDraft] = useState({
-    name: initialContact?.name || "",
-    email: initialContact?.email || "",
-    country: "+52",
-    phone: "",
-    timezone: initialContact?.timezone || "America/Mexico_City",
-    weight: "",
-    height: "",
-    gender: "",
-    equationSex: "",
-    birth: "",
-    portal: false,
-  });
+  const [draft, setDraft] = useState(() => createPatientRegistrationDraft(initialContact));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
-    const name = draft.name.trim();
-    const email = draft.email.trim();
-    const phone = draft.phone.trim();
-    setError("");
-    if (name.length < 2)
-      return setError("Escribe el nombre completo del paciente.");
-    if (draft.portal && !email)
-      return setError("Para activar el portal necesitas un correo.");
-    if (phone && phone.replace(/\D/g, "").length < 7)
-      return setError("Escribe un número de teléfono válido.");
-    if (draft.birth && draft.birth > new Date().toISOString().slice(0, 10))
-      return setError("La fecha de nacimiento no puede estar en el futuro.");
-    setBusy(true);
+    if(busy)return;
+    setError('');setBusy(true);
     try {
-      const possible = await listPatients({
-        search:
-          email || (phone ? normalizePhone(draft.country, phone) : undefined),
-        status: "all",
-        pageSize: 20,
-      });
-      const normalizedPhone = phone
-        ? normalizePhone(draft.country, phone)
-        : null;
-      const duplicate = possible.rows.find(
-        (item) =>
-          (email && item.email?.toLowerCase() === email.toLowerCase()) ||
-          (normalizedPhone && item.phone === normalizedPhone),
-      );
-      if (duplicate) {
-        setError(
-          `Ya existe un posible duplicado: “${duplicate.full_name}”. Revisa la lista antes de guardarlo.`,
-        );
-        return;
-      }
-      const created = await createPatient({
-        full_name: name,
-        email: email || null,
-        country_code: normalizedPhone ? draft.country : null,
-        timezone: draft.timezone,
-        phone: normalizedPhone,
-        weight_kg: draft.weight ? Number(draft.weight) : null,
-        height_cm: draft.height ? Number(draft.height) : null,
-        gender: (draft.gender || null) as PatientGender | null,
-        equation_sex: (draft.equationSex || null) as "male" | "female" | null,
-        birth_date: draft.birth || null,
-        portal_access_enabled: draft.portal,
-      });
+      const input=patientRegistrationInput(draft);
+      const possible=await listPatients({search:input.email||input.phone||undefined,status:'all',pageSize:20});
+      const duplicate=possible.rows.find(item=>(input.email&&item.email?.toLowerCase()===input.email.toLowerCase())||(input.phone&&item.phone===input.phone));
+      if(duplicate)throw new Error(`Ya existe un posible duplicado: “${duplicate.full_name}”. Revisa la lista antes de guardarlo.`);
+      const created=await createPatient(input);
       onSaved(created);
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "No se pudo guardar el paciente.",
-      );
-    } finally {
-      setBusy(false);
-    }
+    } catch(cause) {
+      setError(patientRegistrationError(cause));
+    } finally {setBusy(false);}
   };
   return (
     <div
@@ -170,143 +98,7 @@ export function PatientModal({
           </button>
         </div>
         <form className="mt-7 grid gap-5 sm:grid-cols-2" onSubmit={save}>
-          <div className="sm:col-span-2">
-            <Field label="Nombre completo" name="patient-name">
-              <Input
-                id="patient-name"
-                required
-                value={draft.name}
-                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                autoFocus
-              />
-            </Field>
-          </div>
-          <Field label="Correo electrónico (opcional)" name="patient-email">
-            <Input
-              id="patient-email"
-              type="email"
-              value={draft.email}
-              onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-              placeholder="paciente@correo.com"
-            />
-          </Field>
-          <Field label="Zona horaria" name="patient-timezone">
-            <select
-              id="patient-timezone"
-              className="nuth-input"
-              value={draft.timezone}
-              onChange={(e) => setDraft({ ...draft, timezone: e.target.value })}
-            >
-              {timezones.map((zone) => (
-                <option key={zone}>{zone}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Lada" name="patient-country">
-            <select
-              id="patient-country"
-              className="nuth-input"
-              value={draft.country}
-              onChange={(e) => setDraft({ ...draft, country: e.target.value })}
-            >
-              {countries.map(([code, label]) => (
-                <option key={code} value={code}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field
-            label="Teléfono (opcional)"
-            name="patient-phone"
-            hint="Se guarda en formato internacional E.164."
-          >
-            <Input
-              id="patient-phone"
-              type="tel"
-              inputMode="numeric"
-              value={draft.phone}
-              onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
-              placeholder="5512345678"
-            />
-          </Field>
-          <Field label="Peso inicial (kg)" name="patient-weight">
-            <Input
-              type="number"
-              min="0.1"
-              max="1000"
-              step="0.01"
-              value={draft.weight}
-              onChange={(e) => setDraft({ ...draft, weight: e.target.value })}
-            />
-          </Field>
-          <Field label="Estatura (cm)" name="patient-height">
-            <Input
-              type="number"
-              min="20"
-              max="300"
-              step="0.01"
-              value={draft.height}
-              onChange={(e) => setDraft({ ...draft, height: e.target.value })}
-            />
-          </Field>
-          <Field label="Género (opcional)" name="patient-gender">
-            <select
-              id="patient-gender"
-              className="nuth-input"
-              value={draft.gender}
-              onChange={(e) => setDraft({ ...draft, gender: e.target.value })}
-            >
-              <option value="">Prefiero no indicarlo</option>
-              <option value="female">Mujer</option>
-              <option value="male">Hombre</option>
-              <option value="non_binary">No binario</option>
-              <option value="other">Otro</option>
-            </select>
-          </Field>
-          <Field
-            label="Sexo requerido por ecuaciones (opcional)"
-            name="patient-equation-sex"
-          >
-            <select
-              id="patient-equation-sex"
-              className="nuth-input"
-              value={draft.equationSex}
-              onChange={(e) =>
-                setDraft({ ...draft, equationSex: e.target.value })
-              }
-            >
-              <option value="">Sin registrar</option>
-              <option value="male">Masculino</option>
-              <option value="female">Femenino</option>
-            </select>
-          </Field>
-          <Field label="Fecha de nacimiento" name="patient-birth">
-            <Input
-              id="patient-birth"
-              type="date"
-              max={new Date().toISOString().slice(0, 10)}
-              value={draft.birth}
-              onChange={(e) => setDraft({ ...draft, birth: e.target.value })}
-            />
-          </Field>
-          <label className="flex items-start gap-3 rounded-2xl bg-[#f3f7f3] p-4 text-sm sm:col-span-2">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={draft.portal}
-              onChange={(e) => setDraft({ ...draft, portal: e.target.checked })}
-            />
-            <span>
-              <span className="block font-semibold">
-                Permitir acceso al portal/app
-              </span>
-              <span className="mt-1 block text-xs leading-5 text-[#75827d]">
-                Podrás invitarle cuando el portal esté habilitado. Requiere
-                correo.
-              </span>
-            </span>
-          </label>
+          <PatientRegistrationFields draft={draft} setDraft={setDraft} disabled={busy}/>
           {error && (
             <p
               role="alert"

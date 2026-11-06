@@ -5,6 +5,7 @@ import type { Appointment, AppointmentOptions } from '@/src/services/appointment
 import { AppointmentCard } from './AppointmentCard';
 import { PatientCombobox, type PatientOption } from './PatientCombobox';
 import { AppointmentDatePicker } from './AppointmentDatePicker';
+import { createPatientRegistrationDraft, PatientRegistrationFields, patientRegistrationInput, patientRegistrationError } from '@/src/features/patients/PatientRegistrationFields';
 export function ScheduleAppointmentButton({patient,onSaved,className='nuth-button'}:{patient?:PatientOption;onSaved?:()=>void;className?:string}) {
  const [open,setOpen]=useState(false);
  return <><button type="button" className={className} onClick={()=>setOpen(true)}><CalendarPlus size={17} aria-hidden="true"/>Agendar cita</button>{open&&<ScheduleDialog patient={patient} close={()=>setOpen(false)} onSaved={onSaved}/>}</>;
@@ -13,7 +14,10 @@ function ScheduleDialog({patient,close,onSaved}:{patient?:PatientOption;close:()
  const dialog=useRef<HTMLDialogElement>(null),operation=useRef({fingerprint:'',key:''});
  const [options,setOptions]=useState<AppointmentOptions|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[created,setCreated]=useState<Appointment|null>(null);
  const [selected,setSelected]=useState<PatientOption|null>(patient??null),[localTime,setLocalTime]=useState(''),[choice,setChoice]=useState(''),[exception,setException]=useState(false);
- const [patientMode,setPatientMode]=useState<'registered'|'new'>('registered'),[newName,setNewName]=useState('');
+ const [patientMode,setPatientMode]=useState<'registered'|'new'>('registered');
+ const [newPatientDraft,setNewPatientDraft]=useState(createPatientRegistrationDraft);
+ const newName=newPatientDraft.name;
+ const setNewName=(name:string)=>setNewPatientDraft(draft=>({...draft,name}));
  const [selectedStart,setSelectedStart]=useState('');
  const isNew = !patient && patientMode === 'new';
  const validName = newName.trim().length >= 2 && newName.trim().length <= 160 && !/[\u0000-\u001f\u007f]/u.test(newName.trim());
@@ -25,20 +29,20 @@ function ScheduleDialog({patient,close,onSaved}:{patient?:PatientOption;close:()
  async function save(event:React.FormEvent){event.preventDefault();if(busy||!options||!ready)return;setBusy(true);setError('');try{
   const resolved=exception?await agendaApi<{instants:string[]}>('resolve_time_private',{localTime},true):{instants:selectedStart?[selectedStart]:[]};
   if(resolved.instants.length!==1)throw new Error('La hora no existe o es ambigua en esta zona horaria. Elige otra.');
-  const chosen=options.options[Number(choice)];const contact=isNew?{contactName:newName.trim()}:{patientId:selected!.id};const payload={...contact,start:resolved.instants[0],modality:chosen.modality,locationId:chosen.location_id,allowOutsideSchedule:exception};
+  const chosen=options.options[Number(choice)];const contact=isNew?{newPatient:patientRegistrationInput(newPatientDraft)}:{patientId:selected!.id};const payload={...contact,start:resolved.instants[0],modality:chosen.modality,locationId:chosen.location_id,allowOutsideSchedule:exception};
   const fingerprint=JSON.stringify(payload);if(operation.current.fingerprint!==fingerprint)operation.current={fingerprint,key:crypto.randomUUID()};
   const result=await agendaApi<Appointment>('appointment_create',{...payload,operationKey:operation.current.key},true);
   setCreated({...result,contact_name:isNew?newName.trim():selected!.full_name});onSaved?.();
- }catch(e){setError(e instanceof Error?e.message:'No pudimos agendar la cita.');}finally{setBusy(false);}}
+ }catch(e){setError(patientRegistrationError(e));}finally{setBusy(false);}}
  return <dialog ref={dialog} aria-label="Agendar cita" aria-modal="true" className={`m-auto max-h-[90dvh] ${created?'w-[min(560px,calc(100vw-24px))]':'w-[min(820px,calc(100vw-24px))]'} overflow-y-auto rounded-3xl border-0 bg-white p-5 text-[#173d36] backdrop:bg-[#102d27]/50 sm:p-7`} onCancel={e=>{e.preventDefault();if(!busy)close();}}>
   <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-semibold">{created?'Cita agendada':'Agendar cita'}</h2><button type="button" disabled={busy} className="nuth-button-secondary" onClick={close}>Cerrar</button></div>
-  {created?<div className="mt-5"><p role="status" className="mb-4 text-sm">El horario quedó reservado. {isNew?'Puedes crear o vincular su ficha después desde «Vincular paciente» en esta cita. ':''}Comparte la invitación para que el paciente la añada a su calendario. El recordatorio de asistencia aparecerá 48 horas antes.</p><AppointmentCard appointment={created} onChanged={updated=>{if(updated)setCreated({...created,...updated});onSaved?.();}}/></div>:<form onSubmit={save} className="mt-5 space-y-4">
+  {created?<div className="mt-5"><p role="status" className="mb-4 text-sm">El horario quedó reservado. {isNew?'Su ficha se guardó en Pacientes y quedó vinculada a esta cita. ':''}Comparte la invitación para que el paciente la añada a su calendario. El recordatorio de asistencia aparecerá 48 horas antes.</p><AppointmentCard appointment={created} onChanged={updated=>{if(updated)setCreated({...created,...updated});onSaved?.();}}/></div>:<form onSubmit={save} className="mt-5 space-y-4">
    {patient?<p className="rounded-xl bg-[#f2f6f2] p-3 font-semibold">{patient.full_name}</p>:<>
     <fieldset disabled={busy}><legend className="text-sm font-semibold">¿A quién vas a agendar?</legend><div className="mt-2 flex flex-wrap gap-3">
      <label className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm ${!isNew?'border-[#173d36] bg-[#edf4ef]':'border-[#dbe5df]'}`}><input type="radio" name="patient-mode" value="registered" checked={!isNew} onChange={()=>setPatientMode('registered')}/>Paciente registrado</label>
      <label className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm ${isNew?'border-[#173d36] bg-[#edf4ef]':'border-[#dbe5df]'}`}><input type="radio" name="patient-mode" value="new" checked={isNew} onChange={()=>setPatientMode('new')}/>Paciente nuevo</label>
     </div></fieldset>
-    {isNew?<label className="block text-sm font-semibold">Nombre del paciente nuevo<input aria-label="Nombre del paciente nuevo" aria-describedby="new-patient-help" className="nuth-input mt-2" value={newName} onChange={e=>setNewName(e.target.value)} minLength={2} maxLength={160} required disabled={busy} autoComplete="off"/><span id="new-patient-help" className="mt-2 block text-xs font-normal leading-relaxed text-[#63796d]">Puedes reservar su primera cita antes de crear su ficha. Después podrás registrarlo y vincularlo desde la agenda.</span></label>:<PatientCombobox value={selected} onChange={setSelected} disabled={busy} onSearchChange={setNewName} onNewPatient={name=>{setNewName(name);setPatientMode('new');}}/>}
+    {isNew?<section aria-label="Datos del paciente nuevo" className="rounded-2xl border border-[#dbe5df] p-4"><h3 className="font-semibold">Datos del paciente nuevo</h3><p className="mt-1 text-sm leading-relaxed text-[#63796d]">Al agendar, se guardará su ficha en Pacientes con estos mismos datos.</p><div className="mt-4 grid gap-5 sm:grid-cols-2"><PatientRegistrationFields draft={newPatientDraft} setDraft={setNewPatientDraft} disabled={busy}/></div></section>:<PatientCombobox value={selected} onChange={setSelected} disabled={busy} onSearchChange={setNewName} onNewPatient={name=>{setNewName(name);setPatientMode('new');}}/>}
    </>}
    {!options?<p role="status">Cargando disponibilidad…</p>:<><p className="text-sm text-[#63796d]">Duración: {options.duration} min · Zona: {options.timezone}. Anticipación mínima: {options.minimumNoticeMinutes} min.</p>
     <label className="block text-sm font-semibold">Modalidad y consultorio<select className="nuth-input mt-2" value={choice} onChange={e=>{setChoice(e.target.value);setSelectedStart('');setLocalTime('');}} required disabled={busy}><option value="">Selecciona una opción</option>{options.options.map((o,i)=><option key={i} value={i}>{o.label}</option>)}</select></label>
