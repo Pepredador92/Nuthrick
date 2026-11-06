@@ -1,5 +1,6 @@
 "use client";
 import { AppointmentConfirmationPage } from "@/src/screens/AppointmentConfirmationPage";
+import { APPOINTMENT_PATIENT_PATHS } from '../../../supabase/functions/_shared/appointment-links';
 import { LegalAdminPage } from "../features/legal/LegalAdminPage";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -184,7 +185,7 @@ function BrowserApplication() {
           <Route path="/p/:slug" element={<PublicProfilePage />} />
           <Route path="/p/:slug/agendar" element={<PublicBookingPage />} />
           <Route path="/p/:slug/agendar/datos" element={<PublicBookingPage />} />
-          <Route path="/agenda/confirmar" element={<AppointmentConfirmationPage />} />
+          {APPOINTMENT_PATIENT_PATHS.map(path=><Route key={path} path={path} element={<AppointmentConfirmationPage />}/>)}
           <Route path="/agenda/responder" element={<AgendaResponsePage />} />
           <Route path="/mi-espacio" element={<PatientPortalPage />} />
           <Route path="/privacy" element={<LegalPage type="privacy" />} />

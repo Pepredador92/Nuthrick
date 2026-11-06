@@ -6,7 +6,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, {status: 204})));
 });
 it('excludes patient links, private workspaces, authentication and registration forms', () => {
-  for (const path of ['/mi-espacio#secret','/agenda/confirmar#secret','/agenda/responder?token=secret','/app','/admin','/auth/callback','/login','/register','/p/nutri/agendar/datos','//evil.invalid']) trackSiteVisit(path);
+  for (const path of ['/mi-espacio#secret','/agenda/confirmar#secret','/agenda/tu-cita#secret','/agenda/responder?token=secret','/app','/admin','/auth/callback','/login','/register','/p/nutri/agendar/datos','//evil.invalid']) trackSiteVisit(path);
   expect(fetch).not.toHaveBeenCalled();
 });
 it('strips query strings, fragments and public profile identifiers', () => {

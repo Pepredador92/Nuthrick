@@ -38,3 +38,11 @@ it('hashes a patient token and whitelists the payload without accepting a forged
  await appointmentRequest(new Request('https://example.invalid'),{op:'appointment_confirm',token,owner:id,id},deps);expect(call).toHaveBeenCalledWith('patient_confirm',{tokenHash:await sha256(token)});expect(deps.owner).not.toHaveBeenCalled();
  await expect(appointmentRequest(new Request('https://example.invalid'),{op:'appointment_confirm',token:'guess'},deps)).rejects.toThrow('invalid_token');
 });
+it('shares the patient-specific preview URL and keeps the invitation secret in the fragment',async()=>{
+ const call=vi.fn(async(_action,data)=>({encryptedToken:data.encryptedToken,phone:null}));
+ const deps={call,busy:vi.fn(),owner:async()=>id,key:secretToken(),site:'https://nuthrick.com'};
+ const result=await appointmentRequest(new Request('https://example.invalid'),{op:'appointment_link',id},deps) as {url:string};
+ const url=new URL(result.url);
+ expect(url.pathname).toBe('/agenda/tu-cita');expect(url.search).toBe('');expect(url.hash).toMatch(/^#[A-Za-z0-9_-]{43}$/);
+ expect(call).toHaveBeenCalledWith('link',expect.objectContaining({owner:id,id,tokenHash:await sha256(url.hash.slice(1))}));
+});

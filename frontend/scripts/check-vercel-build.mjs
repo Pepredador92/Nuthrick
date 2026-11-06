@@ -34,6 +34,8 @@ if (process.env.VERCEL === "1" || process.env.NITRO_PRESET === "vercel") {
       "/admin/billing",
       "/app/my-plan",
       "/planes",
+      "/agenda/tu-cita",
+      "/agenda/confirmar",
     ]) {
       const response = await handler.fetch(
         new Request(`${TECHNICAL_SITE_ORIGIN}${path}`),
@@ -62,7 +64,7 @@ if (process.env.VERCEL === "1" || process.env.NITRO_PRESET === "vercel") {
       console.log(`[SSR smoke, isolated] ${path}: OK`);
     }
     const canonical = siteOrigin(process.env.NEXT_PUBLIC_SITE_URL || PUBLIC_SITE_ORIGIN);
-    for (const path of ['/', '/privacy', '/terms', '/refunds', '/p/domain-check']) {
+    for (const path of ['/', '/privacy', '/terms', '/refunds', '/p/domain-check', '/agenda/tu-cita', '/agenda/confirmar']) {
       const response = await handler.fetch(new Request(`${TECHNICAL_SITE_ORIGIN}${path}`), {});
       const html = await response.text();
       assert.equal(response.status, 200);
@@ -70,6 +72,14 @@ if (process.env.VERCEL === "1" || process.env.NITRO_PRESET === "vercel") {
       assert.ok(href, `Canonical missing: ${path}`);
       assert.equal(new URL(href).toString(), new URL(path, canonical).toString());
       if (path === '/') assert.ok(html.includes(`${canonical}/og.png`), 'Open Graph must use the public domain');
+      if (path.startsWith('/agenda/')) {
+        assert.equal(html.match(/<title>([^<]+)<\/title>/)?.[1], 'Tu cita está agendada | Nuthrick', 'Invitation title must address the patient');
+        const ogImage=html.match(/<meta\b[^>]*property="og:image"[^>]*>/)?.[0];
+        assert.ok(ogImage?.includes(`${canonical}/og/appointment-v1.png`), 'Patient preview image must be in server HTML');
+        const description=html.match(/<meta\b[^>]*property="og:description"[^>]*>/)?.[0];
+        assert.ok(description?.includes('Un paso para cuidar de ti.'), 'Patient description must be in server HTML');
+        assert.ok(!ogImage.includes('/og.png'), 'Invitation must not use the professional marketing card');
+      }
     }
     for (const path of ['/robots.txt', '/sitemap.xml']) {
       const response = await handler.fetch(new Request(`${TECHNICAL_SITE_ORIGIN}${path}`), {});

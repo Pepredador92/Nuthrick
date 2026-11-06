@@ -1,6 +1,7 @@
 import { decrypt, encrypt, parseInstant, secretToken, sha256 } from './security.ts';
 import { uuid } from './portal-content.ts';
 import { readPatientRegistration } from '../_shared/patient-registration.ts';
+import { APPOINTMENT_PATIENT_PATH } from '../_shared/appointment-links.ts';
 type Json = Record<string, unknown>;
 type Dependencies = {
  owner: (request: Request) => Promise<string>;
@@ -30,7 +31,7 @@ export async function appointmentRequest(req: Request, body: Json, deps: Depende
  if (op === 'appointment_link') {
   const token = secretToken();
   const result = await deps.call('link', { owner, id: uuid(body.id), tokenHash: await sha256(token), encryptedToken: await encrypt(deps.key, token) });
-  return { url: `${deps.site}/agenda/confirmar#${await decrypt(deps.key, String(result?.encryptedToken))}`, phone: result?.phone };
+  return { url: `${deps.site}${APPOINTMENT_PATIENT_PATH}#${await decrypt(deps.key, String(result?.encryptedToken))}`, phone: result?.phone };
  }
  if (op === 'appointment_create') {
   const start = parseInstant(body.start);

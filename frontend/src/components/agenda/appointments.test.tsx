@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
+import { APPOINTMENT_PATIENT_PATHS } from '../../../../supabase/functions/_shared/appointment-links';
 import { ScheduleAppointmentButton } from './ScheduleAppointmentButton';
 import { AppointmentActions, AppointmentStatus } from './AppointmentCard';
 import { AppointmentConfirmationPage } from '@/src/screens/AppointmentConfirmationPage';
@@ -103,8 +104,8 @@ it('opens the patient WhatsApp directly with the near-appointment request',async
  await waitFor(()=>expect(replace).toHaveBeenCalledWith(whatsappAppointmentUrl('+524920000000','https://nuthrick.com/agenda/confirmar#secret',true)));
  expect(popup.opener).toBeNull();expect(screen.queryByRole('link',{name:/WhatsApp/})).not.toBeInTheDocument();expect(whatsappAppointmentUrl('123','url')).toBeNull();
 });
-it('opening the invitation or adding a calendar does not confirm; the patient explicitly confirms',async()=>{
- window.history.replaceState(null,'','/agenda/confirmar#token');vi.mocked(agendaApi).mockImplementation(async(op)=>op==='appointment_confirm'?{...appointment,patient_attendance_at:'2099-09-30T16:00:00Z'}:{...appointment,patient_attendance_at:null});
+it.each(APPOINTMENT_PATIENT_PATHS)('opening the invitation at %s or adding a calendar does not confirm; the patient explicitly confirms',async path=>{
+ window.history.replaceState(null,'',path+'#token');vi.mocked(agendaApi).mockImplementation(async(op)=>op==='appointment_confirm'?{...appointment,patient_attendance_at:'2099-09-30T16:00:00Z'}:{...appointment,patient_attendance_at:null});
  render(<MemoryRouter><AppointmentConfirmationPage/></MemoryRouter>);await screen.findByText('Con Nutrióloga prueba');expect(agendaApi).not.toHaveBeenCalledWith('appointment_confirm',expect.anything());fireEvent.click(screen.getByRole('button',{name:'Confirmar mi asistencia'}));await screen.findByText('Tu asistencia está confirmada.');expect(screen.getByRole('link',{name:'Añadir a Google Calendar'})).toBeVisible();expect(window.location.hash).toBe('');
 });
 it('keeps dates in UTC and escapes calendar text without leaking the confirmation token',()=>{const a={...appointment,professional_name:'Nombre\ntexto;extra'};expect(appointmentIcs(a)).toContain('DTSTART:20991001T160000Z');expect(appointmentIcs(a)).toContain('Nombre\\ntexto\\;extra');expect(googleCalendarUrl(a)).not.toContain('token');});
