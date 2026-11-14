@@ -34,6 +34,7 @@ import {
 } from "@/src/components/ui/Status";
 import {PublishedPlanHistory} from "@/src/components/patients/PublishedPlanHistory";
 import { PatientEvolutionTable } from "@/src/components/patients/PatientEvolutionTable";
+import { ClinicalProgress } from "@/src/components/patients/ClinicalProgress";
 import { PatientEvolutionCharts } from "@/src/components/patients/EvolutionCharts";
 import { emptyProgressReferences, type ProgressReferenceOptions } from "@/src/features/evolution/progressReferences";
 import { EvolutionExportDialog } from "@/src/components/patients/EvolutionExportDialog";
@@ -78,8 +79,7 @@ import {
   getSnapshot,
   listAnswers,
 } from "@/src/services/consultations";
-import { getSignedMediaUrl } from "@/src/services/media";
-import { loadProfessionalDocumentProfile } from "@/src/services/profile";
+import { getProfessionalDocumentInfo } from "@/src/services/professionalDocuments";
 import type {
   Consultation,
   Patient,
@@ -367,6 +367,7 @@ function ConsultationHistoryOverview({
   onExport,
   onExportPdf,
   onDelete,
+  onProgress,
 }: {
   consultation: Consultation | null;
   onView: (consultation: Consultation) => void;
@@ -375,6 +376,7 @@ function ConsultationHistoryOverview({
   onExport: (consultation: Consultation) => void;
   onExportPdf: (consultation: Consultation) => void;
   onDelete: (consultation: Consultation) => void;
+  onProgress: (consultation: Consultation) => void;
 }) {
   if (!consultation) {
     return <EmptyState title="Aún no hay consultas registradas." description="Crea la primera consulta para comenzar el historial." />;
@@ -392,6 +394,7 @@ function ConsultationHistoryOverview({
         <div className="flex flex-wrap items-center gap-2">
           <ConsultationStatus status={consultation.status} />
           <button type="button" className="nuth-button !px-3 !py-2 !text-xs" onClick={() => onView(consultation)}><FileText size={14} />Ver consulta</button>
+          {consultation.status === "completed" && <button type="button" className="nuth-button-secondary !px-3 !py-2 !text-xs" onClick={() => onProgress(consultation)}>Ver acuerdos y progreso</button>}
           <button
             type="button"
             className="nuth-button-secondary !px-3 !py-2 !text-xs"
@@ -439,6 +442,7 @@ function HistoryModal({
   onExportConsultation,
   onExportConsultationPdf,
   onDeleteConsultation,
+  onProgress,
 }: {
   error: string;
   notice: string;
@@ -459,6 +463,7 @@ function HistoryModal({
   onExportConsultation: (consultation: Consultation) => void;
   onExportConsultationPdf: (consultation: Consultation) => void;
   onDeleteConsultation: (consultation: Consultation) => void;
+  onProgress: (consultation: Consultation) => void;
 }) {
   const selectedConsultation =
     consultations.find((item) => item.id === selectedConsultationId) ??
@@ -590,6 +595,7 @@ function HistoryModal({
                         </div>
                         <ConsultationStatus status={selectedConsultation.status} />
                       </div>
+                      {selectedConsultation.status === "completed" && <button type="button" className="nuth-button-secondary mt-3" onClick={() => onProgress(selectedConsultation)}>Ver acuerdos y progreso</button>}
                       <p className="mt-3 text-xs text-[#60726a]">Vista de solo lectura. Consultar esta información no cambia el estado de la consulta.</p>
                       {selectedConsultation.summary && <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-[#42564d]">{selectedConsultation.summary}</p>}
                     </section>
@@ -604,6 +610,7 @@ function HistoryModal({
                     onExport={onExportConsultation}
                     onExportPdf={onExportConsultationPdf}
                     onDelete={onDeleteConsultation}
+                    onProgress={onProgress}
                   />
                 )}
               </div>
@@ -817,6 +824,7 @@ export function PatientDetailPage() {
   const { user } = useAuth();
   const [pdfConsultation,setPdfConsultation] = useState<Consultation | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
+  const [progressFromHistory, setProgressFromHistory] = useState<{ patientId: string; consultationId: string } | null>(null);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [renamingConsultation, setRenamingConsultation] = useState<Consultation | null>(null);
   const [notes, setNotes] = useState<PatientNote[]>([]);
@@ -981,26 +989,7 @@ export function PatientDetailPage() {
   const professionalDocumentInfo =
     async (requireConfiguredLogo = false): Promise<ProfessionalDocumentInfo> => {
       if (!user) throw new Error("Tu sesión expiró. Vuelve a iniciar sesión.");
-      const workspace = await loadProfessionalDocumentProfile(user.id);
-      const contacts = workspace.contacts.map((contact) =>
-        contact.contact_type === "phone"
-          ? `${contact.label ? `${contact.label}: ` : ""}${contact.country_code ?? ""} ${contact.contact_value}`.trim()
-          : `${contact.label ? `${contact.label}: ` : ""}${contact.contact_value}`,
-      );
-      const logoUrl = await getSignedMediaUrl(workspace.business?.logo_path);
-      if (requireConfiguredLogo && workspace.business?.logo_path && !logoUrl) {
-        throw new Error("No pudimos cargar el logo del nutriólogo. Reintenta la exportación o revisa el logo en Perfil.");
-      }
-      return {
-        fullName: workspace.profile.full_name,
-        professionalTitle: workspace.profile.professional_title,
-        licenseNumber: workspace.profile.license_number,
-        businessName: workspace.business?.establishment_name,
-        businessAddress:
-          workspace.business?.address ?? workspace.locations[0]?.address,
-        contactLines: contacts,
-        logoUrl,
-      };
+      return getProfessionalDocumentInfo(user.id, requireConfiguredLogo);
     };
   const exportConsultation = async (consultation: Consultation) => {
     await run(async () => {
@@ -1503,6 +1492,11 @@ export function PatientDetailPage() {
               }}
             />
           </section>
+          <ClinicalProgress key={patient.id} patient={patient}
+            historySource={progressFromHistory?.patientId === patient.id ? progressFromHistory.consultationId : null}
+            onHistoryClose={() => setProgressFromHistory(null)}
+            consultationsRevision={consultations.map(({ id, updated_at }) => `${id}:${updated_at}`).join(",")}
+          />
           <section id="patient-photos" className="patient-detail-card patient-detail-card-photos rounded-2xl border border-[#dfe5e1] p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1580,6 +1574,7 @@ export function PatientDetailPage() {
           onDeleteConsultation={(consultation) =>
             setConfirm({ action: "consultation-delete", consultation })
           }
+          onProgress={(consultation) => setProgressFromHistory({ patientId: patient.id, consultationId: consultation.id })}
         />
       )}
       {renamingConsultation && (

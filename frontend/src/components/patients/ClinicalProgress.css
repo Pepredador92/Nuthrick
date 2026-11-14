@@ -1,0 +1,100 @@
+.progress-summary {
+  color: var(--nuth-ink, #173d36);
+  background: var(--nuth-surface, #fff);
+  border-color: var(--nuth-line, #dfe5e1);
+}
+.progress-summary > p { margin-top: .8rem; }
+.progress-summary > p, .progress-summary small, .progress-summary-more,
+.progress-dialog-header p, .progress-body small, .progress-revisions p {
+  color: var(--nuth-muted, #60766a);
+  font-size: .875rem;
+}
+.progress-row, .progress-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: .75rem;
+}
+.progress-summary-list { display: grid; gap: .55rem; margin-top: .85rem; }
+.progress-summary-list li > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  text-align: left;
+  width: 100%;
+  border: 1px solid var(--nuth-line, #dfe5e1);
+  border-radius: 13px;
+  background: var(--nuth-surface-soft, #f3f7f3);
+  padding: .65rem .85rem;
+  overflow-wrap: anywhere;
+}
+.progress-summary-list li > button svg { flex-shrink: 0; }
+.progress-summary-list li small { display: block; margin-top: .2rem; }
+.progress-dialog {
+  width: min(52rem, calc(100% - 2rem));
+  max-height: calc(100dvh - 2rem);
+  padding: 0;
+  margin: auto;
+  border: 1px solid var(--nuth-line, #dfe5e1);
+  border-radius: 23px;
+  background: var(--nuth-surface, #fff);
+  color: var(--nuth-ink, #173d36);
+  box-shadow: 0 24px 80px #102d2740;
+}
+.progress-dialog::backdrop { background: #122e29a6; }
+.progress-shell { display: flex; flex-direction: column; max-height: calc(100dvh - 2rem - 2px); }
+.progress-dialog-header, .progress-source, .progress-footer { padding: .85rem clamp(.9rem, 3vw, 1.55rem); flex-shrink: 0; }
+.progress-dialog-header { flex-wrap: nowrap; padding-top: 1.15rem; }
+.progress-dialog-header h2 { font-size: clamp(1.2rem, 4.5vw, 1.55rem); font-weight: 700; }
+.progress-dialog-header p { overflow-wrap: anywhere; }
+.progress-close { display: grid; place-items: center; border-radius: 10px; min-width: 2.5rem; min-height: 2.5rem; border: 1px solid var(--nuth-line, #dfe5e1); }
+.progress-source { display: grid; gap: .35rem; border-bottom: 1px solid var(--nuth-line, #dfe5e1); }
+.progress-source label, .progress-revisions label, .progress-assessment label { font-size: .85rem; font-weight: 650; }
+.progress-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  gap: 1.2rem;
+  padding: 1rem clamp(.9rem, 3vw, 1.55rem) 1.3rem;
+  overflow-wrap: anywhere;
+}
+.progress-section { display: grid; grid-template-columns: minmax(0, 1fr); gap: .65rem; }
+.progress-section h3 { font-size: 1.05rem; font-weight: 700; }
+.progress-card, .progress-assessment { display: grid; justify-items: start; gap: .55rem; }
+.progress-card {
+  padding: .9rem;
+  border: 1px solid var(--nuth-line, #dfe5e1);
+  border-radius: 14px;
+  background: var(--nuth-surface-soft, #f3f7f3);
+}
+.progress-card > .progress-row, .progress-assessment, .progress-dialog .nuth-input { width: 100%; min-width: 0; }
+.progress-card h4 { font-weight: 650; min-width: 0; }
+.progress-pill {
+  border: 1px solid var(--nuth-line, #dfe5e1);
+  border-radius: 999px;
+  padding: .18rem .55rem;
+  color: var(--nuth-ink, #173d36);
+  background: var(--nuth-surface, white);
+  font-size: .75rem;
+  font-weight: 650;
+}
+.progress-text { white-space: pre-wrap; }
+.progress-assessment { padding-top: .65rem; border-top: 1px solid var(--nuth-line, #dfe5e1); }
+.progress-links { display: grid; gap: .35rem; }
+.progress-links legend { font-size: .85rem; font-weight: 650; margin-bottom: .35rem; }
+.progress-links label { display: flex; align-items: flex-start; gap: .45rem; font-size: .875rem; }
+.progress-links input { margin-top: .25rem; }
+.progress-remove { font-size: .875rem; text-decoration: underline; padding: .35rem 0; }
+.progress-validation { font-size: .85rem; margin-bottom: .6rem; color: var(--nuth-muted, #60766a); }
+.progress-footer { border-top: 1px solid var(--nuth-line, #dfe5e1); }
+.progress-actions { justify-content: flex-end; }
+.progress-discard { padding: .75rem 1rem; background: var(--nuth-surface-soft, #f3f7f3); }
+.progress-discard p { margin-bottom: .55rem; }
+@media (max-width: 480px) {
+  .progress-dialog { width: calc(100% - 1rem); max-height: calc(100dvh - 1rem); border-radius: 15px; }
+  .progress-shell { max-height: calc(100dvh - 1rem - 2px); }
+  .progress-footer .nuth-button, .progress-footer .nuth-button-secondary { flex: 1 auto; }
+}

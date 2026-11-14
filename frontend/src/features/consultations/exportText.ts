@@ -92,7 +92,7 @@ export function downloadConsultationText(filename: string, text: string): void {
   downloadBlob(filename, blob);
 }
 
-function downloadBlob(filename: string, blob: Blob): void {
+export function downloadBlob(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -117,7 +117,7 @@ function patientBasics(patient: Patient): string[] {
   ];
 }
 
-async function imageData(url: string): Promise<string | null> {
+export async function imageData(url: string): Promise<string | null> {
   try {
     if (url.startsWith("data:image/")) return url;
     const response = await fetch(url);

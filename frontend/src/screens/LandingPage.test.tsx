@@ -14,7 +14,7 @@ describe('LandingPage', () => {
     expect(html).toContain('Software para nutriólogos');
     expect(html).toContain('¿Por qué no empecé');
     expect(html).toContain('Planes terminados, consultas eficientes y seguimientos organizados.');
-    expect(html).toContain('o apenas empezó');
+    expect(html).toContain('Comenzar gratis');
     expect(html).toContain('Creado por un nutriólogo.');
     expect(html.match(/<h1\b/g)).toHaveLength(1);
   });

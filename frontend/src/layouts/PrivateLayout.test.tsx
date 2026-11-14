@@ -14,7 +14,7 @@ const access = vi.hoisted(() => ({
 }));
 const billing = vi.hoisted(() => ({ value: { subscription: { state: 'active' }, access: { arrangement: 'monthly' } } as unknown }));
 vi.mock('@/src/features/auth/AuthProvider', () => ({
-  useAuth: () => ({ profile: { full_name: 'Nutriólogo de prueba' }, user: { id: 'owner', email: 'test@example.com' }, signOut }),
+  useAuth: () => ({ profile: { full_name: 'Nutriólogo de prueba' }, user: { id: 'owner', email: 'test@example.com', user_metadata: {} }, signOut }),
 }));
 vi.mock('@/src/features/admin/AccessProvider', async (original) => ({
   ...(await original<object>()),

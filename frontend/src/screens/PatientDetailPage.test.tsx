@@ -14,6 +14,7 @@ vi.mock('@/src/components/patients/EvolutionCharts',()=>({PatientEvolutionCharts
 vi.mock('@/src/components/patients/PatientEvolutionTable',()=>({PatientEvolutionTable:()=>null}));
 vi.mock('@/src/components/patients/EvolutionExportDialog',()=>({EvolutionExportDialog:vi.fn(()=>null)}));
 vi.mock('@/src/services/profile',()=>({loadProfessionalDocumentProfile:vi.fn()}));
+vi.mock('@/src/services/clinicalProgress',()=>({listProgressSources:vi.fn(async()=>[])}));
 vi.mock('@/src/services/media',()=>({getSignedMediaUrl:vi.fn(),getSignedPatientPhotoUrl:vi.fn(),uploadPatientProgressPhoto:vi.fn()}));
 vi.mock('@/src/components/consultations/SnapshotHistory',()=>({SnapshotHistory:()=> <p>Cuestionario conservado de solo lectura</p>}));
 vi.mock('@/src/services/consultations',()=>({deleteConsultationRecord:vi.fn(),renameConsultation:vi.fn(),getSnapshot:vi.fn(),listAnswers:vi.fn()}));
@@ -151,6 +152,15 @@ describe('progress report professional identity',()=>{
 });
 
 describe('consultation status and history navigation',()=>{
+ it('opens progress for the consultation selected in the history',async()=>{
+  render(<MemoryRouter initialEntries={['/app/patients/patient?view=history']}><Routes><Route path="/app/patients/:patientId" element={<PatientDetailPage/>}/></Routes></MemoryRouter>);
+  const history=within(await screen.findByRole('dialog',{name:'Historial del paciente'}));
+  fireEvent.click(history.getByRole('button',{name:'Ver acuerdos y progreso'}));
+  const progress=within(screen.getByRole('dialog',{name:'Progreso del paciente'}));
+  expect(await progress.findByText('Esta consulta no tiene acuerdos ni revisiones de progreso.')).toBeVisible();
+  fireEvent.click(progress.getByRole('button',{name:'Cerrar progreso'}));
+  expect(screen.getByRole('dialog',{name:'Historial del paciente'})).toBeVisible();
+ });
  it('opens history from the Superlink URL and keeps other parameters when closed',async()=>{
   render(<MemoryRouter initialEntries={['/app/patients/patient?view=history&from=portal']}><CurrentLocation/><Routes><Route path="/app/patients/:patientId" element={<PatientDetailPage/>}/></Routes></MemoryRouter>);
   const history=within(await screen.findByRole('dialog',{name:'Historial del paciente'}));

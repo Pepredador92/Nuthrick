@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
+import { ClinicalProgress } from "@/src/components/patients/ClinicalProgress";
 import { Field, Input } from "@/src/components/ui/FormField";
 import { QuestionField } from "@/src/components/consultations/QuestionField";
 import { PesContextNavigation, type PesContextNavigationHandle } from '@/src/components/consultations/PesContextNavigation';
@@ -1126,6 +1127,7 @@ function ConsultationEditor() {
             </div>
           </div>
           <div className="flex flex-wrap items-start gap-2">
+            {consultation.consultation_type === "follow_up" && <ClinicalProgress patient={patient} consultation={consultation} />}
             <Link
               className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-3 py-2.5 text-xs font-semibold"
               to={
