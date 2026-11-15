@@ -1,7 +1,90 @@
+.progress-section[data-agreement-kind="goals"], .progress-summary {
+  --progress-tint: #f0f6da;
+  --progress-card-end: #f7faec;
+  --progress-line: #bdce96;
+  --progress-mark: #436324;
+}
+[data-agreement-kind="goals"] > .progress-card:nth-of-type(3n + 2),
+.progress-summary-list li:nth-child(3n + 2) > button {
+  --progress-tint: #e1f2eb;
+  --progress-card-end: #f2faf6;
+  --progress-line: #a7cfc0;
+  --progress-mark: #216353;
+}
+[data-agreement-kind="goals"] > .progress-card:nth-of-type(3n),
+.progress-summary-list li:nth-child(3n) > button {
+  --progress-tint: #e6efdd;
+  --progress-card-end: #f1f7ed;
+  --progress-line: #aec8a6;
+  --progress-mark: #3d5c36;
+}
+.progress-section[data-agreement-kind="strategies"] {
+  --progress-tint: #eaeaf9;
+  --progress-card-end: #f6f5fc;
+  --progress-line: #c4c4e5;
+  --progress-mark: #53427d;
+}
+[data-agreement-kind="strategies"] > .progress-card:nth-of-type(even) {
+  --progress-tint: #e1effa;
+  --progress-card-end: #f2f7fc;
+  --progress-line: #b5cde3;
+  --progress-mark: #305e80;
+}
+.progress-section[data-agreement-kind="instructions"] {
+  --progress-tint: #fbefd7;
+  --progress-card-end: #fdf8ed;
+  --progress-line: #dec69c;
+  --progress-mark: #74541f;
+}
+html[data-nuthrick-theme="night"] :is(.progress-section[data-agreement-kind="goals"], .progress-summary) {
+  --progress-tint: #30482c;
+  --progress-card-end: #213831;
+  --progress-line: #5a7148;
+  --progress-mark: var(--nuth-lime, #dcec79);
+}
+html[data-nuthrick-theme="night"] :is(
+  [data-agreement-kind="goals"] > .progress-card:nth-of-type(3n + 2),
+  .progress-summary-list li:nth-child(3n + 2) > button
+) {
+  --progress-tint: #1b4743;
+  --progress-card-end: #183139;
+  --progress-line: #41746a;
+  --progress-mark: var(--nuth-accent, #75dcc7);
+}
+html[data-nuthrick-theme="night"] :is(
+  [data-agreement-kind="goals"] > .progress-card:nth-of-type(3n),
+  .progress-summary-list li:nth-child(3n) > button
+) {
+  --progress-tint: #254534;
+  --progress-card-end: #183630;
+  --progress-line: #4b7358;
+  --progress-mark: #b8e4b2;
+}
+html[data-nuthrick-theme="night"] .progress-section[data-agreement-kind="strategies"] {
+  --progress-tint: #383856;
+  --progress-card-end: #252f48;
+  --progress-line: #65618a;
+  --progress-mark: #c1c5ee;
+}
+html[data-nuthrick-theme="night"] [data-agreement-kind="strategies"] > .progress-card:nth-of-type(even) {
+  --progress-tint: #214b64;
+  --progress-card-end: #203447;
+  --progress-line: #537a94;
+  --progress-mark: #abd6f7;
+}
+html[data-nuthrick-theme="night"] .progress-section[data-agreement-kind="instructions"] {
+  --progress-tint: #483f2d;
+  --progress-card-end: #2c332e;
+  --progress-line: #786344;
+  --progress-mark: #efc686;
+}
 .progress-summary {
   color: var(--nuth-ink, #173d36);
   background: var(--nuth-surface, #fff);
   border-color: var(--nuth-line, #dfe5e1);
+}
+.patient-detail-workspace .patient-detail-card.progress-summary {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--progress-tint) 32%, var(--nuth-surface)), var(--nuth-surface));
 }
 .progress-summary > p { margin-top: .8rem; }
 .progress-summary > p, .progress-summary small, .progress-summary-more,
@@ -24,13 +107,15 @@
   gap: .75rem;
   text-align: left;
   width: 100%;
-  border: 1px solid var(--nuth-line, #dfe5e1);
+  border: 1px solid var(--progress-line);
   border-radius: 13px;
-  background: var(--nuth-surface-soft, #f3f7f3);
+  background: linear-gradient(115deg, var(--progress-tint), var(--progress-card-end));
   padding: .65rem .85rem;
   overflow-wrap: anywhere;
 }
-.progress-summary-list li > button svg { flex-shrink: 0; }
+.progress-summary-list li > button svg { flex-shrink: 0; color: var(--progress-mark); }
+.progress-summary-list li > button:hover { border-color: var(--progress-mark); }
+.progress-summary-list li > button:focus-visible { outline: 2px solid var(--progress-mark); outline-offset: 2px; }
 .progress-summary-list li small { display: block; margin-top: .2rem; }
 .progress-dialog {
   width: min(52rem, calc(100% - 2rem));
@@ -61,19 +146,33 @@
   padding: 1rem clamp(.9rem, 3vw, 1.55rem) 1.3rem;
   overflow-wrap: anywhere;
 }
-.progress-section { display: grid; grid-template-columns: minmax(0, 1fr); gap: .65rem; }
+.progress-section { display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; }
 .progress-section h3 { font-size: 1.05rem; font-weight: 700; }
+.progress-section-heading { display: flex; align-items: center; gap: .65rem; }
+.progress-section-heading svg {
+  box-sizing: content-box;
+  flex-shrink: 0;
+  padding: .45rem;
+  border: 1px solid var(--progress-line);
+  border-radius: 10px;
+  color: var(--progress-mark);
+  background: var(--progress-tint);
+}
+.progress-section[data-agreement-kind="goals"] .progress-section-heading svg {
+  box-shadow: 0 0 16px color-mix(in srgb, var(--progress-mark) 22%, transparent);
+}
 .progress-card, .progress-assessment { display: grid; justify-items: start; gap: .55rem; }
 .progress-card {
-  padding: .9rem;
-  border: 1px solid var(--nuth-line, #dfe5e1);
-  border-radius: 14px;
-  background: var(--nuth-surface-soft, #f3f7f3);
+  min-width: 0;
+  padding: clamp(.9rem, 2.5vw, 1.15rem);
+  border: 1px solid var(--progress-line);
+  border-radius: 17px;
+  background: linear-gradient(125deg, var(--progress-tint), var(--progress-card-end));
 }
 .progress-card > .progress-row, .progress-assessment, .progress-dialog .nuth-input { width: 100%; min-width: 0; }
 .progress-card h4 { font-weight: 650; min-width: 0; }
 .progress-pill {
-  border: 1px solid var(--nuth-line, #dfe5e1);
+  border: 1px solid var(--progress-line);
   border-radius: 999px;
   padding: .18rem .55rem;
   color: var(--nuth-ink, #173d36);
@@ -82,7 +181,7 @@
   font-weight: 650;
 }
 .progress-text { white-space: pre-wrap; }
-.progress-assessment { padding-top: .65rem; border-top: 1px solid var(--nuth-line, #dfe5e1); }
+.progress-assessment { padding-top: .65rem; border-top: 1px solid var(--progress-line); }
 .progress-links { display: grid; gap: .35rem; }
 .progress-links legend { font-size: .85rem; font-weight: 650; margin-bottom: .35rem; }
 .progress-links label { display: flex; align-items: flex-start; gap: .45rem; font-size: .875rem; }

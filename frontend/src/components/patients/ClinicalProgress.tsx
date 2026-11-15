@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { ArrowRight, ClipboardCheck, FileDown, X } from "lucide-react";
+import { ArrowRight, ClipboardCheck, ClipboardList, FileDown, Route, Target, X } from "lucide-react";
 import { PdfExportDialog } from "@/src/components/documents/PdfExportDialog";
 import { Input, Textarea } from "@/src/components/ui/FormField";
 import { ErrorState, LoadingState, SuccessNote } from "@/src/components/ui/Status";
@@ -79,9 +79,11 @@ export function ClinicalProgress({ patient, consultation, historySource, onHisto
       {dialog}
     </>;
   }
-  return <section className="patient-detail-card progress-summary rounded-2xl border p-5 sm:p-6" aria-labelledby="patient-progress-title">
+  return <section className="patient-detail-card progress-summary rounded-2xl border p-5 sm:p-6" data-agreement-kind="goals" aria-labelledby="patient-progress-title">
     <header className="progress-row">
-      <h2 id="patient-progress-title" className="text-xl font-semibold">Progreso del paciente</h2>
+      <h2 id="patient-progress-title" className="progress-section-heading text-xl font-semibold">
+        <Target size={18} aria-hidden="true" /> Progreso del paciente
+      </h2>
       <button type="button" className="nuth-button-secondary" onClick={() => { data.retry(); setRequestedSource(""); }}>Ver progreso</button>
     </header>
     {data.error ? <ErrorState message={data.error} onRetry={data.retry} /> : !data.sources
@@ -370,8 +372,8 @@ function ProgressEntry({ patient, consultation, source, onStartEdit, onDirty, on
       {error && !editing && <ErrorState message={error} />}
       {notice && <SuccessNote>{notice}</SuccessNote>}
       {reviewedLater && <p>Estos acuerdos se revisaron en una cita posterior. Puedes consultar el registro de esta cita en el historial de revisiones.</p>}
-      <section className="progress-section" aria-label="Objetivos acordados">
-        <h3>Objetivos acordados</h3>
+      <section className="progress-section" data-agreement-kind="goals" aria-labelledby={`${id}-goals`}>
+        <h3 id={`${id}-goals`} className="progress-section-heading"><Target size={17} aria-hidden="true" /> Objetivos acordados</h3>
         {!display.goals.length && <p>No hay objetivos en esta versión.</p>}
         {display.goals.map((goal, index) => {
           const field = `${id}-goal-${index}`;
@@ -410,8 +412,8 @@ function ProgressEntry({ patient, consultation, source, onStartEdit, onDirty, on
         })}
         {editing && <button type="button" className="nuth-button-secondary justify-self-start" disabled={busy} onClick={addGoal}>Agregar objetivo</button>}
       </section>
-      <section className="progress-section" aria-label="Estrategias acordadas">
-        <h3>Estrategias acordadas</h3>
+      <section className="progress-section" data-agreement-kind="strategies" aria-labelledby={`${id}-strategies`}>
+        <h3 id={`${id}-strategies`} className="progress-section-heading"><Route size={17} aria-hidden="true" /> Estrategias acordadas</h3>
         {!display.strategies.length && <p>No hay estrategias en esta versión.</p>}
         {display.strategies.map((strategy, index) => {
           const field = `${id}-strategy-${index}`;
@@ -454,11 +456,13 @@ function ProgressEntry({ patient, consultation, source, onStartEdit, onDirty, on
         })}
         {editing && <button type="button" className="nuth-button-secondary justify-self-start" disabled={busy} onClick={addStrategy}>Agregar estrategia</button>}
       </section>
-      <section className="progress-section" aria-labelledby={`${id}-instructions`}>
-        <h3 id={`${id}-instructions`}>Indicaciones de la consulta</h3>
-        {editing ? <Textarea aria-labelledby={`${id}-instructions`} rows={5} value={display.instructions} disabled={busy}
-          onChange={(event) => change({ ...display, instructions: event.target.value })} />
-          : <p className="progress-text">{display.instructions.trim() || "No hay indicaciones en esta versión."}</p>}
+      <section className="progress-section" data-agreement-kind="instructions" aria-labelledby={`${id}-instructions`}>
+        <h3 id={`${id}-instructions`} className="progress-section-heading"><ClipboardList size={17} aria-hidden="true" /> Indicaciones de la consulta</h3>
+        <div className="progress-card">
+          {editing ? <Textarea aria-labelledby={`${id}-instructions`} rows={5} value={display.instructions} disabled={busy}
+            onChange={(event) => change({ ...display, instructions: event.target.value })} />
+            : <p className="progress-text">{display.instructions.trim() || "No hay indicaciones en esta versión."}</p>}
+        </div>
       </section>
     </div>
     <footer className="progress-footer">
