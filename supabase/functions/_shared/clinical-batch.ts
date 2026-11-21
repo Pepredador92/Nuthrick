@@ -8,11 +8,14 @@ export type ClinicalBatchFeature =
   typeof clinicalBatchStages[number]["feature"];
 export const clinicalBatchKey = (feature: ClinicalBatchFeature) =>
   `proposal:batch:${feature}`;
+export const clinicalBatchRevisionKey = (feature: ClinicalBatchFeature) =>
+  `proposal:batch-revision:${feature}`;
 export type ClinicalBatchProposal = {
   batchId: string;
   generationId: string;
   output: Record<string, unknown>;
   inputGenerations?: string[];
+  revises?: string;
 };
 export const approvedPesSource = "PES actual aprobado";
 export const provisionalPesSource = "PES provisional";

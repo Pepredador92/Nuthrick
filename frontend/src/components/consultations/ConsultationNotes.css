@@ -56,10 +56,11 @@ html[data-nuthrick-theme='night'] .consultation-notes-trigger:hover { background
   width: 100%;
   margin-block: 8px 12px;
   padding: 10px 12px;
-  border: 1px solid var(--nuth-line);
+  border: 1px solid #a0b6b2;
   border-radius: 12px;
-  background: var(--nuth-surface-soft);
-  color: var(--nuth-ink);
+  color-scheme: light;
+  background-color: #fff !important;
+  color: #173531 !important;
   resize: vertical;
 }
 .consultation-notes-body section { margin-top: 24px; }
@@ -72,3 +73,9 @@ html[data-nuthrick-theme='night'] .consultation-notes-trigger:hover { background
 }
 .consultation-notes-body li p { white-space: pre-wrap; }
 .consultation-notes-body time { color: var(--nuth-muted); }
+.consultation-note-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.consultation-notes-body li .consultation-note-actions { margin-top: 8px; }
+.consultation-notes-body li .consultation-note-actions button { padding: 5px 10px; font-size: .8rem; }
+.consultation-notes-body fieldset { margin-top: 10px; }
+.consultation-notes-modal .consultation-note-remove { color: #a33446; }
+html[data-nuthrick-theme='night'] .consultation-notes-modal .consultation-note-remove { color: #ffadb4; }

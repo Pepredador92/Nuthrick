@@ -34,3 +34,31 @@ html[data-nuthrick-theme='night'] .clinical-ai-batch .clinical-ai-batch-button:e
   margin-block-start: .3rem;
   font-size: .78rem;
 }
+
+.clinical-batch-change-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-top: .75rem;
+}
+.clinical-objective-dialog .clinical-batch-feedback {
+  display: block;
+  width: 100%;
+  margin-top: .4rem;
+  color-scheme: light;
+  background-color: #fff !important;
+  color: #173531 !important;
+  border-color: #a0b6b2;
+}
+.clinical-batch-comparison {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: .75rem;
+}
+.clinical-batch-comparison section {
+  padding: .85rem;
+  border: 1px solid var(--nuth-line);
+  border-radius: .75rem;
+}
+.clinical-batch-comparison h3 { font-weight: 650; }
+.clinical-batch-comparison p { white-space: pre-wrap; overflow-wrap: anywhere; }

@@ -1,17 +1,22 @@
 import { createRef } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { beforeEach, expect, it, vi } from 'vitest';
 import { ClinicalBatchAI, useClinicalBatchProposal } from './ClinicalBatchAI';
 import { ConsultationDrafts, type ConsultationDraftController } from './ConsultationDrafts';
-import { clinicalBatchKey, clinicalBatchStages, type ClinicalBatchFeature } from '../../../../supabase/functions/_shared/clinical-batch';
+import { clinicalBatchKey, clinicalBatchRevisionKey, clinicalBatchStages, type ClinicalBatchFeature } from '../../../../supabase/functions/_shared/clinical-batch';
 
-const api = vi.hoisted(() => ({ sync: vi.fn(), run: vi.fn(), status: vi.fn() }));
+const api = vi.hoisted(() => ({ sync: vi.fn(), run: vi.fn(), status: vi.fn(), review: vi.fn() }));
 vi.mock('@/src/lib/supabase', () => ({ supabase: { rpc: api.sync } }));
 vi.mock('@/src/services/ai', () => ({
   runAIRequest: api.run,
   getAIGenerationStatus: api.status,
+  reviewClinicalAIBatch: api.review,
   AIRequestError: Error,
 }));
+beforeEach(() => {
+  vi.clearAllMocks();
+  sessionStorage.clear();
+});
 
 function SavedPES() {
   const { proposal } = useClinicalBatchProposal('pes_diagnosis');
@@ -70,4 +75,67 @@ it('waits for the clinical review, saves each draft and recovers an interrupted 
   expect(api.status).toHaveBeenCalledExactlyOnceWith(api.run.mock.calls[1][0].idempotencyKey);
   fireEvent.click(screen.getByRole('button', { name: 'Revisar Indicaciones' }));
   expect(review).toHaveBeenCalledExactlyOnceWith(4);
+});
+
+it('compares an alternate PES, flags dependent drafts and confirms cleaning the batch', async () => {
+  const batchId = 'batch', first = 'pes-first', alternate = 'pes-alternate';
+  const key = clinicalBatchKey('pes_diagnosis'), revisionKey = clinicalBatchRevisionKey('pes_diagnosis');
+  const original = { problem: 'Primer diagnóstico', etiology: 'Causa inicial', signsSymptoms: ['Dato inicial'] };
+  const saved = { version: 3, answers: {
+    'clinical-batch': { id: batchId, attempts: {}, completed: { pes_diagnosis: first, consultation_support: 'goals' } },
+    [key]: { batchId, generationId: first, output: original, inputGenerations: [] },
+    [clinicalBatchKey('consultation_support')]: { batchId, generationId: 'goals', output: { objectives: [] }, inputGenerations: [first] },
+  } as Record<string, unknown> };
+  api.sync.mockImplementation((_name, input) => {
+    if (input.p_changes) {
+      Object.assign(saved.answers, input.p_changes);
+      saved.version++;
+    }
+    const result = Promise.resolve({ data: structuredClone(saved) });
+    return Object.assign(result, { abortSignal: () => result });
+  });
+  api.run.mockImplementation(async () => {
+    saved.answers[revisionKey] = { batchId, generationId: alternate, revises: first, inputGenerations: [],
+      output: { ...original, problem: 'Diagnóstico ajustado' } };
+    saved.version++;
+    return { status: 'succeeded', generationId: alternate };
+  });
+  api.review.mockImplementation(async (_id, _revision, _batch, action) => {
+    if (action.type === 'accept') {
+      saved.answers[key] = saved.answers[revisionKey];
+      delete saved.answers[revisionKey];
+      saved.answers['clinical-batch'] = { id: batchId, attempts: {}, completed: { pes_diagnosis: alternate, consultation_support: 'goals' } };
+    } else if (action.type === 'clear') {
+      saved.answers = { 'clinical-batch': null };
+    }
+    saved.version++;
+  });
+  const controller = createRef<ConsultationDraftController | null>();
+  const before = async () => true;
+  render(<ConsultationDrafts consultationId="batch-changes-test" revision={1} controllerRef={controller} onSave={before}>
+    <ClinicalBatchAI patientId="patient" consultationId="batch-changes-test" revision={1} before={before} ready onReview={vi.fn()} />
+    <SavedPES />
+  </ConsultationDrafts>);
+  fireEvent.click(await screen.findByRole('button', { name: 'Regenerar Diagnóstico PES' }));
+  const dialog = within(await screen.findByRole('dialog', { name: /Volver a generar/ }));
+  fireEvent.change(dialog.getByLabelText('¿Qué quieres cambiar?'), { target: { value: 'Prioriza lo observado hoy.' } });
+  fireEvent.click(dialog.getByRole('button', { name: 'Generar nueva propuesta' }));
+  await dialog.findByText('Nueva propuesta');
+  expect(dialog.getByText(/Primer diagnóstico relacionado/)).toBeInTheDocument();
+  expect(screen.getByText('Primer diagnóstico')).toBeInTheDocument();
+  expect(api.run).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+    feature: 'pes_diagnosis', revisionOf: first, clinicalFeedback: 'Prioriza lo observado hoy.',
+  }));
+  fireEvent.click(dialog.getByRole('button', { name: 'Usar nueva propuesta' }));
+  await screen.findByText('Por revisar', { exact: false });
+  expect(screen.getByText('Diagnóstico ajustado', { exact: true })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Limpiar borradores de IA' }));
+  const clear = within(await screen.findByRole('dialog', { name: 'Limpiar borradores de IA' }));
+  fireEvent.click(clear.getByRole('button', { name: /^Cerrar$/ }));
+  expect(api.review).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Limpiar borradores de IA' }));
+  fireEvent.click(clear.getByRole('button', { name: 'Confirmar limpieza' }));
+  await screen.findByRole('button', { name: 'Generar propuesta completa con IA' });
+  expect(screen.getByText('Sin propuesta de PES')).toBeInTheDocument();
+  expect(api.run).toHaveBeenCalledTimes(1);
 });

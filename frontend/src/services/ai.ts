@@ -1,6 +1,7 @@
 import type {TextDietEdit} from '../../../supabase/functions/_shared/text-diet-edit';
 import type {TextDietGuidance} from '../../../supabase/functions/_shared/text-diet';
 import type { DietGuidance } from '../../../supabase/functions/_shared/diet-guidance';
+import type { ClinicalBatchFeature } from '../../../supabase/functions/_shared/clinical-batch';
 import { supabase } from '@/src/lib/supabase';
 
 export type AIBalance = { available_credits: number; reserved_credits: number };
@@ -11,6 +12,7 @@ export const aiMessages: Record<string,string> = {
   meal_sections_unavailable:'No pudimos distinguir los tiempos de este texto. Conserva cada nombre de tiempo en una línea separada o elige ajustar la dieta completa.',
   input_too_large: 'El expediente supera la capacidad técnica del modelo de IA. No se cobró esta solicitud. Contacta a soporte; puedes continuar la consulta manualmente.',
   input_count_unavailable: 'No pudimos comprobar el tamaño del contexto. No se generó una propuesta ni se cobró esta solicitud. Puedes reintentar o continuar manualmente.',
+  context_changed: 'Se actualizó esta propuesta. Vuelve a cargar el borrador antes de continuar.',
   context_unavailable: 'La consulta cambió o ya no está disponible para esta solicitud. Guarda los cambios y actualiza la página. Puedes continuar manualmente.',
   instruction_agreements_required: 'Esta consulta no tiene objetivos o acciones registrados para redactar indicaciones. Puedes escribirlas manualmente.',
   pes_approval_required: 'Revisa y aprueba el PES antes de pedir objetivos vinculados al diagnóstico.',
@@ -24,6 +26,8 @@ export const aiMessages: Record<string,string> = {
   strategy_approvals_required: 'Revisa y aprueba el PES y los objetivos SMART antes de proponer estrategias.',
   strategy_approval_required: 'Revisa y aprueba una estrategia vigente antes de generar indicaciones.',
   batch_previous_stage_required: 'No pudimos recuperar el borrador del paso anterior. Vuelve a abrir la revisión clínica para recuperar el avance.',
+  batch_previous_stage_stale: 'Hay un borrador anterior por revisar. Regenera y elige una versión actualizada de ese paso antes de continuar.',
+  batch_generation_pending: 'Hay una solicitud de IA pendiente. Comprueba su estado antes de limpiar los borradores.',
   batch_pes_review_required: 'Completa y aprueba el PES con una causa sustentada antes de continuar con los objetivos.',
   batch_objectives_review_required: 'Los objetivos guardados en esta propuesta ya no coinciden con el PES. Revisa los objetivos antes de continuar.',
   batch_strategies_review_required: 'Hace falta una estrategia utilizable para redactar las indicaciones. Revisa la propuesta en Estrategias.',
@@ -56,8 +60,21 @@ export async function getAIGenerationStatus(idempotencyKey: string) {
   if (error) throw new AIRequestError('service_unavailable');
   return data as { generationId: string; status: string; chargedCredits: number; errorCode: string | null } | null;
 }
+export async function reviewClinicalAIBatch(
+  consultationId: string,
+  revision: number,
+  batchId: string,
+  action: { type: 'clear' } | { type: 'accept' | 'discard'; feature: ClinicalBatchFeature; generationId: string },
+) {
+  const { error } = await supabase.rpc('review_clinical_ai_batch', {
+    p_consultation: consultationId, p_revision: revision, p_batch: batchId, p_action: action.type,
+    p_feature: action.type === 'clear' ? null : action.feature,
+    p_generation: action.type === 'clear' ? null : action.generationId,
+  });
+  if (error) throw new AIRequestError(error.message);
+}
 // Reuse the same key when checking/retrying a logical request. Never supply owner/model/prompt/prices.
-export async function runAIRequest(request: { batchId?: string; textEdit?:TextDietEdit; objectiveTextStyle?: 'patient_v1'; strategyFeedback?: string; textGuidance?:TextDietGuidance; guidance?: DietGuidance; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean; draftSaved?:boolean }> {
+export async function runAIRequest(request: { batchId?: string; revisionOf?: string; clinicalFeedback?: string; textEdit?:TextDietEdit; objectiveTextStyle?: 'patient_v1'; strategyFeedback?: string; textGuidance?:TextDietGuidance; guidance?: DietGuidance; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean; draftSaved?:boolean }> {
   try {
     const consent = await supabase.rpc('my_ai_processing_consent');
     if (consent.error || !consent.data) throw new AIRequestError('ai_consent_unavailable');

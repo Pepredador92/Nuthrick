@@ -20,7 +20,7 @@ Deno.test('PES uses server context and the same reserve/settle pipeline',async()
   const facts=[{source:'Entrevista',finding:'Dato real'}];let bound=false;
   store.context=()=>Promise.resolve({context:{facts},stamp:'v1'});store.bindContext=()=>{bound=true;return Promise.resolve();};
   const output={problem:'Borrador',etiology:'Por revisar',signsSymptoms:['Dato real'],pesStatement:'Borrador',evidence:facts,missingContext:[],uncertainties:[]};
-  const result=await runAIRequest({...request,feature:'pes_diagnosis',revision:1},store,{run:i=>{assert.equal(bound,true);assert.deepEqual(i.context,{facts});return Promise.resolve({...ok,output});}});
+  const result=await runAIRequest({...request,feature:'pes_diagnosis',revision:1},store,{run:i=>{assert.equal(bound,true);assert.deepEqual(i.context,{facts:[{...facts[0],timing:'current'}]});return Promise.resolve({...ok,output});}});
   assert.deepEqual(result.output,output);assert.equal(store.settlements.length,1);
 });
 Deno.test('PES @5, @6 and @7 derive one coherent statement and reject uncited numeric claims before returning a draft',async()=>{

@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => ({
   listConsultations: vi.fn(),
   listPatientNotes: vi.fn(),
   createPatientNote: vi.fn(),
+  updatePatientNote: vi.fn(),
+  deletePatientNote: vi.fn(),
   getSnapshot: vi.fn(),
   reopen: vi.fn(),
   updateDate: vi.fn(),
@@ -134,6 +136,8 @@ vi.mock("@/src/services/patients", () => ({
   listConsultations: mocks.listConsultations,
   listPatientNotes: mocks.listPatientNotes,
   createPatientNote: mocks.createPatientNote,
+  updatePatientNote: mocks.updatePatientNote,
+  deletePatientNote: mocks.deletePatientNote,
 }));
 vi.mock("@/src/services/consultations", () => ({
   loadActiveTemplate: async () => fixtures.template,
@@ -287,6 +291,32 @@ describe("consultation save and review workflow", () => {
     expect(mocks.createPatientNote).toHaveBeenCalledWith("patient", content, "draft");
     expect(mocks.listPatientNotes).toHaveBeenCalledWith("patient", "draft");
     expect(input).toHaveValue("");
+  });
+  it("edits and confirms deletion of a consultation note without losing the new-note text", async () => {
+    const note = { id: "saved-note", content: "Nota original", consultation_id: "draft", updated_at: "2026-11-20T12:00:00Z" };
+    mocks.listPatientNotes.mockResolvedValue([note]);
+    mocks.updatePatientNote.mockResolvedValue({ ...note, content: "Nota corregida" });
+    mocks.deletePatientNote.mockResolvedValue(undefined);
+    mount("/app/patients/patient/consultations/draft");
+    fireEvent.click(await screen.findByRole("button", { name: "Notas" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Notas de la consulta" }));
+    fireEvent.change(dialog.getByRole("textbox", { name: "Nueva nota" }), { target: { value: "Otra nota en curso" } });
+    fireEvent.click(await dialog.findByRole("button", { name: "Editar nota 1" }));
+    const edit = dialog.getByRole("textbox", { name: "Editar nota" });
+    expect(edit).toHaveValue("Nota original");
+    fireEvent.change(edit, { target: { value: "Nota corregida" } });
+    fireEvent.click(dialog.getByRole("button", { name: "Guardar cambios" }));
+    await dialog.findByText("Nota corregida");
+    expect(mocks.updatePatientNote).toHaveBeenCalledExactlyOnceWith("saved-note", "Nota corregida");
+    expect(dialog.getByRole("textbox", { name: "Nueva nota" })).toHaveValue("Otra nota en curso");
+    fireEvent.click(dialog.getByRole("button", { name: "Eliminar nota 1" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Cancelar" }));
+    expect(mocks.deletePatientNote).not.toHaveBeenCalled();
+    fireEvent.click(dialog.getByRole("button", { name: "Eliminar nota 1" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Confirmar eliminación" }));
+    await dialog.findByText("Nota eliminada del historial del paciente.");
+    expect(mocks.deletePatientNote).toHaveBeenCalledExactlyOnceWith("saved-note");
+    expect(dialog.queryByText("Nota corregida")).not.toBeInTheDocument();
   });
   it('clears saved PES answers and keeps them empty after reopening and reloading', async () => {
     const cleared = { pes_problem: '', pes_etiology: '', pes_evidence: '', pes_statement: '' };

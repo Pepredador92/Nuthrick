@@ -674,7 +674,9 @@ export function ClinicalInterventions(props: Props) {
               <p className="clinical-strategy-summary-action">
                 {doc.strategy.action}
               </p>
-              {doc.generationId === batch.proposal?.generationId && !strategyIsLinked(linkBatchStrategy(doc), workspace) &&
+              {doc.generationId === batch.proposal?.generationId && batch.stale &&
+                <p role="status" className="clinical-notice is-warning">Cambió un paso anterior. Revisa o regenera esta estrategia desde Datos.</p>}
+              {doc.generationId === batch.proposal?.generationId && !batch.stale && !strategyIsLinked(linkBatchStrategy(doc), workspace) &&
                 <p className="mt-2 text-xs">Revisa la acción y vincúlala con los objetivos aprobados antes de aprobar esta estrategia. Si cambió el objetivo, también puedes pedir una propuesta nueva.</p>}
               <dl className="clinical-goal-summary-facts">
                 <div>
@@ -708,7 +710,8 @@ export function ClinicalInterventions(props: Props) {
                 <button
                   type="button"
                   className="nuth-button-secondary !text-xs"
-                  disabled={busy || execution !== null || ids.length >= 30}
+                  disabled={busy || execution !== null || ids.length >= 30 ||
+                    (doc.generationId === batch.proposal?.generationId && batch.stale)}
                   onClick={() => {
                     add(linkBatchStrategy(doc));
                     setProposals(proposals.filter((_, index) => index !== i));

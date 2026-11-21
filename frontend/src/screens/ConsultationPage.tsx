@@ -27,6 +27,7 @@ import { pesFieldTarget, type PesContextTarget } from '@/src/features/consultati
 import { InterviewWorkspace, InterviewQuestionCard } from "@/src/components/consultations/InterviewWorkspace";
 import { InterviewReview } from "@/src/components/consultations/InterviewReview";
 import { PesCopilot, RecallCopilot, type RecallNavigation, type RecallNavigationActions } from "@/src/components/consultations/ClinicalCopilot";
+import { ClinicalBatchStageRevision } from "@/src/components/consultations/ClinicalBatchAI";
 import { ClinicalReview } from "@/src/components/consultations/ClinicalReview";
 import { ConsultationGuide } from "@/src/components/consultations/ConsultationGuide";
 import { ClinicalFieldCards } from "@/src/components/consultations/ClinicalFieldCards";
@@ -224,7 +225,7 @@ function ConsultationEditor() {
   const closed = useRef(false);
   const [autosave] = useState(() => createAnswerAutosave());
   const draftController = useRef<ConsultationDraftController|null>(null);
-  const restoreServerPosition = useRef(true);
+  const [restoreServerPosition, setRestoreServerPosition] = useState(true);
   useEffect(() => {autosave.configure({
     read: signal => { const t=saveTarget.current; if(!t) throw new Error('Consulta no disponible.'); return syncConsultationAnswers(t.id,t.revision,undefined,signal); },
     write: (request,signal) => { const t=saveTarget.current; if(!t) throw new Error('Consulta no disponible.'); return syncConsultationAnswers(t.id,t.revision,request,signal); },
@@ -328,7 +329,7 @@ function ConsultationEditor() {
         const saved = await boundedAnswerRequest(signal => syncConsultationAnswers(consultationForLoad.id,startedSnapshot.revision,undefined,signal));
         const serverValues = saved.answers;
         const workspace = readWorkspace(started.id);
-        restoreServerPosition.current = !workspace?.module || !Number.isInteger(workspace.clinicalStage);
+        setRestoreServerPosition(!workspace?.module || !Number.isInteger(workspace.clinicalStage));
         const editableKeys=new Set(startedSnapshot.structure.sections.flatMap(section=>section.questions.map(q=>q.question_key)));
         const restoredValues=Object.fromEntries(Object.entries(workspace?.values ?? {}).filter(([key])=>editableKeys.has(key)));
         const nextValues = workspace
@@ -1098,7 +1099,7 @@ function ConsultationEditor() {
   const dirty = JSON.stringify(values) !== savedEncoded;
   return (
     <>{exitDialog}<ConsultationDrafts key={`${consultation.id}:${snapshot.revision}`} consultationId={consultation.id} revision={snapshot.revision} controllerRef={draftController} onSave={saveAll}><div className="consultation-workspace">
-      <ConsultationDraftPosition value={{module,active,clinicalStage}} restoreSaved={restoreServerPosition.current} onRestore={position=>{if(consultationSteps.some(step=>step.key===position.module)){setModule(position.module as ConsultationModule);setActive(Math.max(0,position.active));setClinicalStage(Math.max(0,Math.min(clinicalStages.length-1,position.clinicalStage)));setRecallOpened(position.module==="recall");setClinicalOpened(position.module==="clinical");setMeasurementsOpened(position.module==="measurements");setLaboratoriesOpened(position.module==="laboratories");}}}/>
+      <ConsultationDraftPosition value={{module,active,clinicalStage}} restoreSaved={restoreServerPosition} onRestore={position=>{if(consultationSteps.some(step=>step.key===position.module)){setModule(position.module as ConsultationModule);setActive(Math.max(0,position.active));setClinicalStage(Math.max(0,Math.min(clinicalStages.length-1,position.clinicalStage)));setRecallOpened(position.module==="recall");setClinicalOpened(position.module==="clinical");setMeasurementsOpened(position.module==="measurements");setLaboratoriesOpened(position.module==="laboratories");}}}/>
       <header className="rounded-[24px] bg-[#173d36] p-5 text-white sm:p-7">
         <Link
           to={"/app/patients/" + patient.id}
@@ -1199,6 +1200,7 @@ function ConsultationEditor() {
         <div hidden={clinicalStage !== 0}><ClinicalReview batch={{patientId:patient.id,onReview:stage=>void goClinicalStage(stage)}} onReviewed={(message,all)=>reportCompletion(message,all?1:undefined)} consultationId={consultation.id} snapshot={snapshot} values={values} active={module === 'clinical' && clinicalStage === 0} observationsVersion={observationsVersion} before={saveForClinical} onStatusChange={status => updateClinicalProgress('review', status)} onOpenModule={next => void goModule(next)} /></div>
         <section hidden={clinicalStage !== 1} className="clinical-stage" aria-label="Diagnóstico PES">
           <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">02 · Formula el diagnóstico</p><h2>Diagnóstico PES</h2><p>Completa el problema, su causa y la evidencia. Después, revisa y aprueba el enunciado.</p></div></header>
+          {module === "clinical" && clinicalStage === 1 && <ClinicalBatchStageRevision feature="pes_diagnosis" patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} blocked={busy} before={saveForClinical} />}
           <PesCopilot structure={snapshot.structure} onOpenPesTarget={target => pesContextNavigation.current?.open(target) ?? Promise.resolve(false)} onCompleted={()=>reportCompletion("Diagnóstico PES aprobado. Paso completado.",2)} key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} active={module === 'clinical' && clinicalStage === 1} before={saveForClinical} answers={values} onPendingChange={setPesPending} onStatusChange={status => updateClinicalProgress('pes', status)} onDiscardPes={discardPes} onPes={draft => {
             setAnswer('pes_problem', draft.problem); setAnswer('pes_etiology', draft.etiology); setAnswer('pes_evidence', draft.signsSymptoms.join('\n')); setAnswer('pes_statement', draft.pesStatement); setClinicalRefresh(value => value + 1);
           }} />
@@ -1206,16 +1208,19 @@ function ConsultationEditor() {
         </section>
         <section hidden={clinicalStage !== 2} className="clinical-stage" aria-label="Objetivos acordados">
           <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">03 · Acuerda el cambio</p><h2>Objetivos acordados</h2><p>Define qué quieren lograr, cómo lo medirán y cuándo revisarán el avance.</p></div></header>
+          {module === "clinical" && clinicalStage === 2 && <ClinicalBatchStageRevision feature="consultation_support" patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} blocked={busy} before={saveForClinical} />}
           {clinicalObjectiveQuestions.map((question, index) => <ClinicalObjective reviewBatch={index === 0} onReviewPes={()=>void goClinicalStage(1)} onCompleted={()=>{const all=clinicalObjectiveQuestions.every(item=>item.question_key===question.question_key||clinicalProgress[`objective:${item.question_key}`]==='approved');reportCompletion(all?"Objetivos acordados aprobados. Paso completado.":"Objetivos de esta tarjeta aprobados.",all?3:undefined);}} key={`${consultation.id}:${snapshot.revision}:${question.question_key}`} consultationId={consultation.id} revision={snapshot.revision} questionKey={question.question_key} contextVersion={clinicalRefresh} value={values[question.question_key]} before={saveForClinical} active={module === 'clinical' && clinicalStage === 2} patientId={patient.id} maxLength={typeof question.configuration.max_length === 'number' ? question.configuration.max_length : question.question_type === 'repeatable_group' ? 12000 : 2000} onStatusChange={status => updateClinicalProgress(`objective:${question.question_key}`, status)} onPendingChange={pending => setObjectivePending(current => current[question.question_key] === pending ? current : { ...current, [question.question_key]: pending })} onChangeText={(text, texts) => replaceObjectiveText(question, text, texts)} />)}
           <p className="clinical-stage-next"><ChevronRight size={16} />Después, elige las estrategias para llevar estos objetivos a la práctica.</p>
         </section>
         <section hidden={clinicalStage !== 3} className="clinical-stage" aria-label="Estrategia de intervención">
           <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">04 · Define cómo se llevará a cabo</p><h2>Estrategia de intervención</h2><p>Organiza las acciones que llevarán los objetivos a la práctica.</p></div></header>
+          {module === "clinical" && clinicalStage === 3 && <ClinicalBatchStageRevision feature="intervention_strategy" patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} blocked={busy} before={saveForClinical} />}
           <ClinicalInterventions onReviewPrerequisite={stage=>void goClinicalStage(stage)} onCompleted={all=>reportCompletion(all?"Estrategias aprobadas. Puedes continuar a indicaciones.":"Estrategia aprobada.")} onStatusChange={status=>updateClinicalProgress("strategies",status)} key={`${consultation.id}:${snapshot.revision}:strategies`} consultationId={consultation.id} patientId={patient.id} revision={snapshot.revision} before={saveForClinical} active={module === 'clinical' && clinicalStage === 3} onPendingChange={setStrategyPending} onChanged={() => setClinicalRefresh(value => value + 1)} onOpenWorkshop={() => reviewClose("workshop")} onInstructions={text => { setAnswer('first_actions', appendComposedText(valuesRef.current.first_actions, text)); setClinicalStage(4); }} />
         </section>
         <section hidden={clinicalStage !== 4} className="consultation-clinical-card" aria-label="Recomendaciones">
           <p className="nuth-eyebrow">05 · Deja claros los siguientes pasos</p><h2>Recomendaciones</h2>
           <p className="consultation-clinical-description">Deja indicaciones sencillas y revisa lo acordado antes de compartirlo.</p>
+          {module === "clinical" && clinicalStage === 4 && <ClinicalBatchStageRevision feature="patient_instructions" patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} blocked={busy} before={saveForClinical} />}
           <ClinicalFieldCards key={`${consultation.id}:${snapshot.revision}:recommendations:${clinicalRefresh}`} questions={recommendationQuestions} values={values} busy={busy} showErrors={showErrors} before={saveForClinical} onChange={setAnswer} ai={{patientId:patient.id,consultationId:consultation.id,revision:snapshot.revision}} />
           <button type="button" className="nuth-button mt-4" disabled={busy||saving||!hasRecommendations} onClick={()=>void completeClinicalStage('recommendations')}>Guardar y completar recomendaciones</button>
           <p className="consultation-guided-hint">Al cerrar la consulta, podrás copiar las indicaciones al Super Link, revisarlas y publicarlas para el paciente.</p>

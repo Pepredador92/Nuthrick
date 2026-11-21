@@ -179,21 +179,32 @@ Deno.serve(async request => {
         const { data: source, error } = await db.rpc(r.feature==='patient_instructions' ? 'ai_patient_instructions_source' : 'ai_clinical_source',{p_owner:owner,p_patient:r.patientId,p_consultation:r.consultationId,p_revision:r.revision});
         if (error || !source) throw new AIError('context_unavailable');
         let clinical = r.feature==='recall_24h' ? source as ClinicalSource : withConfirmedRecall(source as ClinicalSource);
-        if (r.batchId && r.feature !== 'pes_diagnosis') {
+        let previous: Record<string, unknown> | undefined;
+        if (r.batchId && (r.feature !== 'pes_diagnosis' || r.revisionOf)) {
           const { data: stages, error } = await db.rpc('ai_clinical_batch_stages', {
             p_owner: owner, p_patient: r.patientId, p_consultation: r.consultationId,
             p_revision: r.revision, p_batch: r.batchId,
           });
           if (error || !stages) throw new AIError('context_unavailable');
-          const prepared = clinicalBatchInput(clinical, stages as BatchStages, r.feature as ClinicalBatchFeature);
+          const savedStages = stages as BatchStages;
+          if (r.revisionOf) {
+            const stage = savedStages[r.feature as ClinicalBatchFeature];
+            if (stage?.generationId !== r.revisionOf) throw new AIError('context_changed');
+            previous = stage.output;
+          }
+          const prepared = clinicalBatchInput(clinical, savedStages, r.feature as ClinicalBatchFeature);
           clinical = prepared.source;
           batchInputGenerations = prepared.inputGenerations;
           batchPesProblem = clinical.approvedPes?.problem;
         }
+        const review = r.clinicalFeedback ? {
+          clinicalFeedback: redactClinicalText(r.clinicalFeedback, clinical.identifiers),
+          ...(previous ? { previousDraft: previous } : {}),
+        } : undefined;
         if (r.feature === 'intervention_strategy') {
           interventionContext = buildInterventionContext(clinical, r.strategyFeedback);
           if (!interventionContext.binding.pesApprovedAt || !interventionContext.approvedGoals.length) throw new AIError('strategy_planning_required');
-          return {stamp:clinical.stamp, context:interventionContext, inputGenerations:batchInputGenerations};
+          return {stamp:clinical.stamp, context:{...interventionContext,...review}, inputGenerations:batchInputGenerations,review};
         }
         const supportContext = ['consultation_support','patient_instructions'].includes(r.feature) ? buildConsultationSupportContext(clinical,r.feature==='patient_instructions',smartObjectives) : null;
         const context=r.feature==='pes_diagnosis' ? buildPesClinicalContext(clinical)
@@ -203,7 +214,7 @@ Deno.serve(async request => {
         if(r.feature==='patient_instructions' && supportContext?.strategiesRequired && !supportContext.hasApprovedStrategies && !supportContext.provisionalStrategies) throw new AIError('strategy_approval_required');
         if(r.feature==='patient_instructions' && !consultationSupportFacts?.some(fact=>instructionAgreement(fact.source, supportContext?.provisionalStrategies))) throw new AIError('instruction_agreements_required');
         if ('facts' in context && context.facts.length===0) throw new AIError('context_unavailable');
-        return {stamp:clinical.stamp, context, inputGenerations:batchInputGenerations};
+        return {stamp:clinical.stamp, context:{...context,...review}, inputGenerations:batchInputGenerations,review};
       },
       bindContext: async (id,r,stamp) => {
         if(r.textGuidance||r.textEdit){await dietRpc('bind',{generationId:id,planId:r.planId,revision:r.revision,stamp,snapshot:textSnapshot},true);return;}
@@ -251,7 +262,7 @@ Deno.serve(async request => {
         if(metadata.error)throw new AIError('result_unavailable');
         if(textSnapshot){await dietRpc('result',{generationId:id,result:{textDraft:valid?textDraft:null,...(valid&&textEditReport?{adjustment:textEditReport}:{}),model:result.model??null,latencyMs:result.latencyMs??null,usage:result.usage}},true);return;}
         if (input.batchId && valid) {
-          const proposal = { generationId: id, output: formatClinicalProposal(result.output, id), inputGenerations: batchInputGenerations };
+          const proposal = { generationId: id, output: formatClinicalProposal(result.output, id), inputGenerations: batchInputGenerations, ...(input.revisionOf ? { revises: input.revisionOf } : {}) };
           let written = false;
           for (let attempt = 0; attempt < 2; attempt++) {
             const stored = await db.rpc('ai_store_clinical_batch_stage', {

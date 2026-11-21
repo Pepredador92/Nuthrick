@@ -10,7 +10,7 @@ import { normalizeReferencedPes, referencedPesContext } from './pes-references.t
 import { normalizeConcisePes } from './pes-concise.ts';
 import { normalizeObjectiveProposals, normalizedObjectiveProposalsSchema } from './objective-proposals.ts';
 import { hasUsablePesEtiology } from '../_shared/pes.ts';
-import { clinicalAdapter, clinicalEvidenceValid, conservativeRecallQuantities, normalizePesOutput, normalizeSmartObjectivesOutput, pesClinicalStructureValid, pesSchema, smartObjectiveValidationIssues } from './clinical.ts';
+import { clinicalAdapter, clinicalEvidenceValid, clinicalFactTiming, conservativeRecallQuantities, normalizePesOutput, normalizeSmartObjectivesOutput, pesClinicalStructureValid, pesSchema, smartObjectiveValidationIssues, type ClinicalFact } from './clinical.ts';
 import { dietDraftAdapter, dietDraftAdapterV1, dietDraftAdapterV3 } from './diet-contract.ts';
 import { isPatientObservation } from '../_shared/patient-observations.ts';
 import { clinicalBatchStages } from '../_shared/clinical-batch.ts';
@@ -184,25 +184,29 @@ export interface AIStore {
   claim(id: string): Promise<boolean>;
   settle(id: string, status: string, usage: Usage, responseId?: string): Promise<Generation>;
   uncertain(id: string): Promise<void>;
-  context?(request: AIRequest): Promise<{ context: unknown; stamp: string; inputGenerations?: string[] }>;
+  context?(request: AIRequest): Promise<{ context: unknown; stamp: string; inputGenerations?: string[]; review?: { clinicalFeedback: string; previousDraft?: unknown } }>;
   bindContext?(id: string, request: AIRequest, stamp: string): Promise<void>;
   validateOutput?(output: unknown): boolean;
   recordResult?(id: string, result: ProviderResult, valid: boolean): Promise<void>;
   refundInvalidPes?(id: string): Promise<number>;
   refundInvalidObjectives?(id: string): Promise<number>;
 }
-export type AIRequest = { batchId?: string; textEdit?: TextDietEdit; objectiveTextStyle?: 'patient_v1'; textGuidance?: TextDietGuidance; guidance?: DietGuidance; strategyFeedback?: string; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
+export type AIRequest = { batchId?: string; revisionOf?: string; clinicalFeedback?: string; textEdit?: TextDietEdit; objectiveTextStyle?: 'patient_v1'; textGuidance?: TextDietGuidance; guidance?: DietGuidance; strategyFeedback?: string; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function parseRequest(value: unknown): AIRequest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new AIError('invalid_request');
   const v = value as Record<string, unknown>;
-  if (Object.keys(v).some(k => !['feature','idempotencyKey','patientId','consultationId','revision','narrative','planId','previousProposalId','rejectedItems','guidance','textGuidance','strategyFeedback','objectiveTextStyle','textEdit','batchId'].includes(k))
+  if (Object.keys(v).some(k => !['feature','idempotencyKey','patientId','consultationId','revision','narrative','planId','previousProposalId','rejectedItems','guidance','textGuidance','strategyFeedback','objectiveTextStyle','textEdit','batchId','revisionOf','clinicalFeedback'].includes(k))
     || typeof v.feature !== 'string' || !/^[a-z][a-z0-9_]{1,63}$/.test(v.feature)
     || typeof v.idempotencyKey !== 'string' || !uuid.test(v.idempotencyKey)
     || [v.patientId,v.consultationId].some(id => id !== undefined && (typeof id !== 'string' || !uuid.test(id)))
     || (v.consultationId && !v.patientId)) throw new AIError('invalid_request');
   if (v.batchId !== undefined && (typeof v.batchId !== 'string' || !uuid.test(v.batchId) ||
       !clinicalBatchStages.some(stage => stage.feature === v.feature))) throw new AIError('invalid_request');
+  if (v.clinicalFeedback !== undefined && (!clinicalBatchStages.some(stage => stage.feature === v.feature) ||
+    typeof v.clinicalFeedback !== 'string' || !v.clinicalFeedback.trim() || v.clinicalFeedback.length > 1200 ||
+    (v.batchId && !v.revisionOf) || v.strategyFeedback !== undefined)) throw new AIError('invalid_request');
+  if (v.revisionOf !== undefined && (!v.batchId || !v.clinicalFeedback || typeof v.revisionOf !== 'string' || !uuid.test(v.revisionOf))) throw new AIError('invalid_request');
   if(v.objectiveTextStyle!==undefined && (v.feature!=='consultation_support' || v.objectiveTextStyle!=='patient_v1'))throw new AIError('invalid_request');
   if(v.feature==='diet_workshop')throw new AIError('feature_disabled'); // Retired; historical ledger remains immutable.
   const workshop = v.feature === 'diet_draft';
@@ -239,7 +243,16 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   if (clinical && (!store.context || !store.bindContext)) throw new AIError('context_unavailable');
   const hydrated = clinical ? await store.context!(request) : null;
   if (hydrated) adapter.context = hydrated.context;
-  const clinicalFacts = (hydrated?.context as { facts?: { source: string }[] } | undefined)?.facts;
+  const clinicalFacts = (hydrated?.context as { facts?: ClinicalFact[] } | undefined)?.facts;
+  if (clinicalBatchStages.some(stage => stage.feature === request.feature) && Array.isArray(clinicalFacts)) {
+    adapter.context = { ...hydrated?.context as object, facts: clinicalFacts.map(fact => ({
+      ...fact, timing: clinicalFactTiming(fact),
+    })) };
+    adapter.instructions += ' Prioridad temporal obligatoria para esta etapa: antes de redactar, contrasta los hechos actuales (timing=current) con las notas e entrevistas anteriores (historical), la ficha de referencia (baseline), el progreso fechado (progress) y los diagnósticos, objetivos o estrategias existentes (plan). Estos planes no son evidencia de que una condición siga activa o se haya ejecutado una acción. Ante un cambio explícito en la consulta actual sobre el mismo asunto, usa el dato actual para el diagnóstico y todos los pasos derivados. Por ejemplo, si hoy consta que el dolor cesó y se retomó el ejercicio, conserva el dolor como antecedente y evita atribuir una limitación actual por ese dolor. Una consulta que omite un antecedente no demuestra mejoría ni empeoramiento. Si un dato anterior es relevante y no hay actualización, preséntalo con su fecha o como vigencia por confirmar. Si las fuentes actuales del mismo momento discrepan, indica qué se debe confirmar. Mantén separados los resultados vigentes y la evolución; cita la evidencia actual del cambio.';
+  }
+  if (request.clinicalFeedback) {
+    adapter.instructions += ' Esta es una revisión de la propuesta. Atiende clinicalFeedback como una preferencia de redacción o de enfoque profesional. Solo facts acreditan datos clínicos; verifica las aclaraciones solicitadas contra esas fuentes y conserva las incertidumbres. Cuando se incluya previousDraft, úsalo para comparar y corregir, jamás como fuente de hechos.';
+  }
   if (request.batchId) {
     if (clinicalFacts?.some(fact => fact.source.startsWith('PES provisional ·'))) {
       adapter.instructions = adapter.instructions.replaceAll('PES actual aprobado ·', 'PES provisional ·');
@@ -252,6 +265,9 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   if (Array.isArray(clinicalFacts) && clinicalFacts.some(fact => isPatientObservation(fact.source))) {
     adapter.instructions += ' Revisa las notas profesionales guardadas y el avance registrado de objetivos y estrategias. Contrasta sus fechas, resultados y grado de avance con los datos actuales. Distingue el acuerdo original, lo que se hizo y lo que se observó. El progreso parcial orienta el siguiente paso y no equivale a cumplimiento total. Las notas pueden contener relatos o hipótesis: usa solo lo pertinente y conserva su grado de certeza. Las observaciones internas son contexto clínico; excluye su texto y detalles privados de cualquier contenido dirigido al paciente.';
   }
+  if (request.feature === 'patient_instructions') {
+    adapter.instructions += ' En cada campo text habla directamente con la persona de tú, con un tono cercano y respetuoso. Empieza con una acción clara en segunda persona («Anota…», «Elige…» o «En la próxima consulta revisamos juntos cómo te fue»). Usa palabras de uso diario. Explica cómo llevar a cabo la acción y cómo revisarla cuando conste en los datos. Evita títulos clínicos, abreviaturas, «usted», «el paciente deberá» y frases de informe. Comprueba que las oraciones estén completas y que el texto se pueda leer en voz alta tal como se lo explicarías en consulta.';
+  }
   if(request.textEdit){const context=adapter.context as {meal_schedule:unknown[];selected_meal_indexes:number[]};adapter.schema=textDietEditSchema(context.meal_schedule.length,context.selected_meal_indexes);}
   if (proposedObjectives) {
     const pes = (adapter.context as {approvedPes?:{etiology?:unknown;signsSymptoms?:string}|null}).approvedPes;
@@ -260,8 +276,8 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
     if (!pes.signsSymptoms?.trim()) throw new AIError('pes_signs_required');
     adapter.context = { ...(adapter.context as object), objectiveFormat: 'smart@2' };
   }
-  if (referencedPes) adapter.context = referencedPesContext(adapter.context);
-  const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : []), ...(request.textEdit ? [request.textEdit] : []), ...(request.feature==='intervention_strategy'?[request.strategyFeedback??null]:[]), ...(request.objectiveTextStyle ? [request.objectiveTextStyle] : []), ...(request.batchId ? [request.batchId, hydrated?.inputGenerations] : [])]);
+  if (referencedPes) adapter.context = { ...referencedPesContext(adapter.context), ...hydrated?.review };
+  const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : []), ...(request.textEdit ? [request.textEdit] : []), ...(request.feature==='intervention_strategy'?[request.strategyFeedback??null]:[]), ...(request.objectiveTextStyle ? [request.objectiveTextStyle] : []), ...(request.batchId ? [request.batchId, hydrated?.inputGenerations] : []), ...(request.clinicalFeedback ? [request.clinicalFeedback, request.revisionOf] : [])]);
   const fingerprint = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical))), b => b.toString(16).padStart(2,'0')).join('');
   let countedInputTokens: number | undefined;
   if (config.token_policy === 'model_capacity') {

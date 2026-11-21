@@ -22,11 +22,21 @@ export function clinicalBatchInput(
     0,
     clinicalBatchStages.findIndex((stage) => stage.feature === feature),
   );
-  const inputGenerations = previous.map((stage) => {
-    const id = stages[stage.feature]?.generationId;
-    if (!id) throw new AIError("batch_previous_stage_required");
-    return id;
-  });
+  const inputGenerations: string[] = [];
+  for (const stage of previous) {
+    const proposal = stages[stage.feature];
+    if (!proposal?.generationId) {
+      throw new AIError("batch_previous_stage_required");
+    }
+    if (
+      inputGenerations.some((id, index) =>
+        proposal.inputGenerations?.[index] !== id
+      )
+    ) {
+      throw new AIError("batch_previous_stage_stale");
+    }
+    inputGenerations.push(proposal.generationId);
+  }
   if (!previous.length) return { source, inputGenerations };
 
   const draft = stages.pes_diagnosis!;

@@ -200,6 +200,22 @@ export function redactClinicalText(value: string, identifiers: string[] = []) {
 const historyNarrative = (source: string) => /^(?:Antecedente de entrevista|PES previo aprobado) · /.test(source);
 const historical = (source: string) => /^Historial(?: calculado)? · /.test(source) || historyNarrative(source);
 const historyMetric = (source: string) => /^Historial(?: calculado)? · /i.test(source);
+const changesInSymptomsOrActivity = /cambios|changes|síntomas|symptom|dolor|pain|actividad|activit|movilidad|mobility|ejercicio|exercise|training|retom|limitation|limitaci|complemento clínico/i;
+export function clinicalFactTiming(fact: Pick<ClinicalFact, 'source' | 'origin'>) {
+  if (historical(fact.source) || /^Nota previa · /.test(fact.source)) return 'historical';
+  if (fact.origin === 'baseline' || /^Dato de ficha · /.test(fact.source)) return 'baseline';
+  if (/^Avance de (?:objetivo|estrategia) · /.test(fact.source)) return 'progress';
+  if (/^(?:Objetivo (?:aprobado|en borrador)|PES (?:actual aprobado|provisional)|Estrategia (?:aprobada|provisional)) · /.test(fact.source)) return 'plan';
+  return 'current';
+}
+const clinicalFactOrder = { current: 0, plan: 1, progress: 2, historical: 3, baseline: 4 } as const;
+function clinicalDate(fact: ClinicalFact) {
+  return fact.consultation_date ?? fact.source.match(/(?:^| · )(\d{4}-\d{2}-\d{2})(?: · |$)/)?.[1];
+}
+function clinicalChronology(a: ClinicalFact, b: ClinicalFact) {
+  return clinicalFactOrder[clinicalFactTiming(a)] - clinicalFactOrder[clinicalFactTiming(b)] ||
+    (clinicalDate(b) ?? '').localeCompare(clinicalDate(a) ?? '');
+}
 function compactFinding(value: string) {
   // Remove JSON wrapping/formatting, never shorten clinical sentences or negate meaning.
   try {
@@ -266,7 +282,7 @@ export function prepareClinicalFacts(source: ClinicalSource): ClinicalFact[] {
   return [...current, ...facts.filter(fact => historyNarrative(fact.source)), ...history];
 }
 export function buildPesClinicalContext(source: ClinicalSource) {
-  const facts = prepareClinicalFacts(source);
+  const facts = prepareClinicalFacts(source).sort(clinicalChronology);
   return { facts, interviewOrigin: clinicalInterviewOrigin(facts) };
 }
 export type ConsultationSupportFact = ClinicalFact & { id: string };
@@ -298,6 +314,7 @@ export function buildConsultationSupportContext(source: ClinicalSource, instruct
     if (isPatientObservation(fact.source)) return true;
     if (sourceLabel.startsWith("entrevista · ")) {
       return /(?:main reason|expectations|consult now|objectives|treatment objective|next objectives|first actions|interview priorities|access barriers|eating drivers|changes since last|progress perception|symptoms changes|medical changes|indicators reviewed|barriers|adjustments|measurement notes|indicator progress|recall 24h v2|recall date|recall day type)/i.test(sourceLabel)
+        || changesInSymptomsOrActivity.test(sourceLabel)
         || (instructions || smart) && /(?:medical history|medical diagnoses|medication|food reactions)/i.test(sourceLabel)
         || smart && /(?:appetite|symptom|eating preferences|food preferences|support network|food access|cooking|shopping|readiness|motivation|culture|food availability|food buyer|food budget|budget constraint|food shortage|unavailable foods|behavior support)/i.test(sourceLabel);
     }
@@ -311,13 +328,10 @@ export function buildConsultationSupportContext(source: ClinicalSource, instruct
       : /^Historial(?: calculado)? · (?:peso|peso corporal|cintura|índice de masa corporal|imc|bmi|grasa|porcentaje de grasa corporal|body_fat_percentage)(?:[ (·]|$)/i.test(fact.source));
     return false;
   }).sort((a, b) => {
-    const rank = (fact: ClinicalFact) => fact.source.startsWith('Estrategia aprobada · ') || fact.source.startsWith(provisionalStrategySource) ? -2 : isPatientObservation(fact.source) ? -1 : /food reactions|medication|medical diagnoses/.test(fact.source) ? 0
+    const rank = (fact: ClinicalFact) => changesInSymptomsOrActivity.test(fact.source) ? -2 : isPatientObservation(fact.source) ? -1 : /food reactions|medication|medical diagnoses/.test(fact.source) ? 0
       : /objectives|treatment objective|first actions|adjustments/.test(fact.source) ? 1
         : fact.source.startsWith("Recordatorio confirmado") ? 2 : 3;
-    // Current agreements and measurements always precede dated fallback interviews.
-    const historicalRank = (fact: ClinicalFact) => historyNarrative(fact.source) ? 1 : 0;
-    return historicalRank(a) - historicalRank(b) || rank(a) - rank(b) ||
-      (historyNarrative(a.source) && historyNarrative(b.source) ? b.source.localeCompare(a.source) : 0);
+    return clinicalChronology(a, b) || rank(a) - rank(b);
   });
   const pes = smart && source.approvedPes ? Object.fromEntries(Object.entries(source.approvedPes).map(([key, value]) => [key, redactClinicalText(value, source.identifiers)])) as ClinicalSource['approvedPes'] : null;
   const pesSource = source.provisionalPes ? provisionalPesSource : approvedPesSource;
@@ -325,12 +339,15 @@ export function buildConsultationSupportContext(source: ClinicalSource, instruct
     { source: `${pesSource} · Etiología`, finding: pes.etiology },
     ...pes.signsSymptoms.split('\n').filter(sign => sign.trim()).map(sign => ({ source: `${pesSource} · Signos y síntomas`, finding: sign.trim() })),
   ] : [];
-  const facts = [...approvedFacts, ...permitted].slice(0, 99).flatMap((fact, index) => {
+  // Keep the clinical anchors citable even in long consultations.
+  const planFacts = permitted.filter(fact => clinicalFactTiming(fact) === 'plan');
+  const clinicalFacts = permitted.filter(fact => clinicalFactTiming(fact) !== 'plan');
+  const facts = [...approvedFacts, ...planFacts, ...clinicalFacts].slice(0, 99).flatMap((fact: ClinicalFact, index) => {
     if (typeof fact?.source !== "string" || typeof fact.finding !== "string") return [];
     const finding = fact.finding;
     const label = fact.source;
     if (!finding || !label || ["null", "undefined", '""', "[]", "{}"].includes(finding)) return [];
-    return [{ id: `f${index + 1}`, source: label, finding }];
+    return [{ id: `f${index + 1}`, source: label, finding, consultation_date: clinicalDate(fact), timing: clinicalFactTiming(fact) }];
   });
   return { facts, interviewOrigin, ...(instructions ? { strategiesRequired: source.strategyRequired === true, hasApprovedStrategies: (source.approvedStrategies?.length ?? 0) > 0, provisionalStrategies: provisional } : {}), ...(smart ? { approvedPes: pes, objectiveFormat: 'smart@1' } : {}) };
 }

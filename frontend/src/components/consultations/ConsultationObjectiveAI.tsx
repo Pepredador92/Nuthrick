@@ -168,6 +168,7 @@ export function ClinicalSuggestionsAI({
     !goal || (typeof baseProblem === "string" && approvedPes.problem !== baseProblem) ||
     goal.etiology !== approvedPes.etiology || !approvedPes.signsSymptoms.split("\n").some(sign => sign.trim() === goal.sign)
   );
+  const batchStale = !!batchOrigin && (batch.stale || batch.proposal?.generationId !== batchOrigin);
 
   useDurableAIProposal(feature,(output)=>{const next=parseSuggestions(output,kind);setSuggestions(next);setApplied([]);setBatchOrigin(null);setPendingRequest(null);sessionStorage.removeItem(storageKey);setState(next.length?'ready':'error');setMessage(next.length?'Propuestas recuperadas para revisión.':'Esta solicitud no contiene propuestas utilizables. Revisa los datos antes de generar otra.');},slot);
 
@@ -316,6 +317,7 @@ export function ClinicalSuggestionsAI({
         </button>
       )}
       {batchMismatch && <p role="status" className="clinical-notice is-warning">El PES aprobado cambió. Puedes proponer objetivos nuevos a partir del diagnóstico actual.</p>}
+      {batchStale && <p role="status" className="clinical-notice is-warning">Esta versión quedó por revisar. Abre la propuesta vigente en Datos o vuelve a generar este paso.</p>}
       {batchOrigin && batchNotice && <p role="status" className="clinical-notice">{batchNotice}</p>}
       {state === "uncertain" && (
         <button
@@ -413,7 +415,7 @@ export function ClinicalSuggestionsAI({
                   <button
                     type="button"
                     className="mt-3 rounded-lg border border-[#c9d9ce] px-3 py-2 text-xs font-semibold text-[#315e4f] hover:bg-[#f4f8f5]"
-                    disabled={disabled || batchMismatch || applied.includes(index)}
+                    disabled={disabled || batchMismatch || batchStale || applied.includes(index)}
                     onClick={() => {
                       if (suggestion.goal && onApplyGoal) {
                         onApplyGoal(suggestion.goal);

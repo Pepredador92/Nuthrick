@@ -277,7 +277,7 @@ Deno.test("dated history retains clinical qualifiers and is not treated as curre
     { source: "Antecedente de entrevista · 2026-08-01 · symptoms changes", finding: "No persiste el síntoma anterior" },
     { source: "PES previo aprobado · 2026-07-18 · pes etiology", finding: "Hipótesis por revisar" },
   ];
-  assert.deepEqual(buildPesClinicalContext({ stamp: "a", facts }).facts, facts);
+  assert.deepEqual(buildPesClinicalContext({ stamp: "a", facts }).facts, [facts[0], facts[1], facts[3], facts[2], facts[4]]);
   assert.ok(buildConsultationSupportContext({ stamp: "a", facts }).facts.every(f => !/Antecedente|PES previo/.test(f.source)));
   const prompt = clinicalAdapter("pes_diagnosis", "pes_diagnosis@3")!.instructions;
   assert.match(prompt, /no confirma su vigencia actual/);
@@ -311,7 +311,7 @@ Deno.test('PES @5 preserves renamed historical metrics by stable codes and separ
   ];
   const context = buildPesClinicalContext({ stamp: 'x', facts });
   assert.equal(context.facts.length, 3);
-  assert.match(context.facts[0].finding, /32 %.*30 %/);
+  assert.match(context.facts.find(fact => fact.source.endsWith('Equipo A'))!.finding, /32 %.*30 %/);
   assert.ok(context.facts.some(fact => fact.finding.includes('28 kg')));
   assert.equal(buildConsultationSupportContext({ stamp: 'x', facts }).facts.some(fact => fact.finding.includes('28 kg')), false);
 });

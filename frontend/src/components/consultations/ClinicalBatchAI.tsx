@@ -11,6 +11,7 @@ import {
   type ClinicalBatchProposal,
 } from '../../../../supabase/functions/_shared/clinical-batch';
 import { useConsultationDraft, useConsultationDraftContext } from './ConsultationDrafts';
+import { ClinicalBatchChanges, clinicalBatchNeedsReview } from './ClinicalBatchChanges';
 import './ClinicalBatchAI.css';
 
 const batchKey = 'clinical-batch';
@@ -37,9 +38,20 @@ export function useClinicalBatchProposal(feature: ClinicalBatchFeature) {
   const proposal = run && context ? getBatchProposal(context.values, run, feature) : undefined;
   return {
     proposal: proposal && run?.completed[feature] === proposal.generationId ? proposal : undefined,
+    stale: !!(proposal && run && clinicalBatchNeedsReview(proposal, feature, run.completed)),
     reviewed,
     markReviewed: setReviewed,
   };
+}
+
+export function ClinicalBatchStageRevision({ feature, ...props }: {
+  feature: ClinicalBatchFeature; patientId: string; consultationId: string; revision: number;
+  blocked: boolean; before: () => Promise<boolean>;
+}) {
+  const checkpoint = useConsultationDraftContext();
+  const run = checkpoint?.values[batchKey] as BatchRun | null | undefined;
+  if (!run || !clinicalBatchStages.every(stage => !!run.completed[stage.feature])) return null;
+  return <ClinicalBatchChanges {...props} batchId={run.id} completed={run.completed} featureOnly={feature} />;
 }
 
 export function ClinicalBatchAI({ patientId, consultationId, revision, ready, before, onReview }: {
@@ -55,6 +67,7 @@ export function ClinicalBatchAI({ patientId, consultationId, revision, ready, be
   const [run, setRun] = useConsultationDraft<BatchRun | null>(batchKey, null);
   const [active, setActive] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const [changing, setChanging] = useState(false);
   const lock = useRef(false);
   const mounted = useRef(false);
   useEffect(() => {
@@ -75,7 +88,7 @@ export function ClinicalBatchAI({ patientId, consultationId, revision, ready, be
   });
 
   async function generate() {
-    if (!checkpoint || !ready || restricted || finished || lock.current) return;
+    if (!checkpoint || !ready || restricted || finished || lock.current || changing) return;
     const controller = checkpoint;
     lock.current = true;
     setActive('Guardando la consulta…');
@@ -139,7 +152,7 @@ export function ClinicalBatchAI({ patientId, consultationId, revision, ready, be
       <AIButton
         className="clinical-ai-batch-button"
         state={active ? 'generating' : 'idle'}
-        disabled={!ready || restricted}
+        disabled={!ready || restricted || changing}
         title={restricted ? 'Tu acceso necesita IA para los cuatro pasos' : undefined}
         onClick={() => void generate()}
       >
@@ -155,11 +168,17 @@ export function ClinicalBatchAI({ patientId, consultationId, revision, ready, be
     </p>
     {run && <ul className="clinical-ai-batch-stages">
       {clinicalBatchStages.map(({ feature, label }, index) => <li key={feature}>
-        {run.completed[feature]
-          ? <button type="button" className="clinical-text-action" onClick={() => onReview(index + 1)}>{`Revisar ${label}`}<ArrowRight size={14} aria-hidden="true" /></button>
-          : <span>{label}</span>}
+        {run.completed[feature] ? <>
+          <button type="button" className="clinical-text-action" onClick={() => onReview(index + 1)}>{`Revisar ${label}`}<ArrowRight size={14} aria-hidden="true" /></button>
+          {(() => {
+            const proposal = getBatchProposal(checkpoint.values, run, feature);
+            return proposal && clinicalBatchNeedsReview(proposal, feature, run.completed) && <span> · Por revisar</span>;
+          })()}
+        </> : <span>{label}</span>}
       </li>)}
     </ul>}
+    {run && <ClinicalBatchChanges patientId={patientId} consultationId={consultationId} revision={revision}
+      batchId={run.id} completed={run.completed} blocked={!!active} before={before} onBusy={setChanging} />}
     {message && <p role="alert">{message}</p>}
   </section>;
 }

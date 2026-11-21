@@ -24,6 +24,9 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
     batch = crypto.randomUUID();
   const drafts: Partial<Record<ClinicalBatchFeature, ClinicalBatchProposal>> =
     {};
+  const candidates: Partial<
+    Record<ClinicalBatchFeature, ClinicalBatchProposal>
+  > = {};
   const settled = new Set<string>();
   const generations = new Map<
     string,
@@ -89,7 +92,12 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
         assert.equal(data.status, "succeeded");
         assert.equal(data.input_tokens, 50);
         assert.equal(data.output_tokens, 100);
-        assert.equal(drafts[generation.feature]?.generationId, generation.id);
+        assert.ok(
+          [
+            drafts[generation.feature]?.generationId,
+            candidates[generation.feature]?.generationId,
+          ].includes(generation.id),
+        );
         generation.status = data.status;
         settled.add(generation.id);
         return json(generation);
@@ -103,7 +111,15 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
       assert.equal(body.p_patient, patient);
       return json({
         stamp: "current",
+        identifiers: ["Paciente Ejemplo"],
         facts: [{
+          source: "Nota previa · 2026-11-01",
+          finding: "Refirió dolor de espalda y no podía hacer ejercicio.",
+        }, {
+          source: "Entrevista · physical activity · Ejercicio actual",
+          finding: "El dolor de espalda cesó y retomó el ejercicio.",
+          consultation_date: "2026-11-21",
+        }, {
           source: "Entrevista · main reason",
           finding: "Refiere omitir comidas durante el trabajo.",
         }],
@@ -130,7 +146,8 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
         item.id === body.p_generation
       )!;
       assert.equal(generation.status, "running");
-      drafts[generation.feature] = { ...body.p_result, batchId: body.p_batch };
+      const target = body.p_result.revises ? candidates : drafts;
+      target[generation.feature] = { ...body.p_result, batchId: body.p_batch };
       return json(null);
     }
     if (rpc === "ai_bind_clinical_context" || rpc === "ai_provider_metadata") {
@@ -145,6 +162,40 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
     const generating = [...generations.values()].find((generation) =>
       generation.status === "running"
     )!;
+    assert.match(
+      body.instructions,
+      /antecedente no demuestra mejoría ni empeoramiento/,
+    );
+    const current = context.facts.find((fact: { finding: string }) =>
+      fact.finding.includes("retomó el ejercicio")
+    );
+    const historical = context.facts.find((fact: { source: string }) =>
+      fact.source.startsWith("Nota previa")
+    );
+    assert.equal(current.timing, "current");
+    assert.equal(current.consultation_date, "2026-11-21");
+    assert.equal(historical.timing, "historical");
+    assert.ok(
+      context.facts.indexOf(current) < context.facts.indexOf(historical),
+    );
+    if (context.clinicalFeedback) {
+      assert.match(context.clinicalFeedback, /Prioriza el ejercicio retomado/);
+      assert.doesNotMatch(
+        context.clinicalFeedback,
+        /Paciente Ejemplo|example\.invalid/,
+      );
+      assert.equal(
+        context.previousDraft.problem,
+        drafts.pes_diagnosis?.output.problem,
+      );
+      assert.match(body.instructions, /jamás como fuente de hechos/);
+    }
+    if (generating.feature === "patient_instructions") {
+      assert.match(
+        body.instructions,
+        /habla directamente con la persona de tú/,
+      );
+    }
     modelCalls++;
     const result = await new SimulatorExampleProvider().run({
       config: { feature: generating.feature } as never,
@@ -157,7 +208,11 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
       ? {
         instructions: [{
           text: instructions,
-          evidenceFactIds: [context.facts[0].id],
+          evidenceFactIds: [
+            context.facts.find((fact: { source: string }) =>
+              fact.source.startsWith("Estrategia provisional")
+            ).id,
+          ],
         }],
       }
       : result.output;
@@ -187,6 +242,7 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
       feature: ClinicalBatchFeature,
       idempotencyKey = crypto.randomUUID(),
       batchId = batch,
+      review?: { clinicalFeedback: string; revisionOf: string },
     ) => {
       const response = await originalFetch(`http://127.0.0.1:${port}`, {
         method: "POST",
@@ -201,6 +257,7 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
           patientId: patient,
           consultationId: consultation,
           revision: 1,
+          ...review,
           ...(feature === "consultation_support"
             ? { objectiveTextStyle: "patient_v1" }
             : {}),
@@ -235,8 +292,35 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
       recommendations[0].evidence[0].source,
       /^Estrategia provisional · /,
     );
-    assert.equal(modelCalls, 4);
-    assert.equal(settled.size, 4);
+    const originalPes = drafts.pes_diagnosis!;
+    const review = {
+      clinicalFeedback:
+        "Prioriza el ejercicio retomado de Paciente Ejemplo, persona@example.invalid.",
+      revisionOf: originalPes.generationId,
+    };
+    assert.equal(
+      (await request("pes_diagnosis", crypto.randomUUID(), batch, {
+        ...review,
+        revisionOf: crypto.randomUUID(),
+      })).error,
+      "context_changed",
+    );
+    const revision = await request(
+      "pes_diagnosis",
+      crypto.randomUUID(),
+      batch,
+      review,
+    );
+    assert.equal(revision.status, "succeeded", JSON.stringify(revision));
+    assert.equal(drafts.pes_diagnosis!.generationId, originalPes.generationId);
+    assert.equal(candidates.pes_diagnosis!.revises, originalPes.generationId);
+    assert.equal(settled.size, 5);
+    drafts.pes_diagnosis = candidates.pes_diagnosis;
+    assert.equal(
+      (await request("intervention_strategy")).error,
+      "batch_previous_stage_stale",
+    );
+    assert.equal(modelCalls, 5);
   } finally {
     await server?.shutdown();
     globalThis.fetch = originalFetch;

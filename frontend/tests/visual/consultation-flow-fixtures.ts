@@ -16,6 +16,7 @@ import { withWorkflowSections } from "../../src/features/consultations/consultat
 export * from "../../src/services/consultations";
 export * from "../../src/services/patients";
 export * from "./clinical-copilot-fixtures";
+export { reviewClinicalAIBatch } from "../../src/services/ai";
 const followUp = location.search.includes("follow-up");
 const consultation = {
   id: "demo",
@@ -81,6 +82,17 @@ export const createPatientNote = async (patientId: string, content: string, cons
   };
   demoNotes.unshift(note);
   return note;
+};
+export const updatePatientNote = async (id: string, content: string) => {
+  const index = demoNotes.findIndex(note => note.id === id);
+  if (index < 0) throw new Error("La nota ya no está disponible.");
+  const updated = { ...demoNotes[index], content: content.trim(), updated_at: new Date().toISOString() };
+  demoNotes[index] = updated;
+  return updated;
+};
+export const deletePatientNote = async (id: string) => {
+  const index = demoNotes.findIndex(note => note.id === id);
+  if (index >= 0) demoNotes.splice(index, 1);
 };
 let discarded = false;
 const designPreview = location.search.includes("clinical-design");
