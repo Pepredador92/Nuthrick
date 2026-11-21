@@ -73,11 +73,12 @@ type SuggestionProps = {
   onApplyGoal?: (goal: ObjectiveGoal) => void;
   draftKey?: string;
   reviewBatch?: boolean;
+  assessmentApplyDisabled?: boolean;
   approvedPes?: { problem: string; etiology: string; signsSymptoms: string } | null;
   batchNotice?: string;
 };
 
-function parseSuggestions(output: {objectives?:unknown;instructions?:unknown},kind:"objectives"|"instructions"):Suggestion[]{
+function parseSuggestions(output: {objectives?:unknown;instructions?:unknown},kind:"objectives"|"instructions",allowTemplate=false):Suggestion[]{
       const drafts = output[kind];
       const next = Array.isArray(drafts)
         ? drafts.flatMap((item) => {
@@ -113,7 +114,7 @@ function parseSuggestions(output: {objectives?:unknown;instructions?:unknown},ki
               /^https:\/\//.test(reference.url)
             )
             : [];
-          return evidence.length
+          return evidence.length || allowTemplate
             ? [{ text: text.trim(), evidence, goal, references }]
             : [];
         })
@@ -140,6 +141,7 @@ export function ClinicalSuggestionsAI({
   reviewBatch,
   approvedPes,
   batchNotice,
+  assessmentApplyDisabled = disabled,
 }: SuggestionProps & {
   kind: "objectives" | "instructions";
   compactInstructions?: boolean;
@@ -163,8 +165,10 @@ export function ClinicalSuggestionsAI({
   const batch = useClinicalBatchProposal(feature);
   const pes = useClinicalBatchProposal("pes_diagnosis").proposal?.output;
   const visibleBatch = reviewBatch ? batch.proposal : undefined;
+  const basis = batchOrigin && batch.proposal?.generationId === batchOrigin ? batch.proposal.output.batchBasis : null;
+  const assessment = basis === 'assessment' || basis === 'template';
   const baseProblem = visibleBatch?.output.pesProblem ?? pes?.problem;
-  const batchMismatch = !instructions && !!approvedPes && batchOrigin !== null && suggestions.some(({ goal }) =>
+  const batchMismatch = !assessment && !instructions && !!approvedPes && batchOrigin !== null && suggestions.some(({ goal }) =>
     !goal || (typeof baseProblem === "string" && approvedPes.problem !== baseProblem) ||
     goal.etiology !== approvedPes.etiology || !approvedPes.signsSymptoms.split("\n").some(sign => sign.trim() === goal.sign)
   );
@@ -305,7 +309,7 @@ export function ClinicalSuggestionsAI({
         <button type="button" className="nuth-button-secondary mt-3"
           disabled={state === 'generating' || state === 'uncertain'}
           onClick={() => {
-            const next = parseSuggestions(visibleBatch.output, kind);
+            const next = parseSuggestions(visibleBatch.output, kind, visibleBatch.output.batchBasis === 'template');
             setSuggestions(next);
             setApplied([]);
             setBatchOrigin(visibleBatch.generationId);
@@ -318,6 +322,7 @@ export function ClinicalSuggestionsAI({
       )}
       {batchMismatch && <p role="status" className="clinical-notice is-warning">El PES aprobado cambió. Puedes proponer objetivos nuevos a partir del diagnóstico actual.</p>}
       {batchStale && <p role="status" className="clinical-notice is-warning">Esta versión quedó por revisar. Abre la propuesta vigente en Datos o vuelve a generar este paso.</p>}
+      {assessment && <p className="clinical-notice">{basis === 'template' ? 'Plantilla general de valoración. Adáptala a esta consulta antes de compartirla.' : 'Borrador de valoración basado en los datos disponibles. Revísalo y ajústalo antes de compartirlo.'}</p>}
       {batchOrigin && batchNotice && <p role="status" className="clinical-notice">{batchNotice}</p>}
       {state === "uncertain" && (
         <button
@@ -415,7 +420,7 @@ export function ClinicalSuggestionsAI({
                   <button
                     type="button"
                     className="mt-3 rounded-lg border border-[#c9d9ce] px-3 py-2 text-xs font-semibold text-[#315e4f] hover:bg-[#f4f8f5]"
-                    disabled={disabled || batchMismatch || batchStale || applied.includes(index)}
+                    disabled={(assessment ? assessmentApplyDisabled : disabled) || batchMismatch || batchStale || applied.includes(index)}
                     onClick={() => {
                       if (suggestion.goal && onApplyGoal) {
                         onApplyGoal(suggestion.goal);

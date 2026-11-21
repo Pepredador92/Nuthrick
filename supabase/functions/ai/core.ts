@@ -13,7 +13,8 @@ import { hasUsablePesEtiology } from '../_shared/pes.ts';
 import { clinicalAdapter, clinicalEvidenceValid, clinicalFactTiming, conservativeRecallQuantities, normalizePesOutput, normalizeSmartObjectivesOutput, pesClinicalStructureValid, pesSchema, smartObjectiveValidationIssues, type ClinicalFact } from './clinical.ts';
 import { dietDraftAdapter, dietDraftAdapterV1, dietDraftAdapterV3 } from './diet-contract.ts';
 import { isPatientObservation } from '../_shared/patient-observations.ts';
-import { clinicalBatchStages } from '../_shared/clinical-batch.ts';
+import { clinicalBatchStages, type ClinicalBatchFeature } from '../_shared/clinical-batch.ts';
+import { assessmentInstructions, assessmentSchema, batchDraft, type BatchAssessment } from './clinical-batch-assessment.ts';
 
 export type FeatureConfig = {
   feature: string; enabled: boolean; provider: string; model: string; prompt_version: string;
@@ -24,7 +25,7 @@ export type FeatureConfig = {
   token_policy?: 'fixed' | 'model_capacity';
 };
 export type Usage = { input_tokens: number; output_tokens: number; cached_tokens: number; cache_write_tokens?: number; cache_write_12h_tokens?: number };
-export type ProviderResult = { status: string; output: unknown; usage: Usage; responseId: string; model?: string; latencyMs?: number; requestId?: string };
+export type ProviderResult = { status: string; output: unknown; usage: Usage; responseId?: string; model?: string; latencyMs?: number; requestId?: string };
 export type ProviderInput = { config: FeatureConfig; instructions: string; context: unknown; schema: Record<string, unknown>; generationId: string; countedInputTokens?: number };
 export interface AIProvider {
   countInput?(input: Omit<ProviderInput, 'generationId'>): Promise<number>;
@@ -184,7 +185,7 @@ export interface AIStore {
   claim(id: string): Promise<boolean>;
   settle(id: string, status: string, usage: Usage, responseId?: string): Promise<Generation>;
   uncertain(id: string): Promise<void>;
-  context?(request: AIRequest): Promise<{ context: unknown; stamp: string; inputGenerations?: string[]; review?: { clinicalFeedback: string; previousDraft?: unknown } }>;
+  context?(request: AIRequest): Promise<{ context: unknown; stamp: string; inputGenerations?: string[]; review?: { clinicalFeedback: string; previousDraft?: unknown }; batch?: { assessment: boolean; context: BatchAssessment } }>;
   bindContext?(id: string, request: AIRequest, stamp: string): Promise<void>;
   validateOutput?(output: unknown): boolean;
   recordResult?(id: string, result: ProviderResult, valid: boolean): Promise<void>;
@@ -243,6 +244,14 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   if (clinical && (!store.context || !store.bindContext)) throw new AIError('context_unavailable');
   const hydrated = clinical ? await store.context!(request) : null;
   if (hydrated) adapter.context = hydrated.context;
+  const batch = hydrated?.batch;
+  const batchFeature = request.feature as ClinicalBatchFeature;
+  const assessment = batch?.assessment && batchFeature !== 'pes_diagnosis';
+  const templateOnly = !!batch && !batch.context.facts.length;
+  if (assessment) {
+    adapter.instructions = assessmentInstructions(batchFeature);
+    adapter.schema = assessmentSchema;
+  }
   const clinicalFacts = (hydrated?.context as { facts?: ClinicalFact[] } | undefined)?.facts;
   if (clinicalBatchStages.some(stage => stage.feature === request.feature) && Array.isArray(clinicalFacts)) {
     adapter.context = { ...hydrated?.context as object, facts: clinicalFacts.map(fact => ({
@@ -257,7 +266,9 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
     if (clinicalFacts?.some(fact => fact.source.startsWith('PES provisional ·'))) {
       adapter.instructions = adapter.instructions.replaceAll('PES actual aprobado ·', 'PES provisional ·');
     }
-    adapter.instructions += ' Esta solicitud forma parte de una propuesta completa pendiente de revisión profesional. Cuando una indicación anterior requiera un PES, un objetivo o una estrategia aprobados para generar, usa en su lugar los borradores de esos pasos proporcionados en el contexto. Cita las etiquetas exactas del contexto, incluidas las de PES o estrategia provisional. Solo describe acciones y metas como propuestas. No afirmes que ya se aceptaron o ejecutaron. Escribe las acciones para la persona en español sencillo, en frases completas. Usa el espacio necesario para incluir lo pertinente y reformula de manera más breve si hace falta; nunca cortes una frase ni dejes palabras a medias.';
+    adapter.instructions += ' Esta solicitud forma parte de una propuesta completa pendiente de revisión profesional. Solo describe acciones y metas como propuestas. No afirmes que ya se aceptaron o ejecutaron. Escribe las acciones para la persona en español sencillo, en frases completas. Usa el espacio necesario para incluir lo pertinente y reformula de manera más breve si hace falta; nunca cortes una frase ni dejes palabras a medias.';
+    if (!assessment) adapter.instructions += ' Usa los borradores proporcionados en el contexto cuando se haga referencia a etapas previas. Cita las etiquetas exactas del contexto, incluidas las de PES o estrategia provisional.';
+    if (batchFeature === 'pes_diagnosis') adapter.instructions += ' Evalúa las notas de esta consulta aunque no exista entrevista. Antes de dejar sin etiología, busca en los antecedentes fechados factores que la información actual permita sostener. Si su vigencia no consta, formula una pregunta para confirmarla. Conserva el problema y los signos que tengan respaldo y deja la causa como pendiente si sigue sin sustento.';
     if (clinicalFacts?.some(fact => fact.source.startsWith('Estrategia provisional ·'))) {
       adapter.instructions += ' En cada indicación cita como mínimo un hecho rotulado «Estrategia provisional» y explica la acción correspondiente para que el profesional pueda revisarla antes de acordarla con el paciente.';
     }
@@ -269,18 +280,19 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
     adapter.instructions += ' En cada campo text habla directamente con la persona de tú, con un tono cercano y respetuoso. Empieza con una acción clara en segunda persona («Anota…», «Elige…» o «En la próxima consulta revisamos juntos cómo te fue»). Usa palabras de uso diario. Explica cómo llevar a cabo la acción y cómo revisarla cuando conste en los datos. Evita títulos clínicos, abreviaturas, «usted», «el paciente deberá» y frases de informe. Comprueba que las oraciones estén completas y que el texto se pueda leer en voz alta tal como se lo explicarías en consulta.';
   }
   if(request.textEdit){const context=adapter.context as {meal_schedule:unknown[];selected_meal_indexes:number[]};adapter.schema=textDietEditSchema(context.meal_schedule.length,context.selected_meal_indexes);}
-  if (proposedObjectives) {
+  if (proposedObjectives && !assessment && !templateOnly) {
     const pes = (adapter.context as {approvedPes?:{etiology?:unknown;signsSymptoms?:string}|null}).approvedPes;
     if (!pes) throw new AIError('pes_approval_required');
     if (!hasUsablePesEtiology(pes.etiology)) throw new AIError('pes_etiology_required');
     if (!pes.signsSymptoms?.trim()) throw new AIError('pes_signs_required');
     adapter.context = { ...(adapter.context as object), objectiveFormat: 'smart@2' };
   }
-  if (referencedPes) adapter.context = { ...referencedPesContext(adapter.context), ...hydrated?.review };
+  if (referencedPes && !templateOnly) adapter.context = { ...referencedPesContext(adapter.context), ...hydrated?.review };
   const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : []), ...(request.textEdit ? [request.textEdit] : []), ...(request.feature==='intervention_strategy'?[request.strategyFeedback??null]:[]), ...(request.objectiveTextStyle ? [request.objectiveTextStyle] : []), ...(request.batchId ? [request.batchId, hydrated?.inputGenerations] : []), ...(request.clinicalFeedback ? [request.clinicalFeedback, request.revisionOf] : [])]);
   const fingerprint = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical))), b => b.toString(16).padStart(2,'0')).join('');
   let countedInputTokens: number | undefined;
-  if (config.token_policy === 'model_capacity') {
+  if (templateOnly) countedInputTokens = 1; // The reservation still runs. No provider usage is incurred.
+  else if (config.token_policy === 'model_capacity') {
     if (!provider.countInput) throw new AIError('configuration_required');
     try {
       countedInputTokens = await provider.countInput({config,...adapter});
@@ -305,7 +317,11 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   catch { await store.settle(generation.id,'failed',{input_tokens:0,output_tokens:0,cached_tokens:0}); throw new AIError('context_unavailable'); }
   if (!await store.claim(generation.id)) return { generationId: generation.id, status: generation.status, replay: true };
   let result: ProviderResult;
-  try { result = await provider.run({ config:allocatedOutput ? {...config,max_output_tokens:allocatedOutput} : config, ...adapter, generationId: generation.id, countedInputTokens }); }
+  try {
+    result = templateOnly
+      ? { status: 'completed', output: null, usage: { input_tokens: 0, output_tokens: 0, cached_tokens: 0 } }
+      : await provider.run({ config:allocatedOutput ? {...config,max_output_tokens:allocatedOutput} : config, ...adapter, generationId: generation.id, countedInputTokens });
+  }
   catch (error) {
     if (!(error instanceof AIError) || error.uncertain) {
       await store.uncertain(generation.id);
@@ -315,24 +331,37 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
     throw error;
   }
   const structuredPes = request.feature === 'pes_diagnosis' && ['pes_diagnosis@5', 'pes_diagnosis@6', 'pes_diagnosis@7'].includes(config.prompt_version);
-  if (referencedPes) {
+  if (referencedPes && !templateOnly) {
     result = { ...result, output: result.status === 'completed' && validOutput(adapter.schema,result.output)
       ? (['pes_diagnosis@9','pes_diagnosis@10'].includes(config.prompt_version) ? normalizeConcisePes : normalizeReferencedPes)(result.output,adapter.context) : null };
   }
   const outputSchema = referencedPes ? pesSchema : proposedObjectives ? normalizedObjectiveProposalsSchema : adapter.schema;
   if (structuredPes) result = { ...result, output: normalizePesOutput(result.output) };
   let valid = false;
-  const emptyObjectives = proposedObjectives && result.status==='completed' && validOutput(adapter.schema,result.output) && (result.output as {objectives:unknown[]}).objectives.length===0;
+  let emptyObjectives = false;
   try {
-    const smartObjectives = request.feature === 'consultation_support' && config.prompt_version === 'consultation_support@4';
-    if (proposedObjectives) result = { ...result, output: result.status === 'completed' && validOutput(adapter.schema,result.output) ? normalizeObjectiveProposals(result.output,adapter.context) : null };
-    if (smartObjectives && result.status === 'completed' && validOutput(adapter.schema,result.output)) result = { ...result, output: normalizeSmartObjectivesOutput(result.output,adapter.context) };
-    if (request.feature === 'intervention_strategy' && validOutput(adapter.schema,result.output)) result = { ...result, output: normalizeInterventionOutput(result.output,adapter.context as InterventionContext) };
-    valid = !emptyObjectives && result.status === 'completed' && validOutput(outputSchema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (request.feature !== 'intervention_strategy' || interventionEvidenceValid(result.output,adapter.context as InterventionContext,generation.id)) && (!structuredPes || pesClinicalStructureValid(result.output)) && (request.feature !== 'pes_diagnosis' || config.prompt_version !== 'pes_diagnosis@7' || pesSynthesisEvidenceValid(result.output)) && (!store.validateOutput || store.validateOutput(result.output));
-    if (!valid && request.feature === 'pes_diagnosis') console.warn(JSON.stringify({event:'pes_output_rejected',generationId:generation.id,promptVersion:config.prompt_version,codes:result.status!=='completed'?['provider_incomplete']:!validOutput(outputSchema,result.output)?['schema_or_references']:['evidence_or_structure']}));
-    if (!valid && smartObjectives) console.warn(JSON.stringify({event:'objective_output_rejected',generationId:generation.id,codes:result.status!=='completed'?['provider_incomplete']:!validOutput(adapter.schema,result.output)?['schema']:smartObjectiveValidationIssues(result.output,adapter.context)}));
-    if (!valid && proposedObjectives) console.warn(JSON.stringify({event:'objective_output_rejected',generationId:generation.id,promptVersion:config.prompt_version,codes:emptyObjectives?['empty_output']:result.status!=='completed'?['provider_incomplete']:!validOutput(outputSchema,result.output)?['schema_or_references']:['evidence_or_proposal']}));
-    if (!valid && request.feature === 'intervention_strategy') console.warn(JSON.stringify({event:'strategy_output_rejected',generationId:generation.id,codes:result.status!=='completed'?['provider_incomplete']:!validOutput(adapter.schema,result.output)?['schema']:interventionValidationIssues(result.output,adapter.context as InterventionContext,generation.id)}));
+    const providerOutputValid = !templateOnly && (assessment || proposedObjectives || !!batch) &&
+      result.status === 'completed' && validOutput(referencedPes ? pesSchema : adapter.schema, result.output);
+    emptyObjectives = proposedObjectives && !assessment && providerOutputValid &&
+      (result.output as { objectives: unknown[] }).objectives.length === 0;
+    const emptyBatchStep = providerOutputValid && !assessment &&
+      (emptyObjectives || (batchFeature === 'patient_instructions' || batchFeature === 'intervention_strategy') &&
+        (result.output as Record<string, unknown[]>)[batchFeature === 'patient_instructions' ? 'instructions' : 'strategies']?.length === 0);
+    if (batch && (templateOnly || (assessment && providerOutputValid) || emptyBatchStep)) {
+      const assessmentOutput = assessment && providerOutputValid ? result.output as Parameters<typeof batchDraft>[3] : undefined;
+      result = { ...result, output: batchDraft(batchFeature, batch.context, generation.id, assessmentOutput) };
+      valid = true;
+    } else if (!assessment) {
+      const smartObjectives = request.feature === 'consultation_support' && config.prompt_version === 'consultation_support@4';
+      if (proposedObjectives) result = { ...result, output: result.status === 'completed' && validOutput(adapter.schema,result.output) ? normalizeObjectiveProposals(result.output,adapter.context) : null };
+      if (smartObjectives && result.status === 'completed' && validOutput(adapter.schema,result.output)) result = { ...result, output: normalizeSmartObjectivesOutput(result.output,adapter.context) };
+      if (request.feature === 'intervention_strategy' && validOutput(adapter.schema,result.output)) result = { ...result, output: normalizeInterventionOutput(result.output,adapter.context as InterventionContext) };
+      valid = !emptyObjectives && result.status === 'completed' && validOutput(outputSchema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (request.feature !== 'intervention_strategy' || interventionEvidenceValid(result.output,adapter.context as InterventionContext,generation.id)) && (!structuredPes || pesClinicalStructureValid(result.output)) && (request.feature !== 'pes_diagnosis' || config.prompt_version !== 'pes_diagnosis@7' || pesSynthesisEvidenceValid(result.output)) && (!store.validateOutput || store.validateOutput(result.output));
+      if (!valid && request.feature === 'pes_diagnosis') console.warn(JSON.stringify({event:'pes_output_rejected',generationId:generation.id,promptVersion:config.prompt_version,codes:result.status!=='completed'?['provider_incomplete']:!validOutput(outputSchema,result.output)?['schema_or_references']:['evidence_or_structure']}));
+      if (!valid && smartObjectives) console.warn(JSON.stringify({event:'objective_output_rejected',generationId:generation.id,codes:result.status!=='completed'?['provider_incomplete']:!validOutput(adapter.schema,result.output)?['schema']:smartObjectiveValidationIssues(result.output,adapter.context)}));
+      if (!valid && proposedObjectives) console.warn(JSON.stringify({event:'objective_output_rejected',generationId:generation.id,promptVersion:config.prompt_version,codes:emptyObjectives?['empty_output']:result.status!=='completed'?['provider_incomplete']:!validOutput(outputSchema,result.output)?['schema_or_references']:['evidence_or_proposal']}));
+      if (!valid && request.feature === 'intervention_strategy') console.warn(JSON.stringify({event:'strategy_output_rejected',generationId:generation.id,codes:result.status!=='completed'?['provider_incomplete']:!validOutput(adapter.schema,result.output)?['schema']:interventionValidationIssues(result.output,adapter.context as InterventionContext,generation.id)}));
+    }
     await store.recordResult?.(generation.id,result,valid);
   } catch {
     // Confirmed provider usage remains billable even if domain validation or

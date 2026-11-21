@@ -452,7 +452,7 @@ export function ClinicalObjective(props: Props) {
       </fieldset>
       {patientId && (
         <>
-        {workspace?.pes && !hasUsablePesEtiology(workspace.pes.etiology) && <aside role="status" className="clinical-notice is-warning"><p>Completa la causa del PES para poder proponer objetivos vinculados. «NA» no aporta información clínica. No se solicitará IA ni se consumirán créditos mientras falte este dato.</p>{props.onReviewPes&&<button type="button" className="clinical-text-action" onClick={props.onReviewPes}>Completar etiología del PES<ArrowRight size={15}/></button>}</aside>}
+        {workspace?.pes && !hasUsablePesEtiology(workspace.pes.etiology) && <aside role="status" className="clinical-notice is-warning"><p>Para proponer objetivos vinculados desde este paso, completa la etiología del PES. Puedes revisar los objetivos de valoración que se hayan generado en la propuesta completa.</p>{props.onReviewPes&&<button type="button" className="clinical-text-action" onClick={props.onReviewPes}>Completar etiología del PES<ArrowRight size={15}/></button>}</aside>}
         <ConsultationObjectiveAI draftKey={questionKey}
           key={workspace?.pes?.approved_at ?? "no-pes"}
           patientId={patientId}
@@ -461,6 +461,7 @@ export function ClinicalObjective(props: Props) {
           before={before}
           reviewBatch={props.reviewBatch}
           approvedPes={workspace?.pes}
+          assessmentApplyDisabled={busy || plan.goals.length >= 3}
           disabled={busy || !workspace?.pes || !hasUsablePesEtiology(workspace.pes.etiology) || plan.goals.length >= 3}
           onApply={(text) =>
             add({ ...emptyObjective(), outcome: text })}

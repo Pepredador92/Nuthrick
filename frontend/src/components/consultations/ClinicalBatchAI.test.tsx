@@ -41,7 +41,16 @@ it('waits for the clinical review, saves each draft and recovers an interrupted 
   }) => {
     const generationId = crypto.randomUUID();
     ledger.set(idempotencyKey, { generationId, status: 'succeeded' });
-    saved.answers[clinicalBatchKey(feature)] = { generationId, batchId, output: { problem: 'Borrador sintético' } };
+    const output = {
+      pes_diagnosis: { problem: 'Borrador sintético', etiology: '' },
+      consultation_support: { batchBasis: 'assessment', objectives: [{ goal: { outcome: 'Anota qué cambió' } }] },
+      intervention_strategy: { batchBasis: 'assessment', strategies: [{ strategy: { title: 'Revisar el cambio' } }] },
+      patient_instructions: { batchBasis: 'template', instructions: [{ text: 'Trae tus anotaciones.' }] },
+    }[feature];
+    const inputGenerations = clinicalBatchStages
+      .slice(0, clinicalBatchStages.findIndex(stage => stage.feature === feature))
+      .map(stage => (saved.answers[clinicalBatchKey(stage.feature)] as { generationId: string }).generationId);
+    saved.answers[clinicalBatchKey(feature)] = { generationId, batchId, output, inputGenerations };
     saved.version++;
     if (!interrupted && feature === 'consultation_support') {
       interrupted = true;
@@ -70,6 +79,9 @@ it('waits for the clinical review, saves each draft and recovers an interrupted 
   render(tree(true));
   fireEvent.click(await screen.findByRole('button', { name: 'Comprobar y continuar' }));
   await screen.findByText('Propuesta completa. Revisa los cuatro borradores.');
+  expect(screen.getByText(/Etiología pendiente/)).toBeVisible();
+  expect(screen.getAllByText(/Borrador de valoración/)).toHaveLength(2);
+  expect(screen.getByText(/Plantilla de valoración/)).toBeVisible();
   expect(api.run.mock.calls.map(([request]) => request.feature)).toEqual(clinicalBatchStages.map(stage => stage.feature));
   expect(new Set(api.run.mock.calls.map(([request]) => request.batchId)).size).toBe(1);
   expect(api.status).toHaveBeenCalledExactlyOnceWith(api.run.mock.calls[1][0].idempotencyKey);

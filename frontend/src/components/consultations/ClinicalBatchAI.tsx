@@ -10,6 +10,7 @@ import {
   type ClinicalBatchFeature,
   type ClinicalBatchProposal,
 } from '../../../../supabase/functions/_shared/clinical-batch';
+import { hasUsablePesEtiology } from '../../../../supabase/functions/_shared/pes';
 import { useConsultationDraft, useConsultationDraftContext } from './ConsultationDrafts';
 import { ClinicalBatchChanges, clinicalBatchNeedsReview } from './ClinicalBatchChanges';
 import './ClinicalBatchAI.css';
@@ -172,7 +173,12 @@ export function ClinicalBatchAI({ patientId, consultationId, revision, ready, be
           <button type="button" className="clinical-text-action" onClick={() => onReview(index + 1)}>{`Revisar ${label}`}<ArrowRight size={14} aria-hidden="true" /></button>
           {(() => {
             const proposal = getBatchProposal(checkpoint.values, run, feature);
-            return proposal && clinicalBatchNeedsReview(proposal, feature, run.completed) && <span> · Por revisar</span>;
+            if (!proposal) return null;
+            if (clinicalBatchNeedsReview(proposal, feature, run.completed)) return <span> · Por revisar</span>;
+            if (proposal.output.batchBasis === 'template') return <span> · Plantilla de valoración</span>;
+            if (proposal.output.batchBasis === 'assessment') return <span> · Borrador de valoración</span>;
+            if (feature === 'pes_diagnosis' && !hasUsablePesEtiology(proposal.output.etiology)) return <span> · Etiología pendiente</span>;
+            return null;
           })()}
         </> : <span>{label}</span>}
       </li>)}

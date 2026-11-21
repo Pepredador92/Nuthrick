@@ -90,7 +90,7 @@ describe("PES copilot", () => {
     render(<PesCopilot {...props} />);
     await screen.findByText("Antropometría disponible");
     fireEvent.click(screen.getByText("Generar borrador"));
-    await screen.findByText(/falta identificar la causa/);
+    await screen.findByText(/La causa sigue pendiente/);
     expect(screen.getByText("Confirmar si persiste la barrera de horarios registrada en julio", { selector: "li" })).toBeTruthy();
     expect(screen.getByLabelText("Etiología").getAttribute("aria-invalid")).toBe("true");
     expect((screen.getByText("Aprobar") as HTMLButtonElement).disabled).toBe(true);

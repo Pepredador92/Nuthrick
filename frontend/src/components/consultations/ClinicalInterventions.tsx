@@ -674,6 +674,10 @@ export function ClinicalInterventions(props: Props) {
               <p className="clinical-strategy-summary-action">
                 {doc.strategy.action}
               </p>
+              {doc.generationId === batch.proposal?.generationId && batch.proposal?.output.batchBasis === 'template' &&
+                <p className="clinical-notice">Plantilla general de valoración. Adáptala a esta consulta.</p>}
+              {doc.generationId === batch.proposal?.generationId && batch.proposal?.output.batchBasis === 'assessment' &&
+                <p className="clinical-notice">Borrador de valoración basado en los datos disponibles.</p>}
               {doc.generationId === batch.proposal?.generationId && batch.stale &&
                 <p role="status" className="clinical-notice is-warning">Cambió un paso anterior. Revisa o regenera esta estrategia desde Datos.</p>}
               {doc.generationId === batch.proposal?.generationId && !batch.stale && !strategyIsLinked(linkBatchStrategy(doc), workspace) &&

@@ -15,6 +15,7 @@ import { dietPreflight } from './diet-ux.ts';
 import { localDietTestMode, SimulatedDietProvider } from './diet-provider-test.ts';
 import { SimulatorExampleProvider } from './simulator-provider.ts';
 import { clinicalBatchInput, type BatchStages } from './clinical-batch.ts';
+import { buildBatchAssessment, isAssessmentDraft } from './clinical-batch-assessment.ts';
 import type { ClinicalBatchFeature } from '../_shared/clinical-batch.ts';
 
 const site = siteOrigin(Deno.env.get('AI_SITE_URL'));
@@ -131,6 +132,7 @@ Deno.serve(async request => {
     let batchInputGenerations: string[] = [];
     let batchPesProblem: string | undefined;
     function formatClinicalProposal(output: unknown, generationId: string): unknown {
+      if (isAssessmentDraft(output)) return output;
       if (input.feature === 'intervention_strategy' && interventionContext) {
         return hydrateInterventionOutput(output, interventionContext, generationId);
       }
@@ -180,13 +182,15 @@ Deno.serve(async request => {
         if (error || !source) throw new AIError('context_unavailable');
         let clinical = r.feature==='recall_24h' ? source as ClinicalSource : withConfirmedRecall(source as ClinicalSource);
         let previous: Record<string, unknown> | undefined;
+        let savedStages: BatchStages = {};
+        let assessment = false;
         if (r.batchId && (r.feature !== 'pes_diagnosis' || r.revisionOf)) {
           const { data: stages, error } = await db.rpc('ai_clinical_batch_stages', {
             p_owner: owner, p_patient: r.patientId, p_consultation: r.consultationId,
             p_revision: r.revision, p_batch: r.batchId,
           });
           if (error || !stages) throw new AIError('context_unavailable');
-          const savedStages = stages as BatchStages;
+          savedStages = stages as BatchStages;
           if (r.revisionOf) {
             const stage = savedStages[r.feature as ClinicalBatchFeature];
             if (stage?.generationId !== r.revisionOf) throw new AIError('context_changed');
@@ -194,6 +198,7 @@ Deno.serve(async request => {
           }
           const prepared = clinicalBatchInput(clinical, savedStages, r.feature as ClinicalBatchFeature);
           clinical = prepared.source;
+          assessment = prepared.assessment;
           batchInputGenerations = prepared.inputGenerations;
           batchPesProblem = clinical.approvedPes?.problem;
         }
@@ -201,10 +206,25 @@ Deno.serve(async request => {
           clinicalFeedback: redactClinicalText(r.clinicalFeedback, clinical.identifiers),
           ...(previous ? { previousDraft: previous } : {}),
         } : undefined;
+        const batch = r.batchId ? await (async () => {
+          const visit = await db.from('consultations').select('consultation_type')
+            .eq('professional_id', owner).eq('patient_id', r.patientId!)
+            .eq('id', r.consultationId!).eq('status', 'draft').is('deleted_at', null).maybeSingle();
+          const type = visit.data?.consultation_type;
+          if (visit.error || (type !== 'initial' && type !== 'follow_up')) throw new AIError('context_unavailable');
+          return {
+            assessment,
+            context: buildBatchAssessment(clinical, type, savedStages),
+          };
+        })() : undefined;
+        if (batch && (assessment || !batch.context.facts.length)) {
+          const { consultationType, facts, priorDrafts } = batch.context;
+          return { stamp: clinical.stamp, context: { consultationType, facts, priorDrafts, ...review }, inputGenerations: batchInputGenerations, review, batch };
+        }
         if (r.feature === 'intervention_strategy') {
           interventionContext = buildInterventionContext(clinical, r.strategyFeedback);
           if (!interventionContext.binding.pesApprovedAt || !interventionContext.approvedGoals.length) throw new AIError('strategy_planning_required');
-          return {stamp:clinical.stamp, context:{...interventionContext,...review}, inputGenerations:batchInputGenerations,review};
+          return {stamp:clinical.stamp, context:{...interventionContext,...review}, inputGenerations:batchInputGenerations,review,batch};
         }
         const supportContext = ['consultation_support','patient_instructions'].includes(r.feature) ? buildConsultationSupportContext(clinical,r.feature==='patient_instructions',smartObjectives) : null;
         const context=r.feature==='pes_diagnosis' ? buildPesClinicalContext(clinical)
@@ -214,7 +234,7 @@ Deno.serve(async request => {
         if(r.feature==='patient_instructions' && supportContext?.strategiesRequired && !supportContext.hasApprovedStrategies && !supportContext.provisionalStrategies) throw new AIError('strategy_approval_required');
         if(r.feature==='patient_instructions' && !consultationSupportFacts?.some(fact=>instructionAgreement(fact.source, supportContext?.provisionalStrategies))) throw new AIError('instruction_agreements_required');
         if ('facts' in context && context.facts.length===0) throw new AIError('context_unavailable');
-        return {stamp:clinical.stamp, context:{...context,...review}, inputGenerations:batchInputGenerations,review};
+        return {stamp:clinical.stamp, context:{...context,...review}, inputGenerations:batchInputGenerations,review,batch};
       },
       bindContext: async (id,r,stamp) => {
         if(r.textGuidance||r.textEdit){await dietRpc('bind',{generationId:id,planId:r.planId,revision:r.revision,stamp,snapshot:textSnapshot},true);return;}

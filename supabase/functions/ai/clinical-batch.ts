@@ -37,7 +37,8 @@ export function clinicalBatchInput(
     }
     inputGenerations.push(proposal.generationId);
   }
-  if (!previous.length) return { source, inputGenerations };
+  const assessment = { source, inputGenerations, assessment: true };
+  if (!previous.length) return { source, inputGenerations, assessment: false };
 
   const draft = stages.pes_diagnosis!;
   const { problem, etiology, signsSymptoms, pesStatement } = draft.output;
@@ -46,18 +47,14 @@ export function clinicalBatchInput(
     Array.isArray(signsSymptoms) &&
     signsSymptoms.some((sign) => typeof sign === "string" && sign.trim()) &&
     typeof pesStatement === "string";
-  const pes = draftUsable
-    ? {
-      approved_at: `draft:${draft.generationId}`,
-      problem,
-      etiology,
-      signsSymptoms: (signsSymptoms as string[]).join("\n"),
-      pesStatement,
-    }
-    : source.approvedPes;
-  if (
-    !pes || !hasUsablePesEtiology(pes.etiology) || !pes.signsSymptoms.trim()
-  ) throw new AIError("batch_pes_review_required");
+  if (!draftUsable) return assessment;
+  const pes = {
+    approved_at: `draft:${draft.generationId}`,
+    problem,
+    etiology,
+    signsSymptoms: (signsSymptoms as string[]).join("\n"),
+    pesStatement,
+  };
 
   const clinical: ClinicalSource = {
     ...source,
@@ -65,7 +62,7 @@ export function clinicalBatchInput(
     provisionalPes: draftUsable,
   };
   if (feature === "consultation_support") {
-    return { source: clinical, inputGenerations };
+    return { source: clinical, inputGenerations, assessment: false };
   }
 
   const objectives = stages.consultation_support!;
@@ -91,17 +88,14 @@ export function clinicalBatchInput(
       pes_approved_at: pes.approved_at,
       smart_plan,
     };
-  } else if (
-    !source.approvedObjective?.smart_plan?.goals.length ||
-    source.approvedObjective.pes_approved_at !== pes.approved_at
-  ) {
-    throw new AIError("batch_objectives_review_required");
-  }
+  } else return assessment;
   if (feature === "intervention_strategy") {
-    return { source: clinical, inputGenerations };
+    return { source: clinical, inputGenerations, assessment: false };
   }
 
-  const strategies = stages.intervention_strategy!.output.strategies;
+  const strategyOutput = stages.intervention_strategy!.output;
+  if (strategyOutput.batchBasis) return assessment;
+  const strategies = strategyOutput.strategies;
   if (
     Array.isArray(strategies) && strategies.length &&
     strategies.every(isStrategyDocument)
@@ -110,8 +104,6 @@ export function clinicalBatchInput(
     clinical.provisionalStrategies = strategies.map((document) => ({
       document,
     }));
-  } else if (!source.approvedStrategies?.length) {
-    throw new AIError("batch_strategies_review_required");
-  }
-  return { source: clinical, inputGenerations };
+  } else return assessment;
+  return { source: clinical, inputGenerations, assessment: false };
 }

@@ -429,7 +429,7 @@ export function PesCopilot(props: Props) {
       {(!draft || hasUsablePesEtiology(draft.etiology)) && contextButton}
       {!draft && (
         <>
-          {hasSavedParts && !hasUsablePesEtiology(savedDraft.etiology) && <div role="status" className="clinical-notice is-warning"><p>La etiología sigue pendiente. «NA» o «No aplica» no explican la causa. Abre «Revisar PES escrito» para completarla con información confirmada antes de pedir objetivos con IA.</p>{savedDraft.missingContext.length>0&&<ul>{savedDraft.missingContext.map((question,index)=><li key={index}>{question}</li>)}</ul>}</div>}
+          {hasSavedParts && !hasUsablePesEtiology(savedDraft.etiology) && <div role="status" className="clinical-notice is-warning"><p>La etiología sigue pendiente. Abre «Revisar PES escrito» para completarla con información confirmada antes de aprobar el diagnóstico.</p>{savedDraft.missingContext.length>0&&<ul>{savedDraft.missingContext.map((question,index)=><li key={index}>{question}</li>)}</ul>}</div>}
           <PesDiagnosisCards draft={savedDraft} />
           {savedDraft.pesStatement.trim() && (
             <div className="clinical-pes-statement">
@@ -501,10 +501,10 @@ export function PesCopilot(props: Props) {
           {!hasUsablePesEtiology(draft.etiology) && (
             <div role="status" className="clinical-notice is-warning">
               <p>
-                Los datos disponibles sustentan un borrador parcial, pero falta
-                identificar la causa. Las mediciones pueden respaldar el problema
-                sin explicar su origen. Confirma las preguntas siguientes y completa
-                Etiología con tu valoración; «NA» no sustituye esa información.
+                {draft.problem.trim()
+                  ? 'La causa sigue pendiente. Revisa qué información falta y completa la etiología cuando puedas sustentarla.'
+                  : 'Reúne primero los datos que permitan identificar el problema y su causa.'}
+                {batch.proposal && batch.proposal.generationId === clinical.generation && ' Puedes revisar los objetivos, las estrategias y las indicaciones de valoración mientras completas el PES.'}
               </p>
               {draft.missingContext.length > 0 && (
                 <ul>

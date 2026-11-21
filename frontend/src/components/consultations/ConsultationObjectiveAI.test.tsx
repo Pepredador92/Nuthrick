@@ -1,3 +1,4 @@
+import { createRef } from "react";
 import {
   cleanup,
   fireEvent,
@@ -10,8 +11,10 @@ import {
   ClinicalSuggestionsAI,
   ConsultationObjectiveAI,
 } from "./ConsultationObjectiveAI";
+import { ConsultationDrafts, type ConsultationDraftController } from "./ConsultationDrafts";
 
-const api = vi.hoisted(() => ({ generate: vi.fn(), status: vi.fn() }));
+const api = vi.hoisted(() => ({ generate: vi.fn(), status: vi.fn(), sync: vi.fn() }));
+vi.mock("@/src/lib/supabase", () => ({ supabase: { rpc: api.sync } }));
 vi.mock("@/src/services/ai", async (original) => ({
   ...(await original<object>()),
   runAIRequest: api.generate,
@@ -59,6 +62,39 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("ConsultationObjectiveAI", () => {
+  it.each(["assessment", "template"])("lets the professional add a %s draft while individual generation requires an approved PES", async (batchBasis) => {
+    const output = {
+      batchBasis,
+      objectives: [{
+        goal: { outcome: "Anota qué te ayudó a retomar tu actividad." },
+        evidence: batchBasis === "assessment"
+          ? [{ source: "Nota de la consulta", finding: "Retomó su actividad." }]
+          : [],
+      }],
+    };
+    api.sync.mockImplementation(() => {
+      const response = Promise.resolve({ data: { version: 1, answers: {
+        "clinical-batch": { id: "batch", completed: { consultation_support: "goals" } },
+        "proposal:batch:consultation_support": { batchId: "batch", generationId: "goals", output },
+      } } });
+      return Object.assign(response, { abortSignal: () => response });
+    });
+    const applyGoal = vi.fn();
+    render(
+      <ConsultationDrafts consultationId="consultation-id" revision={3} onSave={props.before} controllerRef={createRef<ConsultationDraftController | null>()}>
+        <ConsultationObjectiveAI {...props} disabled assessmentApplyDisabled={false} reviewBatch onApplyGoal={applyGoal} />
+      </ConsultationDrafts>,
+    );
+    expect(await screen.findByRole("button", { name: "Proponer objetivos" })).toBeDisabled();
+    fireEvent.click(await screen.findByRole("button", { name: "Revisar objetivos de la propuesta completa" }));
+    expect(screen.getByText(batchBasis === "assessment" ? /Borrador de valoración basado en los datos/ : /Plantilla general de valoración/)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Agregar y revisar" }));
+    expect(applyGoal).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      outcome: "Anota qué te ayudó a retomar tu actividad.", etiology: "", agreement: "pending",
+    }));
+    expect(api.generate).not.toHaveBeenCalled();
+  });
+
   it("shows a cited draft and only applies it after the clinician chooses", async () => {
     render(<ConsultationObjectiveAI {...props} />);
     fireEvent.click(screen.getByRole("button", { name: "Proponer objetivos" }));

@@ -43,6 +43,9 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
       .trim() +
     " Lleva tus anotaciones a la revisión.";
   let server: Deno.HttpServer | undefined, port = 0, modelCalls = 0;
+  let scenario: "complete" | "partial" | "history" | "insufficient" | "empty" =
+    "complete";
+  let visit: "initial" | "follow_up" = "follow_up";
   function json(value: unknown) {
     return Response.json(value);
   }
@@ -51,6 +54,13 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
     const rpc = url.split("/").at(-1);
     if (url.endsWith("/auth/v1/user")) {
       return json({ id: owner, is_anonymous: false, app_metadata: {} });
+    }
+    if (url.includes("/rest/v1/consultations?")) {
+      const filters = new URL(url).searchParams;
+      assert.equal(filters.get("professional_id"), `eq.${owner}`);
+      assert.equal(filters.get("patient_id"), `eq.${patient}`);
+      assert.equal(filters.get("id"), `eq.${consultation}`);
+      return json({ consultation_type: visit });
     }
     const body = JSON.parse(String(init?.body));
     const data = body.p_data;
@@ -68,15 +78,18 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
           timeout_ms: 3000,
           reasoning_level: "low",
           temperature: null,
+          token_policy: "model_capacity",
         });
       }
       if (body.p_action === "reserve") {
+        assert.equal(data.counted_input_tokens, scenario === "empty" ? 1 : 200);
         const previous = generations.get(data.idempotency_key);
         if (previous) return json({ created: false, generation: previous });
         const generation = {
           id: crypto.randomUUID(),
           status: "reserved",
           feature: data.feature,
+          config_snapshot: { allocated_output_tokens: 2000 },
         };
         generations.set(data.idempotency_key, generation);
         return json({ created: true, generation });
@@ -90,8 +103,11 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
       }
       if (body.p_action === "settle") {
         assert.equal(data.status, "succeeded");
-        assert.equal(data.input_tokens, 50);
-        assert.equal(data.output_tokens, 100);
+        assert.equal(data.input_tokens, scenario === "empty" ? 0 : 50);
+        assert.equal(data.output_tokens, scenario === "empty" ? 0 : 100);
+        if (scenario === "empty") {
+          assert.equal(data.provider_response_id, undefined);
+        }
         assert.ok(
           [
             drafts[generation.feature]?.generationId,
@@ -112,17 +128,30 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
       return json({
         stamp: "current",
         identifiers: ["Paciente Ejemplo"],
-        facts: [{
-          source: "Nota previa · 2026-11-01",
-          finding: "Refirió dolor de espalda y no podía hacer ejercicio.",
-        }, {
-          source: "Entrevista · physical activity · Ejercicio actual",
-          finding: "El dolor de espalda cesó y retomó el ejercicio.",
-          consultation_date: "2026-11-21",
-        }, {
-          source: "Entrevista · main reason",
-          finding: "Refiere omitir comidas durante el trabajo.",
-        }],
+        facts: scenario === "empty" ? [] : scenario === "insufficient"
+          ? [{
+            source: "Dato de ficha · Edad",
+            finding: "Persona adulta.",
+          }]
+          : [
+            {
+              source: "Nota previa · 2026-11-01",
+              finding: "Refirió dolor de espalda y no podía hacer ejercicio.",
+            },
+            ...(scenario === "history" ? [] : [{
+              source: scenario === "partial"
+                ? "Nota de la consulta · 2026-11-21"
+                : "Entrevista · physical activity · Ejercicio actual",
+              finding: "El dolor de espalda cesó y retomó el ejercicio.",
+              consultation_date: "2026-11-21",
+            }]),
+            ...(scenario === "complete"
+              ? [{
+                source: "Entrevista · main reason",
+                finding: "Refiere omitir comidas durante el trabajo.",
+              }]
+              : []),
+          ],
         strategyRequired: true,
         approvedPes: null,
         approvedObjective: null,
@@ -153,15 +182,30 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
     if (rpc === "ai_bind_clinical_context" || rpc === "ai_provider_metadata") {
       return json(null);
     }
-    assert.equal(url, "https://api.openai.com/v1/responses");
     const context = JSON.parse(body.input);
     assert.match(body.instructions, /propuesta completa pendiente/);
+    if (url === "https://api.openai.com/v1/responses/input_tokens") {
+      assert.notEqual(scenario, "empty");
+      return json({ input_tokens: 200 });
+    }
+    assert.equal(url, "https://api.openai.com/v1/responses");
+    assert.equal(body.max_output_tokens, 2000);
     const { SimulatorExampleProvider } = await import(
       "./simulator-provider.ts"
     );
     const generating = [...generations.values()].find((generation) =>
       generation.status === "running"
     )!;
+    const reply = (output: unknown) =>
+      json({
+        status: "completed",
+        id: "resp_batch_test",
+        usage: { input_tokens: 50, output_tokens: 100, total_tokens: 150 },
+        output: [{
+          type: "message",
+          content: [{ type: "output_text", text: JSON.stringify(output) }],
+        }],
+      });
     assert.match(
       body.instructions,
       /antecedente no demuestra mejoría ni empeoramiento/,
@@ -172,12 +216,106 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
     const historical = context.facts.find((fact: { source: string }) =>
       fact.source.startsWith("Nota previa")
     );
+    modelCalls++;
+    if (scenario === "insufficient") {
+      return reply(
+        generating.feature === "pes_diagnosis"
+          ? {
+            problem: "",
+            etiology: "",
+            signsSymptoms: [],
+            evidenceFactIds: [],
+            priority: { text: "", evidenceFactIds: [] },
+            missingContext: ["¿Qué te gustaría revisar?"],
+            uncertainties: [],
+          }
+          : { items: [] },
+      );
+    }
+    if (scenario === "history") {
+      assert.equal(current, undefined);
+      assert.equal(historical.timing, "historical");
+      return reply(
+        generating.feature === "pes_diagnosis"
+          ? {
+            problem: "",
+            etiology: "",
+            signsSymptoms: [],
+            evidenceFactIds: [],
+            priority: { text: "", evidenceFactIds: [] },
+            missingContext: [
+              "¿Cómo te va con el movimiento desde la última consulta?",
+            ],
+            uncertainties: [],
+          }
+          : {
+            items: [{
+              title: "Conoce qué cambió al moverte",
+              action:
+                "Cuéntanos cómo te ha ido al moverte desde la consulta anterior.",
+              indicator: "Cambios comentados desde la visita anterior.",
+              criterion: "Traer un ejemplo de cómo te va al moverte.",
+              monitoring: "Comentaremos qué cambió desde la última visita.",
+              goalIndex: 0,
+              evidenceFactIds: [historical.id],
+            }],
+          },
+      );
+    }
     assert.equal(current.timing, "current");
     assert.equal(current.consultation_date, "2026-11-21");
     assert.equal(historical.timing, "historical");
     assert.ok(
       context.facts.indexOf(current) < context.facts.indexOf(historical),
     );
+    if (scenario === "partial") {
+      assert.match(current.source, /^Nota de la consulta/);
+      assert.equal(
+        context.facts.some((fact: { source: string }) =>
+          fact.source.startsWith("Entrevista")
+        ),
+        false,
+      );
+      if (generating.feature === "pes_diagnosis") {
+        assert.match(body.instructions, /antecedentes fechados/);
+        return reply({
+          problem: "Cambios de actividad por valorar",
+          etiology: "",
+          signsSymptoms: ["actividad retomada referida"],
+          evidenceFactIds: [current.id],
+          priority: {
+            text: "Conviene precisar cómo cambió la actividad.",
+            evidenceFactIds: [current.id],
+          },
+          missingContext: ["¿Qué facilitó retomar el ejercicio?"],
+          uncertainties: [],
+        });
+      }
+      assert.equal(context.approvedPes, undefined);
+      assert.match(
+        body.instructions,
+        /Solo se permiten acciones de observación/,
+      );
+      assert.equal(
+        context.priorDrafts.problem,
+        "Cambios de actividad por valorar",
+      );
+      if (generating.feature === "patient_instructions") {
+        assert.ok(context.priorDrafts.strategies.length);
+      }
+      return reply({
+        items: [{
+          title: "Revisa cómo te fue al volver a moverte",
+          action:
+            "Anota qué te ayudó a retomar tu actividad y cómo te sentiste.",
+          indicator: "Cambios percibidos al retomar la actividad.",
+          criterion: "Traer un ejemplo de lo que ayudó a retomar la actividad.",
+          monitoring: "Revisaremos juntos tus anotaciones.",
+          goalIndex: 0,
+          evidenceFactIds: [current.id],
+        }],
+      });
+    }
     if (context.clinicalFeedback) {
       assert.match(context.clinicalFeedback, /Prioriza el ejercicio retomado/);
       assert.doesNotMatch(
@@ -196,7 +334,6 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
         /habla directamente con la persona de tú/,
       );
     }
-    modelCalls++;
     const result = await new SimulatorExampleProvider().run({
       config: { feature: generating.feature } as never,
       generationId: generating.id,
@@ -216,15 +353,7 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
         }],
       }
       : result.output;
-    return json({
-      status: "completed",
-      id: "resp_batch_test",
-      usage: { input_tokens: 50, output_tokens: 100, total_tokens: 150 },
-      output: [{
-        type: "message",
-        content: [{ type: "output_text", text: JSON.stringify(output) }],
-      }],
-    });
+    return reply(output);
   };
   Deno.serve = ((handler: Deno.ServeHandler) => {
     server = originalServe({
@@ -321,6 +450,73 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
       "batch_previous_stage_stale",
     );
     assert.equal(modelCalls, 5);
+
+    async function runAll() {
+      for (const { feature } of clinicalBatchStages) {
+        delete drafts[feature];
+        delete candidates[feature];
+      }
+      for (const { feature } of clinicalBatchStages) {
+        const key = crypto.randomUUID();
+        const response = await request(feature, key);
+        assert.equal(
+          response.status,
+          "succeeded",
+          `${feature}: ${JSON.stringify(response)}`,
+        );
+        assert.equal((await request(feature, key)).replay, true);
+        assert.ok(drafts[feature] && settled.has(drafts[feature].generationId));
+      }
+    }
+    scenario = "partial";
+    await runAll();
+    assert.equal(drafts.pes_diagnosis?.output.etiology, "");
+    for (const { feature } of clinicalBatchStages.slice(1)) {
+      assert.equal(drafts[feature]?.output.batchBasis, "assessment");
+      assert.match(
+        JSON.stringify(drafts[feature]?.output),
+        /Nota de la consulta/,
+      );
+      assert.doesNotMatch(
+        JSON.stringify(drafts[feature]?.output),
+        /no podía hacer ejercicio/,
+      );
+    }
+    assert.equal(modelCalls, 9);
+
+    scenario = "history";
+    await runAll();
+    for (const { feature } of clinicalBatchStages.slice(1)) {
+      assert.equal(drafts[feature]?.output.batchBasis, "assessment");
+      assert.match(JSON.stringify(drafts[feature]?.output), /Nota previa/);
+    }
+    assert.equal(modelCalls, 13);
+
+    scenario = "insufficient";
+    await runAll();
+    for (const { feature } of clinicalBatchStages.slice(1)) {
+      assert.equal(drafts[feature]?.output.batchBasis, "template");
+    }
+    assert.equal(modelCalls, 17);
+
+    scenario = "empty";
+    for (visit of ["initial", "follow_up"] as const) {
+      await runAll();
+      for (const { feature } of clinicalBatchStages) {
+        assert.equal(drafts[feature]?.output.batchBasis, "template");
+      }
+      const indication = (drafts.patient_instructions?.output.instructions as {
+        text: string;
+        evidence: unknown[];
+      }[])[0];
+      assert.match(
+        indication.text,
+        visit === "initial" ? /un día habitual/ : /desde la última consulta/,
+      );
+      assert.deepEqual(indication.evidence, []);
+      assert.equal(drafts.pes_diagnosis?.output.etiology, "");
+    }
+    assert.equal(modelCalls, 17);
   } finally {
     await server?.shutdown();
     globalThis.fetch = originalFetch;
