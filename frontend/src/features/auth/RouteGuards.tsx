@@ -9,7 +9,14 @@ export function RequireAuthentication() {
   const location = useLocation();
   const decision = decidePrivateRoute({ loading, hasUser: Boolean(user), onboardingCompleted: profile?.onboarding_completed, pathname: location.pathname });
   if (decision === 'loading') return <LoadingState label="Preparando tu espacio…" />;
-  if (decision === 'login') return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (decision === 'login') {
+    const resume = (location.state as { resumeConsultation?: string } | null)?.resumeConsultation;
+    const path = resume && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(resume)
+      && /^\/app\/patients\/[^/]+\/consultations\/new$/.test(location.pathname)
+      ? location.pathname.replace(/\/new$/, `/${resume}`)
+      : location.pathname;
+    return <Navigate to="/login" replace state={{ from: path + location.search + location.hash }} />;
+  }
   if (decision === 'onboarding') return <Navigate to="/onboarding" replace />;
   return <Outlet />;
 }

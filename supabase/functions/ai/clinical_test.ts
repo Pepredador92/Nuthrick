@@ -4,6 +4,7 @@ import {
   buildConsultationSupportContext,
   clinicalAdapter,
   clinicalEvidenceValid,
+  instructionAgreement,
   conservativeRecallQuantities,
   pesSchema,
   recallSchema,
@@ -11,6 +12,7 @@ import {
   normalizePesOutput,
   pesClinicalStructureValid,
 } from "./clinical.ts";
+import { buildInterventionContext } from "./intervention.ts";
 import { parseRequest, validOutput } from "./core.ts";
 import { clinicalCalibrationCases } from "./clinical_calibration_fixtures.ts";
 for (const [name, scenario] of Object.entries(clinicalCalibrationCases)) {
@@ -24,6 +26,30 @@ for (const [name, scenario] of Object.entries(clinicalCalibrationCases)) {
   });
 }
 const fact = { source: "Antropometría · peso", finding: "92 kg" };
+Deno.test("clinical context uses dated notes and partial progress with redaction for each generation", () => {
+  const note = { source: "Nota de la consulta · 2026-11-20", finding: "Contacto Sintético refiere que sostuvo su horario de comidas." };
+  const progress = { source: "Avance de objetivo · 2026-11-20", finding: "Avance parcial. Hizo ejercicio con pesas cada tercer día durante dos semanas." };
+  const source = { facts: [fact, note, progress], identifiers: ["Contacto Sintético"], stamp: "clinical" };
+  for (const context of [
+    buildPesClinicalContext(source),
+    buildConsultationSupportContext(source, false, true),
+    buildInterventionContext(source),
+    buildConsultationSupportContext(source, true),
+  ]) {
+    assert.ok(context.facts.some(item => item.source === note.source && item.finding.includes("[dato omitido]")));
+    assert.ok(context.facts.some(item => item.source === progress.source && item.finding === progress.finding));
+  }
+  assert.equal(instructionAgreement(note.source), false);
+  assert.equal(instructionAgreement(progress.source), false);
+});
+Deno.test("long professional notes keep the last observations within citable pieces", () => {
+  const finding = "Registro de seguimiento previo. ".repeat(100) + "La última valoración aporta una aclaración importante.";
+  const notes = buildPesClinicalContext({
+    stamp: "clinical", facts: [{ source: "Nota de la consulta · 2026-11-20", finding }],
+  }).facts;
+  assert.ok(notes.length > 1 && notes.every(note => note.finding.length <= 1800));
+  assert.equal(notes.map(note => note.finding).join(" "), finding);
+});
 const pes = {
   problem: "Problema por revisar",
   etiology: "Por confirmar",

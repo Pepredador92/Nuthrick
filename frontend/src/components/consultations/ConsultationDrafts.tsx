@@ -106,11 +106,11 @@ export function SaveConsultationDraftButton() {
   return <div><button type="button" className="nuth-button-secondary !text-sm" disabled={busy} onClick={()=>{setBusy(true);setSaved(false);setError('');void context.save().then(ok=>{setSaved(ok);if(!ok)setError('No pudimos guardar todo el avance. Conserva esta ventana abierta y reintenta.');}).catch(()=>setError('No pudimos guardar el avance. Reintenta antes de salir.')).finally(()=>setBusy(false));}}>{busy?'Guardando consulta…':'Guardar consulta'}</button>{saved&&<p role="status" className="mt-1 text-xs">Avance guardado. Puedes continuar después.</p>}{error&&<p role="alert" className="mt-1 text-xs">{error}</p>}</div>;
 }
 
-export function ConsultationDraftPosition({value,onRestore}:{value:{module:string;active:number;clinicalStage:number};onRestore:(position:{module:string;active:number;clinicalStage:number})=>void}) {
+export function ConsultationDraftPosition({value,restoreSaved,onRestore}:{value:{module:string;active:number;clinicalStage:number};restoreSaved:boolean;onRestore:(position:{module:string;active:number;clinicalStage:number})=>void}) {
   const context=useContext(Context),first=useRef(true);
   useEffect(()=>{
-    if(first.current){first.current=false;const saved=context?.values.navigation as typeof value|undefined;if(saved&&typeof saved.module==='string'&&Number.isInteger(saved.active)&&Number.isInteger(saved.clinicalStage)){onRestore(saved);return;}}
+    if(first.current){first.current=false;const saved=context?.values.navigation as typeof value|undefined;if(restoreSaved&&saved&&typeof saved.module==='string'&&Number.isInteger(saved.active)&&Number.isInteger(saved.clinicalStage)){onRestore(saved);return;}}
     context?.set('navigation',value);
-  },[value,onRestore,context]);
+  },[value,restoreSaved,onRestore,context]);
   return null;
 }

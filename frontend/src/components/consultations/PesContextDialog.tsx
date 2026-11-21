@@ -15,6 +15,7 @@ import {
   type PesContextTarget,
 } from "@/src/features/consultations/pesReadiness";
 import { useConsultationDraft } from "./ConsultationDrafts";
+import { isPatientObservation } from "../../../../supabase/functions/_shared/patient-observations";
 
 export function PesContextDialog({
   consultationId,
@@ -123,7 +124,7 @@ export function PesContextDialog({
     title: string;
     detail: string;
     available: boolean;
-    target: PesContextTarget;
+    target?: PesContextTarget;
   }[] = [
     {
       title: "Entrevista y valoración",
@@ -178,6 +179,11 @@ export function PesContextDialog({
         label: "Consultas anteriores",
         path: "Revisión clínica → Datos → Consultas anteriores",
       },
+    },
+    {
+      title: "Notas y avance",
+      detail: "Notas profesionales guardadas y revisiones de objetivos y estrategias, con sus fechas.",
+      available: facts.some((fact) => isPatientObservation(fact.source)),
     },
   ];
   const gaps = [
@@ -345,13 +351,13 @@ export function PesContextDialog({
                   </div>
                 </div>
                 <p>{source.detail}</p>
-                <button
+                {source.target && <button
                   type="button"
                   className="pes-context-link"
                   disabled={busy || loading}
                   onClick={() =>
                     void act(async () => {
-                      const ok = await onOpenTarget(source.target);
+                      const ok = await onOpenTarget(source.target!);
                       if (ok) onClose();
                       return ok;
                     })
@@ -359,7 +365,7 @@ export function PesContextDialog({
                 >
                   Ir a {source.title.toLocaleLowerCase("es")}
                   <ArrowRight size={15} aria-hidden="true" />
-                </button>
+                </button>}
               </article>
             ))}
           </div>

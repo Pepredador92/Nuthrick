@@ -29,6 +29,7 @@ import {
   workflowSections,
 } from "@/src/features/consultations/consultationWorkflow";
 import { ClinicalMeasurementsReview } from "./ClinicalMeasurementsReview";
+import { isPatientObservation } from "../../../../supabase/functions/_shared/patient-observations";
 import {
   ClinicalStatusBadge,
   ClinicalTaskCard,
@@ -41,6 +42,7 @@ export function ClinicalReview(
     snapshot,
     values,
     active,
+    observationsVersion,
     before,
     onStatusChange,
     onReviewed,
@@ -50,6 +52,7 @@ export function ClinicalReview(
     snapshot: ConsultationSnapshot;
     values: Answers;
     active: boolean;
+    observationsVersion?: number;
     before: () => Promise<boolean>;
     onReviewed?: (message:string,complete:boolean)=>void;
     onStatusChange?: (status: ClinicalTaskStatus) => void;
@@ -102,10 +105,11 @@ export function ClinicalReview(
     return () => {
       alive = false;
     };
-  }, [active, consultationId, snapshot.revision]);
+  }, [active, consultationId, snapshot.revision, observationsVersion]);
   const historical = (source: string) =>
     /^(Historial|Antecedente de entrevista|PES previo aprobado)/.test(source);
   const facts = context?.facts ?? [];
+  const observations = facts.filter(fact => isPatientObservation(fact.source));
   const currentFacts = facts.filter((fact) =>
     !historical(fact.source) && fact.origin !== "baseline"
   );
@@ -130,7 +134,7 @@ export function ClinicalReview(
     /Antropometría|Laboratorio|Estudio|Cálculo/i.test(fact.source)
   );
   const otherCurrentFacts = currentFacts.filter((fact) =>
-    !fact.metric_code && !/^Entrevista/.test(fact.source)
+    !fact.metric_code && !/^Entrevista/.test(fact.source) && !isPatientObservation(fact.source)
   );
   const sources = [
     {
@@ -297,6 +301,15 @@ export function ClinicalReview(
         <p role="alert" className="clinical-notice is-warning">{error}</p>
       )}
       {reviewError && <p role="alert" className="clinical-notice is-warning">{reviewError}</p>}
+      {observations.length > 0 && <details className="clinical-support-details">
+        <summary>Notas y avance que puede consultar la IA</summary>
+        <ul className="consultation-context-facts">
+          {observations.map((fact, index) => <li key={index}>
+            <strong>{fact.source}</strong>
+            <p className="whitespace-pre-wrap">{fact.finding}</p>
+          </li>)}
+        </ul>
+      </details>}
       <div
         className="clinical-review-card-grid"
         aria-busy={loading || !context && !error}

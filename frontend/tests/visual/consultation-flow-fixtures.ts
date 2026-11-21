@@ -7,9 +7,11 @@ import {
   clinicalObjective as previewObjective,
   reviewFacts,
   runAIRequest as previewAIRequest,
+  supabase as previewSupabase,
 } from "./clinical-copilot-fixtures";
 import { initialInterview } from "../../src/features/consultations/interviewTemplate";
 import type { AnswerWrite } from "../../src/features/consultations/answerAutosave";
+import type { PatientNote } from "../../src/types/domain";
 import { withWorkflowSections } from "../../src/features/consultations/consultationWorkflow";
 export * from "../../src/services/consultations";
 export * from "../../src/services/patients";
@@ -68,6 +70,18 @@ export const getPatient = async () => ({
   full_name: "Paciente de demostración",
   timezone: "America/Mexico_City",
 });
+const demoNotes: PatientNote[] = [];
+export const listPatientNotes = async (patientId: string, consultationId?: string) =>
+  demoNotes.filter(note => note.patient_id === patientId && (!consultationId || note.consultation_id === consultationId));
+export const createPatientNote = async (patientId: string, content: string, consultationId?: string | null) => {
+  const now = new Date().toISOString();
+  const note: PatientNote = {
+    id: crypto.randomUUID(), professional_id: "owner", patient_id: patientId, consultation_id: consultationId ?? null,
+    content: content.trim(), created_at: now, updated_at: now, deleted_at: null,
+  };
+  demoNotes.unshift(note);
+  return note;
+};
 let discarded = false;
 const designPreview = location.search.includes("clinical-design");
 const pesParts = {
@@ -187,6 +201,20 @@ export const listAnswers = async () =>
     value,
   }));
 export const useAccess = () => ({ data: null });
+
+let workingDraft = { version: 0, answers: {} as Record<string, unknown> };
+export const supabase = {
+  ...previewSupabase,
+  rpc(name: string, args: { p_version?: number; p_changes?: Record<string, unknown> }) {
+    if (name === "sync_consultation_drafts" && args.p_version === workingDraft.version && args.p_changes) {
+      workingDraft = { version: workingDraft.version + 1, answers: { ...workingDraft.answers, ...args.p_changes } };
+    }
+    const request = Promise.resolve(name === "sync_consultation_drafts"
+      ? { data: structuredClone(workingDraft), error: null }
+      : { data: null, error: { message: "Operación no disponible en la demostración." } });
+    return Object.assign(request, { abortSignal: () => request });
+  },
+};
 
 let answerVersion = 0;
 export const syncConsultationAnswers = async (

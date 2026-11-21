@@ -50,9 +50,10 @@ type EntryProps = {
   historySource?: string | null;
   onHistoryClose?: () => void;
   consultationsRevision?: string;
+  onProgressSaved?: () => void;
 };
 
-export function ClinicalProgress({ patient, consultation, historySource, onHistoryClose, consultationsRevision }: EntryProps) {
+export function ClinicalProgress({ patient, consultation, historySource, onHistoryClose, consultationsRevision, onProgressSaved }: EntryProps) {
   const [requestedSource, setRequestedSource] = useState<string | null>(null);
   const requested = historySource ?? requestedSource;
   const open = requested !== null;
@@ -69,7 +70,7 @@ export function ClinicalProgress({ patient, consultation, historySource, onHisto
     retry={data.retry}
     requestedSource={requested}
     onClose={() => { setRequestedSource(null); onHistoryClose?.(); }}
-    onSaved={data.onSaved}
+    onSaved={(key, review) => { data.onSaved(key, review); onProgressSaved?.(); }}
   />;
   if (consultation) {
     return <>

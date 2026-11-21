@@ -131,8 +131,14 @@ Deno.test('5xx and transport errors never retried',async () => {
     await assert.rejects(()=>provider.run(providerInput),error=>error instanceof AIError && error.uncertain && !error.message.includes('secret'));assert.equal(calls,1); }
 });
 Deno.test('input upper bound prevents oversized context dispatch',async () => {
-  let calls=0;const provider=new OpenAIResponsesProvider('test',()=>{calls++;return Promise.resolve(response());});
-  await assert.rejects(()=>provider.run({...providerInput,context:'a'.repeat(9000)}),/input_too_large/);assert.equal(calls,0);
+  let calls=0;
+  const provider=new OpenAIResponsesProvider('test',(url)=>{
+    if (String(url).endsWith('/input_tokens')) return Promise.resolve(Response.json({input_tokens:providerInput.config.max_input_tokens+1}));
+    calls++;
+    return Promise.resolve(response());
+  });
+  await assert.rejects(()=>provider.run({...providerInput,context:'a'.repeat(9000)}),/input_too_large/);
+  assert.equal(calls,0);
 });
 Deno.test('malformed or absent usage is uncertain, never assumed free',() => {
   for(const value of [null,{}, {input_tokens:2,output_tokens:3,total_tokens:4}, {input_tokens:2,output_tokens:3,total_tokens:5,input_tokens_details:{cached_tokens:4}}]) assert.throws(()=>readUsage(value),/usage_unknown/);

@@ -1,0 +1,74 @@
+.consultation-notes-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding-inline: 14px;
+  border: 1px solid #b2c36b;
+  border-radius: 12px;
+  background: #e9f3ba;
+  color: #344411;
+  font-weight: 650;
+}
+.consultation-notes-trigger:hover { background: #deeca0; }
+html[data-nuthrick-theme='night'] .consultation-notes-trigger {
+  border-color: #d2ec84;
+  background: #d2ec84;
+  color: #252f13;
+}
+html[data-nuthrick-theme='night'] .consultation-notes-trigger:hover { background: #e1f6a1; }
+.consultation-notes-trigger:focus-visible, .consultation-notes-modal textarea:focus-visible {
+  outline: 2px solid var(--nuth-action);
+  outline-offset: 3px;
+}
+.consultation-notes-modal {
+  width: min(620px, calc(100vw - 28px));
+  max-height: min(740px, calc(100dvh - 32px));
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--nuth-line);
+  border-radius: 22px;
+  background: var(--nuth-surface);
+  color: var(--nuth-ink);
+}
+.consultation-notes-modal[open] { display: flex; flex-direction: column; }
+.consultation-notes-modal::backdrop { background: #081d2bab; }
+.consultation-notes-modal > header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px clamp(14px, 4vw, 24px);
+  border-bottom: 1px solid var(--nuth-line);
+}
+.consultation-notes-modal h2 { font-size: 1.22rem; font-weight: 680; }
+.consultation-notes-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: clamp(14px, 4vw, 24px);
+}
+.consultation-notes-body label, .consultation-notes-body h3 { display: block; font-weight: 650; }
+.consultation-notes-body textarea {
+  display: block;
+  width: 100%;
+  margin-block: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--nuth-line);
+  border-radius: 12px;
+  background: var(--nuth-surface-soft);
+  color: var(--nuth-ink);
+  resize: vertical;
+}
+.consultation-notes-body section { margin-top: 24px; }
+.consultation-notes-body :is(p, time) { margin-top: 6px; font-size: .875rem; overflow-wrap: anywhere; }
+.consultation-notes-body li {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--nuth-surface-soft);
+}
+.consultation-notes-body li p { white-space: pre-wrap; }
+.consultation-notes-body time { color: var(--nuth-muted); }

@@ -6,6 +6,7 @@ import { supabase } from '@/src/lib/supabase';
 export type AIBalance = { available_credits: number; reserved_credits: number };
 export type AIState = 'idle' | 'generating' | 'ready' | 'error' | 'insufficient' | 'uncertain';
 export const aiMessages: Record<string,string> = {
+  unauthorized: 'Vuelve a iniciar sesión para retomar tu trabajo.',
   text_diet_required:'Guarda primero una dieta en texto para poder ajustarla con IA.',
   meal_sections_unavailable:'No pudimos distinguir los tiempos de este texto. Conserva cada nombre de tiempo en una línea separada o elige ajustar la dieta completa.',
   input_too_large: 'El expediente supera la capacidad técnica del modelo de IA. No se cobró esta solicitud. Contacta a soporte; puedes continuar la consulta manualmente.',

@@ -17,7 +17,7 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { Link, useBlocker, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useBlocker, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ErrorState, LoadingState } from "@/src/components/ui/Status";
 import { ClinicalProgress } from "@/src/components/patients/ClinicalProgress";
 import { Field, Input } from "@/src/components/ui/FormField";
@@ -37,6 +37,7 @@ import type { ClinicalTaskStatus } from "@/src/components/consultations/Clinical
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
 import { ConsultationCloseDialog } from "@/src/components/consultations/ConsultationCloseDialog";
 import { ConsultationExitDialog } from "@/src/components/consultations/ConsultationExitDialog";
+import { ConsultationNotes } from "@/src/components/consultations/ConsultationNotes";
 import { ConsultationMeasurements } from "@/src/components/consultations/ConsultationMeasurements";
 import { LaboratoryReports } from "@/src/components/consultations/LaboratoryReports";
 import { PatientEvolutionTable } from "@/src/components/patients/PatientEvolutionTable";
@@ -100,6 +101,7 @@ type ConsultationWorkspace = {
   scrollY: number;
   updatedAt: string;
   module?: ConsultationModule;
+  clinicalStage?: number;
   sectionKey?: string;
   base?: AnswerState;
   revision?: number;
@@ -144,6 +146,7 @@ function ConsultationEditor() {
   const [searchParams] = useSearchParams();
   const appointmentId = searchParams.get("appointmentId");
   const navigate = useNavigate();
+  const location = useLocation();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [consultation, setConsultation] = useState<Consultation | null>(null);
   const consultationHistory = useRef<Consultation[]>([]);
@@ -184,6 +187,8 @@ function ConsultationEditor() {
   const [clinicalOpened, setClinicalOpened] = useState(false);
   const [clinicalStage, setClinicalStage] = useState(0);
   const [clinicalRefresh, setClinicalRefresh] = useState(0);
+  const [observationsVersion, setObservationsVersion] = useState(0);
+  const refreshObservations = () => setObservationsVersion(version => version + 1);
   const [completion,setCompletion]=useState<ClinicalCompletion|null>(null);
   const [stageChecks,setStageChecks]=useState<Record<string,string>>({});
   const [followupReady,setFollowupReady]=useState({ready:false,signature:''});
@@ -219,6 +224,7 @@ function ConsultationEditor() {
   const closed = useRef(false);
   const [autosave] = useState(() => createAnswerAutosave());
   const draftController = useRef<ConsultationDraftController|null>(null);
+  const restoreServerPosition = useRef(true);
   useEffect(() => {autosave.configure({
     read: signal => { const t=saveTarget.current; if(!t) throw new Error('Consulta no disponible.'); return syncConsultationAnswers(t.id,t.revision,undefined,signal); },
     write: (request,signal) => { const t=saveTarget.current; if(!t) throw new Error('Consulta no disponible.'); return syncConsultationAnswers(t.id,t.revision,request,signal); },
@@ -234,6 +240,14 @@ function ConsultationEditor() {
     Boolean(consultation || enteringConsultation.current) && !closed.current &&
     (currentLocation.pathname !== nextLocation.pathname || currentLocation.search !== nextLocation.search),
   );
+  const activeConsultationId = consultation?.id;
+  useEffect(() => {
+    if (!activeConsultationId || consultationId || blocker.state !== "unblocked" ||
+      location.state?.resumeConsultation === activeConsultationId) return;
+    navigate(location.pathname + location.search + location.hash, {
+      replace: true, state: { ...location.state, resumeConsultation: activeConsultationId },
+    });
+  }, [activeConsultationId, consultationId, blocker.state, location, navigate]);
 
   const load = useCallback(
     async (chosenTemplate?: LoadedTemplate, resumeDraftId?: string) => {
@@ -314,6 +328,7 @@ function ConsultationEditor() {
         const saved = await boundedAnswerRequest(signal => syncConsultationAnswers(consultationForLoad.id,startedSnapshot.revision,undefined,signal));
         const serverValues = saved.answers;
         const workspace = readWorkspace(started.id);
+        restoreServerPosition.current = !workspace?.module || !Number.isInteger(workspace.clinicalStage);
         const editableKeys=new Set(startedSnapshot.structure.sections.flatMap(section=>section.questions.map(q=>q.question_key)));
         const restoredValues=Object.fromEntries(Object.entries(workspace?.values ?? {}).filter(([key])=>editableKeys.has(key)));
         const nextValues = workspace
@@ -352,7 +367,7 @@ function ConsultationEditor() {
           setActive(workspace.active === interview.length ? interview.length : Math.max(0, sectionIndex));
           setModule(workspace.module ?? 'interview');
           setRecallOpened(workspace.module === 'recall');
-          setClinicalStage(0);
+          setClinicalStage(Math.max(0, Math.min(clinicalStages.length - 1, workspace.clinicalStage ?? 0)));
           setCompletion(null);
           setStageChecks({});
           setClinicalOpened(workspace.module === 'clinical');
@@ -408,6 +423,7 @@ function ConsultationEditor() {
       const workspace: ConsultationWorkspace = {
         active,
         module,
+        clinicalStage,
         sectionKey: snapshot ? workflowSections(snapshot.structure, 'interview')[active]?.section_key : undefined,
         values: valuesRef.current,
         scrollY: window.scrollY,
@@ -427,7 +443,7 @@ function ConsultationEditor() {
       document.removeEventListener("visibilitychange", persistWorkspace);
       window.removeEventListener("pagehide", persistWorkspace);
     };
-  }, [active, module, snapshot, consultation, values, autosave, saveConflict]);
+  }, [active, module, clinicalStage, snapshot, consultation, values, autosave, saveConflict]);
 
   const save = useCallback(
     async (): Promise<boolean> => {
@@ -1082,7 +1098,7 @@ function ConsultationEditor() {
   const dirty = JSON.stringify(values) !== savedEncoded;
   return (
     <>{exitDialog}<ConsultationDrafts key={`${consultation.id}:${snapshot.revision}`} consultationId={consultation.id} revision={snapshot.revision} controllerRef={draftController} onSave={saveAll}><div className="consultation-workspace">
-      <ConsultationDraftPosition value={{module,active,clinicalStage}} onRestore={position=>{if(consultationSteps.some(step=>step.key===position.module)){setModule(position.module as ConsultationModule);setActive(Math.max(0,position.active));setClinicalStage(Math.max(0,Math.min(clinicalStages.length-1,position.clinicalStage)));setRecallOpened(position.module==="recall");setClinicalOpened(position.module==="clinical");setMeasurementsOpened(position.module==="measurements");setLaboratoriesOpened(position.module==="laboratories");}}}/>
+      <ConsultationDraftPosition value={{module,active,clinicalStage}} restoreSaved={restoreServerPosition.current} onRestore={position=>{if(consultationSteps.some(step=>step.key===position.module)){setModule(position.module as ConsultationModule);setActive(Math.max(0,position.active));setClinicalStage(Math.max(0,Math.min(clinicalStages.length-1,position.clinicalStage)));setRecallOpened(position.module==="recall");setClinicalOpened(position.module==="clinical");setMeasurementsOpened(position.module==="measurements");setLaboratoriesOpened(position.module==="laboratories");}}}/>
       <header className="rounded-[24px] bg-[#173d36] p-5 text-white sm:p-7">
         <Link
           to={"/app/patients/" + patient.id}
@@ -1127,7 +1143,7 @@ function ConsultationEditor() {
             </div>
           </div>
           <div className="flex flex-wrap items-start gap-2">
-            {consultation.consultation_type === "follow_up" && <ClinicalProgress patient={patient} consultation={consultation} />}
+            {consultation.consultation_type === "follow_up" && <ClinicalProgress patient={patient} consultation={consultation} onProgressSaved={refreshObservations} />}
             <Link
               className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-3 py-2.5 text-xs font-semibold"
               to={
@@ -1158,7 +1174,11 @@ function ConsultationEditor() {
         </div>
       </header>
       {closeIntent && <ConsultationCloseDialog continueToWorkshop={closeIntent === "workshop"} busy={busy || saving} reviewed={reviewed} pending={[recallPending && "Recordatorio de 24 horas", measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error || saveError} onReview={setReviewed} onCancel={() => setCloseIntent(null)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
-      <div className="sticky top-0 z-20 mt-4 flex flex-wrap justify-end gap-2 rounded-xl bg-[#f7faf8]/95 p-2 backdrop-blur"><button type="button" className="nuth-button" disabled={busy || saving} onClick={()=>void saveAll().then(ok=>{if(ok)setNotice("Avance de la consulta guardado.");})}><Save size={16}/>Guardar consulta</button><button type="button" className="nuth-button-secondary" disabled={busy || saving} onClick={() => reviewClose()}><ClipboardCheck size={16} />Revisar cierre de consulta</button></div>
+      <div className="sticky top-0 z-20 mt-4 flex flex-wrap justify-end gap-2 rounded-xl bg-[#f7faf8]/95 p-2 backdrop-blur">
+        <ConsultationNotes patientId={patient.id} consultationId={consultation.id} onSaved={refreshObservations} />
+        <button type="button" className="nuth-button" disabled={busy || saving} onClick={()=>void saveAll().then(ok=>{if(ok)setNotice("Avance de la consulta guardado.");})}><Save size={16}/>Guardar consulta</button>
+        <button type="button" className="nuth-button-secondary" disabled={busy || saving} onClick={() => reviewClose()}><ClipboardCheck size={16} />Revisar cierre de consulta</button>
+      </div>
       <nav className="consultation-step-nav" aria-label="Módulos de la consulta">
         {consultationSteps.map((step, index) => <button key={step.key} type="button" aria-current={module === step.key ? 'page' : undefined} disabled={busy} onClick={() => void goModule(step.key)}><span aria-hidden="true">{index + 1}</span>{step.label}</button>)}
         <button type="button" disabled={busy || saving} onClick={() => reviewClose("workshop")}><Salad size={15} />Taller de dietas</button>
@@ -1176,7 +1196,7 @@ function ConsultationEditor() {
       {clinicalOpened && <div className="consultation-guided-workspace clinical-decision-workspace mt-6" hidden={module !== 'clinical'}>
         <header className="consultation-guided-intro" id="consultation-clinical-heading"><p className="nuth-eyebrow">05 · Revisa y acuerda</p><h2>De los datos a los siguientes pasos</h2><p>Estas secciones son opcionales. Puedes guardar el avance, continuar o cerrar la consulta sin completarlas.</p></header>
         <ConsultationGuide label="Pasos de la revisión clínica" steps={clinicalStepsWithProgress} active={clinicalStage} onChange={next => void goClinicalStage(next)} busy={busy} />
-        <div hidden={clinicalStage !== 0}><ClinicalReview onReviewed={(message,all)=>reportCompletion(message,all?1:undefined)} consultationId={consultation.id} snapshot={snapshot} values={values} active={module === 'clinical' && clinicalStage === 0} before={saveForClinical} onStatusChange={status => updateClinicalProgress('review', status)} onOpenModule={next => void goModule(next)} /></div>
+        <div hidden={clinicalStage !== 0}><ClinicalReview onReviewed={(message,all)=>reportCompletion(message,all?1:undefined)} consultationId={consultation.id} snapshot={snapshot} values={values} active={module === 'clinical' && clinicalStage === 0} observationsVersion={observationsVersion} before={saveForClinical} onStatusChange={status => updateClinicalProgress('review', status)} onOpenModule={next => void goModule(next)} /></div>
         <section hidden={clinicalStage !== 1} className="clinical-stage" aria-label="Diagnóstico PES">
           <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">02 · Formula el diagnóstico</p><h2>Diagnóstico PES</h2><p>Completa el problema, su causa y la evidencia. Después, revisa y aprueba el enunciado.</p></div></header>
           <PesCopilot structure={snapshot.structure} onOpenPesTarget={target => pesContextNavigation.current?.open(target) ?? Promise.resolve(false)} onCompleted={()=>reportCompletion("Diagnóstico PES aprobado. Paso completado.",2)} key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} active={module === 'clinical' && clinicalStage === 1} before={saveForClinical} answers={values} onPendingChange={setPesPending} onStatusChange={status => updateClinicalProgress('pes', status)} onDiscardPes={discardPes} onPes={draft => {

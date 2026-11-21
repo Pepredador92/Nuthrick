@@ -12,6 +12,7 @@ import { normalizeObjectiveProposals, normalizedObjectiveProposalsSchema } from 
 import { hasUsablePesEtiology } from '../_shared/pes.ts';
 import { clinicalAdapter, clinicalEvidenceValid, conservativeRecallQuantities, normalizePesOutput, normalizeSmartObjectivesOutput, pesClinicalStructureValid, pesSchema, smartObjectiveValidationIssues } from './clinical.ts';
 import { dietDraftAdapter, dietDraftAdapterV1, dietDraftAdapterV3 } from './diet-contract.ts';
+import { isPatientObservation } from '../_shared/patient-observations.ts';
 
 export type FeatureConfig = {
   feature: string; enabled: boolean; provider: string; model: string; prompt_version: string;
@@ -235,6 +236,10 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   if (clinical && (!store.context || !store.bindContext)) throw new AIError('context_unavailable');
   const hydrated = clinical ? await store.context!(request) : null;
   if (hydrated) adapter.context = hydrated.context;
+  const clinicalFacts = (hydrated?.context as { facts?: { source: string }[] } | undefined)?.facts;
+  if (Array.isArray(clinicalFacts) && clinicalFacts.some(fact => isPatientObservation(fact.source))) {
+    adapter.instructions += ' Revisa las notas profesionales guardadas y el avance registrado de objetivos y estrategias. Contrasta sus fechas, resultados y grado de avance con los datos actuales. Distingue el acuerdo original, lo que se hizo y lo que se observó. El progreso parcial orienta el siguiente paso y no equivale a cumplimiento total. Las notas pueden contener relatos o hipótesis: usa solo lo pertinente y conserva su grado de certeza. Las observaciones internas son contexto clínico; excluye su texto y detalles privados de cualquier contenido dirigido al paciente.';
+  }
   if(request.textEdit){const context=adapter.context as {meal_schedule:unknown[];selected_meal_indexes:number[]};adapter.schema=textDietEditSchema(context.meal_schedule.length,context.selected_meal_indexes);}
   if (proposedObjectives) {
     const pes = (adapter.context as {approvedPes?:{etiology?:unknown;signsSymptoms?:string}|null}).approvedPes;

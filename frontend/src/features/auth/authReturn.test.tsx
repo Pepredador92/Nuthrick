@@ -1,10 +1,13 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { StrictMode } from 'react';
 import { expect, it, vi } from 'vitest';
 import { authReturnTarget } from './authReturn';
 import { AuthCallbackPage } from '@/src/screens/AuthPages';
+import { rememberPrivateReturn } from './privateReturn';
 
-vi.mock('@/src/features/auth/AuthProvider', () => ({ useAuth: () => ({ user: null, profile: null, loading: false }) }));
+const useAuth = vi.hoisted(() => vi.fn(() => ({ user: null, profile: null, loading: false }) as unknown));
+vi.mock('@/src/features/auth/AuthProvider', () => ({ useAuth }));
 vi.mock('@/src/lib/supabase', () => ({ supabase: {} }));
 
 it('routes root invitations to the app without moving tokens into the query', () => {
@@ -26,4 +29,18 @@ it('offers recovery when callback initialization finishes without a session', ()
   expect(screen.getByRole('alert')).toHaveTextContent('enlace más reciente');
   expect(screen.getByRole('link', { name: 'Recuperar acceso' })).toHaveAttribute('href', '/forgot-password');
   expect(screen.queryByText('Preparando tu cuenta…')).not.toBeInTheDocument();
+});
+it('resumes the saved consultation from an OAuth callback', async () => {
+  const path = '/app/patients/patient/consultations/draft';
+  rememberPrivateReturn(path);
+  useAuth.mockReturnValue({ user: { id: 'professional' }, profile: { onboarding_completed: true }, loading: false });
+  render(<StrictMode><MemoryRouter initialEntries={['/auth/callback']}>
+    <Routes>
+      <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      <Route path={path} element={<h1>Consulta retomada</h1>} />
+      <Route path="/app" element={<h1>Inicio</h1>} />
+    </Routes>
+  </MemoryRouter></StrictMode>);
+  expect(await screen.findByRole('heading', { name: 'Consulta retomada' })).toBeVisible();
+  expect(screen.queryByRole('heading', { name: 'Inicio' })).not.toBeInTheDocument();
 });

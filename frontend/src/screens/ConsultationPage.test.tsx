@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   adopt: vi.fn(),
   begin: vi.fn(),
   listConsultations: vi.fn(),
+  listPatientNotes: vi.fn(),
+  createPatientNote: vi.fn(),
   getSnapshot: vi.fn(),
   reopen: vi.fn(),
   updateDate: vi.fn(),
@@ -130,6 +132,8 @@ const fixtures = vi.hoisted(() => {
 vi.mock("@/src/services/patients", () => ({
   getPatient: async () => ({ id: "patient", full_name: "Paciente de prueba" }),
   listConsultations: mocks.listConsultations,
+  listPatientNotes: mocks.listPatientNotes,
+  createPatientNote: mocks.createPatientNote,
 }));
 vi.mock("@/src/services/consultations", () => ({
   loadActiveTemplate: async () => fixtures.template,
@@ -240,6 +244,7 @@ beforeEach(() => {
   mocks.finish.mockResolvedValue(fixtures.c);
   fixtures.c.status = "draft";
   mocks.listConsultations.mockResolvedValue([fixtures.c]);
+  mocks.listPatientNotes.mockResolvedValue([]);
   mocks.begin.mockResolvedValue(fixtures.c);
   mocks.getSnapshot.mockResolvedValue(fixtures.snapshot);
   mocks.reopen.mockResolvedValue({ ...fixtures.c, status: "draft" });
@@ -257,6 +262,32 @@ beforeEach(() => {
 });
 
 describe("consultation save and review workflow", () => {
+  it("opens notes independently of the steps and saves a note linked to the visit", async () => {
+    const content = "Pudo mantener el horario de comida.";
+    mocks.createPatientNote.mockResolvedValue({
+      id: "saved-note", content, consultation_id: "draft", updated_at: "2026-11-20T12:00:00Z",
+    });
+    mount("/app/patients/patient/consultations/draft");
+    await openModule("Mediciones");
+    const button = screen.getByRole("button", { name: "Notas" });
+    expect(screen.getByRole("navigation", { name: "Módulos de la consulta" })).not.toContainElement(button);
+    fireEvent.click(button);
+    const modal = screen.getByRole("dialog", { name: "Notas de la consulta" });
+    const input = within(modal).getByRole("textbox", { name: "Nueva nota" });
+    expect(input).toHaveFocus();
+    fireEvent.change(input, { target: { value: content } });
+    fireEvent.click(within(modal).getByRole("button", { name: "Cerrar notas" }));
+    expect(button).toHaveFocus();
+    await openModule("Revisión clínica, PES y objetivos");
+    fireEvent.click(button);
+    expect(input).toHaveValue(content);
+    await within(modal).findByText("Aún no hay notas de esta consulta.");
+    fireEvent.click(within(modal).getByRole("button", { name: "Guardar nota" }));
+    await within(modal).findByText(content);
+    expect(mocks.createPatientNote).toHaveBeenCalledWith("patient", content, "draft");
+    expect(mocks.listPatientNotes).toHaveBeenCalledWith("patient", "draft");
+    expect(input).toHaveValue("");
+  });
   it('clears saved PES answers and keeps them empty after reopening and reloading', async () => {
     const cleared = { pes_problem: '', pes_etiology: '', pes_evidence: '', pes_statement: '' };
     mocks.answerState.answers = { note: 'Conservar entrevista', pes_problem: 'Problema anterior', pes_etiology: 'Causa anterior', pes_evidence: 'Evidencia anterior', pes_statement: 'Problema anterior relacionado con Causa anterior, evidenciado por Evidencia anterior.' };

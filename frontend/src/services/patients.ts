@@ -379,13 +379,15 @@ export async function listNotes(
 
 export async function listPatientNotes(
   patientId: string,
+  consultationId?: string,
 ): Promise<PatientNote[]> {
-  const { data, error } = await supabase
+  const query = supabase
     .from("patient_notes")
     .select("*")
     .eq("patient_id", patientId)
     .is("deleted_at", null)
     .order("updated_at", { ascending: false });
+  const { data, error } = await (consultationId ? query.eq("consultation_id", consultationId) : query);
   return unwrap((data ?? []) as PatientNote[], error);
 }
 

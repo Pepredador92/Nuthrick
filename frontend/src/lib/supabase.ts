@@ -1,18 +1,22 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { isSimulation, simulationAuthKey, simulationLaunch } from '@/src/features/simulator/state';
+import { sessionRecoveryFetch } from './sessionRecovery';
 
 const suppliedUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const suppliedKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 const simulation = isSimulation();
+const supabaseUrl = suppliedUrl ?? 'https://placeholder.supabase.co';
+const recoverSession = sessionRecoveryFetch(supabaseUrl, (): SupabaseClient['auth'] => supabase.auth);
 
 export const hasSupabaseConfig = Boolean(suppliedUrl && suppliedKey);
 
 // Valid placeholders keep the public landing buildable before a project is linked.
 // Product routes surface a clear configuration message instead of sending secrets.
 export const supabase = createClient(
-  suppliedUrl ?? 'https://placeholder.supabase.co',
+  supabaseUrl,
   suppliedKey ?? 'sb_publishable_placeholder',
   {
+    global: { fetch: recoverSession },
     auth: {
       persistSession: true,
       autoRefreshToken: true,

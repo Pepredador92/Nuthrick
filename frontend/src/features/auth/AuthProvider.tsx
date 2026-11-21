@@ -61,6 +61,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
     void bootstrap();
+    const recoverAfterConnection = () => {
+      if (currentUserId.current && document.visibilityState === 'visible') {
+        void supabase.auth.getSession().catch(() => undefined);
+      }
+    };
+    window.addEventListener('online', recoverAfterConnection);
+    window.addEventListener('pageshow', recoverAfterConnection);
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       const simulation=simulationLaunch();
@@ -89,6 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       active = false;
+      window.removeEventListener('online', recoverAfterConnection);
+      window.removeEventListener('pageshow', recoverAfterConnection);
       listener.subscription.unsubscribe();
     };
   }, [loadProfile]);

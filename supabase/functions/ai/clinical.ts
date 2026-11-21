@@ -8,6 +8,7 @@ import { referencedPesSchema, pesReferenceInstructions } from './pes-references.
 import { concisePesSchema, concisePesInstructions, followupEtiologyInstructions } from './pes-concise.ts';
 import { objectiveProposalsSchema, objectiveProposalInstructions, objectiveProposalsValid, objectiveFollowupInstructions } from './objective-proposals.ts';
 import { PATIENT_INSTRUCTION_MAX_LENGTH } from '../_shared/patient-instructions.ts';
+import { isPatientObservation } from '../_shared/patient-observations.ts';
 const text = { type: "string", maxLength: 2000 };
 const strings = { type: "array", items: text, maxItems: 30 };
 const object = <P extends Record<string, unknown>>(properties: P) => ({
@@ -203,6 +204,31 @@ function compactFinding(value: string) {
     return typeof parsed === "string" ? parsed.trim() : JSON.stringify(parsed);
   } catch { return value.trim(); }
 }
+function splitPatientObservation(fact: ClinicalFact): ClinicalFact[] {
+  const limit = 1800;
+  if (fact.finding.length <= limit) return [fact];
+  const sentences = new Intl.Segmenter('es', { granularity: 'sentence' }).segment(fact.finding);
+  const chunks: string[] = [];
+  let pending = '';
+  for (const { segment } of sentences) {
+    if (pending.length + segment.length > limit && pending) {
+      chunks.push(pending.trim());
+      pending = '';
+    }
+    let remainder = segment;
+    while (remainder.length > limit) {
+      const boundary = remainder.lastIndexOf(' ', limit);
+      const end = boundary > 0 ? boundary : limit;
+      chunks.push(remainder.slice(0, end).trim());
+      remainder = remainder.slice(end).trimStart();
+    }
+    pending += remainder;
+  }
+  if (pending.trim()) chunks.push(pending.trim());
+  return chunks.map((finding, index) => ({
+    ...fact, finding, source: `${fact.source} · Parte ${index + 1} de ${chunks.length}`,
+  }));
+}
 export function prepareClinicalFacts(source: ClinicalSource): ClinicalFact[] {
   const unique = new Map<string, ClinicalFact>();
   source.facts
@@ -211,8 +237,9 @@ export function prepareClinicalFacts(source: ClinicalSource): ClinicalFact[] {
       .map((f) => ({
         ...f,
         source: redactClinicalText(f.source.trim(), source.identifiers),
-        finding: redactClinicalText(compactFinding(f.finding), source.identifiers),
-      })).forEach(fact => unique.set(JSON.stringify(fact), fact));
+        finding: redactClinicalText(isPatientObservation(f.source) ? f.finding.trim() : compactFinding(f.finding), source.identifiers),
+      })).flatMap(fact => isPatientObservation(fact.source) ? splitPatientObservation(fact) : [fact])
+      .forEach(fact => unique.set(JSON.stringify(fact), fact));
   const facts = [...unique.values()];
   const current = facts.filter(fact => !historical(fact.source));
   const groups = new Map<string, ClinicalFact[]>();
@@ -254,6 +281,7 @@ export function buildConsultationSupportContext(source: ClinicalSource, instruct
   const permitted = prepared.filter((fact) => {
     const sourceLabel = fact?.source?.toLocaleLowerCase() ?? "";
     if (instructions && sourceLabel.startsWith("estrategia aprobada · ")) return true;
+    if (isPatientObservation(fact.source)) return true;
     if (sourceLabel.startsWith("entrevista · ")) {
       return /(?:main reason|expectations|consult now|objectives|treatment objective|next objectives|first actions|interview priorities|access barriers|eating drivers|changes since last|progress perception|symptoms changes|medical changes|indicators reviewed|barriers|adjustments|measurement notes|indicator progress|recall 24h v2|recall date|recall day type)/i.test(sourceLabel)
         || (instructions || smart) && /(?:medical history|medical diagnoses|medication|food reactions)/i.test(sourceLabel)
@@ -269,7 +297,7 @@ export function buildConsultationSupportContext(source: ClinicalSource, instruct
       : /^Historial(?: calculado)? · (?:peso|peso corporal|cintura|índice de masa corporal|imc|bmi|grasa|porcentaje de grasa corporal|body_fat_percentage)(?:[ (·]|$)/i.test(fact.source));
     return false;
   }).sort((a, b) => {
-    const rank = (fact: ClinicalFact) => fact.source.startsWith('Estrategia aprobada · ') ? -1 : /food reactions|medication|medical diagnoses/.test(fact.source) ? 0
+    const rank = (fact: ClinicalFact) => fact.source.startsWith('Estrategia aprobada · ') ? -2 : isPatientObservation(fact.source) ? -1 : /food reactions|medication|medical diagnoses/.test(fact.source) ? 0
       : /objectives|treatment objective|first actions|adjustments/.test(fact.source) ? 1
         : fact.source.startsWith("Recordatorio confirmado") ? 2 : 3;
     // Current agreements and measurements always precede dated fallback interviews.
