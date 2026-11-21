@@ -15,6 +15,7 @@ import { dietDraftAdapter, dietDraftAdapterV1, dietDraftAdapterV3 } from './diet
 import { isPatientObservation } from '../_shared/patient-observations.ts';
 import { clinicalBatchStages, type ClinicalBatchFeature } from '../_shared/clinical-batch.ts';
 import { assessmentInstructions, assessmentSchema, batchDraft, type BatchAssessment } from './clinical-batch-assessment.ts';
+import { clinicalPlanningInstructions, clinicalPlanningPriority, completeStrategyProse } from './clinical-planning.ts';
 
 export type FeatureConfig = {
   feature: string; enabled: boolean; provider: string; model: string; prompt_version: string;
@@ -250,14 +251,18 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   const templateOnly = !!batch && !batch.context.facts.length;
   if (assessment) {
     adapter.instructions = assessmentInstructions(batchFeature);
-    adapter.schema = assessmentSchema;
+    adapter.schema = assessmentSchema(batchFeature);
   }
   const clinicalFacts = (hydrated?.context as { facts?: ClinicalFact[] } | undefined)?.facts;
   if (clinicalBatchStages.some(stage => stage.feature === request.feature) && Array.isArray(clinicalFacts)) {
     adapter.context = { ...hydrated?.context as object, facts: clinicalFacts.map(fact => ({
       ...fact, timing: clinicalFactTiming(fact),
     })) };
-    adapter.instructions += ' Prioridad temporal obligatoria para esta etapa: antes de redactar, contrasta los hechos actuales (timing=current) con las notas e entrevistas anteriores (historical), la ficha de referencia (baseline), el progreso fechado (progress) y los diagnósticos, objetivos o estrategias existentes (plan). Estos planes no son evidencia de que una condición siga activa o se haya ejecutado una acción. Ante un cambio explícito en la consulta actual sobre el mismo asunto, usa el dato actual para el diagnóstico y todos los pasos derivados. Por ejemplo, si hoy consta que el dolor cesó y se retomó el ejercicio, conserva el dolor como antecedente y evita atribuir una limitación actual por ese dolor. Una consulta que omite un antecedente no demuestra mejoría ni empeoramiento. Si un dato anterior es relevante y no hay actualización, preséntalo con su fecha o como vigencia por confirmar. Si las fuentes actuales del mismo momento discrepan, indica qué se debe confirmar. Mantén separados los resultados vigentes y la evolución; cita la evidencia actual del cambio.';
+    adapter.instructions += ' Prioridad temporal obligatoria para esta etapa: antes de redactar, contrasta los hechos actuales (timing=current) con las notas e entrevistas anteriores (historical), la ficha de referencia (baseline), el progreso fechado (progress) y los diagnósticos, objetivos o estrategias existentes (plan). Estos planes no son evidencia de que una condición siga activa o se haya ejecutado una acción. Ante un cambio explícito en la consulta actual sobre el mismo asunto, usa el dato actual para el diagnóstico y todos los pasos derivados. Si hoy consta que una barrera se resolvió y la persona retomó una actividad, conserva la barrera como antecedente y reconoce el avance actual. Una consulta que omite un antecedente no demuestra mejoría ni empeoramiento. Si un dato anterior es relevante y no hay actualización, preséntalo con su fecha o como vigencia por confirmar. Si las fuentes actuales del mismo momento discrepan, indica qué se debe confirmar. Mantén separados los resultados vigentes y la evolución; cita la evidencia actual del cambio.';
+    adapter.instructions += clinicalPlanningPriority + ' ' + clinicalPlanningInstructions[batchFeature];
+    if (batchFeature === 'intervention_strategy') {
+      adapter.instructions += ' Escribe action, method, monitoring, adaptations, adjustmentCriteria y comprehensionCheck en oraciones completas, con punto final, dejando vacíos los campos opcionales que no correspondan. Si una explicación no cabe, redacta una versión más breve y completa.';
+    }
   }
   if (request.clinicalFeedback) {
     adapter.instructions += ' Esta es una revisión de la propuesta. Atiende clinicalFeedback como una preferencia de redacción o de enfoque profesional. Solo facts acreditan datos clínicos; verifica las aclaraciones solicitadas contra esas fuentes y conserva las incertidumbres. Cuando se incluya previousDraft, úsalo para comparar y corregir, jamás como fuente de hechos.';
@@ -266,9 +271,8 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
     if (clinicalFacts?.some(fact => fact.source.startsWith('PES provisional ·'))) {
       adapter.instructions = adapter.instructions.replaceAll('PES actual aprobado ·', 'PES provisional ·');
     }
-    adapter.instructions += ' Esta solicitud forma parte de una propuesta completa pendiente de revisión profesional. Solo describe acciones y metas como propuestas. No afirmes que ya se aceptaron o ejecutaron. Escribe las acciones para la persona en español sencillo, en frases completas. Usa el espacio necesario para incluir lo pertinente y reformula de manera más breve si hace falta; nunca cortes una frase ni dejes palabras a medias.';
+    adapter.instructions += ' Esta solicitud forma parte de una propuesta completa pendiente de revisión profesional. Solo describe acciones y metas como propuestas. No afirmes que ya se aceptaron o ejecutaron. Escribe en español sencillo y en frases completas para el público indicado en esta etapa.';
     if (!assessment) adapter.instructions += ' Usa los borradores proporcionados en el contexto cuando se haga referencia a etapas previas. Cita las etiquetas exactas del contexto, incluidas las de PES o estrategia provisional.';
-    if (batchFeature === 'pes_diagnosis') adapter.instructions += ' Evalúa las notas de esta consulta aunque no exista entrevista. Antes de dejar sin etiología, busca en los antecedentes fechados factores que la información actual permita sostener. Si su vigencia no consta, formula una pregunta para confirmarla. Conserva el problema y los signos que tengan respaldo y deja la causa como pendiente si sigue sin sustento.';
     if (clinicalFacts?.some(fact => fact.source.startsWith('Estrategia provisional ·'))) {
       adapter.instructions += ' En cada indicación cita como mínimo un hecho rotulado «Estrategia provisional» y explica la acción correspondiente para que el profesional pueda revisarla antes de acordarla con el paciente.';
     }
@@ -350,12 +354,16 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
     if (batch && (templateOnly || (assessment && providerOutputValid) || emptyBatchStep)) {
       const assessmentOutput = assessment && providerOutputValid ? result.output as Parameters<typeof batchDraft>[3] : undefined;
       result = { ...result, output: batchDraft(batchFeature, batch.context, generation.id, assessmentOutput) };
-      valid = true;
+      valid = result.output !== null;
     } else if (!assessment) {
       const smartObjectives = request.feature === 'consultation_support' && config.prompt_version === 'consultation_support@4';
       if (proposedObjectives) result = { ...result, output: result.status === 'completed' && validOutput(adapter.schema,result.output) ? normalizeObjectiveProposals(result.output,adapter.context) : null };
       if (smartObjectives && result.status === 'completed' && validOutput(adapter.schema,result.output)) result = { ...result, output: normalizeSmartObjectivesOutput(result.output,adapter.context) };
-      if (request.feature === 'intervention_strategy' && validOutput(adapter.schema,result.output)) result = { ...result, output: normalizeInterventionOutput(result.output,adapter.context as InterventionContext) };
+      if (request.feature === 'intervention_strategy' && validOutput(adapter.schema,result.output)) {
+        const { strategies } = normalizeInterventionOutput(result.output, adapter.context as InterventionContext);
+        const complete = strategies.map(completeStrategyProse).filter(item => item !== null);
+        result = { ...result, output: strategies.length && !complete.length ? null : { strategies: complete } };
+      }
       valid = !emptyObjectives && result.status === 'completed' && validOutput(outputSchema,result.output) && clinicalEvidenceValid(request.feature,result.output,adapter.context) && (request.feature !== 'intervention_strategy' || interventionEvidenceValid(result.output,adapter.context as InterventionContext,generation.id)) && (!structuredPes || pesClinicalStructureValid(result.output)) && (request.feature !== 'pes_diagnosis' || config.prompt_version !== 'pes_diagnosis@7' || pesSynthesisEvidenceValid(result.output)) && (!store.validateOutput || store.validateOutput(result.output));
       if (!valid && request.feature === 'pes_diagnosis') console.warn(JSON.stringify({event:'pes_output_rejected',generationId:generation.id,promptVersion:config.prompt_version,codes:result.status!=='completed'?['provider_incomplete']:!validOutput(outputSchema,result.output)?['schema_or_references']:['evidence_or_structure']}));
       if (!valid && smartObjectives) console.warn(JSON.stringify({event:'objective_output_rejected',generationId:generation.id,codes:result.status!=='completed'?['provider_incomplete']:!validOutput(adapter.schema,result.output)?['schema']:smartObjectiveValidationIssues(result.output,adapter.context)}));

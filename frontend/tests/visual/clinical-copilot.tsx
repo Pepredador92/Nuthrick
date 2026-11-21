@@ -54,7 +54,7 @@ function Fixture() {
         </>
       ) : tab === 'strategy' ? (<>
         <button className="nuth-button-secondary mt-4 !text-xs" onClick={()=>{seedInterventionPreview();setStrategyRefresh(v=>v+1);}}>Cargar ejemplo sintético de estrategia</button>
-        <ClinicalInterventions key={`synthetic-strategy:${strategyRefresh}`} {...props} onInstructions={text=>window.alert(`Indicaciones sintéticas:\n${text}`)} />
+        <ClinicalInterventions key={`synthetic-strategy:${strategyRefresh}`} {...props} onOpenInstructions={() => window.alert("Abrir indicaciones sintéticas")} />
       </>) : tab === "objective" ? (
         <>
           <ClinicalObjective

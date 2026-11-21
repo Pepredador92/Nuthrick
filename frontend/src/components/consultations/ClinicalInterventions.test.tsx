@@ -221,6 +221,13 @@ function mount(overrides = {}) {
     />,
   );
 }
+it("opens patient instructions without passing professional strategy text", async () => {
+  api.workspace.mockResolvedValue({ ...workspace, items: [approvedItem()] });
+  const onOpenInstructions = vi.fn();
+  mount({ onOpenInstructions });
+  fireEvent.click(await screen.findByRole("button", { name: "Ir a indicaciones" }));
+  expect(onOpenInstructions).toHaveBeenCalledExactlyOnceWith();
+});
 it("requests the consultation closing flow when taking an approved food strategy to the workshop", async () => {
   const doc = fullDocument();
   doc.strategy.category = "food";

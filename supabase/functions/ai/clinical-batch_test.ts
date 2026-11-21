@@ -142,7 +142,9 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
               source: scenario === "partial"
                 ? "Nota de la consulta · 2026-11-21"
                 : "Entrevista · physical activity · Ejercicio actual",
-              finding: "El dolor de espalda cesó y retomó el ejercicio.",
+              finding: scenario === "partial"
+                ? "La molestia ya cedió y retomó el ejercicio. Quiere dejar lista una comida para llevar los días de turno largo."
+                : "El dolor de espalda cesó y retomó el ejercicio.",
               consultation_date: "2026-11-21",
             }]),
             ...(scenario === "complete"
@@ -150,6 +152,13 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
                 source: "Entrevista · main reason",
                 finding: "Refiere omitir comidas durante el trabajo.",
               }]
+              : []),
+            ...(scenario === "partial"
+              ? Array.from({ length: 100 }, (_, index) => ({
+                source: `Antropometría · Medición sintética ${index}`,
+                finding: `${index} cm`,
+                consultation_date: "2026-11-21",
+              }))
               : []),
           ],
         strategyRequired: true,
@@ -270,6 +279,12 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
     );
     if (scenario === "partial") {
       assert.match(current.source, /^Nota de la consulta/);
+      assert.equal(context.facts[0].id, current.id);
+      assert.match(current.finding, /comida para llevar/);
+      assert.match(
+        body.instructions,
+        /La cantidad de mediciones no determina la prioridad/,
+      );
       assert.equal(
         context.facts.some((fact: { source: string }) =>
           fact.source.startsWith("Entrevista")
@@ -277,40 +292,57 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
         false,
       );
       if (generating.feature === "pes_diagnosis") {
-        assert.match(body.instructions, /antecedentes fechados/);
+        assert.match(body.instructions, /antecedentes específicos/);
         return reply({
-          problem: "Cambios de actividad por valorar",
+          problem: "Dificultad para preparar comidas para el trabajo",
           etiology: "",
-          signsSymptoms: ["actividad retomada referida"],
+          signsSymptoms: [
+            "necesidad referida de preparar comida para los turnos largos",
+          ],
           evidenceFactIds: [current.id],
           priority: {
-            text: "Conviene precisar cómo cambió la actividad.",
+            text: "La persona quiere una opción que pueda llevar al trabajo.",
             evidenceFactIds: [current.id],
           },
-          missingContext: ["¿Qué facilitó retomar el ejercicio?"],
+          missingContext: [
+            "¿En qué parte de la preparación suele encontrar dificultades?",
+          ],
           uncertainties: [],
         });
       }
       assert.equal(context.approvedPes, undefined);
       assert.match(
         body.instructions,
-        /Solo se permiten acciones de observación/,
+        /práctica de pasos sencillos/,
       );
       assert.equal(
         context.priorDrafts.problem,
-        "Cambios de actividad por valorar",
+        "Dificultad para preparar comidas para el trabajo",
       );
       if (generating.feature === "patient_instructions") {
         assert.ok(context.priorDrafts.strategies.length);
+        assert.match(body.instructions, /Háblale de tú/);
+      }
+      const professional = generating.feature === "intervention_strategy";
+      if (professional) {
+        assert.match(body.instructions, /qué hará el nutriólogo/);
+        assert.equal(
+          body.text.format.schema.properties.items.items.properties.monitoring
+            .maxLength,
+          1500,
+        );
       }
       return reply({
         items: [{
-          title: "Revisa cómo te fue al volver a moverte",
-          action:
-            "Anota qué te ayudó a retomar tu actividad y cómo te sentiste.",
-          indicator: "Cambios percibidos al retomar la actividad.",
-          criterion: "Traer un ejemplo de lo que ayudó a retomar la actividad.",
-          monitoring: "Revisaremos juntos tus anotaciones.",
+          title: "Preparación de una comida para el trabajo",
+          action: professional
+            ? "Acordar con la persona una comida que pueda preparar y llevar en un turno largo."
+            : "Elige una comida que puedas dejar lista antes de tu próximo turno largo.",
+          indicator: "Preparación de una opción para el trabajo.",
+          criterion: "Probar la opción acordada en un día con turno largo.",
+          monitoring: professional
+            ? "Revisar qué le facilitó preparar la comida y qué quedó pendiente de ver<<"
+            : "En la próxima consulta, platica cómo te funcionó.",
           goalIndex: 0,
           evidenceFactIds: [current.id],
         }],
@@ -482,6 +514,26 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
         /no podía hacer ejercicio/,
       );
     }
+    const assessmentStrategies = drafts.intervention_strategy?.output
+      .strategies as {
+        strategy: {
+          action: string;
+          monitoring: string;
+          missingContext: string[];
+        };
+      }[];
+    assert.match(
+      assessmentStrategies[0].strategy.action,
+      /^Acordar con la persona/,
+    );
+    assert.equal(assessmentStrategies[0].strategy.monitoring, "");
+    assert.match(
+      assessmentStrategies[0].strategy.missingContext[0],
+      /seguimiento.*incompleto/,
+    );
+    const assessmentInstructions = drafts.patient_instructions?.output
+      .instructions as { text: string }[];
+    assert.match(assessmentInstructions[0].text, /^Elige una comida/);
     assert.equal(modelCalls, 9);
 
     scenario = "history";

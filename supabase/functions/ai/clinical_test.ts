@@ -50,6 +50,22 @@ Deno.test("long professional notes keep the last observations within citable pie
   assert.ok(notes.length > 1 && notes.every(note => note.finding.length <= 1800));
   assert.equal(notes.map(note => note.finding).join(" "), finding);
 });
+Deno.test("current notes remain citable ahead of the measurement list in all four stages", () => {
+  const note = { source: "Nota de la consulta · 2026-11-21", finding: "Usa el descanso del turno para comer. Quiere una opción práctica que pueda llevar." };
+  const interviewNote = { source: "Entrevista · professional notes", finding: "Ya se conversó sobre qué puede preparar en casa." };
+  const facts = Array.from({ length: 110 }, (_, index) => ({
+    source: `Antropometría · Medición ${index}`, finding: `${index} cm`, consultation_date: "2026-11-21",
+  }));
+  const source = { stamp: "clinical", facts: [...facts, note, interviewNote] };
+  for (const context of [
+    buildPesClinicalContext(source),
+    buildConsultationSupportContext(source, false, true),
+    buildInterventionContext(source),
+    buildConsultationSupportContext(source, true),
+  ]) {
+    assert.deepEqual(context.facts.slice(0, 2).map(item => item.source), [note.source, interviewNote.source]);
+  }
+});
 const pes = {
   problem: "Problema por revisar",
   etiology: "Por confirmar",

@@ -61,7 +61,7 @@ type Props = {
   onChanged?: () => void;
   onCompleted?: (allApproved:boolean) => void;
   onStatusChange?: (status:ClinicalTaskStatus) => void;
-  onInstructions?: (text: string) => void;
+  onOpenInstructions?: () => void;
   onOpenWorkshop?: () => void;
   readOnly?: boolean;
   onReviewPrerequisite?: (stage: 1 | 2) => void;
@@ -91,7 +91,7 @@ export function ClinicalInterventions(props: Props) {
     onPendingChange,
     onChanged,
     onStatusChange,
-    onInstructions,
+    onOpenInstructions,
     onOpenWorkshop,
     readOnly = false,
   } = props;
@@ -884,19 +884,14 @@ export function ClinicalInterventions(props: Props) {
                   )}
                   {!readOnly && (
                     <div className="clinical-strategy-execution-actions">
-                      {current && onInstructions && (
+                      {current && onOpenInstructions && (
                         <button
                           type="button"
                           className="nuth-button-secondary !text-xs"
                           disabled={busy || execution !== null}
-                          onClick={() => {
-                            onInstructions(strategySummary(s));
-                            setMessage(
-                              "Acción copiada a Indicaciones. Revísala antes de compartir.",
-                            );
-                          }}
+                          onClick={() => onOpenInstructions()}
                         >
-                          Llevar a indicaciones
+                          Ir a indicaciones
                         </button>
                       )}
                       {current && s.category === "food" && s.route === "oral" &&

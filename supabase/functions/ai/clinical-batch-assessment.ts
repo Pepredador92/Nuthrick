@@ -12,6 +12,7 @@ import {
   redactClinicalText,
 } from "./clinical.ts";
 import type { BatchStages } from "./clinical-batch.ts";
+import { completeClinicalSentence } from "./clinical-planning.ts";
 
 type Visit = "initial" | "follow_up";
 type AssessmentFeature = Exclude<ClinicalBatchFeature, "pes_diagnosis">;
@@ -19,10 +20,8 @@ type AssessmentFeature = Exclude<ClinicalBatchFeature, "pes_diagnosis">;
 const field = (maxLength: number) => ({ type: "string", maxLength });
 const properties = {
   title: field(200),
-  action: field(PATIENT_INSTRUCTION_MAX_LENGTH),
   indicator: field(400),
   criterion: field(400),
-  monitoring: field(400),
   goalIndex: { type: "integer", minimum: 0, maximum: 2 },
   evidenceFactIds: {
     type: "array",
@@ -31,23 +30,36 @@ const properties = {
     items: { type: "string", pattern: "^f[1-9][0-9]*$" },
   },
 };
-export const assessmentSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["items"],
-  properties: {
-    items: {
-      type: "array",
-      maxItems: 3,
+export function assessmentSchema(feature: AssessmentFeature) {
+  const fields = {
+    ...properties,
+    action: field(
+      feature === "consultation_support"
+        ? 400
+        : feature === "intervention_strategy"
+        ? 1500
+        : PATIENT_INSTRUCTION_MAX_LENGTH,
+    ),
+    monitoring: field(feature === "intervention_strategy" ? 1500 : 400),
+  };
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["items"],
+    properties: {
       items: {
-        type: "object",
-        additionalProperties: false,
-        required: Object.keys(properties),
-        properties,
+        type: "array",
+        maxItems: 3,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: Object.keys(fields),
+          properties: fields,
+        },
       },
     },
-  },
-};
+  };
+}
 
 type AssessmentItem = {
   title: string;
@@ -61,9 +73,9 @@ type AssessmentItem = {
 
 const assessmentTasks: Record<AssessmentFeature, string> = {
   consultation_support:
-    "Propón objetivos de observación. Escribe en action qué podrá observar o registrar la persona (máximo 400 caracteres), en indicator qué se revisará, en criterion qué anotaciones servirán para revisarlo, y en monitoring cómo hacerlo. Usa goalIndex=0.",
+    "Propón qué puede probar la persona con la información disponible. Escribe en action el cambio útil que puede intentar, en indicator qué se observará, en criterion qué resultado observable revisarán y en monitoring cómo. Si solo es posible valorar, elige una pregunta o registro que ayude a decidir el siguiente paso. Usa goalIndex=0.",
   intervention_strategy:
-    "Propón acciones de acompañamiento para los objetivos de la lista. Vincula cada acción al índice de un objetivo real en goalIndex. En title pon un nombre breve y en action explica cómo realizarla. Usa monitoring para explicar qué se revisará.",
+    "Propón acciones que el nutriólogo pueda realizar con la persona. En title pon un nombre breve. En action describe cómo acompañar el objetivo y en monitoring qué revisará el nutriólogo. Vincula el índice del objetivo en goalIndex.",
   patient_instructions:
     "Redacta en action una instrucción clara que ayude a realizar alguna acción del borrador. Habla directamente con la persona de tú, con palabras de uso diario y oraciones completas. Usa goalIndex=0.",
 };
@@ -72,8 +84,8 @@ export function assessmentInstructions(feature: AssessmentFeature) {
   return `Genera borradores de valoración nutricional para revisión del profesional. ${
     assessmentTasks[feature]
   }
-Solo se permiten acciones de observación, registro, conversación o verificación. Evita diagnósticos, causas atribuidas, prescripciones, dosis, metas de peso, cantidades de ingesta, restricciones o pautas de actividad.
-Personaliza lo que conviene observar o confirmar a partir de facts y cita sus IDs exactos en evidenceFactIds. Revisa primero las notas de la consulta actual, aunque falte la entrevista. Usa la historia como antecedente fechado y confirma vigencia. Los borradores de etapas previas orientan el plan, pero jamás son fuentes de hechos clínicos. Si objectives o strategies son generales, todavía puedes utilizar hechos actuales para adaptar esta etapa sin cambiar lo que la persona debe observar. No inventes duración, frecuencia, disponibilidad ni acuerdos. En los campos de texto ajenos a esta etapa usa la cadena vacía. Devuelve items vacío si falta evidencia pertinente para personalizar.`;
+Aunque la etiología esté pendiente, puedes proponer educación, organización de rutinas, práctica de pasos sencillos, resolución de barreras o continuidad de una acción que ya se esté realizando y que conste como vigente. Escoge una acción proporcionada a los datos. Evita diagnósticos, causas atribuidas, prescripciones, dosis, metas de peso, cantidades de ingesta, restricciones o pautas nuevas de actividad.
+Personaliza a partir de facts y cita los IDs exactos que sustenten cada propuesta. Si falta un dato que cambiaría la decisión, conviértelo en una pregunta o actividad de valoración concreta. Conserva los acuerdos documentados y deja como propuesta aquello que aún se tenga que conversar. Escribe los campos de acción y seguimiento con oraciones completas. En los campos de texto ajenos a esta etapa usa la cadena vacía. Devuelve items vacío si falta evidencia pertinente para personalizar.`;
 }
 
 export function buildBatchAssessment(
@@ -129,7 +141,11 @@ const templates = {
       "Traer un ejemplo de lo que comiste y bebiste en un día habitual.",
     monitoring:
       "Anota los horarios aproximados y qué se te hizo fácil o difícil.",
-    strategy: "Conocer tu rutina de comidas",
+    strategy: "Conocer la rutina de comidas",
+    professionalAction:
+      "Acordar con la persona un día habitual que pueda describir para conocer sus comidas y horarios.",
+    professionalMonitoring:
+      "Revisar el relato y qué situaciones modificaron la rutina.",
     action:
       "Elige un día habitual y anota qué comes y bebes y a qué hora. Si algo cambia tu rutina, anótalo también.",
     question:
@@ -142,7 +158,11 @@ const templates = {
     criterion:
       "Traer un ejemplo de algo que pudiste hacer o que te costó desde la visita anterior.",
     monitoring: "Anota qué intentaste y qué te ayudó o te dificultó hacerlo.",
-    strategy: "Revisar cómo te fue desde la última consulta",
+    strategy: "Revisar el avance desde la última consulta",
+    professionalAction:
+      "Revisar con la persona una acción que intentó desde la última consulta e identificar qué le ayudó o se le dificultó.",
+    professionalMonitoring:
+      "Retomar un ejemplo concreto y acordar el siguiente paso.",
     action:
       "Piensa en lo que intentaste desde la última consulta y anota un ejemplo de qué te funcionó o qué te costó. Si hubo algún cambio en tu rutina, anótalo.",
     question:
@@ -183,34 +203,38 @@ export function batchDraft(
         : [];
     });
     if (
-      evidence.length !== item.evidenceFactIds.length || !item.action.trim()
+      evidence.length !== item.evidenceFactIds.length ||
+      !completeClinicalSentence(item.action)
     ) return [];
     if (
       feature === "consultation_support" && (item.action.length > 400 ||
-        !item.indicator.trim() || !item.criterion.trim() ||
-        !item.monitoring.trim())
+        !item.indicator.trim() || !completeClinicalSentence(item.criterion) ||
+        !completeClinicalSentence(item.monitoring))
     ) return [];
     if (
       feature === "intervention_strategy" &&
       (!item.title.trim() || item.action.length > 1500 ||
         item.goalIndex >= context.priorDrafts.objectives.length)
     ) return [];
-    if (
-      feature === "patient_instructions" &&
-      !/[^.\s…][.!?]["»”)]*\s*$/.test(item.action)
-    ) return [];
     return [{ item, evidence }];
   });
+  // A malformed nonempty response is not a decision that the clinical data
+  // are insufficient. Keep that result on the recoverable validation path.
+  if (output?.items.length && !contextual.length) return null;
   const batchBasis = contextual.length ? "assessment" : "template";
   const drafts = contextual.length ? contextual : [{
     item: {
       title: template.strategy,
       action: feature === "consultation_support"
         ? template.goal
+        : feature === "intervention_strategy"
+        ? template.professionalAction
         : template.action,
       indicator: template.indicator,
       criterion: template.criterion,
-      monitoring: template.monitoring,
+      monitoring: feature === "intervention_strategy"
+        ? template.professionalMonitoring
+        : template.monitoring,
       goalIndex: 0,
     },
     evidence: [],
@@ -247,7 +271,13 @@ export function batchDraft(
         ...emptyStrategy(),
         title: item.title,
         action: item.action,
-        monitoring: item.monitoring,
+        monitoring: completeClinicalSentence(item.monitoring)
+          ? item.monitoring
+          : "",
+        missingContext:
+          item.monitoring.trim() && !completeClinicalSentence(item.monitoring)
+            ? ["Completar el seguimiento. El texto generado quedó incompleto."]
+            : [],
         goalIndexes: context.priorDrafts.objectives[item.goalIndex]
           ? [item.goalIndex]
           : [],

@@ -10,6 +10,7 @@ import { objectiveProposalsSchema, objectiveProposalInstructions, objectivePropo
 import { PATIENT_INSTRUCTION_MAX_LENGTH } from '../_shared/patient-instructions.ts';
 import { isPatientObservation } from '../_shared/patient-observations.ts';
 import { approvedPesSource, provisionalPesSource, pesSignSource, pesEtiologySource } from '../_shared/clinical-batch.ts';
+import { currentClinicalNote } from './clinical-planning.ts';
 const text = { type: "string", maxLength: 2000 };
 const strings = { type: "array", items: text, maxItems: 30 };
 const object = <P extends Record<string, unknown>>(properties: P) => ({
@@ -214,6 +215,7 @@ function clinicalDate(fact: ClinicalFact) {
 }
 function clinicalChronology(a: ClinicalFact, b: ClinicalFact) {
   return clinicalFactOrder[clinicalFactTiming(a)] - clinicalFactOrder[clinicalFactTiming(b)] ||
+    Number(currentClinicalNote(b.source)) - Number(currentClinicalNote(a.source)) ||
     (clinicalDate(b) ?? '').localeCompare(clinicalDate(a) ?? '');
 }
 function compactFinding(value: string) {
@@ -311,7 +313,7 @@ export function buildConsultationSupportContext(source: ClinicalSource, instruct
   const permitted = prepared.filter((fact) => {
     const sourceLabel = fact?.source?.toLocaleLowerCase() ?? "";
     if (instructions && (fact.source.startsWith("Estrategia aprobada · ") || fact.source.startsWith(provisionalStrategySource))) return true;
-    if (isPatientObservation(fact.source)) return true;
+    if (isPatientObservation(fact.source) || currentClinicalNote(fact.source)) return true;
     if (sourceLabel.startsWith("entrevista · ")) {
       return /(?:main reason|expectations|consult now|objectives|treatment objective|next objectives|first actions|interview priorities|access barriers|eating drivers|changes since last|progress perception|symptoms changes|medical changes|indicators reviewed|barriers|adjustments|measurement notes|indicator progress|recall 24h v2|recall date|recall day type)/i.test(sourceLabel)
         || changesInSymptomsOrActivity.test(sourceLabel)

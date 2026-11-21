@@ -44,7 +44,9 @@ Deno.test("HTTP strategy proposals retain long SMART evidence and reject unusabl
     pesStatement: "Enunciado sintético",
   };
   let server: Deno.HttpServer | undefined, port = 0, count = 1;
-  let oversized = false, unverifiedParameters = false;
+  let oversized = false,
+    unverifiedParameters = false,
+    clippedMonitoring = false;
   const settlements: string[] = [];
   const json = (value: unknown) =>
     new Response(JSON.stringify(value), {
@@ -125,11 +127,16 @@ Deno.test("HTTP strategy proposals retain long SMART evidence and reject unusabl
       strategies: context.approvedGoals.map((g) => ({
         ...Object.fromEntries(
           strategyFields.filter((key) => !key.startsWith("reference")).map(
-            (key) => [key, oversized ? "漢".repeat(1500) : base[key]],
+            (key) => [key, oversized ? "漢".repeat(1499) + "." : base[key]],
           ),
         ),
         title: oversized ? "漢".repeat(1500) : "Educación nutricional",
-        action: oversized ? "漢".repeat(1500) : "Practicar registro",
+        action: oversized
+          ? "漢".repeat(1499) + "."
+          : "Practicar el registro con la persona.",
+        ...(clippedMonitoring
+          ? { monitoring: "Revisar qué funcionó y qué falta por confir" }
+          : {}),
         etiologyLink: "Aborda conocimientos",
         ...(unverifiedParameters
           ? { dose: "999 mg", frequency: "Diariamente" }
@@ -253,6 +260,23 @@ Deno.test("HTTP strategy proposals retain long SMART evidence and reject unusabl
         );
         assert.ok(!JSON.stringify(doc).includes("999 mg"));
         assert.equal(settlements.at(-1), "succeeded");
+      },
+    );
+    await t.step(
+      "a clipped optional field does not reach the editable draft",
+      async () => {
+        unverifiedParameters = false;
+        clippedMonitoring = true;
+        const response = await request();
+        assert.equal(response.status, 200, JSON.stringify(response.body));
+        const { strategy } = response.body.output.strategies[0];
+        assert.equal(strategy.action, "Practicar el registro con la persona.");
+        assert.equal(strategy.monitoring, "");
+        assert.ok(
+          strategy.missingContext.some((note: string) =>
+            /seguimiento.*incompleto/.test(note)
+          ),
+        );
       },
     );
   } finally {

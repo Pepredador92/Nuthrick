@@ -45,10 +45,10 @@ export class SimulatorExampleProvider implements AIProvider {
         if(!goal||!context.approvedGoals?.length)throw new AIError('strategy_planning_required');
         output={strategies:[{
           ...Object.fromEntries(strategyFields.filter(k=>!k.startsWith('reference')).map(k=>[k,''])),
-          title:'Organiza tus comidas · ejemplo',action:'Prepara un registro sencillo de tus comidas para revisarlo en consulta.',
+          title:'Organización de las comidas · ejemplo',action:'Acordar con la persona un registro sencillo de sus comidas para revisarlo en consulta.',
           etiologyLink:'Este ejemplo permite practicar cómo organizar las comidas y revisar las dificultades.',
-          method:'Anota qué te resulta fácil y qué necesitas ajustar. Revisaremos juntos tus anotaciones.',
-          monitoring:'Revisaremos el registro y las dificultades que quieras comentar.',category:'education',route:'not_applicable',priority:1,
+          method:'Practicar el registro junto con la persona e identificar qué le resulta fácil o difícil.',
+          monitoring:'Revisar el registro y las dificultades que la persona quiera comentar.',category:'education',route:'not_applicable',priority:1,
           goalIndexes:[context.approvedGoals[0].index],evidenceFactIds:[goal.id],referenceIds:[],missingContext:['Estrategia ficticia de demostración; los acuerdos se revisan por separado.'],
         }]};
         break;
