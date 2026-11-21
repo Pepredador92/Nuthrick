@@ -1194,7 +1194,7 @@ function ConsultationEditor() {
         <RecallCopilot key={`${consultation.id}:${snapshot.revision}:recall`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} active={module === 'recall'} before={save} onPendingChange={setRecallPending} navigationRef={recallNavigationRef} onNavigationChange={setRecallNavigation} />
         {recallSections.map(section => <details key={section.section_key} className="recall-supported-fields" open={showErrors && section.questions.some(question => matchesCondition(question.visibility_condition, values) && questionErrors(question, values[question.question_key]).length > 0)}><summary>{section.title === "Recordatorio de 24 horas" ? "Registro detallado del día y preguntas de apoyo" : section.title}</summary><p>{section.title === "Recordatorio de 24 horas" ? 'Aquí puedes registrar la fecha, horarios, preparación y posibles olvidos. Este registro complementa los alimentos confirmados arriba.' : section.description}</p>{renderQuestions(section.questions)}</details>)}
       </section>}
-      {clinicalOpened && <div className="consultation-guided-workspace clinical-decision-workspace mt-6" hidden={module !== 'clinical'}>
+      {clinicalOpened && <div data-consultation-module="clinical" className="consultation-guided-workspace clinical-decision-workspace mt-6" hidden={module !== 'clinical'}>
         <header className="consultation-guided-intro" id="consultation-clinical-heading"><p className="nuth-eyebrow">05 · Revisa y acuerda</p><h2>De los datos a los siguientes pasos</h2><p>Estas secciones son opcionales. Puedes guardar el avance, continuar o cerrar la consulta sin completarlas.</p></header>
         <ConsultationGuide label="Pasos de la revisión clínica" steps={clinicalStepsWithProgress} active={clinicalStage} onChange={next => void goClinicalStage(next)} busy={busy} />
         <div hidden={clinicalStage !== 0}><ClinicalReview batch={{patientId:patient.id,onReview:stage=>void goClinicalStage(stage)}} onReviewed={(message,all)=>reportCompletion(message,all?1:undefined)} consultationId={consultation.id} snapshot={snapshot} values={values} active={module === 'clinical' && clinicalStage === 0} observationsVersion={observationsVersion} before={saveForClinical} onStatusChange={status => updateClinicalProgress('review', status)} onOpenModule={next => void goModule(next)} /></div>
@@ -1218,8 +1218,10 @@ function ConsultationEditor() {
           <ClinicalInterventions onReviewPrerequisite={stage=>void goClinicalStage(stage)} onCompleted={all=>reportCompletion(all?"Estrategias aprobadas. Puedes continuar a indicaciones.":"Estrategia aprobada.")} onStatusChange={status=>updateClinicalProgress("strategies",status)} key={`${consultation.id}:${snapshot.revision}:strategies`} consultationId={consultation.id} patientId={patient.id} revision={snapshot.revision} before={saveForClinical} active={module === 'clinical' && clinicalStage === 3} onPendingChange={setStrategyPending} onChanged={() => setClinicalRefresh(value => value + 1)} onOpenWorkshop={() => reviewClose("workshop")} onInstructions={text => { setAnswer('first_actions', appendComposedText(valuesRef.current.first_actions, text)); setClinicalStage(4); }} />
         </section>
         <section hidden={clinicalStage !== 4} className="consultation-clinical-card" aria-label="Recomendaciones">
-          <p className="nuth-eyebrow">05 · Deja claros los siguientes pasos</p><h2>Recomendaciones</h2>
-          <p className="consultation-clinical-description">Deja indicaciones sencillas y revisa lo acordado antes de compartirlo.</p>
+          <header className="consultation-section-banner">
+            <p className="nuth-eyebrow">05 · Deja claros los siguientes pasos</p><h2>Recomendaciones</h2>
+            <p className="consultation-clinical-description">Deja indicaciones sencillas y revisa lo acordado antes de compartirlo.</p>
+          </header>
           {module === "clinical" && clinicalStage === 4 && <ClinicalBatchStageRevision feature="patient_instructions" patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} blocked={busy} before={saveForClinical} />}
           <ClinicalFieldCards key={`${consultation.id}:${snapshot.revision}:recommendations:${clinicalRefresh}`} questions={recommendationQuestions} values={values} busy={busy} showErrors={showErrors} before={saveForClinical} onChange={setAnswer} ai={{patientId:patient.id,consultationId:consultation.id,revision:snapshot.revision}} />
           <button type="button" className="nuth-button mt-4" disabled={busy||saving||!hasRecommendations} onClick={()=>void completeClinicalStage('recommendations')}>Guardar y completar recomendaciones</button>
@@ -1244,7 +1246,7 @@ function ConsultationEditor() {
         </div>
       )}
       {module === "evolution" && (
-        <div className="mt-6">
+        <div data-consultation-module="evolution" className="mt-6">
           <PatientEvolutionTable
             patientId={patient.id}
             currentConsultationId={consultation.id}

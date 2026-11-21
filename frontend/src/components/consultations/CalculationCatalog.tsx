@@ -650,7 +650,7 @@ export function CalculationCatalog({
           </p>
         </div>
         <div
-          className="inline-flex rounded-xl border border-[#d6e2d9] bg-white p-1"
+          className="consultation-filter-bar inline-flex rounded-xl border border-[#d6e2d9] bg-white p-1"
           role="tablist"
           aria-label="Vista de cálculos"
         >

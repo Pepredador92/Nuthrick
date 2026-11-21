@@ -1,0 +1,270 @@
+/* Give navigation, section context and editable questions a distinct surface in each theme. */
+:is(.consultation-workspace, .interview-layout) {
+  --consultation-guide-bg: linear-gradient(150deg, #e4ece7, #d3e2db);
+  --consultation-guide-line: #a8bfb4;
+  --consultation-guide-ink: #223d35;
+  --consultation-guide-muted: #435c51;
+  --consultation-guide-accent: #25634e;
+  --consultation-guide-on-accent: #fff;
+  --consultation-guide-track: #b7cec3;
+  --consultation-guide-active: #f3fbf5;
+  --consultation-guide-hover: #eaf4ed;
+  --consultation-progress-fill: linear-gradient(90deg, #206850, #537735);
+  --consultation-section-bg: linear-gradient(128deg, #d4e9c7, #b1dbcd 75%, #abcfcb);
+  --consultation-section-line: #8ab6a6;
+  --consultation-section-ink: #153b34;
+  --consultation-section-muted: #2c514a;
+  --consultation-section-accent: #215747;
+  --consultation-section-badge: #f3fbdfbd;
+  --consultation-card-bg: #e8eff9;
+  --consultation-card-line: #b6c7dc;
+  --consultation-card-ink: #24364d;
+  --consultation-card-muted: #475a71;
+  --consultation-choice-bg: #f7faff;
+  --consultation-choice-selected: #d7ede1;
+  --consultation-choice-selected-ink: #234f41;
+  --consultation-choice-selected-line: #4b826f;
+  --consultation-focus: #246957;
+  --consultation-firefly: #5c691e;
+  --consultation-firefly-glow: #d2e575bb;
+  --consultation-fireflies:
+    radial-gradient(circle at 12% 68%, var(--consultation-firefly) 1px, var(--consultation-firefly-glow) 2px, transparent 8px),
+    radial-gradient(circle at 35% 29%, var(--consultation-firefly) 1.5px, var(--consultation-firefly-glow) 3px, transparent 10px),
+    radial-gradient(circle at 60% 76%, var(--consultation-firefly) 1px, var(--consultation-firefly-glow) 2px, transparent 8px),
+    radial-gradient(circle at 82% 35%, var(--consultation-firefly) 2px, var(--consultation-firefly-glow) 4px, transparent 12px),
+    radial-gradient(circle at 96% 62%, var(--consultation-firefly) 1px, var(--consultation-firefly-glow) 2px, transparent 7px);
+}
+
+html[data-nuthrick-theme=night] :is(.consultation-workspace, .interview-layout) {
+  --consultation-guide-bg: linear-gradient(150deg, #2b2e32, #1c1f24 70%);
+  --consultation-guide-line: #555e64;
+  --consultation-guide-ink: #f5f6f3;
+  --consultation-guide-muted: #c5d0ca;
+  --consultation-guide-accent: #a9e3c8;
+  --consultation-guide-on-accent: #17362a;
+  --consultation-guide-track: #44504e;
+  --consultation-guide-active: #29433b;
+  --consultation-guide-hover: #343c3e;
+  --consultation-progress-fill: linear-gradient(90deg, #65cfad, var(--nuth-lime));
+  --consultation-section-bg: linear-gradient(128deg, #243d38, #22564e 74%, #294d50);
+  --consultation-section-line: #5a8b81;
+  --consultation-section-ink: #f4fbf6;
+  --consultation-section-muted: #d2e9df;
+  --consultation-section-accent: var(--nuth-lime);
+  --consultation-section-badge: #0b2926a8;
+  --consultation-card-bg: #28384e;
+  --consultation-card-line: #566b85;
+  --consultation-card-ink: #f0f5fb;
+  --consultation-card-muted: #cad7e8;
+  --consultation-choice-bg: #334760;
+  --consultation-choice-selected: #254b43;
+  --consultation-choice-selected-ink: #d9f7e5;
+  --consultation-choice-selected-line: #87c9a6;
+  --consultation-focus: #a3e4c9;
+  --consultation-firefly: var(--nuth-lime);
+  --consultation-firefly-glow: #dcec795e;
+}
+
+/* Keep the current module, substep and filter identifiable across the workspace. */
+.consultation-workspace :is(.consultation-step-nav, [data-consultation-module] :is(.consultation-guide-steps, .consultation-filter-bar)) {
+  --nuth-surface: var(--consultation-guide-hover);
+  --nuth-surface-soft: var(--consultation-guide-track);
+  --nuth-ink: var(--consultation-guide-ink);
+  --nuth-muted: var(--consultation-guide-muted);
+  --nuth-line: var(--consultation-guide-line);
+  background: var(--consultation-guide-bg);
+  border-color: var(--consultation-guide-line);
+}
+
+.consultation-workspace [data-consultation-module] :is(.consultation-guide-steps, .consultation-filter-bar) {
+  border: 1px solid var(--consultation-guide-line);
+  border-radius: 18px;
+  padding: 7px;
+}
+
+.consultation-workspace :is(.consultation-step-nav, [data-consultation-module] :is(.consultation-guide-steps, .consultation-filter-bar))
+  button:not(:disabled):hover {
+  background: var(--consultation-guide-hover);
+  color: var(--consultation-guide-ink);
+}
+
+.consultation-workspace :is(.consultation-step-nav, [data-consultation-module] :is(.consultation-guide-steps, .consultation-filter-bar))
+  button:is([aria-current], [aria-pressed=true], [aria-selected=true]) {
+  --nuth-surface: var(--consultation-guide-active);
+  --nuth-line: var(--consultation-guide-accent);
+  --nuth-action: var(--consultation-guide-active);
+  background: var(--consultation-guide-active);
+  color: var(--consultation-guide-ink);
+  border-color: var(--consultation-guide-accent);
+  box-shadow: inset 0 0 0 1px var(--consultation-guide-accent);
+}
+
+.consultation-workspace :is(.consultation-step-nav, [data-consultation-module] :is(.consultation-guide-steps, .consultation-filter-bar))
+  button:is([aria-current], [aria-pressed=true], [aria-selected=true]):not(:disabled):hover {
+  background: var(--consultation-guide-active);
+}
+
+.consultation-workspace [data-consultation-module] .consultation-guide-steps
+  button:is([data-status=complete], [data-status=approved]):not([aria-current]) {
+  background: var(--consultation-choice-selected);
+  color: var(--consultation-choice-selected-ink);
+}
+
+.consultation-workspace :is(.consultation-step-nav > button > span, [data-consultation-module] .consultation-guide-number) {
+  color: var(--consultation-guide-ink);
+  background: var(--consultation-guide-track);
+}
+
+.consultation-workspace :is(.consultation-step-nav > [aria-current] > span,
+  [data-consultation-module] .consultation-guide-steps :is([aria-current], [data-status=complete], [data-status=approved]) .consultation-guide-number) {
+  background: var(--consultation-guide-accent);
+  color: var(--consultation-guide-on-accent);
+}
+
+.consultation-workspace :is(.consultation-step-nav, [data-consultation-module] :is(.consultation-guide-steps, .consultation-filter-bar))
+  button:focus-visible {
+  outline: 2px solid var(--consultation-focus);
+  outline-offset: -2px;
+}
+
+/* The section treatment applies to existing headings and preserves their layout. */
+.consultation-workspace [data-consultation-module] :is(.consultation-section-banner, .consultation-guided-intro, .clinical-stage-heading) {
+  --nuth-surface: var(--consultation-choice-selected);
+  --nuth-ink: var(--consultation-section-ink);
+  --nuth-muted: var(--consultation-section-muted);
+  --nuth-line: var(--consultation-section-line);
+  position: relative;
+  isolation: isolate;
+  padding: clamp(16px, 3vw, 24px);
+  border: 1px solid var(--consultation-section-line);
+  border-radius: 20px;
+  background: var(--consultation-section-bg);
+  color: var(--consultation-section-ink);
+}
+
+.consultation-workspace [data-consultation-module] :is(.consultation-section-banner, .consultation-guided-intro)::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset-block-start: 12px;
+  inset-inline-end: 14px;
+  width: clamp(68px, 13vw, 114px);
+  height: 26px;
+  background: var(--consultation-fireflies);
+  pointer-events: none;
+}
+
+.consultation-workspace [data-consultation-module] :is(.consultation-section-banner, .consultation-guided-intro, .clinical-stage-heading)
+  .nuth-eyebrow,
+.consultation-workspace [data-consultation-module] :is(.consultation-section-label, .clinical-objective-dialog-heading .nuth-eyebrow) {
+  --nuth-ink: var(--consultation-section-accent);
+  color: var(--consultation-section-accent);
+}
+
+.consultation-workspace [data-consultation-module] .consultation-section-banner :is(h2, h3) + p {
+  --nuth-ink: var(--consultation-section-muted);
+  color: var(--consultation-section-muted);
+}
+
+.consultation-workspace [data-consultation-module] .clinical-objective-dialog-heading {
+  --nuth-ink: var(--consultation-section-ink);
+  --nuth-muted: var(--consultation-section-muted);
+  --nuth-line: var(--consultation-section-line);
+  background: var(--consultation-section-bg);
+  color: var(--nuth-ink);
+}
+
+.consultation-workspace [data-consultation-module] :is(
+  .consultation-panel, .consultation-panel-detail, .interview-question-card,
+  .recall-workspace, .recall-narrative, .recall-food-card, .recall-estimate-meal, .recall-supported-fields, .recall-totals,
+  .consultation-clinical-card, .clinical-task-card, .clinical-goal-card, .clinical-pes-part, .clinical-next-card,
+  .clinical-objective-dialog, .clinical-review-instruction, .clinical-objective-overview
+) {
+  --nuth-surface: var(--consultation-card-bg);
+  --nuth-surface-soft: var(--consultation-choice-bg);
+  --nuth-ink: var(--consultation-card-ink);
+  --nuth-muted: var(--consultation-card-muted);
+  --nuth-line: var(--consultation-card-line);
+  color: var(--consultation-card-ink);
+}
+
+.consultation-workspace [data-consultation-module] :is(
+  .consultation-panel, .consultation-panel-detail, .interview-question-card,
+  .recall-workspace, .recall-food-card, .recall-estimate-meal, .recall-supported-fields, .recall-totals,
+  .consultation-clinical-card, .clinical-task-card, .clinical-goal-card, .clinical-pes-part, .clinical-next-card, .clinical-objective-dialog,
+  .clinical-review-instruction, .clinical-objective-overview
+):not([data-status=complete], [data-status=approved]) {
+  background: var(--nuth-surface);
+  border-color: var(--nuth-line);
+}
+
+.consultation-workspace [data-consultation-module] :is(.consultation-panel-detail, .recall-food-card, .recall-estimate-meal) {
+  --nuth-surface: var(--consultation-choice-bg);
+}
+
+.consultation-workspace [data-consultation-module] .recall-narrative {
+  padding: clamp(14px, 2vw, 20px);
+  border: 1px solid var(--nuth-line);
+  border-radius: 16px;
+  background: var(--consultation-choice-bg);
+}
+
+.consultation-workspace [data-consultation-module=evolution] :is(thead, th[scope=row], th[scope=col]) {
+  --nuth-surface: var(--consultation-choice-bg);
+  background: var(--nuth-surface);
+}
+
+.consultation-workspace [data-consultation-module=evolution] [data-current=true] {
+  --nuth-surface: var(--consultation-choice-selected);
+  background: var(--nuth-surface);
+}
+
+/* The global night theme consumes these tokens directly on the controls. */
+.interview-layout :is(.interview-section-select, .interview-question-card .nuth-input),
+:is(.consultation-workspace [data-consultation-module], .consultation-workspace > header) :is(
+  input:not(:where([type=hidden], [type=checkbox], [type=radio], [type=range], [type=file], [type=button], [type=submit], [type=reset], [type=image])),
+  textarea, select
+) {
+  --nuth-surface: #fff;
+  --nuth-surface-soft: #f6f8fb;
+  --nuth-ink: #1d2d3d;
+  --nuth-muted: #506176;
+  --nuth-line: #8092a8;
+  background-color: var(--nuth-surface);
+  color: var(--nuth-ink);
+  border-color: var(--nuth-line);
+  color-scheme: light;
+  min-height: 44px;
+}
+
+.consultation-workspace [data-consultation-module] :is(input, textarea)::placeholder {
+  color: var(--nuth-muted);
+  opacity: 1;
+}
+
+.consultation-workspace [data-consultation-module] :is(input, textarea, select)[aria-invalid=true],
+.interview-layout .interview-question-card .nuth-input[aria-invalid=true] {
+  --nuth-line: #b34c40;
+}
+
+.consultation-workspace [data-consultation-module] :is(input, textarea, select):focus-visible,
+.consultation-workspace > header #consultation-date:focus-visible,
+.interview-layout :is(.interview-section-select, .interview-question-card .nuth-input):focus-visible {
+  outline: 2px solid var(--consultation-focus);
+  outline-offset: 2px;
+}
+
+.consultation-workspace [data-consultation-module] :is(input[type=checkbox], input[type=radio]) {
+  color-scheme: light;
+  accent-color: #286f57;
+}
+
+.consultation-workspace [data-consultation-module] .consultation-search-field {
+  --nuth-surface: #fff;
+  --nuth-ink: #345064;
+  --nuth-line: #8092a8;
+}
+
+.consultation-workspace [data-consultation-module] .consultation-search-field svg {
+  color: var(--nuth-ink);
+}

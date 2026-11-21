@@ -80,6 +80,7 @@ function EvolutionMatrix({
               return (
                 <th
                   key={consultation.id}
+                  data-current={active || undefined}
                   scope="col"
                   className={`min-w-[132px] border-b border-[#dfe5e1] px-3 py-2.5 ${active ? "bg-[#edf6ef]" : ""}`}
                 >
@@ -114,6 +115,7 @@ function EvolutionMatrix({
                 return (
                   <td
                     key={consultation.id}
+                    data-current={active || undefined}
                     className={`border-b border-[#e8eeeb] px-3 py-3 align-top ${active ? "bg-[#f5faf6]" : ""}`}
                   >
                     {point ? (
@@ -190,7 +192,7 @@ export function PatientEvolutionTable({
   if (error) return <ErrorState message={error} onRetry={() => void load()} />;
   if (!history || history.consultations.length === 0 || history.series.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-[#cbd8d1] bg-[#fbfdfb] px-5 py-8 text-center">
+      <div className="consultation-section-banner rounded-xl border border-dashed border-[#cbd8d1] bg-[#fbfdfb] px-5 py-8 text-center">
         <p className="font-semibold text-[#26443b]">Todavía no hay mediciones o resultados para comparar.</p>
         <p className="mt-1 text-sm text-[#74817d]">Los valores aparecerán aquí conforme se registren en las consultas.</p>
       </div>
@@ -199,17 +201,17 @@ export function PatientEvolutionTable({
 
   return (
     <section aria-labelledby="evolution-table-heading">
-      <div className={`flex flex-col gap-3 border-b border-[#e4ebe7] pb-4 sm:flex-row sm:items-end ${compactHeader ? "sm:justify-end" : "sm:justify-between"}`}>
+      <div className={`flex flex-col gap-3 border-b border-[#e4ebe7] pb-4 sm:flex-row sm:items-end ${compactHeader ? "sm:justify-end" : "consultation-section-banner sm:justify-between"}`}>
         {compactHeader ? (
           <h2 id="evolution-table-heading" className="sr-only">Tabla comparativa de evolución</h2>
         ) : (
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-[#668176]">Evolución</p>
+            <p className="consultation-section-label text-xs font-bold uppercase tracking-wide text-[#668176]">Evolución</p>
             <h2 id="evolution-table-heading" className="mt-1 text-lg font-bold text-[#1c382f]">Tabla comparativa</h2>
             <p className="mt-1 text-sm text-[#74817d]">Valores registrados por consulta. No modifica el expediente.</p>
           </div>
         )}
-        <label className="relative block w-full sm:w-64">
+        <label className="consultation-search-field relative block w-full sm:w-64">
           <span className="sr-only">Buscar en la evolución</span>
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#74817d]" />
           <input
@@ -221,7 +223,7 @@ export function PatientEvolutionTable({
         </label>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Filtrar evolución">
+      <div className="consultation-filter-bar mt-4 flex flex-wrap gap-2" role="group" aria-label="Filtrar evolución">
         {([{ id: "all", label: "Todos" }, ...categories] as Array<{ id: CategoryFilter; label: string }>).map((item) => (
           <button
             key={item.id}
@@ -243,7 +245,7 @@ export function PatientEvolutionTable({
             if (!entries.length) return null;
             const isCollapsed = collapsed[category.id] ?? false;
             return (
-              <section key={category.id} className="rounded-2xl border border-[#e1e9e4] bg-white p-3 sm:p-4">
+              <section key={category.id} className="consultation-panel rounded-2xl border border-[#e1e9e4] bg-white p-3 sm:p-4">
                 <button
                   type="button"
                   onClick={() => setCollapsed((current) => ({ ...current, [category.id]: !isCollapsed }))}

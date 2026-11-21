@@ -33,16 +33,23 @@ export function InterviewWorkspace({ templateName, sections, values, active, bus
         <option value={sections.length}>{reviewLabel}</option>
       </select>
       <nav aria-label="Secciones de la entrevista" className="interview-section-nav">
-        {sections.map((section, index) => <button type="button" key={section.section_key} disabled={busy} aria-current={active === index ? 'step' : undefined} onClick={() => onSection(index)}>
-          <span className="interview-step-number" aria-hidden="true">{progress[index].total > 0 && progress[index].answered === progress[index].total ? <Check size={14} /> : index + 1}</span>
-          <span><span className="interview-step-title">{section.title}</span><small>{progress[index].answered} de {progress[index].total} con respuesta</small></span>
-        </button>)}
+        {sections.map((section, index) => {
+          const { answered, total } = progress[index];
+          const complete = total > 0 && answered === total;
+          return <button type="button" key={section.section_key} disabled={busy} aria-current={active === index ? 'step' : undefined} onClick={() => onSection(index)}>
+            <span className={`interview-step-number${complete ? ' is-complete' : ''}`} aria-hidden="true">{complete ? <Check size={14} /> : index + 1}</span>
+            <span><span className="interview-step-title">{section.title}</span><small>{answered} de {total} con respuesta</small></span>
+          </button>;
+        })}
         <button type="button" disabled={busy} aria-current={reviewing ? 'step' : undefined} onClick={() => onSection(sections.length)}><span className="interview-step-number"><ClipboardCheck size={16} aria-hidden="true" /></span><span className="interview-step-title">{reviewLabel}</span></button>
       </nav>
     </section>
     <div className="interview-content">
       <header className="interview-section-header">
-        <p className="nuth-eyebrow">{reviewing ? 'Antes de cerrar' : `Sección ${active + 1} de ${sections.length}`}</p>
+        <div className="interview-section-meta">
+          <p className="nuth-eyebrow">{reviewing ? 'Antes de cerrar' : `Sección ${active + 1} de ${sections.length}`}</p>
+          <span className="interview-fireflies" aria-hidden="true" />
+        </div>
         <h2 ref={headingRef} tabIndex={-1}>{reviewing ? 'Revisa lo conversado' : current?.title}</h2>
         {current?.description && current.section_key !== 'nutrition_diagnosis' && <div className="interview-conversation-guide"><MessageCircle size={18} aria-hidden="true" /><div><p>Para acompañar la conversación</p><p>{current.description}</p></div></div>}
       </header>
