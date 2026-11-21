@@ -14,6 +14,8 @@ import type {TextDietEditReport} from '../_shared/text-diet-edit.ts';
 import { dietPreflight } from './diet-ux.ts';
 import { localDietTestMode, SimulatedDietProvider } from './diet-provider-test.ts';
 import { SimulatorExampleProvider } from './simulator-provider.ts';
+import { clinicalBatchInput, type BatchStages } from './clinical-batch.ts';
+import type { ClinicalBatchFeature } from '../_shared/clinical-batch.ts';
 
 const site = siteOrigin(Deno.env.get('AI_SITE_URL'));
 const baseHeaders = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
@@ -39,7 +41,7 @@ Deno.serve(async request => {
     const { data, error } = await db.auth.getUser(token);
     if (error || !data.user || data.user.is_anonymous) throw new AIError('unauthorized');
     const owner = data.user.id;
-    const simulationUser = data.user.app_metadata.nuthrick_simulation === true;
+    const simulationUser = data.user.app_metadata?.nuthrick_simulation === true;
     if(simulationUser){
       const run=await db.rpc('simulator_server',{p_action:'status',p_actor:owner,p_data:{}});
       if(run.error||!run.data?.purchased)throw new AIError('feature_disabled');
@@ -126,6 +128,38 @@ Deno.serve(async request => {
     let textSnapshot:TextDietSnapshot|TextDietEditSnapshot|null=null,textDraft:TextDiet|null=null,textEditBase:TextDiet|null=null,textEditReport:TextDietEditReport|null=null;
     let dietSnapshot: DietSnapshot | null=null;
     let dietValidation: ReturnType<typeof validateSnapshot> | null=null;
+    let batchInputGenerations: string[] = [];
+    let batchPesProblem: string | undefined;
+    function formatClinicalProposal(output: unknown, generationId: string): unknown {
+      if (input.feature === 'intervention_strategy' && interventionContext) {
+        return hydrateInterventionOutput(output, interventionContext, generationId);
+      }
+      if (!consultationSupportFacts) return output;
+      const key=input.feature==='patient_instructions'?'instructions':'objectives';
+      const proposals=output as Record<typeof key,{text:string;evidenceFactIds:string[]}[]>;
+      return {
+        ...(input.batchId && smartObjectives ? { pesProblem: batchPesProblem } : {}),
+        [key]:proposals[key].map(objective=>({
+          ...(smartObjectives ? { goal: {
+            ...Object.fromEntries(objectiveFields.filter(key => key !== 'baseline').map(key => [key, (objective as unknown as Record<string, string>)[key]])),
+            baseline: consultationSupportFacts!.find(fact => fact.id === (objective as unknown as { baselineFactId: string }).baselineFactId && fact.finding.length <= 400)?.finding ?? '',
+            ...((objective as unknown as { textStyle?: string }).textStyle === 'patient_v1' ? {
+              ...(input.objectiveTextStyle === 'patient_v1' ? { textStyle: 'patient_v1' } : {}),
+              targetOrigin: (objective as unknown as { targetOrigin: string }).targetOrigin,
+              timeframeOrigin: (objective as unknown as { timeframeOrigin: string }).timeframeOrigin,
+              baseline: consultationSupportFacts!.find(fact => fact.id === (objective as unknown as { baselineFactId: string }).baselineFactId && fact.finding.length <= 400)?.finding
+                ?? (input.batchId ? 'Revisa el punto de partida con el primer registro.' : 'Revisa el punto de partida en el PES aprobado y complétalo con el primer registro.'),
+            } : {}),
+            agreement: 'pending',
+          } } : { text:objective.text }),
+          ...((objective as unknown as { textStyle?: string }).textStyle === 'patient_v1' ? { references: objectivePlanningReferences } : {}),
+          evidence:objective.evidenceFactIds.flatMap(id=>{
+            const fact=consultationSupportFacts!.find(candidate=>candidate.id===id);
+            return fact?[{source:fact.source,finding:fact.finding}]:[];
+          }),
+        })),
+      };
+    }
     const store: AIStore = {
       context: async r => {
         if(r.feature==='diet_draft') {
@@ -144,21 +178,32 @@ Deno.serve(async request => {
         }
         const { data: source, error } = await db.rpc(r.feature==='patient_instructions' ? 'ai_patient_instructions_source' : 'ai_clinical_source',{p_owner:owner,p_patient:r.patientId,p_consultation:r.consultationId,p_revision:r.revision});
         if (error || !source) throw new AIError('context_unavailable');
-        const clinical = r.feature==='recall_24h' ? source as ClinicalSource : withConfirmedRecall(source as ClinicalSource);
+        let clinical = r.feature==='recall_24h' ? source as ClinicalSource : withConfirmedRecall(source as ClinicalSource);
+        if (r.batchId && r.feature !== 'pes_diagnosis') {
+          const { data: stages, error } = await db.rpc('ai_clinical_batch_stages', {
+            p_owner: owner, p_patient: r.patientId, p_consultation: r.consultationId,
+            p_revision: r.revision, p_batch: r.batchId,
+          });
+          if (error || !stages) throw new AIError('context_unavailable');
+          const prepared = clinicalBatchInput(clinical, stages as BatchStages, r.feature as ClinicalBatchFeature);
+          clinical = prepared.source;
+          batchInputGenerations = prepared.inputGenerations;
+          batchPesProblem = clinical.approvedPes?.problem;
+        }
         if (r.feature === 'intervention_strategy') {
           interventionContext = buildInterventionContext(clinical, r.strategyFeedback);
           if (!interventionContext.binding.pesApprovedAt || !interventionContext.approvedGoals.length) throw new AIError('strategy_planning_required');
-          return {stamp:clinical.stamp, context:interventionContext};
+          return {stamp:clinical.stamp, context:interventionContext, inputGenerations:batchInputGenerations};
         }
         const supportContext = ['consultation_support','patient_instructions'].includes(r.feature) ? buildConsultationSupportContext(clinical,r.feature==='patient_instructions',smartObjectives) : null;
         const context=r.feature==='pes_diagnosis' ? buildPesClinicalContext(clinical)
           : supportContext ?? {narrative:redactClinicalText(r.narrative!,clinical.identifiers?.filter((v): v is string => typeof v === 'string'))};
         if(supportContext) consultationSupportFacts=supportContext.facts;
         if (smartObjectives && !supportContext?.approvedPes) throw new AIError('pes_approval_required');
-        if(r.feature==='patient_instructions' && supportContext?.strategiesRequired && !supportContext.hasApprovedStrategies) throw new AIError('strategy_approval_required');
-        if(r.feature==='patient_instructions' && !consultationSupportFacts?.some(fact=>instructionAgreement(fact.source))) throw new AIError('instruction_agreements_required');
+        if(r.feature==='patient_instructions' && supportContext?.strategiesRequired && !supportContext.hasApprovedStrategies && !supportContext.provisionalStrategies) throw new AIError('strategy_approval_required');
+        if(r.feature==='patient_instructions' && !consultationSupportFacts?.some(fact=>instructionAgreement(fact.source, supportContext?.provisionalStrategies))) throw new AIError('instruction_agreements_required');
         if ('facts' in context && context.facts.length===0) throw new AIError('context_unavailable');
-        return {stamp:clinical.stamp,context};
+        return {stamp:clinical.stamp, context, inputGenerations:batchInputGenerations};
       },
       bindContext: async (id,r,stamp) => {
         if(r.textGuidance||r.textEdit){await dietRpc('bind',{generationId:id,planId:r.planId,revision:r.revision,stamp,snapshot:textSnapshot},true);return;}
@@ -172,6 +217,7 @@ Deno.serve(async request => {
       config: async feature => {
         const c=await rpc<FeatureConfig>('config',{feature});
         smartObjectives = feature === 'consultation_support' && ['consultation_support@4','consultation_support@5','consultation_support@6'].includes(c.prompt_version);
+        if(input.batchId && feature==='consultation_support' && !smartObjectives)throw new AIError('feature_not_implemented');
         if(feature==='diet_draft' && (c.execution_mode==='simulated')!==simulated)throw new AIError('feature_disabled');
         return c;
       },
@@ -204,6 +250,17 @@ Deno.serve(async request => {
         const metadata=await db.rpc('ai_provider_metadata',{p_owner:owner,p_generation:id,p_request_id:result.requestId??null,p_model:result.model??null,p_latency:result.latencyMs??null});
         if(metadata.error)throw new AIError('result_unavailable');
         if(textSnapshot){await dietRpc('result',{generationId:id,result:{textDraft:valid?textDraft:null,...(valid&&textEditReport?{adjustment:textEditReport}:{}),model:result.model??null,latencyMs:result.latencyMs??null,usage:result.usage}},true);return;}
+        if (input.batchId && valid) {
+          const proposal = { generationId: id, output: formatClinicalProposal(result.output, id), inputGenerations: batchInputGenerations };
+          let written = false;
+          for (let attempt = 0; attempt < 2; attempt++) {
+            const stored = await db.rpc('ai_store_clinical_batch_stage', {
+              p_owner: owner, p_generation: id, p_batch: input.batchId, p_result: proposal,
+            });
+            if (!stored.error) { written = true; break; }
+          }
+          if (!written) throw new AIError('result_unavailable');
+        }
         if(!dietSnapshot) return;
         // No raw malformed output is retained. All values below are scoped,
         // redacted snapshot-derived data or safe provider accounting metadata.
@@ -226,38 +283,14 @@ Deno.serve(async request => {
       return respond(result);
     }
     const result=await runAIRequest(input,store,new DietRoutingProvider(simulationUser ? new SimulatorExampleProvider() : simulated ? new SimulatedDietProvider() : new OpenAIResponsesProvider(apiKey!)));
-    if (input.feature === 'intervention_strategy' && result.output && interventionContext) return respondClinicalResult({ ...result, output: hydrateInterventionOutput(result.output, interventionContext, result.generationId) });
     if((input.textGuidance||input.textEdit)&&result.status==='succeeded'){const saved=await dietRpc('get',{generationId:result.generationId},true);await verifyTextDietSnapshot(saved.snapshot);return respond({...result,output:{textDraft:saved.result.textDraft,...(saved.result.adjustment?{adjustment:saved.result.adjustment}:{})},decision:saved.decision});}
     if(input.feature==='diet_draft' && !input.textGuidance && !input.textEdit && ['succeeded','invalid_output'].includes(result.status)) {
       const saved=await dietRpc('get',{generationId:result.generationId});
       await verifyDietSnapshot(saved.snapshot);
       return respond({...result,output:{validation:saved.result.validation,hasManualMenu:saved.snapshot.hasManualMenu,snapshotHash:saved.snapshot.hash},decision:saved.decision});
     }
-    if(['consultation_support','patient_instructions'].includes(input.feature) && result.output && consultationSupportFacts) {
-      const key=input.feature==='patient_instructions'?'instructions':'objectives';
-      const output=result.output as Record<typeof key,{text:string;evidenceFactIds:string[]}[]>;
-      return respondClinicalResult({...result,output:{
-        [key]:output[key].map(objective=>({
-          ...(smartObjectives ? { goal: {
-            ...Object.fromEntries(objectiveFields.filter(key => key !== 'baseline').map(key => [key, (objective as unknown as Record<string, string>)[key]])),
-            baseline: consultationSupportFacts!.find(fact => fact.id === (objective as unknown as { baselineFactId: string }).baselineFactId && fact.finding.length <= 400)?.finding ?? '',
-            ...((objective as unknown as { textStyle?: string }).textStyle === 'patient_v1' ? {
-              ...(input.objectiveTextStyle === 'patient_v1' ? { textStyle: 'patient_v1' } : {}),
-              targetOrigin: (objective as unknown as { targetOrigin: string }).targetOrigin,
-              timeframeOrigin: (objective as unknown as { timeframeOrigin: string }).timeframeOrigin,
-              baseline: consultationSupportFacts!.find(fact => fact.id === (objective as unknown as { baselineFactId: string }).baselineFactId && fact.finding.length <= 400)?.finding ?? 'Revisa el punto de partida en el PES aprobado y complétalo con el primer registro.',
-            } : {}),
-            agreement: 'pending',
-          } } : { text:objective.text }),
-          ...((objective as unknown as { textStyle?: string }).textStyle === 'patient_v1' ? { references: objectivePlanningReferences } : {}),
-          evidence:objective.evidenceFactIds.flatMap(id=>{
-            const fact=consultationSupportFacts!.find(candidate=>candidate.id===id);
-            return fact?[{source:fact.source,finding:fact.finding}]:[];
-          }),
-        })),
-      }});
-    }
-    return respondClinicalResult(result);
+    const response = result.output ? { ...result, output: formatClinicalProposal(result.output, result.generationId) } : result;
+    return input.batchId ? respond(response) : respondClinicalResult(response);
   } catch (error) {
     // Never log/request-echo raw exceptions, provider body, key, prompt or clinical output.
     const code = error instanceof AIError ? error.code : 'service_unavailable';

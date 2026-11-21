@@ -9,6 +9,7 @@ import { concisePesSchema, concisePesInstructions, followupEtiologyInstructions 
 import { objectiveProposalsSchema, objectiveProposalInstructions, objectiveProposalsValid, objectiveFollowupInstructions } from './objective-proposals.ts';
 import { PATIENT_INSTRUCTION_MAX_LENGTH } from '../_shared/patient-instructions.ts';
 import { isPatientObservation } from '../_shared/patient-observations.ts';
+import { approvedPesSource, provisionalPesSource, pesSignSource, pesEtiologySource } from '../_shared/clinical-batch.ts';
 const text = { type: "string", maxLength: 2000 };
 const strings = { type: "array", items: text, maxItems: 30 };
 const object = <P extends Record<string, unknown>>(properties: P) => ({
@@ -168,6 +169,8 @@ export type ClinicalSource = {
   approvedObjective?: { approved_at: string; pes_approved_at: string; smart_plan?: ObjectivePlan } | null;
   planningObjective?: { approved_at: string; pes_approved_at: string; smart_plan?: ObjectivePlan } | null;
   approvedStrategies?: { document: StrategyDocument }[];
+  provisionalStrategies?: { document: StrategyDocument }[];
+  provisionalPes?: boolean;
   strategyRequired?: boolean;
   approvedPes?: { approved_at: string; problem: string; etiology: string; signsSymptoms: string; pesStatement: string } | null;
 };
@@ -267,7 +270,10 @@ export function buildPesClinicalContext(source: ClinicalSource) {
   return { facts, interviewOrigin: clinicalInterviewOrigin(facts) };
 }
 export type ConsultationSupportFact = ClinicalFact & { id: string };
-export const instructionAgreement = (source: string) => source.startsWith("Estrategia aprobada · ") || /^Entrevista · (objectives|next objectives|treatment objective|first actions|adjustments)$/.test(source);
+export const provisionalStrategySource = "Estrategia provisional · ";
+export const instructionAgreement = (source: string, provisional = false) =>
+  source.startsWith("Estrategia aprobada · ") || (provisional && source.startsWith(provisionalStrategySource)) ||
+  /^Entrevista · (objectives|next objectives|treatment objective|first actions|adjustments)$/.test(source);
 const interviewTopic = (source: string) => source.replace(/^Entrevista · /, '').replace(/^Antecedente de entrevista · \d{4}-\d{2}-\d{2} · /, '');
 const decisionTopic = /^(?:objectives|next objectives|treatment objective|first actions|adjustments|professional notes|measurement notes|indicator progress|recall |pes )/i;
 export function clinicalInterviewOrigin(facts: ClinicalFact[]): 'current' | 'historical' | 'missing' {
@@ -277,10 +283,18 @@ export function clinicalInterviewOrigin(facts: ClinicalFact[]): 'current' | 'his
 export function buildConsultationSupportContext(source: ClinicalSource, instructions = false, smart = false) {
   const prepared = prepareClinicalFacts(source);
   if (instructions) prepared.unshift(...prepareClinicalFacts({...source,facts:approvedStrategyFacts(source.approvedStrategies)}));
+  const provisional = instructions && !!source.provisionalStrategies?.length;
+  if (provisional) {
+    const facts = approvedStrategyFacts(source.provisionalStrategies).map((fact,index) => ({
+      source: provisionalStrategySource + (index + 1),
+      finding: fact.finding,
+    }));
+    prepared.unshift(...prepareClinicalFacts({ ...source, facts }));
+  }
   const interviewOrigin = clinicalInterviewOrigin(prepared);
   const permitted = prepared.filter((fact) => {
     const sourceLabel = fact?.source?.toLocaleLowerCase() ?? "";
-    if (instructions && sourceLabel.startsWith("estrategia aprobada · ")) return true;
+    if (instructions && (fact.source.startsWith("Estrategia aprobada · ") || fact.source.startsWith(provisionalStrategySource))) return true;
     if (isPatientObservation(fact.source)) return true;
     if (sourceLabel.startsWith("entrevista · ")) {
       return /(?:main reason|expectations|consult now|objectives|treatment objective|next objectives|first actions|interview priorities|access barriers|eating drivers|changes since last|progress perception|symptoms changes|medical changes|indicators reviewed|barriers|adjustments|measurement notes|indicator progress|recall 24h v2|recall date|recall day type)/i.test(sourceLabel)
@@ -297,7 +311,7 @@ export function buildConsultationSupportContext(source: ClinicalSource, instruct
       : /^Historial(?: calculado)? · (?:peso|peso corporal|cintura|índice de masa corporal|imc|bmi|grasa|porcentaje de grasa corporal|body_fat_percentage)(?:[ (·]|$)/i.test(fact.source));
     return false;
   }).sort((a, b) => {
-    const rank = (fact: ClinicalFact) => fact.source.startsWith('Estrategia aprobada · ') ? -2 : isPatientObservation(fact.source) ? -1 : /food reactions|medication|medical diagnoses/.test(fact.source) ? 0
+    const rank = (fact: ClinicalFact) => fact.source.startsWith('Estrategia aprobada · ') || fact.source.startsWith(provisionalStrategySource) ? -2 : isPatientObservation(fact.source) ? -1 : /food reactions|medication|medical diagnoses/.test(fact.source) ? 0
       : /objectives|treatment objective|first actions|adjustments/.test(fact.source) ? 1
         : fact.source.startsWith("Recordatorio confirmado") ? 2 : 3;
     // Current agreements and measurements always precede dated fallback interviews.
@@ -306,9 +320,10 @@ export function buildConsultationSupportContext(source: ClinicalSource, instruct
       (historyNarrative(a.source) && historyNarrative(b.source) ? b.source.localeCompare(a.source) : 0);
   });
   const pes = smart && source.approvedPes ? Object.fromEntries(Object.entries(source.approvedPes).map(([key, value]) => [key, redactClinicalText(value, source.identifiers)])) as ClinicalSource['approvedPes'] : null;
+  const pesSource = source.provisionalPes ? provisionalPesSource : approvedPesSource;
   const approvedFacts = pes ? [
-    { source: 'PES actual aprobado · Etiología', finding: pes.etiology },
-    ...pes.signsSymptoms.split('\n').filter(sign => sign.trim()).map(sign => ({ source: 'PES actual aprobado · Signos y síntomas', finding: sign.trim() })),
+    { source: `${pesSource} · Etiología`, finding: pes.etiology },
+    ...pes.signsSymptoms.split('\n').filter(sign => sign.trim()).map(sign => ({ source: `${pesSource} · Signos y síntomas`, finding: sign.trim() })),
   ] : [];
   const facts = [...approvedFacts, ...permitted].slice(0, 99).flatMap((fact, index) => {
     if (typeof fact?.source !== "string" || typeof fact.finding !== "string") return [];
@@ -317,7 +332,7 @@ export function buildConsultationSupportContext(source: ClinicalSource, instruct
     if (!finding || !label || ["null", "undefined", '""', "[]", "{}"].includes(finding)) return [];
     return [{ id: `f${index + 1}`, source: label, finding }];
   });
-  return { facts, interviewOrigin, ...(instructions ? { strategiesRequired: source.strategyRequired === true, hasApprovedStrategies: (source.approvedStrategies?.length ?? 0) > 0 } : {}), ...(smart ? { approvedPes: pes, objectiveFormat: 'smart@1' } : {}) };
+  return { facts, interviewOrigin, ...(instructions ? { strategiesRequired: source.strategyRequired === true, hasApprovedStrategies: (source.approvedStrategies?.length ?? 0) > 0, provisionalStrategies: provisional } : {}), ...(smart ? { approvedPes: pes, objectiveFormat: 'smart@1' } : {}) };
 }
 export function clinicalEvidenceValid(
   feature: string,
@@ -348,13 +363,16 @@ export function clinicalEvidenceValid(
       instructions: { text: string; evidenceFactIds: string[] }[];
     };
     const facts = (context as { facts: ConsultationSupportFact[] }).facts;
+    const instructionContext = context as { hasApprovedStrategies?: boolean; provisionalStrategies?: boolean };
+    const requiredStrategy = instructionContext.provisionalStrategies ? provisionalStrategySource
+      : instructionContext.hasApprovedStrategies ? "Estrategia aprobada · " : null;
     const drafts = feature === "patient_instructions" ? o.instructions : o.objectives;
     return drafts.every((objective) =>
       objective.text.trim().length >= 8 &&
       objective.evidenceFactIds.length > 0 &&
       objective.evidenceFactIds.every((id) => facts.some((fact) => fact.id === id)) &&
-      (feature !== "patient_instructions" || !(context as {hasApprovedStrategies?:boolean}).hasApprovedStrategies || objective.evidenceFactIds.some(id => facts.some(fact => fact.id === id && fact.source.startsWith("Estrategia aprobada · ")))) &&
-      (feature !== "patient_instructions" || objective.evidenceFactIds.some((id) => facts.some(fact => fact.id === id && instructionAgreement(fact.source)))),
+      (feature !== "patient_instructions" || !requiredStrategy || objective.evidenceFactIds.some(id => facts.some(fact => fact.id === id && fact.source.startsWith(requiredStrategy)))) &&
+      (feature !== "patient_instructions" || objective.evidenceFactIds.some((id) => facts.some(fact => fact.id === id && instructionAgreement(fact.source, instructionContext.provisionalStrategies)))),
     );
   }
   if (feature === "recall_24h") {
@@ -395,7 +413,7 @@ export function normalizeSmartObjectivesOutput(output: unknown, context: unknown
     // The approved etiology is already known; asking the model to reproduce it
     // verbatim created avoidable failures for otherwise reviewable objectives.
     goal.etiology = approvedPes.etiology;
-    const citedSigns = facts.filter(fact => goal.evidenceFactIds.includes(fact.id) && fact.source === 'PES actual aprobado · Signos y síntomas');
+    const citedSigns = facts.filter(fact => goal.evidenceFactIds.includes(fact.id) && pesSignSource(fact.source));
     const matchedSign = signs.find(sign => sameClinicalCopy(sign) === sameClinicalCopy(goal.sign));
     if (matchedSign) goal.sign = matchedSign;
     else if (citedSigns.length === 1) goal.sign = citedSigns[0].finding;
@@ -430,7 +448,7 @@ export function smartObjectiveValidationIssues(output: unknown, context: unknown
     const ids = goal.evidenceFactIds;
     const evidence = facts.filter(fact => ids.includes(fact.id));
     if (ids.length !== evidence.length) issues.add('evidence_reference');
-    if (!evidence.some(fact => fact.source.startsWith('PES actual aprobado · '))) issues.add('pes_evidence_missing');
+    if (!evidence.some(fact => pesSignSource(fact.source) || pesEtiologySource(fact.source))) issues.add('pes_evidence_missing');
     if (goal.etiology !== approvedPes.etiology) issues.add('etiology_mismatch');
     if (!approvedPes.signsSymptoms.split('\n').map(sign => sign.trim()).includes(goal.sign)) issues.add('sign_mismatch');
     if (!goal.outcome.trim()) issues.add('outcome_missing');

@@ -1,0 +1,36 @@
+.clinical-ai-batch {
+  margin-block-start: .85rem;
+  padding-block-start: .85rem;
+  border-block-start: 1px solid var(--nuth-line);
+}
+
+.clinical-ai-batch .clinical-ai-batch-button {
+  background: #2458f5;
+  color: #fff;
+  box-shadow: 0 0 0 3px #2458f523, 0 0 18px #2458f535;
+  max-inline-size: 100%;
+  text-align: start;
+}
+
+.clinical-ai-batch .clinical-ai-batch-button:enabled:hover {
+  background: #1946d9;
+}
+
+html[data-nuthrick-theme='night'] .clinical-ai-batch .clinical-ai-batch-button {
+  background: #86b6ff;
+  color: #102c59;
+  box-shadow: 0 0 0 3px #86b6ff3d, 0 0 18px #79acff55;
+}
+
+html[data-nuthrick-theme='night'] .clinical-ai-batch .clinical-ai-batch-button:enabled:hover {
+  background: #a7caff;
+}
+
+.clinical-ai-batch-stages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .25rem 1rem;
+  margin-block-start: .3rem;
+  font-size: .78rem;
+}

@@ -134,10 +134,14 @@ export function createAnswerAutosave(options: AutosaveOptions = {
     }
     merge(fresh, base.answers);
   };
-  const drain = async (): Promise<boolean> => {
+  const drain = async (refresh = false): Promise<boolean> => {
     options.onState({ saving: true, error: "", conflict: false });
     try {
-      if (uncertain) reconcile(await boundedAnswerRequest(options.read));
+      if (uncertain || refresh) {
+        const fresh = await boundedAnswerRequest(options.read);
+        if (stopped) return false;
+        reconcile(fresh);
+      }
       if (conflictState) {
         throw new AnswerSaveError(
           "conflict",
@@ -229,6 +233,14 @@ export function createAnswerAutosave(options: AutosaveOptions = {
           running = null;
         });
       }
+      return running;
+    },
+    async refresh(): Promise<boolean> {
+      while (running) {
+        if (!await running) return false;
+      }
+      if (stopped) return false;
+      running = drain(true).finally(() => { running = null; });
       return running;
     },
     saved: () => structuredClone(base),

@@ -1,4 +1,5 @@
 import { unsupportedPesNumbers } from '../_shared/pes.ts';
+import { pesSignSource, pesEtiologySource } from '../_shared/clinical-batch.ts';
 
 type Fact = {id:string;source:string;finding:string};
 type Context = {facts:Fact[];approvedPes?:{etiology:string;signsSymptoms:string}|null};
@@ -46,11 +47,11 @@ export function normalizeObjectiveProposals(output:unknown,context:unknown) {
   const result:Normalized[]=[];
   for(const raw of objectives) {
     if(raw.evidenceFactIds.some(id=>!facts.some(f=>f.id===id)))return null;
-    const sign=facts.find(f=>f.id===raw.signFactId && f.source==='PES actual aprobado · Signos y síntomas');
+    const sign=facts.find(f=>f.id===raw.signFactId && pesSignSource(f.source));
     if(!sign || !approvedPes.signsSymptoms.split('\n').map(s=>s.trim()).includes(sign.finding))return null;
     const baseline=facts.find(f=>f.id===raw.baselineFactId && f.finding.length<=400) ?? (sign.finding.length<=400 ? sign : undefined);
     const ids=new Set(raw.evidenceFactIds);ids.add(sign.id);
-    const etiology=facts.find(f=>f.source==='PES actual aprobado · Etiología' && f.finding===approvedPes.etiology);
+    const etiology=facts.find(f=>pesEtiologySource(f.source) && f.finding===approvedPes.etiology);
     if(etiology)ids.add(etiology.id);
     if(baseline)ids.add(baseline.id);
     const origins={} as Pick<Normalized,'targetOrigin'|'timeframeOrigin'>;
@@ -75,7 +76,7 @@ export function objectiveProposalsValid(output:unknown,context:unknown):boolean 
   if(!approvedPes)return objectives.length===0;
   return objectives.every(goal=>{
     const evidence=facts.filter(f=>goal.evidenceFactIds.includes(f.id));
-    if(evidence.length!==goal.evidenceFactIds.length || goal.etiology!==approvedPes.etiology || !evidence.some(f=>f.source==='PES actual aprobado · Signos y síntomas' && f.finding===goal.sign))return false;
+    if(evidence.length!==goal.evidenceFactIds.length || goal.etiology!==approvedPes.etiology || !evidence.some(f=>pesSignSource(f.source) && f.finding===goal.sign))return false;
     if(!approvedPes.signsSymptoms.split('\n').map(s=>s.trim()).includes(goal.sign))return false;
     if(['outcome','indicator','target','timeframe','monitoring'].some(field=>!goal[field as keyof Normalized]?.toString().trim()))return false;
     if(goal.baselineFactId && !evidence.some(f=>f.id===goal.baselineFactId))return false;

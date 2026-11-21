@@ -61,6 +61,7 @@ import {
 } from "./RecallEstimateReview";
 import type { FoodItem } from "@/src/types/domain";
 import {useConsultationDraft,useConsultationDraftContext,useDurableAIProposal} from './ConsultationDrafts';
+import { useClinicalBatchProposal } from './ClinicalBatchAI';
 import { hasUsablePesEtiology } from '../../../../supabase/functions/_shared/pes';
 import { PesContextDialog } from './PesContextDialog';
 import type { ConsultationSnapshotStructure } from '@/src/types/domain';
@@ -315,13 +316,15 @@ export function PesCopilot(props: Props) {
   const [discarding, setDiscarding] = useState(false);
   const discardLock = useRef(false);
   const busy = clinical.saving || discarding;
-  useDurableAIProposal('pes_diagnosis',(output,id)=>{
+  const batch = useClinicalBatchProposal('pes_diagnosis');
+  function restoreProposal(output: Record<string, unknown>, id: string) {
     if(typeof output.problem!=='string'||typeof output.etiology!=='string'||!Array.isArray(output.signsSymptoms))return;
     const restored=output as unknown as PesDraft;
     const composed={...restored,pesStatement:composePesStatement(restored)};
     if(draft)setReplacement(composed);else setDraft(composed);
     clinical.restoreResult(id);
-  });
+  }
+  useDurableAIProposal('pes_diagnosis', restoreProposal);
   const { onPendingChange, onStatusChange } = props;
   const savedRecord = clinical.workspace?.records.pes;
   const savedDraft = {
@@ -411,6 +414,18 @@ export function PesCopilot(props: Props) {
             : "Sin empezar"}
         </ClinicalStatusBadge>
       </div>
+      {batch.proposal && batch.reviewed !== batch.proposal.generationId && (
+        <button type="button" className="nuth-button-secondary mb-3"
+          disabled={busy || ['generating', 'uncertain'].includes(clinical.state)}
+          onClick={() => {
+            if (!draft) setEditing(true);
+            else setPreviousGeneration(clinical.generation);
+            restoreProposal(batch.proposal!.output, batch.proposal!.generationId);
+            batch.markReviewed(batch.proposal!.generationId);
+          }}>
+          Revisar PES de la propuesta completa
+        </button>
+      )}
       {(!draft || hasUsablePesEtiology(draft.etiology)) && contextButton}
       {!draft && (
         <>

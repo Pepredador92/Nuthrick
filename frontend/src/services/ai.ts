@@ -23,6 +23,11 @@ export const aiMessages: Record<string,string> = {
   strategy_planning_required: 'Para proponer estrategias necesitas un PES aprobado y al menos un objetivo guardado, que puede estar en borrador. También puedes escribir estrategias manuales o continuar sin ellas.',
   strategy_approvals_required: 'Revisa y aprueba el PES y los objetivos SMART antes de proponer estrategias.',
   strategy_approval_required: 'Revisa y aprueba una estrategia vigente antes de generar indicaciones.',
+  batch_previous_stage_required: 'No pudimos recuperar el borrador del paso anterior. Vuelve a abrir la revisión clínica para recuperar el avance.',
+  batch_pes_review_required: 'Completa y aprueba el PES con una causa sustentada antes de continuar con los objetivos.',
+  batch_objectives_review_required: 'Los objetivos guardados en esta propuesta ya no coinciden con el PES. Revisa los objetivos antes de continuar.',
+  batch_strategies_review_required: 'Hace falta una estrategia utilizable para redactar las indicaciones. Revisa la propuesta en Estrategias.',
+  result_unavailable: 'No pudimos guardar el resultado. Consulta el estado de la solicitud para recuperar el avance.',
   insufficient_credits: 'No tienes saldo disponible suficiente para esta solicitud. Recarga créditos de IA para continuar.',
   feature_disabled: 'Esta función de IA aún no está habilitada.',
   pilot_limit_reached: 'Se alcanzó el límite de uso de esta función.',
@@ -52,7 +57,7 @@ export async function getAIGenerationStatus(idempotencyKey: string) {
   return data as { generationId: string; status: string; chargedCredits: number; errorCode: string | null } | null;
 }
 // Reuse the same key when checking/retrying a logical request. Never supply owner/model/prompt/prices.
-export async function runAIRequest(request: { textEdit?:TextDietEdit; objectiveTextStyle?: 'patient_v1'; strategyFeedback?: string; textGuidance?:TextDietGuidance; guidance?: DietGuidance; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean; draftSaved?:boolean }> {
+export async function runAIRequest(request: { batchId?: string; textEdit?:TextDietEdit; objectiveTextStyle?: 'patient_v1'; strategyFeedback?: string; textGuidance?:TextDietGuidance; guidance?: DietGuidance; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean; draftSaved?:boolean }> {
   try {
     const consent = await supabase.rpc('my_ai_processing_consent');
     if (consent.error || !consent.data) throw new AIRequestError('ai_consent_unavailable');

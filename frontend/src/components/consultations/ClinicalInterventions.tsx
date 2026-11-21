@@ -14,6 +14,8 @@ import { ClinicalStatusBadge } from "./ClinicalTaskCard";
 import { InterventionStrategyDialog } from "./InterventionStrategyDialog";
 import { InterventionStrategyActionDialog, type StrategyDraftAction } from "./InterventionStrategyActionDialog";
 import {useConsultationDraft,useConsultationDraftContext,useDurableAIProposal} from './ConsultationDrafts';
+import { useClinicalBatchProposal } from './ClinicalBatchAI';
+import { objectiveFields, type ObjectiveGoal } from '../../../../supabase/functions/_shared/objectives';
 import {changedAnswers} from '@/src/features/consultations/answerAutosave';
 import "./ClinicalInterventions.css";
 import { AIButton } from "@/src/components/ai/AIControls";
@@ -125,6 +127,8 @@ export function ClinicalInterventions(props: Props) {
   );
   const [proposals, setProposals] = useConsultationDraft<StrategyDocument[]>('strategy-proposals',[]),
     [feedback, setFeedback] = useConsultationDraft('strategy-feedback',"");
+  const batch = useClinicalBatchProposal('intervention_strategy');
+  const batchGoals = useClinicalBatchProposal('consultation_support').proposal?.output.objectives as { goal?: ObjectiveGoal }[] | undefined;
   const [execution, setExecution] = useConsultationDraft<
     {
       id: string;
@@ -199,6 +203,20 @@ export function ClinicalInterventions(props: Props) {
     setApprovalAttempt(false);
     setInitialStep(0);
     setActiveId(id);
+  }
+  function linkBatchStrategy(document: StrategyDocument): StrategyDocument {
+    if (!document.objectiveApprovedAt.startsWith('draft:') || document.generationId !== batch.proposal?.generationId) return document;
+    const objective = workspace?.objective;
+    const goals = objective?.smart_plan?.goals ?? [];
+    const indexes = document.strategy.goalIndexes.map(index => {
+      const generated = batchGoals?.[index]?.goal;
+      return goals.findIndex(goal => generated && objectiveFields.every(field => goal[field] === generated[field]));
+    });
+    if (workspace?.pes && objective && strategyContextEligible(workspace) && indexes.length && indexes.every(index => index >= 0)) {
+      return { ...document, pesApprovedAt: workspace.pes.approved_at, objectiveApprovedAt: objective.approved_at,
+        strategy: { ...document.strategy, goalIndexes: [...new Set(indexes)] } };
+    }
+    return { ...document, strategy: { ...document.strategy, goalIndexes: [] } };
   }
   function discardLocal(id: string) {
     const next = { ...local };
@@ -600,6 +618,20 @@ export function ClinicalInterventions(props: Props) {
             >
               Proponer estrategias con IA
             </AIButton>
+            {batch.proposal && batch.reviewed !== batch.proposal.generationId && (
+              <button type="button" className="nuth-button-secondary !text-sm"
+                disabled={busy || execution !== null || ['generating', 'uncertain'].includes(state)}
+                onClick={() => {
+                  const documents = batch.proposal!.output.strategies;
+                  if (!Array.isArray(documents) || !documents.every(isStrategyDocument)) return;
+                  setProposals(documents);
+                  setState('ready');
+                  setMessage(documents.length ? '' : 'La propuesta completa no contiene estrategias utilizables.');
+                  batch.markReviewed(batch.proposal!.generationId);
+                }}>
+                Revisar estrategias de la propuesta completa
+              </button>
+            )}
           </div>
           <details className="clinical-support-details">
             <summary>Ajustar la próxima propuesta · opcional</summary>
@@ -642,6 +674,8 @@ export function ClinicalInterventions(props: Props) {
               <p className="clinical-strategy-summary-action">
                 {doc.strategy.action}
               </p>
+              {doc.generationId === batch.proposal?.generationId && !strategyIsLinked(linkBatchStrategy(doc), workspace) &&
+                <p className="mt-2 text-xs">Revisa la acción y vincúlala con los objetivos aprobados antes de aprobar esta estrategia. Si cambió el objetivo, también puedes pedir una propuesta nueva.</p>}
               <dl className="clinical-goal-summary-facts">
                 <div>
                   <dt>Tipo</dt>
@@ -676,7 +710,7 @@ export function ClinicalInterventions(props: Props) {
                   className="nuth-button-secondary !text-xs"
                   disabled={busy || execution !== null || ids.length >= 30}
                   onClick={() => {
-                    add(doc);
+                    add(linkBatchStrategy(doc));
                     setProposals(proposals.filter((_, index) => index !== i));
                   }}
                 >

@@ -1,7 +1,8 @@
 import { AIError, type AIProvider, type ProviderInput, type ProviderResult } from './core.ts';
 import { strategyFields } from '../_shared/interventions.ts';
 import { SimulatedDietProvider } from './diet-provider-test.ts';
-import { instructionAgreement } from './clinical.ts';
+import { instructionAgreement, provisionalStrategySource } from './clinical.ts';
+import { pesSignSource } from '../_shared/clinical-batch.ts';
 
 type Fact={id:string;source:string;finding:string};
 type Context={facts?:Fact[];approvedPes?:{etiology:string;signsSymptoms:string};approvedGoals?:{index:number}[];narrative?:string;format?:string;diet_count?:number;meal_schedule?:{name:string}[];selected_meal_indexes?:number[]};
@@ -32,7 +33,7 @@ export class SimulatorExampleProvider implements AIProvider {
         break;
       }
       case 'consultation_support': {
-        const sign=facts.find(f=>f.source==='PES actual aprobado · Signos y síntomas');
+        const sign=facts.find(f=>pesSignSource(f.source));
         if(!sign)throw new AIError('pes_approval_required');
         const props=((input.schema.properties as Record<string,{items:{properties:Record<string,unknown>}}>).objectives.items.properties);
         const goal={outcome:'Anota cómo organizas tus comidas para reconocer qué puedes mejorar.',indicator:'Registro de horarios y dificultades para organizar las comidas.',target:'Completar un registro sencillo que podamos revisar juntos.',timeframe:'Revisarlo en 2 semanas, como propuesta por acordar.',monitoring:'Trae tu registro para conversar sobre lo que resultó fácil y lo que necesitas ajustar.',feasibility:'',baselineFactId:sign.id,evidenceFactIds:[sign.id]};
@@ -53,7 +54,7 @@ export class SimulatorExampleProvider implements AIProvider {
         break;
       }
       case 'patient_instructions': {
-        const agreement=facts.find(f=>instructionAgreement(f.source));
+        const agreement=facts.find(f=>f.source.startsWith(provisionalStrategySource)) ?? facts.find(f=>instructionAgreement(f.source));
         if(!agreement)throw new AIError('instruction_agreements_required');
         output={instructions:[{text:'Ejemplo de indicación: conserva tus anotaciones y tráelas a la siguiente revisión para conversar sobre tus avances y dificultades.',evidenceFactIds:[agreement.id]}]};
         break;

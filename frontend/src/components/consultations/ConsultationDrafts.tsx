@@ -28,10 +28,9 @@ export function ConsultationDrafts({consultationId,revision,controllerRef,onSave
   },[key,writer]);
   const flush=useCallback(()=>writer.flush(),[writer]);
   const refresh=useCallback(async()=>{
-    if(!await writer.flush())return current.current;
-    const saved=await boundedAnswerRequest(signal=>sync(consultationId,revision,undefined,signal));
-    writer.reset(saved,saved.answers);current.current=saved.answers;setValues(saved.answers);backup();return saved.answers;
-  },[writer,consultationId,revision,backup]);
+    if(!await writer.refresh())throw new Error('No pudimos comprobar el avance guardado. Revisa el guardado y vuelve a intentarlo.');
+    return current.current;
+  },[writer]);
   useEffect(()=>{
     mounted.current=true;
     writer.configure({read:signal=>sync(consultationId,revision,undefined,signal),write:(request,signal)=>sync(consultationId,revision,request,signal),

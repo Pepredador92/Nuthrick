@@ -29,6 +29,7 @@ import {
   workflowSections,
 } from "@/src/features/consultations/consultationWorkflow";
 import { ClinicalMeasurementsReview } from "./ClinicalMeasurementsReview";
+import { ClinicalBatchAI } from "./ClinicalBatchAI";
 import { isPatientObservation } from "../../../../supabase/functions/_shared/patient-observations";
 import {
   ClinicalStatusBadge,
@@ -47,6 +48,7 @@ export function ClinicalReview(
     onStatusChange,
     onReviewed,
     onOpenModule,
+    batch,
   }: {
     consultationId: string;
     snapshot: ConsultationSnapshot;
@@ -57,6 +59,7 @@ export function ClinicalReview(
     onReviewed?: (message:string,complete:boolean)=>void;
     onStatusChange?: (status: ClinicalTaskStatus) => void;
     onOpenModule?: (module: ConsultationModule) => void;
+    batch?: { patientId: string; onReview: (stage: number) => void };
   },
 ) {
   const [context, setContext] = useState<ObjectiveWorkspace | null>(null);
@@ -281,6 +284,8 @@ export function ClinicalReview(
             <Check size={16} aria-hidden="true" />
             {savingReview ? 'Guardando revisión…' : available.length > 0 && reviewedCount === available.length ? 'Todos los datos confirmados' : 'Confirmar todos los datos'}
           </button>
+          {batch && <ClinicalBatchAI {...batch} consultationId={consultationId} revision={snapshot.revision}
+            before={before} ready={!loading && !savingReview && !!context && !error && status === 'complete'} />}
         </div>
         <ClinicalStatusBadge status={status}>
           {context

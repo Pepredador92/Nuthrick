@@ -1,5 +1,6 @@
 import {useConsultationDraft,useConsultationDraftContext,useDurableAIProposal} from './ConsultationDrafts';
 import { useState } from "react";
+import { useClinicalBatchProposal } from './ClinicalBatchAI';
 import { ArrowRight, Check } from "lucide-react";
 import {
   composeObjective,
@@ -71,6 +72,9 @@ type SuggestionProps = {
   disabled?: boolean;
   onApplyGoal?: (goal: ObjectiveGoal) => void;
   draftKey?: string;
+  reviewBatch?: boolean;
+  approvedPes?: { problem: string; etiology: string; signsSymptoms: string } | null;
+  batchNotice?: string;
 };
 
 function parseSuggestions(output: {objectives?:unknown;instructions?:unknown},kind:"objectives"|"instructions"):Suggestion[]{
@@ -133,6 +137,9 @@ export function ClinicalSuggestionsAI({
   onApplyGoal,
   compactInstructions = false,
   draftKey,
+  reviewBatch,
+  approvedPes,
+  batchNotice,
 }: SuggestionProps & {
   kind: "objectives" | "instructions";
   compactInstructions?: boolean;
@@ -152,8 +159,17 @@ export function ClinicalSuggestionsAI({
   const [message, setMessage] = useState("");
   const [suggestions, setSuggestions] = useConsultationDraft<Suggestion[]>(slot,[]);
   const [applied, setApplied] = useConsultationDraft<number[]>(`${slot}:applied`,[]);
+  const [batchOrigin, setBatchOrigin] = useConsultationDraft<string | null>(`${slot}:batch`,null);
+  const batch = useClinicalBatchProposal(feature);
+  const pes = useClinicalBatchProposal("pes_diagnosis").proposal?.output;
+  const visibleBatch = reviewBatch ? batch.proposal : undefined;
+  const baseProblem = visibleBatch?.output.pesProblem ?? pes?.problem;
+  const batchMismatch = !instructions && !!approvedPes && batchOrigin !== null && suggestions.some(({ goal }) =>
+    !goal || (typeof baseProblem === "string" && approvedPes.problem !== baseProblem) ||
+    goal.etiology !== approvedPes.etiology || !approvedPes.signsSymptoms.split("\n").some(sign => sign.trim() === goal.sign)
+  );
 
-  useDurableAIProposal(feature,(output)=>{const next=parseSuggestions(output,kind);setSuggestions(next);setApplied([]);setPendingRequest(null);sessionStorage.removeItem(storageKey);setState(next.length?'ready':'error');setMessage(next.length?'Propuestas recuperadas para revisión.':'Esta solicitud no contiene propuestas utilizables. Revisa los datos antes de generar otra.');},slot);
+  useDurableAIProposal(feature,(output)=>{const next=parseSuggestions(output,kind);setSuggestions(next);setApplied([]);setBatchOrigin(null);setPendingRequest(null);sessionStorage.removeItem(storageKey);setState(next.length?'ready':'error');setMessage(next.length?'Propuestas recuperadas para revisión.':'Esta solicitud no contiene propuestas utilizables. Revisa los datos antes de generar otra.');},slot);
 
   async function generate() {
     if (disabled || state === "generating") return;
@@ -166,6 +182,7 @@ export function ClinicalSuggestionsAI({
     setMessage("");
     setSuggestions([]);
     setApplied([]);
+    setBatchOrigin(null);
     try {
       if (!(await before())) {
         throw new Error("Guarda la entrevista antes de continuar.");
@@ -255,6 +272,7 @@ export function ClinicalSuggestionsAI({
   }
 
   const pendingCount = suggestions.length - applied.length;
+  const showExcerpt = compactInstructions && !batchOrigin;
   return (
     <section className="clinical-ai-assistance">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -282,6 +300,23 @@ export function ClinicalSuggestionsAI({
           Proponer {label}
         </AIButton>
       </div>
+      {visibleBatch && batch.reviewed !== visibleBatch.generationId && (
+        <button type="button" className="nuth-button-secondary mt-3"
+          disabled={state === 'generating' || state === 'uncertain'}
+          onClick={() => {
+            const next = parseSuggestions(visibleBatch.output, kind);
+            setSuggestions(next);
+            setApplied([]);
+            setBatchOrigin(visibleBatch.generationId);
+            setState('ready');
+            setMessage(next.length ? '' : 'La propuesta completa no contiene borradores para este paso.');
+            batch.markReviewed(visibleBatch.generationId);
+          }}>
+          Revisar {label} de la propuesta completa
+        </button>
+      )}
+      {batchMismatch && <p role="status" className="clinical-notice is-warning">El PES aprobado cambió. Puedes proponer objetivos nuevos a partir del diagnóstico actual.</p>}
+      {batchOrigin && batchNotice && <p role="status" className="clinical-notice">{batchNotice}</p>}
       {state === "uncertain" && (
         <button
           type="button"
@@ -327,13 +362,13 @@ export function ClinicalSuggestionsAI({
                   ? (
                     <>
                       <p
-                        className={compactInstructions
+                        className={showExcerpt
                           ? "clinical-next-excerpt"
-                          : "text-sm leading-6 text-[#29483f]"}
+                          : "whitespace-pre-line break-words text-sm leading-6 text-[#29483f]"}
                       >
                         {suggestion.text}
                       </p>
-                      {compactInstructions
+                      {showExcerpt
                         ? (
                           <details className="clinical-suggestion-preview">
                             <summary>Ver texto completo y fuentes</summary>
@@ -378,7 +413,7 @@ export function ClinicalSuggestionsAI({
                   <button
                     type="button"
                     className="mt-3 rounded-lg border border-[#c9d9ce] px-3 py-2 text-xs font-semibold text-[#315e4f] hover:bg-[#f4f8f5]"
-                    disabled={disabled || applied.includes(index)}
+                    disabled={disabled || batchMismatch || applied.includes(index)}
                     onClick={() => {
                       if (suggestion.goal && onApplyGoal) {
                         onApplyGoal(suggestion.goal);

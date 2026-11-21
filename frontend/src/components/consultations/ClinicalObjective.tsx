@@ -44,6 +44,7 @@ type Props = {
   onStatusChange?: (status: ClinicalTaskStatus) => void;
   onCompleted?: () => void;
   onReviewPes?: () => void;
+  reviewBatch?: boolean;
 };
 const blankPlan = (): ObjectivePlan => ({
   version: 1,
@@ -458,6 +459,8 @@ export function ClinicalObjective(props: Props) {
           consultationId={consultationId}
           revision={revision}
           before={before}
+          reviewBatch={props.reviewBatch}
+          approvedPes={workspace?.pes}
           disabled={busy || !workspace?.pes || !hasUsablePesEtiology(workspace.pes.etiology) || plan.goals.length >= 3}
           onApply={(text) =>
             add({ ...emptyObjective(), outcome: text })}

@@ -13,6 +13,7 @@ import { hasUsablePesEtiology } from '../_shared/pes.ts';
 import { clinicalAdapter, clinicalEvidenceValid, conservativeRecallQuantities, normalizePesOutput, normalizeSmartObjectivesOutput, pesClinicalStructureValid, pesSchema, smartObjectiveValidationIssues } from './clinical.ts';
 import { dietDraftAdapter, dietDraftAdapterV1, dietDraftAdapterV3 } from './diet-contract.ts';
 import { isPatientObservation } from '../_shared/patient-observations.ts';
+import { clinicalBatchStages } from '../_shared/clinical-batch.ts';
 
 export type FeatureConfig = {
   feature: string; enabled: boolean; provider: string; model: string; prompt_version: string;
@@ -183,23 +184,25 @@ export interface AIStore {
   claim(id: string): Promise<boolean>;
   settle(id: string, status: string, usage: Usage, responseId?: string): Promise<Generation>;
   uncertain(id: string): Promise<void>;
-  context?(request: AIRequest): Promise<{ context: unknown; stamp: string }>;
+  context?(request: AIRequest): Promise<{ context: unknown; stamp: string; inputGenerations?: string[] }>;
   bindContext?(id: string, request: AIRequest, stamp: string): Promise<void>;
   validateOutput?(output: unknown): boolean;
   recordResult?(id: string, result: ProviderResult, valid: boolean): Promise<void>;
   refundInvalidPes?(id: string): Promise<number>;
   refundInvalidObjectives?(id: string): Promise<number>;
 }
-export type AIRequest = { textEdit?: TextDietEdit; objectiveTextStyle?: 'patient_v1'; textGuidance?: TextDietGuidance; guidance?: DietGuidance; strategyFeedback?: string; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
+export type AIRequest = { batchId?: string; textEdit?: TextDietEdit; objectiveTextStyle?: 'patient_v1'; textGuidance?: TextDietGuidance; guidance?: DietGuidance; strategyFeedback?: string; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function parseRequest(value: unknown): AIRequest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new AIError('invalid_request');
   const v = value as Record<string, unknown>;
-  if (Object.keys(v).some(k => !['feature','idempotencyKey','patientId','consultationId','revision','narrative','planId','previousProposalId','rejectedItems','guidance','textGuidance','strategyFeedback','objectiveTextStyle','textEdit'].includes(k))
+  if (Object.keys(v).some(k => !['feature','idempotencyKey','patientId','consultationId','revision','narrative','planId','previousProposalId','rejectedItems','guidance','textGuidance','strategyFeedback','objectiveTextStyle','textEdit','batchId'].includes(k))
     || typeof v.feature !== 'string' || !/^[a-z][a-z0-9_]{1,63}$/.test(v.feature)
     || typeof v.idempotencyKey !== 'string' || !uuid.test(v.idempotencyKey)
     || [v.patientId,v.consultationId].some(id => id !== undefined && (typeof id !== 'string' || !uuid.test(id)))
     || (v.consultationId && !v.patientId)) throw new AIError('invalid_request');
+  if (v.batchId !== undefined && (typeof v.batchId !== 'string' || !uuid.test(v.batchId) ||
+      !clinicalBatchStages.some(stage => stage.feature === v.feature))) throw new AIError('invalid_request');
   if(v.objectiveTextStyle!==undefined && (v.feature!=='consultation_support' || v.objectiveTextStyle!=='patient_v1'))throw new AIError('invalid_request');
   if(v.feature==='diet_workshop')throw new AIError('feature_disabled'); // Retired; historical ledger remains immutable.
   const workshop = v.feature === 'diet_draft';
@@ -237,6 +240,15 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   const hydrated = clinical ? await store.context!(request) : null;
   if (hydrated) adapter.context = hydrated.context;
   const clinicalFacts = (hydrated?.context as { facts?: { source: string }[] } | undefined)?.facts;
+  if (request.batchId) {
+    if (clinicalFacts?.some(fact => fact.source.startsWith('PES provisional ·'))) {
+      adapter.instructions = adapter.instructions.replaceAll('PES actual aprobado ·', 'PES provisional ·');
+    }
+    adapter.instructions += ' Esta solicitud forma parte de una propuesta completa pendiente de revisión profesional. Cuando una indicación anterior requiera un PES, un objetivo o una estrategia aprobados para generar, usa en su lugar los borradores de esos pasos proporcionados en el contexto. Cita las etiquetas exactas del contexto, incluidas las de PES o estrategia provisional. Solo describe acciones y metas como propuestas. No afirmes que ya se aceptaron o ejecutaron. Escribe las acciones para la persona en español sencillo, en frases completas. Usa el espacio necesario para incluir lo pertinente y reformula de manera más breve si hace falta; nunca cortes una frase ni dejes palabras a medias.';
+    if (clinicalFacts?.some(fact => fact.source.startsWith('Estrategia provisional ·'))) {
+      adapter.instructions += ' En cada indicación cita como mínimo un hecho rotulado «Estrategia provisional» y explica la acción correspondiente para que el profesional pueda revisarla antes de acordarla con el paciente.';
+    }
+  }
   if (Array.isArray(clinicalFacts) && clinicalFacts.some(fact => isPatientObservation(fact.source))) {
     adapter.instructions += ' Revisa las notas profesionales guardadas y el avance registrado de objetivos y estrategias. Contrasta sus fechas, resultados y grado de avance con los datos actuales. Distingue el acuerdo original, lo que se hizo y lo que se observó. El progreso parcial orienta el siguiente paso y no equivale a cumplimiento total. Las notas pueden contener relatos o hipótesis: usa solo lo pertinente y conserva su grado de certeza. Las observaciones internas son contexto clínico; excluye su texto y detalles privados de cualquier contenido dirigido al paciente.';
   }
@@ -249,7 +261,7 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
     adapter.context = { ...(adapter.context as object), objectiveFormat: 'smart@2' };
   }
   if (referencedPes) adapter.context = referencedPesContext(adapter.context);
-  const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : []), ...(request.textEdit ? [request.textEdit] : []), ...(request.feature==='intervention_strategy'?[request.strategyFeedback??null]:[]), ...(request.objectiveTextStyle ? [request.objectiveTextStyle] : [])]);
+  const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : []), ...(request.textEdit ? [request.textEdit] : []), ...(request.feature==='intervention_strategy'?[request.strategyFeedback??null]:[]), ...(request.objectiveTextStyle ? [request.objectiveTextStyle] : []), ...(request.batchId ? [request.batchId, hydrated?.inputGenerations] : [])]);
   const fingerprint = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical))), b => b.toString(16).padStart(2,'0')).join('');
   let countedInputTokens: number | undefined;
   if (config.token_policy === 'model_capacity') {

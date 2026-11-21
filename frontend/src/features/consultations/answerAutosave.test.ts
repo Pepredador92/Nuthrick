@@ -106,6 +106,24 @@ describe("bounded answer synchronization", () => {
     expect(x.write.mock.calls[1][0].changes).toEqual({ note: "Cambio 29" });
     expect(x.onMerge.mock.calls.at(-1)?.[0].note).toBe("Cambio 29");
   });
+  it("keeps edits made while retrieving a server-generated draft", async () => {
+    const x = subject(), read = deferred<AnswerState>();
+    x.read.mockReturnValueOnce(read.promise);
+    const remote = { ...x.saved.answers, "proposal:batch:pes_diagnosis": { generationId: "test" } };
+    x.write.mockImplementation(async request => ({
+      version: 2,
+      answers: { ...remote, ...request.changes },
+    }));
+    const refreshing = x.saver.refresh();
+    x.saver.update({ ...x.saved.answers, note: "Texto escrito mientras se recupera el PES" });
+    read.resolve({ version: 1, answers: remote });
+    expect(await refreshing).toBe(true);
+    expect(x.write).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      version: 1,
+      changes: { note: "Texto escrito mientras se recupera el PES" },
+    }), expect.any(AbortSignal));
+    expect(x.saver.saved().answers).toEqual({ ...remote, note: "Texto escrito mientras se recupera el PES" });
+  });
   it("reconciles an uncertain write before retrying and fences it even when no delta remains", async () => {
     vi.useFakeTimers();
     const x = subject(), late = deferred<AnswerState>();

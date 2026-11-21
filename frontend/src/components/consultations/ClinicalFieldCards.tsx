@@ -17,6 +17,7 @@ import { QuestionField } from "./QuestionField";
 import { ClinicalStatusBadge } from "./ClinicalTaskCard";
 import { ClinicalTaskDialog } from "./ClinicalTaskDialog";
 import { ClinicalSuggestionsAI } from "./ConsultationObjectiveAI";
+import { useClinicalBatchProposal } from "./ClinicalBatchAI";
 
 type AIContext = {
   patientId: string;
@@ -42,6 +43,7 @@ export function ClinicalFieldCards(
   const [mode, setMode] = useConsultationDraft<"edit" | "preview" | "ai">(`${draftSlot}:mode`,"edit");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const batch = useClinicalBatchProposal("patient_instructions");
   const question = questions.find((item) => item.question_key === selected);
   const instruction = questions.find((item) =>
     ["first_actions", "patient_instructions", "recommendations"].includes(
@@ -90,7 +92,7 @@ export function ClinicalFieldCards(
               setSelected(instruction.question_key);
             }}
           >
-            Proponer indicaciones con IA
+            {batch.proposal ? 'Revisar propuestas de indicaciones' : 'Proponer indicaciones con IA'}
           </AIButton>
         </div>
       )}
@@ -192,6 +194,8 @@ export function ClinicalFieldCards(
               {...ai}
               kind="instructions"
               compactInstructions
+              reviewBatch
+              batchNotice="Revisa que estas indicaciones correspondan a lo que acordaste con el paciente. Si cambió una estrategia, puedes editar el texto o proponer indicaciones nuevas."
               before={before}
               disabled={busy || saving}
               onApply={(text) => {
