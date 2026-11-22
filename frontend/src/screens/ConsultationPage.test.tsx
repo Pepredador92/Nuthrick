@@ -247,6 +247,11 @@ async function openModule(name: string) {
   fireEvent.click(await screen.findByRole('button', { name }));
   await waitFor(() => expect(screen.getByRole('button', { name })).toHaveAttribute('aria-current', 'page'));
 }
+async function openInstructions() {
+  await openModule('Revisión clínica, PES y objetivos');
+  fireEvent.click(within(screen.getByRole('navigation', { name: 'Pasos de la revisión clínica' })).getByRole('button', { name: /Indicaciones/ }));
+  return screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Texto para el paciente' });
+}
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
@@ -277,6 +282,75 @@ beforeEach(() => {
 });
 
 describe("consultation save and review workflow", () => {
+  it('keeps handwritten instructions in the working draft until the professional approves them', async () => {
+    const original = 'Prepara la opción que acordamos.';
+    const intended = 'Ten a mano la lista que hicimos.\n\nEn tu próxima consulta veremos qué opción te resultó práctica.';
+    mocks.answerState.answers = { first_actions: original };
+    const first = mount();
+    const textarea = await openInstructions();
+    expect(textarea).toHaveValue(original);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar indicaciones' }));
+    fireEvent.change(textarea, { target: { value: intended } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+    await screen.findByText('Borrador guardado.');
+    expect(mocks.answerState.answers.first_actions).toBe(original);
+    expect(mocks.draftState.answers['instructions-editor']).toMatchObject({ text: intended });
+    first.unmount();
+    mount();
+    expect(await openInstructions()).toHaveValue(intended);
+    mocks.save.mockRejectedValueOnce(new Error('Sin conexión'));
+    fireEvent.click(screen.getByRole('button', { name: 'Aprobar indicaciones' }));
+    await screen.findByText('No pudimos guardar la aprobación. Tu texto sigue aquí.');
+    expect(mocks.answerState.answers.first_actions).toBe(original);
+    expect(screen.getByRole('textbox', { name: 'Texto para el paciente' })).toHaveValue(intended);
+    fireEvent.click(screen.getByRole('button', { name: 'Aprobar indicaciones' }));
+    await screen.findByText('Aprobadas', { selector: '.clinical-status-badge' });
+    expect(mocks.answerState.answers.first_actions).toBe(intended);
+    expect(screen.getByRole('textbox', { name: 'Texto para el paciente' })).toHaveAttribute('readonly');
+  });
+
+  it('opens existing batch instructions and reviews regeneration without replacing the draft', async () => {
+    const original = 'Escribe qué opción te resultó práctica.';
+    const revised = 'Lleva la lista que preparaste y señala qué alternativa probaste.';
+    const evidence = [{ source: 'Estrategia aprobada', finding: 'Revisar las opciones acordadas en consulta.' }];
+    mocks.draftState.answers = {
+      'clinical-batch': { id: 'batch', attempts: {}, completed: { patient_instructions: 'initial' } },
+      [clinicalBatchKey('patient_instructions')]: { batchId: 'batch', generationId: 'initial', output: { instructions: [{ text: original, evidence }] } },
+    };
+    mocks.generate.mockResolvedValue({ generationId: 'revised', status: 'succeeded', output: { instructions: [{ text: revised, evidence }] } });
+    mount();
+    const textarea = await openInstructions();
+    await waitFor(() => expect(textarea).toHaveValue(original));
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.answerState.answers.first_actions).toBeUndefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerar con IA' }));
+    fireEvent.click(await screen.findByText('Revisar otra propuesta de IA'));
+    expect(textarea).toHaveValue(original);
+    fireEvent.click(screen.getByRole('button', { name: 'Usar este texto' }));
+    expect(textarea).toHaveValue(revised);
+    expect(mocks.answerState.answers.first_actions).toBeUndefined();
+  });
+
+  it('retains separate answer keys in a customized instructions editor and keeps professional notes private', async () => {
+    const snapshot = structuredClone(fixtures.snapshot);
+    const question = snapshot.structure.sections[0].questions[0];
+    snapshot.structure.sections.push({ section_key: 'custom', title: 'Mi guion', questions: [
+      { ...question, question_key: 'first_actions', label: 'Primeros pasos', question_type: 'long_text' },
+      { ...question, question_key: 'recommendations', label: 'Para la próxima consulta', question_type: 'long_text' },
+      { ...question, question_key: 'professional_notes', label: 'Mi nota interna', question_type: 'long_text' },
+    ] });
+    mocks.getSnapshot.mockResolvedValue(snapshot);
+    mocks.answerState.answers = { first_actions: 'Texto vigente', recommendations: 'Trae tu lista.', professional_notes: 'Información interna' };
+    mount();
+    const textarea = await openInstructions();
+    expect(textarea).toHaveValue('Indicaciones acordadas\nTexto vigente\n\nRecomendaciones\nTrae tu lista.');
+    expect(textarea.value).not.toContain('Información interna');
+    fireEvent.click(screen.getByRole('button', { name: 'Editar indicaciones' }));
+    fireEvent.change(textarea, { target: { value: '## Primeros pasos\nUsa la lista acordada.\n\n## Para la próxima consulta\nTrae la nota del ejercicio.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Aprobar indicaciones' }));
+    await screen.findByText('Aprobadas', { selector: '.clinical-status-badge' });
+    expect(mocks.answerState.answers).toMatchObject({ first_actions: 'Usa la lista acordada.', recommendations: 'Trae la nota del ejercicio.', professional_notes: 'Información interna' });
+  });
   it("opens notes independently of the steps and saves a note linked to the visit", async () => {
     const content = "Pudo mantener el horario de comida.";
     mocks.createPatientNote.mockResolvedValue({

@@ -1,0 +1,89 @@
+.clinical-instruction-editor {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: clamp(14px, 3vw, 22px);
+  border: 1px solid var(--nuth-line);
+  border-radius: 18px;
+  background: var(--nuth-surface);
+  overflow-wrap: anywhere;
+}
+
+.clinical-instruction-toolbar,
+.clinical-instruction-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.clinical-instruction-toolbar > div,
+.clinical-instruction-footer > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.clinical-instruction-toolbar label {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.clinical-instruction-editor .nuth-input.clinical-instruction-text {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 12rem;
+  max-height: min(45rem, 70dvh);
+  padding: 14px 16px;
+  border: 1px solid #afc9c1;
+  border-radius: 12px;
+  background: #fff;
+  color: #233f3e;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.65;
+  field-sizing: content;
+  overflow-y: auto;
+  resize: vertical;
+}
+
+.clinical-instruction-editor .nuth-input.clinical-instruction-text[data-approved='true'] {
+  border-inline-start: 4px solid var(--clinical-complete, #397255);
+}
+
+.clinical-instruction-editor .instruction-generate-button:not(:disabled) {
+  background: #2454da;
+  box-shadow: 0 0 0 2px #779cf45c, 0 4px 18px #2454da38;
+}
+
+html[data-nuthrick-theme='night'] .clinical-instruction-editor .instruction-generate-button:not(:disabled) {
+  background: #9bc5ff;
+  color: #0c234a;
+  box-shadow: 0 0 0 2px #8bbbff70, 0 4px 18px #6ba8ff4d;
+}
+
+.clinical-instruction-hint,
+.clinical-instruction-footer p {
+  color: var(--nuth-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.clinical-instruction-preview {
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--nuth-surface-soft);
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.clinical-instruction-footer {
+  margin-top: 3px;
+  padding-top: 12px;
+  border-top: 1px solid var(--nuth-line);
+}

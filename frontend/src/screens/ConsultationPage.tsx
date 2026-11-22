@@ -31,6 +31,7 @@ import { ClinicalBatchStageRevision } from "@/src/components/consultations/Clini
 import { ClinicalReview } from "@/src/components/consultations/ClinicalReview";
 import { ConsultationGuide } from "@/src/components/consultations/ConsultationGuide";
 import { ClinicalFieldCards } from "@/src/components/consultations/ClinicalFieldCards";
+import { ClinicalPatientInstructions } from "@/src/components/consultations/ClinicalPatientInstructions";
 import { consultationSteps, objectiveKeys, followupKeys, questionModule, workflowSections, type ConsultationModule } from "@/src/features/consultations/consultationWorkflow";
 import { ClinicalInterventions } from "@/src/components/consultations/ClinicalInterventions";
 import { ClinicalObjective } from "@/src/components/consultations/ClinicalObjective";
@@ -583,14 +584,15 @@ function ConsultationEditor() {
     }
   };
 
-  const setAnswer = (key: string, value: unknown) => {
+  const setAnswers = (changes: Answers) => {
     setCompletion(null);
-    const next = { ...valuesRef.current, [key]: value };
+    const next = { ...valuesRef.current, ...changes };
     valuesRef.current = next;
     autosave.update(next);
     setValues(next);
     setReviewed(false);
   };
+  const setAnswer = (key: string, value: unknown) => setAnswers({ [key]: value });
   const discardPes = async () => {
     const fields = ['pes_problem', 'pes_etiology', 'pes_evidence', 'pes_statement'];
     if (!fields.some(key => typeof valuesRef.current[key] === 'string' && valuesRef.current[key] !== '')) return true;
@@ -872,20 +874,30 @@ function ConsultationEditor() {
     : objectiveStatuses.length && objectiveStatuses.every(status => status === 'complete' || status === 'approved') ? 'complete'
     : objectiveStatuses.some(status => status !== 'pending') ? 'progress' : 'pending';
   const recommendationQuestions=clinicalSections.flatMap(section=>section.questions).filter(question=>!followupKeys.includes(question.question_key)&&!question.question_key.startsWith('pes_')&&!objectiveKeys.includes(question.question_key)&&!['nutrition_assessment','clinical_notes','measurement_notes','indicator_progress'].includes(question.question_key)&&matchesCondition(question.visibility_condition,values));
-  const recommendationSignature=JSON.stringify(recommendationQuestions.map(question=>[question.question_key,values[question.question_key]]));
-  const hasRecommendations=recommendationQuestions.some(question=>!['professional_notes','clinical_notes'].includes(question.question_key)&&!emptyValue(values[question.question_key]));
+  const reportInstructionsStatus = useCallback((status: ClinicalTaskStatus) => updateClinicalProgress('instructions', status), [updateClinicalProgress]);
   const followupQuestions=clinicalSections.flatMap(section=>section.questions).filter(question=>followupKeys.includes(question.question_key)&&matchesCondition(question.visibility_condition,values));
   const followupValues=followupQuestions.map(question=>[question.question_key,values[question.question_key]]);
   const followupSignature=JSON.stringify([followupReady.signature,followupValues]);
   const hasFollowup=Boolean(followupReady.signature)&&(followupReady.ready||followupValues.some(([,value])=>!emptyValue(value)));
-  async function completeClinicalStage(kind:'recommendations'|'followup') {
+  async function approveInstructions(changes: Answers) {
+    const previous = Object.fromEntries(Object.keys(changes).map(key => [key, valuesRef.current[key] ?? null]));
+    setAnswers(changes);
+    let saved = false;
+    try {
+      saved = await save();
+      return saved;
+    } finally {
+      if (!saved) setAnswers(previous);
+    }
+  }
+  async function completeFollowup() {
     if (!await saveForClinical()) return;
-    setStageChecks(current=>({...current,[kind]:kind==='recommendations'?recommendationSignature:followupSignature}));
-    reportCompletion(kind==='recommendations'?'Recomendaciones guardadas y completadas.':'Seguimiento revisado y completado.',kind==='recommendations'?5:6);
+    setStageChecks(current=>({...current,followup:followupSignature}));
+    reportCompletion('Seguimiento revisado y completado.',6);
   }
   const clinicalStepsWithProgress = clinicalStages.map((step, index) => {
-    const status = index === 0 ? clinicalProgress.review : index === 1 ? clinicalProgress.pes : index === 2 ? objectiveStatus : index===3 ? clinicalProgress.strategies : index===4 ? stageChecks.recommendations===recommendationSignature?'complete':hasRecommendations?'progress':'pending' : stageChecks.followup===followupSignature?'complete':hasFollowup?'progress':'pending';
-    return { ...step, status, statusLabel: status === 'approved' ? 'Aprobado' : status === 'complete' ? index === 0 ? 'Revisado' : index>=4?'Completado':'Listo para revisar' : status === 'progress' ? 'En curso' : undefined };
+    const status = index === 0 ? clinicalProgress.review : index === 1 ? clinicalProgress.pes : index === 2 ? objectiveStatus : index===3 ? clinicalProgress.strategies : index===4 ? clinicalProgress.instructions : stageChecks.followup===followupSignature?'complete':hasFollowup?'progress':'pending';
+    return { ...step, status, statusLabel: status === 'approved' ? index === 4 ? 'Aprobadas' : 'Aprobado' : status === 'complete' ? index === 0 ? 'Revisado' : index>=4?'Completado':'Listo para revisar' : status === 'progress' ? 'En curso' : undefined };
   });
 
   const exitDialog = blocker.state === "blocked" && <ConsultationExitDialog busy={busy || loading} canDiscard={!consultation || canDiscardDraft(consultation)} pending={pendingModules.filter(item=>item.key!=="clinical").map(item => item.label)} error={exitError} onSave={() => void exitConsultation(false)} onDiscard={() => void exitConsultation(true)} onContinue={continueConsultation} onReview={() => {
@@ -1216,21 +1228,23 @@ function ConsultationEditor() {
           {module === "clinical" && clinicalStage === 3 && <ClinicalBatchStageRevision feature="intervention_strategy" patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} blocked={busy} before={saveForClinical} />}
           <ClinicalInterventions onReviewPrerequisite={stage=>void goClinicalStage(stage)} onCompleted={all=>reportCompletion(all?"Estrategias aprobadas. Puedes continuar a indicaciones.":"Estrategia aprobada.")} onStatusChange={status=>updateClinicalProgress("strategies",status)} key={`${consultation.id}:${snapshot.revision}:strategies`} consultationId={consultation.id} patientId={patient.id} revision={snapshot.revision} before={saveForClinical} active={module === 'clinical' && clinicalStage === 3} onPendingChange={setStrategyPending} onChanged={() => setClinicalRefresh(value => value + 1)} onOpenWorkshop={() => reviewClose("workshop")} onOpenInstructions={() => void goClinicalStage(4)} />
         </section>
-        <section hidden={clinicalStage !== 4} className="consultation-clinical-card" aria-label="Recomendaciones">
-          <header className="consultation-section-banner">
-            <p className="nuth-eyebrow">05 · Deja claros los siguientes pasos</p><h2>Recomendaciones</h2>
-            <p className="consultation-clinical-description">Deja indicaciones sencillas y revisa lo acordado antes de compartirlo.</p>
+        <section hidden={clinicalStage !== 4} className="clinical-stage" aria-label="Indicaciones para el paciente">
+          <header className="clinical-stage-heading"><div>
+            <h2>Indicaciones para el paciente</h2>
+            <p>Deja listo el texto que leerá el paciente.</p>
+          </div>
           </header>
-          {module === "clinical" && clinicalStage === 4 && <ClinicalBatchStageRevision feature="patient_instructions" patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} blocked={busy} before={saveForClinical} />}
-          <ClinicalFieldCards key={`${consultation.id}:${snapshot.revision}:recommendations:${clinicalRefresh}`} questions={recommendationQuestions} values={values} busy={busy} showErrors={showErrors} before={saveForClinical} onChange={setAnswer} ai={{patientId:patient.id,consultationId:consultation.id,revision:snapshot.revision}} />
-          <button type="button" className="nuth-button mt-4" disabled={busy||saving||!hasRecommendations} onClick={()=>void completeClinicalStage('recommendations')}>Guardar y completar recomendaciones</button>
-          <p className="consultation-guided-hint">Al cerrar la consulta, podrás copiar las indicaciones al Super Link, revisarlas y publicarlas para el paciente.</p>
+          <ClinicalPatientInstructions key={`${consultation.id}:${snapshot.revision}:instructions`}
+            consultationId={consultation.id} patientId={patient.id} revision={snapshot.revision} active={module === 'clinical' && clinicalStage === 4}
+            questions={recommendationQuestions} values={values} busy={busy} before={saveForClinical} saveDraft={saveAll}
+            onApprove={approveInstructions} onChangeOtherAnswer={setAnswer}
+            onStatusChange={reportInstructionsStatus} onCompleted={() => reportCompletion('Indicaciones guardadas.', 5)} />
         </section>
         <section hidden={clinicalStage!==5} className="clinical-stage" aria-label="Seguimiento">
           <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">06 · Prepara la próxima revisión</p><h2>Seguimiento</h2><p>Confirma qué observarán, cuándo lo revisarán y si hace falta ajustar algo.</p></div></header>
           <ClinicalFollowUp key={`${consultation.id}:${snapshot.revision}:followup`} consultationId={consultation.id} revision={snapshot.revision} active={module==='clinical'&&clinicalStage===5} answers={values} onReady={receiveFollowup} onEdit={stage=>void goClinicalStage(stage)}/>
           {followupQuestions.length>0 && <ClinicalFieldCards questions={followupQuestions} values={values} busy={busy} showErrors={showErrors} before={saveForClinical} onChange={setAnswer} />}
-          <button type="button" className="nuth-button mt-4" disabled={busy||saving||!hasFollowup} onClick={()=>void completeClinicalStage('followup')}>Completar revisión del seguimiento</button>
+          <button type="button" className="nuth-button mt-4" disabled={busy||saving||!hasFollowup} onClick={()=>void completeFollowup()}>Completar revisión del seguimiento</button>
         </section>
         <ClinicalStepNotice completion={completion} onClose={()=>setCompletion(null)} onContinue={stage=>{setCompletion(null);if(stage===6)void goModule('evolution');else void goClinicalStage(stage);}}/>
       </div>}

@@ -18,6 +18,22 @@ Deno.test('document binds approved clinical fields to owner, patient, consultati
  const later=rows();later.answers![0].updated_at='2026-10-05T12:00:00Z';assert.equal(projectPlanDocumentContext(raw,later).pes,undefined);
  const draft=rows();draft.revision!.clinical_records={pes:{approved_at:'2026-10-05T12:00:00Z'}};assert.equal(projectPlanDocumentContext(raw,draft).pes,undefined);
 });
+Deno.test('plan documents carry the visible instructions from the pinned consultation revision', () => {
+ const data = rows();
+ const past = { ...scope, revision: 2, updated_at: '2026-10-03T19:00:00Z' };
+ data.revision!.structure = { sections: [{ questions: [
+   { question_key: 'patient_instructions' },
+   { question_key: 'recommendations', visibility_condition: { question_key: 'sharing_condition', equals: true } },
+ ] }] };
+ data.answers!.push(
+   { ...past, question_key: 'patient_instructions', value: 'Revisa la primera opción.\n\nLleva tu lista.' },
+   { ...past, question_key: 'recommendations', value: 'Contenido sujeto a condición' },
+   { ...past, question_key: 'sharing_condition', value: false },
+ );
+ assert.equal(projectPlanDocumentContext(raw, data).instructions, 'Revisa la primera opción.\n\nLleva tu lista.');
+ data.answers!.find(answer => answer.question_key === 'sharing_condition')!.value = true;
+ assert.match(projectPlanDocumentContext(raw, data).instructions ?? '', /Recomendaciones\nContenido sujeto a condición/);
+});
 Deno.test('current shared guidance cannot be attached to an older version or a different consultation',()=>{
  const data=rows();data.portal={enabled:true,publishedAt:'2026-10-05T10:00:00Z',shared:{goal:'Meta compartida',instructions:'Indicación compartida',goalSource:{consultationId}}};data.sharedPlan=raw;
  assert.equal(projectPlanDocumentContext(raw,data).instructions,'Indicación compartida');

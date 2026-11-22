@@ -217,3 +217,31 @@ it('exports the same saved SMART detail, strategy planning and explicit executio
   expect(output).not.toContain(clinicalFixtureValues.treatment_objective);
  }
 });
+
+it('exports the complete approved instructions once in both PDF designs and text', async () => {
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+  const snapshot = structuredClone(clinicalFixtureSnapshot);
+  const section = snapshot.structure.sections.find(section => section.section_key === 'clinical')!;
+  const field = section.questions.find(question => question.question_key === 'first_actions')!;
+  section.questions.push({ ...field, question_key: 'recommendations', visibility_condition: { question_key: 'share_extra', equals: true } });
+  const first = 'Elige una de las opciones que acordamos.';
+  const last = 'En la próxima consulta cuenta qué alternativa te resultó más práctica.';
+  const values = { ...clinicalFixtureValues, first_actions: `${first}\n\n${last}`, recommendations: 'Apartado oculto', share_extra: false };
+  const item = structuredClone(clinicalFixtureItem);
+  item.approved!.document.strategy.referenceIds = ['academy-intervention'];
+  const clinical = buildClinicalDocumentData(snapshot, [item], undefined, values);
+  const professional = { fullName: 'Profesional sintético' };
+  const outputs = [consultationTextExport(clinicalFixturePatient, clinicalFixtureConsultation, snapshot, values, professional, clinical)];
+  for (const design of ['current', 'formal'] as const) {
+    mocks.text.mockClear();
+    await downloadConsultationPdf('consulta.pdf', clinicalFixturePatient, clinicalFixtureConsultation, snapshot, values, professional, clinical, design);
+    outputs.push(mocks.text.mock.calls.flatMap(([text]) => Array.isArray(text) ? text : [text]).join(' '));
+  }
+  for (const output of outputs) {
+    expect(output).toContain('Indicaciones para el paciente');
+    expect(output.split(first)).toHaveLength(2);
+    expect(output).toContain(last);
+    expect(output).toContain('Academy · Nutrition Intervention');
+    expect(output).not.toContain('Apartado oculto');
+  }
+});

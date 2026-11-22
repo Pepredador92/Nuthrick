@@ -57,6 +57,9 @@ it("keeps long instructions intact and prevents adding content beyond the portal
   expect(await screen.findByText(text)).toHaveTextContent(/FINAL$/);
   expect(screen.getByRole("alert")).toHaveTextContent("12,000");
   expect(screen.getByRole("button", { name: "Agregar al borrador del Superlink" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Reemplazar indicaciones del borrador" }));
+  expect(onApply).toHaveBeenCalledExactlyOnceWith(text, "replace");
+  onApply.mockClear();
   rerender(<PortalConsultationInstructions {...props} />);
   fireEvent.click(screen.getByRole("button", { name: "Agregar al borrador del Superlink" }));
   expect(onApply).toHaveBeenCalledExactlyOnceWith(text);

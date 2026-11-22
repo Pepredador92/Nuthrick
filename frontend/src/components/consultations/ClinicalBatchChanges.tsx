@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { Fragment, type ReactNode, useId, useRef, useState } from 'react';
 import { AIButton } from '@/src/components/ai/AIControls';
 import { AIRequestError, getAIGenerationStatus, reviewClinicalAIBatch, runAIRequest } from '@/src/services/ai';
 import { composePesStatement } from '@/src/features/consultations/clinicalCopilot';
@@ -50,7 +50,9 @@ function proposalText(feature: ClinicalBatchFeature, proposal: ClinicalBatchProp
   return '';
 }
 
-export function ClinicalBatchChanges({ patientId, consultationId, revision, batchId, completed, blocked, before, onBusy, featureOnly }: {
+export type ClinicalBatchAction = { label: string; disabled: boolean; open: () => void };
+
+export function ClinicalBatchChanges({ patientId, consultationId, revision, batchId, completed, blocked, before, onBusy, featureOnly, renderAction }: {
   patientId: string;
   consultationId: string;
   revision: number;
@@ -60,6 +62,7 @@ export function ClinicalBatchChanges({ patientId, consultationId, revision, batc
   before: () => Promise<boolean>;
   onBusy?: (busy: boolean) => void;
   featureOnly?: ClinicalBatchFeature;
+  renderAction?: (action: ClinicalBatchAction) => ReactNode;
 }) {
   const checkpoint = useConsultationDraftContext();
   const id = useId();
@@ -174,13 +177,14 @@ export function ClinicalBatchChanges({ patientId, consultationId, revision, batc
 
   return <>
     <div className="clinical-batch-change-actions">
-      {clinicalBatchStages.filter(stage => completed[stage.feature] && (!featureOnly || stage.feature === featureOnly)).map(stage =>
-        <button key={stage.feature} type="button" className="nuth-button-secondary !text-xs" disabled={blocked || busy} onClick={() => open(stage.feature)}>
-          {readProposal(stage.feature, controller.values, true) || readAttempt(stage.feature)
+      {clinicalBatchStages.filter(stage => completed[stage.feature] && (!featureOnly || stage.feature === featureOnly)).map(stage => {
+        const label = readProposal(stage.feature, controller.values, true) || readAttempt(stage.feature)
             ? featureOnly ? 'Revisar nueva propuesta' : `Revisar nueva propuesta · ${stage.label}`
-            : featureOnly ? 'Volver a generar con indicaciones' : `Regenerar ${stage.label}`}
-        </button>
-      )}
+            : featureOnly ? 'Volver a generar con indicaciones' : `Regenerar ${stage.label}`;
+        const action = { label, disabled: blocked || busy, open: () => open(stage.feature) };
+        return renderAction ? <Fragment key={stage.feature}>{renderAction(action)}</Fragment>
+          : <button key={stage.feature} type="button" className="nuth-button-secondary !text-xs" disabled={action.disabled} onClick={action.open}>{label}</button>;
+      })}
       {!featureOnly && <button type="button" className="nuth-button-secondary !text-xs" disabled={blocked || busy} onClick={() => open('clear')}>Limpiar borradores de IA</button>}
     </div>
     <ClinicalTaskDialog

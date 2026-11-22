@@ -1,6 +1,7 @@
 import { emptyValue, formatAnswer, type Question } from "@/src/features/consultations/questionnaire";
 import { isObjectivePlan } from "../../../../supabase/functions/_shared/objectives";
 import { sharedObjectiveLabels, sharedStrategyLabels } from "../../../../supabase/functions/_shared/clinical-guidance";
+import { patientInstructionText } from "../../../../supabase/functions/_shared/patient-instructions";
 import type { Strategy } from "../../../../supabase/functions/_shared/interventions";
 import type { Consultation } from "@/src/types/domain";
 
@@ -63,12 +64,6 @@ export type ProgressSource = Pick<Consultation, "id" | "consultation_date" | "di
   latest_review: ProgressReview | null;
 };
 
-const instructionLabels: Record<string, string> = {
-  first_actions: "Indicaciones acordadas",
-  patient_instructions: "Indicaciones para el paciente",
-  recommendations: "Recomendaciones",
-};
-
 function agreementText(labels: Record<string, string>, values: Record<string, unknown>, first: string) {
   return [first, ...Object.entries(labels).flatMap(([key, label]) => {
     const value = values[key];
@@ -104,7 +99,7 @@ export function originalProgress(source: ProgressSource): ProgressDocument {
       goalIds: strategy.goalIndexes.map((index) => `goal-${index}`).filter((goalId) => goals.some((goal) => goal.id === goalId)),
       assessment: { ...emptyStrategyAssessment },
     })),
-    instructions: source.instructions.map(({ key, value }) => `${instructionLabels[key]}\n${typeof value === "boolean" ? value ? "Sí" : "No" : String(value).trim()}`).join("\n\n"),
+    instructions: patientInstructionText(Object.fromEntries(source.instructions.map(({ key, value }) => [key, value]))),
   };
 }
 

@@ -1,5 +1,5 @@
 import {useConsultationDraft,useConsultationDraftContext,useDurableAIProposal} from './ConsultationDrafts';
-import { useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { useClinicalBatchProposal } from './ClinicalBatchAI';
 import { ArrowRight, Check } from "lucide-react";
 import {
@@ -24,6 +24,16 @@ type Suggestion = {
   evidence: Evidence[];
   goal?: ObjectiveGoal;
   references?: { title: string; url: string }[];
+};
+export type InstructionAssistance = {
+  suggestions: Pick<Suggestion, 'text' | 'evidence'>[];
+  generationId: string | null;
+  state: AIState;
+  message: string;
+  stale: boolean;
+  assessment: boolean;
+  generate: () => Promise<void>;
+  checkStatus: () => Promise<void>;
 };
 
 function SuggestionEvidence({ suggestion }: { suggestion: Suggestion }) {
@@ -150,14 +160,19 @@ export function ClinicalSuggestionsAI({
   compactInstructions = false,
   draftKey,
   reviewBatch,
+  active = true,
+  renderInstructions,
   approvedPes,
   batchNotice,
   batchDraft,
   compactObjectives = false,
   assessmentApplyDisabled = disabled,
-}: SuggestionProps & {
+}: Omit<SuggestionProps, "onApply"> & {
+  onApply?: SuggestionProps['onApply'];
   kind: "objectives" | "instructions";
   compactInstructions?: boolean;
+  active?: boolean;
+  renderInstructions?: (assistance: InstructionAssistance) => ReactNode;
 }) {
   const instructions = kind === "instructions";
   const feature = instructions
@@ -175,6 +190,7 @@ export function ClinicalSuggestionsAI({
   const [suggestions, setSuggestions] = useConsultationDraft<Suggestion[]>(slot,[]);
   const [applied, setApplied] = useConsultationDraft<number[]>(`${slot}:applied`,[]);
   const [batchOrigin, setBatchOrigin] = useConsultationDraft<string | null>(`${slot}:batch`,null);
+  const [generationId, setGenerationId] = useConsultationDraft<string | null>(`${slot}:generation`,null);
   const batch = useClinicalBatchProposal(feature);
   const { reviewed, markReviewed } = batch;
   const pes = useClinicalBatchProposal("pes_diagnosis").proposal?.output;
@@ -187,7 +203,7 @@ export function ClinicalSuggestionsAI({
     goal.etiology !== approvedPes.etiology || !approvedPes.signsSymptoms.split("\n").some(sign => sign.trim() === goal.sign)
   );
   const batchStale = !!batchOrigin && (batch.stale || batch.proposal?.generationId !== batchOrigin);
-  const displayBatch = !!batchDraft;
+  const displayBatch = !!batchDraft || !!renderInstructions;
   const structured = suggestions.filter(suggestion => suggestion.goal !== undefined);
   const batchGoals = structured.map(suggestion => suggestion.goal!);
   const batchAlreadyUsed = !!batchOrigin && batchGoals.length > 0 && !!batchDraft?.contains(batchGoals);
@@ -203,14 +219,14 @@ export function ClinicalSuggestionsAI({
     markReviewed(proposal.generationId);
   }, [kind, setSuggestions, setApplied, setBatchOrigin, markReviewed]);
 
-  useDurableAIProposal(feature,(output)=>{const next=parseSuggestions(output,kind);setSuggestions(next);setApplied([]);setBatchOrigin(null);setPendingRequest(null);sessionStorage.removeItem(storageKey);setState(next.length?'ready':'error');setMessage(next.length?'Propuestas recuperadas para revisión.':'Esta solicitud no contiene propuestas utilizables. Revisa los datos antes de generar otra.');},slot);
+  useDurableAIProposal(feature,(output,id)=>{const next=parseSuggestions(output,kind);setSuggestions(next);setApplied([]);setBatchOrigin(null);if(renderInstructions)setGenerationId(id);setPendingRequest(null);sessionStorage.removeItem(storageKey);setState(next.length?'ready':'error');setMessage(next.length?'Propuestas recuperadas para revisión.':'Esta solicitud no contiene propuestas utilizables. Revisa los datos antes de generar otra.');},slot);
   useEffect(() => {
-    if (!displayBatch || !visibleBatch || pendingRequest || state === 'generating' || state === 'uncertain' ||
+    if (!active || !displayBatch || !visibleBatch || pendingRequest || state === 'generating' || state === 'uncertain' ||
       visibleBatch.generationId === reviewed) return;
-    let active = true;
-    queueMicrotask(() => { if (active) showBatch(visibleBatch); });
-    return () => { active = false; };
-  }, [displayBatch, visibleBatch, reviewed, pendingRequest, state, showBatch]);
+    let mounted = true;
+    queueMicrotask(() => { if (mounted) showBatch(visibleBatch); });
+    return () => { mounted = false; };
+  }, [active, displayBatch, visibleBatch, reviewed, pendingRequest, state, showBatch]);
 
   async function generate() {
     if (disabled || state === "generating") return;
@@ -221,9 +237,11 @@ export function ClinicalSuggestionsAI({
     }
     setState("generating");
     setMessage("");
-    setSuggestions([]);
-    setApplied([]);
-    setBatchOrigin(null);
+    if (!renderInstructions) {
+      setSuggestions([]);
+      setApplied([]);
+      setBatchOrigin(null);
+    }
     try {
       if (!(await before())) {
         throw new Error("Guarda la entrevista antes de continuar.");
@@ -253,6 +271,11 @@ export function ClinicalSuggestionsAI({
       };
       const next=parseSuggestions(output,kind);
       sessionStorage.removeItem(storageKey);setPendingRequest(null);checkpoints?.set(`handled:${feature}`,result.generationId);
+      if (renderInstructions) {
+        setGenerationId(result.generationId);
+        setApplied([]);
+        setBatchOrigin(null);
+      }
       setSuggestions(next);
       setState("ready");
       if(next.length && result.draftSaved===false)setMessage('La propuesta está disponible en esta pestaña. Guarda el avance antes de salir; no necesitas generarla otra vez.');
@@ -313,6 +336,12 @@ export function ClinicalSuggestionsAI({
   }
 
   const pendingCount = suggestions.length - applied.length;
+  if (renderInstructions) return renderInstructions({
+    state, message, stale: batchStale, assessment,
+    generationId: batchOrigin ?? generationId,
+    suggestions: suggestions.filter((_, index) => !applied.includes(index)),
+    generate, checkStatus,
+  });
   const showExcerpt = compactInstructions && !batchOrigin;
   return (
     <section className={`clinical-ai-assistance${compactObjectives ? ' smart-objective-ai' : ''}`}>
@@ -468,7 +497,7 @@ export function ClinicalSuggestionsAI({
                     onClick={() => {
                       if (suggestion.goal && onApplyGoal) {
                         onApplyGoal(suggestion.goal, { evidence: suggestion.evidence, references: suggestion.references });
-                      } else onApply(suggestion.text);
+                      } else onApply?.(suggestion.text);
                       setApplied((items) => [...items, index]);
                     }}
                   >

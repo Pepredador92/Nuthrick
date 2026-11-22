@@ -1,6 +1,7 @@
 import { accessMessages } from "@/src/features/admin/api";
 import { supabase } from "@/src/lib/supabase";
 import { AnswerSaveError, type AnswerState, type AnswerWrite } from '@/src/features/consultations/answerAutosave';
+import { patientInstructionSourceKeys, patientInstructionText } from '../../../supabase/functions/_shared/patient-instructions';
 import type {
   Consultation,
   ConsultationAnswer,
@@ -334,7 +335,7 @@ export async function loadPatientAgreements(
 ): Promise<{ revision: number; text: string }> {
   const consultation = await supabase
     .from("consultations")
-    .select("id")
+    .select("id,completed_at")
     .eq("id", consultationId)
     .eq("patient_id", patientId)
     .eq("status", "completed")
@@ -343,11 +344,13 @@ export async function loadPatientAgreements(
   fail(consultation.error, "No pudimos revisar el estado de la consulta.");
   if (!consultation.data) throw new Error("La consulta ya no está finalizada.");
 
-  const snapshot = await supabase
+  let snapshotQuery = supabase
     .from("consultation_snapshots")
-    .select("revision")
+    .select("revision,structure")
     .eq("consultation_id", consultationId)
-    .eq("patient_id", patientId)
+    .eq("patient_id", patientId);
+  if (consultation.data.completed_at) snapshotQuery = snapshotQuery.lte("created_at", consultation.data.completed_at);
+  const snapshot = await snapshotQuery
     .order("revision", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -360,26 +363,11 @@ export async function loadPatientAgreements(
     .eq("consultation_id", consultationId)
     .eq("patient_id", patientId)
     .eq("revision", snapshot.data.revision)
-    .in("question_key", ["first_actions", "patient_instructions", "recommendations"]);
+    .in("question_key", patientInstructionSourceKeys(snapshot.data.structure));
   fail(answers.error, "No pudimos cargar las indicaciones de la consulta.");
 
-  const labels: Record<string, string> = {
-    first_actions: "Indicaciones acordadas",
-    patient_instructions: "Indicaciones para el paciente",
-    recommendations: "Recomendaciones",
-  };
-  const text = (answers.data ?? [])
-    .sort((a, b) => ["first_actions", "patient_instructions", "recommendations"].indexOf(a.question_key) - ["first_actions", "patient_instructions", "recommendations"].indexOf(b.question_key))
-    .flatMap((answer) => {
-      const value = answer.value;
-      const content = typeof value === "string"
-        ? value.trim()
-        : typeof value === "number" || typeof value === "boolean"
-          ? String(value)
-          : "";
-      return content ? [`${labels[answer.question_key]}\n${content}`] : [];
-    })
-    .join("\n\n");
+  const values = Object.fromEntries((answers.data ?? []).map(answer => [answer.question_key, answer.value]));
+  const text = patientInstructionText(values, snapshot.data.structure);
   return { revision: snapshot.data.revision, text };
 }
 

@@ -72,13 +72,15 @@ export function useClinicalBatchProposal(feature: ClinicalBatchFeature) {
   };
 }
 
-export function ClinicalBatchStageRevision({ feature, ...props }: {
+export function ClinicalBatchStageRevision({ feature, fallback = null, ...props }: {
   feature: ClinicalBatchFeature; patientId: string; consultationId: string; revision: number;
   blocked: boolean; before: () => Promise<boolean>;
+  fallback?: React.ReactNode;
+  renderAction?: React.ComponentProps<typeof ClinicalBatchChanges>['renderAction'];
 }) {
   const checkpoint = useConsultationDraftContext();
   const run = checkpoint?.values[batchKey] as BatchRun | null | undefined;
-  if (!checkpoint || !run || !clinicalBatchStages.every(({ feature }) => getSavedBatchProposal(checkpoint.values, run, feature))) return null;
+  if (!checkpoint || !run || !clinicalBatchStages.every(({ feature }) => getSavedBatchProposal(checkpoint.values, run, feature))) return fallback;
   return <ClinicalBatchChanges {...props} batchId={run.id} completed={run.completed} featureOnly={feature} />;
 }
 

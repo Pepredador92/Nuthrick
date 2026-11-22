@@ -411,7 +411,7 @@ function OwnerPortal({ patientId }: { patientId: string }) {
               placeholder="Escribe aquí las indicaciones que deseas que pueda consultar."
             />
             <PortalConsultationInstructions key={patientId} patientId={patientId} consultations={consultations} currentText={draft.instructions} disabled={busy}
-              onApply={(text) => setDraft((current) => ({ ...current, instructions: appendComposedText(current.instructions, text) }))} />
+              onApply={(text, mode) => setDraft((current) => ({ ...current, instructions: mode === "replace" ? text : appendComposedText(current.instructions, text) }))} />
             <details className="owner-details owner-writing-tools mt-4"><summary>Ayuda para redactar indicaciones acordadas</summary><div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
               <div className="flex items-start gap-2">
                 <ListChecks size={17} className="mt-0.5 text-amber-800" aria-hidden="true" />

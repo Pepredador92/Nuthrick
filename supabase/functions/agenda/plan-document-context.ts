@@ -1,4 +1,5 @@
 import {sanitizeClinicalGuidance} from './portal-content.ts';
+import {patientInstructionSourceKeys, patientInstructionText} from '../_shared/patient-instructions.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {PlanDocumentContext} from './plan-document.ts';
 
@@ -34,7 +35,8 @@ export function projectPlanDocumentContext(raw: unknown, data: DocumentContextRo
     const objective = row(records.objective);
     if (before(objective.approved_at, cutoff)) context.objective = text(objective.content);
     if (c.status === 'completed' && before(c.completed_at, cutoff)) {
-      context.instructions = text(answers.find(a => a.question_key === 'first_actions')?.value);
+      const instructions = patientInstructionText(Object.fromEntries(answers.flatMap(a => typeof a.question_key === 'string' ? [[a.question_key, a.value]] : [])), s.structure);
+      context.instructions = instructions || undefined;
     }
   }
   // Portal instructions have their own publication date. Include only for the
@@ -69,7 +71,7 @@ export async function loadPlanDocumentContext(raw: unknown, db: SupabaseClient):
   if (!consultationId) return projectPlanDocumentContext(raw, data);
   const [consultation, revision, portal, sharedPlan] = await Promise.all([
     db.from('consultations').select('id,professional_id,patient_id,consultation_type,sequence_number,status,completed_at').eq('id', consultationId).eq('professional_id', owner).eq('patient_id', patientId).is('deleted_at', null).maybeSingle(),
-    db.from('consultation_snapshots').select('consultation_id,professional_id,patient_id,revision,created_at,clinical_records').eq('consultation_id', consultationId).eq('professional_id', owner).eq('patient_id', patientId).lte('created_at', String(published.publishedAt)).order('revision', {ascending: false}).limit(1).maybeSingle(),
+    db.from('consultation_snapshots').select('consultation_id,professional_id,patient_id,revision,created_at,clinical_records,structure').eq('consultation_id', consultationId).eq('professional_id', owner).eq('patient_id', patientId).lte('created_at', String(published.publishedAt)).order('revision', {ascending: false}).limit(1).maybeSingle(),
     db.rpc('patient_portal', {p_action: 'view', p_data: {owner, patientId}}),
     db.rpc('patient_portal', {p_action: 'plan', p_data: {owner, patientId}}),
   ]);
@@ -78,7 +80,7 @@ export async function loadPlanDocumentContext(raw: unknown, db: SupabaseClient):
   data.portal = portal.data?.error ? null : portal.data;
   data.sharedPlan = sharedPlan.data?.error ? null : sharedPlan.data?.plan;
   if (revision.data) {
-    const answers = await db.from('consultation_answers').select('consultation_id,professional_id,patient_id,revision,question_key,value,updated_at').eq('consultation_id', consultationId).eq('professional_id', owner).eq('patient_id', patientId).eq('revision', revision.data.revision).in('question_key', ['pes_statement', 'first_actions']).lte('updated_at', String(published.publishedAt));
+    const answers = await db.from('consultation_answers').select('consultation_id,professional_id,patient_id,revision,question_key,value,updated_at').eq('consultation_id', consultationId).eq('professional_id', owner).eq('patient_id', patientId).eq('revision', revision.data.revision).in('question_key', ['pes_statement', ...patientInstructionSourceKeys(revision.data.structure)]).lte('updated_at', String(published.publishedAt));
     if (answers.error) throw new Error('temporarily_unavailable');
     data.answers = answers.data;
   }

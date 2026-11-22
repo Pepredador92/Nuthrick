@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { discardConsultationDraft, renameConsultation, syncConsultationAnswers } from "./consultations";
+import { discardConsultationDraft, loadPatientAgreements, renameConsultation, syncConsultationAnswers } from "./consultations";
 import { supabase } from "@/src/lib/supabase";
 import type { Consultation } from "@/src/types/domain";
 
-vi.mock("@/src/lib/supabase", () => ({ supabase: { rpc: vi.fn() } }));
+vi.mock("@/src/lib/supabase", () => ({ supabase: { rpc: vi.fn(), from: vi.fn() } }));
 const visit = { id: "visit", display_name: "Anterior", display_sequence_number: 2, status: "completed" } as Consultation;
 const single = vi.fn();
 const abortSignal=vi.fn();
@@ -64,4 +64,29 @@ describe("consultation names", () => {
     single.mockResolvedValue({ data: null, error: { message: "consultation_name_conflict", code: "40001" } });
     await expect(renameConsultation(visit, "Control mensual")).rejects.toThrow("El nombre cambió en otra ventana");
   });
+});
+
+it('loads only visible patient instructions for the finalized revision selected in Super Link', async () => {
+  const closedAt = '2026-11-21T18:00:00Z';
+  const consultation = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), is: vi.fn().mockReturnThis(), maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'visit', completed_at: closedAt }, error: null }) };
+  const snapshot = {
+    select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), lte: vi.fn().mockReturnThis(), order: vi.fn().mockReturnThis(), limit: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: { revision: 3, structure: { sections: [{ questions: [
+      { question_key: 'first_actions' }, { question_key: 'recommendations', visibility_condition: { question_key: 'also_share', equals: true } },
+    ] }] } }, error: null }),
+  };
+  const text = 'Lleva la lista que acordamos.\n\nRevisaremos qué opción te funcionó.';
+  const answers = {
+    select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), in: vi.fn().mockResolvedValue({ data: [
+      { question_key: 'first_actions', value: text }, { question_key: 'recommendations', value: 'Apartado oculto' },
+      { question_key: 'also_share', value: false }, { question_key: 'professional_notes', value: 'Nota interna' },
+    ], error: null }),
+  };
+  vi.mocked(supabase.from).mockReturnValueOnce(consultation as never).mockReturnValueOnce(snapshot as never).mockReturnValueOnce(answers as never);
+  expect(await loadPatientAgreements('patient', 'visit')).toEqual({ revision: 3, text });
+  expect(consultation.eq).toHaveBeenCalledWith('status', 'completed');
+  expect(snapshot.lte).toHaveBeenCalledWith('created_at', closedAt);
+  expect(answers.eq).toHaveBeenCalledWith('patient_id', 'patient');
+  expect(answers.eq).toHaveBeenCalledWith('revision', 3);
+  expect(answers.in).toHaveBeenCalledWith('question_key', ['first_actions', 'patient_instructions', 'recommendations', 'also_share']);
 });

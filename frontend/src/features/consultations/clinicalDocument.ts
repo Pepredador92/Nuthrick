@@ -8,6 +8,7 @@ import {
   isStrategyDocument,
   type Strategy,
   strategyCategories,
+  strategyReferences,
 } from "../../../../supabase/functions/_shared/interventions";
 import {
   clinicalRouteLabels,
@@ -17,6 +18,7 @@ import {
 import type { InterventionItem } from "@/src/services/clinicalInterventions";
 import type { ConsultationSnapshot } from "@/src/types/domain";
 import type { LongitudinalHistory } from "@/src/features/evolution/longitudinal";
+import { patientInstructionEntries } from "../../../../supabase/functions/_shared/patient-instructions";
 
 export type ClinicalDocumentCard = {
   title: string;
@@ -89,6 +91,9 @@ function strategyCard(strategy: Strategy, title: string): ClinicalDocumentCard {
         } · Prioridad ${strategy.priority}`,
       },
       ...fields(strategyLabels, strategy),
+      ...strategyReferences.filter(reference => strategy.referenceIds.includes(reference.id)).map(reference => ({
+        label: "Marco de apoyo", value: reference.title,
+      })),
       ...(clinicalRouteLabels[strategy.route]
         ? [{ label: "Vía", value: clinicalRouteLabels[strategy.route] }]
         : []),
@@ -313,6 +318,16 @@ export function buildClinicalDocumentData(
           ]
           : []),
       ]),
+    });
+  }
+  const instructions = patientInstructionEntries(answers, snapshot.structure);
+  if (instructions.length) {
+    coveredKeys.push(...instructions.map(entry => entry.key));
+    sections.push({
+      title: "Indicaciones para el paciente",
+      cards: instructions.map(({ label, value }) => ({
+        title: instructions.length === 1 ? "Texto registrado" : label, fields: [{ value }],
+      })),
     });
   }
   return { sections, coveredKeys };

@@ -139,7 +139,7 @@ export function renderPlanPdf(model:PublishedNutritionPlanDocumentModel,logo:str
  layout.section('Plan de alimentación','Documento nutricional personalizado');
  layout.card(model.patientName,planIdentityFields(model),{tone:'blue',columns:3,eyebrow:'DATOS DEL PACIENTE Y DEL PLAN'});
  const clinical=planClinicalFields(model);
- if(clinical.length)layout.card('Objetivo y cuidados acordados',clinical,{tone:'violet',eyebrow:'GUÍA DE TU ATENCIÓN',flow:true,justify:true});
+ if(clinical.length)layout.card('Objetivo y cuidados acordados',clinical,{tone:'violet',eyebrow:'GUÍA DE TU ATENCIÓN',flow:true});
  for(const card of planGuidanceCards(model))layout.card(card.title,card.fields,{tone:'mint',flow:true,justify:true});
  const n=model.nutrition;
  if(n?.energy&&n.energy>0){
