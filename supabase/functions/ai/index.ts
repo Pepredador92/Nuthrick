@@ -14,7 +14,7 @@ import type {TextDietEditReport} from '../_shared/text-diet-edit.ts';
 import { dietPreflight } from './diet-ux.ts';
 import { localDietTestMode, SimulatedDietProvider } from './diet-provider-test.ts';
 import { SimulatorExampleProvider } from './simulator-provider.ts';
-import { clinicalBatchInput, type BatchStages } from './clinical-batch.ts';
+import { clinicalBatchInput, clinicalBatchSource, type BatchStages } from './clinical-batch.ts';
 import { buildBatchAssessment, isAssessmentDraft } from './clinical-batch-assessment.ts';
 import type { ClinicalBatchFeature } from '../_shared/clinical-batch.ts';
 
@@ -181,6 +181,7 @@ Deno.serve(async request => {
         const { data: source, error } = await db.rpc(r.feature==='patient_instructions' ? 'ai_patient_instructions_source' : 'ai_clinical_source',{p_owner:owner,p_patient:r.patientId,p_consultation:r.consultationId,p_revision:r.revision});
         if (error || !source) throw new AIError('context_unavailable');
         let clinical = r.feature==='recall_24h' ? source as ClinicalSource : withConfirmedRecall(source as ClinicalSource);
+        if (r.batchId) clinical = clinicalBatchSource(clinical);
         let previous: Record<string, unknown> | undefined;
         let savedStages: BatchStages = {};
         let assessment = false;

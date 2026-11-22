@@ -167,7 +167,7 @@ export type ClinicalSource = {
   stamp: string;
   records?: unknown;
   recall?: unknown;
-  approvedObjective?: { approved_at: string; pes_approved_at: string; smart_plan?: ObjectivePlan } | null;
+  approvedObjective?: { approved_at: string; pes_approved_at: string; question_key?: string; smart_plan?: ObjectivePlan } | null;
   planningObjective?: { approved_at: string; pes_approved_at: string; smart_plan?: ObjectivePlan } | null;
   approvedStrategies?: { document: StrategyDocument }[];
   provisionalStrategies?: { document: StrategyDocument }[];

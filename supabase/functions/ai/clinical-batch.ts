@@ -13,6 +13,20 @@ export type BatchStages = Partial<
   Record<ClinicalBatchFeature, ClinicalBatchProposal>
 >;
 
+// The goal editor mirrors its text into the questionnaire before approval.
+// Keep only the confirmed objective field; downstream drafts take their
+// planning anchors from the checkpoint for this batch.
+export function clinicalBatchSource(source: ClinicalSource): ClinicalSource {
+  const approvedKey = source.approvedObjective?.question_key;
+  const facts = source.facts.filter((fact) => {
+    const answer =
+      /^Entrevista · (objectives|treatment objective|next objectives)(?: · |$)/u
+        .exec(fact.source);
+    return !answer || answer[1].replaceAll(" ", "_") === approvedKey;
+  });
+  return { ...source, facts };
+}
+
 export function clinicalBatchInput(
   source: ClinicalSource,
   stages: BatchStages,

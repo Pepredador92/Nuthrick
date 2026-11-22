@@ -4,6 +4,37 @@ import {
   type ClinicalBatchProposal,
   clinicalBatchStages,
 } from "../_shared/clinical-batch.ts";
+import { clinicalBatchSource } from "./clinical-batch.ts";
+
+Deno.test("a fresh batch keeps clinical notes and only the approved objective answer", () => {
+  const note = {
+    source: "Nota de la consulta · 2026-11-21",
+    finding: "La persona propone ajustar sus horarios.",
+  };
+  const draft = {
+    source: "Entrevista · next objectives · Próximos objetivos",
+    finding: "Meta previa sin aprobar.",
+  };
+  const approved = {
+    source: "Entrevista · treatment objective",
+    finding: "Meta revisada y aprobada.",
+  };
+  const source = {
+    stamp: "synthetic",
+    facts: [draft, approved, note],
+    approvedObjective: {
+      approved_at: "2026-11-21",
+      pes_approved_at: "2026-11-21",
+      question_key: "treatment_objective",
+    },
+  };
+  assert.deepEqual(clinicalBatchSource(source).facts, [approved, note]);
+  assert.deepEqual(
+    clinicalBatchSource({ ...source, approvedObjective: null }).facts,
+    [note],
+  );
+  assert.deepEqual(source.facts, [draft, approved, note]);
+});
 
 Deno.test("complete clinical draft HTTP flow uses its own saved results and accounts for each generation", async () => {
   const originalFetch = globalThis.fetch;
@@ -154,11 +185,19 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
               }]
               : []),
             ...(scenario === "partial"
-              ? Array.from({ length: 100 }, (_, index) => ({
-                source: `Antropometría · Medición sintética ${index}`,
-                finding: `${index} cm`,
-                consultation_date: "2026-11-21",
-              }))
+              ? [
+                {
+                  source:
+                    "Entrevista · next objectives · Objetivos del siguiente periodo",
+                  finding:
+                    "Borrador anterior sobre comprobar cómo se hicieron las mediciones.",
+                },
+                ...Array.from({ length: 100 }, (_, index) => ({
+                  source: `Antropometría · Medición sintética ${index}`,
+                  finding: `${index} cm`,
+                  consultation_date: "2026-11-21",
+                })),
+              ]
               : []),
           ],
         strategyRequired: true,
