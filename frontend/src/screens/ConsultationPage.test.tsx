@@ -541,7 +541,7 @@ describe("consultation save and review workflow", () => {
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
     expect(await screen.findByRole('textbox', { name: pesTextName })).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
-    await screen.findByRole('heading', { name: 'Un objetivo a la vez' });
+    await screen.findByRole('heading', { name: 'Objetivos SMART' });
     expect(screen.getByRole('button', { name: 'Agregar objetivo' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Proponer objetivos con IA' })).toBeDisabled();
     expect(screen.queryByRole('textbox', { name: pesTextName })).not.toBeInTheDocument();
@@ -595,17 +595,18 @@ describe("consultation save and review workflow", () => {
     fireEvent.change(await screen.findByLabelText('Detalle breve de prueba'), { target: { value: 'Historia revisada' } });
     await openModule('Revisión clínica, PES y objetivos');
     fireEvent.click(screen.getByRole('button', { name: /Objetivos Acuerda/ }));
-    await screen.findByRole('heading', { name: 'Un objetivo a la vez' });
+    await screen.findByRole('heading', { name: 'Objetivos SMART' });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Proponer objetivos con IA' })).toBeEnabled());
     expect(mocks.generate).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Proponer objetivos con IA' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Agregar y revisar' }));
+    await screen.findByRole('textbox', { name: 'Texto del objetivo 1' });
     expect(mocks.generate).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ feature: 'consultation_support', patientId: 'patient', consultationId: 'draft', revision: 1 }));
     expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(mocks.generate.mock.invocationCallOrder[0]);
     expect(screen.getByLabelText('Acuerdo · objetivo 1')).toHaveValue('pending');
     expect(screen.getByRole('button', { name: 'Aprobar objetivos' })).toBeDisabled();
     expect(mocks.objective.mock.calls.every(args => args.length === 2)).toBe(true);
     editObjectiveOutcome('Resultado revisado por el profesional');
+    expect(screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Texto del objetivo 1' }).value).toContain('Resultado revisado por el profesional');
     fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
     await screen.findByText('Borrador guardado. Puedes continuar y revisarlo después.');
     expect(savedPlan?.goals[0]).toMatchObject({ outcome: 'Resultado revisado por el profesional', agreement: 'pending', sign: approvedPes.signsSymptoms });
@@ -833,7 +834,7 @@ describe("consultation save and review workflow", () => {
     expect(screen.getByRole('button',{name:'Siguiente'})).toBeEnabled();
     await openModule('Revisión clínica, PES y objetivos');
     fireEvent.click(screen.getByRole('button',{name:'Objetivos Acuerda la intervención'}));
-    await screen.findByRole('heading',{name:'Un objetivo a la vez'});
+    await screen.findByRole('heading',{name:'Objetivos SMART'});
     expect(screen.getByRole('button',{name:'Proponer objetivos con IA'})).toBeDisabled();
     await act(async()=>release());
     await openModule('Entrevista');fireEvent.click(screen.getByRole('button',{name:'Anterior'}));
@@ -973,7 +974,7 @@ describe("consultation save and review workflow", () => {
       fireEvent.change(screen.getByRole("combobox", { name: /Confirmación de prueba/ }), { target: { value: "Revisado" } });
       await openModule("Revisión clínica, PES y objetivos");
       fireEvent.click(screen.getByRole('button', { name: /Objetivos Acuerda/ }));
-      await screen.findByRole("heading", { name: "Un objetivo a la vez" });
+      await screen.findByRole("heading", { name: "Objetivos SMART" });
       if (objective) {
         await waitFor(()=>expect(screen.getByRole('button',{name:'Agregar objetivo'})).toBeEnabled());
         fireEvent.click(screen.getByRole('button', { name: 'Agregar objetivo' }));

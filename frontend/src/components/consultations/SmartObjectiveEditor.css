@@ -4,7 +4,7 @@
   align-items: start;
   gap: clamp(.75rem, 2vw, 1.25rem);
   min-inline-size: 0;
-  margin-top: 1rem;
+  margin-top: .25rem;
 }
 
 .smart-objective-list {
@@ -165,53 +165,70 @@
   color: var(--consultation-section-ink, var(--nuth-action));
 }
 
-.smart-objective-ai button[aria-label='Proponer objetivos con IA'] {
+.smart-objective-toolbar,
+.smart-objective-context,
+.smart-objective-toolbar-actions,
+.smart-objective-toolbar > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .55rem .75rem;
+}
+
+.smart-objective-toolbar,
+.smart-objective-context {
+  justify-content: space-between;
+}
+
+.smart-objective-toolbar h3 {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.smart-objective-toolbar .clinical-status-badge {
+  margin: 0;
+}
+
+.smart-objective-toolbar button[aria-label='Proponer objetivos con IA'] {
   background: #2458f5;
   color: #fff;
   box-shadow: 0 0 0 3px #2458f523, 0 0 18px #2458f535;
 }
-
-.smart-objective-ai {
-  border-color: var(--consultation-section-line, var(--nuth-line));
-  background: var(--consultation-section-bg, var(--nuth-surface));
-  color: var(--consultation-section-ink, var(--nuth-ink));
-}
-
-.smart-objective-ai > div > div > :is(h4, p) {
-  color: inherit;
-}
-
-.consultation-workspace .smart-objective-ai > div:first-child {
-  position: relative;
-  isolation: isolate;
-}
-
-.consultation-workspace .smart-objective-ai > div:first-child::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  inset-block-start: .1rem;
-  inset-inline-end: 12rem;
-  inline-size: 4.25rem;
-  block-size: 1.5rem;
-  pointer-events: none;
-  background: var(--consultation-fireflies, none);
-}
-
-.smart-objective-ai button[aria-label='Proponer objetivos con IA']:hover:enabled {
+.smart-objective-toolbar button[aria-label='Proponer objetivos con IA']:hover:enabled {
   background: #1946d9;
 }
-
-html[data-nuthrick-theme='night'] .smart-objective-ai button[aria-label='Proponer objetivos con IA'] {
+html[data-nuthrick-theme='night'] .smart-objective-toolbar button[aria-label='Proponer objetivos con IA'] {
   background: #86b6ff;
   color: #102c59;
   box-shadow: 0 0 0 3px #86b6ff3d, 0 0 18px #79acff55;
 }
 
-.smart-objective-proposal-text {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+.smart-objective-context,
+.smart-objective-message {
+  padding: .65rem .85rem;
+  border: 1px solid var(--nuth-line);
+  border-radius: .75rem;
+  background: var(--nuth-surface-soft);
+  color: var(--nuth-ink);
+  font-size: .875rem;
 }
+
+.smart-objective-context .clinical-text-action {
+  color: inherit;
+}
+
+.clinical-objectives-workspace .smart-objective-source {
+  margin: 0;
+  padding-block: .65rem;
+}
+
+.smart-objective-source dl,
+.smart-objective-source details,
+.smart-objective-source[open] > button {
+  margin-top: .65rem;
+}
+
+.smart-objective-source dt { font-weight: 700; }
 
 @media (max-width: 720px) {
   .smart-objective-layout {
@@ -224,5 +241,37 @@ html[data-nuthrick-theme='night'] .smart-objective-ai button[aria-label='Propone
 
   .consultation-workspace .smart-objective-ai > div:first-child::before {
     display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .smart-objective-toolbar-actions {
+    width: 100%;
+  }
+  .smart-objective-toolbar-actions > button {
+    flex: 1 1 auto;
+  }
+  .smart-objective-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .smart-objective-card-tools {
+    align-self: center;
+    flex-wrap: nowrap;
+    gap: .15rem;
+    padding: .3rem;
+  }
+  .smart-objective-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .smart-objective-actions > .clinical-text-action {
+    grid-column: 1 / -1;
+  }
+  .smart-objective-actions > :is(.nuth-button, .nuth-button-secondary) {
+    justify-content: center;
+  }
+  .smart-objective-actions > :only-child {
+    grid-column: 2;
   }
 }

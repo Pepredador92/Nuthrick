@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import { ArrowUp, Trash2 } from 'lucide-react';
 import {
   objectiveFields,
@@ -58,7 +57,7 @@ export function ObjectiveGoalSummary({
 }
 
 export function ObjectiveGoalEditor({
-  id, text, issue, goal, index, signs, approved, cause, grounding, onText, onChange, children,
+  id, text, issue, goal, index, signs, approved, cause, grounding, onText, onChange,
 }: {
   id: string;
   text: string;
@@ -71,7 +70,6 @@ export function ObjectiveGoalEditor({
   grounding?: ObjectiveProposalEvidence;
   onText: (text: string) => void;
   onChange: (fields: Partial<ObjectiveGoal>) => void;
-  children: ReactNode;
 }) {
   const staleSign = !!goal.sign && !signs.includes(goal.sign);
   const needsContext = !signs.includes(goal.sign);
@@ -121,7 +119,6 @@ export function ObjectiveGoalEditor({
         <option value="caregiver">Acordado con el cuidador</option>
       </select>
     </label>
-    {children}
   </div>;
 }
 
