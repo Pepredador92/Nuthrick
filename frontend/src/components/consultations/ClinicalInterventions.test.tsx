@@ -11,6 +11,7 @@ import { formatStrategyEditorText, readStrategyEditorText, type StrategyTextFiel
 import {approvedPes,smartPlan} from '@/src/test/clinicalFixtures';
 import {
   emptyStrategy,
+  type Strategy,
   type StrategyDocument,
 } from "../../../../supabase/functions/_shared/interventions";
 const api = vi.hoisted(() => ({
@@ -86,7 +87,7 @@ beforeEach(() => {
   api.workspace.mockResolvedValue(workspace);
 });
 const strategyText = () => screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Texto de la estrategia' });
-function changeText(field: StrategyTextField, value: string) {
+function changeText<Field extends StrategyTextField>(field: Field, value: Strategy[Field]) {
   const parsed = readStrategyEditorText(strategyText().value);
   if ('issue' in parsed) throw new Error(parsed.issue);
   fireEvent.change(strategyText(), { target: { value: formatStrategyEditorText({ ...emptyStrategy(), ...parsed.fields, [field]: value }) } });
@@ -301,10 +302,12 @@ it("preserves text and optional details when switching between manual strategies
   fireEvent.click(addStrategy);
   changeText('title', 'Coordinar la atención');
   fireEvent.change(screen.getByLabelText('Categoría'), { target: { value: 'coordination' } });
-  fireEvent.click(screen.getByText('Aplicación y recursos · opcional'));
-  expect(screen.getByLabelText('Profesional o servicio con quien se coordina')).toBeVisible();
-  expect(screen.queryByLabelText('Tema o habilidad que se trabajará')).not.toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText('Motivo de la coordinación'), { target: { value: 'Revisar la atención conjunta' } });
+  const editor = within(screen.getByRole('region', { name: 'Editor de estrategia' }));
+  expect(editor.getAllByRole('textbox')).toEqual([strategyText()]);
+  expect(strategyText().value).toContain('Aplicación y recursos');
+  expect(strategyText().value).toContain('Con quién se coordinará:');
+  changeText('coordinationReason', 'Revisar la atención conjunta');
+  changeText('frequency', 'En la siguiente visita');
   fireEvent.click(addStrategy);
   expect(strategyText().value).not.toContain('Coordinar la atención');
   fireEvent.click(screen.getByRole('button', { name: /Coordinar la atención/ }));
@@ -321,6 +324,7 @@ it("preserves text and optional details when switching between manual strategies
           title: "Coordinar la atención",
           category: "coordination",
           coordinationReason: "Revisar la atención conjunta",
+          frequency: "En la siguiente visita",
         }),
       }),
     }),
@@ -345,14 +349,18 @@ it("keeps the draft editor open when saving the consultation fails", async () =>
 it("allows approving an AI strategy with agreement pending and never starts execution automatically", async () => {
   const doc = fullDocument();
   doc.strategy.agreement = "pending";
+  doc.strategy.evidence = [{ source: 'Objetivo aprobado', finding: 'Reconocer opciones para la jornada laboral.' }];
   await generate({ strategies: [doc] });
   fireEvent.click(
     await screen.findByRole("button", { name: "Revisar y editar estrategia" }),
   );
   expect(screen.queryByRole("button", { name: "Revisar y editar estrategia" }))
     .not.toBeInTheDocument();
-  fireEvent.click(screen.getByText('Acuerdo con la persona · opcional'));
-  expect(screen.getByLabelText('Acuerdo con la persona')).toHaveValue('pending');
+  expect(strategyText().value).toContain('Estado del acuerdo: Pendiente de conversar');
+  expect(strategyText().value).toContain('Tema o habilidad: Organización de comidas');
+  expect(strategyText().value).toContain('Materiales y apoyos: Ejemplos');
+  expect(strategyText().value).toContain('Frecuencia: Una sesión');
+  expect(screen.getByText('Datos que usó la IA')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Aprobar estrategia' }));
   await screen.findByText('Estrategia aprobada.');
   expect(api.workspace).toHaveBeenLastCalledWith(
@@ -361,7 +369,7 @@ it("allows approving an AI strategy with agreement pending and never starts exec
     "approve",
     expect.objectContaining({
       document: expect.objectContaining({
-        strategy: expect.objectContaining({ agreement: "pending" }),
+        strategy: expect.objectContaining({ agreement: "pending", educationTopic: 'Organización de comidas', materials: 'Ejemplos' }),
       }),
     }),
   );
@@ -512,6 +520,45 @@ it('approves a strategy when the optional text sections were removed', async () 
     document: expect.objectContaining({ strategy: expect.objectContaining({
       title: 'Practicar con ejemplos', action: 'Revisar dos alternativas durante la sesión.', goalIndexes: [0],
       method: '', etiologyLink: '', adaptations: '', monitoring: '',
+    }) }),
+  }));
+});
+
+it('restores an earlier draft with its hand-edited text, resources, agreement and references in the same editor', async () => {
+  const doc = fullDocument();
+  Object.assign(doc.strategy, {
+    category: 'food',
+    route: 'oral',
+    referenceIds: ['academy-intervention', 'academy-monitoring'],
+    referenceTitle: 'Protocolo acordado en el equipo',
+    referenceUrl: 'https://example.com/protocolo',
+    referenceNotes: 'Acuerdo discutido en la consulta de prueba.',
+    referenceVersion: '2026',
+  });
+  const id = approvedItem(doc).id;
+  const action = 'Practicar opciones\nAplicación y recursos\nRepasar el ejemplo elegido';
+  const previousText = `Nombre de la estrategia\n${doc.strategy.title}\n\nAcción concreta\n${action}`;
+  sessionStorage.setItem('intervention-drafts:c:1', JSON.stringify({
+    [id]: { document: doc, expectedUpdatedAt: null, text: previousText },
+  }));
+  mount();
+  await screen.findByText('PES y objetivos de referencia');
+  expect(strategyText().value).toContain('Vía de administración: Oral');
+  expect(strategyText().value).toContain('Estado del acuerdo: Acordado con la persona');
+  expect(strategyText().value).toContain('Guía o protocolo utilizado: Protocolo acordado en el equipo');
+  expect(strategyText().value).toContain('Academy · Nutrition Intervention');
+  expect(screen.queryByRole('link', { name: /Nutrition Intervention/ })).not.toBeInTheDocument();
+  fireEvent.change(strategyText(), { target: { value: strategyText().value
+    .replace('Materiales y apoyos: Ejemplos', 'Materiales y apoyos: Lista de alternativas\nUn ejemplo de práctica')
+    .replace('Estado del acuerdo: Acordado con la persona', 'Estado del acuerdo: Acordado con cuidador o representante'),
+  } });
+  fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+  await screen.findByText(/Borrador guardado/);
+  expect(api.workspace).toHaveBeenLastCalledWith('c', 1, 'save', expect.objectContaining({
+    document: expect.objectContaining({ generationId: doc.generationId, strategy: expect.objectContaining({
+      action, route: 'oral', agreement: 'caregiver', duration: doc.strategy.duration,
+      materials: 'Lista de alternativas\nUn ejemplo de práctica', referenceIds: doc.strategy.referenceIds,
+      referenceUrl: doc.strategy.referenceUrl, referenceNotes: doc.strategy.referenceNotes, evidence: doc.strategy.evidence,
     }) }),
   }));
 });

@@ -14,7 +14,7 @@ import {useConsultationDraft,useConsultationDraftContext,useDurableAIProposal} f
 import { useClinicalBatchProposal } from './ClinicalBatchAI';
 import { objectiveFields, type ObjectiveGoal } from '../../../../supabase/functions/_shared/objectives';
 import {changedAnswers} from '@/src/features/consultations/answerAutosave';
-import {readStrategyEditorText} from '@/src/features/consultations/strategyEditorText';
+import {readStrategyEditorText, upgradeStrategyEditorText} from '@/src/features/consultations/strategyEditorText';
 import "./ClinicalInterventions.css";
 import { AIButton } from "@/src/components/ai/AIControls";
 import {
@@ -42,13 +42,19 @@ import {
   strategyDocumentForWorkspace,
   strategyIsLinked,
   strategyLabels,
+  StrategyProposalSources,
 } from "./InterventionStrategyForm";
 
 type LocalDraft = {
   document: StrategyDocument;
   expectedUpdatedAt: string | null;
   text?: string;
+  textVersion?: 2;
 };
+function currentEditorText(draft: LocalDraft | undefined) {
+  if (draft?.text === undefined) return undefined;
+  return draft.textVersion === 2 ? draft.text : upgradeStrategyEditorText(draft.text, draft.document.strategy);
+}
 type Props = {
   consultationId: string;
   patientId: string;
@@ -194,13 +200,13 @@ export function ClinicalInterventions(props: Props) {
       // The consultation checkpoint also keeps the draft when browser storage is full.
     }
   }, [setLocal, cacheKey]);
-  function edit(id: string, document: StrategyDocument, text: string | null | undefined = local[id]?.text) {
+  function edit(id: string, document: StrategyDocument, text: string | null | undefined = currentEditorText(local[id])) {
     const item = workspace?.items.find((item) => item.id === id);
     setDrafts({
       ...local,
       [id]: {
         document,
-        ...(typeof text === 'string' ? { text } : {}),
+        ...(typeof text === 'string' ? { text, textVersion: 2 } : {}),
         expectedUpdatedAt: local[id]
           ? local[id].expectedUpdatedAt
           : item?.updated_at ?? null,
@@ -250,8 +256,9 @@ export function ClinicalInterventions(props: Props) {
     let changed = false;
     for (const item of workspace.items) {
       const draft = next[item.id];
+      const raw = currentEditorText(draft);
       if (draft && item.approved && !item.draft && !item.requiresReview &&
-        (draft.text === undefined || 'fields' in readStrategyEditorText(draft.text)) &&
+        (raw === undefined || 'fields' in readStrategyEditorText(raw)) &&
         !Object.keys(changedAnswers({document:item.approved.document},
           {document:strategyDocumentForWorkspace(draft.document,workspace)})).length) {
         delete next[item.id];changed = true;
@@ -302,10 +309,11 @@ export function ClinicalInterventions(props: Props) {
       const item = workspace?.items.find((item) => item.id === id);
       let doc = local[id]?.document ?? item?.draft ??
         item?.approved?.document;
-      const raw = local[id]?.text;
-      if ((action === 'save' || action === 'approve') && raw !== undefined) {
+      const raw = currentEditorText(local[id]);
+      if (doc && (action === 'save' || action === 'approve') && raw !== undefined) {
         const parsed = readStrategyEditorText(raw);
         if ('issue' in parsed) throw new Error(parsed.issue);
+        doc = { ...doc, strategy: { ...doc.strategy, ...parsed.fields } };
       }
       if (action === 'approve' && doc) {
         const fresh = await clinicalInterventions(consultationId, revision);
@@ -659,19 +667,7 @@ export function ClinicalInterventions(props: Props) {
                 <p>{strategySummary(doc.strategy)}</p>
                 <p>Relación con la causa: {doc.strategy.etiologyLink}</p>
               </details>
-              <details className="mt-2 text-xs">
-                <summary>Datos utilizados y pendientes</summary>
-                {doc.strategy.evidence.map((e, j) => (
-                  <p key={j} className="mt-2">
-                    <strong>{e.source}:</strong> {e.finding}
-                  </p>
-                ))}
-                <ul className="mt-2 list-disc pl-4">
-                  {doc.strategy.missingContext.map((note, j) => (
-                    <li key={j}>{note}</li>
-                  ))}
-                </ul>
-              </details>
+              <StrategyProposalSources strategy={doc.strategy} />
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -725,7 +721,7 @@ export function ClinicalInterventions(props: Props) {
             !item.requiresReview && !local[id] &&
             ["approved", "executing"].includes(item.state);
           const linked = strategyIsLinked(document, workspace);
-          const rawText = local[id]?.text;
+          const rawText = currentEditorText(local[id]);
           const readyToApprove = linked && !strategyIssues(s).length && (rawText === undefined || 'fields' in readStrategyEditorText(rawText));
           const inline = canEdit && item?.state !== 'withdrawn';
           const editable = editing || !!item?.requiresReview || editingId === id;

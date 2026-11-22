@@ -159,25 +159,6 @@ html[data-nuthrick-theme='night'] .clinical-strategies-workspace {
   margin-top: 3px;
   accent-color: var(--nuth-action);
 }
-.clinical-strategy-reference {
-  display: flex;
-  align-items: start;
-  gap: 9px;
-  font-size: 12px;
-  line-height: 1.7;
-  margin-top: 14px;
-}
-.clinical-strategy-reference input {
-  flex: none;
-  margin-top: 4px;
-  accent-color: var(--nuth-action);
-}
-.clinical-strategy-reference small {
-  display: block;
-  margin-top: 5px;
-  color: var(--nuth-muted);
-  font-size: 11px;
-}
 html[data-nuthrick-theme='night'] .clinical-strategy-card-actions .clinical-text-action {
   color: var(--nuth-accent);
 }
@@ -283,7 +264,7 @@ html[data-nuthrick-theme='night'] .clinical-strategies-workspace .strategy-gener
   width: 100%;
   min-width: 0;
   min-height: 16rem;
-  max-height: 48rem;
+  max-height: min(44rem, 70dvh);
   padding: 14px 16px;
   border: 1px solid var(--strategy-line);
   border-radius: 14px;
@@ -303,10 +284,6 @@ html[data-nuthrick-theme='night'] .clinical-strategies-workspace .strategy-gener
 }
 .clinical-strategy-card[data-status='approved'] .strategy-editor-text[readonly] {
   border-inline-start: 4px solid var(--clinical-complete);
-}
-.strategy-editor-details .clinical-strategy-fields,
-.strategy-editor-details .clinical-goal-field {
-  margin-top: 10px;
 }
 .strategy-editor-footer {
   display: grid;

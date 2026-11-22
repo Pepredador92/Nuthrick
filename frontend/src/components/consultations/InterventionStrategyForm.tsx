@@ -1,11 +1,8 @@
-import { Check } from "lucide-react";
 import { useId } from "react";
 import {
   type Strategy,
   strategyCategories,
   type StrategyDocument,
-  strategyIssues,
-  strategyReferences,
 } from "../../../../supabase/functions/_shared/interventions";
 import type { InterventionWorkspace } from "@/src/services/clinicalInterventions";
 import { objectivePlansEqual } from '../../../../supabase/functions/_shared/objectives';
@@ -101,55 +98,7 @@ export function InterventionStrategyForm(
   const linked = strategyIsLinked(document, workspace);
   const change = (patch: Partial<Strategy>) =>
     onChange({ ...currentDocument, strategy: { ...s, ...patch } });
-  const issues = strategyIssues(s);
-  function field(key: keyof typeof strategyLabels, short = false) {
-    const value = s[key as keyof Strategy] as string;
-    const label = strategyLabels[key];
-    const invalid = showErrors && issues.includes(key);
-    const errorId = `${errorPrefix}-${key}`;
-    return (
-      <label
-        key={key}
-        data-strategy-field={key}
-        className={`clinical-goal-field${
-          value.trim() && !issues.includes(key) ? " is-complete" : ""
-        }`}
-      >
-        <span>
-          {label}
-          {value.trim() && !issues.includes(key) && (
-            <Check size={14} aria-hidden="true" />
-          )}
-        </span>
-        <textarea
-          aria-label={label}
-          aria-invalid={invalid || undefined}
-          aria-describedby={invalid ? errorId : undefined}
-          className="nuth-input"
-          rows={short ? 2 : 3}
-          maxLength={1500}
-          value={value}
-          onChange={(e) => change({ [key]: e.target.value })}
-        />
-        {invalid && <small id={errorId} className="clinical-strategy-field-error">
-          {strategyIssueMessages[key] ?? `Revisa: ${label}.`}
-        </small>}
-      </label>
-    );
-  }
-  const resourceFields: string[] = [];
-  if (["food", "supplementation"].includes(s.category)) {
-    resourceFields.push("composition", "dose");
-  }
-  if (["enteral", "parenteral"].includes(s.route)) {
-    resourceFields.push("access", "coordinationWith");
-  }
-  if (["education", "counseling"].includes(s.category)) {
-    resourceFields.push("educationTopic", "materials", "comprehensionCheck");
-  }
-  if (["coordination", "supplementation"].includes(s.category)) {
-    resourceFields.push("coordinationWith", "coordinationReason");
-  }
+  const needsGoal = showErrors && s.goalIndexes.length === 0;
   return (
     <fieldset disabled={disabled} className="clinical-strategy-fields">
       <div className="clinical-strategy-short-fields">
@@ -159,18 +108,7 @@ export function InterventionStrategyForm(
             className="nuth-input"
             value={s.category}
             onChange={(e) =>
-              change({
-                category: e.target.value as Strategy["category"],
-                route: "not_applicable",
-                access: "",
-                dose: "",
-                composition: "",
-                educationTopic: "",
-                materials: "",
-                comprehensionCheck: "",
-                coordinationWith: "",
-                coordinationReason: "",
-              })}
+              change({ category: e.target.value as Strategy["category"] })}
           >
             {Object.entries(strategyCategories).map(([key, label]) => (
               <option key={key} value={key}>{label}</option>
@@ -196,8 +134,8 @@ export function InterventionStrategyForm(
         </label>
       </div>
       <fieldset className="clinical-strategy-goals" data-strategy-field="goalIndexes" tabIndex={-1}
-        aria-invalid={showErrors && issues.includes("goalIndexes") || undefined}
-        aria-describedby={showErrors && issues.includes("goalIndexes") ? `${errorPrefix}-goalIndexes` : undefined}>
+        aria-invalid={needsGoal || undefined}
+        aria-describedby={needsGoal ? `${errorPrefix}-goalIndexes` : undefined}>
         <legend>Objetivos que apoya · elige al menos uno para aprobar</legend>
         {goals.length
           ? goals.map((goal, index) => (
@@ -226,128 +164,33 @@ export function InterventionStrategyForm(
               Aprueba los objetivos SMART para vincularlos.
             </p>
           )}
-        {showErrors && issues.includes("goalIndexes") &&
+        {needsGoal &&
           <p id={`${errorPrefix}-goalIndexes`} className="clinical-strategy-field-error">{strategyIssueMessages.goalIndexes}</p>}
       </fieldset>
-      <details className="clinical-support-details strategy-editor-details">
-        <summary>Aplicación y recursos · opcional</summary>
-        <div className="clinical-strategy-fields">
-          {(["food", "supplementation"].includes(s.category) || issues.includes("route")) && (
-            <label className="clinical-goal-field" data-strategy-field="route">
-              <span>Vía de administración · opcional</span>
-              <select
-                className="nuth-input"
-                aria-invalid={showErrors && issues.includes("route") || undefined}
-                aria-describedby={showErrors && issues.includes("route") ? `${errorPrefix}-route` : undefined}
-                value={s.route}
-                onChange={(e) =>
-                  change({
-                    route: e.target.value as Strategy["route"],
-                    ...(!["enteral", "parenteral"].includes(e.target.value)
-                      ? { access: "", coordinationWith: "" }
-                      : {}),
-                  })}
-              >
-                <option value="not_applicable">{["food", "supplementation"].includes(s.category) ? "Por definir" : "No aplica"}</option>
-                {["food", "supplementation"].includes(s.category) && <>
-                  <option value="oral">Oral</option>
-                  <option value="enteral">Enteral</option>
-                  <option value="parenteral">Parenteral</option>
-                </>}
-              </select>
-              {showErrors && issues.includes("route") && <small id={`${errorPrefix}-route`} className="clinical-strategy-field-error">{strategyIssueMessages.route}</small>}
-            </label>
-          )}
-          {[...new Set(resourceFields)].map((key) => field(key))}
-          <div className="clinical-strategy-short-fields">
-            {["frequency", "duration", "startDate", "responsible", "executor", "reviewAt", "adjustmentCriteria"]
-              .map(key => field(key, true))}
-          </div>
-        </div>
-      </details>
-      <details className="clinical-support-details strategy-editor-details">
-        <summary>Acuerdo con la persona · opcional</summary>
-        <label className="clinical-goal-field">
-          <span>Estado del acuerdo</span>
-          <select
-            className="nuth-input"
-            aria-label="Acuerdo con la persona"
-            value={s.agreement}
-            onChange={(e) =>
-              change({ agreement: e.target.value as Strategy["agreement"] })}
-          >
-            <option value="pending">Pendiente de conversar</option>
-            <option value="patient">Acordado con el paciente</option>
-            <option value="caregiver">
-              Acordado con cuidador o representante
-            </option>
-          </select>
-          <small>Registra el acuerdo después de conversarlo.</small>
-        </label>
-      </details>
-      <details className="clinical-support-details">
-        <summary>Fundamento y referencias</summary>
-        <p className="mt-3 text-xs">
-          Registra la guía o protocolo que corresponde a esta estrategia.
-        </p>
-        {strategyReferences.map((ref) => (
-          <label key={ref.id} className="clinical-strategy-reference">
-            <input
-              type="checkbox"
-              checked={s.referenceIds.includes(ref.id)}
-              onChange={(e) =>
-                change({
-                  referenceIds: e.target.checked
-                    ? [...s.referenceIds, ref.id]
-                    : s.referenceIds.filter((id) =>
-                      id !== ref.id
-                    ),
-                })}
-            />
-            <span>
-              <a
-                href={ref.url}
-                target="_blank"
-                rel="noreferrer"
-                className="underline"
-              >
-                {ref.title}
-              </a>
-              <small>{ref.scope}</small>
-            </span>
-          </label>
-        ))}
-        <div className="clinical-strategy-fields mt-4">
-          {[
-            "referenceTitle",
-            "referenceUrl",
-            "referenceVersion",
-            "referenceNotes",
-          ].map((key) => field(key))}
-        </div>
-      </details>
-      {!!s.evidence.length && (
-        <details className="clinical-support-details">
-          <summary>
-            Datos del expediente utilizados por la propuesta
-          </summary>
-          <ul className="mt-3 space-y-2 text-xs">
-            {s.evidence.map((e, i) => (
-              <li key={i}>
-                <strong>{e.source}:</strong> {e.finding}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-      {!!s.missingContext.length && (
-        <details className="clinical-support-details">
-          <summary>Datos pendientes en la propuesta original</summary>
-          <ul className="mt-3 list-disc pl-4 text-xs">
-            {s.missingContext.map((note, i) => <li key={i}>{note}</li>)}
-          </ul>
-        </details>
-      )}
     </fieldset>
+  );
+}
+
+export function StrategyProposalSources({ strategy }: { strategy: Strategy }) {
+  if (!strategy.evidence.length && !strategy.missingContext.length) return null;
+  return (
+    <details className="clinical-support-details">
+      <summary>Datos que usó la IA</summary>
+      {!!strategy.evidence.length && (
+        <ul className="mt-3 space-y-2 text-xs">
+          {strategy.evidence.map(({ source, finding }, index) => (
+            <li key={index}><strong>{source}</strong><p className="mt-1 whitespace-pre-wrap">{finding}</p></li>
+          ))}
+        </ul>
+      )}
+      {!!strategy.missingContext.length && (
+        <div className="mt-3 text-xs">
+          <p className="font-semibold">Información por confirmar</p>
+          <ul className="mt-1 list-disc space-y-1 pl-4">
+            {strategy.missingContext.map((note, index) => <li key={index}>{note}</li>)}
+          </ul>
+        </div>
+      )}
+    </details>
   );
 }

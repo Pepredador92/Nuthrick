@@ -3,7 +3,7 @@ import { ArrowRight, Check, Pencil } from 'lucide-react';
 import { strategyIssues, type StrategyDocument } from '../../../../supabase/functions/_shared/interventions';
 import type { InterventionWorkspace } from '@/src/services/clinicalInterventions';
 import { formatStrategyEditorText, readStrategyEditorText, strategyFieldOffset } from '@/src/features/consultations/strategyEditorText';
-import { InterventionStrategyForm, strategyIssueMessages, strategyLabels } from './InterventionStrategyForm';
+import { InterventionStrategyForm, strategyIssueMessages, strategyLabels, StrategyProposalSources } from './InterventionStrategyForm';
 
 export function InterventionStrategyEditor({
   document, workspace, text, busy, editable, hasDraft, linked, prerequisite, onEdit, onCancelEdit, onText,
@@ -32,10 +32,13 @@ export function InterventionStrategyEditor({
   const strategy = document.strategy;
   const value = text ?? formatStrategyEditorText(strategy, editable);
   const parsed = editable ? readStrategyEditorText(value) : undefined;
-  const textIssue = parsed && 'issue' in parsed ? parsed.issue : undefined;
+  const textError = parsed && 'issue' in parsed ? parsed : undefined;
+  const textIssue = textError?.issue;
   const issues = strategyIssues(strategy);
   const hasGoal = linked && strategy.goalIndexes.length > 0;
-  const complete = Number(!!strategy.title.trim() && !textIssue) + Number(!!strategy.action.trim() && !textIssue) + Number(hasGoal);
+  const hasStructure = !textError || !!textError.field;
+  const complete = Number(hasStructure && !!strategy.title.trim() && textError?.field !== 'title')
+    + Number(hasStructure && !!strategy.action.trim() && textError?.field !== 'action') + Number(hasGoal);
   const firstIssue = textIssue ?? (issues.includes('title') ? strategyIssueMessages.title
     : issues.includes('action') ? strategyIssueMessages.action
     : prerequisite ?? (!hasGoal ? strategyIssueMessages.goalIndexes
@@ -60,7 +63,7 @@ export function InterventionStrategyEditor({
       return;
     }
     setAttempted(true);
-    const field = textIssue ? 'text' : issues.includes('title') ? 'title' : issues.includes('action') ? 'action'
+    const field = textError ? textError.field ?? 'text' : issues.includes('title') ? 'title' : issues.includes('action') ? 'action'
       : prerequisite ? 'context' : !hasGoal ? 'goalIndexes' : issues[0];
     requestAnimationFrame(() => focusIssue(field));
   }
@@ -68,7 +71,7 @@ export function InterventionStrategyEditor({
   return (
     <section ref={container} className="strategy-inline-editor" aria-label="Editor de estrategia">
       <label htmlFor={`${id}-text`}>Texto de la estrategia</label>
-      {editable && <p id={`${id}-help`} className="strategy-editor-help">Escribe debajo de cada encabezado. Puedes dejar en blanco o quitar los apartados opcionales.</p>}
+      {editable && <p id={`${id}-help`} className="strategy-editor-help">Edita la estrategia en este cuadro. Completa solo los detalles que apliquen.</p>}
       <textarea
         ref={textarea}
         id={`${id}-text`}
@@ -88,6 +91,7 @@ export function InterventionStrategyEditor({
         }}><Pencil size={15} aria-hidden="true" />Editar estrategia</button>
       </div>}
       <InterventionStrategyForm document={document} workspace={workspace} disabled={busy || !editable} showErrors={attempted} onChange={onChange} />
+      <StrategyProposalSources strategy={strategy} />
       {editable && !hasDraft && <div className="strategy-editor-controls">
         <button type="button" className="nuth-button-secondary !text-xs" disabled={busy} onClick={onCancelEdit}>Cerrar edición</button>
       </div>}
@@ -104,7 +108,7 @@ export function InterventionStrategyEditor({
         </div>}
         <div className="strategy-editor-controls">
           <button type="button" className="nuth-button-secondary !text-xs" disabled={busy} onClick={() => {
-            if (textIssue) { setAttempted(true); textarea.current?.focus(); }
+            if (textError) { setAttempted(true); focusIssue(textError.field ?? 'text'); }
             else onSave();
           }}>Guardar borrador</button>
           <button type="button" className="nuth-button !text-xs" disabled={busy} onClick={approve}>
