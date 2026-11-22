@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { ClinicalInterventions } from "./ClinicalInterventions";
+import { formatStrategyEditorText, readStrategyEditorText, type StrategyTextField } from '@/src/features/consultations/strategyEditorText';
 import {approvedPes,smartPlan} from '@/src/test/clinicalFixtures';
 import {
   emptyStrategy,
@@ -16,6 +17,7 @@ const api = vi.hoisted(() => ({
   workspace: vi.fn(),
   generate: vi.fn(),
   before: vi.fn(),
+  batch: vi.fn(),
 }));
 vi.mock(
   "@/src/services/clinicalInterventions",
@@ -40,6 +42,7 @@ vi.mock(
     aiMessages: {},
   }),
 );
+vi.mock("./ClinicalBatchAI", () => ({ useClinicalBatchProposal: api.batch }));
 const pes = {
   ...approvedPes,
   approved_at: "2026-10-18T12:00:00Z",
@@ -79,8 +82,15 @@ beforeEach(() => {
   vi.clearAllMocks();
   sessionStorage.clear();
   api.before.mockResolvedValue(true);
+  api.batch.mockReturnValue({});
   api.workspace.mockResolvedValue(workspace);
 });
+const strategyText = () => screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Texto de la estrategia' });
+function changeText(field: StrategyTextField, value: string) {
+  const parsed = readStrategyEditorText(strategyText().value);
+  if ('issue' in parsed) throw new Error(parsed.issue);
+  fireEvent.change(strategyText(), { target: { value: formatStrategyEditorText({ ...emptyStrategy(), ...parsed.fields, [field]: value }) } });
+}
 async function generate(output: unknown) {
   api.generate.mockResolvedValue({ status: "succeeded", output });
   render(
@@ -105,10 +115,8 @@ it("keeps a long objective proposal visible and sends all evidence when saving i
   fireEvent.click(
     await screen.findByRole("button", { name: "Revisar y editar estrategia" }),
   );
-  fireEvent.change(screen.getByLabelText("Nombre de la estrategia"), {
-    target: { value: "Educación adaptada" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Guardar y cerrar" }));
+  changeText("title", "Educación adaptada");
+  fireEvent.click(screen.getByRole("button", { name: "Guardar borrador" }));
   await waitFor(() =>
     expect(api.workspace).toHaveBeenCalledWith(
       "c",
@@ -247,10 +255,10 @@ it('keeps draft objectives out of strategy approval requirements and routes to t
   });
   const navigate=vi.fn();mount({onReviewPrerequisite:navigate});
   fireEvent.click(await screen.findByRole('button',{name:'Aprobar estrategia'}));
-  const dialog=within(screen.getByRole('dialog'));
-  expect(dialog.getByText('2 de 3 requisitos')).toBeVisible();
-  expect(dialog.getByText(/Objetivos aprobados para el PES vigente/)).toBeVisible();
-  fireEvent.click(dialog.getByRole('button',{name:'Ir a objetivos'}));
+  const editor=within(screen.getByRole('region', {name:'Editor de estrategia'}));
+  expect(editor.getByText('2 de 3 requisitos')).toBeVisible();
+  expect(editor.getByText('Aprueba los objetivos SMART vinculados a este PES.')).toBeVisible();
+  fireEvent.click(editor.getByRole('button',{name:'Ir a objetivos'}));
   expect(navigate).toHaveBeenCalledWith(2);
   expect(api.workspace.mock.calls.some(call=>call[2]==='approve')).toBe(false);
 });
@@ -280,55 +288,29 @@ it('binds an explicitly selected current objective without requiring a separate 
   const doc=fullDocument();doc.objectiveApprovedAt='old-approval';
   api.workspace.mockResolvedValue({...workspace,items:[{...approvedItem(doc),draft:doc,approved:null,state:'draft'}]});
   mount();fireEvent.click(await screen.findByRole('button',{name:'Aprobar estrategia'}));
-  const dialog=within(screen.getByRole('dialog'));
-  const goal=dialog.getAllByRole('checkbox')[0];expect(goal).not.toBeChecked();
-  fireEvent.click(goal);expect(dialog.getByText('3 de 3 requisitos')).toBeVisible();
-  expect(dialog.queryByRole('button',{name:'Vincular a los objetivos actuales'})).not.toBeInTheDocument();
+  const editor=within(screen.getByRole('region', {name:'Editor de estrategia'}));
+  const goal=editor.getAllByRole('checkbox')[0];expect(goal).not.toBeChecked();
+  fireEvent.click(goal);expect(editor.getByText('3 de 3 requisitos')).toBeVisible();
+  expect(editor.queryByRole('button',{name:'Vincular a los objetivos actuales'})).not.toBeInTheDocument();
   expect(api.workspace.mock.calls.some(call=>call[2]==='approve')).toBe(false);
 });
-it("opens a manual strategy in steps and preserves edits when the dialog closes", async () => {
+it("preserves text and optional details when switching between manual strategies", async () => {
   mount();
-  fireEvent.click(
-    screen.getByRole("button", { name: "Agregar estrategia manualmente" }),
-  );
-  const dialog = screen.getByRole("dialog");
-  fireEvent.change(within(dialog).getByLabelText("Nombre de la estrategia"), {
-    target: { value: "Coordinar la atención" },
-  });
-  fireEvent.change(within(dialog).getByLabelText("Categoría"), {
-    target: { value: "coordination" },
-  });
-  fireEvent.click(within(dialog).getByRole("button", { name: /^Recursos/ }));
-  expect(
-    within(dialog).getByLabelText(
-      "Profesional o servicio con quien se coordina",
-    ),
-  ).toBeVisible();
-  expect(within(dialog).queryByLabelText("Tema o habilidad que se trabajará"))
-    .not.toBeInTheDocument();
-  fireEvent.change(within(dialog).getByLabelText("Motivo de la coordinación"), {
-    target: { value: "Revisar la atención conjunta" },
-  });
-  fireEvent.click(
-    within(dialog).getByRole("button", {
-      name: "Cerrar revisión de la estrategia",
-    }),
-  );
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  expect(screen.queryByLabelText("Nombre de la estrategia")).not
-    .toBeInTheDocument();
-  fireEvent.click(
-    screen.getByRole("button", {
-      name: "Revisar estrategia: Coordinar la atención",
-    }),
-  );
-  expect(screen.getByLabelText("Nombre de la estrategia")).toHaveValue(
-    "Coordinar la atención",
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Guardar y cerrar" }));
-  await waitFor(() =>
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
-  );
+  await waitFor(() => expect(api.workspace).toHaveBeenCalled());
+  const addStrategy = screen.getByRole('button', { name: 'Agregar estrategia manualmente' });
+  fireEvent.click(addStrategy);
+  changeText('title', 'Coordinar la atención');
+  fireEvent.change(screen.getByLabelText('Categoría'), { target: { value: 'coordination' } });
+  fireEvent.click(screen.getByText('Aplicación y recursos · opcional'));
+  expect(screen.getByLabelText('Profesional o servicio con quien se coordina')).toBeVisible();
+  expect(screen.queryByLabelText('Tema o habilidad que se trabajará')).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Motivo de la coordinación'), { target: { value: 'Revisar la atención conjunta' } });
+  fireEvent.click(addStrategy);
+  expect(strategyText().value).not.toContain('Coordinar la atención');
+  fireEvent.click(screen.getByRole('button', { name: /Coordinar la atención/ }));
+  expect(strategyText().value).toContain('Coordinar la atención');
+  fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+  await screen.findByText(/Borrador guardado/);
   expect(api.workspace).toHaveBeenLastCalledWith(
     "c",
     1,
@@ -350,17 +332,11 @@ it("keeps the draft editor open when saving the consultation fails", async () =>
   fireEvent.click(
     screen.getByRole("button", { name: "Agregar estrategia manualmente" }),
   );
-  fireEvent.change(screen.getByLabelText("Nombre de la estrategia"), {
-    target: { value: "Conservar este borrador" },
-  });
+  changeText("title", "Conservar este borrador");
   api.before.mockResolvedValue(false);
-  fireEvent.click(screen.getByRole("button", { name: "Guardar y cerrar" }));
-  await within(screen.getByRole("dialog")).findByText(
-    "Guarda la consulta antes de continuar.",
-  );
-  expect(screen.getByLabelText("Nombre de la estrategia")).toHaveValue(
-    "Conservar este borrador",
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Guardar borrador" }));
+  await screen.findByText("Guarda la consulta antes de continuar.");
+  expect(strategyText().value).toContain("Conservar este borrador");
   expect(sessionStorage.getItem("intervention-drafts:c:1")).toContain(
     "Conservar este borrador",
   );
@@ -375,13 +351,10 @@ it("allows approving an AI strategy with agreement pending and never starts exec
   );
   expect(screen.queryByRole("button", { name: "Revisar y editar estrategia" }))
     .not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: /^Acuerdo/ }));
-  expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Aprobar estrategia" }))
-    .toBeEnabled();
-  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Aprobar estrategia" }));
-  await waitFor(() =>
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
-  );
+  fireEvent.click(screen.getByText('Acuerdo con la persona · opcional'));
+  expect(screen.getByLabelText('Acuerdo con la persona')).toHaveValue('pending');
+  fireEvent.click(screen.getByRole('button', { name: 'Aprobar estrategia' }));
+  await screen.findByText('Estrategia aprobada.');
   expect(api.workspace).toHaveBeenLastCalledWith(
     "c",
     1,
@@ -410,15 +383,12 @@ it("blocks approval when the strategy is linked to earlier objective approvals",
     }],
   });
   mount();
-  fireEvent.click(
-    await screen.findByRole("button", {
-      name: `Revisar estrategia: ${doc.strategy.title}`,
-    }),
-  );
-  expect(within(screen.getByRole('dialog')).getAllByRole('checkbox')[0]).not.toBeChecked();
-  fireEvent.click(screen.getByRole("button", { name: /^Acuerdo/ }));
-  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Aprobar estrategia" }));
-  expect(within(screen.getByRole('dialog')).getAllByRole('checkbox')[0]).toBeVisible();
+  const approve = await screen.findByRole('button', { name: 'Aprobar estrategia' });
+  const goal = within(screen.getByRole('group', { name: /Objetivos que apoya/ })).getByRole('checkbox');
+  expect(goal).not.toBeChecked();
+  fireEvent.click(approve);
+  await waitFor(() => expect(goal).toHaveFocus());
+  expect(goal).toBeVisible();
   expect(api.workspace.mock.calls.some(call=>call[2]==='approve')).toBe(false);
   expect(api.workspace).toHaveBeenCalledOnce();
 });
@@ -426,16 +396,13 @@ it("allows reviewing an approved strategy without creating a draft or changing i
   const item = approvedItem();
   api.workspace.mockResolvedValue({ ...workspace, items: [item] });
   mount();
-  fireEvent.click(
-    await screen.findByRole("button", {
-      name: `Revisar estrategia: ${item.approved.document.strategy.title}`,
-    }),
-  );
-  expect(screen.getByLabelText("Nombre de la estrategia")).toHaveValue(
-    item.approved.document.strategy.title,
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Listo" }));
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  await screen.findByRole('textbox', { name: 'Texto de la estrategia' });
+  expect(strategyText().value).toContain(item.approved.document.strategy.title);
+  expect(strategyText()).toHaveAttribute('readonly');
+  fireEvent.click(screen.getByRole('button', { name: 'Editar estrategia' }));
+  expect(strategyText()).not.toHaveAttribute('readonly');
+  fireEvent.click(screen.getByRole('button', { name: 'Cerrar edición' }));
+  expect(strategyText()).toHaveAttribute('readonly');
   expect(sessionStorage.getItem("intervention-drafts:c:1")).toBeNull();
   expect(api.workspace).toHaveBeenCalledOnce();
   expect(screen.getByText("Aprobada")).toBeVisible();
@@ -481,7 +448,7 @@ it("keeps read-only strategies available for consultation without editing or exe
   api.workspace.mockResolvedValue({ ...workspace, items: [approvedItem()] });
   mount({ readOnly: true });
   await screen.findByText("Aprobada");
-  expect(screen.queryByRole("button", { name: /Revisar estrategia:/ })).not
+  expect(screen.queryByRole("button", { name: "Editar estrategia" })).not
     .toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Proponer estrategias con IA" }))
     .not.toBeInTheDocument();
@@ -492,4 +459,40 @@ it("keeps read-only strategies available for consultation without editing or exe
   expect(
     screen.getByText("Practicar opciones con la persona", { selector: "dd" }),
   ).toBeVisible();
+});
+
+it('restores text with a missing heading and keeps it out of approval until corrected', async () => {
+  const first = mount();
+  await waitFor(() => expect(api.workspace).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole('button', { name: 'Agregar estrategia manualmente' }));
+  const incomplete = 'Texto pendiente de organizar.\nMañana retomar esta versión.';
+  fireEvent.change(strategyText(), { target: { value: incomplete } });
+  fireEvent.click(screen.getByRole('button', { name: 'Aprobar estrategia' }));
+  expect(screen.getByRole('status')).toHaveTextContent(/Conserva los encabezados/);
+  expect(api.workspace).toHaveBeenCalledOnce();
+  first.unmount();
+  mount();
+  expect(strategyText()).toHaveValue(incomplete);
+  fireEvent.click(screen.getByRole('button', { name: 'Limpiar campos' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Limpiar campos' }));
+  expect(strategyText().value).toContain('Acción concreta');
+  expect(strategyText().value).not.toContain(incomplete);
+  fireEvent.click(screen.getByRole('button', { name: 'Eliminar borrador' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Eliminar borrador' }));
+  await screen.findByText('Borrador eliminado.');
+  expect(screen.queryByRole('textbox', { name: 'Texto de la estrategia' })).not.toBeInTheDocument();
+});
+
+it('shows a saved batch proposal on entry without requesting a new generation', async () => {
+  const document = fullDocument();
+  const markReviewed = vi.fn();
+  api.batch.mockImplementation(feature => feature === 'intervention_strategy' ? {
+    proposal: { generationId: document.generationId, output: { strategies: [document] } },
+    markReviewed,
+  } : {});
+  mount();
+  fireEvent.click(await screen.findByRole('button', { name: 'Revisar y editar estrategia' }));
+  expect(markReviewed).toHaveBeenCalledWith(document.generationId);
+  expect(strategyText().value).toContain(document.strategy.action);
+  expect(api.generate).not.toHaveBeenCalled();
 });

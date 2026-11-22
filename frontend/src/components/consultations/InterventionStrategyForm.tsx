@@ -6,7 +6,6 @@ import {
   type StrategyDocument,
   strategyIssues,
   strategyReferences,
-  strategyRequiredFields,
 } from "../../../../supabase/functions/_shared/interventions";
 import type { InterventionWorkspace } from "@/src/services/clinicalInterventions";
 import { objectivePlansEqual } from '../../../../supabase/functions/_shared/objectives';
@@ -48,82 +47,6 @@ export const strategyIssueMessages: Record<string, string> = {
   route: "Selecciona una vía que corresponda al tipo de estrategia.",
   referenceUrl: "Escribe un enlace que comience con https:// o deja el campo vacío.",
 };
-export const strategySteps = [
-  {
-    title: "Propósito",
-    heading: "¿Qué objetivo apoyará?",
-    description:
-      "Elige el tipo de estrategia y vincula el objetivo que quieres trabajar.",
-    keys: ["title", "goalIndexes"],
-  },
-  {
-    title: "Acción",
-    heading: "¿Qué se hará y cómo?",
-    description:
-      "Describe una acción concreta y cómo responde a la causa del PES.",
-    keys: ["action", "method", "etiologyLink"],
-  },
-  {
-    title: "Recursos",
-    heading: "¿Qué necesitan para llevarla a cabo?",
-    description:
-      "Añade los detalles que conozcas. Puedes dejar los demás pendientes.",
-    keys: [
-      "composition",
-      "dose",
-      "route",
-      "access",
-      "educationTopic",
-      "materials",
-      "comprehensionCheck",
-      "coordinationWith",
-      "coordinationReason",
-      "adaptations",
-    ],
-  },
-  {
-    title: "Aplicación",
-    heading: "¿Cuándo comienza y quién participa?",
-    description: "Organiza los tiempos y las responsabilidades previstas.",
-    keys: ["frequency", "duration", "startDate", "responsible", "executor"],
-  },
-  {
-    title: "Seguimiento",
-    heading: "¿Cómo sabrán si está funcionando?",
-    description:
-      "Define qué revisarás y cuándo conviene ajustar la estrategia.",
-    keys: ["monitoring", "reviewAt", "adjustmentCriteria"],
-  },
-  {
-    title: "Acuerdo",
-    heading: "Revisa y acuerda la estrategia",
-    description: "Registra el acuerdo si ya lo conversaron. Puede quedar pendiente al aprobar.",
-    keys: ["agreement", "referenceUrl"],
-  },
-] as const;
-export function strategyStepIssues(strategy: Strategy, step: number) {
-  const keys: readonly string[] = strategySteps[step].keys;
-  return strategyIssues(strategy).filter((key) => keys.includes(key));
-}
-export function strategyStepHasDetails(strategy: Strategy, step: number) {
-  return strategySteps[step].keys.some((key) => {
-    const value = strategy[key];
-    if (key === "agreement") return value !== "pending";
-    if (key === "route") return value !== "not_applicable";
-    return Array.isArray(value) ? value.length > 0 : value.trim().length > 0;
-  });
-}
-export function firstIncompleteStrategyStep(
-  strategy: Strategy,
-  linked: boolean,
-) {
-  if (!linked) return 0;
-  const step = strategySteps.findIndex((_, index) =>
-    strategyStepIssues(strategy, index).length > 0
-  );
-  return step < 0 ? 0 : step;
-}
-
 export function strategyContextEligible(workspace: InterventionWorkspace | null) {
   const objective = workspace?.objective;
   return !!workspace?.pes && !!objective?.smart_plan &&
@@ -161,11 +84,10 @@ export function strategyIsLinked(
 }
 
 export function InterventionStrategyForm(
-  { document, workspace, disabled, step, showErrors = false, onChange }: {
+  { document, workspace, disabled, showErrors = false, onChange }: {
     document: StrategyDocument;
     workspace: InterventionWorkspace | null;
     disabled: boolean;
-    step: number;
     showErrors?: boolean;
     onChange: (document: StrategyDocument) => void;
   },
@@ -183,7 +105,6 @@ export function InterventionStrategyForm(
   function field(key: keyof typeof strategyLabels, short = false) {
     const value = s[key as keyof Strategy] as string;
     const label = strategyLabels[key];
-    const required = strategyRequiredFields.some((field) => field === key);
     const invalid = showErrors && issues.includes(key);
     const errorId = `${errorPrefix}-${key}`;
     return (
@@ -200,10 +121,8 @@ export function InterventionStrategyForm(
             <Check size={14} aria-hidden="true" />
           )}
         </span>
-        <small>{required ? "Obligatorio para aprobar" : "Opcional"}</small>
         <textarea
           aria-label={label}
-          aria-required={required}
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? errorId : undefined}
           className="nuth-input"
@@ -211,9 +130,6 @@ export function InterventionStrategyForm(
           maxLength={1500}
           value={value}
           onChange={(e) => change({ [key]: e.target.value })}
-          placeholder={key === "adaptations"
-            ? "Recursos, preferencias y apoyos que necesita la persona"
-            : undefined}
         />
         {invalid && <small id={errorId} className="clinical-strategy-field-error">
           {strategyIssueMessages[key] ?? `Revisa: ${label}.`}
@@ -234,100 +150,88 @@ export function InterventionStrategyForm(
   if (["coordination", "supplementation"].includes(s.category)) {
     resourceFields.push("coordinationWith", "coordinationReason");
   }
-  resourceFields.push("adaptations");
   return (
     <fieldset disabled={disabled} className="clinical-strategy-fields">
-      {step === 0 && (
-        <>
-          {!linked && eligible && (
-            <div className="clinical-notice is-warning" data-strategy-field="context" tabIndex={-1}>
-              <p>El PES o los objetivos cambiaron. Revisa la estrategia y elige al menos un objetivo de la lista actual.</p>
-            </div>
-          )}
-          {field("title", true)}
-          <div className="clinical-strategy-short-fields">
-            <label className="clinical-goal-field">
-              <span>Categoría</span>
-              <select
-                className="nuth-input"
-                value={s.category}
-                onChange={(e) =>
-                  change({
-                    category: e.target.value as Strategy["category"],
-                    route: "not_applicable",
-                    access: "",
-                    dose: "",
-                    composition: "",
-                    educationTopic: "",
-                    materials: "",
-                    comprehensionCheck: "",
-                    coordinationWith: "",
-                    coordinationReason: "",
-                  })}
-              >
-                {Object.entries(strategyCategories).map(([key, label]) => (
-                  <option key={key} value={key}>{label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="clinical-goal-field">
-              <span>Prioridad · 1 es la mayor</span>
+      <div className="clinical-strategy-short-fields">
+        <label className="clinical-goal-field">
+          <span>Categoría</span>
+          <select
+            className="nuth-input"
+            value={s.category}
+            onChange={(e) =>
+              change({
+                category: e.target.value as Strategy["category"],
+                route: "not_applicable",
+                access: "",
+                dose: "",
+                composition: "",
+                educationTopic: "",
+                materials: "",
+                comprehensionCheck: "",
+                coordinationWith: "",
+                coordinationReason: "",
+              })}
+          >
+            {Object.entries(strategyCategories).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="clinical-goal-field">
+          <span>Prioridad · 1 es la mayor</span>
+          <input
+            type="number"
+            className="nuth-input"
+            min={1}
+            max={10}
+            value={s.priority}
+            onChange={(e) =>
+              change({
+                priority: Math.min(
+                  10,
+                  Math.max(1, Number(e.target.value) || 1),
+                ),
+              })}
+          />
+        </label>
+      </div>
+      <fieldset className="clinical-strategy-goals" data-strategy-field="goalIndexes" tabIndex={-1}
+        aria-invalid={showErrors && issues.includes("goalIndexes") || undefined}
+        aria-describedby={showErrors && issues.includes("goalIndexes") ? `${errorPrefix}-goalIndexes` : undefined}>
+        <legend>Objetivos que apoya · elige al menos uno para aprobar</legend>
+        {goals.length
+          ? goals.map((goal, index) => (
+            <label key={index}>
               <input
-                type="number"
-                className="nuth-input"
-                min={1}
-                max={10}
-                value={s.priority}
-                onChange={(e) =>
-                  change({
-                    priority: Math.min(
-                      10,
-                      Math.max(1, Number(e.target.value) || 1),
-                    ),
-                  })}
+                type="checkbox"
+                checked={(!eligible || linked) && s.goalIndexes.includes(index)}
+                onChange={(e) => {
+                  const selected = eligible && !linked ? [] : s.goalIndexes;
+                  onChange({...currentDocument,
+                    pesApprovedAt: workspace?.pes?.approved_at ?? '',
+                    objectiveApprovedAt: objective?.approved_at ?? '',
+                    strategy: {...s, goalIndexes: e.target.checked
+                      ? [...new Set([...selected, index])].sort()
+                      : selected.filter(i => i !== index)},
+                  });
+                }}
               />
+              <span>
+                <strong>{index + 1}. {goal.outcome}</strong>
+              </span>
             </label>
-          </div>
-          <fieldset className="clinical-strategy-goals" data-strategy-field="goalIndexes" tabIndex={-1}
-            aria-invalid={showErrors && issues.includes("goalIndexes") || undefined}
-            aria-describedby={showErrors && issues.includes("goalIndexes") ? `${errorPrefix}-goalIndexes` : undefined}>
-            <legend>Objetivos que apoya · elige al menos uno para aprobar</legend>
-            {goals.length
-              ? goals.map((goal, index) => (
-                <label key={index}>
-                  <input
-                    type="checkbox"
-                    checked={(!eligible || linked) && s.goalIndexes.includes(index)}
-                    onChange={(e) => {
-                      const selected = eligible && !linked ? [] : s.goalIndexes;
-                      onChange({...currentDocument,
-                        pesApprovedAt: workspace?.pes?.approved_at ?? '',
-                        objectiveApprovedAt: objective?.approved_at ?? '',
-                        strategy: {...s, goalIndexes: e.target.checked
-                          ? [...new Set([...selected, index])].sort()
-                          : selected.filter(i => i !== index)},
-                      });
-                    }}
-                  />
-                  <span>
-                    <strong>{index + 1}. {goal.outcome}</strong>
-                  </span>
-                </label>
-              ))
-              : (
-                <p className="clinical-notice">
-                  Aprueba los objetivos SMART para vincularlos.
-                </p>
-              )}
-            {showErrors && issues.includes("goalIndexes") &&
-              <p id={`${errorPrefix}-goalIndexes`} className="clinical-strategy-field-error">{strategyIssueMessages.goalIndexes}</p>}
-          </fieldset>
-        </>
-      )}
-      {step === 1 &&
-        ["action", "method", "etiologyLink"].map((key) => field(key))}
-      {step === 2 && (
-        <>
+          ))
+          : (
+            <p className="clinical-notice">
+              Aprueba los objetivos SMART para vincularlos.
+            </p>
+          )}
+        {showErrors && issues.includes("goalIndexes") &&
+          <p id={`${errorPrefix}-goalIndexes`} className="clinical-strategy-field-error">{strategyIssueMessages.goalIndexes}</p>}
+      </fieldset>
+      <details className="clinical-support-details strategy-editor-details">
+        <summary>Aplicación y recursos · opcional</summary>
+        <div className="clinical-strategy-fields">
           {(["food", "supplementation"].includes(s.category) || issues.includes("route")) && (
             <label className="clinical-goal-field" data-strategy-field="route">
               <span>Vía de administración · opcional</span>
@@ -355,101 +259,94 @@ export function InterventionStrategyForm(
             </label>
           )}
           {[...new Set(resourceFields)].map((key) => field(key))}
-        </>
-      )}
-      {step === 3 && (
-        <div className="clinical-strategy-short-fields">
-          {["frequency", "duration", "startDate", "responsible", "executor"]
-            .map((key) => field(key, true))}
+          <div className="clinical-strategy-short-fields">
+            {["frequency", "duration", "startDate", "responsible", "executor", "reviewAt", "adjustmentCriteria"]
+              .map(key => field(key, true))}
+          </div>
         </div>
-      )}
-      {step === 4 &&
-        ["monitoring", "reviewAt", "adjustmentCriteria"].map((key) =>
-          field(key)
-        )}
-      {step === 5 && (
-        <>
-          <label className="clinical-goal-field">
-            <span>Acuerdo con la persona · opcional</span>
-            <select
-              className="nuth-input"
-              aria-label="Acuerdo con la persona"
-              value={s.agreement}
+      </details>
+      <details className="clinical-support-details strategy-editor-details">
+        <summary>Acuerdo con la persona · opcional</summary>
+        <label className="clinical-goal-field">
+          <span>Estado del acuerdo</span>
+          <select
+            className="nuth-input"
+            aria-label="Acuerdo con la persona"
+            value={s.agreement}
+            onChange={(e) =>
+              change({ agreement: e.target.value as Strategy["agreement"] })}
+          >
+            <option value="pending">Pendiente de conversar</option>
+            <option value="patient">Acordado con el paciente</option>
+            <option value="caregiver">
+              Acordado con cuidador o representante
+            </option>
+          </select>
+          <small>Registra el acuerdo después de conversarlo.</small>
+        </label>
+      </details>
+      <details className="clinical-support-details">
+        <summary>Fundamento y referencias</summary>
+        <p className="mt-3 text-xs">
+          Registra la guía o protocolo que corresponde a esta estrategia.
+        </p>
+        {strategyReferences.map((ref) => (
+          <label key={ref.id} className="clinical-strategy-reference">
+            <input
+              type="checkbox"
+              checked={s.referenceIds.includes(ref.id)}
               onChange={(e) =>
-                change({ agreement: e.target.value as Strategy["agreement"] })}
-            >
-              <option value="pending">Pendiente de conversar</option>
-              <option value="patient">Acordado con el paciente</option>
-              <option value="caregiver">
-                Acordado con cuidador o representante
-              </option>
-            </select>
-            <small>Registra el acuerdo después de conversarlo.</small>
+                change({
+                  referenceIds: e.target.checked
+                    ? [...s.referenceIds, ref.id]
+                    : s.referenceIds.filter((id) =>
+                      id !== ref.id
+                    ),
+                })}
+            />
+            <span>
+              <a
+                href={ref.url}
+                target="_blank"
+                rel="noreferrer"
+                className="underline"
+              >
+                {ref.title}
+              </a>
+              <small>{ref.scope}</small>
+            </span>
           </label>
-          <details className="clinical-support-details">
-            <summary>Fundamento y referencias</summary>
-            <p className="mt-3 text-xs">
-              Registra la guía o protocolo que corresponde a esta estrategia.
-            </p>
-            {strategyReferences.map((ref) => (
-              <label key={ref.id} className="clinical-strategy-reference">
-                <input
-                  type="checkbox"
-                  checked={s.referenceIds.includes(ref.id)}
-                  onChange={(e) =>
-                    change({
-                      referenceIds: e.target.checked
-                        ? [...s.referenceIds, ref.id]
-                        : s.referenceIds.filter((id) =>
-                          id !== ref.id
-                        ),
-                    })}
-                />
-                <span>
-                  <a
-                    href={ref.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline"
-                  >
-                    {ref.title}
-                  </a>
-                  <small>{ref.scope}</small>
-                </span>
-              </label>
+        ))}
+        <div className="clinical-strategy-fields mt-4">
+          {[
+            "referenceTitle",
+            "referenceUrl",
+            "referenceVersion",
+            "referenceNotes",
+          ].map((key) => field(key))}
+        </div>
+      </details>
+      {!!s.evidence.length && (
+        <details className="clinical-support-details">
+          <summary>
+            Datos del expediente utilizados por la propuesta
+          </summary>
+          <ul className="mt-3 space-y-2 text-xs">
+            {s.evidence.map((e, i) => (
+              <li key={i}>
+                <strong>{e.source}:</strong> {e.finding}
+              </li>
             ))}
-            <div className="clinical-strategy-fields mt-4">
-              {[
-                "referenceTitle",
-                "referenceUrl",
-                "referenceVersion",
-                "referenceNotes",
-              ].map((key) => field(key))}
-            </div>
-          </details>
-          {!!s.evidence.length && (
-            <details className="clinical-support-details">
-              <summary>
-                Datos del expediente utilizados por la propuesta
-              </summary>
-              <ul className="mt-3 space-y-2 text-xs">
-                {s.evidence.map((e, i) => (
-                  <li key={i}>
-                    <strong>{e.source}:</strong> {e.finding}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-          {!!s.missingContext.length && (
-            <details className="clinical-support-details">
-              <summary>Datos pendientes en la propuesta original</summary>
-              <ul className="mt-3 list-disc pl-4 text-xs">
-                {s.missingContext.map((note, i) => <li key={i}>{note}</li>)}
-              </ul>
-            </details>
-          )}
-        </>
+          </ul>
+        </details>
+      )}
+      {!!s.missingContext.length && (
+        <details className="clinical-support-details">
+          <summary>Datos pendientes en la propuesta original</summary>
+          <ul className="mt-3 list-disc pl-4 text-xs">
+            {s.missingContext.map((note, i) => <li key={i}>{note}</li>)}
+          </ul>
+        </details>
       )}
     </fieldset>
   );

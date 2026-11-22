@@ -58,18 +58,6 @@ html[data-nuthrick-theme='night'] .clinical-strategies-workspace {
 .clinical-strategy-card-actions > button {
   min-height: 40px;
 }
-.clinical-strategy-approval-help {
-  margin-top: 14px;
-  color: var(--nuth-muted);
-  font-size: 12px;
-  line-height: 1.75;
-}
-.clinical-strategy-editor-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-top: 22px;
-}
 .clinical-strategy-field-error {
   color: var(--clinical-strategy-error);
   font-size: 12px;
@@ -79,32 +67,7 @@ html[data-nuthrick-theme='night'] .clinical-strategies-workspace {
 .clinical-strategy-fields [aria-invalid='true'] {
   border-color: var(--clinical-strategy-error);
 }
-.clinical-strategy-dialog .clinical-approval-details li {
-  margin-top: 10px;
-}
-.clinical-strategy-dialog .clinical-approval-details button {
-  text-align: left;
-  line-height: 1.65;
-  min-height: 36px;
-}
-.clinical-strategy-requirements {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px 14px;
-  margin: -6px 0 18px;
-  color: var(--nuth-muted);
-  font-size: 11px;
-  line-height: 1.5;
-  list-style: none;
-}
-.clinical-strategy-requirements li[data-complete='true'] {
-  color: var(--clinical-complete);
-}
-@media (max-width: 640px) {
-  .clinical-strategy-requirements {
-    grid-template-columns: 1fr;
-  }
-}
+
 .clinical-strategy-action-dialog {
   width: min(580px, calc(100vw - 32px));
 }
@@ -116,19 +79,6 @@ html[data-nuthrick-theme='night'] .clinical-strategies-workspace {
 .clinical-strategy-action-dialog .clinical-objective-dialog-body {
   font-size: 14px;
   line-height: 1.75;
-}
-.clinical-strategy-draft-options {
-  color: var(--nuth-muted);
-  font-size: 11px;
-}
-.clinical-strategy-draft-options summary {
-  cursor: pointer;
-  padding-block: 8px;
-}
-.clinical-strategy-draft-options > div {
-  display: grid;
-  gap: 8px;
-  margin-top: 8px;
 }
 .clinical-strategy-proposals {
   margin-top: 18px;
@@ -169,16 +119,6 @@ html[data-nuthrick-theme='night'] .clinical-strategies-workspace {
   flex-wrap: wrap;
   gap: 9px;
   margin-top: 15px;
-}
-.clinical-strategy-dialog {
-  width: min(840px, calc(100vw - 32px));
-}
-.clinical-strategy-stepper {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-.clinical-strategy-stepper button {
-  flex-direction: column;
-  gap: 5px;
 }
 .clinical-strategy-fields {
   display: grid;
@@ -238,16 +178,7 @@ html[data-nuthrick-theme='night'] .clinical-strategies-workspace {
   color: var(--nuth-muted);
   font-size: 11px;
 }
-.clinical-strategy-review-note {
-  padding: 14px 16px;
-  margin-top: 17px;
-  background: var(--clinical-complete-soft);
-  color: var(--nuth-muted);
-  border-radius: 12px;
-  font-size: 12px;
-  line-height: 1.7;
-}
-html[data-nuthrick-theme='night'] :is(.clinical-strategy-card-actions, .clinical-strategy-draft-options) .clinical-text-action {
+html[data-nuthrick-theme='night'] .clinical-strategy-card-actions .clinical-text-action {
   color: var(--nuth-accent);
 }
 @media (max-width: 600px) {
@@ -258,23 +189,159 @@ html[data-nuthrick-theme='night'] :is(.clinical-strategy-card-actions, .clinical
     flex-wrap: wrap;
     gap: 9px;
   }
-  .clinical-strategy-stepper {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
-  }
-  .clinical-strategy-stepper button {
-    flex-direction: row;
-    gap: 6px;
-    font-size: 10px;
-  }
   .clinical-strategy-short-fields {
     grid-template-columns: minmax(0, 1fr);
   }
-  .clinical-strategy-dialog .clinical-objective-dialog-footer > div {
-    flex-wrap: wrap;
-  }
 }
-.clinical-strategy-dialog .clinical-objective-dialog-footer,
-.clinical-strategy-dialog .clinical-objective-dialog-footer > div {
+.clinical-strategies-workspace {
+  --strategy-panel: #f1f4ff;
+  --strategy-line: #c6d1f0;
+  --strategy-selected: #e2eaff;
+}
+html[data-nuthrick-theme='night'] .clinical-strategies-workspace {
+  --strategy-panel: #1a2943;
+  --strategy-line: #455b83;
+  --strategy-selected: #243c63;
+}
+.clinical-strategies-workspace .strategy-generate-button:not(:disabled) {
+  background: #2454da;
+  box-shadow: 0 0 0 2px #779cf45c, 0 4px 18px #2454da38;
+}
+.clinical-strategies-workspace .strategy-generate-button:not(:disabled):hover {
+  background: #1841ba;
+}
+html[data-nuthrick-theme='night'] .clinical-strategies-workspace .strategy-generate-button:not(:disabled) {
+  background: #8bbbff;
+  color: #10254b;
+  box-shadow: 0 0 0 2px #8bbbff70, 0 4px 20px #6ba8ff4d;
+}
+html[data-nuthrick-theme='night'] .clinical-strategies-workspace .strategy-generate-button:not(:disabled):hover {
+  background: #b0d1ff;
+}
+.strategy-workspace-message {
+  margin-top: 16px;
+  color: var(--nuth-ink);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.strategy-editor-layout {
+  grid-template-columns: minmax(140px, 1fr) minmax(0, 3fr);
+  align-items: start;
+}
+.strategy-selector {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.strategy-selector button {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--strategy-line);
+  border-radius: 12px;
+  background: var(--strategy-panel);
+  color: var(--nuth-ink);
+  text-align: left;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.strategy-selector button[aria-pressed='true'] {
+  background: var(--strategy-selected);
+  border-color: var(--nuth-action);
+  box-shadow: inset 3px 0 var(--nuth-action);
+}
+.strategy-selector span {
+  color: var(--nuth-muted);
+  font-size: 11px;
+}
+.clinical-strategy-proposals > article {
+  border-color: var(--strategy-line);
+  background: var(--strategy-panel);
+}
+.clinical-strategy-card {
+  min-width: 0;
+  scroll-margin-block: 100px;
+  overflow-wrap: anywhere;
+}
+.strategy-inline-editor {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  margin-top: 18px;
+}
+.strategy-inline-editor > label {
+  font-size: 14px;
+  font-weight: 650;
+}
+.strategy-editor-help {
+  margin-top: -8px;
+  font-size: 12px;
+  color: var(--nuth-muted);
+}
+.clinical-strategies-workspace .strategy-editor-text.nuth-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 16rem;
+  max-height: 48rem;
+  padding: 14px 16px;
+  border: 1px solid var(--strategy-line);
+  border-radius: 14px;
+  background: #fff;
+  color: #163439;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.65;
+  field-sizing: content;
+  overflow-y: auto;
+  resize: vertical;
+}
+.strategy-editor-text:focus-visible,
+.strategy-selector button:focus-visible {
+  outline: 2px solid var(--nuth-action);
+  outline-offset: 3px;
+}
+.clinical-strategy-card[data-status='approved'] .strategy-editor-text[readonly] {
+  border-inline-start: 4px solid var(--clinical-complete);
+}
+.strategy-editor-details .clinical-strategy-fields,
+.strategy-editor-details .clinical-goal-field {
+  margin-top: 10px;
+}
+.strategy-editor-footer {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--nuth-line);
+}
+.strategy-editor-approval,
+.strategy-editor-controls {
+  display: flex;
+  align-items: center;
   flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.strategy-editor-approval {
+  color: var(--nuth-muted);
+  font-size: 12px;
+}
+.strategy-editor-approval progress {
+  width: 64px;
+  height: 6px;
+  accent-color: var(--nuth-action);
+}
+.strategy-editor-pending {
+  color: var(--nuth-muted);
+  font-size: 12px;
+}
+.strategy-editor-pending button {
+  margin-top: 6px;
+}
+@media (max-width: 760px) {
+  .strategy-editor-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .strategy-selector {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr));
+  }
 }
