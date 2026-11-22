@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ArrowRight, ClipboardCheck, ClipboardList, FileDown, Route, Target, X } from "lucide-react";
 import { PdfExportDialog } from "@/src/components/documents/PdfExportDialog";
 import { Input, Textarea } from "@/src/components/ui/FormField";
@@ -9,6 +9,7 @@ import {
 } from "@/src/features/progress/clinicalProgress";
 import { consultationLabel, formatPatientDate } from "@/src/features/patients/patientUtils";
 import { listProgressReviews, listProgressSources, saveProgressReview } from "@/src/services/clinicalProgress";
+import { getSnapshot, listAnswers } from "@/src/services/consultations";
 import type { Consultation, Patient } from "@/src/types/domain";
 import "./ClinicalProgress.css";
 
@@ -51,13 +52,15 @@ type EntryProps = {
   onHistoryClose?: () => void;
   consultationsRevision?: string;
   onProgressSaved?: () => void;
+  summaryActive?: boolean;
 };
 
-export function ClinicalProgress({ patient, consultation, historySource, onHistoryClose, consultationsRevision, onProgressSaved }: EntryProps) {
+export function ClinicalProgress({ patient, consultation, historySource, onHistoryClose, consultationsRevision, onProgressSaved, summaryActive }: EntryProps) {
   const [requestedSource, setRequestedSource] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const requested = historySource ?? requestedSource;
   const open = requested !== null;
-  const data = useProgressSources(patient.id, open || !consultation, `${historySource ?? ""}:${consultationsRevision ?? ""}`);
+  const data = useProgressSources(patient.id, open || !consultation || !!summaryActive, `${historySource ?? ""}:${consultationsRevision ?? ""}`);
   const allSources = data.sources ?? emptySources;
   const sources = consultation ? allSources.filter((source) => sourcePrecedesVisit(source, consultation)) : allSources;
   const goals = activeProgressGoals(sources);
@@ -69,9 +72,46 @@ export function ClinicalProgress({ patient, consultation, historySource, onHisto
     error={data.error}
     retry={data.retry}
     requestedSource={requested}
-    onClose={() => { setRequestedSource(null); onHistoryClose?.(); }}
+    showHistory={showHistory}
+    onClose={() => { setRequestedSource(null); setShowHistory(false); onHistoryClose?.(); }}
     onSaved={(key, review) => { data.onSaved(key, review); onProgressSaved?.(); }}
   />;
+  if (consultation && summaryActive !== undefined) {
+    const source = sources.find((item) => item.current);
+    const currentReview = source?.latest_review;
+    const hasLaterReview = source && progressReviewedAfterVisit(source, consultation);
+    const document = source && (hasLaterReview ? originalProgress(source) : currentReview?.document ?? originalProgress(source));
+    const reviewedToday = currentReview?.review_consultation_id === consultation.id && !hasLaterReview;
+    return <>
+      {data.error ? <ErrorState message={data.error} onRetry={data.retry} /> : !data.sources
+        ? <p role="status">Cargando acuerdos anteriores…</p>
+        : source && document ? <>
+          <p className="clinical-followup-muted">{sourceLabel(source)}</p>
+          {document.goals.length || document.strategies.length ? <ul className="clinical-followup-items">
+            {document.goals.map((goal) => <li key={goal.id}>
+              <div><strong>{headline(goal.text, "Objetivo")}</strong><span className="clinical-followup-pill">{goalStatuses[goal.assessment.status]}</span></div>
+              {goal.assessment.result && <p>{goal.assessment.result}</p>}
+              {goal.assessment.date && goal.assessment.visitId !== consultation.id && <small>Última revisión · {formatPatientDate(goal.assessment.date)}</small>}
+            </li>)}
+            {document.strategies.map((strategy) => <li key={strategy.id}>
+              <div><strong>{headline(strategy.text, "Estrategia")}</strong><span className="clinical-followup-pill">{strategy.assessment.status === "unreviewed" ? "Sin revisar" : `Aplicación · ${strategyStatuses[strategy.assessment.status]}`}</span></div>
+              {strategy.assessment.date && strategy.assessment.visitId !== consultation.id && <small>Última revisión · {formatPatientDate(strategy.assessment.date)}</small>}
+            </li>)}
+          </ul> : <p className="clinical-followup-muted">En esa consulta no quedaron objetivos ni estrategias para revisar.</p>}
+          {summaryActive && <PreviousFollowupNote key={progressSourceKey(source)} source={source} />}
+          <div className="clinical-followup-actions">
+            <button type="button" className="nuth-button-secondary" onClick={() => setRequestedSource(progressSourceKey(source))}>
+              {reviewedToday ? "Editar avance" : document.goals.length || document.strategies.length ? "Registrar avance" : "Ver acuerdos anteriores"}
+            </button>
+            {!!currentReview && <button type="button" className="clinical-text-action" onClick={() => {
+              setShowHistory(true);
+              setRequestedSource(progressSourceKey(source));
+            }}>Ver historial</button>}
+          </div>
+        </> : <p className="clinical-followup-muted">Cuando haya acuerdos de una consulta anterior, podrás registrar aquí qué avanzó.</p>}
+      {dialog}
+    </>;
+  }
   if (consultation) {
     return <>
       <button type="button" className="nuth-button-secondary" onClick={() => { data.retry(); setRequestedSource(""); }}>
@@ -110,6 +150,35 @@ export function ClinicalProgress({ patient, consultation, historySource, onHisto
   </section>;
 }
 
+function PreviousFollowupNote({ source }: { source: ProgressSource }) {
+  const [note, setNote] = useState("");
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const { id, revision } = source;
+  useEffect(() => {
+    let active = true;
+    const read = async () => {
+      const snapshot = await getSnapshot(id);
+      if (!snapshot || snapshot.revision !== revision) return "";
+      const hasTemplateNote = snapshot.structure.sections.some((section) =>
+        section.questions.some((question) => question.question_key === "followup_plan"
+          && ["long_text", "short_text"].includes(question.question_type)));
+      const value = hasTemplateNote
+        ? (await listAnswers(id, revision)).find((answer) => answer.question_key === "followup_plan")?.value
+        : snapshot.working_drafts?.["followup-note"];
+      return typeof value === "string" ? value.trim() : "";
+    };
+    void read().then((text) => { if (active) { setNote(text); setFailed(false); } })
+      .catch(() => { if (active) setFailed(true); });
+    return () => { active = false; };
+  }, [id, revision, attempt]);
+  if (failed) return <p role="alert">
+    No pudimos cargar la nota anterior.{" "}
+    <button type="button" className="clinical-text-action" onClick={() => setAttempt((value) => value + 1)}>Reintentar</button>
+  </p>;
+  return note && <div className="clinical-followup-previous-note"><strong>Nota de la consulta anterior</strong><p>{note}</p></div>;
+}
+
 type DialogProps = {
   patient: Patient;
   consultation?: Consultation;
@@ -118,11 +187,12 @@ type DialogProps = {
   error: string;
   retry: () => void;
   requestedSource: string;
+  showHistory: boolean;
   onClose: () => void;
   onSaved: (key: string, review: ProgressReview) => void;
 };
 
-function ProgressDialog({ patient, consultation, sources, loading, error, retry, requestedSource, onClose, onSaved }: DialogProps) {
+function ProgressDialog({ patient, consultation, sources, loading, error, retry, requestedSource, showHistory, onClose, onSaved }: DialogProps) {
   const id = useId();
   const dialog = useRef<HTMLDialogElement>(null);
   const [selectedKey, setSelectedKey] = useState(requestedSource);
@@ -183,7 +253,7 @@ function ProgressDialog({ patient, consultation, sources, loading, error, retry,
               </option>)}
             </select>
           </div>
-          <ProgressEntry key={progressSourceKey(source)} patient={patient} consultation={consultation}
+          <ProgressEntry key={progressSourceKey(source)} patient={patient} consultation={consultation} showHistory={showHistory}
             source={source} onStartEdit={() => setSelectedKey(progressSourceKey(source))} onDirty={setDirty} onLocked={setLocked}
             onSaved={(review) => {
               const key = progressSourceKey(source);
@@ -200,13 +270,14 @@ type EntryEditorProps = {
   patient: Patient;
   consultation?: Consultation;
   source: ProgressSource;
+  showHistory: boolean;
   onStartEdit: () => void;
   onDirty: (dirty: boolean) => void;
   onLocked: (locked: boolean) => void;
   onSaved: (review: ProgressReview) => void;
 };
 
-function ProgressEntry({ patient, consultation, source, onStartEdit, onDirty, onLocked, onSaved }: EntryEditorProps) {
+function ProgressEntry({ patient, consultation, source, showHistory, onStartEdit, onDirty, onLocked, onSaved }: EntryEditorProps) {
   const id = useId();
   const [revision, setRevision] = useState("latest");
   const [older, setOlder] = useState<ProgressReview[] | null>(null);
@@ -241,6 +312,7 @@ function ProgressEntry({ patient, consultation, source, onStartEdit, onDirty, on
   const canEdit = source.current && revision === "latest" && !reviewedLater;
   const messageDate = review ? formatPatientDate(review.recorded_at) : "";
   useEffect(() => { onDirty(changed); return () => onDirty(false); }, [changed, onDirty]);
+  const requestHistory = useRef(showHistory);
 
   function beginEdit() {
     onStartEdit();
@@ -292,14 +364,18 @@ function ProgressEntry({ patient, consultation, source, onStartEdit, onDirty, on
 
   const recordChange = (key: string) => setRecording((items) => ({ ...items, [key]: true }));
 
-  async function loadHistory() {
-    if (historyBusy) return;
+  const loadHistory = useCallback(async () => {
     setHistoryBusy(true);
     setError("");
     try { setOlder(await listProgressReviews(patient.id, source)); }
     catch (cause) { setError(errorMessage(cause)); }
     finally { setHistoryBusy(false); }
-  }
+  }, [patient.id, source]);
+  useEffect(() => {
+    if (!requestHistory.current) return;
+    requestHistory.current = false;
+    void loadHistory();
+  }, [loadHistory]);
 
   async function save() {
     if (!editing || !changed || invalid || lock.current) return;
@@ -324,6 +400,7 @@ function ProgressEntry({ patient, consultation, source, onStartEdit, onDirty, on
       setOlder((current) => current && [review, ...current.filter((item) => item.id !== review.id)]);
       setEditing(null);
       setRecording({});
+      onDirty(false);
       setNotice("Revisión guardada en el historial.");
     } catch (cause) {
       setError(errorMessage(cause));

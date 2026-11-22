@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   cleanup,
@@ -10,6 +11,7 @@ import {
 } from "@testing-library/react";
 import { ClinicalFieldCards } from "./ClinicalFieldCards";
 import { ClinicalFollowUp } from "./ClinicalFollowUp";
+import type { Consultation, Patient } from "@/src/types/domain";
 import type {
   Answers,
   Question,
@@ -25,6 +27,8 @@ const api = vi.hoisted(() => ({
   strategies: vi.fn(),
   generate: vi.fn(),
 }));
+vi.mock("@/src/services/appointments", () => ({ listAppointments: async () => ({ appointments: [] }) }));
+vi.mock("@/src/services/clinicalProgress", () => ({ listProgressSources: async () => [] }));
 vi.mock(
   "@/src/services/clinicalCopilot",
   () => ({ clinicalObjective: api.objective }),
@@ -48,6 +52,26 @@ vi.mock(
     ) => <button {...props}>{children}</button>,
   }),
 );
+function renderFollowup(overrides?: Partial<ComponentProps<typeof ClinicalFollowUp>>) {
+  return render(<MemoryRouter><ClinicalFollowUp
+    consultation={{ id: "c", consultation_date: "2026-11-21", consultation_type: "initial" } as Consultation}
+    patient={{ id: "p", full_name: "Valeria Torres" } as Patient}
+    revision={1}
+    active
+    answers={{ treatment_objective: clinicalFixtureGoal.outcome }}
+    noteInTemplate={false}
+    additionalAnswers={[]}
+    busy={false}
+    progressVersion={0}
+    onProgressSaved={vi.fn()}
+    onNoteChange={vi.fn()}
+    onEdit={vi.fn()}
+    onSave={vi.fn().mockResolvedValue(true)}
+    onStatusChange={vi.fn()}
+    {...overrides}
+  /></MemoryRouter>);
+}
+
 const question: Question = {
   question_key: "first_actions",
   label: "Indicaciones acordadas",
@@ -81,6 +105,7 @@ beforeEach(() => {
     plans: { treatment_objective: clinicalFixturePlan },
     objective: {
       question_key: "treatment_objective",
+      value: clinicalFixtureGoal.outcome,
       smart_plan: clinicalFixturePlan,
       approved_at: clinicalFixtureApprovedAt,
     },
@@ -165,26 +190,21 @@ it("adds a chosen AI draft to canonical instructions and preserves remaining pro
   ).toBeVisible();
   expect(api.generate).toHaveBeenCalledOnce();
 });
-it("reviews an approved agreement in a modal and closes it when marked, without changing clinical approval", async () => {
-  const onReady = vi.fn();
-  render(
-    <ClinicalFollowUp
-      consultationId="c"
-      revision={1}
-      active
-      onReady={onReady}
-    />,
-  );
-  fireEvent.click(
-    (await screen.findAllByRole("button", { name: /Revisar seguimiento:/ }))[0],
-  );
-  expect(screen.getByText(clinicalFixtureGoal.monitoring)).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "Marcar como revisado" }));
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  expect(screen.getByText("1 de 2 revisados")).toBeVisible();
+it("shows what will be reviewed and saves the follow-up without modifying the approved agreements", async () => {
+  const onSave = vi.fn().mockResolvedValue(true);
+  const onStatusChange = vi.fn();
+  renderFollowup({ onSave, onStatusChange });
+  await screen.findByRole("heading", { name: "Cómo lo revisarán" });
+  expect(screen.getByRole("heading", { name: "Cómo lo revisarán" }).parentElement).toHaveTextContent(clinicalFixtureGoal.monitoring);
+  expect(screen.getByText("Por agendar")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Guardar seguimiento" }));
+  expect(await screen.findByText("Seguimiento guardado.")).toBeVisible();
+  expect(onSave).toHaveBeenCalledOnce();
+  expect(onStatusChange).toHaveBeenLastCalledWith("complete");
   expect(api.objective).toHaveBeenCalledExactlyOnceWith("c", 1);
   expect(api.strategies).toHaveBeenCalledExactlyOnceWith("c", 1);
 });
+
 it("excludes objectives with a changed PES and strategies awaiting review", async () => {
   api.objective.mockResolvedValue({
     pes: { approved_at: "changed" },
@@ -193,31 +213,17 @@ it("excludes objectives with a changed PES and strategies awaiting review", asyn
   api.strategies.mockResolvedValue({
     items: [{ ...clinicalFixtureItem, requiresReview: true }],
   });
-  const onReady = vi.fn();
-  render(
-    <ClinicalFollowUp
-      consultationId="c"
-      revision={1}
-      active
-      onReady={onReady}
-    />,
-  );
-  expect(await screen.findByText(/Aprueba un objetivo/)).toBeVisible();
-  expect(screen.queryByText(clinicalFixtureGoal.outcome)).not
-    .toBeInTheDocument();
-  expect(onReady).toHaveBeenLastCalledWith(false, expect.any(String));
+  const onStatusChange = vi.fn();
+  renderFollowup({ onStatusChange });
+  expect(await screen.findByText(/Los objetivos y las estrategias que apruebes/)).toBeVisible();
+  expect(screen.queryByText(clinicalFixtureGoal.outcome)).not.toBeInTheDocument();
+  expect(onStatusChange).toHaveBeenLastCalledWith("pending");
 });
+
 it("retries loading follow-up without leaving the step", async () => {
   api.objective.mockRejectedValueOnce(new Error("network"));
-  render(
-    <ClinicalFollowUp
-      consultationId="c"
-      revision={1}
-      active
-      onReady={vi.fn()}
-    />,
-  );
-  await screen.findByRole("alert");
+  renderFollowup();
+  await screen.findByText("No pudimos cargar los acuerdos de esta consulta.");
   fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
-  expect(await screen.findByText(clinicalFixtureGoal.outcome)).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "Qué revisarán" })).toBeVisible();
 });

@@ -2,16 +2,18 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, expect, it, vi } from "vitest";
 import { ClinicalProgress } from "./ClinicalProgress";
 import { listProgressReviews, listProgressSources, saveProgressReview } from "@/src/services/clinicalProgress";
+import { getSnapshot } from "@/src/services/consultations";
 import { originalProgress, type ProgressReview, type ProgressSource } from "@/src/features/progress/clinicalProgress";
 import { emptyObjective } from "../../../../supabase/functions/_shared/objectives";
 import type { Strategy } from "../../../../supabase/functions/_shared/interventions";
-import type { Consultation, Patient } from "@/src/types/domain";
+import type { Consultation, ConsultationSnapshot, Patient } from "@/src/types/domain";
 
 vi.mock("@/src/services/clinicalProgress", () => ({
   listProgressSources: vi.fn(),
   listProgressReviews: vi.fn(),
   saveProgressReview: vi.fn(),
 }));
+vi.mock("@/src/services/consultations", () => ({ getSnapshot: vi.fn(), listAnswers: vi.fn() }));
 vi.mock("@/src/features/progress/exportProgress", () => ({
   downloadProgressPdf: vi.fn(async () => {}),
   downloadProgressWord: vi.fn(async () => {}),
@@ -44,6 +46,36 @@ beforeEach(() => {
   vi.mocked(listProgressSources).mockResolvedValue([initial]);
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   HTMLDialogElement.prototype.close = function () { this.open = false; };
+});
+
+it("shows the previous note and updates the consultation summary after recording progress", async () => {
+  vi.mocked(getSnapshot).mockResolvedValue({
+    revision: initial.revision, structure: { sections: [] },
+    working_drafts: { "followup-note": "Revisar si el registro fue práctico." },
+  } as unknown as ConsultationSnapshot);
+  vi.mocked(saveProgressReview).mockImplementation(async (_patient, _source, visitId, id, document) => {
+    const review = { id, version: 1, review_consultation_id: visitId, review_consultation_date: visit.consultation_date, recorded_at: visit.consultation_date, document };
+    vi.mocked(listProgressReviews).mockResolvedValue([review]);
+    return review;
+  });
+  const onProgressSaved = vi.fn();
+  render(<ClinicalProgress patient={patient} consultation={visit} summaryActive onProgressSaved={onProgressSaved} />);
+  expect(await screen.findByText("Revisar si el registro fue práctico.")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Registrar avance" }));
+  const modal = within(screen.getByRole("dialog", { name: "Progreso del paciente" }));
+  fireEvent.click(modal.getByRole("button", { name: "Registrar avance del objetivo 1" }));
+  fireEvent.change(modal.getByLabelText("¿Qué avance hubo hacia el objetivo?"), { target: { value: "partial" } });
+  fireEvent.change(modal.getByLabelText("Resultado observado"), { target: { value: "3 de 5 días" } });
+  fireEvent.click(modal.getByRole("button", { name: "Guardar revisión" }));
+  await modal.findByText("Revisión guardada en el historial.");
+  fireEvent.click(modal.getByRole("button", { name: "Cerrar progreso" }));
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "Progreso del paciente" })).not.toBeInTheDocument());
+  expect(screen.getByText("3 de 5 días")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Editar avance" })).toBeVisible();
+  expect(onProgressSaved).toHaveBeenCalledOnce();
+  expect(saveProgressReview).toHaveBeenCalledWith(patient.id, initial, visit.id, expect.any(String), expect.anything());
+  fireEvent.click(screen.getByRole("button", { name: "Ver historial" }));
+  expect(await screen.findByLabelText("Versión del registro")).toBeVisible();
 });
 
 it("records two different results, edits plain text, and opens the original and the saved version", async () => {

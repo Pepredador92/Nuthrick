@@ -28,6 +28,8 @@ const mocks = vi.hoisted(() => ({
   clinical: vi.fn(),
   generate: vi.fn(),
   interventions: vi.fn(),
+  agenda: vi.fn(),
+  progressSources: vi.fn(),
   answerState: {version:0,answers:{} as Record<string,unknown>},
   draftState: {version:0,answers:{} as Record<string,unknown>},
 }));
@@ -48,6 +50,11 @@ vi.mock("@/src/services/ai", async (original) => ({
   runAIRequest: mocks.generate,
 }));
 vi.mock("@/src/services/clinicalInterventions", () => ({ clinicalInterventions: mocks.interventions }));
+vi.mock("@/src/services/agenda", async (original) => ({
+  ...await original<typeof import("@/src/services/agenda")>(),
+  agendaApi: mocks.agenda,
+}));
+vi.mock("@/src/services/clinicalProgress", () => ({ listProgressSources: mocks.progressSources }));
 const fixtures = vi.hoisted(() => {
   const c = {
     id: "draft",
@@ -252,6 +259,12 @@ async function openInstructions() {
   fireEvent.click(within(screen.getByRole('navigation', { name: 'Pasos de la revisión clínica' })).getByRole('button', { name: /Indicaciones/ }));
   return screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Texto para el paciente' });
 }
+async function openFollowup() {
+  const steps = "Pasos de la revisión clínica";
+  if (!screen.queryByRole("navigation", { name: steps })) await openModule("Revisión clínica, PES y objetivos");
+  fireEvent.click(within(screen.getByRole("navigation", { name: steps })).getByRole("button", { name: /Seguimiento/ }));
+  return screen.findByRole("region", { name: "Seguimiento" });
+}
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
@@ -260,6 +273,8 @@ beforeEach(() => {
   mocks.save.mockResolvedValue(undefined);
   mocks.answerState={version:0,answers:{}};
   mocks.draftState={version:0,answers:{}};
+  mocks.agenda.mockResolvedValue({ appointments: [] });
+  mocks.progressSources.mockResolvedValue([]);
   mocks.discard.mockResolvedValue(undefined);
   mocks.finish.mockResolvedValue(fixtures.c);
   fixtures.c.status = "draft";
@@ -282,6 +297,63 @@ beforeEach(() => {
 });
 
 describe("consultation save and review workflow", () => {
+  it("books the next visit for the current patient without closing the consultation or losing the follow-up note", async () => {
+    const start = "2099-10-01T16:00:00.000Z", end = "2099-10-01T17:00:00.000Z";
+    const appointment = {
+      id: "next-appointment", patient_id: "patient", starts_at: start, ends_at: end,
+      timezone: "America/Mexico_City", modality: "online", status: "confirmed", professional_name: "Nutrióloga de prueba",
+    };
+    const options = {
+      timezone: appointment.timezone, duration: 60, minimumNoticeMinutes: 0, horizonDays: 365,
+      options: [{ modality: "online", location_id: null, label: "En línea" }],
+    };
+    let booked = false;
+    mocks.agenda.mockImplementation(async (operation) => {
+      if (operation === "appointment_options") return options;
+      if (operation === "appointment_availability") return {
+        day: "2099-10-01", today: "2099-10-01", lastDay: "2099-12-31", weekdays: [0,1,2,3,4,5,6],
+        timezone: appointment.timezone, slots: [{ start, end }], connectionError: false,
+      };
+      if (operation === "appointment_create") { booked = true; return appointment; }
+      return { appointments: booked ? [appointment] : [] };
+    });
+    const first = mount();
+    const followup = within(await openFollowup());
+    expect(await followup.findByText(/Cuando haya acuerdos de una consulta anterior/)).toBeVisible();
+    expect(mocks.agenda).toHaveBeenCalledWith("appointment_list", { patientId: "patient" }, true);
+    const note = "Revisar cómo le resultó organizar sus comidas.";
+    const input = followup.getByRole("textbox", { name: /Nota para la próxima revisión/ });
+    fireEvent.change(input, { target: { value: note } });
+    await followup.findByText(/Los objetivos y las estrategias que apruebes/);
+    fireEvent.click(followup.getByRole("button", { name: "Guardar seguimiento" }));
+    expect(await followup.findByText("Seguimiento guardado.")).toBeVisible();
+    expect(mocks.draftState.answers["followup-note"]).toBe(note);
+    expect(mocks.agenda).not.toHaveBeenCalledWith("appointment_create", expect.anything(), true);
+
+    fireEvent.click(await followup.findByRole("button", { name: "Agendar próxima cita" }));
+    const modal = within(screen.getByRole("dialog", { name: "Agendar cita" }));
+    expect(await modal.findByRole("button", { name: "Agendar cita" })).toBeDisabled();
+    fireEvent.click(await modal.findByRole("button", { name: /10:00/ }));
+    fireEvent.click(modal.getByRole("button", { name: "Agendar cita" }));
+    await modal.findByRole("heading", { name: "Cita agendada" });
+    expect(mocks.agenda).toHaveBeenCalledWith("appointment_create", {
+      operationKey: expect.any(String), patientId: "patient", start,
+      modality: "online", locationId: null, allowOutsideSchedule: false,
+    }, true);
+    expect(mocks.finish).not.toHaveBeenCalled();
+    fireEvent.click(modal.getByRole("button", { name: "Cerrar" }));
+    expect(followup.getByText("Agendada")).toBeVisible();
+    expect(followup.queryByRole("button", { name: "Agendar próxima cita" })).not.toBeInTheDocument();
+    expect(input).toHaveValue(note);
+    expect(first.router.state.location.pathname).toBe("/app/patients/patient/consultations/draft");
+
+    first.unmount();
+    mount();
+    const resumed = within(await openFollowup());
+    expect(await resumed.findByText("Agendada")).toBeVisible();
+    expect(resumed.getByRole("textbox", { name: /Nota para la próxima revisión/ })).toHaveValue(note);
+    expect(resumed.getByText("Seguimiento guardado.")).toBeVisible();
+  });
   it('keeps handwritten instructions in the working draft until the professional approves them', async () => {
     const original = 'Prepara la opción que acordamos.';
     const intended = 'Ten a mano la lista que hicimos.\n\nEn tu próxima consulta veremos qué opción te resultó práctica.';

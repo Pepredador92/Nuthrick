@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { CalendarPlus } from 'lucide-react';
 import { agendaApi } from '@/src/services/agenda';
 import type { Appointment, AppointmentOptions } from '@/src/services/appointments';
@@ -6,11 +6,19 @@ import { AppointmentCard } from './AppointmentCard';
 import { PatientCombobox, type PatientOption } from './PatientCombobox';
 import { AppointmentDatePicker } from './AppointmentDatePicker';
 import { createPatientRegistrationDraft, PatientRegistrationFields, patientRegistrationInput, patientRegistrationError } from '@/src/features/patients/PatientRegistrationFields';
-export function ScheduleAppointmentButton({patient,onSaved,className='nuth-button'}:{patient?:PatientOption;onSaved?:()=>void;className?:string}) {
+type ScheduleButtonProps = {
+ patient?: PatientOption;
+ onSaved?: (appointment: Appointment) => void;
+ className?: string;
+ label?: string;
+ hideTrigger?: boolean;
+ returnFocus?: RefObject<HTMLElement | null>;
+};
+export function ScheduleAppointmentButton({patient,onSaved,className='nuth-button',label='Agendar cita',hideTrigger=false,returnFocus}:ScheduleButtonProps) {
  const [open,setOpen]=useState(false);
- return <><button type="button" className={className} onClick={()=>setOpen(true)}><CalendarPlus size={17} aria-hidden="true"/>Agendar cita</button>{open&&<ScheduleDialog patient={patient} close={()=>setOpen(false)} onSaved={onSaved}/>}</>;
+ return <>{!hideTrigger&&<button type="button" className={className} onClick={()=>setOpen(true)}><CalendarPlus size={17} aria-hidden="true"/>{label}</button>}{open&&<ScheduleDialog patient={patient} close={()=>setOpen(false)} onSaved={onSaved} returnFocus={returnFocus}/>}</>;
 }
-function ScheduleDialog({patient,close,onSaved}:{patient?:PatientOption;close:()=>void;onSaved?:()=>void}) {
+function ScheduleDialog({patient,close,onSaved,returnFocus}:Pick<ScheduleButtonProps,'patient'|'onSaved'|'returnFocus'>&{close:()=>void}) {
  const dialog=useRef<HTMLDialogElement>(null),operation=useRef({fingerprint:'',key:''});
  const [options,setOptions]=useState<AppointmentOptions|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[created,setCreated]=useState<Appointment|null>(null);
  const [selected,setSelected]=useState<PatientOption|null>(patient??null),[localTime,setLocalTime]=useState(''),[choice,setChoice]=useState(''),[exception,setException]=useState(false);
@@ -24,7 +32,13 @@ function ScheduleDialog({patient,close,onSaved}:{patient?:PatientOption;close:()
  const hasPatient = isNew ? validName : !!selected;
  const ready = !!options && choice !== '' && hasPatient && !!(exception ? localTime : selectedStart);
  const pending = !hasPatient ? (isNew ? 'Escribe el nombre del paciente nuevo (de 2 a 160 caracteres).' : 'Selecciona una ficha de la lista o elige «Paciente nuevo».') : choice === '' ? 'Selecciona la modalidad y el consultorio.' : !(exception ? localTime : selectedStart) ? 'Selecciona la fecha y una hora disponible para agendar.' : '';
- useEffect(()=>{const el=dialog.current!;const previous=document.activeElement as HTMLElement|null;el.showModal();return()=>{el.close();previous?.focus();};},[]);
+ useEffect(()=>{
+  const element=dialog.current!;
+  const previous=document.activeElement as HTMLElement|null;
+  const fallback=returnFocus?.current;
+  element.showModal();
+  return()=>{element.close();(previous?.isConnected?previous:fallback)?.focus();};
+ },[returnFocus]);
  useEffect(()=>{let active=true;void agendaApi<AppointmentOptions>('appointment_options',{},true).then(data=>{if(active){setOptions(data);if(data.options.length===1)setChoice('0');}}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[]);
  async function save(event:React.FormEvent){event.preventDefault();if(busy||!options||!ready)return;setBusy(true);setError('');try{
   const resolved=exception?await agendaApi<{instants:string[]}>('resolve_time_private',{localTime},true):{instants:selectedStart?[selectedStart]:[]};
@@ -32,11 +46,12 @@ function ScheduleDialog({patient,close,onSaved}:{patient?:PatientOption;close:()
   const chosen=options.options[Number(choice)];const contact=isNew?{newPatient:patientRegistrationInput(newPatientDraft)}:{patientId:selected!.id};const payload={...contact,start:resolved.instants[0],modality:chosen.modality,locationId:chosen.location_id,allowOutsideSchedule:exception};
   const fingerprint=JSON.stringify(payload);if(operation.current.fingerprint!==fingerprint)operation.current={fingerprint,key:crypto.randomUUID()};
   const result=await agendaApi<Appointment>('appointment_create',{...payload,operationKey:operation.current.key},true);
-  setCreated({...result,contact_name:isNew?newName.trim():selected!.full_name});onSaved?.();
+  const appointment={...result,contact_name:isNew?newName.trim():selected!.full_name};
+  setCreated(appointment);onSaved?.(appointment);
  }catch(e){setError(patientRegistrationError(e));}finally{setBusy(false);}}
  return <dialog ref={dialog} aria-label="Agendar cita" aria-modal="true" className={`m-auto max-h-[90dvh] ${created?'w-[min(560px,calc(100vw-24px))]':'w-[min(820px,calc(100vw-24px))]'} overflow-y-auto rounded-3xl border-0 bg-white p-5 text-[#173d36] backdrop:bg-[#102d27]/50 sm:p-7`} onCancel={e=>{e.preventDefault();if(!busy)close();}}>
   <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-semibold">{created?'Cita agendada':'Agendar cita'}</h2><button type="button" disabled={busy} className="nuth-button-secondary" onClick={close}>Cerrar</button></div>
-  {created?<div className="mt-5"><p role="status" className="mb-4 text-sm">El horario quedó reservado. {isNew?'Su ficha se guardó en Pacientes y quedó vinculada a esta cita. ':''}Comparte la invitación para que el paciente la añada a su calendario. El recordatorio de asistencia aparecerá 48 horas antes.</p><AppointmentCard appointment={created} onChanged={updated=>{if(updated)setCreated({...created,...updated});onSaved?.();}}/></div>:<form onSubmit={save} className="mt-5 space-y-4">
+  {created?<div className="mt-5"><p role="status" className="mb-4 text-sm">El horario quedó reservado. {isNew?'Su ficha se guardó en Pacientes y quedó vinculada a esta cita. ':''}Comparte la invitación para que el paciente la añada a su calendario. El recordatorio de asistencia aparecerá 48 horas antes.</p><AppointmentCard appointment={created} onChanged={updated=>{const appointment=updated?{...created,...updated}:created;setCreated(appointment);onSaved?.(appointment);}}/></div>:<form onSubmit={save} className="mt-5 space-y-4">
    {patient?<p className="rounded-xl bg-[#f2f6f2] p-3 font-semibold">{patient.full_name}</p>:<>
     <fieldset disabled={busy}><legend className="text-sm font-semibold">¿A quién vas a agendar?</legend><div className="mt-2 flex flex-wrap gap-3">
      <label className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm ${!isNew?'border-[#173d36] bg-[#edf4ef]':'border-[#dbe5df]'}`}><input type="radio" name="patient-mode" value="registered" checked={!isNew} onChange={()=>setPatientMode('registered')}/>Paciente registrado</label>
@@ -51,7 +66,7 @@ function ScheduleDialog({patient,close,onSaved}:{patient?:PatientOption;close:()
     <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={exception} onChange={e=>{setException(e.target.checked);setSelectedStart('');setLocalTime('');}} disabled={busy}/><span>Autorizar fuera de mi horario habitual (opcional)<small className="mt-1 block leading-relaxed text-[#63796d]">Úsalo solo para una hora fuera de tu horario configurado. Siempre se comprobarán los cruces de horario.</small></span></label>
     {exception&&<label className="block text-sm font-semibold">Fecha y hora fuera del horario habitual<input type="datetime-local" className="nuth-input mt-2" value={localTime} onChange={e=>setLocalTime(e.target.value)} required disabled={busy}/></label>}
     {pending&&<p id="schedule-pending" role="status" className="text-sm leading-relaxed text-[#63796d]">{pending}</p>}
-    <button className="nuth-button w-full justify-center" aria-describedby={pending?'schedule-pending':undefined} disabled={busy||!ready}>{busy?'Agendando…':'Agendar cita'}</button></>}
+    <div className="schedule-appointment-submit"><button className="nuth-button w-full justify-center" aria-describedby={pending?'schedule-pending':undefined} disabled={busy||!ready}>{busy?'Agendando…':'Agendar cita'}</button></div></>}
   </form>}{error&&<p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
  </dialog>;
 }

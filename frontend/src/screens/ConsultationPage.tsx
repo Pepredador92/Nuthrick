@@ -192,10 +192,7 @@ function ConsultationEditor() {
   const [observationsVersion, setObservationsVersion] = useState(0);
   const refreshObservations = () => setObservationsVersion(version => version + 1);
   const [completion,setCompletion]=useState<ClinicalCompletion|null>(null);
-  const [stageChecks,setStageChecks]=useState<Record<string,string>>({});
-  const [followupReady,setFollowupReady]=useState({ready:false,signature:''});
   const reportCompletion=useCallback((message:string,nextStage?:number)=>setCompletion(current=>({id:(current?.id??0)+1,message,nextStage})),[]);
-  const receiveFollowup=useCallback((ready:boolean,signature:string)=>setFollowupReady(current=>current.ready===ready&&current.signature===signature?current:{ready,signature}),[]);
   const [clinicalProgress, setClinicalProgress] = useState<Record<string, ClinicalTaskStatus>>({});
   const updateClinicalProgress = useCallback((key: string, status: ClinicalTaskStatus) => {
     setClinicalProgress(current => current[key] === status ? current : { ...current, [key]: status });
@@ -371,7 +368,6 @@ function ConsultationEditor() {
           setRecallOpened(workspace.module === 'recall');
           setClinicalStage(Math.max(0, Math.min(clinicalStages.length - 1, workspace.clinicalStage ?? 0)));
           setCompletion(null);
-          setStageChecks({});
           setClinicalOpened(workspace.module === 'clinical');
           setMeasurementsOpened(workspace.module === 'measurements');
           setLaboratoriesOpened(workspace.module === 'laboratories');
@@ -875,10 +871,10 @@ function ConsultationEditor() {
     : objectiveStatuses.some(status => status !== 'pending') ? 'progress' : 'pending';
   const recommendationQuestions=clinicalSections.flatMap(section=>section.questions).filter(question=>!followupKeys.includes(question.question_key)&&!question.question_key.startsWith('pes_')&&!objectiveKeys.includes(question.question_key)&&!['nutrition_assessment','clinical_notes','measurement_notes','indicator_progress'].includes(question.question_key)&&matchesCondition(question.visibility_condition,values));
   const reportInstructionsStatus = useCallback((status: ClinicalTaskStatus) => updateClinicalProgress('instructions', status), [updateClinicalProgress]);
+  const reportFollowupStatus = useCallback((status: ClinicalTaskStatus) => updateClinicalProgress('followup', status), [updateClinicalProgress]);
   const followupQuestions=clinicalSections.flatMap(section=>section.questions).filter(question=>followupKeys.includes(question.question_key)&&matchesCondition(question.visibility_condition,values));
-  const followupValues=followupQuestions.map(question=>[question.question_key,values[question.question_key]]);
-  const followupSignature=JSON.stringify([followupReady.signature,followupValues]);
-  const hasFollowup=Boolean(followupReady.signature)&&(followupReady.ready||followupValues.some(([,value])=>!emptyValue(value)));
+  const hasFollowupNote = followupQuestions.some(question => question.question_key === 'followup_plan' && ['short_text', 'long_text'].includes(question.question_type));
+  const otherFollowupQuestions = followupQuestions.filter(question => !hasFollowupNote || question.question_key !== 'followup_plan');
   async function approveInstructions(changes: Answers) {
     const previous = Object.fromEntries(Object.keys(changes).map(key => [key, valuesRef.current[key] ?? null]));
     setAnswers(changes);
@@ -890,13 +886,8 @@ function ConsultationEditor() {
       if (!saved) setAnswers(previous);
     }
   }
-  async function completeFollowup() {
-    if (!await saveForClinical()) return;
-    setStageChecks(current=>({...current,followup:followupSignature}));
-    reportCompletion('Seguimiento revisado y completado.',6);
-  }
   const clinicalStepsWithProgress = clinicalStages.map((step, index) => {
-    const status = index === 0 ? clinicalProgress.review : index === 1 ? clinicalProgress.pes : index === 2 ? objectiveStatus : index===3 ? clinicalProgress.strategies : index===4 ? clinicalProgress.instructions : stageChecks.followup===followupSignature?'complete':hasFollowup?'progress':'pending';
+    const status = index === 0 ? clinicalProgress.review : index === 1 ? clinicalProgress.pes : index === 2 ? objectiveStatus : index===3 ? clinicalProgress.strategies : index===4 ? clinicalProgress.instructions : clinicalProgress.followup;
     return { ...step, status, statusLabel: status === 'approved' ? index === 4 ? 'Aprobadas' : 'Aprobado' : status === 'complete' ? index === 0 ? 'Revisado' : index>=4?'Completado':'Listo para revisar' : status === 'progress' ? 'En curso' : undefined };
   });
 
@@ -1241,10 +1232,15 @@ function ConsultationEditor() {
             onStatusChange={reportInstructionsStatus} onCompleted={() => reportCompletion('Indicaciones guardadas.', 5)} />
         </section>
         <section hidden={clinicalStage!==5} className="clinical-stage" aria-label="Seguimiento">
-          <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">06 · Prepara la próxima revisión</p><h2>Seguimiento</h2><p>Confirma qué observarán, cuándo lo revisarán y si hace falta ajustar algo.</p></div></header>
-          <ClinicalFollowUp key={`${consultation.id}:${snapshot.revision}:followup`} consultationId={consultation.id} revision={snapshot.revision} active={module==='clinical'&&clinicalStage===5} answers={values} onReady={receiveFollowup} onEdit={stage=>void goClinicalStage(stage)}/>
-          {followupQuestions.length>0 && <ClinicalFieldCards questions={followupQuestions} values={values} busy={busy} showErrors={showErrors} before={saveForClinical} onChange={setAnswer} />}
-          <button type="button" className="nuth-button mt-4" disabled={busy||saving||!hasFollowup} onClick={()=>void completeFollowup()}>Completar revisión del seguimiento</button>
+          <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">06 · Prepara la próxima revisión</p><h2>Seguimiento</h2><p>Registra qué avanzó y deja claro qué revisarán en la próxima consulta.</p></div></header>
+          <ClinicalFollowUp key={`${consultation.id}:${snapshot.revision}:followup`}
+            consultation={consultation} patient={patient} revision={snapshot.revision} active={module==='clinical'&&clinicalStage===5}
+            answers={values} noteInTemplate={hasFollowupNote} onNoteChange={note=>setAnswer('followup_plan',note)}
+            additionalAnswers={otherFollowupQuestions.map(question=>values[question.question_key])}
+            additionalFields={otherFollowupQuestions.length>0 && <ClinicalFieldCards
+              questions={otherFollowupQuestions} values={values} busy={busy} showErrors={showErrors} before={saveAll} onChange={setAnswer} />}
+            busy={busy||saving} progressVersion={observationsVersion} onProgressSaved={refreshObservations}
+            onEdit={stage=>void goClinicalStage(stage)} onSave={saveAll} onStatusChange={reportFollowupStatus} />
         </section>
         <ClinicalStepNotice completion={completion} onClose={()=>setCompletion(null)} onContinue={stage=>{setCompletion(null);if(stage===6)void goModule('evolution');else void goClinicalStage(stage);}}/>
       </div>}

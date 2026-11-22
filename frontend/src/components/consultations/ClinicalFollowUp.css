@@ -1,0 +1,244 @@
+.clinical-followup-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(15rem, 1fr);
+  align-items: start;
+  gap: 1rem;
+}
+
+.clinical-followup-card {
+  --followup-text: #233d36;
+  --followup-muted: #48675d;
+  --followup-line: #bbcfc5;
+  --followup-inset: #f9fcfa;
+  --followup-accent: #146c59;
+  min-width: 0;
+  padding: clamp(1rem, 2vw, 1.35rem);
+  border: 1px solid var(--followup-line);
+  border-radius: 1rem;
+  color: var(--followup-text);
+  background: linear-gradient(120deg, #e4f2eb, #f1f7f1);
+  display: grid;
+  align-content: start;
+  gap: .75rem;
+  overflow-wrap: anywhere;
+}
+
+.clinical-followup-plan {
+  --followup-muted: #496475;
+  --followup-line: #b8cad9;
+  --followup-inset: #f8fbff;
+  --followup-accent: #315d8b;
+  grid-row: 2;
+  background: linear-gradient(120deg, #eaf3fb, #f1f5fa);
+}
+
+.clinical-followup-appointment {
+  --followup-muted: #506137;
+  --followup-line: #bfc995;
+  --followup-inset: #e3ebbb;
+  --followup-accent: #526726;
+  grid-area: 1 / 2;
+  background: radial-gradient(ellipse at top right, #eaf0be, #f7f8e9 85%);
+}
+
+.clinical-followup-card > h3 {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  font-size: 1.075rem;
+  font-weight: 720;
+}
+.clinical-followup-card > h3 svg {
+  flex: none;
+  color: var(--followup-accent);
+}
+.clinical-followup-card > p,
+.clinical-followup-items,
+.clinical-followup-plan-list {
+  font-size: .875rem;
+  line-height: 1.55;
+}
+.clinical-followup-card .clinical-followup-muted,
+.clinical-followup-items small,
+.clinical-followup-note span,
+.clinical-followup-agreement dt {
+  color: var(--followup-muted);
+}
+.clinical-followup-items {
+  display: grid;
+  gap: .4rem;
+}
+.clinical-followup-items li,
+.clinical-followup-plan-pair > div {
+  min-width: 0;
+  padding: .6rem .75rem;
+  border: 1px solid var(--followup-line);
+  border-radius: .7rem;
+  background: var(--followup-inset);
+}
+.clinical-followup-items li > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .35rem .75rem;
+}
+.clinical-followup-items li p {
+  margin-top: .25rem;
+  white-space: pre-wrap;
+}
+.clinical-followup-previous-note {
+  border-inline-start: 2px solid var(--followup-accent);
+  padding-inline-start: .75rem;
+  font-size: .875rem;
+  white-space: pre-wrap;
+}
+.clinical-followup-pill {
+  width: fit-content;
+  padding: .25rem .5rem;
+  border-radius: .45rem;
+  background: #f6ebc8;
+  color: #5a4714;
+  font-size: .75rem;
+  font-weight: 700;
+}
+.clinical-followup-appointment .clinical-followup-pill {
+  background: var(--followup-inset);
+  color: var(--followup-accent);
+}
+.clinical-followup-appointment time {
+  font-weight: 700;
+}
+.clinical-followup-appointment .schedule-appointment-submit {
+  position: sticky;
+  inset-block-end: 0;
+  padding-block: .5rem;
+  background: var(--nuth-surface);
+}
+.clinical-followup-card .clinical-text-action {
+  width: fit-content;
+  color: var(--followup-accent);
+}
+.clinical-followup-plan-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .65rem;
+}
+.clinical-followup-plan-pair h4 {
+  margin-bottom: .35rem;
+  color: var(--followup-accent);
+  font-size: .8rem;
+  font-weight: 700;
+}
+.clinical-followup-plan-list {
+  display: grid;
+  gap: .25rem;
+}
+.clinical-followup-plan-list:has(li:nth-child(2)) {
+  padding-inline-start: 1.15rem;
+  list-style: disc;
+}
+.clinical-followup-note label {
+  display: block;
+  margin-bottom: .35rem;
+  font-size: .875rem;
+  font-weight: 680;
+}
+.clinical-followup .clinical-followup-note textarea.nuth-input {
+  min-height: 4.75rem;
+  border-color: #bcced6;
+  background: #fff;
+  color: #253e3a;
+}
+.clinical-followup-note textarea::placeholder {
+  color: #526769;
+}
+.clinical-followup-details {
+  min-width: 0;
+  border-top: 1px solid var(--followup-line);
+  padding-top: .65rem;
+}
+.clinical-followup-details summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--followup-accent);
+  font-size: .875rem;
+  font-weight: 700;
+}
+.clinical-followup-details[open] summary {
+  margin-bottom: .65rem;
+}
+.clinical-followup-agreement {
+  padding-block: .55rem;
+  font-size: .85rem;
+}
+.clinical-followup-agreement dl {
+  display: grid;
+  gap: .4rem;
+  margin-top: .5rem;
+}
+.clinical-followup-agreement dd {
+  white-space: pre-wrap;
+}
+.clinical-followup-actions,
+.clinical-followup-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .65rem 1rem;
+}
+.clinical-followup-footer {
+  flex-direction: row-reverse;
+  margin-top: 1rem;
+  border-top: 1px solid var(--line, #bacdc7);
+  padding-top: 1rem;
+}
+.clinical-followup-footer p {
+  font-size: .875rem;
+}
+.clinical-followup .clinical-followup-book.nuth-button {
+  width: 100%;
+  justify-content: center;
+  border-color: #c8da77;
+  background: #e2ef9b;
+  color: #283821;
+  box-shadow: 0 0 0 2px #dced8b42, 0 .35rem 1.5rem #c9e27d2e;
+}
+.clinical-followup .clinical-followup-book.nuth-button:hover {
+  background: #ecf7b6;
+}
+html[data-nuthrick-theme='night'] .clinical-followup-card {
+  --followup-text: #eff7f2;
+  --followup-muted: #b5cac4;
+  --followup-line: #45635e;
+  --followup-inset: #112a31;
+  --followup-accent: #a4e9d2;
+  background: linear-gradient(120deg, #18343c, #203439);
+}
+html[data-nuthrick-theme='night'] .clinical-followup-plan {
+  --followup-muted: #b7cae0;
+  --followup-line: #435c75;
+  --followup-inset: #142a3b;
+  --followup-accent: #b4d1fc;
+  background: linear-gradient(120deg, #1c3049, #1c303b);
+}
+html[data-nuthrick-theme='night'] .clinical-followup-appointment {
+  --followup-muted: #d2dbc1;
+  --followup-line: #6a754d;
+  --followup-inset: #444e32;
+  --followup-accent: #eef3af;
+  background: radial-gradient(ellipse at top right, #545435, #272f28 85%);
+}
+html[data-nuthrick-theme='night'] .clinical-followup-progress .clinical-followup-pill {
+  background: #4a3e2c;
+  color: #f5e0a7;
+}
+@media (max-width: 840px) {
+  .clinical-followup-grid { grid-template-columns: minmax(0, 1fr); }
+  .clinical-followup-plan, .clinical-followup-appointment { grid-area: auto; }
+}
+@media (max-width: 480px) {
+  .clinical-followup-plan-pair { grid-template-columns: minmax(0, 1fr); }
+  .clinical-followup-footer { flex-direction: column; align-items: stretch; }
+  .clinical-followup-footer button { justify-content: center; }
+}

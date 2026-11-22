@@ -261,6 +261,7 @@ export interface ConsultationTemplateQuestion {
 }
 export interface ConsultationSnapshot {
   clinical_records?: { recall?: import('@/src/services/clinicalCopilot').SavedRecallRecord };
+  working_drafts?: Record<string, unknown>;
   id: string;
   professional_id: string;
   consultation_id: string;
