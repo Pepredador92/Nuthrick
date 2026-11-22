@@ -2,6 +2,7 @@ import type {TextDietEdit} from '../../../supabase/functions/_shared/text-diet-e
 import type {TextDietGuidance} from '../../../supabase/functions/_shared/text-diet';
 import type { DietGuidance } from '../../../supabase/functions/_shared/diet-guidance';
 import type { ClinicalBatchFeature } from '../../../supabase/functions/_shared/clinical-batch';
+import type { PesCompletion } from '../../../supabase/functions/_shared/pes-completion';
 import { supabase } from '@/src/lib/supabase';
 
 export type AIBalance = { available_credits: number; reserved_credits: number };
@@ -74,7 +75,7 @@ export async function reviewClinicalAIBatch(
   if (error) throw new AIRequestError(error.message);
 }
 // Reuse the same key when checking/retrying a logical request. Never supply owner/model/prompt/prices.
-export async function runAIRequest(request: { batchId?: string; revisionOf?: string; clinicalFeedback?: string; textEdit?:TextDietEdit; objectiveTextStyle?: 'patient_v1'; strategyFeedback?: string; textGuidance?:TextDietGuidance; guidance?: DietGuidance; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean; draftSaved?:boolean }> {
+export async function runAIRequest(request: { batchId?: string; revisionOf?: string; clinicalFeedback?: string; pesCompletion?: PesCompletion; textEdit?:TextDietEdit; objectiveTextStyle?: 'patient_v1'; strategyFeedback?: string; textGuidance?:TextDietGuidance; guidance?: DietGuidance; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] }): Promise<{ generationId: string; status: string; output?: unknown; replay: boolean; draftSaved?:boolean }> {
   try {
     const consent = await supabase.rpc('my_ai_processing_consent');
     if (consent.error || !consent.data) throw new AIRequestError('ai_consent_unavailable');

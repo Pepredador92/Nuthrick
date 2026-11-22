@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
   cleanup,
 } from "@testing-library/react";
 import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
@@ -85,16 +86,72 @@ beforeEach(() => {
 afterEach(cleanup);
 const getPesText = () => screen.getByRole("textbox", { name: "Texto del diagnóstico PES" });
 const blankPesText = formatPesEditorText({ problem: "", etiology: "", signsSymptoms: [] });
+const waitForPes = () => waitFor(() => expect(screen.getByText(/^(Generar borrador|Otra propuesta)$/)).toBeEnabled());
 describe("PES copilot", () => {
+  it("completes the edited PES in place, keeps the submitted answers, and shows only the specific gap still missing", async () => {
+    const answered = "¿Cuántos días omitió la comida?";
+    const vague = "¿Qué barreras siguen presentes?";
+    const followup = "¿En qué días coincidió el horario laboral con la omisión?";
+    api.generate.mockResolvedValueOnce({ generationId: "initial", status: "succeeded", output: {
+      ...draft, etiology: "", missingContext: [answered, "Dos días por semana.", vague],
+    } });
+    render(<PesCopilot {...props} />);
+    await waitForPes();
+    fireEvent.click(screen.getByRole("button", { name: "Generar borrador" }));
+    const questions = within(await screen.findByRole("region", { name: "Datos por confirmar" }));
+    expect(questions.getByRole("textbox", { name: answered })).toHaveValue("Dos días por semana.");
+    fireEvent.change(questions.getByRole("textbox", { name: vague }), { target: { value: "Problemas con el horario." } });
+    const edited = formatPesEditorText({ ...draft, problem: "Patrón de comidas irregular", etiology: "" });
+    fireEvent.change(getPesText(), { target: { value: edited } });
+
+    const output = { ...draft, problem: "Patrón de comidas irregular", etiology: "barreras de horario referidas",
+      signsSymptoms: ["omisión de la comida dos días por semana"], missingContext: [followup] };
+    api.generate.mockResolvedValueOnce({ generationId: "completion", status: "succeeded", output });
+    fireEvent.click(questions.getByRole("button", { name: "Completar PES con IA" }));
+    await screen.findByText(/PES actualizado/);
+    expect(api.generate).toHaveBeenLastCalledWith(expect.objectContaining({ pesCompletion: {
+      draft: edited, questions: [{ question: answered, answer: "Dos días por semana." },
+        { question: vague, answer: "Problemas con el horario." }], note: undefined,
+    } }));
+    expect(getPesText()).toHaveValue(formatPesEditorText(output));
+    expect(questions.getByRole("textbox", { name: followup })).toBeVisible();
+    expect(questions.getByLabelText(answered)).not.toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Nueva propuesta de IA" })).not.toBeInTheDocument();
+    expect(props.onPes).not.toHaveBeenCalled();
+    expect(api.workspace.mock.calls.every((call) => !call[2])).toBe(true);
+    fireEvent.click(screen.getByText("Respuestas registradas y otras aclaraciones"));
+    expect(questions.getByRole("textbox", { name: answered })).toHaveValue("Dos días por semana.");
+    fireEvent.click(screen.getByRole("button", { name: "Aprobar PES" }));
+    await waitFor(() => expect(props.onPes).toHaveBeenCalledWith(expect.objectContaining({ etiology: output.etiology })));
+    expect(api.workspace).toHaveBeenCalledWith("test-consult", 1, "pes", expect.anything(), "completion");
+  });
+
+  it("preserves the PES and its answers if completing it fails", async () => {
+    const question = "¿Desde cuándo ocurre?";
+    const base = { ...draft, etiology: "", missingContext: [question] };
+    api.generate.mockResolvedValueOnce({ generationId: "initial", status: "succeeded", output: base });
+    render(<PesCopilot {...props} />);
+    await waitForPes();
+    fireEvent.click(screen.getByRole("button", { name: "Generar borrador" }));
+    const answer = await screen.findByRole("textbox", { name: question });
+    fireEvent.change(answer, { target: { value: "Desde hace dos semanas." } });
+    api.generate.mockRejectedValueOnce(new AIRequestError("invalid_output_refunded"));
+    fireEvent.click(screen.getByRole("button", { name: "Completar PES con IA" }));
+    expect(await screen.findByText(/reintegraron/)).toBeVisible();
+    expect(answer).toHaveValue("Desde hace dos semanas.");
+    expect(getPesText()).toHaveValue(formatPesEditorText(base));
+    expect(screen.getByRole("button", { name: "Completar PES con IA" })).toBeEnabled();
+  });
+
   it("blocks a partial PES with empty etiology and exposes the missing context", async () => {
     api.generate.mockResolvedValue({ generationId: "partial", status: "succeeded", output: {
       ...draft, etiology: "", missingContext: ["Confirmar si persiste la barrera de horarios registrada en julio"],
     }, replay: false });
     render(<PesCopilot {...props} />);
-    await screen.findByText("Antropometría disponible");
+    await waitForPes();
     fireEvent.click(screen.getByText("Generar borrador"));
     await screen.findByText(/La causa sigue pendiente/);
-    expect(screen.getByText("Confirmar si persiste la barrera de horarios registrada en julio", { selector: "li" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Confirmar si persiste la barrera de horarios registrada en julio" })).toBeVisible();
     expect(getPesText().getAttribute("aria-invalid")).toBe("true");
     expect((screen.getByRole("button", { name: "Aprobar PES" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(getPesText(), { target: { value: formatPesEditorText({ ...draft, etiology: " \n\t " }) } });
@@ -107,7 +164,7 @@ describe("PES copilot", () => {
   it("preserves manual review and approval after a context-size failure", async () => {
     api.generate.mockRejectedValue(new AIRequestError("input_too_large"));
     render(<PesCopilot {...props} answers={{ pes_problem: "P", pes_etiology: "E", pes_evidence: "Dato registrado", pes_statement: "P relacionado con E, evidenciado por Dato registrado." }} />);
-    await screen.findByText("Antropometría disponible");
+    await waitForPes();
     fireEvent.click(screen.getByText("Otra propuesta"));
     await screen.findByText(/puedes continuar la consulta manualmente/);
     fireEvent.click(screen.getByRole("button", { name: "Aprobar PES" }));
@@ -117,7 +174,7 @@ describe("PES copilot", () => {
   it.each(["B", "C"] as const)("explains real %s abstention without allowing approval", async (key) => {
     api.generate.mockResolvedValue({ generationId: "real-fixture", status: "succeeded", output: realCalibration[key].output, replay: false });
     render(<PesCopilot {...props} />);
-    await screen.findByText("Antropometría disponible");
+    await waitForPes();
     fireEvent.click(screen.getByText("Generar borrador"));
     await screen.findByText(/Información insuficiente para proponer un PES/);
     expect((screen.getByRole("button", { name: "Aprobar PES" }) as HTMLButtonElement).disabled).toBe(true);
@@ -136,7 +193,7 @@ describe("PES copilot", () => {
         }}
       />,
     );
-    await screen.findByText("Antropometría disponible");
+    await waitForPes();
     fireEvent.click(screen.getByRole("button", { name: "Aprobar PES" }));
     await waitFor(() =>
       expect(api.workspace).toHaveBeenCalledWith(
@@ -166,8 +223,8 @@ describe("PES copilot", () => {
   });
   it("readiness does not require labs; generating does not save and approval uses edits", async () => {
     render(<PesCopilot {...props} />);
-    await screen.findByText("Antropometría disponible");
-    expect(screen.getByText("Laboratorios sin registrar")).toBeTruthy();
+    await waitForPes();
+    expect(w.readiness.laboratories).toBe(false);
     fireEvent.click(screen.getByText("Generar borrador"));
     await screen.findByText("Borrador P relacionado con Borrador E, evidenciado por Peso registrado.");
     expect(api.workspace.mock.calls.every((c) => !c[2])).toBe(true);
@@ -189,7 +246,7 @@ describe("PES copilot", () => {
   it("discards the proposal, clears its fields and releases pending changes without approving", async () => {
     const onPendingChange = vi.fn();
     render(<PesCopilot {...props} onPendingChange={onPendingChange} />);
-    await screen.findByText("Antropometría disponible");
+    await waitForPes();
     fireEvent.click(screen.getByText("Generar borrador"));
     await screen.findByText("Borrador P relacionado con Borrador E, evidenciado por Peso registrado.");
     fireEvent.click(screen.getByText("Descartar y limpiar"));
@@ -204,7 +261,7 @@ describe("PES copilot", () => {
     let finish!: (saved: boolean) => void;
     const onDiscardPes = vi.fn(() => new Promise<boolean>(resolve => { finish = resolve; }));
     render(<PesCopilot {...props} onDiscardPes={onDiscardPes} />);
-    await screen.findByText("Antropometría disponible");
+    await waitForPes();
     fireEvent.click(screen.getByText("Generar borrador"));
     await screen.findByText(draft.pesStatement);
     api.generate.mockResolvedValue({ generationId: "alternative", status: "succeeded", output: { ...draft, problem: "Alternativa" } });
@@ -225,7 +282,7 @@ describe("PES copilot", () => {
   it("preserves the visible draft when clearing its saved text fails", async () => {
     const onDiscardPes = vi.fn().mockResolvedValue(false);
     render(<PesCopilot {...props} onDiscardPes={onDiscardPes} />);
-    await screen.findByText("Antropometría disponible");
+    await waitForPes();
     fireEvent.click(screen.getByText("Generar borrador"));
     await screen.findByText(draft.pesStatement);
     fireEvent.click(screen.getByText("Descartar y limpiar"));
@@ -236,7 +293,7 @@ describe("PES copilot", () => {
   });
   it("keeps an uncertain provider request recoverable after clearing the visible proposal", async () => {
     render(<PesCopilot {...props} />);
-    await screen.findByText("Antropometría disponible");
+    await waitForPes();
     fireEvent.click(screen.getByText("Generar borrador"));
     await screen.findByText(draft.pesStatement);
     api.generate.mockRejectedValue(new AIRequestError("provider_outcome_unknown"));
@@ -252,7 +309,7 @@ describe("PES copilot", () => {
   });
   it("another proposal preserves the editable draft until an explicit choice", async () => {
     render(<PesCopilot {...props} />);
-    await screen.findByText("Antropometría disponible");
+    await waitForPes();
     fireEvent.click(screen.getByText("Generar borrador"));
     await screen.findByText("Borrador P relacionado con Borrador E, evidenciado por Peso registrado.");
     api.generate.mockResolvedValue({
@@ -291,7 +348,7 @@ describe("PES copilot", () => {
   it("disabled or no credit generation does not remove manual path", async () => {
     api.generate.mockRejectedValue(new AIRequestError("insufficient_credits"));
     render(<PesCopilot {...props} />);
-    await screen.findByText("Antropometría disponible");
+    await waitForPes();
     fireEvent.click(screen.getByText("Generar borrador"));
     await screen.findByText(/No tienes saldo disponible suficiente/);
     expect(getPesText()).not.toHaveAttribute("readonly");
@@ -302,7 +359,7 @@ describe("PES copilot", () => {
       new AIRequestError("provider_outcome_unknown"),
     );
     const first = render(<PesCopilot {...props} />);
-    await screen.findByText("Antropometría disponible");
+    await waitForPes();
     fireEvent.click(screen.getByText("Generar borrador"));
     await screen.findByText("Comprobar solicitud");
     first.unmount();

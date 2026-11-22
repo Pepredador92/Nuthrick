@@ -133,6 +133,7 @@ Deno.serve(async request => {
     let batchPesProblem: string | undefined;
     function formatClinicalProposal(output: unknown, generationId: string): unknown {
       if (isAssessmentDraft(output)) return output;
+      if (input.pesCompletion) return { ...(output as object), completedWithClarifications: true };
       if (input.feature === 'intervention_strategy' && interventionContext) {
         return hydrateInterventionOutput(output, interventionContext, generationId);
       }
@@ -228,7 +229,7 @@ Deno.serve(async request => {
           return {stamp:clinical.stamp, context:{...interventionContext,...review}, inputGenerations:batchInputGenerations,review,batch};
         }
         const supportContext = ['consultation_support','patient_instructions'].includes(r.feature) ? buildConsultationSupportContext(clinical,r.feature==='patient_instructions',smartObjectives) : null;
-        const context=r.feature==='pes_diagnosis' ? buildPesClinicalContext(clinical)
+        const context=r.feature==='pes_diagnosis' ? buildPesClinicalContext(clinical, r.pesCompletion)
           : supportContext ?? {narrative:redactClinicalText(r.narrative!,clinical.identifiers?.filter((v): v is string => typeof v === 'string'))};
         if(supportContext) consultationSupportFacts=supportContext.facts;
         if (smartObjectives && !supportContext?.approvedPes) throw new AIError('pes_approval_required');

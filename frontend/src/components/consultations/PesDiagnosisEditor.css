@@ -17,12 +17,7 @@
   justify-content: space-between;
 }
 
-.pes-editor-header {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.pes-editor-title > .clinical-status-badge {
+.pes-editor-title .clinical-status-badge {
   margin: 0;
 }
 
@@ -57,8 +52,7 @@
   font-weight: 700;
 }
 
-.pes-editor-hint,
-.pes-editor-footer p {
+.pes-editor-hint {
   color: var(--nuth-muted);
   font-size: .8125rem;
   line-height: 1.5;
@@ -108,8 +102,45 @@
   margin-top: .65rem;
 }
 
+.pes-editor > .pes-editor-sources {
+  margin: 0;
+  padding-block: .65rem;
+}
+
 .pes-editor-sources[open] > summary {
   margin-bottom: .8rem;
+}
+
+.pes-editor-clarifications {
+  display: grid;
+  gap: .75rem;
+  padding: clamp(.75rem, 2vw, 1rem);
+  border: 1px solid var(--consultation-section-line, var(--nuth-line));
+  border-radius: .9rem;
+  background: var(--nuth-surface-soft);
+}
+
+.pes-editor-clarification-field {
+  display: grid;
+  gap: .35rem;
+  font-size: .875rem;
+  font-weight: 650;
+}
+
+.pes-editor-clarification-field textarea {
+  font-weight: 400;
+}
+
+.pes-editor-extra[open] :is(.pes-editor-clarification-field, .pes-editor-tools),
+.pes-editor-observations {
+  margin-top: .65rem;
+}
+
+.pes-editor-observations {
+  display: grid;
+  gap: .45rem;
+  padding-inline-start: 1.25rem;
+  list-style: disc;
 }
 
 .pes-editor-footer {
@@ -132,6 +163,10 @@
   text-decoration: underline;
 }
 
+.pes-editor .clinical-notice .clinical-text-action {
+  color: inherit;
+}
+
 .pes-editor :is(.pes-editor-discard, .clinical-text-action):focus-visible {
   outline: 2px solid var(--consultation-focus, var(--nuth-action));
   outline-offset: 3px;
@@ -143,6 +178,17 @@
 
 @media (max-width: 640px) {
   .pes-editor-footer .pes-editor-tools {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
     margin-inline-start: 0;
+  }
+  .pes-editor-footer .pes-editor-tools > :is(.nuth-button, .nuth-button-secondary) {
+    justify-content: center;
+  }
+  .pes-editor-footer .pes-editor-discard {
+    grid-column: 1 / -1;
+    justify-self: end;
+    min-height: 2.25rem;
   }
 }

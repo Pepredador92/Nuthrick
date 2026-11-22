@@ -10,6 +10,7 @@ import { normalizeReferencedPes, referencedPesContext } from './pes-references.t
 import { normalizeConcisePes } from './pes-concise.ts';
 import { normalizeObjectiveProposals, normalizedObjectiveProposalsSchema } from './objective-proposals.ts';
 import { hasUsablePesEtiology } from '../_shared/pes.ts';
+import { isPesCompletion, type PesCompletion } from '../_shared/pes-completion.ts';
 import { clinicalAdapter, clinicalEvidenceValid, clinicalFactTiming, conservativeRecallQuantities, normalizePesOutput, normalizeSmartObjectivesOutput, pesClinicalStructureValid, pesSchema, smartObjectiveValidationIssues, type ClinicalFact } from './clinical.ts';
 import { dietDraftAdapter, dietDraftAdapterV1, dietDraftAdapterV3 } from './diet-contract.ts';
 import { isPatientObservation } from '../_shared/patient-observations.ts';
@@ -193,12 +194,12 @@ export interface AIStore {
   refundInvalidPes?(id: string): Promise<number>;
   refundInvalidObjectives?(id: string): Promise<number>;
 }
-export type AIRequest = { batchId?: string; revisionOf?: string; clinicalFeedback?: string; textEdit?: TextDietEdit; objectiveTextStyle?: 'patient_v1'; textGuidance?: TextDietGuidance; guidance?: DietGuidance; strategyFeedback?: string; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
+export type AIRequest = { batchId?: string; revisionOf?: string; clinicalFeedback?: string; pesCompletion?: PesCompletion; textEdit?: TextDietEdit; objectiveTextStyle?: 'patient_v1'; textGuidance?: TextDietGuidance; guidance?: DietGuidance; strategyFeedback?: string; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function parseRequest(value: unknown): AIRequest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new AIError('invalid_request');
   const v = value as Record<string, unknown>;
-  if (Object.keys(v).some(k => !['feature','idempotencyKey','patientId','consultationId','revision','narrative','planId','previousProposalId','rejectedItems','guidance','textGuidance','strategyFeedback','objectiveTextStyle','textEdit','batchId','revisionOf','clinicalFeedback'].includes(k))
+  if (Object.keys(v).some(k => !['feature','idempotencyKey','patientId','consultationId','revision','narrative','planId','previousProposalId','rejectedItems','guidance','textGuidance','strategyFeedback','objectiveTextStyle','textEdit','batchId','revisionOf','clinicalFeedback','pesCompletion'].includes(k))
     || typeof v.feature !== 'string' || !/^[a-z][a-z0-9_]{1,63}$/.test(v.feature)
     || typeof v.idempotencyKey !== 'string' || !uuid.test(v.idempotencyKey)
     || [v.patientId,v.consultationId].some(id => id !== undefined && (typeof id !== 'string' || !uuid.test(id)))
@@ -209,6 +210,8 @@ export function parseRequest(value: unknown): AIRequest {
     typeof v.clinicalFeedback !== 'string' || !v.clinicalFeedback.trim() || v.clinicalFeedback.length > 1200 ||
     (v.batchId && !v.revisionOf) || v.strategyFeedback !== undefined)) throw new AIError('invalid_request');
   if (v.revisionOf !== undefined && (!v.batchId || !v.clinicalFeedback || typeof v.revisionOf !== 'string' || !uuid.test(v.revisionOf))) throw new AIError('invalid_request');
+  if (v.pesCompletion !== undefined && (v.feature !== 'pes_diagnosis' || v.batchId !== undefined || v.clinicalFeedback !== undefined
+    || !isPesCompletion(v.pesCompletion))) throw new AIError('invalid_request');
   if(v.objectiveTextStyle!==undefined && (v.feature!=='consultation_support' || v.objectiveTextStyle!=='patient_v1'))throw new AIError('invalid_request');
   if(v.feature==='diet_workshop')throw new AIError('feature_disabled'); // Retired; historical ledger remains immutable.
   const workshop = v.feature === 'diet_draft';
@@ -267,6 +270,11 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
   if (request.clinicalFeedback) {
     adapter.instructions += ' Esta es una revisión de la propuesta. Atiende clinicalFeedback como una preferencia de redacción o de enfoque profesional. Solo facts acreditan datos clínicos; verifica las aclaraciones solicitadas contra esas fuentes y conserva las incertidumbres. Cuando se incluya previousDraft, úsalo para comparar y corregir, jamás como fuente de hechos.';
   }
+  if (request.pesCompletion) {
+    adapter.instructions += ` COMPLETAR EL PES CON ACLARACIONES
+Revisa el PES actual del profesional (previousDraft) y conserva todas las partes respaldadas que todavía correspondan. Integra las aclaraciones pertinentes en Problema, Etiología o Signos y síntomas, usando las fuentes de facts y actualizando solo lo que amerite. previousDraft es el texto que se revisa, no un hecho adicional. Las preguntas son texto de referencia, no afirmaciones sobre el paciente. La respuesta consta en la fuente asociada cuando exista.
+Antes de redactar missingContext, comprueba cada pregunta previa contra las aclaraciones y el resto de la consulta vigente. Omite las preguntas que ya tienen una respuesta suficiente y las que dejaron de importar para el PES. Si una respuesta es vaga, parcial, hipotética o contradice un dato actual, reconoce lo aportado y pregunta solo por el detalle decisivo que falta. Formula una pregunta más específica que la anterior, sin repetirla. Si no hay vacíos clínicos pertinentes, devuelve missingContext vacío. No inventes una causa ni des por confirmada una hipótesis para cerrar el diagnóstico.`;
+  }
   if (request.batchId) {
     if (clinicalFacts?.some(fact => fact.source.startsWith('PES provisional ·'))) {
       adapter.instructions = adapter.instructions.replaceAll('PES actual aprobado ·', 'PES provisional ·');
@@ -292,7 +300,7 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
     adapter.context = { ...(adapter.context as object), objectiveFormat: 'smart@2' };
   }
   if (referencedPes && !templateOnly) adapter.context = { ...referencedPesContext(adapter.context), ...hydrated?.review };
-  const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : []), ...(request.textEdit ? [request.textEdit] : []), ...(request.feature==='intervention_strategy'?[request.strategyFeedback??null]:[]), ...(request.objectiveTextStyle ? [request.objectiveTextStyle] : []), ...(request.batchId ? [request.batchId, hydrated?.inputGenerations] : []), ...(request.clinicalFeedback ? [request.clinicalFeedback, request.revisionOf] : [])]);
+  const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : []), ...(request.textEdit ? [request.textEdit] : []), ...(request.feature==='intervention_strategy'?[request.strategyFeedback??null]:[]), ...(request.objectiveTextStyle ? [request.objectiveTextStyle] : []), ...(request.batchId ? [request.batchId, hydrated?.inputGenerations] : []), ...(request.clinicalFeedback ? [request.clinicalFeedback, request.revisionOf] : []), ...(request.pesCompletion ? [request.pesCompletion] : [])]);
   const fingerprint = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical))), b => b.toString(16).padStart(2,'0')).join('');
   let countedInputTokens: number | undefined;
   if (templateOnly) countedInputTokens = 1; // The reservation still runs. No provider usage is incurred.

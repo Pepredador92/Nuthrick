@@ -1,6 +1,7 @@
 // Versioned clinical adapters. Estimates are drafts; only the professional can approve clinical writes.
 import { approvedStrategyFacts, type StrategyDocument } from '../_shared/interventions.ts';
 import type { ObjectivePlan } from '../_shared/objectives.ts';
+import type { PesCompletion } from '../_shared/pes-completion.ts';
 import { isRecallEstimate } from './diet-generation-domain.js';
 import { composePesStatement, pesStatementMatches, unsupportedPesNumbers, type ClinicalMeasurementFact } from '../_shared/pes.ts';
 import { pesSynthesisInstructions } from './pes-synthesis.ts';
@@ -283,9 +284,23 @@ export function prepareClinicalFacts(source: ClinicalSource): ClinicalFact[] {
   // negation or turn a historical hypothesis into a current diagnosis.
   return [...current, ...facts.filter(fact => historyNarrative(fact.source)), ...history];
 }
-export function buildPesClinicalContext(source: ClinicalSource) {
-  const facts = prepareClinicalFacts(source).sort(clinicalChronology);
-  return { facts, interviewOrigin: clinicalInterviewOrigin(facts) };
+export function buildPesClinicalContext(source: ClinicalSource, completion?: PesCompletion) {
+  const additions: ClinicalFact[] = [];
+  const questions = completion?.questions.map(({ question, answer }, index) => {
+    const letter = `${index < 26 ? '' : 'A'}${String.fromCharCode(65 + index % 26)}`;
+    const label = answer.trim() ? `Aclaración clínica del PES · Respuesta ${letter}` : null;
+    if (label) additions.push({ source: label, finding: answer.trim() });
+    return { question: redactClinicalText(question.trim(), source.identifiers), answerSource: label };
+  });
+  if (completion?.note?.trim()) {
+    additions.push({ source: "Aclaración clínica adicional del PES", finding: completion.note.trim() });
+  }
+  const facts = prepareClinicalFacts({ ...source, facts: [...additions, ...source.facts] }).sort(clinicalChronology);
+  return {
+    facts,
+    interviewOrigin: clinicalInterviewOrigin(facts),
+    ...(completion ? { previousDraft: redactClinicalText(completion.draft.trim(), source.identifiers), clarificationQuestions: questions } : {}),
+  };
 }
 export type ConsultationSupportFact = ClinicalFact & { id: string };
 export const provisionalStrategySource = "Estrategia provisional · ";

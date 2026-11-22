@@ -52,3 +52,23 @@ export function pesEtiologyOffset(text: string) {
   }
   return 0;
 }
+
+/** Older drafts put the professional's answers in the same field as the questions. */
+export function readPesQuestions(entries: string[]) {
+  const questions: { question: string; answer: string }[] = [];
+  let current: (typeof questions)[number] | undefined;
+  for (const entry of entries) {
+    const value = entry.trim();
+    if (!value) continue;
+    if (/^(?:\d+[.\)]\s*)?¿/.test(value) && value.includes("?")) {
+      const end = value.indexOf("?") + 1;
+      current = { question: value.slice(0, end), answer: value.slice(end).trim() };
+      questions.push(current);
+    } else if (current) {
+      current.answer = [current.answer, value].filter(Boolean).join("\n");
+    } else {
+      questions.push({ question: value, answer: "" });
+    }
+  }
+  return questions;
+}

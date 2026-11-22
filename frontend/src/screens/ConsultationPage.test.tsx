@@ -1262,6 +1262,53 @@ describe("consultation exit decisions", () => {
 });
 
 describe("consultation exit edge cases", () => {
+  it('restores a saved clarification and completes the PES in the same editor without the legacy measurement inputs', async () => {
+    const question = '¿Desde cuándo se presenta la dificultad para preparar las comidas?';
+    const title = 'Dificultad para organizar las comidas';
+    const answer = 'Empezó al cambiar de turno hace tres semanas.';
+    const checkFields = { ...fixtures.snapshot, structure: { ...fixtures.snapshot.structure, sections: [
+      ...fixtures.snapshot.structure.sections,
+      { section_key: 'measurements', title: 'Mediciones e indicadores', questions: [
+        { question_key: 'measurement_notes', label: 'Notas de medición e indicadores', question_type: 'long_text', configuration: {}, is_required: false, response_area: 'professional_assessment' },
+        { question_key: 'indicator_progress', label: 'Interpretación profesional de la evolución', question_type: 'long_text', configuration: {}, is_required: false, response_area: 'professional_assessment' },
+      ] },
+    ] } };
+    mocks.getSnapshot.mockResolvedValue(checkFields);
+    mocks.draftState.answers = { pes: {
+      problem: title, etiology: '', signsSymptoms: ['Cambio en los horarios de comida'],
+      pesStatement: '', evidence: [], missingContext: [question], uncertainties: [],
+    } };
+    const openPes = async () => {
+      if (!screen.queryByRole('navigation', { name: 'Pasos de la revisión clínica' })) {
+        await openModule('Revisión clínica, PES y objetivos');
+      }
+      fireEvent.click(within(screen.getByRole('navigation', { name: 'Pasos de la revisión clínica' })).getByRole('button', { name: /^PES / }));
+      return screen.findByRole('textbox', { name: question });
+    };
+    const first = mount();
+    fireEvent.change(await openPes(), { target: { value: answer } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+    await screen.findByText('Borrador guardado.');
+    first.unmount();
+    window.sessionStorage.clear();
+
+    mount();
+    expect(await openPes()).toHaveValue(answer);
+    expect(screen.queryByText('Notas de medición e indicadores')).not.toBeInTheDocument();
+    expect(screen.queryByText('Interpretación profesional de la evolución')).not.toBeInTheDocument();
+    const updated = { problem: title, etiology: 'cambio reciente de turno referido', signsSymptoms: ['Cambio en los horarios de comida'],
+      evidence: [], missingContext: [], uncertainties: [], completedWithClarifications: true };
+    mocks.generate.mockResolvedValueOnce({ generationId: 'completion-pes', status: 'succeeded', output: updated });
+    const complete = screen.getByRole('button', { name: 'Completar PES con IA' });
+    await waitFor(() => expect(complete).toBeEnabled());
+    fireEvent.click(complete);
+    await screen.findByText('PES actualizado. Revisa el texto antes de aprobarlo.');
+    expect(screen.getByRole('textbox', { name: pesTextName })).toHaveValue(formatPesEditorText(updated));
+    expect(screen.queryByRole('heading', { name: 'Datos por confirmar' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Aprobar PES' })).toBeEnabled();
+    expect(mocks.clinical.mock.calls.some(args => args[2] === 'pes')).toBe(false);
+  });
+
   it('opens a saved batch PES directly in the editor and preserves its source after saving edits', async () => {
     const generationId = 'pes-from-batch';
     const batchId = 'saved-batch';

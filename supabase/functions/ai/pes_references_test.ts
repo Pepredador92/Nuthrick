@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
-import { runAIRequest, validOutput, type AIStore, type FeatureConfig, type Generation } from './core.ts';
-import { pesSchema } from './clinical.ts';
+import { parseRequest, runAIRequest, validOutput, type AIStore, type FeatureConfig, type Generation } from './core.ts';
+import { buildPesClinicalContext, pesSchema } from './clinical.ts';
 import { normalizeReferencedPes, referencedPesContext } from './pes-references.ts';
 
 const facts=[
@@ -30,6 +30,50 @@ function memoryStore() {
   };
   return {store,state};
 }
+Deno.test('PES completion reuses the professional draft, redacts clarifications and supports passing only unresolved questions', async () => {
+  const { store, state } = memoryStore();
+  const question = '¿Cuándo comenzó este patrón?';
+  const detail = '¿En qué turnos recientes se repitió la omisión?';
+  const completion = { draft: 'Paciente Ejemplo · Patrón alimentario irregular', questions: [
+    { question, answer: 'La persona refiere que empezó hace 2 semanas. pac@example.com' },
+    { question: '¿En qué jornadas ocurre?', answer: 'En algunas jornadas.' },
+    { question: '¿Cuántas comidas omitió?', answer: '' },
+  ] };
+  const context = buildPesClinicalContext({ facts, stamp: 'current', identifiers: ['Paciente Ejemplo'] }, completion);
+  store.config = async () => ({ ...config, prompt_version: 'pes_diagnosis@10' });
+  store.context = async () => ({ context, stamp: 'current' });
+  const delivered = await runAIRequest({ ...request, pesCompletion: completion }, store, {
+    run: async (input) => {
+      assert.match(input.instructions, /Omite las preguntas que ya tienen una respuesta suficiente/);
+      assert.match(input.instructions, /pregunta más específica/);
+      assert.doesNotMatch(JSON.stringify(input.context), /Paciente Ejemplo|pac@example.com/);
+      const providerContext = input.context as Omit<typeof context, 'facts'> & { facts: { id: string; source: string; finding: string }[] };
+      assert.match(providerContext.previousDraft!, /Patrón alimentario irregular/);
+      assert.equal(providerContext.clarificationQuestions?.[2].answerSource, null);
+      const label = providerContext.clarificationQuestions?.[0].answerSource;
+      const answer = providerContext.facts.find(fact => fact.source === label);
+      assert.match(answer!.finding, /hace 2 semanas/);
+      assert.ok(!answer!.finding.includes(question));
+      const existing = providerContext.facts.find(fact => fact.source === facts[0].source)!;
+      return result({ problem: raw.problem, etiology: raw.etiology, signsSymptoms: ['omisión de comidas referida desde hace 2 semanas'],
+        evidenceFactIds: [answer!.id, existing.id], priority: { text: 'Afecta los horarios de comida.', evidenceFactIds: [existing.id] },
+        missingContext: [detail], uncertainties: [] });
+    },
+  });
+  const output = delivered.output as { missingContext: string[]; evidence: typeof facts };
+  assert.deepEqual(output.missingContext, [detail]);
+  assert.ok(output.evidence.some(fact => fact.finding.includes('hace 2 semanas')));
+  assert.equal(state.refunds, 0);
+});
+Deno.test('only the standalone PES adapter accepts the completion contract', () => {
+  const id = '11111111-1111-4111-8111-111111111111';
+  const input = { ...request, patientId: id, consultationId: id, idempotencyKey: id,
+    pesCompletion: { draft: 'PES', questions: [], note: 'Observación registrada' } };
+  assert.deepEqual(parseRequest(input).pesCompletion, input.pesCompletion);
+  assert.throws(() => parseRequest({ ...input, feature: 'consultation_support' }), /invalid_request/);
+  assert.throws(() => parseRequest({ ...input, batchId: id }), /invalid_request/);
+  assert.throws(() => parseRequest({ ...input, pesCompletion: { draft: 'PES', questions: [{ question: '¿Cuándo?' }] } }), /invalid_request/);
+});
 Deno.test('PES @8 delivers the same public draft with exact source evidence for supplementary findings',async()=>{
   const {store,state}=memoryStore();
   const delivered=await runAIRequest(request,store,{run:async input=>{

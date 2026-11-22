@@ -858,8 +858,8 @@ function ConsultationEditor() {
   </InterviewQuestionCard>)}</fieldset>;
   const renderClinicalFields = (category: 'diagnosis' | 'objectives' | 'recommendations' | 'followup') => clinicalSections.flatMap(section => {
     const questions = section.questions.filter(question => {
-      if (['pes_problem', 'pes_etiology', 'pes_evidence', 'pes_statement', ...objectiveKeys].includes(question.question_key)) return false;
-      const kind = followupKeys.includes(question.question_key) ? 'followup' : objectiveKeys.includes(question.question_key) ? 'objectives' : question.question_key.startsWith('pes_') || ['nutrition_assessment', 'clinical_notes', 'measurement_notes', 'indicator_progress'].includes(question.question_key) ? 'diagnosis' : 'recommendations';
+      if (['pes_problem', 'pes_etiology', 'pes_evidence', 'pes_statement', 'measurement_notes', 'indicator_progress', ...objectiveKeys].includes(question.question_key)) return false;
+      const kind = followupKeys.includes(question.question_key) ? 'followup' : objectiveKeys.includes(question.question_key) ? 'objectives' : question.question_key.startsWith('pes_') || ['nutrition_assessment', 'clinical_notes'].includes(question.question_key) ? 'diagnosis' : 'recommendations';
       return kind === category;
     });
     return questions.length ? [<div className="consultation-clinical-fields" key={section.section_key}>{!['Diagnóstico PES', 'Objetivos acordados', 'Recomendaciones y seguimiento'].includes(section.title) && <h3>{section.title}</h3>}{renderQuestions(questions)}</div>] : [];
