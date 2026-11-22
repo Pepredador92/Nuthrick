@@ -8,6 +8,8 @@ import {
   type ObjectiveGoal,
 } from "../../../../supabase/functions/_shared/objectives";
 import type { ClinicalBatchProposal } from "../../../../supabase/functions/_shared/clinical-batch";
+import type { ObjectiveProposalEvidence } from "./ObjectiveGoalEditor";
+import { formatObjectiveEditorText, withObjectiveTemplateGaps } from "@/src/features/consultations/objectiveEditorText";
 import { AIButton } from "@/src/components/ai/AIControls";
 import {
   AIRequestError,
@@ -71,7 +73,7 @@ type SuggestionProps = {
   before: () => Promise<boolean>;
   onApply: (text: string) => void;
   disabled?: boolean;
-  onApplyGoal?: (goal: ObjectiveGoal) => void;
+  onApplyGoal?: (goal: ObjectiveGoal, grounding: ObjectiveProposalEvidence) => void;
   draftKey?: string;
   reviewBatch?: boolean;
   assessmentApplyDisabled?: boolean;
@@ -81,8 +83,9 @@ type SuggestionProps = {
     label: string;
     blocked: boolean;
     contains: (goals: ObjectiveGoal[]) => boolean;
-    use: (goals: ObjectiveGoal[], generationId: string) => void;
+    use: (goals: ObjectiveGoal[], generationId: string, grounding: ObjectiveProposalEvidence[]) => void;
   };
+  compactObjectives?: boolean;
 };
 
 function parseSuggestions(output: {objectives?:unknown;instructions?:unknown},kind:"objectives"|"instructions",allowTemplate=false):Suggestion[]{
@@ -93,11 +96,12 @@ function parseSuggestions(output: {objectives?:unknown;instructions?:unknown},ki
           const candidate = item as Partial<Suggestion>;
           const goal = candidate.goal && typeof candidate.goal === "object" &&
               typeof candidate.goal.outcome === "string"
-            ? {
+            ? withObjectiveTemplateGaps({
               ...emptyObjective(),
               ...candidate.goal,
+              baseline: typeof candidate.goal.baseline === 'string' ? candidate.goal.baseline : '',
               agreement: "pending" as const,
-            }
+            })
             : undefined;
           const text = goal ? composeObjective(goal) : candidate.text;
           if (typeof text !== "string" || !text.trim()) {
@@ -149,6 +153,7 @@ export function ClinicalSuggestionsAI({
   approvedPes,
   batchNotice,
   batchDraft,
+  compactObjectives = false,
   assessmentApplyDisabled = disabled,
 }: SuggestionProps & {
   kind: "objectives" | "instructions";
@@ -171,6 +176,7 @@ export function ClinicalSuggestionsAI({
   const [applied, setApplied] = useConsultationDraft<number[]>(`${slot}:applied`,[]);
   const [batchOrigin, setBatchOrigin] = useConsultationDraft<string | null>(`${slot}:batch`,null);
   const batch = useClinicalBatchProposal(feature);
+  const { reviewed, markReviewed } = batch;
   const pes = useClinicalBatchProposal("pes_diagnosis").proposal?.output;
   const visibleBatch = reviewBatch ? batch.proposal : undefined;
   const basis = batchOrigin && batch.proposal?.generationId === batchOrigin ? batch.proposal.output.batchBasis : null;
@@ -182,7 +188,8 @@ export function ClinicalSuggestionsAI({
   );
   const batchStale = !!batchOrigin && (batch.stale || batch.proposal?.generationId !== batchOrigin);
   const displayBatch = !!batchDraft;
-  const batchGoals = suggestions.flatMap(suggestion => suggestion.goal ? [suggestion.goal] : []);
+  const structured = suggestions.filter(suggestion => suggestion.goal !== undefined);
+  const batchGoals = structured.map(suggestion => suggestion.goal!);
   const batchAlreadyUsed = !!batchOrigin && batchGoals.length > 0 && !!batchDraft?.contains(batchGoals);
   const applyDisabled = assessment || (batchDraft && batchOrigin) ? assessmentApplyDisabled : disabled;
 
@@ -193,14 +200,17 @@ export function ClinicalSuggestionsAI({
     setBatchOrigin(proposal.generationId);
     setState('ready');
     setMessage(next.length ? '' : 'La propuesta completa no contiene borradores para este paso.');
-    batch.markReviewed(proposal.generationId);
-  }, [kind, setSuggestions, setApplied, setBatchOrigin, batch.markReviewed]);
+    markReviewed(proposal.generationId);
+  }, [kind, setSuggestions, setApplied, setBatchOrigin, markReviewed]);
 
   useDurableAIProposal(feature,(output)=>{const next=parseSuggestions(output,kind);setSuggestions(next);setApplied([]);setBatchOrigin(null);setPendingRequest(null);sessionStorage.removeItem(storageKey);setState(next.length?'ready':'error');setMessage(next.length?'Propuestas recuperadas para revisión.':'Esta solicitud no contiene propuestas utilizables. Revisa los datos antes de generar otra.');},slot);
   useEffect(() => {
-    if (!displayBatch || !visibleBatch || pendingRequest || state === 'generating' || state === 'uncertain') return;
-    if (visibleBatch.generationId !== batch.reviewed) showBatch(visibleBatch);
-  }, [displayBatch, visibleBatch, batch.reviewed, pendingRequest, state, showBatch]);
+    if (!displayBatch || !visibleBatch || pendingRequest || state === 'generating' || state === 'uncertain' ||
+      visibleBatch.generationId === reviewed) return;
+    let active = true;
+    queueMicrotask(() => { if (active) showBatch(visibleBatch); });
+    return () => { active = false; };
+  }, [displayBatch, visibleBatch, reviewed, pendingRequest, state, showBatch]);
 
   async function generate() {
     if (disabled || state === "generating") return;
@@ -305,16 +315,18 @@ export function ClinicalSuggestionsAI({
   const pendingCount = suggestions.length - applied.length;
   const showExcerpt = compactInstructions && !batchOrigin;
   return (
-    <section className="clinical-ai-assistance">
+    <section className={`clinical-ai-assistance${compactObjectives ? ' smart-objective-ai' : ''}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h4 className="text-sm font-semibold text-[#173d36]">
+          {!compactObjectives && <h4 className="text-sm font-semibold text-[#173d36]">
             Proponer {label} con IA
-          </h4>
+          </h4>}
           <p className="mt-1 max-w-2xl text-xs leading-5 text-[#52675f]">
             {instructions
               ? "Borradores basados en lo registrado."
-              : "Propuestas basadas en el PES aprobado. Agrégalas para revisarlas paso a paso."}
+              : compactObjectives
+              ? "Propuestas basadas en el PES aprobado."
+              : "Propuestas basadas en el PES aprobado. Agrégalas para revisarlas."}
             {" "}
             Usa créditos de IA según el consumo real.
           </p>
@@ -328,7 +340,7 @@ export function ClinicalSuggestionsAI({
           onClick={() => void generate()}
           aria-label={`Proponer ${label} con IA`}
         >
-          Proponer {label}
+          {compactObjectives ? 'Proponer objetivos con IA' : `Proponer ${label}`}
         </AIButton>
       </div>
       {visibleBatch && batchOrigin !== visibleBatch.generationId && (
@@ -344,7 +356,7 @@ export function ClinicalSuggestionsAI({
           <p>{batchAlreadyUsed ? 'Incorporada al borrador de esta consulta.' : 'Revisa los objetivos de esta propuesta antes de incorporarlos al borrador.'}</p>
           {!batchAlreadyUsed && !batchDraft.blocked && (
             <button type="button" className="nuth-button-secondary mt-2" disabled={batchMismatch}
-              onClick={() => batchDraft.use(batchGoals, batchOrigin)}>
+            onClick={() => batchDraft.use(batchGoals, batchOrigin, structured.map(({evidence, references}) => ({evidence, references})))}>
               {batchDraft.label}
             </button>
           )}
@@ -438,7 +450,9 @@ export function ClinicalSuggestionsAI({
                       )}
                       <details className="clinical-suggestion-preview">
                         <summary>Vista previa y datos utilizados</summary>
-                        <p>{suggestion.text}</p>
+                        <p className={compactObjectives ? 'smart-objective-proposal-text' : undefined}>
+                          {compactObjectives && suggestion.goal ? formatObjectiveEditorText(suggestion.goal) : suggestion.text}
+                        </p>
                         <SuggestionEvidence suggestion={suggestion} />
                       </details>
                     </>
@@ -453,7 +467,7 @@ export function ClinicalSuggestionsAI({
                     disabled={applyDisabled || batchAlreadyUsed || batchMismatch || batchStale || applied.includes(index)}
                     onClick={() => {
                       if (suggestion.goal && onApplyGoal) {
-                        onApplyGoal(suggestion.goal);
+                        onApplyGoal(suggestion.goal, { evidence: suggestion.evidence, references: suggestion.references });
                       } else onApply(suggestion.text);
                       setApplied((items) => [...items, index]);
                     }}

@@ -9,6 +9,7 @@ import {
 import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
 import { PesCopilot, RecallCopilot } from "./ClinicalCopilot";
 import { AIRequestError } from "@/src/services/ai";
+import { formatPesEditorText } from "@/src/features/consultations/pesEditorText";
 import realCalibration from "../../../../supabase/functions/ai/fixtures/pes-real-calibration-20260922.json";
 const api = vi.hoisted(() => ({
   workspace: vi.fn(),
@@ -82,6 +83,8 @@ beforeEach(() => {
   ]);
 });
 afterEach(cleanup);
+const getPesText = () => screen.getByRole("textbox", { name: "Texto del diagnóstico PES" });
+const blankPesText = formatPesEditorText({ problem: "", etiology: "", signsSymptoms: [] });
 describe("PES copilot", () => {
   it("blocks a partial PES with empty etiology and exposes the missing context", async () => {
     api.generate.mockResolvedValue({ generationId: "partial", status: "succeeded", output: {
@@ -92,23 +95,22 @@ describe("PES copilot", () => {
     fireEvent.click(screen.getByText("Generar borrador"));
     await screen.findByText(/La causa sigue pendiente/);
     expect(screen.getByText("Confirmar si persiste la barrera de horarios registrada en julio", { selector: "li" })).toBeTruthy();
-    expect(screen.getByLabelText("Etiología").getAttribute("aria-invalid")).toBe("true");
-    expect((screen.getByText("Aprobar") as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.change(screen.getByLabelText("Etiología"), { target: { value: " \n\t " } });
-    expect((screen.getByText("Aprobar") as HTMLButtonElement).disabled).toBe(true);
+    expect(getPesText().getAttribute("aria-invalid")).toBe("true");
+    expect((screen.getByRole("button", { name: "Aprobar PES" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(getPesText(), { target: { value: formatPesEditorText({ ...draft, etiology: " \n\t " }) } });
+    expect((screen.getByRole("button", { name: "Aprobar PES" }) as HTMLButtonElement).disabled).toBe(true);
     expect(api.workspace.mock.calls.every((c) => !c[2])).toBe(true);
-    fireEvent.change(screen.getByLabelText("Etiología"), { target: { value: "Barrera de horarios confirmada en entrevista" } });
-    fireEvent.click(screen.getByText("Aprobar"));
+    fireEvent.change(getPesText(), { target: { value: formatPesEditorText({ ...draft, etiology: "Barrera de horarios confirmada en entrevista" }) } });
+    fireEvent.click(screen.getByRole("button", { name: "Aprobar PES" }));
     await waitFor(() => expect(props.onPes).toHaveBeenCalledWith(expect.objectContaining({ etiology: "Barrera de horarios confirmada en entrevista" })));
   });
   it("preserves manual review and approval after a context-size failure", async () => {
     api.generate.mockRejectedValue(new AIRequestError("input_too_large"));
     render(<PesCopilot {...props} answers={{ pes_problem: "P", pes_etiology: "E", pes_evidence: "Dato registrado", pes_statement: "P relacionado con E, evidenciado por Dato registrado." }} />);
     await screen.findByText("Antropometría disponible");
-    fireEvent.click(screen.getByText("Generar borrador"));
+    fireEvent.click(screen.getByText("Otra propuesta"));
     await screen.findByText(/puedes continuar la consulta manualmente/);
-    fireEvent.click(screen.getByText("Revisar PES escrito"));
-    fireEvent.click(screen.getByText("Aprobar"));
+    fireEvent.click(screen.getByRole("button", { name: "Aprobar PES" }));
     await waitFor(() => expect(props.onPes).toHaveBeenCalledWith(expect.objectContaining({ pesStatement: "P relacionado con E, evidenciado por Dato registrado." })));
     expect(sessionStorage.getItem("clinical-pending:test-consult:pes_diagnosis")).toBeNull();
   });
@@ -118,7 +120,7 @@ describe("PES copilot", () => {
     await screen.findByText("Antropometría disponible");
     fireEvent.click(screen.getByText("Generar borrador"));
     await screen.findByText(/Información insuficiente para proponer un PES/);
-    expect((screen.getByText("Aprobar") as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Aprobar PES" }) as HTMLButtonElement).disabled).toBe(true);
     expect(api.workspace.mock.calls.every((c) => !c[2])).toBe(true);
     expect(props.onPes).not.toHaveBeenCalled();
   });
@@ -135,8 +137,7 @@ describe("PES copilot", () => {
       />,
     );
     await screen.findByText("Antropometría disponible");
-    fireEvent.click(screen.getByText("Revisar PES escrito"));
-    fireEvent.click(screen.getByText("Aprobar"));
+    fireEvent.click(screen.getByRole("button", { name: "Aprobar PES" }));
     await waitFor(() =>
       expect(api.workspace).toHaveBeenCalledWith(
         "test-consult",
@@ -148,6 +149,21 @@ describe("PES copilot", () => {
     );
     expect(api.generate).not.toHaveBeenCalled();
   });
+  it("keeps unstructured text editable and blocks approval until the three headings can be read", async () => {
+    render(<PesCopilot {...props} />);
+    const text = getPesText();
+    const incomplete = "Problema\nPatrón irregular\n\nCausa confirmada\n\nSignos y síntomas\nHorarios registrados";
+    fireEvent.change(text, { target: { value: incomplete } });
+    expect(screen.getByText(/Conserva los encabezados/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Aprobar PES" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar borrador" }));
+    await screen.findByText("Borrador guardado.");
+    expect(text).toHaveValue(incomplete);
+    expect(api.workspace.mock.calls.every((call) => !call[2])).toBe(true);
+
+    fireEvent.change(text, { target: { value: incomplete.replace("Causa confirmada", "Etiología:\nCausa confirmada") } });
+    expect(screen.getByRole("button", { name: "Aprobar PES" })).toBeEnabled();
+  });
   it("readiness does not require labs; generating does not save and approval uses edits", async () => {
     render(<PesCopilot {...props} />);
     await screen.findByText("Antropometría disponible");
@@ -155,8 +171,8 @@ describe("PES copilot", () => {
     fireEvent.click(screen.getByText("Generar borrador"));
     await screen.findByText("Borrador P relacionado con Borrador E, evidenciado por Peso registrado.");
     expect(api.workspace.mock.calls.every((c) => !c[2])).toBe(true);
-    fireEvent.change(screen.getByLabelText("Etiología"), { target: { value: "Causa revisada" } });
-    fireEvent.click(screen.getByText("Aprobar"));
+    fireEvent.change(getPesText(), { target: { value: formatPesEditorText({ ...draft, etiology: "Causa revisada" }) } });
+    fireEvent.click(screen.getByRole("button", { name: "Aprobar PES" }));
     await waitFor(() =>
       expect(props.onPes).toHaveBeenCalledWith(
         expect.objectContaining({ pesStatement: "Borrador P relacionado con Causa revisada, evidenciado por Peso registrado." }),
@@ -180,10 +196,7 @@ describe("PES copilot", () => {
     await screen.findByText("PES descartado y campos limpios.");
     expect(screen.queryByText(draft.pesStatement)).not.toBeInTheDocument();
     expect(onPendingChange).toHaveBeenLastCalledWith(false);
-    fireEvent.click(screen.getByText("Redactar PES manualmente"));
-    expect(screen.getByLabelText("Problema")).toHaveValue("");
-    expect(screen.getByLabelText("Etiología")).toHaveValue("");
-    expect(screen.getByLabelText("Signos y síntomas")).toHaveValue("");
+    expect(getPesText()).toHaveValue(blankPesText);
     expect(api.workspace.mock.calls.every((c) => !c[2])).toBe(true);
     expect(props.onPes).not.toHaveBeenCalled();
   });
@@ -196,17 +209,17 @@ describe("PES copilot", () => {
     await screen.findByText(draft.pesStatement);
     api.generate.mockResolvedValue({ generationId: "alternative", status: "succeeded", output: { ...draft, problem: "Alternativa" } });
     fireEvent.click(screen.getByText("Otra propuesta"));
-    await screen.findByText(/Alternativa relacionado con/);
+    await screen.findByText(/Alternativa/, { selector: ".pes-editor-alternative-text" });
     fireEvent.click(screen.getByText("Descartar y limpiar"));
     fireEvent.click(screen.getByText("Limpiando…"));
     expect(onDiscardPes).toHaveBeenCalledOnce();
     expect(screen.getByText("Limpiando…")).toBeDisabled();
     expect(screen.getByText("Otra propuesta")).toBeDisabled();
-    expect(screen.getByLabelText("Problema")).toHaveAttribute("readonly");
+    expect(getPesText()).toHaveAttribute("readonly");
     await act(async () => finish(true));
     expect(screen.queryByText(draft.pesStatement)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Alternativa relacionado con/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Nueva propuesta · aún no reemplaza/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Alternativa/, { selector: ".pes-editor-alternative-text" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Nueva propuesta de IA" })).not.toBeInTheDocument();
     expect(screen.getByText("Generar borrador")).toBeEnabled();
   });
   it("preserves the visible draft when clearing its saved text fails", async () => {
@@ -217,7 +230,7 @@ describe("PES copilot", () => {
     await screen.findByText(draft.pesStatement);
     fireEvent.click(screen.getByText("Descartar y limpiar"));
     await screen.findByText(/No pudimos limpiar el PES guardado/);
-    expect(screen.getByLabelText("Problema")).toHaveValue(draft.problem);
+    expect(getPesText()).toHaveValue(formatPesEditorText(draft));
     expect(screen.getByText(draft.pesStatement)).toBeInTheDocument();
     expect(screen.getByText("Descartar y limpiar")).toBeEnabled();
   });
@@ -249,10 +262,31 @@ describe("PES copilot", () => {
       replay: false,
     });
     fireEvent.click(screen.getByText("Otra propuesta"));
-    await screen.findByText("Alternativa relacionado con Borrador E, evidenciado por Peso registrado.");
+    await screen.findByText(/Alternativa/, { selector: ".pes-editor-alternative-text" });
     expect(screen.getByText("Borrador P relacionado con Borrador E, evidenciado por Peso registrado.")).toBeTruthy();
     fireEvent.click(screen.getByText("Conservar anterior"));
     expect(screen.getByText("Borrador P relacionado con Borrador E, evidenciado por Peso registrado.")).toBeTruthy();
+  });
+  it("keeps the approved PES when a new draft is discarded", async () => {
+    const onDiscardPes = vi.fn().mockResolvedValue(true);
+    api.workspace.mockResolvedValue({ ...w, records: { pes: { approved_at: "2026-11-21T00:00:00Z" } } });
+    render(<PesCopilot {...props} onDiscardPes={onDiscardPes} answers={{
+      pes_problem: "Problema aprobado",
+      pes_etiology: "Causa revisada",
+      pes_evidence: "Dato confirmado",
+      pes_statement: "Problema aprobado relacionado con Causa revisada, evidenciado por Dato confirmado.",
+    }} />);
+    await screen.findByText("PES aprobado");
+    expect(getPesText()).toHaveAttribute("readonly");
+    fireEvent.click(screen.getByText("Otra propuesta"));
+    await screen.findByRole("heading", { name: "Nueva propuesta de IA" });
+    expect(getPesText()).toHaveValue(formatPesEditorText({ problem: "Problema aprobado", etiology: "Causa revisada", signsSymptoms: ["Dato confirmado"] }));
+    fireEvent.click(screen.getByRole("button", { name: "Usar propuesta de IA" }));
+    expect(getPesText()).toHaveValue(formatPesEditorText(draft));
+    fireEvent.click(screen.getByRole("button", { name: "Descartar borrador" }));
+    await screen.findByText("Borrador descartado. El PES aprobado se conserva.");
+    expect(getPesText()).toHaveValue(formatPesEditorText({ problem: "Problema aprobado", etiology: "Causa revisada", signsSymptoms: ["Dato confirmado"] }));
+    expect(onDiscardPes).not.toHaveBeenCalled();
   });
   it("disabled or no credit generation does not remove manual path", async () => {
     api.generate.mockRejectedValue(new AIRequestError("insufficient_credits"));
@@ -260,7 +294,7 @@ describe("PES copilot", () => {
     await screen.findByText("Antropometría disponible");
     fireEvent.click(screen.getByText("Generar borrador"));
     await screen.findByText(/No tienes saldo disponible suficiente/);
-    expect(screen.getByText(/Puedes redactar el PES manualmente/)).toBeTruthy();
+    expect(getPesText()).not.toHaveAttribute("readonly");
     expect(props.onPes).not.toHaveBeenCalled();
   });
   it("network uncertainty persists across remount and never retries automatically", async () => {

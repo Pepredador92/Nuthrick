@@ -1,6 +1,7 @@
 import {
   type Ref,
   useEffect,
+  useId,
   useImperativeHandle,
   useRef,
   useState,
@@ -9,15 +10,12 @@ import {
   ArrowRight,
   Check,
   Circle,
-  FilePenLine,
-  Sparkles,
   X,
 } from "lucide-react";
 import {
   ClinicalStatusBadge,
   type ClinicalTaskStatus,
 } from "./ClinicalTaskCard";
-import { PesDiagnosisCards } from "./PesDiagnosisCards";
 import { AIButton } from "@/src/components/ai/AIControls";
 import { RecallNarrativeInput } from "./RecallNarrativeInput";
 import { ConsultationGuide } from "./ConsultationGuide";
@@ -61,11 +59,13 @@ import {
 } from "./RecallEstimateReview";
 import type { FoodItem } from "@/src/types/domain";
 import {useConsultationDraft,useConsultationDraftContext,useDurableAIProposal} from './ConsultationDrafts';
-import { useClinicalBatchProposal } from './ClinicalBatchAI';
+import { ClinicalBatchStageRevision, useClinicalBatchProposal } from './ClinicalBatchAI';
 import { hasUsablePesEtiology } from '../../../../supabase/functions/_shared/pes';
 import { PesContextDialog } from './PesContextDialog';
 import type { ConsultationSnapshotStructure } from '@/src/types/domain';
 import type { PesContextTarget } from '@/src/features/consultations/pesReadiness';
+import { formatPesEditorText, parsePesEditorText, pesEtiologyOffset } from '@/src/features/consultations/pesEditorText';
+import './PesDiagnosisEditor.css';
 
 type Props = {
   patientId: string;
@@ -202,7 +202,7 @@ function useClinical(props: Props, feature: "pes_diagnosis" | "recall_24h") {
       setMessage(e instanceof Error ? e.message : "No se pudo comprobar.");
     }
   }
-  async function approve(kind: "pes" | "recall", payload: object) {
+  async function approve(kind: "pes" | "recall", payload: object, source?: { generationId?: string }) {
     setSaving(true);
     setMessage("");
     try {
@@ -212,7 +212,7 @@ function useClinical(props: Props, feature: "pes_diagnosis" | "recall_24h") {
         props.revision,
         kind,
         { ...payload, stamp: w.stamp },
-        generation,
+        source ? source.generationId : generation,
       );
       setWorkspace(
         await clinicalWorkspace(props.consultationId, props.revision),
@@ -252,10 +252,11 @@ function useClinical(props: Props, feature: "pes_diagnosis" | "recall_24h") {
   return {
     removeRecall,
     restoreResult(id:string){setGeneration(id);setPendingRequest(null);sessionStorage.removeItem(storageKey);setState('ready');setMessage('Propuesta recuperada para revisión.');},
-    resetPes() {
+    resetPes(keepApproved = false) {
       setGeneration(undefined);
-      setMessage("PES descartado y campos limpios.");
+      setMessage(keepApproved ? "Borrador descartado. El PES aprobado se conserva." : "PES descartado y campos limpios.");
       setState((pendingRequest||sessionStorage.getItem(storageKey)) ? "uncertain" : "idle");
+      if (keepApproved) return;
       setWorkspace((current) => {
         if (!current) return current;
         const records = { ...current.records };
@@ -306,26 +307,54 @@ function PesPriorityReview({ notes, approved = false }: { notes: string[]; appro
     </aside>
   );
 }
+function pesProposalDraft(output: unknown): PesDraft | null {
+  if (typeof output !== "object" || output === null) return null;
+  const proposal = output as Partial<PesDraft>;
+  if (typeof proposal.problem !== "string" || typeof proposal.etiology !== "string" || !Array.isArray(proposal.signsSymptoms)) return null;
+  const parts = {
+    problem: proposal.problem,
+    etiology: proposal.etiology,
+    signsSymptoms: proposal.signsSymptoms.filter((sign) => typeof sign === "string"),
+  };
+  return {
+    ...parts,
+    pesStatement: composePesStatement(parts),
+    evidence: proposal.evidence ?? [],
+    missingContext: proposal.missingContext ?? [],
+    uncertainties: proposal.uncertainties ?? [],
+  };
+}
+
+type PesWorkingDraft = PesDraft & { editorText?: string };
+
+function pesEditorValidation(draft: PesDraft) {
+  if (!draft.problem.trim()) return 'Identifica el problema.';
+  if (draft.problem.length > 500) return 'Resume el problema en 500 caracteres o menos.';
+  if (draft.etiology.length > 1500) return 'Resume la etiología en 1500 caracteres o menos.';
+  const signs = draft.signsSymptoms.filter(sign => sign.trim());
+  if (!signs.length) return 'Registra al menos un signo o síntoma.';
+  if (signs.length > 30) return 'Conserva hasta 30 signos o síntomas.';
+  if (signs.some(sign => sign.length > 2000)) return 'Resume cada signo o síntoma en 2000 caracteres o menos.';
+  if (draft.pesStatement.length > 2000) return 'El enunciado supera 2000 caracteres. Resume los componentes y conserva la evidencia pertinente.';
+  if (!draft.pesStatement.trim()) return 'Completa el problema, la etiología y los signos con texto descriptivo.';
+  return '';
+}
+
 export function PesCopilot(props: Props) {
   const clinical = useClinical(props, "pes_diagnosis");
+  const checkpoints = useConsultationDraftContext();
   const [contextIntent, setContextIntent] = useState<'generate' | 'review' | null>(null);
-  const [draft, setDraft] = useConsultationDraft<PesDraft | null>('pes',null);
-  const [replacement, setReplacement] = useConsultationDraft<PesDraft | null>('pes-replacement',null);
-  const [previousGeneration, setPreviousGeneration] = useConsultationDraft<string|undefined>('pes-previous-generation',undefined);
-  const [editing, setEditing] = useConsultationDraft('pes-editing',true);
-  const [discarding, setDiscarding] = useState(false);
-  const discardLock = useRef(false);
-  const busy = clinical.saving || discarding;
+  const [draft, setDraft] = useConsultationDraft<PesWorkingDraft | null>('pes', null);
+  const [approvedText, setApprovedText] = useConsultationDraft<{ canonical: string; text: string } | null>('pes-approved-text', null);
+  const [replacement, setReplacement] = useConsultationDraft<PesDraft | null>('pes-replacement', null);
+  const [previousGeneration, setPreviousGeneration] = useConsultationDraft<string | undefined>('pes-previous-generation', undefined);
+  const [edited, setEdited] = useConsultationDraft('pes-edited', false);
+  const [action, setAction] = useState<'save' | 'approve' | 'discard' | null>(null);
+  const actionLock = useRef(false);
+  const editor = useRef<HTMLTextAreaElement>(null);
+  const editorId = useId();
   const batch = useClinicalBatchProposal('pes_diagnosis');
-  function restoreProposal(output: Record<string, unknown>, id: string) {
-    if(typeof output.problem!=='string'||typeof output.etiology!=='string'||!Array.isArray(output.signsSymptoms))return;
-    const restored=output as unknown as PesDraft;
-    const composed={...restored,pesStatement:composePesStatement(restored)};
-    if(draft)setReplacement(composed);else setDraft(composed);
-    clinical.restoreResult(id);
-  }
-  useDurableAIProposal('pes_diagnosis', restoreProposal);
-  const { onPendingChange, onStatusChange } = props;
+
   const savedRecord = clinical.workspace?.records.pes;
   const savedDraft = {
     ...pesFromAnswers(props.answers ?? {}),
@@ -333,427 +362,310 @@ export function PesCopilot(props: Props) {
     missingContext: savedRecord?.missingContext ?? [],
     uncertainties: savedRecord?.uncertainties ?? [],
   };
-  const reviewNotes = pesReviewNotes(draft?.uncertainties ?? []);
-  const hasSavedParts =
-    !!(savedDraft.problem.trim() || savedDraft.etiology.trim() ||
-      savedDraft.signsSymptoms.some((sign) => sign.trim()) ||
-      savedDraft.pesStatement.trim());
-  const status: ClinicalTaskStatus = draft
-    ? "progress"
-    : hasSavedParts && clinical.workspace?.records.pes && hasUsablePesEtiology(savedDraft.etiology)
-    ? "approved"
-    : hasSavedParts
-    ? "progress"
-    : "pending";
-  useEffect(() => {
-    onStatusChange?.(status);
-  }, [onStatusChange, status]);
-  useEffect(() => {
-    onPendingChange?.(
-      Boolean(
-        draft || replacement || busy ||
-          clinical.state === "generating",
-      ),
-    );
-  }, [draft, replacement, busy, clinical.state, onPendingChange]);
-  useEffect(() => () => onPendingChange?.(false), [onPendingChange]);
-  async function discard() {
-    if (discardLock.current) return;
-    discardLock.current = true;
-    setDiscarding(true);
+  const hasSavedParts = !!(savedDraft.problem.trim() || savedDraft.etiology.trim() ||
+    savedDraft.signsSymptoms.length || savedDraft.pesStatement.trim());
+  const hasApprovedPes = hasSavedParts && !!savedRecord?.approved_at && hasUsablePesEtiology(savedDraft.etiology);
+  const availableBatch = batch.proposal && batch.reviewed !== batch.proposal.generationId
+    ? batch.proposal : undefined;
+  const batchDraft = availableBatch ? pesProposalDraft(availableBatch.output) : null;
+  const batchInEditor = !!(batchDraft && !draft && !hasSavedParts && !replacement);
+  const current: PesWorkingDraft = draft ?? (batchInEditor && batchDraft ? batchDraft : savedDraft);
+  const alternative = replacement ?? (!batchInEditor ? batchDraft : null);
+  const generationId = draft ? (replacement ? previousGeneration : clinical.generation)
+    : batchInEditor ? availableBatch?.generationId : undefined;
+  const showingApproved = hasApprovedPes && !draft;
+  const canonicalText = formatPesEditorText(current);
+  const text = showingApproved && approvedText?.canonical === canonicalText
+    ? approvedText.text : current.editorText ?? canonicalText;
+  const organized = current.editorText === undefined || parsePesEditorText(current.editorText) !== null;
+  const hasDraft = !!draft || batchInEditor || (hasSavedParts && !showingApproved);
+  const status: ClinicalTaskStatus = showingApproved ? 'approved' : hasDraft ? 'progress' : 'pending';
+  const generating = clinical.state === 'generating';
+  const busy = !!action || generating;
+  const editable = !busy && !showingApproved;
+  const missingEtiology = !hasUsablePesEtiology(current.etiology);
+  const gaps = current.missingContext.filter((value) => value.trim());
+  const reviewNotes = pesReviewNotes(current.uncertainties);
+  const valid = organized && canApprovePes(current);
+  const validation = organized && hasDraft && !missingEtiology ? pesEditorValidation(current) : '';
+  const canGuide = !!props.structure && !!props.onOpenPesTarget;
+  const { onPendingChange, onStatusChange } = props;
+
+  function focusEditor(offset = 0) {
+    requestAnimationFrame(() => {
+      editor.current?.focus();
+      editor.current?.setSelectionRange(offset, offset);
+    });
+  }
+
+  function keepDraft(next: PesWorkingDraft) {
+    if (!draft && !replacement) {
+      clinical.setGeneration(generationId);
+      if (batchInEditor && availableBatch) batch.markReviewed(availableBatch.generationId);
+    }
+    setDraft(next);
+  }
+
+  function updateDraft(next: PesWorkingDraft) {
+    keepDraft(next);
+    setEdited(true);
     clinical.setMessage("");
+  }
+
+  function editText(value: string) {
+    const parts = parsePesEditorText(value);
+    updateDraft({ ...(parts ? updatePesParts(current, parts) : current), editorText: value });
+  }
+
+  function restoreProposal(output: unknown, id: string) {
+    const proposal = pesProposalDraft(output);
+    if (!proposal) return;
+    if (hasDraft || showingApproved) {
+      if (batchInEditor) keepDraft(current);
+      setPreviousGeneration(generationId);
+      setReplacement(proposal);
+    } else {
+      setDraft(proposal);
+      setEdited(false);
+    }
+    clinical.restoreResult(id);
+  }
+
+  useDurableAIProposal('pes_diagnosis', restoreProposal);
+  const pending = !!(draft || batchInEditor || alternative || busy);
+  useEffect(() => { onStatusChange?.(status); }, [onStatusChange, status]);
+  useEffect(() => { onPendingChange?.(pending); }, [onPendingChange, pending]);
+  useEffect(() => () => onPendingChange?.(false), [onPendingChange]);
+
+  async function saveDraft() {
+    if (actionLock.current) return;
+    actionLock.current = true;
+    setAction('save');
     try {
-      if (props.onDiscardPes && !(await props.onDiscardPes())) {
-        clinical.setMessage("No pudimos limpiar el PES guardado. Tu borrador sigue aquí; vuelve a intentarlo.");
-        return;
+      keepDraft(current);
+      const saved = await (checkpoints ? checkpoints.flush() : props.before());
+      clinical.setMessage(saved ? 'Borrador guardado.' : 'No pudimos guardar el borrador. Tus cambios siguen aquí.');
+    } catch {
+      clinical.setMessage('No pudimos guardar el borrador. Tus cambios siguen aquí.');
+    } finally {
+      actionLock.current = false;
+      setAction(null);
+    }
+  }
+
+  async function approve() {
+    if (!valid || actionLock.current) return;
+    actionLock.current = true;
+    setAction('approve');
+    try {
+      const { editorText, ...parts } = current;
+      const approved = { ...parts, signsSymptoms: parts.signsSymptoms.map((sign) => sign.trim()).filter(Boolean) };
+      if (!await clinical.approve('pes', { ...approved, evidenceReviewed: true }, { generationId })) return;
+      if (availableBatch?.generationId === generationId && availableBatch) batch.markReviewed(availableBatch.generationId);
+      const canonical = formatPesEditorText(approved);
+      setApprovedText(editorText !== undefined && editorText !== canonical ? { canonical, text: editorText } : null);
+      setDraft(null);
+      setEdited(false);
+      props.onPes?.(approved);
+      await checkpoints?.flush();
+      props.onCompleted?.();
+    } finally {
+      actionLock.current = false;
+      setAction(null);
+    }
+  }
+
+  async function discard() {
+    if (actionLock.current) return;
+    actionLock.current = true;
+    setAction('discard');
+    clinical.setMessage('');
+    try {
+      if (!hasApprovedPes && props.onDiscardPes && !(await props.onDiscardPes())) {
+        throw new Error();
       }
+      if (availableBatch) batch.markReviewed(availableBatch.generationId);
       setDraft(null);
       setReplacement(null);
       setPreviousGeneration(undefined);
-      setEditing(true);
-      clinical.resetPes();
+      setEdited(false);
+      if (!hasApprovedPes) setApprovedText(null);
+      clinical.resetPes(hasApprovedPes);
+      if (checkpoints && !await checkpoints.flush()) {
+        clinical.setMessage('El editor está limpio. Reintenta guardar el avance para confirmar el cambio.');
+      }
     } catch {
-      clinical.setMessage("No pudimos limpiar el PES guardado. Tu borrador sigue aquí; vuelve a intentarlo.");
+      clinical.setMessage('No pudimos limpiar el PES guardado. Tu borrador sigue aquí; vuelve a intentarlo.');
     } finally {
-      setDiscarding(false);
-      discardLock.current = false;
+      actionLock.current = false;
+      setAction(null);
     }
   }
+
   async function generate() {
-    setPreviousGeneration(clinical.generation);
     const output = await clinical.generate();
     if (!output) return;
-    const next = output as PesDraft;
-    const composed = { ...next, pesStatement: composePesStatement(next) };
-    if (draft) setReplacement(composed);
-    else setDraft(composed);
+    const next = pesProposalDraft(output);
+    if (!next) return;
+    if (hasDraft || showingApproved) {
+      if (batchInEditor) {
+        setDraft(current);
+        if (availableBatch) batch.markReviewed(availableBatch.generationId);
+      }
+      setPreviousGeneration(generationId);
+      setReplacement(next);
+    } else {
+      setEdited(false);
+      setDraft(next);
+    }
   }
-  const canGuide = !!props.structure && !!props.onOpenPesTarget;
-  const requestGenerate = () => canGuide ? setContextIntent('generate') : void generate();
-  const contextButton = canGuide && <button type="button" className="nuth-button-secondary !text-sm" disabled={busy || clinical.state === 'generating'} onClick={() => setContextIntent('review')}>Revisar y completar información para el PES<ArrowRight size={16} aria-hidden="true" /></button>;
+
+  function chooseAlternative(useNew: boolean) {
+    if (!alternative) return;
+    if (replacement) {
+      if (useNew) {
+        setDraft(replacement);
+        setEdited(false);
+      } else {
+        clinical.setGeneration(previousGeneration);
+      }
+      setPreviousGeneration(undefined);
+      setReplacement(null);
+    } else if (availableBatch) {
+      if (useNew) {
+        setDraft(alternative);
+        clinical.setGeneration(availableBatch.generationId);
+        setEdited(false);
+      }
+      batch.markReviewed(availableBatch.generationId);
+    }
+    clinical.setMessage('');
+    if (useNew) focusEditor();
+  }
+
   return (
-    <section aria-label="Asistencia PES" className="clinical-pes-workspace">
+    <section aria-label="Editor del diagnóstico PES" className="clinical-pes-workspace pes-editor">
       {contextIntent && props.structure && props.onOpenPesTarget && <PesContextDialog
         consultationId={props.consultationId} revision={props.revision} structure={props.structure} answers={props.answers ?? {}}
-        missingContext={(draft ?? savedDraft).missingContext} missingEtiology={!!(draft || hasSavedParts) && !hasUsablePesEtiology((draft ?? savedDraft).etiology)}
+        missingContext={current.missingContext} missingEtiology={hasDraft && missingEtiology}
         intent={contextIntent} before={props.before} onOpenTarget={props.onOpenPesTarget} onGenerate={() => void generate()} onClose={() => setContextIntent(null)} />}
-      <div className="clinical-pes-overview">
-        <div>
-          <h3>Construye el diagnóstico en tres partes</h3>
-          <p>
-            Identifica el problema, explica su causa y respáldalo con datos.
-          </p>
+      <header className="pes-editor-header">
+        <div className="pes-editor-tools">
+          {canGuide && <button type="button" className={secondary} disabled={busy} onClick={() => setContextIntent('review')}>
+            Revisar datos para el PES
+          </button>}
+          <AIButton capability="ai.pes" state={clinical.state} disabled={busy || !clinical.workspace || !!alternative}
+            onClick={() => canGuide ? setContextIntent('generate') : void generate()}>
+            {hasDraft || showingApproved ? 'Otra propuesta' : 'Generar borrador'}
+          </AIButton>
         </div>
-        <ClinicalStatusBadge status={status}>
-          {draft
-            ? "Borrador por revisar"
-            : status === "approved"
-            ? "PES aprobado"
-            : hasSavedParts
-            ? "Pendiente de aprobación"
-            : "Sin empezar"}
-        </ClinicalStatusBadge>
+      </header>
+      {generating && <p role="status" className="clinical-notice">Analizando la información de la consulta…</p>}
+      {alternative && <aside className="pes-editor-alternative">
+        <h3>Nueva propuesta de IA</h3>
+        <p className="pes-editor-alternative-text">{formatPesEditorText(alternative)}</p>
+        <div className="pes-editor-tools">
+          <button type="button" className="nuth-button !text-sm" disabled={busy} onClick={() => chooseAlternative(true)}>Usar propuesta de IA</button>
+          <button type="button" className={secondary} disabled={busy} onClick={() => chooseAlternative(false)}>Conservar anterior</button>
+        </div>
+      </aside>}
+      <div className="pes-editor-content" data-approved={showingApproved || undefined}>
+        <div className="pes-editor-title">
+          <label htmlFor={editorId}>Texto del diagnóstico PES</label>
+          <ClinicalStatusBadge status={status}>
+            {showingApproved ? 'PES aprobado' : !hasDraft ? 'Sin empezar'
+              : generationId ? (draft && edited ? 'Borrador de IA editado' : 'Borrador de IA') : 'Borrador manual'}
+          </ClinicalStatusBadge>
+        </div>
+        {!showingApproved && <p id={`${editorId}-hint`} className="pes-editor-hint">
+          Escribe debajo de cada encabezado. Registra los signos y síntomas uno por línea.
+        </p>}
+        <textarea
+          id={editorId}
+          ref={editor}
+          className="nuth-input pes-editor-text"
+          rows={Math.max(9, Math.min(text.split('\n').length + 2, 18))}
+          readOnly={!editable}
+          aria-describedby={showingApproved ? undefined : `${editorId}-hint`}
+          aria-invalid={hasDraft && !valid ? true : undefined}
+          value={text}
+          onChange={event => editText(event.target.value)}
+        />
+        {!organized && <p className="clinical-notice is-warning">
+          Conserva los encabezados Problema, Etiología y Signos y síntomas, en ese orden y en líneas separadas.
+        </p>}
+        {organized && hasDraft && missingEtiology && <div className="clinical-notice is-warning">
+          <p>{current.problem.trim() ? 'La causa sigue pendiente. Completa la etiología cuando puedas sustentarla.'
+            : 'Información insuficiente para proponer un PES. Identifica el problema y su causa antes de aprobarlo.'}</p>
+          {gaps.length > 0 && <ul>{gaps.map((gap, index) => <li key={index}>{gap}</li>)}</ul>}
+          <button type="button" className="clinical-text-action" disabled={!editable} onClick={() => focusEditor(pesEtiologyOffset(text))}>Ir a Etiología <ArrowRight size={16} aria-hidden="true" /></button>
+        </div>}
+        {organized && hasDraft && !pesStatementMatches(current) && <div className="clinical-notice is-warning">
+          <p>El enunciado guardado difiere de los componentes actuales.</p>
+          <button type="button" className={secondary} disabled={!editable} onClick={() => updateDraft({ ...current, pesStatement: composePesStatement(current) })}>
+            Actualizar enunciado con P, E y S
+          </button>
+        </div>}
+        {validation && <p className="clinical-notice is-warning">{validation}</p>}
+        {organized && current.pesStatement && !missingEtiology && <details className="clinical-support-details pes-editor-statement">
+          <summary>{showingApproved ? 'Enunciado aprobado' : 'Ver enunciado PES'}</summary>
+          <p>{current.pesStatement}</p>
+        </details>}
+
+        <details className="clinical-support-details pes-editor-sources">
+          <summary>{showingApproved ? 'Fuentes y observaciones' : 'Fuentes, datos faltantes e incertidumbres'}
+            {!showingApproved && gaps.length > 0 && <span className="clinical-detail-count">{gaps.length} por confirmar</span>}
+          </summary>
+          <PesPriorityReview notes={current.uncertainties} approved={showingApproved} />
+          {current.evidence.length > 0 ? <ul className="consultation-context-facts">
+            {current.evidence.map((item, index) => <li key={index}><strong>{item.source}</strong><p>{item.finding}</p></li>)}
+          </ul> : <p>Consulta la revisión clínica para contrastar las fuentes que sustentan el diagnóstico.</p>}
+          {(hasDraft || showingApproved) && (['missingContext', 'uncertainties'] as const).map((key) => (
+            <label key={key} className="clinical-goal-field mt-4">
+              <span>{key === 'missingContext' ? 'Datos faltantes' : 'Incertidumbres y otros hallazgos'}</span>
+              <textarea className="nuth-input" readOnly={!editable} rows={3}
+                value={(key === 'uncertainties' ? reviewNotes.notes : current[key]).join('\n')}
+                onChange={(event) => updateDraft({
+                  ...current,
+                  [key]: key === 'uncertainties' && reviewNotes.priorityEntry
+                    ? [reviewNotes.priorityEntry, ...event.target.value.split('\n')]
+                    : event.target.value.split('\n'),
+                })} />
+            </label>
+          ))}
+          <div className="clinical-readiness" aria-label="Información disponible">
+            {([['interview', 'Entrevista'], ['objective', 'Objetivo'], ['anthropometry', 'Antropometría'], ['laboratories', 'Laboratorios']] as const).map(([key, label]) => {
+              const available = clinical.workspace?.readiness[key];
+              const Icon = available ? Check : Circle;
+              return <span key={key}><Icon size={13} aria-hidden="true" />{label}{available ? ' disponible' : ' sin registrar'}</span>;
+            })}
+          </div>
+        </details>
+
+        <footer className="pes-editor-footer">
+          {showingApproved ? <button type="button" className={secondary} disabled={busy} onClick={() => {
+            keepDraft({ ...savedDraft, editorText: text });
+            setEdited(false);
+            focusEditor();
+          }}>Editar PES aprobado</button> : <>
+            <p>{valid ? 'Al aprobar confirmas que revisaste el diagnóstico y sus fuentes.' : 'Puedes guardar el borrador y completar los campos pendientes después.'}</p>
+            <div className="pes-editor-tools">
+              {hasDraft && <button type="button" className="pes-editor-discard" disabled={busy} onClick={() => void discard()}>
+                {action === 'discard' ? 'Limpiando…' : hasApprovedPes ? 'Descartar borrador' : 'Descartar y limpiar'}
+              </button>}
+              <button type="button" className={secondary} disabled={busy || !hasDraft} onClick={() => void saveDraft()}>
+                {action === 'save' ? 'Guardando…' : 'Guardar borrador'}
+              </button>
+              <button type="button" className="nuth-button !text-sm" disabled={busy || !!replacement || !valid} onClick={() => void approve()}>
+                {action === 'approve' ? 'Aprobando…' : 'Aprobar PES'}
+              </button>
+            </div>
+          </>}
+        </footer>
+        <Feedback clinical={clinical} />
       </div>
-      {batch.proposal && batch.reviewed !== batch.proposal.generationId && (
-        <button type="button" className="nuth-button-secondary mb-3"
-          disabled={busy || ['generating', 'uncertain'].includes(clinical.state)}
-          onClick={() => {
-            if (!draft) setEditing(true);
-            else setPreviousGeneration(clinical.generation);
-            restoreProposal(batch.proposal!.output, batch.proposal!.generationId);
-            batch.markReviewed(batch.proposal!.generationId);
-          }}>
-          Revisar PES de la propuesta completa
-        </button>
-      )}
-      {(!draft || hasUsablePesEtiology(draft.etiology)) && contextButton}
-      {!draft && (
-        <>
-          {hasSavedParts && !hasUsablePesEtiology(savedDraft.etiology) && <div role="status" className="clinical-notice is-warning"><p>La etiología sigue pendiente. Abre «Revisar PES escrito» para completarla con información confirmada antes de aprobar el diagnóstico.</p>{savedDraft.missingContext.length>0&&<ul>{savedDraft.missingContext.map((question,index)=><li key={index}>{question}</li>)}</ul>}</div>}
-          <PesDiagnosisCards draft={savedDraft} />
-          {savedDraft.pesStatement.trim() && (
-            <div className="clinical-pes-statement">
-              <p className="nuth-eyebrow">Enunciado guardado</p>
-              <p>{savedDraft.pesStatement}</p>
-            </div>
-          )}
-          {hasSavedParts && <details className="clinical-support-details"><summary>Detalle de la revisión del PES</summary><PesPriorityReview notes={savedDraft.uncertainties} approved={status === 'approved'} /></details>}
-          <div className="clinical-pes-start-actions">
-            <div>
-              <FilePenLine size={20} aria-hidden="true" />
-              <div>
-                <strong>
-                  {hasSavedParts
-                    ? "Revisa lo que registraste"
-                    : "Redáctalo con tu criterio"}
-                </strong>
-                <p>Completa P, E y S con los datos de la consulta.</p>
-              </div>
-              <button
-                type="button"
-                className="nuth-button !text-sm"
-                disabled={busy || clinical.state === "generating"}
-                onClick={() => {
-                  setDraft(savedDraft);
-                  setReplacement(null);
-                  clinical.setGeneration(undefined);
-                  setEditing(true);
-                  clinical.setMessage("");
-                }}
-              >
-                {hasSavedParts
-                  ? "Revisar PES escrito"
-                  : "Redactar PES manualmente"}
-              </button>
-            </div>
-            <div>
-              <Sparkles size={20} aria-hidden="true" />
-              <div>
-                <strong>Parte de una propuesta de IA</strong>
-                <p>Usa los datos disponibles. Consume créditos de IA.</p>
-              </div>
-              <AIButton
-                capability="ai.pes"
-                state={clinical.state}
-                disabled={busy || !clinical.workspace}
-                onClick={requestGenerate}
-              >
-                Generar borrador
-              </AIButton>
-            </div>
-          </div>
-        </>
-      )}
-      {clinical.state === "generating" && (
-        <p role="status" className="clinical-notice">
-          Analizando la información de la consulta…
-        </p>
-      )}
-      {draft && (
-        <div className="clinical-pes-draft">
-          {!draft.problem.trim() && !draft.pesStatement.trim() &&
-            draft.missingContext.length > 0 && (
-            <p role="status" className="clinical-notice is-warning">
-              Información insuficiente para proponer un PES. Revisa los datos
-              faltantes antes de completar o aprobar el diagnóstico.
-            </p>
-          )}
-          {!hasUsablePesEtiology(draft.etiology) && (
-            <div role="status" className="clinical-notice is-warning">
-              <p>
-                {draft.problem.trim()
-                  ? 'La causa sigue pendiente. Revisa qué información falta y completa la etiología cuando puedas sustentarla.'
-                  : 'Reúne primero los datos que permitan identificar el problema y su causa.'}
-                {batch.proposal && batch.proposal.generationId === clinical.generation && ' Puedes revisar los objetivos, las estrategias y las indicaciones de valoración mientras completas el PES.'}
-              </p>
-              {draft.missingContext.length > 0 && (
-                <ul>
-                  {draft.missingContext.map((missing, i) => (
-                    <li key={i}>{missing}</li>
-                  ))}
-                </ul>
-              )}
-              <div className="mt-3">{contextButton}</div>
-            </div>
-          )}
-          <PesDiagnosisCards
-            draft={draft}
-            editable={editing && !discarding}
-            onChange={(parts) => setDraft(updatePesParts(draft, parts))}
-          />
-          <div className="clinical-pes-statement">
-            <p className="nuth-eyebrow">Así quedará el diagnóstico</p>
-            <h4>Enunciado PES final</h4>
-            <output
-              aria-label="Enunciado PES final"
-              aria-live="off"
-              aria-describedby="pes-statement-help"
-            >
-              {draft.pesStatement ||
-                "Completa P, E y S para construir el enunciado."}
-            </output>
-            <small id="pes-statement-help">
-              Problema → relacionado con → Etiología → evidenciado por → Signos
-              y síntomas.
-            </small>
-          </div>
-          <PesPriorityReview notes={draft.uncertainties} />
-          {!pesStatementMatches(draft) && (
-            <div role="alert" className="clinical-notice is-warning">
-              <p>
-                El enunciado guardado no coincide con los componentes actuales.
-                Revisa P, E y S y actualízalo antes de aprobar.
-              </p>
-              <button
-                type="button"
-                className={secondary + " mt-3"}
-                disabled={busy}
-                onClick={() =>
-                  setDraft({
-                    ...draft,
-                    pesStatement: composePesStatement(draft),
-                  })}
-              >
-                Actualizar enunciado con P, E y S
-              </button>
-            </div>
-          )}
-          {draft.pesStatement.length > 2000 && (
-            <p role="alert" className="clinical-notice is-warning">
-              El enunciado supera 2000 caracteres. Resume los componentes y
-              conserva la evidencia pertinente.
-            </p>
-          )}
-          <details className="clinical-support-details">
-            <summary>
-              Información utilizada y
-              límites{draft.missingContext.filter((value) => value.trim())
-                    .length > 0 && (
-                <span className="clinical-detail-count">
-                  {draft.missingContext.filter((value) => value.trim()).length}
-                  {" "}
-                  datos por confirmar
-                </span>
-              )}
-            </summary>
-            <ul className="consultation-context-facts">
-              {draft.evidence.map((e, i) => (
-                <li key={i}>
-                  <strong>{e.source}</strong>
-                  <p>{e.finding}</p>
-                </li>
-              ))}
-            </ul>
-            {!draft.evidence.length && (
-              <p>
-                Redacción manual: contrasta los signos y síntomas con las
-                mediciones, entrevista y estudios de la revisión clínica.
-              </p>
-            )}
-            {(["missingContext", "uncertainties"] as const).map((key) => (
-              <label key={key} className="clinical-goal-field mt-4">
-                <span>
-                  {key === "missingContext"
-                    ? "Datos faltantes"
-                    : "Incertidumbres y otros hallazgos"}
-                </span>
-                <textarea
-                  className="nuth-input"
-                  readOnly={!editing || discarding}
-                  value={(key === "uncertainties" ? reviewNotes.notes : draft[key]).join("\n")}
-                  onChange={(event) =>
-                    setDraft({
-                      ...draft,
-                      [key]: key === "uncertainties" && reviewNotes.priorityEntry
-                        ? [reviewNotes.priorityEntry, ...event.target.value.split("\n")]
-                        : event.target.value.split("\n"),
-                    })}
-                />
-              </label>
-            ))}
-          </details>
-          <div
-            className="clinical-approval-card"
-            data-status={canApprovePes(draft) ? "complete" : "progress"}
-          >
-            <div className="clinical-approval-copy">
-              <span className="clinical-stage-icon">
-                {canApprovePes(draft)
-                  ? <Check size={20} aria-hidden="true" />
-                  : <FilePenLine size={20} aria-hidden="true" />}
-              </span>
-              <div>
-                <h4>
-                  {canApprovePes(draft)
-                    ? "Revisa y aprueba el diagnóstico"
-                    : "Completa el diagnóstico para aprobar"}
-                </h4>
-                <p>
-                  Al aprobar confirmas que revisaste P, E y S, sus fuentes y la
-                  vigencia de los datos.
-                </p>
-              </div>
-            </div>
-            <div className="clinical-approval-actions">
-              <button
-                type="button"
-                className={secondary}
-                disabled={busy}
-                onClick={() =>
-                  setEditing(!editing)}
-              >
-                {editing ? "Ver propuesta" : "Editar"}
-              </button>
-              <button
-                type="button"
-                className="nuth-button !text-sm"
-                disabled={busy || !!replacement ||
-                  clinical.state === "generating" || !canApprovePes(draft)}
-                onClick={() => {
-                  const approved = {
-                    ...draft,
-                    signsSymptoms: draft.signsSymptoms.map((sign) =>
-                      sign.trim()
-                    ).filter(Boolean),
-                  };
-                  void clinical.approve("pes", {
-                    ...approved,
-                    evidenceReviewed: true,
-                  }).then((ok) => {
-                    if (ok) {
-                      props.onPes?.(approved);
-                      props.onCompleted?.();
-                      setDraft(null);
-                    }
-                  });
-                }}
-              >
-                {clinical.saving ? "Guardando…" : "Aprobar"}
-              </button>
-              <button
-                type="button"
-                className={secondary}
-                disabled={clinical.state === "generating" || busy}
-                onClick={() => void discard()}
-              >
-                {discarding ? "Limpiando…" : "Descartar y limpiar"}
-              </button>
-              <AIButton
-                capability="ai.pes"
-                state={clinical.state}
-                disabled={busy || !!replacement}
-                onClick={requestGenerate}
-              >
-                Otra propuesta
-              </AIButton>
-            </div>
-          </div>
-          {replacement && (
-            <div className="clinical-notice">
-              <p className="font-semibold">
-                Nueva propuesta · aún no reemplaza la anterior
-              </p>
-              <p className="mt-2">{replacement.pesStatement}</p>
-              <div className="clinical-approval-actions">
-                <button
-                  type="button"
-                  className={secondary}
-                  disabled={busy}
-                  onClick={() => {
-                    setDraft(replacement);
-                    setReplacement(null);
-                  }}
-                >
-                  Revisar nueva propuesta
-                </button>
-                <button
-                  type="button"
-                  className={secondary}
-                  disabled={busy}
-                  onClick={() => {
-                    setReplacement(null);
-                    clinical.setGeneration(previousGeneration);
-                  }}
-                >
-                  Conservar anterior
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-      <details className="clinical-support-details">
-        <summary>Datos disponibles y cómo se usa la IA</summary>
-        <div className="clinical-readiness" aria-label="Información disponible">
-          {([["interview", "Entrevista"], ["objective", "Objetivo"], [
-            "anthropometry",
-            "Antropometría",
-          ], ["laboratories", "Laboratorios"]] as const).map(([key, label]) => {
-            const available = clinical.workspace?.readiness[key];
-            const Icon = available ? Check : Circle;
-            return (
-              <span key={key}>
-                <Icon size={13} aria-hidden="true" />
-                {label}
-                {available ? " disponible" : " sin registrar"}
-              </span>
-            );
-          })}
-        </div>
-        <p>
-          {clinical.workspace?.readiness.anthropometry
-            ? "Los laboratorios no son obligatorios."
-            : "Agregar antropometría puede aportar más contexto; no es obligatorio."}
-          {" "}
-          Puedes redactar el PES manualmente.
-        </p>
-        <p>
-          La propuesta prioriza esta consulta. Si falta la entrevista actual,
-          puede usar antecedentes de consultas cerradas con su fecha. Revisa
-          cuáles siguen vigentes.
-        </p>
-      </details>
-      <Feedback clinical={clinical} />
+      {batch.proposal && props.active !== false && <ClinicalBatchStageRevision feature="pes_diagnosis"
+        patientId={props.patientId} consultationId={props.consultationId} revision={props.revision} blocked={busy || clinical.state === 'uncertain'} before={props.before} />}
     </section>
   );
 }

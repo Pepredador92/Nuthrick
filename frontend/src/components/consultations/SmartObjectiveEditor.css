@@ -1,0 +1,228 @@
+.smart-objective-layout {
+  display: grid;
+  grid-template-columns: minmax(0, .85fr) minmax(0, 2.65fr);
+  align-items: start;
+  gap: clamp(.75rem, 2vw, 1.25rem);
+  min-inline-size: 0;
+  margin-top: 1rem;
+}
+
+.smart-objective-list {
+  display: grid;
+  min-width: 0;
+  gap: .55rem;
+}
+
+.smart-objective-card {
+  min-width: 0;
+  border: 1px solid var(--consultation-card-line, var(--nuth-line));
+  border-radius: .95rem;
+  background: var(--consultation-card-bg, var(--nuth-surface));
+  color: var(--consultation-card-ink, var(--nuth-ink));
+}
+
+.smart-objective-card[data-selected='true'],
+.smart-objective-editor {
+  border: 1px solid var(--consultation-section-line, var(--nuth-line));
+  background: var(--consultation-section-bg, var(--nuth-surface));
+  color: var(--consultation-section-ink, var(--nuth-ink));
+}
+
+.smart-objective-card[data-selected='true'],
+.smart-objective-editor[data-approved='true'] {
+  border-inline-start: .25rem solid var(--consultation-section-accent, var(--nuth-action));
+}
+
+.smart-objective-select {
+  display: grid;
+  justify-items: start;
+  gap: .4rem;
+  padding: .75rem;
+  width: 100%;
+  text-align: left;
+}
+
+.smart-objective-name {
+  font-size: .9rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.smart-objective-card-tools,
+.smart-objective-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .5rem;
+}
+
+.smart-objective-card-tools {
+  padding: 0 .45rem .35rem;
+}
+
+.smart-objective-card-tools > button {
+  display: inline-grid;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  place-items: center;
+  border-radius: .5rem;
+}
+
+.smart-objective-card-tools > button:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.smart-objective-layout button:focus-visible {
+  outline: 2px solid var(--consultation-focus, var(--nuth-action));
+  outline-offset: 2px;
+}
+
+.smart-objective-editor {
+  display: grid;
+  gap: .75rem;
+  padding: clamp(.75rem, 2vw, 1.25rem);
+  min-width: 0;
+  border-radius: 1rem;
+}
+
+.smart-objective-editor-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+}
+
+.smart-objective-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.smart-objective-editor .smart-objective-text {
+  --nuth-surface: #fff;
+  --nuth-ink: #1d2d3d;
+  --nuth-line: #8092a8;
+  inline-size: 100%;
+  min-block-size: 29rem;
+  background: #fff;
+  color: #1d2d3d;
+  color-scheme: light;
+  field-sizing: content;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.smart-objective-editor .smart-objective-text[aria-invalid='true'] {
+  --nuth-line: #b34c40;
+  border-color: var(--nuth-line);
+}
+
+.smart-objective-editor > .clinical-support-details {
+  margin: 0;
+  border-color: var(--consultation-section-line, var(--nuth-line));
+}
+
+.smart-objective-editor > .clinical-support-details > summary {
+  color: inherit;
+}
+
+.smart-objective-evidence p,
+.smart-objective-evidence label {
+  margin-top: .65rem;
+}
+
+.smart-objective-references {
+  list-style: disc inside;
+  margin-top: .7rem;
+  overflow-wrap: anywhere;
+}
+
+.smart-objective-references a {
+  text-decoration: underline;
+}
+
+.smart-objective-agreement {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem 1rem;
+  font-size: .875rem;
+  font-weight: 650;
+}
+
+.smart-objective-agreement select.nuth-input {
+  inline-size: min(100%, 18rem);
+}
+
+.smart-objective-actions {
+  padding-block-start: .75rem;
+  border-block-start: 1px solid var(--consultation-section-line, var(--nuth-line));
+}
+
+.smart-objective-actions .clinical-text-action {
+  margin-inline-end: auto;
+  color: var(--consultation-section-ink, var(--nuth-action));
+}
+
+.smart-objective-ai button[aria-label='Proponer objetivos con IA'] {
+  background: #2458f5;
+  color: #fff;
+  box-shadow: 0 0 0 3px #2458f523, 0 0 18px #2458f535;
+}
+
+.smart-objective-ai {
+  border-color: var(--consultation-section-line, var(--nuth-line));
+  background: var(--consultation-section-bg, var(--nuth-surface));
+  color: var(--consultation-section-ink, var(--nuth-ink));
+}
+
+.smart-objective-ai > div > div > :is(h4, p) {
+  color: inherit;
+}
+
+.consultation-workspace .smart-objective-ai > div:first-child {
+  position: relative;
+  isolation: isolate;
+}
+
+.consultation-workspace .smart-objective-ai > div:first-child::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset-block-start: .1rem;
+  inset-inline-end: 12rem;
+  inline-size: 4.25rem;
+  block-size: 1.5rem;
+  pointer-events: none;
+  background: var(--consultation-fireflies, none);
+}
+
+.smart-objective-ai button[aria-label='Proponer objetivos con IA']:hover:enabled {
+  background: #1946d9;
+}
+
+html[data-nuthrick-theme='night'] .smart-objective-ai button[aria-label='Proponer objetivos con IA'] {
+  background: #86b6ff;
+  color: #102c59;
+  box-shadow: 0 0 0 3px #86b6ff3d, 0 0 18px #79acff55;
+}
+
+.smart-objective-proposal-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .smart-objective-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .smart-objective-actions {
+    justify-content: flex-start;
+  }
+
+  .consultation-workspace .smart-objective-ai > div:first-child::before {
+    display: none;
+  }
+}

@@ -177,7 +177,7 @@ html[data-nuthrick-theme=night] :is(.consultation-workspace, .interview-layout) 
 .consultation-workspace [data-consultation-module] :is(
   .consultation-panel, .consultation-panel-detail, .interview-question-card,
   .recall-workspace, .recall-narrative, .recall-food-card, .recall-estimate-meal, .recall-supported-fields, .recall-totals,
-  .consultation-clinical-card, .clinical-task-card, .clinical-goal-card, .clinical-pes-part, .clinical-next-card,
+  .consultation-clinical-card, .clinical-task-card, .clinical-goal-card, .clinical-next-card,
   .clinical-objective-dialog, .clinical-review-instruction, .clinical-objective-overview
 ) {
   --nuth-surface: var(--consultation-card-bg);
@@ -191,7 +191,7 @@ html[data-nuthrick-theme=night] :is(.consultation-workspace, .interview-layout) 
 .consultation-workspace [data-consultation-module] :is(
   .consultation-panel, .consultation-panel-detail, .interview-question-card,
   .recall-workspace, .recall-food-card, .recall-estimate-meal, .recall-supported-fields, .recall-totals,
-  .consultation-clinical-card, .clinical-task-card, .clinical-goal-card, .clinical-pes-part, .clinical-next-card, .clinical-objective-dialog,
+  .consultation-clinical-card, .clinical-task-card, .clinical-goal-card, .clinical-next-card, .clinical-objective-dialog,
   .clinical-review-instruction, .clinical-objective-overview
 ):not([data-status=complete], [data-status=approved]) {
   background: var(--nuth-surface);

@@ -302,157 +302,6 @@ html[data-nuthrick-theme='night'] :is(.clinical-stage, .clinical-objectives-work
   background: var(--clinical-progress-soft);
   color: var(--clinical-progress);
 }
-.clinical-pes-overview {
-  display: flex;
-  justify-content: space-between;
-  align-items: start;
-  gap: 15px;
-  margin-bottom: 17px;
-}
-.clinical-pes-overview h3 {
-  font-size: 15px;
-  font-weight: 650;
-}
-.clinical-pes-overview p {
-  margin-top: 5px;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--nuth-muted);
-}
-.clinical-pes-parts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
-.clinical-pes-part {
-  min-width: 0;
-  padding: 19px;
-  border: 1px solid var(--nuth-line);
-  border-radius: 18px;
-  background: var(--nuth-surface);
-}
-.clinical-pes-part[data-status='complete'] {
-  border-color: color-mix(in srgb, var(--clinical-complete) 45%,
-    var(--nuth-line));
-  background: linear-gradient(var(--clinical-complete-soft), var(--nuth-surface)
-    115px);
-}
-.clinical-pes-part > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.clinical-pes-letter {
-  display: grid;
-  width: 37px;
-  height: 37px;
-  place-items: center;
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--nuth-action) 9%, var(--nuth-surface));
-  color: var(--nuth-action);
-  font-size: 17px;
-  font-weight: 700;
-}
-.clinical-pes-part h4 {
-  margin-top: 17px;
-  font-size: 15px;
-  font-weight: 650;
-}
-.clinical-pes-part > p:not(.clinical-pes-saved-part) {
-  margin-top: 5px;
-  font-size: 12px;
-  color: var(--nuth-muted);
-  line-height: 1.6;
-}
-.clinical-pes-part textarea {
-  width: 100%;
-  min-height: 143px;
-  margin-top: 15px;
-  padding: 12px;
-  font-size: 13px;
-  line-height: 1.7;
-  resize: vertical;
-}
-.clinical-pes-placeholder {
-  display: block;
-  margin-top: 17px;
-  font-size: 13px;
-  color: var(--nuth-muted);
-}
-.clinical-pes-saved-part {
-  margin-top: 15px;
-  font-size: 13px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.clinical-pes-start-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 18px;
-}
-.clinical-pes-start-actions > div {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: start;
-  gap: 11px;
-  padding: 20px;
-  border: 1px solid var(--nuth-line);
-  border-radius: 18px;
-  background: var(--nuth-surface);
-}
-.clinical-pes-start-actions > div > svg {
-  margin-top: 1px;
-  color: var(--nuth-action);
-}
-.clinical-pes-start-actions > div > div {
-  flex: 1;
-  min-width: 0;
-}
-.clinical-pes-start-actions strong {
-  font-size: 13px;
-  font-weight: 650;
-}
-.clinical-pes-start-actions p {
-  margin-top: 5px;
-  font-size: 12px;
-  color: var(--nuth-muted);
-  line-height: 1.6;
-}
-.clinical-pes-start-actions button {
-  margin-top: 7px;
-  margin-left: 30px;
-}
-.clinical-pes-statement {
-  margin-top: 18px;
-  padding: 21px 23px;
-  border: 1px solid var(--nuth-line);
-  border-left: 4px solid var(--nuth-action);
-  border-radius: 17px;
-  background: var(--nuth-surface);
-}
-.clinical-pes-statement h4 {
-  margin-top: 7px;
-  font-size: 15px;
-  font-weight: 650;
-}
-.clinical-pes-statement :is(output, p:not(.nuth-eyebrow)) {
-  display: block;
-  margin-top: 10px;
-  font-size: 14px;
-  line-height: 1.9;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.clinical-pes-statement small {
-  display: block;
-  margin-top: 13px;
-  color: var(--nuth-muted);
-  font-size: 11px;
-  line-height: 1.7;
-}
 .clinical-readiness {
   display: flex;
   flex-wrap: wrap;
@@ -955,8 +804,6 @@ html[data-nuthrick-theme='night'] :is(.clinical-stage, .clinical-objectives-work
     margin-top: 0;
   }
   .clinical-review-card-grid,
-  .clinical-pes-parts,
-  .clinical-pes-start-actions,
   .clinical-goal-field-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -975,15 +822,6 @@ html[data-nuthrick-theme='night'] :is(.clinical-stage, .clinical-objectives-work
   .clinical-context-strip > summary > small {
     display: block;
     margin: 5px 0 0 23px;
-  }
-  .clinical-pes-overview {
-    flex-wrap: wrap;
-  }
-  .clinical-pes-part {
-    padding: 17px;
-  }
-  .clinical-pes-part textarea {
-    min-height: 115px;
   }
   .clinical-goal-heading {
     padding-right: 5px;

@@ -1,7 +1,43 @@
 .clinical-ai-batch {
-  margin-block-start: .85rem;
-  padding-block-start: .85rem;
-  border-block-start: 1px solid var(--nuth-line);
+  container-type: inline-size;
+  --batch-status-good: #246449;
+  --batch-status-wait: #755119;
+  --batch-status-active: #214985;
+  --batch-card-ink: #203739;
+  display: grid;
+  gap: 1rem;
+  margin-block-end: 1.125rem;
+  padding: clamp(.875rem, 3vw, 1.375rem);
+  border: 1px solid var(--consultation-section-line, var(--nuth-line));
+  border-radius: 19px;
+  background: var(--consultation-section-bg, var(--nuth-surface));
+  color: var(--consultation-section-ink, var(--nuth-ink));
+}
+
+.clinical-ai-batch-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .85rem 1.25rem;
+}
+
+.clinical-ai-batch-header > div {
+  flex: 1 1 17rem;
+}
+
+.clinical-ai-batch-header h3 {
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.clinical-ai-batch-header p,
+.clinical-ai-batch-hint,
+.clinical-ai-batch-progress p {
+  margin-top: .2rem;
+  color: var(--consultation-section-muted, var(--nuth-muted));
+  font-size: .8125rem;
+  line-height: 1.5;
 }
 
 .clinical-ai-batch .clinical-ai-batch-button {
@@ -24,6 +60,214 @@ html[data-nuthrick-theme='night'] .clinical-ai-batch .clinical-ai-batch-button {
 
 html[data-nuthrick-theme='night'] .clinical-ai-batch .clinical-ai-batch-button:enabled:hover {
   background: #a7caff;
+}
+
+.clinical-ai-batch-progress {
+  position: relative;
+  display: grid;
+  gap: .5rem;
+  padding-inline-end: 3.75rem;
+  font-size: .875rem;
+}
+
+.clinical-ai-batch-progress::after {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: 3.25rem;
+  background-image: var(--consultation-fireflies, none);
+  pointer-events: none;
+  content: '';
+}
+
+.clinical-ai-batch-progress progress {
+  display: block;
+  inline-size: 100%;
+  block-size: .375rem;
+  border: 0;
+  border-radius: 99px;
+  background: var(--consultation-guide-track, var(--nuth-line));
+  accent-color: var(--consultation-guide-accent, var(--nuth-action));
+  appearance: none;
+}
+
+.clinical-ai-batch-progress progress::-webkit-progress-bar {
+  border-radius: 99px;
+  background: var(--consultation-guide-track, var(--nuth-line));
+}
+
+.clinical-ai-batch-progress progress::-webkit-progress-value {
+  border-radius: 99px;
+  background: var(--consultation-progress-fill, var(--nuth-action));
+}
+
+.clinical-ai-batch-progress progress::-moz-progress-bar {
+  border-radius: 99px;
+  background: var(--consultation-progress-fill, var(--nuth-action));
+}
+
+.clinical-ai-batch-cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .625rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@container (min-width: 18rem) {
+  .clinical-ai-batch-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (min-width: 42rem) {
+  .clinical-ai-batch-cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.clinical-ai-batch-cards > li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .4rem;
+  min-inline-size: 0;
+  padding: .7rem;
+  border: 1px solid var(--batch-card-line);
+  border-radius: .875rem;
+  background: var(--batch-card-bg);
+  color: var(--batch-card-ink);
+  overflow-wrap: anywhere;
+}
+
+.clinical-ai-batch-cards > [data-stage='pes_diagnosis'] {
+  --batch-card-bg: #eff8f2;
+  --batch-card-line: #b0cdbf;
+  --batch-card-accent: #245c50;
+}
+
+.clinical-ai-batch-cards > [data-stage='consultation_support'] {
+  --batch-card-bg: #edf3fc;
+  --batch-card-line: #b2c7e1;
+  --batch-card-accent: #284b79;
+}
+
+.clinical-ai-batch-cards > [data-stage='intervention_strategy'] {
+  --batch-card-bg: #fff6e5;
+  --batch-card-line: #d9c499;
+  --batch-card-accent: #745018;
+}
+
+.clinical-ai-batch-cards > [data-stage='patient_instructions'] {
+  --batch-card-bg: #f4effa;
+  --batch-card-line: #ccbfe0;
+  --batch-card-accent: #62477e;
+}
+
+html[data-nuthrick-theme='night'] .clinical-ai-batch {
+  --batch-status-good: #a7e3bb;
+  --batch-status-wait: #f4d298;
+  --batch-status-active: #b7d4ff;
+  --batch-card-ink: #f2f6f5;
+}
+
+html[data-nuthrick-theme='night'] .clinical-ai-batch-cards > [data-stage='pes_diagnosis'] {
+  --batch-card-bg: #1a3935;
+  --batch-card-line: #547c70;
+  --batch-card-accent: #a6e6cc;
+}
+
+html[data-nuthrick-theme='night'] .clinical-ai-batch-cards > [data-stage='consultation_support'] {
+  --batch-card-bg: #24384f;
+  --batch-card-line: #607b9f;
+  --batch-card-accent: #b8d8ff;
+}
+
+html[data-nuthrick-theme='night'] .clinical-ai-batch-cards > [data-stage='intervention_strategy'] {
+  --batch-card-bg: #3d3527;
+  --batch-card-line: #8d7951;
+  --batch-card-accent: #f5d798;
+}
+
+html[data-nuthrick-theme='night'] .clinical-ai-batch-cards > [data-stage='patient_instructions'] {
+  --batch-card-bg: #362e48;
+  --batch-card-line: #86739f;
+  --batch-card-accent: #e3c7ff;
+}
+
+.clinical-ai-batch-cards > [data-state='working'] {
+  border-color: var(--batch-status-active);
+  box-shadow: inset 0 0 0 1px var(--batch-status-active);
+}
+
+.clinical-ai-batch-card-heading,
+.clinical-ai-batch-card-status,
+.clinical-ai-batch-review {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+}
+
+.clinical-ai-batch-card-heading h4 {
+  font-size: .875rem;
+  font-weight: 700;
+}
+
+.clinical-ai-batch-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  border-radius: .5rem;
+  background: color-mix(in srgb, var(--batch-card-accent) 12%, var(--batch-card-bg));
+  color: var(--batch-card-accent);
+}
+
+.clinical-ai-batch-card-status,
+.clinical-ai-batch-card-note,
+.clinical-ai-batch-review {
+  font-size: .8125rem;
+  line-height: 1.45;
+}
+
+.clinical-ai-batch-card-status {
+  font-weight: 600;
+}
+
+[data-state='saved'] > .clinical-ai-batch-card-status { color: var(--batch-status-good); }
+[data-state='working'] > .clinical-ai-batch-card-status { color: var(--batch-status-active); }
+[data-state='paused'] > .clinical-ai-batch-card-status { color: var(--batch-status-wait); }
+
+.clinical-ai-batch-review {
+  margin-block-start: auto;
+  min-block-size: 2rem;
+  color: var(--batch-card-accent);
+  font-weight: 700;
+}
+
+.clinical-ai-batch-review:hover {
+  text-decoration: underline;
+}
+
+.clinical-ai-batch-review:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+  border-radius: .25rem;
+}
+
+.clinical-ai-batch-pause {
+  padding: .65rem .8rem;
+  border: 1px solid color-mix(in srgb, var(--batch-status-wait) 55%, var(--nuth-line));
+  border-radius: .7rem;
+  background: var(--consultation-section-badge, var(--nuth-surface));
+  font-size: .8125rem;
+  line-height: 1.55;
+}
+
+.clinical-ai-batch > .clinical-batch-change-actions {
+  margin: 0;
 }
 
 .clinical-ai-batch-stages {

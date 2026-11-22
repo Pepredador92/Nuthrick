@@ -284,8 +284,6 @@ export function ClinicalReview(
             <Check size={16} aria-hidden="true" />
             {savingReview ? 'Guardando revisión…' : available.length > 0 && reviewedCount === available.length ? 'Todos los datos confirmados' : 'Confirmar todos los datos'}
           </button>
-          {batch && <ClinicalBatchAI {...batch} consultationId={consultationId} revision={snapshot.revision}
-            before={before} ready={!loading && !savingReview && !!context && !error && reviewedCount === available.length} />}
         </div>
         <ClinicalStatusBadge status={status}>
           {context
@@ -297,6 +295,8 @@ export function ClinicalReview(
             : "Cargando fuentes"}
         </ClinicalStatusBadge>
       </div>
+      {batch && <ClinicalBatchAI {...batch} consultationId={consultationId} revision={snapshot.revision}
+        before={before} ready={!loading && !savingReview && !!context && !error && reviewedCount === available.length} />}
       {!context && !error && (
         <p role="status" className="clinical-notice">
           Reuniendo los datos de la consulta…

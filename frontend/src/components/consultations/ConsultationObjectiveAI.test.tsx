@@ -91,7 +91,7 @@ describe("ConsultationObjectiveAI", () => {
     fireEvent.click(screen.getByRole("button", { name: "Agregar y revisar" }));
     expect(applyGoal).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
       outcome: "Anota qué te ayudó a retomar tu actividad.", etiology: "", agreement: "pending",
-    }));
+    }), expect.objectContaining({ evidence: expect.any(Array) }));
     expect(api.generate).not.toHaveBeenCalled();
   });
 
@@ -209,6 +209,7 @@ it("removes the chosen objective while preserving the other proposals and requir
       outcome: "Organizar los horarios",
       agreement: "pending",
     }),
+    expect.objectContaining({ evidence: [{ source: "Entrevista", finding: "Horarios variables" }] }),
   );
   expect(screen.queryByText("Organizar los horarios")).not.toBeInTheDocument();
   expect(screen.getByText("Revisar las colaciones", { selector: "h5" }))

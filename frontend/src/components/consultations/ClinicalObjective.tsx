@@ -5,11 +5,12 @@ import {
   type ClinicalTaskStatus,
 } from "./ClinicalTaskCard";
 import {
-  firstIncompleteObjectivePart,
-  objectiveCompletedFields,
   ObjectiveGoalEditor,
   ObjectiveGoalSummary,
+  objectiveReady,
+  type ObjectiveProposalEvidence,
 } from "./ObjectiveGoalEditor";
+import { formatObjectiveEditorText, objectiveEditorFieldOffset, readObjectiveEditorText, withObjectiveTemplateGaps, type ObjectiveEditorField } from "@/src/features/consultations/objectiveEditorText";
 import {
   clinicalObjective,
   type ObjectiveWorkspace,
@@ -29,6 +30,7 @@ import {
   type ObjectivePlan,
   objectivePlansEqual,
 } from "../../../../supabase/functions/_shared/objectives";
+import './SmartObjectiveEditor.css';
 
 type Props = {
   consultationId: string;
@@ -53,6 +55,21 @@ const blankPlan = (): ObjectivePlan => ({
   pesApprovedAt: "",
   goals: [],
 });
+type GoalEditor = { basis: string; text?: string; grounding?: ObjectiveProposalEvidence };
+type GoalReplacement = { goals: ObjectiveGoal[]; generationId: string; grounding: ObjectiveProposalEvidence[] };
+
+function editorForGoal(goal: ObjectiveGoal, entry?: GoalEditor) {
+  const basis = formatObjectiveEditorText(goal);
+  return entry?.basis === basis ? entry : { basis };
+}
+
+function editorIssue(goal: ObjectiveGoal, entry?: GoalEditor) {
+  const saved = editorForGoal(goal, entry).text;
+  if (saved === undefined) return;
+  const result = readObjectiveEditorText(saved);
+  if ('issue' in result) return result.issue;
+}
+
 export function ClinicalObjective(props: Props) {
   const checkpoint=useConsultationDraftContext();
   const {
@@ -88,6 +105,14 @@ export function ClinicalObjective(props: Props) {
       return false;
     }
   });
+  const [editors, setEditors] = useConsultationDraft<GoalEditor[]>(`objective-text-editor:${questionKey}`, () => {
+    try {
+      const value: unknown = JSON.parse(sessionStorage.getItem(`${cacheKey}:editor`) || '[]');
+      return Array.isArray(value) ? value as GoalEditor[] : [];
+    } catch {
+      return [];
+    }
+  });
   const dirtyRef = useRef(dirty);
   useEffect(()=>{
     if(dirtyRef.current&&checkpoint&&!Object.hasOwn(checkpoint.values,`objective:${questionKey}`)){setPlan(plan);setDirty(true);}
@@ -95,12 +120,16 @@ export function ClinicalObjective(props: Props) {
   const [workspace, setWorkspace] = useState<ObjectiveWorkspace | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [replacement, setReplacement] = useState<{ goals: ObjectiveGoal[]; generationId: string } | null>(null);
+  const [replacement, setReplacement] = useState<GoalReplacement | null>(null);
+  const saving = useRef(false);
   const batch = useClinicalBatchProposal('consultation_support');
   const [activeGoal, setActiveGoal] = useConsultationDraft<number | null>(`objective-editor:${questionKey}`,null);
-  const [activePart, setActivePart] = useConsultationDraft(`objective-step:${questionKey}`,0);
-  const reviewButtons = useRef<(HTMLButtonElement | null)[]>([]);
   const editorId = useId();
+  const selected = Math.min(Math.max(0, activeGoal ?? 0), plan.goals.length - 1);
+  const goal = plan.goals[selected];
+  const goalEditor = goal ? editorForGoal(goal, editors[selected]) : undefined;
+  const editorIssues = plan.goals.map((goal, index) => editorIssue(goal, editors[index]));
+  const malformed = editorIssues.some(Boolean);
   const text = plan.goals.map(composeObjective).filter(Boolean).join("\n\n");
   const legacy = typeof value === "string"
     ? value
@@ -115,7 +144,7 @@ export function ClinicalObjective(props: Props) {
         : ""
     ).join("\n\n")
     : "";
-  const approved = !!workspace?.objective?.smart_plan &&
+  const approved = !malformed && !!workspace?.objective?.smart_plan &&
     workspace?.pes?.approved_at === plan.pesApprovedAt &&
     (workspace.objective.pes_approved_at ?? workspace.objective.smart_plan.pesApprovedAt) === workspace.pes.approved_at &&
     workspace.objective.question_key === questionKey &&
@@ -129,21 +158,17 @@ export function ClinicalObjective(props: Props) {
     }
   }, [approved, dirty, setDirty, cacheKey]);
   const issues = plan.goals.flatMap((goal, index) =>
-    objectiveIssues(goal).map((issue) => `Objetivo ${index + 1}: ${issue}`)
+    (editorIssues[index] ? [editorIssues[index]] : objectiveIssues(goal)).map(issue => `Objetivo ${index + 1}: ${issue}`)
   );
   const pesChanged = !!workspace?.pes && plan.goals.length > 0 &&
     plan.pesApprovedAt !== workspace.pes.approved_at;
   const signs =
-    workspace?.pes?.signsSymptoms?.split("\n").map((sign) => sign.trim())
-      .filter(Boolean) ?? [];
+    [...new Set(workspace?.pes?.signsSymptoms?.split("\n").map(sign => sign.trim()).filter(Boolean) ?? [])];
   const replaceBlocked = busy || !workspace || workspace.objective?.question_key === questionKey;
   const hasPreviousGoals = plan.goals.length > 0 || !!legacy.trim();
   const staleSigns = plan.goals.some((goal) => !signs.includes(goal.sign));
   const completeGoals =
-    plan.goals.filter((goal) =>
-      objectiveCompletedFields(goal, signs) === 10 &&
-      !objectiveIssues(goal).length
-    ).length;
+    plan.goals.filter((goal, index) => !editorIssues[index] && objectiveReady(goal, signs)).length;
   const ready = !!plan.goals.length && !issues.length && !staleSigns &&
     !!workspace?.pes && !pesChanged && text.length <= maxLength;
   const status: ClinicalTaskStatus = approved
@@ -191,19 +216,31 @@ export function ClinicalObjective(props: Props) {
     onChangeRef.current = props.onChangeText;
   }, [props.onChangeText]);
   useEffect(() => {
-    if (dirtyRef.current && text.length <= maxLength) {
-      onChangeRef.current?.(text, plan.goals.map(composeObjective));
+    if (dirtyRef.current && !malformed && text.length <= maxLength) {
+      onChangeRef.current?.(text, plan.goals.map(composeObjective).filter(Boolean));
     }
-  }, [text, maxLength, plan.goals]);
-  function change(next: ObjectivePlan) {
+  }, [text, maxLength, plan.goals, malformed]);
+  function change(next: ObjectivePlan, nextEditors = editors) {
     setPlan(next);
+    if (nextEditors !== editors) setEditors(nextEditors);
     dirtyRef.current = true;
     setDirty(true);
     setMessage("");
     sessionStorage.setItem(cacheKey, JSON.stringify(next));
+    sessionStorage.setItem(`${cacheKey}:editor`, JSON.stringify(nextEditors));
     const texts = next.goals.map(composeObjective).filter(Boolean);
     const composed = texts.join("\n\n");
-    if (composed.length <= maxLength) props.onChangeText?.(composed, texts);
+    if (composed.length <= maxLength && !next.goals.some((goal, index) => editorIssue(goal, nextEditors[index]))) {
+      props.onChangeText?.(composed, texts);
+    }
+  }
+  function editText(index: number, text: string) {
+    const current = plan.goals[index];
+    const parsed = readObjectiveEditorText(text);
+    const next = 'fields' in parsed ? { ...current, ...parsed.fields } : current;
+    const nextEditors = editors.slice();
+    nextEditors[index] = { ...editorForGoal(current, editors[index]), basis: formatObjectiveEditorText(next), text };
+    change({ ...plan, goals: plan.goals.map((goal, i) => i === index ? next : goal) }, nextEditors);
   }
   function update(index: number, patch: Partial<ObjectiveGoal>) {
     change({
@@ -213,33 +250,29 @@ export function ClinicalObjective(props: Props) {
       ),
     });
   }
-  function assignPes(goal: ObjectiveGoal) {
-    return {
-      ...goal,
-      etiology: goal.etiology || workspace?.pes?.etiology || "",
-      sign: goal.sign || (signs.length === 1 ? signs[0] : ""),
-    };
-  }
-  function add(goal = emptyObjective()) {
+  function add(goal: ObjectiveGoal = { ...emptyObjective(), textStyle: 'patient_v1' }, grounding?: ObjectiveProposalEvidence) {
     if (plan.goals.length >= 3) return;
     setActiveGoal(plan.goals.length);
-    setActivePart(0);
+    const next = grounding
+      ? { ...withObjectiveTemplateGaps(goal), agreement: 'pending' as const }
+      : { ...goal, sign: goal.sign || (signs.length === 1 ? signs[0] : '') };
     change({
       ...plan,
       pesApprovedAt: plan.goals.length
         ? plan.pesApprovedAt
         : workspace?.pes?.approved_at ?? "",
-      goals: [...plan.goals, assignPes(goal)],
-    });
+      goals: [...plan.goals, next],
+    }, [...plan.goals.map((goal, index) => editorForGoal(goal, editors[index])), { basis: formatObjectiveEditorText(next), grounding }]);
+    focusGoal();
   }
   function batchGoalsToPlan(goals: ObjectiveGoal[]): ObjectivePlan {
     return {
       version: 1,
       pesApprovedAt: workspace?.pes?.approved_at ?? "",
-      goals: goals.map(goal => ({ ...assignPes(goal), agreement: "pending" })),
+      goals: goals.map(goal => ({ ...withObjectiveTemplateGaps(goal), agreement: "pending" })),
     };
   }
-  function useBatchGoals(goals: ObjectiveGoal[], generationId: string, confirmed = false) {
+  function applyBatchGoals(goals: ObjectiveGoal[], generationId: string, grounding: ObjectiveProposalEvidence[], confirmed = false) {
     const next = batchGoalsToPlan(goals);
     if (replaceBlocked || batch.stale || batch.proposal?.generationId !== generationId ||
       !goals.length || !isObjectivePlan(next)) return;
@@ -248,19 +281,25 @@ export function ClinicalObjective(props: Props) {
       return;
     }
     if (hasPreviousGoals && !confirmed) {
-      setReplacement({ goals, generationId });
+      setReplacement({ goals, generationId, grounding });
       return;
     }
     setReplacement(null);
-    setActiveGoal(null);
-    change(next);
+    setActiveGoal(0);
+    change(next, next.goals.map((goal, index) => ({ basis: formatObjectiveEditorText(goal), grounding: grounding[index] })));
     setMessage("La propuesta nueva está en el borrador. Revisa los objetivos y guarda cuando estén listos.");
   }
   async function persist(action: "save" | "approve" | "revoke") {
-    if (busy) return false;
+    if (saving.current || (action === 'approve' && !ready)) return false;
+    saving.current = true;
     setBusy(true);
     setMessage("");
     try {
+      if (action === 'save' && (malformed || text.length > maxLength)) {
+        if (checkpoint && !await checkpoint.flush()) throw new Error('No pudimos guardar el borrador. Tus cambios siguen aquí.');
+        setMessage(checkpoint ? 'Borrador guardado. Revisa el texto antes de aprobar.' : 'Borrador guardado en esta sesión. Revisa el texto antes de aprobar.');
+        return true;
+      }
       if (!(await before())) {
         throw new Error("Guarda la entrevista antes de continuar.");
       }
@@ -292,7 +331,7 @@ export function ClinicalObjective(props: Props) {
           ? "Objetivos aprobados para seguimiento."
           : action === "save"
           ? "Borrador guardado. Puedes continuar y revisarlo después."
-          : "Objetivos pendientes de revisión.") + (checkpointSaved ? '' : ' La aprobación se guardó, pero falta guardar el avance de la pantalla. Reintenta el guardado antes de salir.'),
+          : "Objetivos pendientes de revisión.") + (checkpointSaved ? '' : ' Reintenta el guardado del avance de la pantalla antes de salir.'),
       );
       return true;
     } catch (error) {
@@ -303,29 +342,69 @@ export function ClinicalObjective(props: Props) {
       );
       return false;
     } finally {
+      saving.current = false;
       setBusy(false);
     }
   }
   function showPending() {
-    const index = plan.goals.findIndex((goal) =>
-      objectiveCompletedFields(goal, signs) < 10 || objectiveIssues(goal).length
-    );
+    const index = plan.goals.findIndex((goal, index) => editorIssues[index] || !objectiveReady(goal, signs));
     if (index < 0) return;
-    const part = firstIncompleteObjectivePart(plan.goals[index], signs);
     setActiveGoal(index);
-    setActivePart(part);
     setMessage("");
+    const goal = plan.goals[index];
+    const fields: ObjectiveEditorField[] = ['outcome', 'etiology', 'target', 'indicator', 'baseline', 'timeframe', 'monitoring', 'feasibility'];
+    const missing = fields.find(field => !goal[field].trim());
+    focusGoal(
+      editorIssues[index] ? undefined : missing ?? (signs.includes(goal.sign) ? 'agreement' : 'sign'),
+    );
   }
-  function closeEditor() {
-    const index = activeGoal;
-    setActiveGoal(null);
+  function focusGoal(field?: ObjectiveEditorField | 'sign' | 'agreement') {
     requestAnimationFrame(() => {
-      if (index !== null) reviewButtons.current[index]?.focus();
+      if (field === 'sign' || field === 'agreement') {
+        const select = document.getElementById(`${editorId}-${field}`);
+        if (field === 'sign') {
+          const details = select?.closest('details');
+          if (details) details.open = true;
+        }
+        select?.focus();
+        return;
+      }
+      const input = document.getElementById(editorId) as HTMLTextAreaElement | null;
+      input?.focus();
+      if (input && field) {
+        const offset = objectiveEditorFieldOffset(input.value, field);
+        input.setSelectionRange(offset, offset);
+      }
     });
   }
-  async function saveEditor() {
-    if (!dirty || await persist("save")) closeEditor();
+  function remove(index: number) {
+    const info = plan.goals.map((goal, index) => editorForGoal(goal, editors[index]));
+    change({ ...plan, goals: plan.goals.filter((_, i) => i !== index) }, info.filter((_, i) => i !== index));
+    setActiveGoal(index < selected ? selected - 1 : selected);
   }
+  function moveUp(index: number) {
+    const goals = [...plan.goals];
+    const info = goals.map((goal, i) => editorForGoal(goal, editors[i]));
+    [goals[index - 1], goals[index]] = [goals[index], goals[index - 1]];
+    [info[index - 1], info[index]] = [info[index], info[index - 1]];
+    change({ ...plan, goals }, info);
+    setActiveGoal(selected === index - 1 ? index : selected === index ? index - 1 : selected);
+  }
+
+  const actions = <div className="smart-objective-actions">
+    {!ready && !approved && completeGoals < plan.goals.length && <button type="button" className="clinical-text-action" onClick={showPending}>
+      Ir al siguiente pendiente <ArrowRight size={15} aria-hidden="true" />
+    </button>}
+    <button type="button" className="nuth-button-secondary !text-sm" disabled={busy || !dirty} onClick={() => void persist('save')}>
+      Guardar borrador
+    </button>
+    <button type="button" className="nuth-button !text-sm" disabled={busy || !ready || approved} onClick={() => void persist('approve')}>
+      {busy ? 'Guardando…' : 'Aprobar objetivos'}
+    </button>
+    {approved && <button type="button" className="nuth-button-secondary !text-sm" disabled={busy} onClick={() => void persist('revoke')}>
+      Volver a revisar
+    </button>}
+  </div>;
 
   return (
     <section
@@ -338,10 +417,7 @@ export function ClinicalObjective(props: Props) {
         </span>
         <div>
           <h3>Un objetivo a la vez</h3>
-          <p>
-            Elige hasta tres prioridades. Abre cada objetivo para revisar la
-            meta y acordarla con la persona.
-          </p>
+          <p>Redacta hasta tres objetivos SMART y acuerda cómo van a revisar el avance.</p>
         </div>
         <ClinicalStatusBadge status={status}>
           {approved
@@ -404,7 +480,7 @@ export function ClinicalObjective(props: Props) {
       {patientId && (
         <>
           {workspace?.pes && !hasUsablePesEtiology(workspace.pes.etiology) && <aside role="status" className="clinical-notice is-warning"><p>Para proponer objetivos vinculados desde este paso, completa la etiología del PES. Puedes revisar los objetivos de valoración que se hayan generado en la propuesta completa.</p>{props.onReviewPes&&<button type="button" className="clinical-text-action" onClick={props.onReviewPes}>Completar etiología del PES<ArrowRight size={15}/></button>}</aside>}
-          <ConsultationObjectiveAI draftKey={questionKey}
+          <ConsultationObjectiveAI draftKey={questionKey} compactObjectives
             key={workspace?.pes?.approved_at ?? "no-pes"}
             patientId={patientId}
             consultationId={consultationId}
@@ -415,12 +491,12 @@ export function ClinicalObjective(props: Props) {
               label: hasPreviousGoals ? "Sustituir objetivos del borrador" : "Incorporar propuesta al borrador",
               blocked: replaceBlocked,
               contains: goals => objectivePlansEqual(plan, batchGoalsToPlan(goals)),
-              use: useBatchGoals,
+              use: applyBatchGoals,
             } : undefined}
             approvedPes={workspace?.pes}
             assessmentApplyDisabled={busy || !workspace || plan.goals.length >= 3}
             disabled={busy || !workspace?.pes || !hasUsablePesEtiology(workspace.pes.etiology) || plan.goals.length >= 3}
-            onApply={(text) => add({ ...emptyObjective(), outcome: text })}
+            onApply={(text) => add({ ...emptyObjective(), outcome: text, textStyle: 'patient_v1' }, { evidence: [] })}
             onApplyGoal={add}
           />
         </>
@@ -457,86 +533,63 @@ export function ClinicalObjective(props: Props) {
           </p>
         </div>
       )}
-      <fieldset disabled={busy} className="clinical-goals-list">
-        {plan.goals.length > 0 && <legend className="mb-2 text-sm font-semibold">{approved ? "Objetivos aprobados" : "Objetivos del borrador"}</legend>}
-        {plan.goals.map((goal, index) => (
-          <ObjectiveGoalSummary
-            key={index}
+      <fieldset disabled={busy} className="smart-objective-layout">
+        <legend className="sr-only">Redacción de objetivos SMART</legend>
+        <div className="smart-objective-list">
+          {plan.goals.map((item, index) => (
+            <ObjectiveGoalSummary
+              key={index}
+              goal={item}
+              index={index}
+              active={index === selected}
+              signs={signs}
+              approved={approved}
+              contextReady={!!workspace?.pes && !pesChanged}
+              fromAI={!!editorForGoal(item, editors[index]).grounding}
+              problem={!!editorIssues[index]}
+              onOpen={() => setActiveGoal(index)}
+              onRemove={() => remove(index)}
+              onMoveUp={index > 0 ? () => moveUp(index) : undefined}
+            />
+          ))}
+          <button type="button" className="nuth-button-secondary smart-objective-add"
+            disabled={plan.goals.length >= 3} onClick={() => add()}>
+            <Plus size={17} aria-hidden="true" /> Agregar objetivo
+          </button>
+        </div>
+        {goal && goalEditor && (
+          <ObjectiveGoalEditor
+            key={selected}
+            id={editorId}
+            text={goalEditor.text ?? goalEditor.basis}
+            issue={editorIssues[selected]}
             goal={goal}
-            index={index}
+            index={selected}
             signs={signs}
             approved={approved}
-            contextReady={!!workspace?.pes && !pesChanged}
-            reviewRef={(element) => {
-              reviewButtons.current[index] = element;
-            }}
-            onOpen={() => {
-              setActiveGoal(index);
-              setActivePart(firstIncompleteObjectivePart(goal, signs));
-              setMessage("");
-            }}
-            onRemove={() => {
-              change({
-                ...plan,
-                goals: plan.goals.filter((_, i) => i !== index),
-              });
-            }}
-            onMoveUp={index > 0
-              ? () => {
-                const goals = [...plan.goals];
-                [goals[index - 1], goals[index]] = [
-                  goals[index],
-                  goals[index - 1],
-                ];
-                change({ ...plan, goals });
-              }
-              : undefined}
-          />
-        ))}
-        <button
-          type="button"
-          aria-label="Agregar objetivo"
-          className={plan.goals.length
-            ? "nuth-button-secondary clinical-add-objective"
-            : "nuth-button clinical-add-objective"}
-          disabled={plan.goals.length >= 3}
-          onClick={() => add()}
-        >
-          <Plus size={17} />Agregar objetivo{plan.goals.length > 0 && (
-            <span>{plan.goals.length} de 3</span>
-          )}
-        </button>
+            cause={workspace?.pes?.etiology}
+            grounding={goalEditor.grounding}
+            onText={text => editText(selected, text)}
+            onChange={patch => update(selected, patch)}
+          >
+            {actions}
+          </ObjectiveGoalEditor>
+        )}
       </fieldset>
+      {!goal && dirty && actions}
       {replacement && <ClinicalTaskDialog open title="Sustituir objetivos del borrador"
         description="Revisa qué objetivos quedarán en el editor y confirma el cambio."
         onClose={() => setReplacement(null)}
         footer={<>
           <button type="button" className="nuth-button-secondary" onClick={() => setReplacement(null)}>Conservar borrador actual</button>
           <button type="button" className="nuth-button" disabled={replaceBlocked || batch.stale || batch.proposal?.generationId !== replacement.generationId}
-            onClick={() => useBatchGoals(replacement.goals, replacement.generationId, true)}>Confirmar sustitución</button>
+            onClick={() => applyBatchGoals(replacement.goals, replacement.generationId, replacement.grounding, true)}>Confirmar sustitución</button>
         </>}>
         <div className="clinical-batch-comparison">
           <section><h3>Borrador actual</h3><p>{text || legacy}</p></section>
           <section><h3>Nueva propuesta</h3><p>{replacement.goals.map(composeObjective).join("\n\n")}</p></section>
         </div>
       </ClinicalTaskDialog>}
-      {activeGoal !== null && plan.goals[activeGoal] && (
-        <ObjectiveGoalEditor
-          key={activeGoal}
-          id={`${editorId}-${activeGoal}`}
-          goal={plan.goals[activeGoal]}
-          index={activeGoal}
-          signs={signs}
-          initialPart={activePart}
-          busy={busy}
-          message={message}
-          dirty={dirty}
-          saveDisabled={text.length > maxLength}
-          onChange={(patch) => update(activeGoal, patch)}
-          onClose={closeEditor}
-          onSave={() => void saveEditor()}
-        />
-      )}
       <details className="clinical-support-details">
         <summary>Consultar datos de valoración registrados</summary>
         <ul className="consultation-context-facts">
@@ -554,95 +607,15 @@ export function ClinicalObjective(props: Props) {
           caracteres de esta pregunta. Resume los enunciados antes de guardar.
         </p>
       )}
-      {(plan.goals.length > 0 || dirty) && (
-        <div
-          className="clinical-approval-card"
-          data-status={approved ? "approved" : ready ? "complete" : "progress"}
-        >
-          <div className="clinical-approval-copy">
-            <span className="clinical-stage-icon">
-              {approved || ready
-                ? <Check size={20} aria-hidden="true" />
-                : <Target size={20} aria-hidden="true" />}
-            </span>
-            <div>
-              <h4>
-                {approved
-                  ? "Objetivos aprobados"
-                  : !plan.goals.length
-                  ? "Borrador sin objetivos"
-                  : ready
-                  ? "Todo listo para tu revisión"
-                  : `${completeGoals} de ${plan.goals.length} objetivos listos para revisar`}
-              </h4>
-              <p>
-                {approved
-                  ? "Puedes continuar con la estrategia de intervención."
-                  : !plan.goals.length
-                  ? "Guarda el borrador para confirmar que retiraste los objetivos."
-                  : ready
-                  ? "Confirma que las metas son viables y representan lo acordado con la persona."
-                  : "Completa los criterios y registra el acuerdo antes de aprobar."}
-              </p>
-            </div>
-          </div>
-          {!ready && !approved && completeGoals < plan.goals.length && (
-            <button
-              type="button"
-              className="clinical-next-part"
-              onClick={showPending}
-            >
-              Ir al siguiente pendiente<ArrowRight size={15} />
-            </button>
-          )}
-          <div className="clinical-approval-actions">
-            <button
-              type="button"
-              className="nuth-button-secondary !text-sm"
-              disabled={busy || !dirty || text.length > maxLength}
-              onClick={() => void persist("save")}
-            >
-              Guardar borrador
-            </button>
-            <button
-              type="button"
-              className="nuth-button !text-sm"
-              disabled={busy || !ready || approved}
-              onClick={() => void persist("approve")}
-            >
-              {busy ? "Guardando…" : "Aprobar objetivos"}
-            </button>
-            {approved && (
-              <button
-                type="button"
-                className="nuth-button-secondary !text-sm"
-                disabled={busy}
-                onClick={() => void persist("revoke")}
-              >
-                Volver a revisar
-              </button>
-            )}
-          </div>
-          {!approved && (!ready || issues.length > 0) && <details className="clinical-approval-details">
-            <summary>Qué falta para aprobar</summary>
-            <ul>
-              {issues.map((issue, index) => <li key={index}>{issue}</li>)}
-              {staleSigns && (
-                <li>Selecciona un signo del PES vigente para cada objetivo.</li>
-              )}
-              {!workspace?.pes && <li>Revisa y aprueba primero el PES.</li>}
-              {pesChanged && <li>Vincula los objetivos al PES actual.</li>}
-              {!issues.length && !staleSigns && workspace?.pes && !pesChanged &&
-                (
-                  <li>
-                    Revisa la pertinencia clínica y que lo documentado
-                    represente lo acordado.
-                  </li>
-                )}
-            </ul>
-          </details>}
-        </div>
-      )}
+      {plan.goals.length > 0 && !approved && !ready && <details className="clinical-support-details">
+        <summary>Qué falta para aprobar</summary>
+        <ul>
+          {issues.map((issue, index) => <li key={index}>{issue}</li>)}
+          {staleSigns && <li>Selecciona un signo del PES vigente para cada objetivo.</li>}
+          {!workspace?.pes && <li>Revisa y aprueba primero el PES.</li>}
+          {pesChanged && <li>Vincula los objetivos al PES actual.</li>}
+        </ul>
+      </details>}
       {message && <p role="status" className="clinical-notice">{message}</p>}
     </section>
   );

@@ -4,7 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConsultationPage } from "./ConsultationPage";
 import { withWorkflowSections } from '@/src/features/consultations/consultationWorkflow';
 import { approvedPes, objectiveWorkspace, smartPlan } from '@/src/test/clinicalFixtures';
-import { composeObjective, type ObjectivePlan } from '../../../supabase/functions/_shared/objectives';
+import { composeObjective, emptyObjective, type ObjectivePlan } from '../../../supabase/functions/_shared/objectives';
+import { clinicalBatchKey } from '../../../supabase/functions/_shared/clinical-batch';
+import { formatObjectiveEditorText, readObjectiveEditorText } from "@/src/features/consultations/objectiveEditorText";
+import { formatPesEditorText } from '@/src/features/consultations/pesEditorText';
 
 const mocks = vi.hoisted(() => ({
   save: vi.fn(),
@@ -232,6 +235,14 @@ const mount = (entry = "/app/patients/patient/consultations/draft", previous?: s
   ), { initialEntries: previous ? [previous, entry] : [entry] });
   return { ...render(<RouterProvider router={router} />), router };
 };
+const pesTextName = 'Texto del diagnóstico PES';
+const emptyPesText = formatPesEditorText({ problem: '', etiology: '', signsSymptoms: [] });
+function editObjectiveOutcome(outcome: string) {
+  const input = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Texto del objetivo 1' });
+  const parsed = readObjectiveEditorText(input.value);
+  if (!('fields' in parsed)) throw new Error(parsed.issue);
+  fireEvent.change(input, { target: { value: formatObjectiveEditorText({ ...emptyObjective(), ...parsed.fields, outcome }) } });
+}
 async function openModule(name: string) {
   fireEvent.click(await screen.findByRole('button', { name }));
   await waitFor(() => expect(screen.getByRole('button', { name })).toHaveAttribute('aria-current', 'page'));
@@ -325,20 +336,17 @@ describe("consultation save and review workflow", () => {
     await screen.findByRole('heading', { name: 'Apertura de prueba' });
     await openModule('Revisión clínica, PES y objetivos');
     fireEvent.click(screen.getByRole('button', { name: /PES Formula el diagnóstico/ }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Revisar PES escrito' }));
-    expect(screen.getByLabelText('Problema')).toHaveValue('Problema anterior');
+    expect(screen.getByRole('textbox', { name: pesTextName })).toHaveValue('Problema\nProblema anterior\n\nEtiología\nCausa anterior\n\nSignos y síntomas\nEvidencia anterior');
     fireEvent.click(screen.getByRole('button', { name: 'Descartar y limpiar' }));
     await screen.findByText('PES descartado y campos limpios.');
     expect(mocks.answerState.answers).toMatchObject({ ...cleared, note: 'Conservar entrevista' });
     expect(screen.queryByText(/Problema anterior relacionado con/)).not.toBeInTheDocument();
-    if (!screen.queryByLabelText('Problema')) fireEvent.click(screen.getByRole('button', { name: 'Redactar PES manualmente' }));
-    for (const label of ['Problema', 'Etiología', 'Signos y síntomas']) expect(screen.getByLabelText(label)).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: pesTextName })).toHaveValue(emptyPesText);
     first.unmount();
     mount();
     await openModule('Revisión clínica, PES y objetivos');
     fireEvent.click(screen.getByRole('button', { name: /PES Formula el diagnóstico/ }));
-    if (!screen.queryByLabelText('Problema')) fireEvent.click(await screen.findByRole('button', { name: 'Redactar PES manualmente' }));
-    for (const label of ['Problema', 'Etiología', 'Signos y síntomas']) expect(screen.getByLabelText(label)).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: pesTextName })).toHaveValue(emptyPesText);
     expect(mocks.answerState.answers).toMatchObject({ ...cleared, note: 'Conservar entrevista' });
   });
   it('preserves saved PES text when clearing fails and allows retrying', async () => {
@@ -348,11 +356,10 @@ describe("consultation save and review workflow", () => {
     await screen.findByRole('heading', { name: 'Apertura de prueba' });
     await openModule('Revisión clínica, PES y objetivos');
     fireEvent.click(screen.getByRole('button', { name: /PES Formula el diagnóstico/ }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Revisar PES escrito' }));
     mocks.save.mockRejectedValue(new Error('Sin conexión'));
     fireEvent.click(screen.getByRole('button', { name: 'Descartar y limpiar' }));
     await screen.findByText(/No pudimos limpiar el PES guardado/);
-    expect(screen.getByLabelText('Problema')).toHaveValue(answers.pes_problem);
+    expect(screen.getByRole('textbox', { name: pesTextName })).toHaveValue('Problema\nProblema anterior\n\nEtiología\nCausa anterior\n\nSignos y síntomas\nEvidencia anterior');
     expect(mocks.answerState.answers).toEqual(answers);
     mocks.save.mockResolvedValue(undefined);
     fireEvent.click(screen.getByRole('button', { name: 'Descartar y limpiar' }));
@@ -386,12 +393,12 @@ describe("consultation save and review workflow", () => {
     expect(screen.getByRole('heading', { name: 'Revisión clínica' })).toBeVisible();
     expect(screen.queryByLabelText('Redacción PES')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Redactar PES manualmente' })).toBeVisible());
+    expect(await screen.findByRole('textbox', { name: pesTextName })).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
     await screen.findByRole('heading', { name: 'Un objetivo a la vez' });
     expect(screen.getByRole('button', { name: 'Agregar objetivo' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Proponer objetivos con IA' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'Redactar PES manualmente' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: pesTextName })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
     await screen.findByRole('heading', { name: 'Del objetivo a la acción' });
     expect(screen.getByRole('button', { name: 'Proponer estrategias con IA' })).toBeEnabled();
@@ -452,8 +459,8 @@ describe("consultation save and review workflow", () => {
     expect(screen.getByLabelText('Acuerdo · objetivo 1')).toHaveValue('pending');
     expect(screen.getByRole('button', { name: 'Aprobar objetivos' })).toBeDisabled();
     expect(mocks.objective.mock.calls.every(args => args.length === 2)).toBe(true);
-    fireEvent.change(screen.getByLabelText('Resultado esperado · objetivo 1'), { target: { value: 'Resultado revisado por el profesional' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Guardar y cerrar' }));
+    editObjectiveOutcome('Resultado revisado por el profesional');
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
     await screen.findByText('Borrador guardado. Puedes continuar y revisarlo después.');
     expect(savedPlan?.goals[0]).toMatchObject({ outcome: 'Resultado revisado por el profesional', agreement: 'pending', sign: approvedPes.signsSymptoms });
     expect(mocks.save).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'draft' }), expect.objectContaining({ revision: 1 }), expect.objectContaining({ treatment_objective: composeObjective(savedPlan!.goals[0]) }));
@@ -462,7 +469,6 @@ describe("consultation save and review workflow", () => {
     fireEvent.click(screen.getByRole('button', { name: /Objetivos Acuerda/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Revisar objetivo 1' }));
     fireEvent.change(await screen.findByLabelText('Acuerdo · objetivo 1'), { target: { value: 'patient' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Cerrar revisión del objetivo' }));
     fireEvent.click(screen.getByRole('button', { name: 'Aprobar objetivos' }));
     await screen.findByText('Objetivos aprobados para seguimiento.');
     expect(mocks.objective).toHaveBeenLastCalledWith('draft', 1, 'approve', 'current', 'treatment_objective', savedPlan);
@@ -825,9 +831,8 @@ describe("consultation save and review workflow", () => {
       if (objective) {
         await waitFor(()=>expect(screen.getByRole('button',{name:'Agregar objetivo'})).toBeEnabled());
         fireEvent.click(screen.getByRole('button', { name: 'Agregar objetivo' }));
-        fireEvent.change(await screen.findByLabelText('Resultado esperado · objetivo 1'), { target: { value: objective } });
-        fireEvent.click(screen.getByRole('button', { name: 'Cerrar revisión del objetivo' }));
-        fireEvent.click(screen.getByRole('button', { name: 'Guardar consulta' }));
+        editObjectiveOutcome(objective);
+            fireEvent.click(screen.getByRole('button', { name: 'Guardar consulta' }));
         await waitFor(()=>expect(mocks.draftState.answers['objective:treatment_objective']).toEqual(expect.objectContaining({goals:[expect.objectContaining({outcome:objective})]})));
       }
       fireEvent.click(screen.getByRole('button', { name: 'Revisar cierre de consulta' }));
@@ -1111,13 +1116,82 @@ describe("consultation exit decisions", () => {
 });
 
 describe("consultation exit edge cases", () => {
+  it('opens a saved batch PES directly in the editor and preserves its source after saving edits', async () => {
+    const generationId = 'pes-from-batch';
+    const batchId = 'saved-batch';
+    const source = { source: 'Entrevista', finding: 'Horarios de comida anotados' };
+    let record: { approved_at: string; evidence: typeof source[] } | undefined;
+    mocks.clinical.mockImplementation(async (_id, _revision, kind, payload) => {
+      if (kind === 'pes') {
+        record = { approved_at: '2026-11-21T00:00:00Z', evidence: payload.evidence };
+        mocks.answerState = { version: mocks.answerState.version + 1, answers: {
+          ...mocks.answerState.answers,
+          pes_problem: payload.problem, pes_etiology: payload.etiology,
+          pes_evidence: payload.signsSymptoms.join('\n'), pes_statement: payload.pesStatement,
+        } };
+      }
+      return { stamp: 's', readiness: { interview: true }, records: record ? { pes: record } : {} };
+    });
+    mocks.draftState.answers = {
+      'clinical-batch': { id: batchId, attempts: {}, completed: { pes_diagnosis: generationId } },
+      [clinicalBatchKey('pes_diagnosis')]: {
+        batchId, generationId,
+        output: { problem: 'Patrón de comidas irregular', etiology: '', signsSymptoms: ['Horarios variables'], evidence: [source], missingContext: ['Confirmar la causa'], uncertainties: [] },
+      },
+    };
+    const first = mount();
+    await openModule('Revisión clínica, PES y objetivos');
+    fireEvent.click(screen.getByRole('button', { name: 'Revisar Diagnóstico PES' }));
+    expect(await screen.findByRole('textbox', { name: pesTextName })).toHaveValue('Problema\nPatrón de comidas irregular\n\nEtiología\n\n\nSignos y síntomas\nHorarios variables');
+    expect(screen.getAllByRole('textbox', { name: pesTextName })).toHaveLength(1);
+    expect(screen.getByText('Borrador de IA')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Aprobar PES' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Ir a Etiología' }));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: pesTextName })).toHaveFocus());
+    const editedPesText = 'PROBLEMA:\nPatrón de comidas irregular\n\nEtiología\nBarrera de horario confirmada\n\n\nSignos y síntomas\nHorarios variables';
+    fireEvent.change(screen.getByRole('textbox', { name: pesTextName }), { target: { value: editedPesText } });
+    expect(screen.getByText('Borrador de IA editado')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+    await screen.findByText('Borrador guardado.');
+    expect(mocks.draftState.answers).toMatchObject({
+      pes: { etiology: 'Barrera de horario confirmada', evidence: [source], editorText: editedPesText },
+      'generation:pes_diagnosis': generationId,
+    });
+    expect(mocks.clinical.mock.calls.some(args => args[2] === 'pes')).toBe(false);
+
+    first.unmount();
+    sessionStorage.clear();
+    const second = mount();
+    await openModule('Revisión clínica, PES y objetivos');
+    expect(await screen.findByRole('textbox', { name: pesTextName })).toHaveValue(editedPesText);
+    fireEvent.click(screen.getByRole('button', { name: 'Aprobar PES' }));
+    await waitFor(() => expect(mocks.clinical).toHaveBeenCalledWith('draft', 1, 'pes', expect.objectContaining({
+      problem: 'Patrón de comidas irregular', etiology: 'Barrera de horario confirmada', signsSymptoms: ['Horarios variables'],
+      pesStatement: 'Patrón de comidas irregular relacionado con Barrera de horario confirmada, evidenciado por Horarios variables.',
+      evidence: [source], evidenceReviewed: true,
+    }), generationId));
+    const approvedBadge = await screen.findByText('PES aprobado', { exact: true });
+    const card = approvedBadge.closest('[data-approved="true"]')!;
+    expect(within(card as HTMLElement).getByRole('textbox', { name: pesTextName })).toHaveAttribute('readonly');
+    expect(within(card as HTMLElement).getByRole('textbox', { name: pesTextName })).toHaveValue(editedPesText);
+    await waitFor(() => expect(mocks.draftState.answers['pes-approved-text']).toMatchObject({ text: editedPesText }));
+
+    second.unmount();
+    sessionStorage.clear();
+    mount();
+    await openModule('Revisión clínica, PES y objetivos');
+    await screen.findByText('PES aprobado', { exact: true });
+    expect(screen.getByRole('textbox', { name: pesTextName })).toHaveValue(editedPesText);
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
   it("saves an unapproved PES and restores its editor from the server after returning", async () => {
     const first=mount();
     await screen.findByRole("heading", { name: "Apertura de prueba" });
     await openModule("Revisión clínica, PES y objetivos");
     fireEvent.click(await screen.findByRole("button", { name: /PES Formula el diagnóstico/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "Redactar PES manualmente" }));
-    fireEvent.change(screen.getByLabelText("Problema"), { target: { value: "Propuesta escrita por revisar" } });
+    const text = formatPesEditorText({ problem: "Propuesta escrita por revisar", etiology: "", signsSymptoms: [] });
+    fireEvent.change(screen.getByRole("textbox", { name: pesTextName }), { target: { value: text } });
     await openModule("Entrevista");
     const dialog = await requestExit();
     fireEvent.click(within(dialog).getByRole("button", { name: "Guardar borrador y salir" }));
@@ -1126,7 +1200,7 @@ describe("consultation exit edge cases", () => {
     await screen.findByRole('heading',{name:'Apertura de prueba'});
     await openModule('Revisión clínica, PES y objetivos');
     fireEvent.click(await screen.findByRole('button',{name:/PES Formula el diagnóstico/}));
-    expect(await screen.findByLabelText('Problema')).toHaveValue('Propuesta escrita por revisar');
+    expect(await screen.findByRole('textbox', { name: pesTextName })).toHaveValue(text);
     expect(mocks.clinical.mock.calls.some(args=>args[2]==='pes')).toBe(false);
   });
   it("preserves a reopened clinical history instead of offering deletion", async () => {

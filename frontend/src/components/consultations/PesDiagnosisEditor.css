@@ -1,0 +1,148 @@
+.pes-editor {
+  display: grid;
+  gap: 1rem;
+}
+
+.pes-editor-title,
+.pes-editor-tools,
+.pes-editor-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .65rem;
+}
+
+.pes-editor-title,
+.pes-editor-footer {
+  justify-content: space-between;
+}
+
+.pes-editor-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.pes-editor-title > .clinical-status-badge {
+  margin: 0;
+}
+
+.pes-editor-content,
+.pes-editor-alternative {
+  display: grid;
+  gap: .85rem;
+  padding: clamp(.75rem, 2vw, 1.25rem);
+  border: 1px solid var(--nuth-line);
+  border-radius: 1.125rem;
+  background: var(--nuth-surface);
+  overflow-wrap: anywhere;
+}
+
+.pes-editor-alternative {
+  background: var(--consultation-section-bg, var(--nuth-surface-soft));
+  color: var(--consultation-section-ink, var(--nuth-ink));
+  border-color: var(--consultation-section-line, var(--nuth-line));
+}
+
+.pes-editor-content > *,
+.pes-editor-alternative > * {
+  margin-block: 0;
+}
+
+.pes-editor h3 {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.pes-editor-title label {
+  font-weight: 700;
+}
+
+.pes-editor-hint,
+.pes-editor-footer p {
+  color: var(--nuth-muted);
+  font-size: .8125rem;
+  line-height: 1.5;
+}
+
+.pes-editor-alternative-text,
+.pes-editor-statement > p {
+  white-space: pre-wrap;
+}
+
+.pes-editor-content[data-approved='true'] {
+  border-color: var(--consultation-section-line, var(--clinical-complete));
+  border-inline-start: .25rem solid var(--consultation-section-accent, var(--clinical-complete));
+  background: var(--consultation-section-bg, var(--clinical-complete-soft));
+  color: var(--consultation-section-ink, var(--nuth-ink));
+}
+
+.pes-editor .nuth-input {
+  --nuth-surface: #fff;
+  --nuth-ink: #1d2d3d;
+  --nuth-line: #8092a8;
+  width: 100%;
+  min-height: 44px;
+  background-color: var(--nuth-surface);
+  color: var(--nuth-ink);
+  color-scheme: light;
+  resize: vertical;
+  font-size: .9375rem;
+  line-height: 1.55;
+}
+
+.pes-editor .nuth-input[aria-invalid='true'] {
+  --nuth-line: #b34c40;
+}
+
+.pes-editor .pes-editor-text {
+  min-block-size: 15rem;
+  field-sizing: content;
+}
+
+.pes-editor-content[data-approved='true'] .pes-editor-text {
+  border-color: var(--consultation-section-line, var(--clinical-complete));
+  resize: none;
+}
+
+.pes-editor-statement[open] > p {
+  margin-top: .65rem;
+}
+
+.pes-editor-sources[open] > summary {
+  margin-bottom: .8rem;
+}
+
+.pes-editor-footer {
+  border-top: 1px solid var(--nuth-line);
+  padding-top: .85rem;
+}
+
+.pes-editor-footer .pes-editor-tools {
+  margin-inline-start: auto;
+}
+
+.pes-editor-discard {
+  min-height: 44px;
+  font-size: .8125rem;
+  font-weight: 600;
+  color: var(--nuth-muted);
+}
+
+.pes-editor :is(.pes-editor-discard, .clinical-text-action):hover:enabled {
+  text-decoration: underline;
+}
+
+.pes-editor :is(.pes-editor-discard, .clinical-text-action):focus-visible {
+  outline: 2px solid var(--consultation-focus, var(--nuth-action));
+  outline-offset: 3px;
+}
+
+.pes-editor-discard:disabled {
+  opacity: .55;
+}
+
+@media (max-width: 640px) {
+  .pes-editor-footer .pes-editor-tools {
+    margin-inline-start: 0;
+  }
+}

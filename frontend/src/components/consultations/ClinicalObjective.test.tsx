@@ -8,8 +8,9 @@ import {
 } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { ClinicalObjective } from "./ClinicalObjective";
+import { formatObjectiveEditorText, readObjectiveEditorText, type ObjectiveEditorField } from "@/src/features/consultations/objectiveEditorText";
 import { ConsultationDrafts, type ConsultationDraftController } from "./ConsultationDrafts";
-import { composeObjective } from "../../../../supabase/functions/_shared/objectives";
+import { composeObjective, emptyObjective } from "../../../../supabase/functions/_shared/objectives";
 import {
   approvedPes,
   objectiveWorkspace,
@@ -73,6 +74,15 @@ beforeEach(() => {
   api.review.mockResolvedValue(objectiveWorkspace());
   api.before.mockResolvedValue(true);
 });
+function objectiveText(index = 1) {
+  return screen.getByRole<HTMLTextAreaElement>("textbox", { name: `Texto del objetivo ${index}` });
+}
+function editObjective(field: ObjectiveEditorField, value: string, index = 1) {
+  const input = objectiveText(index);
+  const parsed = readObjectiveEditorText(input.value);
+  if (!("fields" in parsed)) throw new Error(parsed.issue);
+  fireEvent.change(input, { target: { value: formatObjectiveEditorText({ ...emptyObjective(), ...parsed.fields, [field]: value }) } });
+}
 async function mountSaved(approved = false) {
   const plan = smartPlan();
   api.review.mockResolvedValue(objectiveWorkspace(plan, approved));
@@ -111,7 +121,7 @@ function mountWithNewBatch(approved = false) {
 it("shows regenerated goals above a saved draft and replaces it only after confirmation", async () => {
   const { newer, plan } = mountWithNewBatch();
   const proposal = await screen.findByRole("heading", { name: newer.outcome });
-  const previous = screen.getByRole("heading", { name: plan.goals[0].outcome });
+  const previous = screen.getByText(plan.goals[0].outcome, { selector: ".smart-objective-name" });
   expect(proposal.compareDocumentPosition(previous) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(api.changed).not.toHaveBeenCalled();
   fireEvent.click(await screen.findByRole("button", { name: "Sustituir objetivos del borrador" }));
@@ -124,7 +134,7 @@ it("shows regenerated goals above a saved draft and replaces it only after confi
   fireEvent.click(screen.getByRole("button", { name: "Sustituir objetivos del borrador" }));
   comparison = within(screen.getByRole("dialog", { name: "Sustituir objetivos del borrador" }));
   fireEvent.click(comparison.getByRole("button", { name: "Confirmar sustitución" }));
-  expect(screen.queryByRole("heading", { name: plan.goals[0].outcome })).not.toBeInTheDocument();
+  expect(screen.queryByText(plan.goals[0].outcome, { selector: ".smart-objective-name" })).not.toBeInTheDocument();
   expect(screen.getByText("Incorporada al borrador de esta consulta.")).toBeVisible();
   expect(api.changed).toHaveBeenLastCalledWith(composeObjective(newer), [composeObjective(newer)]);
   fireEvent.click(screen.getByRole("button", { name: "Guardar borrador" }));
@@ -137,7 +147,7 @@ it("previews the latest generated goals without replacing an approved plan", asy
   const { newer, plan } = mountWithNewBatch(true);
   await screen.findByText("Aprobados");
   expect(await screen.findByRole("heading", { name: newer.outcome })).toBeVisible();
-  expect(screen.getByRole("heading", { name: plan.goals[0].outcome })).toBeVisible();
+  expect(screen.getByText(plan.goals[0].outcome, { selector: ".smart-objective-name" })).toBeVisible();
   expect(screen.queryByRole("button", { name: "Sustituir objetivos del borrador" })).not.toBeInTheDocument();
   expect(api.changed).not.toHaveBeenCalled();
 });
@@ -157,17 +167,12 @@ it("restores approval from JSONB regardless of object property order", async () 
   render(<Subject initial={composeObjective(plan.goals[0])} />);
   await screen.findByRole("button", { name: "Revisar objetivo 1" });
   expect(screen.getByText("Aprobados")).toBeVisible();
+  expect(objectiveText()).toHaveValue(formatObjectiveEditorText(plan.goals[0]));
   expect(screen.getByRole("button", { name: "Volver a revisar" }))
     .toBeEnabled();
   expect(api.review).toHaveBeenCalledExactlyOnceWith("c", 1);
   fireEvent.click(screen.getByRole("button", { name: "Revisar objetivo 1" }));
-  fireEvent.click(screen.getByRole("button", { name: /^Meta/ }));
-  fireEvent.change(
-    screen.getByLabelText("Meta o criterio de logro · objetivo 1"),
-    {
-      target: { value: "Meta profesional revisada" },
-    },
-  );
+  editObjective("target", "Meta profesional revisada");
   expect(screen.queryByText("Aprobados")).not.toBeInTheDocument();
   expect(screen.getByText("Borrador por revisar")).toBeVisible();
 });
@@ -195,7 +200,7 @@ it('preserves the full plan and editable text when objective approval fails',asy
   await screen.findByText('No se pudo registrar la aprobación.');
   expect(screen.queryByText('Aprobados')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button',{name:'Revisar objetivo 1'}));
-  expect(screen.getByLabelText('Resultado esperado · objetivo 1')).toHaveValue(plan.goals[0].outcome);
+  expect(objectiveText().value).toContain(plan.goals[0].outcome);
   expect(screen.getByRole('button',{name:'Aprobar objetivos'})).toBeEnabled();
 });
 it("shows approved PES and assessment evidence without generating or approving automatically", async () => {
@@ -247,12 +252,10 @@ it("allows a manual draft without PES while blocking approval and AI", async () 
   expect(screen.getByRole("button", { name: "Proponer objetivos con IA" }))
     .toBeDisabled();
   fireEvent.click(screen.getByRole("button", { name: "Agregar objetivo" }));
-  fireEvent.change(screen.getByLabelText("Resultado esperado · objetivo 1"), {
-    target: { value: "Conversar sobre horarios" },
-  });
+  editObjective("outcome", "Conversar sobre horarios", 1);
   expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
     .toBeDisabled();
-  fireEvent.click(screen.getByRole("button", { name: "Guardar y cerrar" }));
+  fireEvent.click(screen.getByRole("button", { name: "Guardar borrador" }));
   await screen.findByText(
     "Borrador guardado. Puedes continuar y revisarlo después.",
   );
@@ -277,9 +280,7 @@ it("marks an edited approved objective as an unsaved draft", async () => {
   await mountSaved(true);
   fireEvent.click(screen.getByRole("button", { name: "Revisar objetivo 1" }));
   expect(screen.getByText("Aprobados")).toBeVisible();
-  fireEvent.change(screen.getByLabelText("Resultado esperado · objetivo 1"), {
-    target: { value: "Resultado revisado" },
-  });
+  editObjective("outcome", "Resultado revisado", 1);
   expect(screen.queryByText("Aprobados")).not.toBeInTheDocument();
   expect(screen.getByText("Borrador por revisar")).toBeVisible();
   expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
@@ -311,9 +312,7 @@ it("revokes approval while preserving the editable plan and PES", async () => {
     undefined,
   );
   fireEvent.click(screen.getByRole("button", { name: "Revisar objetivo 1" }));
-  expect(screen.getByLabelText("Resultado esperado · objetivo 1")).toHaveValue(
-    plan.goals[0].outcome,
-  );
+  expect(objectiveText().value).toContain(plan.goals[0].outcome);
   fireEvent.click(screen.getByText("PES aprobado"));
   expect(screen.getByText(approvedPes.etiology, { selector: "dd" }))
     .toBeVisible();
@@ -322,7 +321,6 @@ it("revokes approval while preserving the editable plan and PES", async () => {
 it("requires patient agreement while permitting an incomplete draft to be saved", async () => {
   await mountSaved();
   fireEvent.click(screen.getByRole("button", { name: "Revisar objetivo 1" }));
-  fireEvent.click(screen.getByRole("button", { name: /^Acuerdo/ }));
   fireEvent.change(screen.getByLabelText("Acuerdo · objetivo 1"), {
     target: { value: "pending" },
   });
@@ -386,16 +384,8 @@ it("recovers an unsaved plan and restores its canonical interview text", async (
 it("limits the plan to three goals and preserves explicit priority changes", async () => {
   await mountSaved();
   fireEvent.click(screen.getByRole("button", { name: "Agregar objetivo" }));
-  fireEvent.change(screen.getByLabelText("Resultado esperado · objetivo 2"), {
-    target: { value: "Segunda prioridad" },
-  });
-  fireEvent.click(
-    screen.getByRole("button", { name: "Cerrar revisión del objetivo" }),
-  );
+  editObjective("outcome", "Segunda prioridad", 2);
   fireEvent.click(screen.getByRole("button", { name: "Agregar objetivo" }));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Cerrar revisión del objetivo" }),
-  );
   expect(screen.getByRole("button", { name: "Agregar objetivo" }))
     .toBeDisabled();
   expect(screen.getByRole("button", { name: "Proponer objetivos con IA" }))
@@ -407,9 +397,7 @@ it("limits the plan to three goals and preserves explicit priority changes", asy
     ),
   );
   fireEvent.click(screen.getByRole("button", { name: "Revisar objetivo 1" }));
-  expect(screen.getByLabelText("Resultado esperado · objetivo 1")).toHaveValue(
-    "Segunda prioridad",
-  );
+  expect(objectiveText().value).toContain("Segunda prioridad");
   fireEvent.click(screen.getByRole("button", { name: "Quitar objetivo 3" }));
   expect(screen.getByRole("button", { name: "Agregar objetivo" }))
     .toBeEnabled();
@@ -439,9 +427,7 @@ it("adds a structured AI proposal for review and requires the professional to re
   fireEvent.click(
     await screen.findByRole("button", { name: "Agregar y revisar" }),
   );
-  expect(screen.getByLabelText("Resultado esperado · objetivo 1")).toHaveValue(
-    goal.outcome,
-  );
+  expect(objectiveText().value).toContain(goal.outcome);
   expect(screen.getByLabelText("Acuerdo · objetivo 1")).toHaveValue("pending");
   expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
     .toBeDisabled();
@@ -464,76 +450,93 @@ it("adds a structured AI proposal for review and requires the professional to re
     .toBeEnabled();
 });
 
-it("keeps a compact list and preserves edits while reviewing one step at a time", async () => {
+it("keeps template guidance for unsupported AI fields and isolates it from saved goals", async () => {
+  const original = smartPlan().goals[0];
+  const goal = {
+    ...original,
+    textStyle: 'patient_v1',
+    baseline: 'Revisa el punto de partida con el primer registro.',
+    etiology: '',
+    sign: '',
+    feasibility: '',
+  };
+  api.generate.mockResolvedValue({ status: 'succeeded', output: { objectives: [{
+    goal, evidence: [{ source: 'Nota actual', finding: 'Jornada laboral variable' }],
+  }] } });
+  render(<Subject />);
+  const generate = () => screen.getByRole('button', { name: 'Proponer objetivos con IA' });
+  await waitFor(() => expect(generate()).toBeEnabled());
+  fireEvent.click(generate());
+  fireEvent.click(await screen.findByRole('button', { name: 'Agregar y revisar' }));
+  expect(objectiveText().value).toContain('Situación inicial y fecha\n[Anota cómo empiezas y en qué fecha.]');
+  expect(objectiveText().value).toContain('Relación con el diagnóstico\n[Explica cómo el cambio aborda la causa del PES.]');
+  expect(objectiveText().value).toContain('Viabilidad, barreras y preferencias\n[Completa con lo que hablaron en consulta.]');
+  expect(objectiveText().value).toContain(`Meta o criterio de logro\n${goal.target}`);
+  fireEvent.click(screen.getByText('Vínculo con el PES y evidencia'));
+  expect(screen.getByText('Jornada laboral variable')).toBeVisible();
+  fireEvent.change(screen.getByLabelText('Acuerdo · objetivo 1'), { target: { value: 'patient' } });
+  expect(screen.getByRole('button', { name: 'Aprobar objetivos' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+  await screen.findByText(/Borrador guardado/);
+  expect(api.review).toHaveBeenLastCalledWith('c', 1, 'save', 'current', props.questionKey, expect.objectContaining({
+    goals: [expect.objectContaining({ baseline: '', etiology: '', sign: '', feasibility: '', target: goal.target })],
+  }));
+  expect(api.changed.mock.lastCall?.[0]).not.toMatch(/\[|Jornada laboral variable/);
+});
+
+it("uses one editor for the whole SMART goal and focuses the pending field", async () => {
   await mountSaved();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  expect(screen.queryByLabelText("Resultado esperado · objetivo 1")).not
-    .toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Revisar objetivo 1" }));
-  const dialog = screen.getByRole("dialog");
-  expect(within(dialog).getByLabelText("Resultado esperado · objetivo 1"))
-    .toBeVisible();
-  expect(within(dialog).getByLabelText("Meta o criterio de logro · objetivo 1"))
-    .not.toBeVisible();
-  fireEvent.click(within(dialog).getByRole("button", { name: /^Meta/ }));
-  fireEvent.change(
-    within(dialog).getByLabelText("Meta o criterio de logro · objetivo 1"),
-    { target: { value: "" } },
-  );
-  expect(within(dialog).getByRole("progressbar")).toHaveAttribute("value", "9");
-  fireEvent.click(
-    within(dialog).getByRole("button", {
-      name: "Cerrar revisión del objetivo",
-    }),
-  );
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
-    .toBeDisabled();
-  fireEvent.click(
-    screen.getByRole("button", { name: "Ir al siguiente pendiente" }),
-  );
-  expect(screen.getByLabelText("Meta o criterio de logro · objetivo 1"))
-    .toBeVisible();
-  expect(screen.getByLabelText("Meta o criterio de logro · objetivo 1"))
-    .toHaveValue("");
-  fireEvent.change(
-    screen.getByLabelText("Meta o criterio de logro · objetivo 1"),
-    { target: { value: "Meta revisada con la persona" } },
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Guardar y cerrar" }));
-  await waitFor(() =>
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
-  );
-  expect(screen.getByRole("button", { name: "Aprobar objetivos" }))
-    .toBeEnabled();
-  expect(api.review).toHaveBeenLastCalledWith(
-    "c",
-    1,
-    "save",
-    "current",
-    "treatment_objective",
-    expect.objectContaining({
-      goals: [
-        expect.objectContaining({ target: "Meta revisada con la persona" }),
-      ],
-    }),
-  );
+  expect(screen.getAllByRole("textbox")).toHaveLength(1);
+  const editor = objectiveText();
+  expect(editor.value).toContain("¿Qué quieren lograr?");
+  expect(editor.value).toContain("¿Cómo reconocerán el avance?");
+  expect(editor.value).toContain("¿Cuándo y cómo lo revisarán?");
+  expect(editor.value).toContain("¿Es viable y lo acordaron?");
+  editObjective("target", "");
+  expect(editor.value).toContain("[Define qué resultado concreto indicará un avance.]");
+  expect(screen.getByRole("button", { name: "Aprobar objetivos" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Ir al siguiente pendiente" }));
+  await waitFor(() => expect(editor).toHaveFocus());
+  expect(editor.selectionStart).toBe(editor.value.indexOf("[Define qué resultado concreto indicará un avance.]"));
+  editObjective("target", "Meta revisada con la persona");
+  fireEvent.click(screen.getByRole("button", { name: "Guardar borrador" }));
+  await screen.findByText(/Borrador guardado/);
+  expect(screen.getByRole("button", { name: "Aprobar objetivos" })).toBeEnabled();
+  expect(api.review).toHaveBeenLastCalledWith("c", 1, "save", "current", "treatment_objective",
+    expect.objectContaining({ goals: [expect.objectContaining({ target: "Meta revisada con la persona" })] }));
+});
+
+it("retains an unfinished template after saving and reopening without publishing guidance", async () => {
+  const first = render(<Subject />);
+  await screen.findByText("PES aprobado");
+  fireEvent.click(screen.getByRole("button", { name: "Agregar objetivo" }));
+  const editor = objectiveText();
+  expect(editor.value).toContain("Resultado esperado\n[Describe el cambio que quieren lograr.]");
+  const unfinished = editor.value.replace("Meta o criterio de logro\n", "Meta todavía en edición\n");
+  fireEvent.change(editor, { target: { value: unfinished } });
+  expect(screen.getByRole("button", { name: "Aprobar objetivos" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Guardar borrador" }));
+  await screen.findByText(/Borrador guardado en esta sesión/);
+  expect(api.review.mock.calls.every(call => call.length === 2)).toBe(true);
+  first.unmount();
+  render(<Subject />);
+  expect(objectiveText()).toHaveValue(unfinished);
+  fireEvent.change(objectiveText(), { target: { value: unfinished.replace("Meta todavía en edición", "Meta o criterio de logro") } });
+  editObjective("outcome", "Anota las comidas durante tu turno");
+  expect(api.changed).toHaveBeenLastCalledWith("Anota las comidas durante tu turno.", ["Anota las comidas durante tu turno."]);
 });
 
 it("keeps the editor and its draft when saving fails", async () => {
   await mountSaved();
   fireEvent.click(screen.getByRole("button", { name: "Revisar objetivo 1" }));
-  fireEvent.change(screen.getByLabelText("Resultado esperado · objetivo 1"), {
-    target: { value: "Resultado revisado" },
-  });
+  editObjective("outcome", "Resultado revisado", 1);
   api.before.mockResolvedValue(false);
-  fireEvent.click(screen.getByRole("button", { name: "Guardar y cerrar" }));
-  await within(screen.getByRole("dialog")).findByText(
+  fireEvent.click(screen.getByRole("button", { name: "Guardar borrador" }));
+  await screen.findByText(
     "Guarda la entrevista antes de continuar.",
   );
-  expect(screen.getByLabelText("Resultado esperado · objetivo 1")).toHaveValue(
-    "Resultado revisado",
-  );
+  expect(objectiveText().value).toContain("Resultado revisado");
   expect(sessionStorage.getItem("objective-draft:c:1:treatment_objective"))
     .toContain("Resultado revisado");
   expect(api.review).toHaveBeenCalledOnce();

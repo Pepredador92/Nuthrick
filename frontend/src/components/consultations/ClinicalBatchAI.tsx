@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Check, ClipboardList, MessageSquareText, Route, Target } from 'lucide-react';
 import { AIButton } from '@/src/components/ai/AIControls';
 import { useAccess } from '@/src/features/admin/AccessProvider';
 import { canUseFeature } from '@/src/features/admin/api';
@@ -21,15 +21,42 @@ const collections: Partial<Record<ClinicalBatchFeature, string>> = {
   intervention_strategy: 'strategies',
   patient_instructions: 'instructions',
 };
+const stageIcons = {
+  pes_diagnosis: ClipboardList,
+  consultation_support: Target,
+  intervention_strategy: Route,
+  patient_instructions: MessageSquareText,
+};
 type BatchRun = {
   id: string;
   attempts: Partial<Record<ClinicalBatchFeature, string>>;
   completed: Partial<Record<ClinicalBatchFeature, string>>;
 };
+type BatchActivity = { phase: 'saving' } | { phase: 'checking' | 'generating'; feature: ClinicalBatchFeature };
+type BatchPause = { batchId?: string; feature?: ClinicalBatchFeature; detail: string };
 
 function getBatchProposal(values: Record<string, unknown>, run: BatchRun, feature: ClinicalBatchFeature) {
   const proposal = values[clinicalBatchKey(feature)] as ClinicalBatchProposal | undefined;
   return proposal?.batchId === run.id && proposal.generationId && proposal.output ? proposal : undefined;
+}
+
+function getSavedBatchProposal(values: Record<string, unknown>, run: BatchRun, feature: ClinicalBatchFeature) {
+  const proposal = getBatchProposal(values, run, feature);
+  return proposal && run.completed[feature] === proposal.generationId ? proposal : undefined;
+}
+
+function hasEmptyCollection(feature: ClinicalBatchFeature, proposal: ClinicalBatchProposal) {
+  const key = collections[feature];
+  const items = key && proposal.output[key];
+  return Array.isArray(items) && items.length === 0;
+}
+
+function proposalNote(feature: ClinicalBatchFeature, proposal: ClinicalBatchProposal, run: BatchRun) {
+  if (clinicalBatchNeedsReview(proposal, feature, run.completed)) return 'Cambió un borrador anterior. Por revisar.';
+  if (hasEmptyCollection(feature, proposal)) return 'Sin propuesta disponible';
+  if (proposal.output.batchBasis === 'template') return 'Plantilla de valoración';
+  if (proposal.output.batchBasis === 'assessment') return 'Borrador de valoración';
+  if (feature === 'pes_diagnosis' && !hasUsablePesEtiology(proposal.output.etiology)) return 'Etiología pendiente';
 }
 
 export function useClinicalBatchProposal(feature: ClinicalBatchFeature) {
@@ -51,7 +78,7 @@ export function ClinicalBatchStageRevision({ feature, ...props }: {
 }) {
   const checkpoint = useConsultationDraftContext();
   const run = checkpoint?.values[batchKey] as BatchRun | null | undefined;
-  if (!run || !clinicalBatchStages.every(stage => !!run.completed[stage.feature])) return null;
+  if (!checkpoint || !run || !clinicalBatchStages.every(({ feature }) => getSavedBatchProposal(checkpoint.values, run, feature))) return null;
   return <ClinicalBatchChanges {...props} batchId={run.id} completed={run.completed} featureOnly={feature} />;
 }
 
@@ -66,8 +93,9 @@ export function ClinicalBatchAI({ patientId, consultationId, revision, ready, be
   const checkpoint = useConsultationDraftContext();
   const { data } = useAccess();
   const [run, setRun] = useConsultationDraft<BatchRun | null>(batchKey, null);
-  const [active, setActive] = useState<string | null>(null);
-  const [message, setMessage] = useState('');
+  const [activity, setActivity] = useState<BatchActivity | null>(null);
+  const [pause, setPause] = useState<BatchPause | null>(null);
+  const currentPause = pause?.batchId === run?.id ? pause : null;
   const [changing, setChanging] = useState(false);
   const lock = useRef(false);
   const mounted = useRef(false);
@@ -79,38 +107,49 @@ export function ClinicalBatchAI({ patientId, consultationId, revision, ready, be
   const restricted = ['pes', 'consultation_support', 'patient_instructions'].some(
     feature => data && !canUseFeature(data.access, `ai.${feature}`),
   );
-  const completeCount = clinicalBatchStages.filter(({ feature }) => run?.completed[feature]).length;
-  const finished = completeCount === clinicalBatchStages.length;
-  const hasEmptyStage = finished && run && checkpoint && clinicalBatchStages.some(({ feature }) => {
-    const output = getBatchProposal(checkpoint.values, run, feature)?.output;
-    const key = collections[feature];
-    const items = key && output?.[key];
-    return !output || (Array.isArray(items) && items.length === 0);
-  });
+  const stages = clinicalBatchStages.map(stage => ({
+    ...stage,
+    proposal: checkpoint && run ? getSavedBatchProposal(checkpoint.values, run, stage.feature) : undefined,
+  }));
+  const total = stages.length;
+  const completeCount = stages.filter(({ proposal }) => proposal).length;
+  const pendingStage = stages.find(({ proposal }) => !proposal);
+  const finished = !pendingStage;
+  const savedIds = Object.fromEntries(stages.flatMap(({ feature, proposal }) => proposal ? [[feature, proposal.generationId]] : []));
 
   async function generate() {
     if (!checkpoint || !ready || restricted || finished || lock.current || changing) return;
     const controller = checkpoint;
     lock.current = true;
-    setActive('Guardando la consulta…');
-    setMessage('');
-    let stageLabel = '';
+    setActivity({ phase: 'saving' });
+    setPause(null);
+    let batchId = run?.id;
+    let currentFeature: ClinicalBatchFeature | undefined;
     try {
       if (!(await before())) throw new Error('Guarda la consulta antes de generar.');
+      if (!mounted.current) return;
       let values = await controller.refresh();
-      let saved = (values[batchKey] as BatchRun | undefined) ?? { id: crypto.randomUUID(), attempts: {}, completed: {} };
+      const existing = values[batchKey] as BatchRun | null | undefined;
+      if (run && existing?.id !== run.id) throw new AIRequestError('context_changed');
+      let saved = existing ?? { id: crypto.randomUUID(), attempts: {}, completed: {} };
+      batchId = existing?.id;
       async function saveRun(next: BatchRun) {
+        batchId = next.id;
         setRun(next);
         if (!(await controller.flush())) throw new Error('No pudimos guardar el avance. Revisa el guardado y vuelve a intentarlo.');
         saved = next;
       }
-      for (const { feature, label } of clinicalBatchStages) {
+      for (const { feature } of clinicalBatchStages) {
         if (!mounted.current) return;
-        stageLabel = label;
-        if (saved.completed[feature] && getBatchProposal(values, saved, feature)?.generationId === saved.completed[feature]) continue;
-        setActive(`Generando · ${label}…`);
+        if (getSavedBatchProposal(values, saved, feature)) continue;
+        currentFeature = feature;
+        if (saved.completed[feature]) {
+          throw new Error('El borrador figura como guardado, pero no pudimos recuperarlo. Actualiza la revisión y comprueba el avance de nuevo.');
+        }
         let attempt = saved.attempts[feature];
+        setActivity({ phase: attempt ? 'checking' : 'generating', feature });
         const prior = attempt ? await getAIGenerationStatus(attempt) : null;
+        if (!mounted.current) return;
         let generationId: string;
         if (prior?.status === 'succeeded') {
           generationId = prior.generationId;
@@ -118,12 +157,12 @@ export function ClinicalBatchAI({ patientId, consultationId, revision, ready, be
           if (prior && !['failed', 'invalid_output'].includes(prior.status)) {
             throw new Error('La solicitud anterior sigue pendiente. Usa «Comprobar y continuar» cuando esté lista.');
           }
-          if (!mounted.current) return;
           if (!attempt || prior) {
             attempt = crypto.randomUUID();
             await saveRun({ ...saved, attempts: { ...saved.attempts, [feature]: attempt } });
           }
           if (!mounted.current) return;
+          setActivity({ phase: 'generating', feature });
           const result = await runAIRequest({
             feature, patientId, consultationId, revision, idempotencyKey: attempt, batchId: saved.id,
             ...(feature === 'consultation_support' ? { objectiveTextStyle: 'patient_v1' as const } : {}),
@@ -133,58 +172,89 @@ export function ClinicalBatchAI({ patientId, consultationId, revision, ready, be
         }
         if (!mounted.current) return;
         values = await controller.refresh();
-        if (getBatchProposal(values, saved, feature)?.generationId !== generationId) {
+        if (!mounted.current) return;
+        const refreshed = values[batchKey] as BatchRun | null | undefined;
+        if (refreshed?.id !== saved.id || refreshed.attempts[feature] !== attempt) throw new AIRequestError('context_changed');
+        if (getBatchProposal(values, refreshed, feature)?.generationId !== generationId) {
           throw new Error('La generación terminó. Usa «Comprobar y continuar» para recuperar el borrador guardado.');
         }
-        await saveRun({ ...saved, completed: { ...saved.completed, [feature]: generationId } });
+        await saveRun({ ...refreshed, completed: { ...refreshed.completed, [feature]: generationId } });
       }
     } catch (error) {
       const detail = error instanceof Error ? error.message : 'Vuelve a intentar la etapa pendiente.';
-      if (mounted.current) setMessage(stageLabel ? `La propuesta se pausó en ${stageLabel === 'Diagnóstico PES' ? 'diagnóstico PES' : stageLabel.toLowerCase()}. ${detail}` : detail);
+      if (mounted.current) setPause({ batchId, feature: currentFeature, detail });
     } finally {
       lock.current = false;
-      if (mounted.current) setActive(null);
+      if (mounted.current) setActivity(null);
     }
   }
 
   if (!checkpoint) return null;
-  return <section className="clinical-ai-batch" aria-label="Propuesta completa con IA">
-    {!finished && <>
-      <AIButton
+  const activeStage = activity && 'feature' in activity ? stages.find(stage => stage.feature === activity.feature) : undefined;
+  const pausedStage = stages.find(stage => stage.feature === currentPause?.feature);
+  const resuming = !!(pendingStage && (run?.attempts[pendingStage.feature] || run?.completed[pendingStage.feature]));
+  const progressMessage = activity?.phase === 'saving' ? 'Guardando la consulta…'
+    : activeStage ? `${activity?.phase === 'checking' ? 'Comprobando' : 'Generando'} · ${activeStage.label}…`
+    : finished ? stages.some(({ feature, proposal }) => proposal && hasEmptyCollection(feature, proposal))
+      ? 'Generación terminada. Revisa los borradores disponibles.'
+      : 'Propuesta completa. Revisa los cuatro borradores.'
+    : run && !currentPause && pendingStage ? `Puedes continuar desde ${pendingStage.label}.` : '';
+
+  return <section className="clinical-ai-batch" aria-labelledby="clinical-ai-batch-title">
+    <header className="clinical-ai-batch-header">
+      <div>
+        <h3 id="clinical-ai-batch-title">Propuesta clínica con IA</h3>
+        <p>Genera y guarda un borrador a la vez. Puedes revisar cada etapa en cuanto esté lista. Usa créditos según el consumo real.</p>
+      </div>
+      {!finished && <AIButton
         className="clinical-ai-batch-button"
-        state={active ? 'generating' : 'idle'}
-        disabled={!ready || restricted || changing}
-        title={restricted ? 'Tu acceso necesita IA para los cuatro pasos' : undefined}
+        state={activity && activity.phase === 'generating' ? 'generating' : 'idle'}
+        disabled={!!activity || !ready || restricted || changing}
+        title={restricted ? 'Tu acceso necesita IA para las cuatro etapas' : undefined}
         onClick={() => void generate()}
       >
-        {run ? 'Comprobar y continuar' : 'Generar propuesta completa con IA'}
-      </AIButton>
-      <p>Genera borradores de PES, objetivos, estrategias e indicaciones. Revísalos en cada paso. Usa créditos según el consumo real.</p>
-      {!ready && <p>Confirma los datos disponibles para comenzar.</p>}
-    </>}
-    <p role="status" aria-live="polite">
-      {active || (finished
-        ? hasEmptyStage ? 'Generación terminada. Revisa los borradores disponibles.' : 'Propuesta completa. Revisa los cuatro borradores.'
-        : run && `${completeCount} de ${clinicalBatchStages.length} pasos guardados.`)}
-    </p>
-    {run && <ul className="clinical-ai-batch-stages">
-      {clinicalBatchStages.map(({ feature, label }, index) => <li key={feature}>
-        {run.completed[feature] ? <>
-          <button type="button" className="clinical-text-action" onClick={() => onReview(index + 1)}>{`Revisar ${label}`}<ArrowRight size={14} aria-hidden="true" /></button>
-          {(() => {
-            const proposal = getBatchProposal(checkpoint.values, run, feature);
-            if (!proposal) return null;
-            if (clinicalBatchNeedsReview(proposal, feature, run.completed)) return <span> · Por revisar</span>;
-            if (proposal.output.batchBasis === 'template') return <span> · Plantilla de valoración</span>;
-            if (proposal.output.batchBasis === 'assessment') return <span> · Borrador de valoración</span>;
-            if (feature === 'pes_diagnosis' && !hasUsablePesEtiology(proposal.output.etiology)) return <span> · Etiología pendiente</span>;
-            return null;
-          })()}
-        </> : <span>{label}</span>}
-      </li>)}
-    </ul>}
+        {activity?.phase === 'saving' ? 'Guardando…' : activity?.phase === 'checking' ? 'Comprobando…'
+          : run ? 'Comprobar y continuar' : 'Generar propuesta completa con IA'}
+      </AIButton>}
+    </header>
+    {!ready && !finished && !activity && <p className="clinical-ai-batch-hint">Confirma los datos disponibles para continuar.</p>}
+    <div className="clinical-ai-batch-progress">
+      <div role="status">
+        <strong>{completeCount} de {total} etapas guardadas</strong>
+        {progressMessage && <p>{progressMessage}</p>}
+      </div>
+      <progress aria-label="Etapas guardadas de la propuesta con IA" max={total} value={completeCount} />
+    </div>
+    <ol className="clinical-ai-batch-cards" aria-label="Etapas de la propuesta" role="list">
+      {stages.map(({ feature, label, proposal }, index) => {
+        const Icon = stageIcons[feature];
+        const note = proposal && run ? proposalNote(feature, proposal, run) : undefined;
+        const working = activeStage?.feature === feature;
+        const pending = !activity && pendingStage?.feature === feature;
+        const stopped = !activity && pausedStage?.feature === feature;
+        const state = proposal ? 'saved' : working ? 'working' : stopped || (pending && resuming) ? 'paused' : 'waiting';
+        return <li key={feature} data-stage={feature} data-state={state} aria-current={working ? 'step' : undefined}>
+          <div className="clinical-ai-batch-card-heading">
+            <span className="clinical-ai-batch-icon"><Icon size={17} aria-hidden="true" /></span>
+            <h4>{label}</h4>
+          </div>
+          <p className="clinical-ai-batch-card-status">
+            {proposal ? <><Check size={14} aria-hidden="true" /> Guardado</>
+              : working ? activity?.phase === 'checking' ? 'Comprobando' : 'Generando'
+              : stopped ? 'Pausado' : pending && resuming ? 'Por comprobar' : 'En espera'}
+          </p>
+          {note && <p className="clinical-ai-batch-card-note">{note}</p>}
+          {proposal && <button type="button" className="clinical-ai-batch-review" aria-label={`Revisar ${label}`} onClick={() => onReview(index + 1)}>
+            Revisar <ArrowRight size={14} aria-hidden="true" />
+          </button>}
+        </li>;
+      })}
+    </ol>
+    {currentPause && <p className="clinical-ai-batch-pause" role="alert">
+      {pausedStage && <strong>La propuesta se pausó en {pausedStage.feature === 'pes_diagnosis' ? 'diagnóstico PES' : pausedStage.label.toLowerCase()}. </strong>}
+      {currentPause.detail}
+    </p>}
     {run && <ClinicalBatchChanges patientId={patientId} consultationId={consultationId} revision={revision}
-      batchId={run.id} completed={run.completed} blocked={!!active} before={before} onBusy={setChanging} />}
-    {message && <p role="alert">{message}</p>}
+      batchId={run.id} completed={savedIds} blocked={!!activity} before={before} onBusy={setChanging} />}
   </section>;
 }

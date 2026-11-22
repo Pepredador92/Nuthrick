@@ -26,6 +26,7 @@ function SavedPES() {
 it('waits for the clinical review, saves each draft and recovers an interrupted stage without repeating it', async () => {
   const saved = { version: 0, answers: {} as Record<string, unknown> };
   const ledger = new Map<string, { generationId: string; status: string }>();
+  const objectiveReply = Promise.withResolvers<void>();
   let interrupted = false;
   api.sync.mockImplementation((_name, input) => {
     if (input.p_changes) {
@@ -54,6 +55,7 @@ it('waits for the clinical review, saves each draft and recovers an interrupted 
     saved.version++;
     if (!interrupted && feature === 'consultation_support') {
       interrupted = true;
+      await objectiveReply.promise;
       throw new Error('Se perdió la conexión al recibir la respuesta.');
     }
     return { generationId, status: 'succeeded' };
@@ -71,13 +73,23 @@ it('waits for the clinical review, saves each draft and recovers an interrupted 
   expect(start).toBeDisabled();
   view.rerender(tree(true));
   fireEvent.click(start);
+  const progress = within(screen.getByRole('list', { name: 'Etapas de la propuesta' }));
+  expect(await progress.findByText('Generando')).toBeVisible();
+  expect(screen.getByRole('progressbar')).toHaveAttribute('value', '1');
+  fireEvent.click(progress.getByRole('button', { name: 'Revisar Diagnóstico PES' }));
+  expect(review).toHaveBeenLastCalledWith(1);
+  expect(api.run).toHaveBeenCalledTimes(2);
+  objectiveReply.resolve();
   await screen.findByText(/se pausó en objetivos/);
+  expect(progress.getByText('Pausado')).toBeVisible();
   expect(screen.getByText('Borrador sintético')).toBeInTheDocument();
   expect(api.run).toHaveBeenCalledTimes(2);
   view.unmount();
 
   render(tree(true));
-  fireEvent.click(await screen.findByRole('button', { name: 'Comprobar y continuar' }));
+  const resume = await screen.findByRole('button', { name: 'Comprobar y continuar' });
+  expect(screen.getByText('Por comprobar')).toBeVisible();
+  fireEvent.click(resume);
   await screen.findByText('Propuesta completa. Revisa los cuatro borradores.');
   expect(screen.getByText(/Etiología pendiente/)).toBeVisible();
   expect(screen.getAllByText(/Borrador de valoración/)).toHaveLength(2);
@@ -86,7 +98,50 @@ it('waits for the clinical review, saves each draft and recovers an interrupted 
   expect(new Set(api.run.mock.calls.map(([request]) => request.batchId)).size).toBe(1);
   expect(api.status).toHaveBeenCalledExactlyOnceWith(api.run.mock.calls[1][0].idempotencyKey);
   fireEvent.click(screen.getByRole('button', { name: 'Revisar Indicaciones' }));
-  expect(review).toHaveBeenCalledExactlyOnceWith(4);
+  expect(review.mock.calls).toEqual([[1], [4]]);
+});
+
+it('checks an unresolved request without sending another generation', async () => {
+  const attempt = 'pending-pes-request';
+  const saved = { version: 1, answers: {
+    'clinical-batch': { id: 'batch', attempts: { pes_diagnosis: attempt }, completed: {} },
+  } };
+  api.sync.mockImplementation(() => {
+    const response = Promise.resolve({ data: structuredClone(saved) });
+    return Object.assign(response, { abortSignal: () => response });
+  });
+  api.status.mockResolvedValue({ generationId: 'pending-result', status: 'uncertain' });
+  const before = async () => true;
+  render(<ConsultationDrafts consultationId="batch-pending-test" revision={1} controllerRef={createRef()} onSave={before}>
+    <ClinicalBatchAI patientId="patient" consultationId="batch-pending-test" revision={1} before={before} ready onReview={vi.fn()} />
+  </ConsultationDrafts>);
+  fireEvent.click(await screen.findByRole('button', { name: 'Comprobar y continuar' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('La solicitud anterior sigue pendiente.');
+  expect(screen.getByRole('progressbar')).toHaveAttribute('value', '0');
+  expect(api.status).toHaveBeenCalledExactlyOnceWith(attempt);
+  expect(api.run).not.toHaveBeenCalled();
+});
+
+it('offers recovery if a saved progress marker has no matching draft without regenerating it', async () => {
+  const completed = Object.fromEntries(clinicalBatchStages.map(({ feature }) => [feature, feature]));
+  const answers: Record<string, unknown> = { 'clinical-batch': { id: 'batch', attempts: {}, completed } };
+  for (const { feature } of clinicalBatchStages.slice(0, -1)) {
+    answers[clinicalBatchKey(feature)] = { batchId: 'batch', generationId: feature, output: { etiology: 'Causa sintética' } };
+  }
+  api.sync.mockImplementation(() => {
+    const response = Promise.resolve({ data: { version: 4, answers } });
+    return Object.assign(response, { abortSignal: () => response });
+  });
+  const before = async () => true;
+  render(<ConsultationDrafts consultationId="batch-unavailable-test" revision={1} controllerRef={createRef()} onSave={before}>
+    <ClinicalBatchAI patientId="patient" consultationId="batch-unavailable-test" revision={1} before={before} ready onReview={vi.fn()} />
+  </ConsultationDrafts>);
+  fireEvent.click(await screen.findByRole('button', { name: 'Comprobar y continuar' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('El borrador figura como guardado, pero no pudimos recuperarlo.');
+  expect(screen.getByRole('progressbar')).toHaveAttribute('value', '3');
+  expect(screen.queryByRole('button', { name: 'Revisar Indicaciones' })).not.toBeInTheDocument();
+  expect(api.status).not.toHaveBeenCalled();
+  expect(api.run).not.toHaveBeenCalled();
 });
 
 it('compares an alternate PES, flags dependent drafts and confirms cleaning the batch', async () => {
