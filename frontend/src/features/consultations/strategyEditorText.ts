@@ -10,34 +10,35 @@ const fields = [
 ] as const;
 
 export type StrategyTextField = typeof fields[number][0];
-const names = new Set<string>(fields.map(([, title]) => title));
+const headings = new Map<string, number>(fields.map(([, title], index) => [title, index]));
 
 export function formatStrategyEditorText(strategy: Strategy, guides = true) {
   return fields.filter(([key]) => guides || strategy[key].trim()).map(([key, title, hint]) => {
-    const content = strategy[key].split('\n').map(line => names.has(line.trim()) ? ' ' + line : line).join('\n');
+    const content = strategy[key].split('\n').map(line => headings.has(line.trim()) ? ' ' + line : line).join('\n');
     return `${title}\n${content || (guides ? hint : '')}`;
   }).join('\n\n');
 }
 
 export function readStrategyEditorText(text: string): { fields: Pick<Strategy, StrategyTextField> } | { issue: string } {
-  const sections: string[][] = fields.map(() => []);
+  const sections: (string[] | undefined)[] = fields.map(() => undefined);
   let position = -1;
-  const structureIssue = 'Conserva los encabezados de la estrategia y escribe debajo de cada uno.';
+  const structureIssue = 'Conserva los encabezados «Nombre de la estrategia» y «Acción concreta» y escribe debajo de cada uno.';
   for (const line of text.split(/\r?\n/u)) {
-    const title = line.trimEnd();
-    if (names.has(title)) {
-      position++;
-      if (fields[position]?.[1] !== title) return { issue: structureIssue };
+    const index = headings.get(line.trimEnd());
+    if (index !== undefined) {
+      if (index <= position) return { issue: structureIssue };
+      position = index;
+      sections[index] = [];
     } else if (position >= 0) {
-      sections[position].push(line.startsWith(' ') && names.has(line.trim()) ? line.slice(1) : line);
+      sections[position]?.push(line.startsWith(' ') && headings.has(line.trim()) ? line.slice(1) : line);
     } else if (line.trim()) {
       return { issue: structureIssue };
     }
   }
-  if (position !== fields.length - 1) return { issue: structureIssue };
+  if (!sections[0] || !sections[1]) return { issue: structureIssue };
   const result = {} as Pick<Strategy, StrategyTextField>;
   for (const [index, [key, title, hint]] of fields.entries()) {
-    const value = sections[index].join('\n').replaceAll(hint, '').trim();
+    const value = sections[index]?.join('\n').replaceAll(hint, '').trim() ?? '';
     if (value.length > 1500) return { issue: `Resume «${title}» a 1500 caracteres o menos.` };
     result[key] = value;
   }

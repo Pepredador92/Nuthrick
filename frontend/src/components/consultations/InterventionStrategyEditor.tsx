@@ -68,7 +68,7 @@ export function InterventionStrategyEditor({
   return (
     <section ref={container} className="strategy-inline-editor" aria-label="Editor de estrategia">
       <label htmlFor={`${id}-text`}>Texto de la estrategia</label>
-      {editable && <p id={`${id}-help`} className="strategy-editor-help">Escribe debajo de cada encabezado. Los apartados sin definir pueden quedar en blanco.</p>}
+      {editable && <p id={`${id}-help`} className="strategy-editor-help">Escribe debajo de cada encabezado. Puedes dejar en blanco o quitar los apartados opcionales.</p>}
       <textarea
         ref={textarea}
         id={`${id}-text`}

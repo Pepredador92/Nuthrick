@@ -496,3 +496,22 @@ it('shows a saved batch proposal on entry without requesting a new generation', 
   expect(strategyText().value).toContain(document.strategy.action);
   expect(api.generate).not.toHaveBeenCalled();
 });
+
+it('approves a strategy when the optional text sections were removed', async () => {
+  mount();
+  await screen.findByText('PES y objetivos de referencia');
+  fireEvent.click(screen.getByRole('button', { name: 'Agregar estrategia manualmente' }));
+  fireEvent.change(strategyText(), {
+    target: { value: 'Nombre de la estrategia\nPracticar con ejemplos\n\nAcción concreta\nRevisar dos alternativas durante la sesión.' },
+  });
+  fireEvent.click(within(screen.getByRole('group', { name: /Objetivos que apoya/ })).getByRole('checkbox'));
+  expect(screen.getByText('3 de 3 requisitos')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Aprobar estrategia' }));
+  await screen.findByText('Estrategia aprobada.');
+  expect(api.workspace).toHaveBeenLastCalledWith('c', 1, 'approve', expect.objectContaining({
+    document: expect.objectContaining({ strategy: expect.objectContaining({
+      title: 'Practicar con ejemplos', action: 'Revisar dos alternativas durante la sesión.', goalIndexes: [0],
+      method: '', etiologyLink: '', adaptations: '', monitoring: '',
+    }) }),
+  }));
+});
