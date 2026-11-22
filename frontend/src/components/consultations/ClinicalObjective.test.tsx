@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { createRef, useState } from "react";
 import {
   fireEvent,
   render,
@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { ClinicalObjective } from "./ClinicalObjective";
+import { ConsultationDrafts, type ConsultationDraftController } from "./ConsultationDrafts";
 import { composeObjective } from "../../../../supabase/functions/_shared/objectives";
 import {
   approvedPes,
@@ -20,7 +21,9 @@ const api = vi.hoisted(() => ({
   generate: vi.fn(),
   changed: vi.fn(),
   pending: vi.fn(),
+  sync: vi.fn(),
 }));
+vi.mock("@/src/lib/supabase", () => ({ supabase: { rpc: api.sync } }));
 vi.mock(
   "@/src/services/clinicalCopilot",
   () => ({ clinicalObjective: api.review }),
@@ -49,12 +52,13 @@ const props = {
   questionKey: "treatment_objective",
   before: api.before,
 };
-function Subject({ initial = "" }: { initial?: string }) {
+function Subject({ initial = "", reviewBatch = false }: { initial?: string; reviewBatch?: boolean }) {
   const [value, setValue] = useState(initial);
   return (
     <ClinicalObjective
       {...props}
       value={value}
+      reviewBatch={reviewBatch}
       onPendingChange={api.pending}
       onChangeText={(text, texts) => {
         api.changed(text, texts);
@@ -76,6 +80,67 @@ async function mountSaved(approved = false) {
   await screen.findByRole("button", { name: "Revisar objetivo 1" });
   return { ...view, plan };
 }
+
+function mountWithNewBatch(approved = false) {
+  const plan = smartPlan();
+  const newer = { ...plan.goals[0], outcome: "Deja lista una opción para tu jornada." };
+  const saved = { version: 1, answers: {
+    "clinical-batch": { id: "batch-new", completed: { pes_diagnosis: "pes-new", consultation_support: "objective-new" } },
+    "batch-reviewed:consultation_support": "objective-old",
+    "proposal:batch:consultation_support": {
+      batchId: "batch-new", generationId: "objective-new", inputGenerations: ["pes-new"],
+      output: { pesProblem: approvedPes.problem, objectives: [{ goal: newer, evidence: [{ source: "Nota de la consulta", finding: "Busca una opción práctica para el trabajo." }] }] },
+    },
+  } as Record<string, unknown> };
+  api.review.mockResolvedValue(objectiveWorkspace(plan, approved));
+  api.sync.mockImplementation((_name, input) => {
+    if (input.p_changes) {
+      Object.assign(saved.answers, input.p_changes);
+      saved.version++;
+    }
+    const response = Promise.resolve({ data: structuredClone(saved) });
+    return Object.assign(response, { abortSignal: () => response });
+  });
+  const controller = createRef<ConsultationDraftController | null>();
+  render(<ConsultationDrafts consultationId="c" revision={1} onSave={api.before} controllerRef={controller}>
+    <Subject initial={composeObjective(plan.goals[0])} reviewBatch />
+  </ConsultationDrafts>);
+  return { newer, plan };
+}
+
+it("shows regenerated goals above a saved draft and replaces it only after confirmation", async () => {
+  const { newer, plan } = mountWithNewBatch();
+  const proposal = await screen.findByRole("heading", { name: newer.outcome });
+  const previous = screen.getByRole("heading", { name: plan.goals[0].outcome });
+  expect(proposal.compareDocumentPosition(previous) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(api.changed).not.toHaveBeenCalled();
+  fireEvent.click(await screen.findByRole("button", { name: "Sustituir objetivos del borrador" }));
+  let comparison = within(screen.getByRole("dialog", { name: "Sustituir objetivos del borrador" }));
+  expect(comparison.getByText(/Deja lista una opción/)).toBeVisible();
+  expect(comparison.getByText(composeObjective(plan.goals[0]))).toBeVisible();
+  fireEvent.click(comparison.getByRole("button", { name: "Conservar borrador actual" }));
+  expect(previous).toBeVisible();
+  expect(api.changed).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Sustituir objetivos del borrador" }));
+  comparison = within(screen.getByRole("dialog", { name: "Sustituir objetivos del borrador" }));
+  fireEvent.click(comparison.getByRole("button", { name: "Confirmar sustitución" }));
+  expect(screen.queryByRole("heading", { name: plan.goals[0].outcome })).not.toBeInTheDocument();
+  expect(screen.getByText("Incorporada al borrador de esta consulta.")).toBeVisible();
+  expect(api.changed).toHaveBeenLastCalledWith(composeObjective(newer), [composeObjective(newer)]);
+  fireEvent.click(screen.getByRole("button", { name: "Guardar borrador" }));
+  await waitFor(() => expect(api.review).toHaveBeenCalledWith("c", 1, "save", "current", props.questionKey,
+    expect.objectContaining({ goals: [expect.objectContaining({ outcome: newer.outcome, agreement: "pending" })] })));
+  expect(api.generate).not.toHaveBeenCalled();
+});
+
+it("previews the latest generated goals without replacing an approved plan", async () => {
+  const { newer, plan } = mountWithNewBatch(true);
+  await screen.findByText("Aprobados");
+  expect(await screen.findByRole("heading", { name: newer.outcome })).toBeVisible();
+  expect(screen.getByRole("heading", { name: plan.goals[0].outcome })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Sustituir objetivos del borrador" })).not.toBeInTheDocument();
+  expect(api.changed).not.toHaveBeenCalled();
+});
 it("restores approval from JSONB regardless of object property order", async () => {
   const plan = smartPlan();
   const reorder = (value: unknown): unknown =>
