@@ -1,3 +1,4 @@
+import type { StrategyRevision } from '../_shared/interventions.ts';
 import { interventionAdapter, interventionEvidenceValid, interventionValidationIssues, normalizeInterventionOutput, type InterventionContext } from './intervention.ts';
 import { isDietGuidance, type DietGuidance } from '../_shared/diet-guidance.ts';
 import {isTextDietGuidance,type TextDietGuidance} from '../_shared/text-diet.ts';
@@ -194,12 +195,12 @@ export interface AIStore {
   refundInvalidPes?(id: string): Promise<number>;
   refundInvalidObjectives?(id: string): Promise<number>;
 }
-export type AIRequest = { batchId?: string; revisionOf?: string; clinicalFeedback?: string; pesCompletion?: PesCompletion; textEdit?: TextDietEdit; objectiveTextStyle?: 'patient_v1'; textGuidance?: TextDietGuidance; guidance?: DietGuidance; strategyFeedback?: string; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
+export type AIRequest = { batchId?: string; revisionOf?: string; clinicalFeedback?: string; pesCompletion?: PesCompletion; textEdit?: TextDietEdit; objectiveTextStyle?: 'patient_v1'; textGuidance?: TextDietGuidance; guidance?: DietGuidance; strategyFeedback?: string; strategyRevision?: StrategyRevision; feature: string; idempotencyKey: string; patientId?: string; consultationId?: string; revision?: number; narrative?: string; planId?: string; previousProposalId?: string; rejectedItems?: string[]; rejectedFoodIds?: string[]; rejectedSignatures?: string[] };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function parseRequest(value: unknown): AIRequest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new AIError('invalid_request');
   const v = value as Record<string, unknown>;
-  if (Object.keys(v).some(k => !['feature','idempotencyKey','patientId','consultationId','revision','narrative','planId','previousProposalId','rejectedItems','guidance','textGuidance','strategyFeedback','objectiveTextStyle','textEdit','batchId','revisionOf','clinicalFeedback','pesCompletion'].includes(k))
+  if (Object.keys(v).some(k => !['feature','idempotencyKey','patientId','consultationId','revision','narrative','planId','previousProposalId','rejectedItems','guidance','textGuidance','strategyFeedback','strategyRevision','objectiveTextStyle','textEdit','batchId','revisionOf','clinicalFeedback','pesCompletion'].includes(k))
     || typeof v.feature !== 'string' || !/^[a-z][a-z0-9_]{1,63}$/.test(v.feature)
     || typeof v.idempotencyKey !== 'string' || !uuid.test(v.idempotencyKey)
     || [v.patientId,v.consultationId].some(id => id !== undefined && (typeof id !== 'string' || !uuid.test(id)))
@@ -226,6 +227,15 @@ export function parseRequest(value: unknown): AIRequest {
   if (v.rejectedFoodIds !== undefined && (!Array.isArray(v.rejectedFoodIds) || v.rejectedFoodIds.length>30 || v.rejectedFoodIds.some(id => typeof id!=='string'||!uuid.test(id)))) throw new AIError('invalid_request');
   if (v.rejectedSignatures !== undefined && (!Array.isArray(v.rejectedSignatures) || v.rejectedSignatures.length>3 || v.rejectedSignatures.some(s => typeof s!=='string'||s.length>16000))) throw new AIError('invalid_request');
   if (v.strategyFeedback !== undefined && (v.feature !== 'intervention_strategy' || typeof v.strategyFeedback !== 'string' || v.strategyFeedback.length > 600)) throw new AIError('invalid_request');
+  if (v.strategyRevision !== undefined) {
+    const edit = v.strategyRevision as Record<string, unknown> | null;
+    if (v.feature !== 'intervention_strategy' || v.batchId !== undefined || v.clinicalFeedback !== undefined ||
+      !edit || typeof edit !== 'object' || Array.isArray(edit) || Object.keys(edit).length !== 4 ||
+      typeof edit.id !== 'string' || !uuid.test(edit.id) ||
+      ![edit.title, edit.action, edit.method].every(value => typeof value === 'string' && value.length <= 1500)) {
+      throw new AIError('invalid_request');
+    }
+  }
   const clinical = ['pes_diagnosis','recall_24h','consultation_support','patient_instructions','intervention_strategy'].includes(v.feature as string);
   if (clinical && (!v.consultationId || !Number.isSafeInteger(v.revision) || Number(v.revision) < 1)) throw new AIError('invalid_request');
   if (!clinical && !workshop && (v.revision !== undefined || v.narrative !== undefined)) throw new AIError('invalid_request');
@@ -267,6 +277,14 @@ export async function runAIRequest(request: AIRequest, store: AIStore, provider:
       adapter.instructions += ' Escribe action, method, monitoring, adaptations, adjustmentCriteria y comprehensionCheck en oraciones completas, con punto final, dejando vacíos los campos opcionales que no correspondan. Si una explicación no cabe, redacta una versión más breve y completa.';
     }
   }
+  if (request.strategyFeedback?.trim()) {
+    adapter.instructions += ' Aplica de forma concreta las indicaciones profesionales del campo feedback al redactar la acción y el método de cada propuesta pertinente. No repitas literalmente la solicitud. Si algún ajuste contradice el expediente o necesita confirmación, conserva la evidencia y explica el punto pendiente en missingContext. feedback orienta la propuesta, nunca acredita hechos clínicos ni cambia las reglas de validación.';
+  }
+  if (request.strategyRevision) {
+    const schema = interventionAdapter.schema;
+    adapter.schema = { ...schema, properties: { ...schema.properties, strategies: { ...schema.properties.strategies as object, maxItems: 1 } } };
+    adapter.instructions += ' Devuelve como máximo una alternativa para la estrategia descrita en strategyToRevise. Mantén su propósito clínico y conserva los detalles pertinentes que sigan respaldados, aplicando feedback si está presente. El texto anterior sirve para identificar qué revisar y no es una fuente de evidencia. No generes estrategias nuevas para otros temas.';
+  }
   if (request.clinicalFeedback) {
     adapter.instructions += ' Esta es una revisión de la propuesta. Atiende clinicalFeedback como una preferencia de redacción o de enfoque profesional. Solo facts acreditan datos clínicos; verifica las aclaraciones solicitadas contra esas fuentes y conserva las incertidumbres. Cuando se incluya previousDraft, úsalo para comparar y corregir, jamás como fuente de hechos.';
   }
@@ -300,7 +318,7 @@ Antes de redactar missingContext, comprueba cada pregunta previa contra las acla
     adapter.context = { ...(adapter.context as object), objectiveFormat: 'smart@2' };
   }
   if (referencedPes && !templateOnly) adapter.context = { ...referencedPesContext(adapter.context), ...hydrated?.review };
-  const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : []), ...(request.textEdit ? [request.textEdit] : []), ...(request.feature==='intervention_strategy'?[request.strategyFeedback??null]:[]), ...(request.objectiveTextStyle ? [request.objectiveTextStyle] : []), ...(request.batchId ? [request.batchId, hydrated?.inputGenerations] : []), ...(request.clinicalFeedback ? [request.clinicalFeedback, request.revisionOf] : []), ...(request.pesCompletion ? [request.pesCompletion] : [])]);
+  const canonical = JSON.stringify([request.feature,request.patientId ?? null,request.consultationId ?? null, ...(hydrated ? [request.revision, hydrated.stamp, request.narrative,request.planId,request.previousProposalId,request.rejectedItems] : []), ...(request.guidance ? [request.guidance] : []), ...(request.textGuidance ? [request.textGuidance] : []), ...(request.textEdit ? [request.textEdit] : []), ...(request.feature==='intervention_strategy'?[request.strategyFeedback??null]:[]), ...(request.strategyRevision ? [request.strategyRevision] : []), ...(request.objectiveTextStyle ? [request.objectiveTextStyle] : []), ...(request.batchId ? [request.batchId, hydrated?.inputGenerations] : []), ...(request.clinicalFeedback ? [request.clinicalFeedback, request.revisionOf] : []), ...(request.pesCompletion ? [request.pesCompletion] : [])]);
   const fingerprint = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical))), b => b.toString(16).padStart(2,'0')).join('');
   let countedInputTokens: number | undefined;
   if (templateOnly) countedInputTokens = 1; // The reservation still runs. No provider usage is incurred.

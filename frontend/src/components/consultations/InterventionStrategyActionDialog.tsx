@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { X } from "lucide-react";
 
-export type StrategyDraftAction = "clear" | "delete" | "discard" | "withdraw";
+export type StrategyDraftAction = "clear" | "delete" | "discard" | "discardProposal" | "withdraw";
 const actionCopy = {
   clear: {
     title: "Limpiar los campos de la estrategia",
@@ -20,6 +20,11 @@ const actionCopy = {
     description:
       "Se quitará la edición pendiente y volverás a ver la versión aprobada, si existe; de lo contrario, el último borrador guardado.",
     button: "Descartar cambios",
+  },
+  discardProposal: {
+    title: "Descartar esta propuesta",
+    description: "Se quitará esta propuesta de la lista.",
+    button: "Descartar propuesta",
   },
   withdraw: {
     title: "Retirar esta estrategia",
@@ -119,7 +124,7 @@ export function InterventionStrategyActionDialog(
           </button>
           <button
             type="submit"
-            className="nuth-button"
+            className={`nuth-button${action !== 'discard' ? ' strategy-danger-confirm' : ''}`}
             disabled={busy || action === "withdraw" && !reason.trim()}
           >
             {busy ? "Guardando…" : copy.button}

@@ -92,7 +92,7 @@ function changeText<Field extends StrategyTextField>(field: Field, value: Strate
   if ('issue' in parsed) throw new Error(parsed.issue);
   fireEvent.change(strategyText(), { target: { value: formatStrategyEditorText({ ...emptyStrategy(), ...parsed.fields, [field]: value }) } });
 }
-async function generate(output: unknown) {
+async function generate(output: unknown, guidance?: string) {
   api.generate.mockResolvedValue({ status: "succeeded", output });
   render(
     <ClinicalInterventions
@@ -109,13 +109,25 @@ async function generate(output: unknown) {
   fireEvent.click(
     screen.getByRole("button", { name: "Proponer estrategias con IA" }),
   );
+  if (guidance) fireEvent.change(screen.getByRole('textbox', { name: /Indicaciones para la IA/ }), { target: { value: guidance } });
+  fireEvent.click(screen.getByRole('button', { name: 'Generar propuestas' }));
+}
+async function openSavedStrategy(name: RegExp = /Sesión para organizar comidas/) {
+  fireEvent.click(await screen.findByRole('button', { name }));
+}
+function closeEditor() {
+  fireEvent.click(screen.getByRole('button', { name: 'Cerrar estrategia de intervención' }));
+}
+function openMoreActions() {
+  fireEvent.click(screen.getByText('Más acciones'));
 }
 it("keeps a long objective proposal visible and sends all evidence when saving its edited draft", async () => {
   const doc = document();
   await generate({ strategies: [doc] });
   fireEvent.click(
-    await screen.findByRole("button", { name: "Revisar y editar estrategia" }),
+    await screen.findByRole("button", { name: /Propuesta de IA/ }),
   );
+  expect(screen.queryByText("Vista previa completa")).not.toBeInTheDocument();
   changeText("title", "Educación adaptada");
   fireEvent.click(screen.getByRole("button", { name: "Guardar borrador" }));
   await waitFor(() =>
@@ -164,10 +176,10 @@ it.each([
     expect(screen.queryByText(/No hubo información suficiente/)).not
       .toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Revisar y editar estrategia" }),
+      screen.queryByRole("button", { name: /Propuesta de IA/ }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Agregar estrategia manualmente" }),
+      screen.getByRole("button", { name: "Crear estrategia" }),
     ).toBeEnabled();
   },
 );
@@ -234,6 +246,8 @@ it("opens patient instructions without passing professional strategy text", asyn
   api.workspace.mockResolvedValue({ ...workspace, items: [approvedItem()] });
   const onOpenInstructions = vi.fn();
   mount({ onOpenInstructions });
+  await openSavedStrategy();
+  fireEvent.click(screen.getByText("Ejecución y acciones"));
   fireEvent.click(await screen.findByRole("button", { name: "Ir a indicaciones" }));
   expect(onOpenInstructions).toHaveBeenCalledExactlyOnceWith();
 });
@@ -244,6 +258,8 @@ it("requests the consultation closing flow when taking an approved food strategy
   api.workspace.mockResolvedValue({ ...workspace, items: [approvedItem(doc)] });
   const onOpenWorkshop = vi.fn();
   mount({ onOpenWorkshop });
+  await openSavedStrategy();
+  fireEvent.click(screen.getByText("Ejecución y acciones"));
   fireEvent.click(await screen.findByRole("button", { name: "Llevar al Taller de dietas" }));
   expect(onOpenWorkshop).toHaveBeenCalledOnce();
   expect(screen.queryByRole("link", { name: "Llevar al Taller de dietas" })).not.toBeInTheDocument();
@@ -255,6 +271,7 @@ it('keeps draft objectives out of strategy approval requirements and routes to t
     items:[{...approvedItem(doc),draft:doc,approved:null,state:'draft'}],
   });
   const navigate=vi.fn();mount({onReviewPrerequisite:navigate});
+  await openSavedStrategy();
   fireEvent.click(await screen.findByRole('button',{name:'Aprobar estrategia'}));
   const editor=within(screen.getByRole('region', {name:'Editor de estrategia'}));
   expect(editor.getByText('2 de 3 requisitos')).toBeVisible();
@@ -272,6 +289,7 @@ it('promotes a strategy against the exact approved draft and restores its approv
       items:saved?[saved]:[{...approvedItem(doc),draft:doc,approved:null,state:'draft'}]};
   });
   const first=mount();
+  await openSavedStrategy();
   fireEvent.click(await screen.findByRole('button',{name:'Aprobar estrategia'}));
   await screen.findByText('Estrategia aprobada.');
   expect(api.workspace).toHaveBeenLastCalledWith('c',1,'approve',expect.objectContaining({document:expect.objectContaining({objectiveApprovedAt:workspace.objective.approved_at})}));
@@ -288,7 +306,9 @@ it('promotes a strategy against the exact approved draft and restores its approv
 it('binds an explicitly selected current objective without requiring a separate link button',async()=>{
   const doc=fullDocument();doc.objectiveApprovedAt='old-approval';
   api.workspace.mockResolvedValue({...workspace,items:[{...approvedItem(doc),draft:doc,approved:null,state:'draft'}]});
-  mount();fireEvent.click(await screen.findByRole('button',{name:'Aprobar estrategia'}));
+  mount();
+  await openSavedStrategy();
+  fireEvent.click(await screen.findByRole('button',{name:'Aprobar estrategia'}));
   const editor=within(screen.getByRole('region', {name:'Editor de estrategia'}));
   const goal=editor.getAllByRole('checkbox')[0];expect(goal).not.toBeChecked();
   fireEvent.click(goal);expect(editor.getByText('3 de 3 requisitos')).toBeVisible();
@@ -298,7 +318,7 @@ it('binds an explicitly selected current objective without requiring a separate 
 it("preserves text and optional details when switching between manual strategies", async () => {
   mount();
   await waitFor(() => expect(api.workspace).toHaveBeenCalled());
-  const addStrategy = screen.getByRole('button', { name: 'Agregar estrategia manualmente' });
+  const addStrategy = screen.getByRole('button', { name: 'Crear estrategia' });
   fireEvent.click(addStrategy);
   changeText('title', 'Coordinar la atención');
   fireEvent.change(screen.getByLabelText('Categoría'), { target: { value: 'coordination' } });
@@ -308,8 +328,10 @@ it("preserves text and optional details when switching between manual strategies
   expect(strategyText().value).toContain('Con quién se coordinará:');
   changeText('coordinationReason', 'Revisar la atención conjunta');
   changeText('frequency', 'En la siguiente visita');
+  closeEditor();
   fireEvent.click(addStrategy);
   expect(strategyText().value).not.toContain('Coordinar la atención');
+  closeEditor();
   fireEvent.click(screen.getByRole('button', { name: /Coordinar la atención/ }));
   expect(strategyText().value).toContain('Coordinar la atención');
   fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
@@ -334,7 +356,7 @@ it("keeps the draft editor open when saving the consultation fails", async () =>
   mount();
   await waitFor(() => expect(api.workspace).toHaveBeenCalled());
   fireEvent.click(
-    screen.getByRole("button", { name: "Agregar estrategia manualmente" }),
+    screen.getByRole("button", { name: "Crear estrategia" }),
   );
   changeText("title", "Conservar este borrador");
   api.before.mockResolvedValue(false);
@@ -352,10 +374,9 @@ it("allows approving an AI strategy with agreement pending and never starts exec
   doc.strategy.evidence = [{ source: 'Objetivo aprobado', finding: 'Reconocer opciones para la jornada laboral.' }];
   await generate({ strategies: [doc] });
   fireEvent.click(
-    await screen.findByRole("button", { name: "Revisar y editar estrategia" }),
+    await screen.findByRole("button", { name: /Propuesta de IA/ }),
   );
-  expect(screen.queryByRole("button", { name: "Revisar y editar estrategia" }))
-    .not.toBeInTheDocument();
+  expect(within(screen.getByRole('dialog')).getByText('Propuesta de IA')).toBeVisible();
   expect(strategyText().value).toContain('Estado del acuerdo: Pendiente de conversar');
   expect(strategyText().value).toContain('Tema o habilidad: Organización de comidas');
   expect(strategyText().value).toContain('Materiales y apoyos: Ejemplos');
@@ -391,6 +412,7 @@ it("blocks approval when the strategy is linked to earlier objective approvals",
     }],
   });
   mount();
+  await openSavedStrategy();
   const approve = await screen.findByRole('button', { name: 'Aprobar estrategia' });
   const goal = within(screen.getByRole('group', { name: /Objetivos que apoya/ })).getByRole('checkbox');
   expect(goal).not.toBeChecked();
@@ -404,7 +426,7 @@ it("allows reviewing an approved strategy without creating a draft or changing i
   const item = approvedItem();
   api.workspace.mockResolvedValue({ ...workspace, items: [item] });
   mount();
-  await screen.findByRole('textbox', { name: 'Texto de la estrategia' });
+  await openSavedStrategy();
   expect(strategyText().value).toContain(item.approved.document.strategy.title);
   expect(strategyText()).toHaveAttribute('readonly');
   fireEvent.click(screen.getByRole('button', { name: 'Editar estrategia' }));
@@ -413,6 +435,7 @@ it("allows reviewing an approved strategy without creating a draft or changing i
   expect(strategyText()).toHaveAttribute('readonly');
   expect(sessionStorage.getItem("intervention-drafts:c:1")).toBeNull();
   expect(api.workspace).toHaveBeenCalledOnce();
+  closeEditor();
   expect(screen.getByText("Aprobada")).toBeVisible();
 });
 it("keeps execution registration explicit and available after approval", async () => {
@@ -428,7 +451,7 @@ it("keeps execution registration explicit and available after approval", async (
       : [item],
   }));
   mount();
-  await screen.findByText("Aprobada");
+  await openSavedStrategy();
   fireEvent.click(screen.getByText("Ejecución y acciones"));
   fireEvent.click(screen.getByRole("button", { name: "Registrar inicio" }));
   fireEvent.change(screen.getByLabelText("Fecha de inicio"), {
@@ -440,7 +463,7 @@ it("keeps execution registration explicit and available after approval", async (
   fireEvent.click(
     screen.getByRole("button", { name: "Registrar" }),
   );
-  await screen.findByText("En ejecución");
+  await waitFor(() => expect(screen.getAllByText("En ejecución").length).toBeGreaterThan(0));
   expect(api.workspace).toHaveBeenLastCalledWith(
     "c",
     1,
@@ -455,7 +478,7 @@ it("keeps execution registration explicit and available after approval", async (
 it("keeps read-only strategies available for consultation without editing or execution controls", async () => {
   api.workspace.mockResolvedValue({ ...workspace, items: [approvedItem()] });
   mount({ readOnly: true });
-  await screen.findByText("Aprobada");
+  await openSavedStrategy();
   expect(screen.queryByRole("button", { name: "Editar estrategia" })).not
     .toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Proponer estrategias con IA" }))
@@ -463,16 +486,14 @@ it("keeps read-only strategies available for consultation without editing or exe
   fireEvent.click(screen.getByText("Ejecución y acciones"));
   expect(screen.queryByRole("button", { name: "Registrar inicio" })).not
     .toBeInTheDocument();
-  fireEvent.click(screen.getByText(/Ver detalle de la estrategia/));
-  expect(
-    screen.getByText("Practicar opciones con la persona", { selector: "dd" }),
-  ).toBeVisible();
+  expect(strategyText().value).toContain('Practicar opciones con la persona');
+  expect(strategyText()).toHaveAttribute('readonly');
 });
 
 it('restores text with a missing heading and keeps it out of approval until corrected', async () => {
   const first = mount();
   await waitFor(() => expect(api.workspace).toHaveBeenCalled());
-  fireEvent.click(screen.getByRole('button', { name: 'Agregar estrategia manualmente' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Crear estrategia' }));
   const incomplete = 'Texto pendiente de organizar.\nMañana retomar esta versión.';
   fireEvent.change(strategyText(), { target: { value: incomplete } });
   fireEvent.click(screen.getByRole('button', { name: 'Aprobar estrategia' }));
@@ -480,13 +501,15 @@ it('restores text with a missing heading and keeps it out of approval until corr
   expect(api.workspace).toHaveBeenCalledOnce();
   first.unmount();
   mount();
+  await openSavedStrategy(/Nueva estrategia/);
   expect(strategyText()).toHaveValue(incomplete);
+  openMoreActions();
   fireEvent.click(screen.getByRole('button', { name: 'Limpiar campos' }));
-  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Limpiar campos' }));
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Limpiar los campos de la estrategia' })).getByRole('button', { name: 'Limpiar campos' }));
   expect(strategyText().value).toContain('Acción concreta');
   expect(strategyText().value).not.toContain(incomplete);
   fireEvent.click(screen.getByRole('button', { name: 'Eliminar borrador' }));
-  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Eliminar borrador' }));
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Eliminar este borrador' })).getByRole('button', { name: 'Eliminar borrador' }));
   await screen.findByText('Borrador eliminado.');
   expect(screen.queryByRole('textbox', { name: 'Texto de la estrategia' })).not.toBeInTheDocument();
 });
@@ -499,7 +522,7 @@ it('shows a saved batch proposal on entry without requesting a new generation', 
     markReviewed,
   } : {});
   mount();
-  fireEvent.click(await screen.findByRole('button', { name: 'Revisar y editar estrategia' }));
+  fireEvent.click(await screen.findByRole('button', { name: /Propuesta de IA/ }));
   expect(markReviewed).toHaveBeenCalledWith(document.generationId);
   expect(strategyText().value).toContain(document.strategy.action);
   expect(api.generate).not.toHaveBeenCalled();
@@ -508,7 +531,7 @@ it('shows a saved batch proposal on entry without requesting a new generation', 
 it('approves a strategy when the optional text sections were removed', async () => {
   mount();
   await screen.findByText('PES y objetivos de referencia');
-  fireEvent.click(screen.getByRole('button', { name: 'Agregar estrategia manualmente' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Crear estrategia' }));
   fireEvent.change(strategyText(), {
     target: { value: 'Nombre de la estrategia\nPracticar con ejemplos\n\nAcción concreta\nRevisar dos alternativas durante la sesión.' },
   });
@@ -542,7 +565,7 @@ it('restores an earlier draft with its hand-edited text, resources, agreement an
     [id]: { document: doc, expectedUpdatedAt: null, text: previousText },
   }));
   mount();
-  await screen.findByText('PES y objetivos de referencia');
+  await openSavedStrategy();
   expect(strategyText().value).toContain('Vía de administración: Oral');
   expect(strategyText().value).toContain('Estado del acuerdo: Acordado con la persona');
   expect(strategyText().value).toContain('Guía o protocolo utilizado: Protocolo acordado en el equipo');
@@ -561,4 +584,68 @@ it('restores an earlier draft with its hand-edited text, resources, agreement an
       referenceUrl: doc.strategy.referenceUrl, referenceNotes: doc.strategy.referenceNotes, evidence: doc.strategy.evidence,
     }) }),
   }));
+});
+
+it('sends the indicated changes for group generation and keeps the card summary compact', async () => {
+  const proposal = document();
+  await generate({ strategies: [proposal] }, '  Prioriza los recursos ya disponibles.  ');
+  const card = await screen.findByRole('button', { name: /Propuesta de IA.*Educación nutricional/ });
+  expect(api.generate).toHaveBeenCalledWith(expect.objectContaining({
+    strategyFeedback: 'Prioriza los recursos ya disponibles.',
+  }));
+  expect(screen.queryByText('Datos que usó la IA')).not.toBeInTheDocument();
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  fireEvent.click(card);
+  openMoreActions();
+  fireEvent.click(screen.getByRole('button', { name: 'Descartar propuesta' }));
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Descartar esta propuesta' }))
+    .getByRole('button', { name: 'Descartar propuesta' }));
+  expect(screen.queryByRole('button', { name: /Propuesta de IA.*Educación nutricional/ })).not.toBeInTheDocument();
+  expect(api.workspace.mock.calls.every(call => call[2] === undefined)).toBe(true);
+});
+
+it('regenerates only the selected strategy and waits for the user to choose before editing', async () => {
+  const item = approvedItem();
+  const other = { ...approvedItem(), id: '33333333-3333-4333-8333-333333333333' };
+  other.approved.document.strategy.title = 'Otra estrategia existente';
+  api.workspace.mockResolvedValue({ ...workspace, items: [item, other] });
+  const alternative = fullDocument();
+  alternative.strategy.title = 'Ensayar con ejemplos de casa';
+  api.generate.mockResolvedValue({ generationId: 'alternative', status: 'succeeded', output: {
+    strategies: [alternative], strategyRevisionId: item.id,
+  } });
+  mount();
+  await openSavedStrategy();
+
+  async function regenerate() {
+    openMoreActions();
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerar con IA' }));
+    fireEvent.change(screen.getByRole('textbox', { name: /Indicaciones para la IA/ }),
+      { target: { value: 'Usa ejemplos de casa.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Generar alternativa' }));
+    await screen.findByRole('dialog', { name: 'Comparar estrategia' });
+  }
+  await regenerate();
+  expect(api.generate).toHaveBeenCalledWith(expect.objectContaining({
+    strategyFeedback: 'Usa ejemplos de casa.',
+    strategyRevision: { id: item.id, title: item.approved.document.strategy.title,
+      action: item.approved.document.strategy.action, method: item.approved.document.strategy.method },
+  }));
+  const comparison = within(screen.getByRole('dialog', { name: 'Comparar estrategia' }));
+  expect(comparison.getByText(/Ensayar con ejemplos de casa/)).toBeVisible();
+  fireEvent.click(comparison.getByRole('button', { name: 'Conservar versión actual' }));
+  expect(strategyText().value).toContain(item.approved.document.strategy.title);
+  expect(strategyText()).toHaveAttribute('readonly');
+  expect(api.workspace.mock.calls.every(call => call[2] === undefined)).toBe(true);
+
+  await regenerate();
+  fireEvent.click(screen.getByRole('button', { name: 'Usar como borrador' }));
+  expect(strategyText().value).toContain('Ensayar con ejemplos de casa');
+  expect(strategyText()).not.toHaveAttribute('readonly');
+  fireEvent.click(screen.getByRole('button', { name: 'Guardar borrador' }));
+  await screen.findByText(/Borrador guardado/);
+  expect(api.workspace).toHaveBeenLastCalledWith('c', 1, 'save', expect.objectContaining({
+    id: item.id, expectedUpdatedAt: item.updated_at, document: alternative,
+  }));
+  expect(screen.getByRole('button', { name: /Otra estrategia existente/ })).toBeVisible();
 });

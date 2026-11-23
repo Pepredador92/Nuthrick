@@ -47,6 +47,8 @@ Deno.test("HTTP strategy proposals retain long SMART evidence and reject unusabl
   let oversized = false,
     unverifiedParameters = false,
     clippedMonitoring = false;
+  let guidanceSeen = "", revisionSeen: unknown, instructionsSeen = "";
+  let maxStrategiesSeen: number | undefined;
   const settlements: string[] = [];
   const json = (value: unknown) =>
     new Response(JSON.stringify(value), {
@@ -119,12 +121,19 @@ Deno.test("HTTP strategy proposals retain long SMART evidence and reject unusabl
       return json({ input_tokens: 2500 });
     }
     assert.equal(url, "https://api.openai.com/v1/responses");
-    const context: InterventionContext = JSON.parse(
-      JSON.parse(String(init?.body)).input,
-    );
+    const payload = JSON.parse(String(init?.body));
+    const context: InterventionContext & { strategyToRevise?: unknown } = JSON
+      .parse(payload.input);
+    guidanceSeen = context.feedback;
+    revisionSeen = context.strategyToRevise;
+    instructionsSeen = payload.instructions;
+    maxStrategiesSeen =
+      payload.text.format.schema.properties.strategies.maxItems;
     const base = emptyStrategy();
     const output = {
-      strategies: context.approvedGoals.map((g) => ({
+      strategies: context.approvedGoals.slice(0, maxStrategiesSeen).map((
+        g,
+      ) => ({
         ...Object.fromEntries(
           strategyFields.filter((key) => !key.startsWith("reference")).map(
             (key) => [key, oversized ? "漢".repeat(1499) + "." : base[key]],
@@ -174,7 +183,7 @@ Deno.test("HTTP strategy proposals retain long SMART evidence and reject unusabl
   }) as typeof Deno.serve;
   try {
     await import("./index.ts");
-    const request = async () => {
+    const request = async (options: Record<string, unknown> = {}) => {
       const response = await nativeFetch(
         `http://127.0.0.1:${port}/functions/v1/ai`,
         {
@@ -189,6 +198,7 @@ Deno.test("HTTP strategy proposals retain long SMART evidence and reject unusabl
             patientId: owner,
             consultationId: owner,
             revision: 1,
+            ...options,
           }),
         },
       );
@@ -228,6 +238,43 @@ Deno.test("HTTP strategy proposals retain long SMART evidence and reject unusabl
         },
       );
     }
+    await t.step(
+      "professional guidance reaches the prompt for a group and one selected strategy",
+      async () => {
+        const feedback = "Usa ejemplos de casa.";
+        const grouped = await request({ strategyFeedback: feedback });
+        assert.equal(grouped.status, 200);
+        assert.equal(grouped.body.output.strategies.length, 3);
+        assert.equal(guidanceSeen, feedback);
+        assert.match(instructionsSeen, /Aplica de forma concreta/);
+        const strategyRevision = {
+          id: owner,
+          title: "Estrategia actual",
+          action: "Practicar con ejemplos.",
+          method: "En sesión.",
+        };
+        const revised = await request({
+          strategyFeedback: feedback,
+          strategyRevision,
+        });
+        assert.equal(revised.status, 200, JSON.stringify(revised.body));
+        assert.equal(revised.body.output.strategyRevisionId, owner);
+        assert.equal(revised.body.output.strategies.length, 1);
+        assert.deepEqual(revisionSeen, {
+          title: strategyRevision.title,
+          action: strategyRevision.action,
+          method: strategyRevision.method,
+        });
+        assert.equal(guidanceSeen, feedback);
+        assert.equal(maxStrategiesSeen, 1);
+        assert.match(instructionsSeen, /una alternativa/);
+        const malformed = await request({
+          strategyRevision: { ...strategyRevision, id: "incorrecto" },
+        });
+        assert.equal(malformed.status, 400);
+        assert.equal(malformed.body.error, "invalid_request");
+      },
+    );
     await t.step(
       "oversized hydrated documents fail before successful settlement",
       async () => {

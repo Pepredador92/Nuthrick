@@ -135,7 +135,10 @@ Deno.serve(async request => {
       if (isAssessmentDraft(output)) return output;
       if (input.pesCompletion) return { ...(output as object), completedWithClarifications: true };
       if (input.feature === 'intervention_strategy' && interventionContext) {
-        return hydrateInterventionOutput(output, interventionContext, generationId);
+        return {
+          ...hydrateInterventionOutput(output, interventionContext, generationId),
+          ...(input.strategyRevision ? { strategyRevisionId: input.strategyRevision.id } : {}),
+        };
       }
       if (!consultationSupportFacts) return output;
       const key=input.feature==='patient_instructions'?'instructions':'objectives';
@@ -226,7 +229,12 @@ Deno.serve(async request => {
         if (r.feature === 'intervention_strategy') {
           interventionContext = buildInterventionContext(clinical, r.strategyFeedback);
           if (!interventionContext.binding.pesApprovedAt || !interventionContext.approvedGoals.length) throw new AIError('strategy_planning_required');
-          return {stamp:clinical.stamp, context:{...interventionContext,...review}, inputGenerations:batchInputGenerations,review,batch};
+          const strategyToRevise = r.strategyRevision && {
+            title: redactClinicalText(r.strategyRevision.title, clinical.identifiers),
+            action: redactClinicalText(r.strategyRevision.action, clinical.identifiers),
+            method: redactClinicalText(r.strategyRevision.method, clinical.identifiers),
+          };
+          return {stamp:clinical.stamp, context:{...interventionContext,...review,...(strategyToRevise ? {strategyToRevise} : {})}, inputGenerations:batchInputGenerations,review,batch};
         }
         const supportContext = ['consultation_support','patient_instructions'].includes(r.feature) ? buildConsultationSupportContext(clinical,r.feature==='patient_instructions',smartObjectives) : null;
         const context=r.feature==='pes_diagnosis' ? buildPesClinicalContext(clinical, r.pesCompletion)

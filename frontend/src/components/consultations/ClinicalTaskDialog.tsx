@@ -5,14 +5,16 @@ import "./ClinicalNextSteps.css";
 
 /** Shared presentation only; each task owns its data and explicit save/review action. */
 export function ClinicalTaskDialog(
-  { open, title, description, busy = false, onClose, children, footer }: {
+  { open, title, description, busy = false, onClose, children, footer, className, showSaveConsultation = true }: {
     open: boolean;
     title: string;
-    description: string;
+    description?: string;
     busy?: boolean;
     onClose: () => void;
     children: ReactNode;
     footer: ReactNode;
+    className?: string;
+    showSaveConsultation?: boolean;
   },
 ) {
   const id = useId();
@@ -35,9 +37,9 @@ export function ClinicalTaskDialog(
   return (
     <dialog
       ref={dialog}
-      className="clinical-objective-dialog clinical-next-dialog"
+      className={`clinical-objective-dialog clinical-next-dialog${className ? ` ${className}` : ''}`}
       aria-labelledby={`${id}-title`}
-      aria-describedby={`${id}-help`}
+      aria-describedby={description ? `${id}-help` : undefined}
       open={open &&
           (typeof HTMLDialogElement === "undefined" ||
             !HTMLDialogElement.prototype.showModal)
@@ -52,7 +54,7 @@ export function ClinicalTaskDialog(
         <header className="clinical-objective-dialog-heading">
           <div>
             <h2 id={`${id}-title`} ref={heading} tabIndex={-1}>{title}</h2>
-            <p id={`${id}-help`}>{description}</p>
+            {description && <p id={`${id}-help`}>{description}</p>}
           </div>
           <button
             type="button"
@@ -64,7 +66,7 @@ export function ClinicalTaskDialog(
           </button>
         </header>
         <div className="clinical-objective-dialog-body">{children}</div>
-        <footer className="clinical-objective-dialog-footer"><SaveConsultationDraftButton/>{footer}</footer>
+        {(showSaveConsultation || footer) && <footer className="clinical-objective-dialog-footer">{showSaveConsultation && <SaveConsultationDraftButton/>}{footer}</footer>}
       </div>
     </dialog>
   );

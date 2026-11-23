@@ -44,6 +44,8 @@ export type Strategy = Record<typeof strategyFields[number], string> & {
   referenceIds: string[];
   missingContext: string[];
 };
+export type StrategyRevision = { id: string; title: string; action: string; method: string };
+
 export type StrategyDocument = {
   version: 1;
   pesApprovedAt: string;

@@ -546,8 +546,9 @@ describe("consultation save and review workflow", () => {
     expect(screen.getByRole('button', { name: 'Proponer objetivos con IA' })).toBeDisabled();
     expect(screen.queryByRole('textbox', { name: pesTextName })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
-    await screen.findByRole('heading', { name: 'Del objetivo a la acción' });
-    expect(screen.getByRole('button', { name: 'Proponer estrategias con IA' })).toBeEnabled();
+    const strategies = await screen.findByRole('region', { name: 'Estrategias de intervención' });
+    await waitFor(() => expect(within(strategies).getByRole('button', { name: 'Proponer estrategias con IA' })).toBeEnabled());
+    expect(within(strategies).queryByRole('textbox')).not.toBeInTheDocument();
   });
 
   it('requires saving measurement edits before entering the clinical proposal step', async () => {
