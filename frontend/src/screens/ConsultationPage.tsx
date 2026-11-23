@@ -1247,12 +1247,8 @@ function ConsultationEditor() {
         {recallSections.map(section => <details key={section.section_key} className="recall-supported-fields" open={showErrors && section.questions.some(question => matchesCondition(question.visibility_condition, values) && questionErrors(question, values[question.question_key]).length > 0)}><summary>{section.title === "Recordatorio de 24 horas" ? "Registro detallado del día y preguntas de apoyo" : section.title}</summary><p>{section.title === "Recordatorio de 24 horas" ? 'Aquí puedes registrar la fecha, horarios, preparación y posibles olvidos. Este registro complementa los alimentos confirmados arriba.' : section.description}</p>{renderQuestions(section.questions)}</details>)}
       </section>}
       {clinicalOpened && <div data-consultation-module="clinical" className="consultation-guided-workspace clinical-decision-workspace mt-6" hidden={module !== 'clinical'}>
-        <header className="consultation-guided-intro clinical-reset-header" id="consultation-clinical-heading">
-          <div><p className="nuth-eyebrow">05 · Revisa y acuerda</p><h2>De los datos a los siguientes pasos</h2><p>Estas secciones son opcionales. Puedes guardar el avance, continuar o cerrar la consulta sin completarlas.</p></div>
-          <button type="button" className="nuth-button-secondary clinical-reset-action" disabled={busy || saving}
-            onClick={() => { setClinicalResetError(''); setShowClinicalReset(true); }}>
-            <RotateCcw size={15} aria-hidden="true" />Reiniciar revisión clínica
-          </button>
+        <header className="consultation-guided-intro" id="consultation-clinical-heading">
+          <p className="nuth-eyebrow">05 · Revisa y acuerda</p><h2>De los datos a los siguientes pasos</h2><p>Estas secciones son opcionales. Puedes guardar el avance, continuar o cerrar la consulta sin completarlas.</p>
         </header>
         {showClinicalReset && <ClinicalTaskDialog open title="Reiniciar revisión clínica" busy={busy} showSaveConsultation={false}
           description="Se retirarán las aprobaciones y se limpiarán el PES, los objetivos, las estrategias, las indicaciones y el plan de seguimiento de esta consulta."
@@ -1266,7 +1262,17 @@ function ConsultationEditor() {
           {clinicalResetError && <p role="alert" className="clinical-notice is-warning mt-3">{clinicalResetError}</p>}
         </ClinicalTaskDialog>}
         <ConsultationGuide label="Pasos de la revisión clínica" steps={clinicalStepsWithProgress} active={clinicalStage} onChange={next => void goClinicalStage(next)} busy={busy} />
-        <div hidden={clinicalStage !== 0}><ClinicalReview batch={{patientId:patient.id,onReview:stage=>void goClinicalStage(stage)}} onReviewed={(message,all)=>reportCompletion(message,all?1:undefined)} consultationId={consultation.id} snapshot={snapshot} values={values} active={module === 'clinical' && clinicalStage === 0} observationsVersion={observationsVersion} before={saveForClinical} onStatusChange={status => updateClinicalProgress('review', status)} onOpenModule={next => void goModule(next)} /></div>
+        <div hidden={clinicalStage !== 0}>
+          <ClinicalReview batch={{patientId:patient.id,onReview:stage=>void goClinicalStage(stage)}}
+            onReviewed={(message,all)=>reportCompletion(message,all?1:undefined)} consultationId={consultation.id}
+            snapshot={snapshot} values={values} active={module === 'clinical' && clinicalStage === 0}
+            observationsVersion={observationsVersion} before={saveForClinical}
+            onStatusChange={status => updateClinicalProgress('review', status)} onOpenModule={next => void goModule(next)}
+            resetAction={clinicalStage === 0 && <button type="button" className="nuth-button-secondary clinical-reset-action !text-xs"
+              disabled={busy || saving} onClick={() => { setClinicalResetError(''); setShowClinicalReset(true); }}>
+              <RotateCcw size={15} aria-hidden="true" />Reiniciar revisión clínica
+            </button>} />
+        </div>
         <section hidden={clinicalStage !== 1} className="clinical-stage" aria-label="Diagnóstico PES">
           <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">02 · Formula el diagnóstico</p><h2>Diagnóstico PES</h2></div></header>
           <PesCopilot structure={snapshot.structure} onOpenPesTarget={target => pesContextNavigation.current?.open(target) ?? Promise.resolve(false)} onCompleted={()=>reportCompletion("Diagnóstico PES aprobado. Paso completado.",2)} key={`${consultation.id}:${snapshot.revision}:pes`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} active={module === 'clinical' && clinicalStage === 1} before={saveForClinical} answers={values} onPendingChange={setPesPending} onStatusChange={status => updateClinicalProgress('pes', status)} onDiscardPes={discardPes} onPes={draft => {

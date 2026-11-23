@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useConsultationDraft, useConsultationDraftContext } from './ConsultationDrafts';
 import {
   ArrowRight,
@@ -49,6 +49,7 @@ export function ClinicalReview(
     onReviewed,
     onOpenModule,
     batch,
+    resetAction,
   }: {
     consultationId: string;
     snapshot: ConsultationSnapshot;
@@ -60,6 +61,7 @@ export function ClinicalReview(
     onStatusChange?: (status: ClinicalTaskStatus) => void;
     onOpenModule?: (module: ConsultationModule) => void;
     batch?: { patientId: string; onReview: (stage: number) => void };
+    resetAction?: ReactNode;
   },
 ) {
   const [context, setContext] = useState<ObjectiveWorkspace | null>(null);
@@ -255,16 +257,14 @@ export function ClinicalReview(
             formular el diagnóstico.
           </p>
         </div>
-        <button
-          type="button"
-          className="nuth-button-secondary"
-          disabled={loading || savingReview}
-          onClick={() =>
-            void refresh()}
-        >
-          <RefreshCw size={15} />
-          {loading ? "Actualizando…" : "Actualizar revisión"}
-        </button>
+        <div className="flex flex-wrap items-start gap-2 sm:justify-end">
+          <button type="button" className="nuth-button-secondary !text-xs"
+            disabled={loading || savingReview} onClick={() => void refresh()}>
+            <RefreshCw size={15} aria-hidden="true" />
+            {loading ? "Actualizando…" : "Actualizar revisión"}
+          </button>
+          {resetAction}
+        </div>
       </header>
       <div className="clinical-review-instruction">
         <span className="clinical-stage-icon">

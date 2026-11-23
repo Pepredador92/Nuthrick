@@ -1,9 +1,6 @@
 import { ArrowUp, Trash2 } from 'lucide-react';
-import {
-  objectiveFields,
-  objectiveIssues,
-  type ObjectiveGoal,
-} from '../../../../supabase/functions/_shared/objectives';
+import type { ObjectiveGoal } from '../../../../supabase/functions/_shared/objectives';
+import { objectiveEditorFieldLabel, objectiveEditorFields, type ObjectiveEditorField } from '@/src/features/consultations/objectiveEditorText';
 import { ClinicalStatusBadge } from './ClinicalTaskCard';
 
 export type ObjectiveProposalEvidence = {
@@ -11,38 +8,44 @@ export type ObjectiveProposalEvidence = {
   references?: { title: string; url: string }[];
 };
 
-export function objectiveCompletedFields(goal: ObjectiveGoal, signs: string[]) {
-  return objectiveFields.filter(field => {
-    if (field === 'sign') return signs.includes(goal.sign);
-    const limit = field === 'etiology' ? 1500 : 400;
-    return !!goal[field].trim() && goal[field].length <= limit;
-  }).length + Number(goal.agreement !== 'pending');
+export type ObjectivePending = { label: string; field?: ObjectiveEditorField | 'sign' | 'agreement' };
+
+export function objectivePendingFields(goal: ObjectiveGoal, signs: string[]): ObjectivePending[] {
+  const pending: ObjectivePending[] = objectiveEditorFields.flatMap(field => {
+    const label = objectiveEditorFieldLabel(field);
+    if (goal[field].length > (field === 'etiology' ? 1500 : 400)) return [{ label: `Resume «${label}»`, field }];
+    return goal[field].trim() ? [] : [{ label, field }];
+  });
+  if (!goal.sign.trim() || goal.sign.length > 2000 || !signs.includes(goal.sign)) {
+    pending.push({ label: 'Signo o síntoma del PES', field: 'sign' });
+  }
+  if (goal.agreement !== 'patient' && goal.agreement !== 'caregiver') {
+    pending.push({ label: 'Acuerdo con la persona', field: 'agreement' });
+  }
+  return pending;
 }
 
 export function ObjectiveGoalSummary({
-  goal, index, active, signs, approved, contextReady, fromAI, problem, onOpen, onRemove, onMoveUp,
+  goal, index, active, approved, ready, fromAI, onOpen, onRemove, onMoveUp,
 }: {
   goal: ObjectiveGoal;
   index: number;
   active: boolean;
-  signs: string[];
   approved: boolean;
-  contextReady: boolean;
+  ready: boolean;
   fromAI: boolean;
-  problem: boolean;
   onOpen: () => void;
   onRemove: () => void;
   onMoveUp?: () => void;
 }) {
-  const complete = contextReady && !problem && objectiveCompletedFields(goal, signs) === 10;
-  const status = approved ? 'approved' : complete ? 'complete' : 'progress';
+  const status = approved ? 'approved' : ready ? 'complete' : 'progress';
   return <section className="smart-objective-card" data-selected={active} data-status={status}
     aria-label={`Objetivo ${index + 1}`}>
     <button type="button" className="smart-objective-select" aria-label={`Revisar objetivo ${index + 1}`}
       aria-pressed={active} onClick={onOpen}>
       <span className="smart-objective-name">{goal.outcome.trim() || `Objetivo ${index + 1}`}</span>
       <ClinicalStatusBadge status={status}>
-        {approved ? 'Aprobado' : complete ? 'Listo para aprobar' : fromAI ? 'Borrador de IA' : 'Por revisar'}
+        {approved ? 'Aprobado' : ready ? 'Listo para aprobar' : fromAI ? 'Borrador de IA' : 'Por revisar'}
       </ClinicalStatusBadge>
     </button>
     <div className="smart-objective-card-tools">
@@ -57,7 +60,7 @@ export function ObjectiveGoalSummary({
 }
 
 export function ObjectiveGoalEditor({
-  id, text, issue, goal, index, signs, approved, cause, grounding, onText, onChange,
+  id, text, issue, goal, index, signs, approved, cause, grounding, pending, onPending, onText, onChange,
 }: {
   id: string;
   text: string;
@@ -68,6 +71,8 @@ export function ObjectiveGoalEditor({
   approved: boolean;
   cause?: string;
   grounding?: ObjectiveProposalEvidence;
+  pending: ObjectivePending[];
+  onPending: (field: ObjectivePending['field']) => void;
   onText: (text: string) => void;
   onChange: (fields: Partial<ObjectiveGoal>) => void;
 }) {
@@ -78,12 +83,17 @@ export function ObjectiveGoalEditor({
       <label htmlFor={id} className="smart-objective-title">Texto del objetivo</label>
       {approved && <ClinicalStatusBadge status="approved">Objetivo aprobado</ClinicalStatusBadge>}
     </div>
+    {pending.length > 0 && <div className="smart-objective-pending" role="group" aria-label={`Campos pendientes del objetivo ${index + 1}`}>
+      <p id={issue ? `${id}-issue` : undefined}>{issue ?? 'Completa estos campos para aprobar este objetivo.'}</p>
+      {issue ? <button type="button" onClick={() => onPending(pending[0].field)}>Ir al texto</button> : <ul>
+        {pending.map(({ field, label }) => <li key={field}><button type="button" onClick={() => onPending(field)}>{label}</button></li>)}
+      </ul>}
+    </div>}
     <textarea id={id} className="nuth-input smart-objective-text" rows={25}
       aria-label={`Texto del objetivo ${index + 1}`}
       aria-describedby={issue ? `${id}-issue` : undefined}
       aria-invalid={issue ? true : undefined}
       value={text} onChange={event => onText(event.target.value)} />
-    {issue && <p className="clinical-notice is-warning" id={`${id}-issue`}>{issue}</p>}
     <details className="clinical-support-details smart-objective-evidence">
       <summary>Vínculo con el PES y evidencia</summary>
       {cause && <p><strong>Etiología del PES</strong><br />{cause}</p>}
@@ -121,6 +131,3 @@ export function ObjectiveGoalEditor({
     </label>
   </div>;
 }
-
-export const objectiveReady = (goal: ObjectiveGoal, signs: string[]) =>
-  objectiveCompletedFields(goal, signs) === 10 && objectiveIssues(goal).length === 0;

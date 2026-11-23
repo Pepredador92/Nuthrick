@@ -8,10 +8,11 @@ import {
 import {
   ObjectiveGoalEditor,
   ObjectiveGoalSummary,
-  objectiveReady,
+  objectivePendingFields,
+  type ObjectivePending,
   type ObjectiveProposalEvidence,
 } from "./ObjectiveGoalEditor";
-import { formatObjectiveEditorText, objectiveEditorFieldOffset, readObjectiveEditorText, withObjectiveTemplateGaps, type ObjectiveEditorField } from "@/src/features/consultations/objectiveEditorText";
+import { formatObjectiveEditorText, objectiveEditorFieldHint, objectiveEditorFieldOffset, readObjectiveEditorText, withObjectiveTemplateGaps } from "@/src/features/consultations/objectiveEditorText";
 import {
   clinicalObjective,
   type ObjectiveWorkspace,
@@ -65,7 +66,7 @@ function editorIssue(goal: ObjectiveGoal, entry?: GoalEditor) {
   const saved = editorForGoal(goal, entry).text;
   if (saved === undefined) return;
   const result = readObjectiveEditorText(saved);
-  if ('issue' in result) return result.issue;
+  if ('issue' in result) return result;
 }
 
 export function ClinicalObjective(props: Props) {
@@ -209,8 +210,11 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
   const pesChanged = !!workspace?.pes && plan.goals.length > 0 &&
     plan.pesApprovedAt !== workspace.pes.approved_at;
   const staleSigns = plan.goals.some((goal) => !signs.includes(goal.sign));
-  const completeGoals =
-    plan.goals.filter((goal, index) => !editorIssues[index] && objectiveReady(goal, signs)).length;
+  const pendingByGoal = plan.goals.map((goal, index): ObjectivePending[] => {
+    const issue = editorIssues[index];
+    return issue ? [{ label: issue.issue, field: issue.field }] : objectivePendingFields(goal, signs);
+  });
+  const completeGoals = pendingByGoal.filter(pending => !pending.length).length;
   const ready = !!plan.goals.length && completeGoals === plan.goals.length &&
     !!workspace?.pes && !pesChanged && text.length <= maxLength;
   const status: ClinicalTaskStatus = approved
@@ -374,18 +378,13 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
     }
   }
   function showPending() {
-    const index = plan.goals.findIndex((goal, index) => editorIssues[index] || !objectiveReady(goal, signs));
+    const index = pendingByGoal[selected]?.length ? selected : pendingByGoal.findIndex(pending => pending.length);
     if (index < 0) return;
     setActiveGoal(index);
     setMessage("");
-    const goal = plan.goals[index];
-    const fields: ObjectiveEditorField[] = ['outcome', 'etiology', 'target', 'indicator', 'baseline', 'timeframe', 'monitoring', 'feasibility'];
-    const missing = fields.find(field => !goal[field].trim());
-    focusGoal(
-      editorIssues[index] ? undefined : missing ?? (signs.includes(goal.sign) ? 'agreement' : 'sign'),
-    );
+    focusGoal(pendingByGoal[index][0].field);
   }
-  function focusGoal(field?: ObjectiveEditorField | 'sign' | 'agreement') {
+  function focusGoal(field?: ObjectivePending['field']) {
     requestAnimationFrame(() => {
       if (field === 'sign' || field === 'agreement') {
         const select = document.getElementById(`${editorId}-${field}`);
@@ -400,7 +399,8 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
       input?.focus();
       if (input && field) {
         const offset = objectiveEditorFieldOffset(input.value, field);
-        input.setSelectionRange(offset, offset);
+        const hint = objectiveEditorFieldHint(field);
+        input.setSelectionRange(offset, offset + (input.value.startsWith(hint, offset) ? hint.length : 0));
       }
     });
   }
@@ -421,8 +421,10 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
   const generating = assistance?.state === "generating";
   const locked = busy || generating;
   const canGenerate = !!pes && hasUsablePesEtiology(pes.etiology);
+  const approvalPending = !approved && completeGoals < plan.goals.length;
+  const approvalPendingId = `${editorId}-approval-pending`;
   const actions = <footer className="smart-objective-actions">
-    {!ready && !approved && completeGoals < plan.goals.length && <button type="button" className="clinical-text-action" disabled={locked} onClick={showPending}>
+    {approvalPending && <button type="button" className="clinical-text-action" disabled={locked} onClick={showPending}>
       Ir al siguiente pendiente <ArrowRight size={15} aria-hidden="true" />
     </button>}
     {approved ? <button type="button" className="nuth-button-secondary !text-sm" disabled={locked} onClick={() => void persist('revoke')}>
@@ -431,7 +433,8 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
       <button type="button" className="nuth-button-secondary !text-sm" disabled={locked || (!dirty && !inline)} onClick={() => void persist('save')}>
         Guardar borrador
       </button>
-      <button type="button" className="nuth-button !text-sm" disabled={locked || !ready} onClick={() => void persist('approve')}>
+      <button type="button" className="nuth-button !text-sm" disabled={locked || !ready}
+        aria-describedby={approvalPending ? approvalPendingId : undefined} onClick={() => void persist('approve')}>
         {busy ? 'Guardando…' : 'Aprobar objetivos'}
       </button>
     </>}
@@ -494,11 +497,9 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
               goal={item}
               index={index}
               active={index === selected}
-              signs={signs}
               approved={approved}
-              contextReady={!!pes && !pesChanged}
+              ready={!!pes && !pesChanged && !pendingByGoal[index].length}
               fromAI={!!editorForGoal(item, editors[index]).grounding}
-              problem={!!editorIssues[index]}
               onOpen={() => setActiveGoal(index)}
               onRemove={() => remove(index)}
               onMoveUp={index > 0 ? () => moveUp(index) : undefined}
@@ -513,13 +514,15 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
             key={selected}
             id={editorId}
             text={goalEditor.text ?? goalEditor.basis}
-            issue={editorIssues[selected]}
+            issue={editorIssues[selected]?.issue}
             goal={goal}
             index={selected}
             signs={signs}
             approved={approved}
             cause={pes?.etiology}
             grounding={goalEditor.grounding}
+            pending={approved ? [] : pendingByGoal[selected]}
+            onPending={focusGoal}
             onText={text => editText(selected, text)}
             onChange={patch => update(selected, patch)}
           />
@@ -527,6 +530,10 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
       </fieldset>
       {text.length > maxLength && <p role="alert" className="clinical-notice is-warning">
         Resume los objetivos a {maxLength} caracteres en total antes de aprobar.
+      </p>}
+      {approvalPending && <p id={approvalPendingId} className="smart-objective-approval-note">
+        {plan.goals.length === 1 ? 'Revisa los campos marcados en el objetivo.'
+          : `${completeGoals} de ${plan.goals.length} objetivos completos. Completa los pendientes para aprobar el conjunto.`}
       </p>}
       {(goal || dirty) && actions}
       {message && <p role="status" className="smart-objective-message">{message}</p>}

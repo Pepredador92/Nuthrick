@@ -299,6 +299,20 @@ beforeEach(() => {
 });
 
 describe("consultation save and review workflow", () => {
+  it('shows the clinical restart action in Datos only', async () => {
+    mount();
+    await openModule('Revisión clínica, PES y objetivos');
+    const restarter = { name: 'Reiniciar revisión clínica' };
+    const steps = () => within(screen.getByRole('navigation', { name: 'Pasos de la revisión clínica' }));
+    expect(await within(screen.getByRole('region', { name: 'Revisión clínica' })).findByRole('button', restarter)).toBeVisible();
+    for (const label of [/^PES /, /^Objetivos /, /^Estrategia /, /^Indicaciones /, /^Seguimiento /]) {
+      fireEvent.click(steps().getByRole('button', { name: label }));
+      expect(screen.queryByRole('button', restarter)).not.toBeInTheDocument();
+    }
+    fireEvent.click(steps().getByRole('button', { name: /^Datos / }));
+    expect(screen.getByRole('button', restarter)).toBeVisible();
+  });
+
   it('confirms a full clinical restart, remounts clean editors, and keeps the current interview', async () => {
     const interview = 'Respuesta que debe conservarse';
     const diagnosis = 'Patrón anterior que se va a limpiar';

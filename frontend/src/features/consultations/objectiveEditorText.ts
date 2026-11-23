@@ -12,6 +12,10 @@ const guidance = {
 } as const;
 
 export type ObjectiveEditorField = keyof typeof guidance;
+export type ObjectiveEditorIssue = { issue: string; field?: ObjectiveEditorField };
+export const objectiveEditorFields = Object.keys(guidance) as ObjectiveEditorField[];
+export const objectiveEditorFieldLabel = (field: ObjectiveEditorField) => guidance[field][0];
+export const objectiveEditorFieldHint = (field: ObjectiveEditorField) => guidance[field][1];
 const groups = [
   ['¿Qué quieren lograr?', ['outcome', 'etiology']],
   ['¿Cómo reconocerán el avance?', ['target', 'indicator', 'baseline']],
@@ -46,7 +50,7 @@ export function formatObjectiveEditorText(goal: ObjectiveGoal) {
   ].join('\n')).join('\n\n');
 }
 
-export function readObjectiveEditorText(text: string): { fields: Pick<ObjectiveGoal, ObjectiveEditorField> } | { issue: string } {
+export function readObjectiveEditorText(text: string): { fields: Pick<ObjectiveGoal, ObjectiveEditorField> } | ObjectiveEditorIssue {
   const content: string[][] = sections.map(() => []);
   let index = -1;
   for (const line of text.split(/\r?\n/u)) {
@@ -68,7 +72,7 @@ export function readObjectiveEditorText(text: string): { fields: Pick<ObjectiveG
     for (const hint of hints) value = value.replaceAll(hint, '');
     value = value.trim();
     if (value.length > (field === 'etiology' ? 1500 : 400)) {
-      return { issue: `Resume «${title}» para poder aprobar el objetivo.` };
+      return { issue: `Resume «${title}» para poder aprobar el objetivo.`, field };
     }
     fields[field] = value;
   }

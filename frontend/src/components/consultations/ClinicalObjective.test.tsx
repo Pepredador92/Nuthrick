@@ -556,6 +556,47 @@ it("uses one editor for the whole SMART goal and focuses the pending field", asy
     expect.objectContaining({ goals: [expect.objectContaining({ target: "Meta revisada con la persona" })] }));
 });
 
+it('names the missing fields with a PES already approved and enables approval when both goals are complete', async () => {
+  const plan = smartPlan();
+  const original = plan.goals[0];
+  plan.goals = [
+    { ...original, etiology: '', baseline: '', feasibility: '' },
+    { ...original, outcome: 'Revisar otra parte del seguimiento.', sign: '' },
+  ];
+  api.review.mockResolvedValue(objectiveWorkspace(plan));
+  render(<Subject />);
+  const pending = within(await screen.findByRole('group', { name: 'Campos pendientes del objetivo 1' }));
+  expect(pending.getAllByRole('button').map(button => button.textContent)).toEqual([
+    'Relación con el diagnóstico', 'Situación inicial y fecha', 'Viabilidad, barreras y preferencias',
+  ]);
+  const approve = screen.getByRole('button', { name: 'Aprobar objetivos' });
+  expect(approve).toBeDisabled();
+  expect(approve).toHaveAccessibleDescription(/0 de 2 objetivos completos/);
+  const text = objectiveText();
+  const hint = '[Anota cómo empiezas y en qué fecha.]';
+  fireEvent.click(pending.getByRole('button', { name: 'Situación inicial y fecha' }));
+  await waitFor(() => expect(text).toHaveFocus());
+  expect(text.value.substring(text.selectionStart, text.selectionEnd)).toBe(hint);
+
+  editObjective('etiology', original.etiology);
+  editObjective('baseline', original.baseline);
+  editObjective('feasibility', original.feasibility);
+  expect(approve).toBeDisabled();
+  expect(approve).toHaveAccessibleDescription(/1 de 2 objetivos completos/);
+  fireEvent.click(screen.getByRole('button', { name: 'Ir al siguiente pendiente' }));
+  const sign = screen.getByLabelText('Signo o síntoma del PES · objetivo 2');
+  await waitFor(() => expect(sign).toHaveFocus());
+  expect(sign.closest('details')).toHaveAttribute('open');
+  fireEvent.change(sign, { target: { value: approvedPes.signsSymptoms } });
+  expect(approve).toBeEnabled();
+  fireEvent.click(approve);
+  await waitFor(() => expect(api.review).toHaveBeenLastCalledWith('c', 1, 'approve', 'current', props.questionKey,
+    expect.objectContaining({ goals: [
+      original,
+      { ...original, outcome: 'Revisar otra parte del seguimiento.', sign: approvedPes.signsSymptoms },
+    ] })));
+});
+
 it("retains an unfinished template after saving and reopening without publishing guidance", async () => {
   const first = render(<Subject />);
   await screen.findByText("PES aprobado");

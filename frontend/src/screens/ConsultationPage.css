@@ -229,16 +229,6 @@ html[data-nuthrick-theme='night'] .consultation-template-reference-note { color:
 @media (max-width: 640px) { .consultation-clinical-title > button { margin-left: 0; } }
 .consultation-discard-action { color: #963f32 !important; }
 html[data-nuthrick-theme='night'] .consultation-discard-action { color: #f0aea1 !important; }
-.clinical-reset-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: .85rem 1rem;
-}
-
-.clinical-reset-header > div { flex: 1 1 23rem; }
-
 .consultation-workspace .clinical-reset-action {
   min-height: 44px;
   border-color: #ca8998;
