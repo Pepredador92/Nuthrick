@@ -183,9 +183,9 @@ export function ClinicalBatchChanges({ patientId, consultationId, revision, batc
             : featureOnly ? 'Volver a generar con indicaciones' : `Regenerar ${stage.label}`;
         const action = { label, disabled: blocked || busy, open: () => open(stage.feature) };
         return renderAction ? <Fragment key={stage.feature}>{renderAction(action)}</Fragment>
-          : <button key={stage.feature} type="button" className="nuth-button-secondary !text-xs" disabled={action.disabled} onClick={action.open}>{label}</button>;
+          : <button key={stage.feature} type="button" data-stage={stage.feature} className="nuth-button-secondary !text-xs" disabled={action.disabled} onClick={action.open}>{label}</button>;
       })}
-      {!featureOnly && <button type="button" className="nuth-button-secondary !text-xs" disabled={blocked || busy} onClick={() => open('clear')}>Limpiar borradores de IA</button>}
+      {!featureOnly && <button type="button" data-intent="clear" className="nuth-button-secondary !text-xs" disabled={blocked || busy} onClick={() => open('clear')}>Limpiar borradores de IA</button>}
     </div>
     <ClinicalTaskDialog
       open={dialog !== null} busy={busy} onClose={() => setDialog(null)}

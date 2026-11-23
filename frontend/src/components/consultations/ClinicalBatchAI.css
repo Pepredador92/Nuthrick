@@ -141,25 +141,25 @@ html[data-nuthrick-theme='night'] .clinical-ai-batch .clinical-ai-batch-button:e
   overflow-wrap: anywhere;
 }
 
-.clinical-ai-batch-cards > [data-stage='pes_diagnosis'] {
+.clinical-ai-batch :is(.clinical-ai-batch-cards, .clinical-batch-change-actions) > [data-stage='pes_diagnosis'] {
   --batch-card-bg: #eff8f2;
   --batch-card-line: #b0cdbf;
   --batch-card-accent: #245c50;
 }
 
-.clinical-ai-batch-cards > [data-stage='consultation_support'] {
+.clinical-ai-batch :is(.clinical-ai-batch-cards, .clinical-batch-change-actions) > [data-stage='consultation_support'] {
   --batch-card-bg: #edf3fc;
   --batch-card-line: #b2c7e1;
   --batch-card-accent: #284b79;
 }
 
-.clinical-ai-batch-cards > [data-stage='intervention_strategy'] {
+.clinical-ai-batch :is(.clinical-ai-batch-cards, .clinical-batch-change-actions) > [data-stage='intervention_strategy'] {
   --batch-card-bg: #fff6e5;
   --batch-card-line: #d9c499;
   --batch-card-accent: #745018;
 }
 
-.clinical-ai-batch-cards > [data-stage='patient_instructions'] {
+.clinical-ai-batch :is(.clinical-ai-batch-cards, .clinical-batch-change-actions) > [data-stage='patient_instructions'] {
   --batch-card-bg: #f4effa;
   --batch-card-line: #ccbfe0;
   --batch-card-accent: #62477e;
@@ -172,25 +172,25 @@ html[data-nuthrick-theme='night'] .clinical-ai-batch {
   --batch-card-ink: #f2f6f5;
 }
 
-html[data-nuthrick-theme='night'] .clinical-ai-batch-cards > [data-stage='pes_diagnosis'] {
+html[data-nuthrick-theme='night'] .clinical-ai-batch :is(.clinical-ai-batch-cards, .clinical-batch-change-actions) > [data-stage='pes_diagnosis'] {
   --batch-card-bg: #1a3935;
   --batch-card-line: #547c70;
   --batch-card-accent: #a6e6cc;
 }
 
-html[data-nuthrick-theme='night'] .clinical-ai-batch-cards > [data-stage='consultation_support'] {
+html[data-nuthrick-theme='night'] .clinical-ai-batch :is(.clinical-ai-batch-cards, .clinical-batch-change-actions) > [data-stage='consultation_support'] {
   --batch-card-bg: #24384f;
   --batch-card-line: #607b9f;
   --batch-card-accent: #b8d8ff;
 }
 
-html[data-nuthrick-theme='night'] .clinical-ai-batch-cards > [data-stage='intervention_strategy'] {
+html[data-nuthrick-theme='night'] .clinical-ai-batch :is(.clinical-ai-batch-cards, .clinical-batch-change-actions) > [data-stage='intervention_strategy'] {
   --batch-card-bg: #3d3527;
   --batch-card-line: #8d7951;
   --batch-card-accent: #f5d798;
 }
 
-html[data-nuthrick-theme='night'] .clinical-ai-batch-cards > [data-stage='patient_instructions'] {
+html[data-nuthrick-theme='night'] .clinical-ai-batch :is(.clinical-ai-batch-cards, .clinical-batch-change-actions) > [data-stage='patient_instructions'] {
   --batch-card-bg: #362e48;
   --batch-card-line: #86739f;
   --batch-card-accent: #e3c7ff;
@@ -268,6 +268,29 @@ html[data-nuthrick-theme='night'] .clinical-ai-batch-cards > [data-stage='patien
 
 .clinical-ai-batch > .clinical-batch-change-actions {
   margin: 0;
+}
+
+.clinical-ai-batch > .clinical-batch-change-actions > [data-intent='clear'] {
+  --batch-card-bg: #fbebed;
+  --batch-card-line: #c78a96;
+  --batch-card-accent: #802c42;
+}
+
+html[data-nuthrick-theme='night'] .clinical-ai-batch > .clinical-batch-change-actions > [data-intent='clear'] {
+  --batch-card-bg: #432b36;
+  --batch-card-line: #a36a7b;
+  --batch-card-accent: #ffbfcc;
+}
+
+.clinical-ai-batch > .clinical-batch-change-actions > button:is([data-stage], [data-intent='clear']) {
+  background: color-mix(in srgb, var(--batch-card-accent) 16%, var(--batch-card-bg));
+  border-color: var(--batch-card-line);
+  color: var(--batch-card-accent);
+}
+
+.clinical-ai-batch > .clinical-batch-change-actions > button:is([data-stage], [data-intent='clear']):enabled:hover {
+  background: color-mix(in srgb, var(--batch-card-accent) 25%, var(--batch-card-bg));
+  border-color: var(--batch-card-accent);
 }
 
 .clinical-ai-batch-stages {
