@@ -3,6 +3,7 @@ export type AnswerState = {
   version: number;
   answers: AnswerValues;
   conflict?: boolean;
+  clinicalPlanResetVersion?: number | null;
 };
 export type AnswerWrite = {
   version: number;
@@ -95,6 +96,7 @@ type AutosaveOptions = {
     state: { saving: boolean; error: string; conflict: boolean },
   ) => void;
   onMerge: (values: AnswerValues, saved: AnswerState) => void;
+  isClinicalPlanField?: (key: string) => boolean;
 };
 export function createAnswerAutosave(options: AutosaveOptions = {
   read: async () => {
@@ -118,7 +120,11 @@ export function createAnswerAutosave(options: AutosaveOptions = {
     options.onMerge(structuredClone(desired), base);
   };
   const reconcile = (fresh: AnswerState) => {
-    const local = changedAnswers(base.answers, desired);
+    let local = changedAnswers(base.answers, desired);
+    if ((fresh.clinicalPlanResetVersion ?? 0) > base.version && options.isClinicalPlanField) {
+      local = Object.fromEntries(Object.entries(local).filter(([key]) => !options.isClinicalPlanField?.(key)));
+      desired = { ...base.answers, ...local };
+    }
     const conflicting = Object.keys(local).some((key) =>
       canonical(fresh.answers[key]) !== canonical(base.answers[key]) &&
       canonical(fresh.answers[key]) !== canonical(local[key]) &&

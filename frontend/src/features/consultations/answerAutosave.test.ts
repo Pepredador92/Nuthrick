@@ -15,7 +15,7 @@ const deferred = <T>() => {
   });
   return { promise, resolve, reject };
 };
-function subject() {
+function subject(isClinicalPlanField?: (key: string) => boolean) {
   const saved: AnswerState = {
     version: 0,
     answers: { note: "Inicial", other: "Remoto" },
@@ -24,7 +24,7 @@ function subject() {
     write = vi.fn(),
     onState = vi.fn(),
     onMerge = vi.fn();
-  const saver = createAnswerAutosave({ read, write, onState, onMerge });
+  const saver = createAnswerAutosave({ read, write, onState, onMerge, isClinicalPlanField });
   saver.reset(saved, saved.answers);
   return { saver, read, write, onState, onMerge, saved };
 }
@@ -166,6 +166,17 @@ describe("bounded answer synchronization", () => {
       note: "Local",
       other: "Otra pestaña",
     });
+  });
+  it("skips planning edits from before a reset while keeping an interview edit from another tab", async () => {
+    const x = subject(key => key.startsWith('pes_'));
+    x.saver.update({ ...x.saved.answers, note: 'Cambio de entrevista', pes_problem: 'Borrador anterior' });
+    const reset = { version: 6, clinicalPlanResetVersion: 6, answers: x.saved.answers };
+    x.write.mockResolvedValueOnce({ ...reset, conflict: true }).mockResolvedValueOnce({
+      ...reset, version: 7, answers: { ...reset.answers, note: 'Cambio de entrevista' },
+    });
+    expect(await x.saver.flush()).toBe(true);
+    expect(x.write.mock.calls[1][0]).toMatchObject({ version: 6, changes: { note: 'Cambio de entrevista' } });
+    expect(x.saver.saved().answers).not.toHaveProperty('pes_problem');
   });
   it("requires explicit resolution of conflicting edits from another tab", async () => {
     const x = subject();

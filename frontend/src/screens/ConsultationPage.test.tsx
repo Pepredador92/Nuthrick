@@ -12,6 +12,7 @@ import { formatPesEditorText } from '@/src/features/consultations/pesEditorText'
 const mocks = vi.hoisted(() => ({
   save: vi.fn(),
   discard: vi.fn(),
+  resetClinicalPlan: vi.fn(),
   finish: vi.fn(),
   adopt: vi.fn(),
   begin: vi.fn(),
@@ -199,6 +200,7 @@ vi.mock("@/src/services/consultations", () => ({
     return structuredClone(mocks.answerState);
   },
   discardConsultationDraft: mocks.discard,
+  resetConsultationClinicalPlan: mocks.resetClinicalPlan,
   finishConsultation: mocks.finish,
   adoptTemplate: mocks.adopt,
 }));
@@ -297,6 +299,48 @@ beforeEach(() => {
 });
 
 describe("consultation save and review workflow", () => {
+  it('confirms a full clinical restart, remounts clean editors, and keeps the current interview', async () => {
+    const interview = 'Respuesta que debe conservarse';
+    const diagnosis = 'Patrón anterior que se va a limpiar';
+    mocks.answerState = { version: 4, answers: { note: interview, pes_problem: diagnosis } };
+    mocks.draftState = { version: 3, answers: { 'followup-note': 'Plan previo de seguimiento' } };
+    mocks.resetClinicalPlan.mockImplementation(async () => {
+      mocks.answerState = { version: 8, answers: { note: interview } };
+      mocks.draftState = { version: 9, answers: { navigation: { module: 'clinical', active: 0, clinicalStage: 0 } } };
+      return mocks.answerState;
+    });
+    sessionStorage.setItem('clinical-pending:draft:pes_diagnosis', 'pending-before-reset');
+    mount();
+    await openModule('Revisión clínica, PES y objetivos');
+    const button = await screen.findByRole('button', { name: 'Reiniciar revisión clínica' });
+    fireEvent.click(button);
+    const confirm = within(await screen.findByRole('dialog', { name: 'Reiniciar revisión clínica' }));
+    fireEvent.click(confirm.getByRole('button', { name: 'Cancelar' }));
+    expect(mocks.resetClinicalPlan).not.toHaveBeenCalled();
+    fireEvent.click(button);
+    fireEvent.click(screen.getByRole('button', { name: 'Limpiar y reiniciar' }));
+    expect(await screen.findByText(/Revisión clínica reiniciada/)).toBeVisible();
+    expect(mocks.resetClinicalPlan).toHaveBeenCalledExactlyOnceWith('draft', 1, 4, expect.any(Number));
+    expect(sessionStorage.getItem('clinical-pending:draft:pes_diagnosis')).toBeNull();
+    expect(await screen.findByRole('heading', { name: 'Revisión clínica' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    const pes = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: pesTextName });
+    expect(pes.value).not.toContain(diagnosis);
+    await openModule('Entrevista');
+    expect(await screen.findByDisplayValue(interview)).toBeVisible();
+  });
+
+  it('keeps the confirmation and the previous work if the clinical restart cannot be saved', async () => {
+    mocks.resetClinicalPlan.mockRejectedValue(new Error('La consulta cambió en otra pestaña.'));
+    mount();
+    await openModule('Revisión clínica, PES y objetivos');
+    fireEvent.click(await screen.findByRole('button', { name: 'Reiniciar revisión clínica' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'Reiniciar revisión clínica' }));
+    fireEvent.click(dialog.getByRole('button', { name: 'Limpiar y reiniciar' }));
+    expect(await dialog.findByRole('alert')).toHaveTextContent('La consulta cambió en otra pestaña.');
+    expect(dialog.getByRole('button', { name: 'Cancelar' })).toBeEnabled();
+  });
+
   it("books the next visit for the current patient without closing the consultation or losing the follow-up note", async () => {
     const start = "2099-10-01T16:00:00.000Z", end = "2099-10-01T17:00:00.000Z";
     const appointment = {

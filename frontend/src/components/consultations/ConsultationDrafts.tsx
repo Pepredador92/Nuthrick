@@ -1,8 +1,9 @@
 import {createContext,useCallback,useContext,useEffect,useLayoutEffect,useRef,useState,type Dispatch,type MutableRefObject,type ReactNode,type SetStateAction} from 'react';
 import {supabase} from '@/src/lib/supabase';
 import {boundedAnswerRequest,changedAnswers,createAnswerAutosave,type AnswerState,type AnswerWrite} from '@/src/features/consultations/answerAutosave';
+import { clearClinicalPlanSession, isClinicalPlanDraft } from '@/src/features/consultations/clinicalPlanReset';
 
-export type ConsultationDraftController = {flush:()=>Promise<boolean>;stop:()=>Promise<void>;resume:()=>void;refresh:()=>Promise<Record<string,unknown>>};
+export type ConsultationDraftController = {flush:()=>Promise<boolean>;stop:()=>Promise<void>;resume:()=>void;refresh:()=>Promise<Record<string,unknown>>;savedVersion:()=>number};
 type DraftContext = {values:Record<string,unknown>;set:(key:string,value:unknown)=>void;flush:()=>Promise<boolean>;refresh:()=>Promise<Record<string,unknown>>;save:()=>Promise<boolean>};
 const Context=createContext<DraftContext|null>(null);
 const backupKey=(id:string,revision:number)=>`consultation-working:${id}:${revision}`;
@@ -34,16 +35,21 @@ export function ConsultationDrafts({consultationId,revision,controllerRef,onSave
   useEffect(()=>{
     mounted.current=true;
     writer.configure({read:signal=>sync(consultationId,revision,undefined,signal),write:(request,signal)=>sync(consultationId,revision,request,signal),
-      onState:next=>{if(mounted.current)setState(next);},onMerge:(next)=>{current.current=next;if(mounted.current)setValues(next);backup();}});
+      isClinicalPlanField:isClinicalPlanDraft,onState:next=>{if(mounted.current)setState(next);},onMerge:(next)=>{current.current=next;if(mounted.current)setValues(next);backup();}});
     let alive=true;
     void boundedAnswerRequest(signal=>sync(consultationId,revision,undefined,signal)).then(saved=>{
       if(!alive)return;
       let cached:{values:Record<string,unknown>;base:AnswerState}|null=null;
       try{cached=JSON.parse(sessionStorage.getItem(key)||'null');}catch{/* Ignore an unreadable local backup. */}
-      const next=cached?.values&&cached?.base?{...saved.answers,...changedAnswers(cached.base.answers,cached.values)}:saved.answers;
+      const resetSinceBackup = (saved.clinicalPlanResetVersion ?? 0) > (cached?.base?.version ?? -1)
+        && saved.clinicalPlanResetVersion != null;
+      if (resetSinceBackup) clearClinicalPlanSession(consultationId, revision);
+      const changes = cached?.values && cached.base ? changedAnswers(cached.base.answers, cached.values) : {};
+      const local = resetSinceBackup ? Object.fromEntries(Object.entries(changes).filter(([key]) => !isClinicalPlanDraft(key))) : changes;
+      const next = { ...saved.answers, ...local };
       writer.reset(saved,next,cached?.base);current.current=next;setValues(next);setReady(true);
     }).catch(()=>{if(alive)setLoadError('No pudimos recuperar el avance guardado. Actualiza la página para volver a intentarlo.');});
-    controllerRef.current={flush,refresh,stop:async()=>{discarded.current=true;await writer.stop();try{sessionStorage.removeItem(key);}catch{/* Local storage may be unavailable. */}},resume:()=>{discarded.current=false;writer.resume();backup();}};
+    controllerRef.current={flush,refresh,savedVersion:()=>writer.saved().version,stop:async()=>{discarded.current=true;await writer.stop();try{sessionStorage.removeItem(key);}catch{/* Local storage may be unavailable. */}},resume:()=>{discarded.current=false;writer.resume();backup();}};
     const persist=()=>{backup();if(document.visibilityState==='hidden')void writer.flush();};
     document.addEventListener('visibilitychange',persist);window.addEventListener('pagehide',persist);
     return()=>{alive=false;mounted.current=false;backup();void writer.stop();controllerRef.current=null;document.removeEventListener('visibilitychange',persist);window.removeEventListener('pagehide',persist);};

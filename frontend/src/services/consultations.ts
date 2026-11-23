@@ -39,6 +39,18 @@ export interface LoadedTemplate {
   questions: ConsultationTemplateQuestion[];
 }
 
+export async function resetConsultationClinicalPlan(consultationId: string, revision: number, answersVersion: number, draftsVersion: number): Promise<AnswerState> {
+  const { data, error } = await supabase.rpc('reset_consultation_clinical_plan', {
+    p_consultation: consultationId, p_revision: revision,
+    p_answers_version: answersVersion, p_drafts_version: draftsVersion,
+  });
+  if (error?.message === 'context_changed') throw new Error('El avance cambió mientras reiniciabas la revisión. Cierra el aviso, revisa los cambios y vuelve a intentarlo.');
+  if (error?.message === 'consultation_revision_changed') throw new Error('La versión de la consulta cambió. Actualiza la página antes de reiniciar.');
+  fail(error, 'No pudimos confirmar el reinicio. Actualiza la consulta antes de volver a intentarlo.');
+  if (!data) throw new Error('No pudimos comprobar el reinicio. Actualiza la consulta antes de continuar.');
+  return data as AnswerState;
+}
+
 export const canonicalSystemTemplateKeys = {
   initial: "system_initial_v2",
   follow_up: "system_follow_up_v1",

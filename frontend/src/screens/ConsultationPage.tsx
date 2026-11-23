@@ -28,11 +28,13 @@ import { InterviewWorkspace, InterviewQuestionCard } from "@/src/components/cons
 import { InterviewReview } from "@/src/components/consultations/InterviewReview";
 import { PesCopilot, RecallCopilot, type RecallNavigation, type RecallNavigationActions } from "@/src/components/consultations/ClinicalCopilot";
 import { ClinicalBatchStageRevision } from "@/src/components/consultations/ClinicalBatchAI";
+import { ClinicalTaskDialog } from "@/src/components/consultations/ClinicalTaskDialog";
 import { ClinicalReview } from "@/src/components/consultations/ClinicalReview";
 import { ConsultationGuide } from "@/src/components/consultations/ConsultationGuide";
 import { ClinicalFieldCards } from "@/src/components/consultations/ClinicalFieldCards";
 import { ClinicalPatientInstructions } from "@/src/components/consultations/ClinicalPatientInstructions";
 import { consultationSteps, objectiveKeys, followupKeys, questionModule, workflowSections, type ConsultationModule } from "@/src/features/consultations/consultationWorkflow";
+import { clearClinicalPlanSession, isClinicalPlanAnswer } from '@/src/features/consultations/clinicalPlanReset';
 import { ClinicalInterventions } from "@/src/components/consultations/ClinicalInterventions";
 import { ClinicalObjective } from "@/src/components/consultations/ClinicalObjective";
 import type { ClinicalTaskStatus } from "@/src/components/consultations/ClinicalTaskCard";
@@ -75,6 +77,7 @@ import {
   reopenConsultationForEdit,
   updateConsultationDate,
   discardConsultationDraft,
+  resetConsultationClinicalPlan,
 } from "@/src/services/consultations";
 import { ANSWER_SAVE_DELAY, boundedAnswerRequest, createAnswerAutosave, type AnswerState } from '@/src/features/consultations/answerAutosave';
 
@@ -189,6 +192,10 @@ function ConsultationEditor() {
   const [clinicalOpened, setClinicalOpened] = useState(false);
   const [clinicalStage, setClinicalStage] = useState(0);
   const [clinicalRefresh, setClinicalRefresh] = useState(0);
+  const [clinicalResetVersion, setClinicalResetVersion] = useState(0);
+  const [showClinicalReset, setShowClinicalReset] = useState(false);
+  const [clinicalResetError, setClinicalResetError] = useState('');
+  const clinicalResetLock = useRef(false);
   const [observationsVersion, setObservationsVersion] = useState(0);
   const refreshObservations = () => setObservationsVersion(version => version + 1);
   const [completion,setCompletion]=useState<ClinicalCompletion|null>(null);
@@ -227,6 +234,7 @@ function ConsultationEditor() {
   useEffect(() => {autosave.configure({
     read: signal => { const t=saveTarget.current; if(!t) throw new Error('Consulta no disponible.'); return syncConsultationAnswers(t.id,t.revision,undefined,signal); },
     write: (request,signal) => { const t=saveTarget.current; if(!t) throw new Error('Consulta no disponible.'); return syncConsultationAnswers(t.id,t.revision,request,signal); },
+    isClinicalPlanField: isClinicalPlanAnswer,
     onState: state => { if(mounted.current) { setSaving(state.saving);setSaveError(state.error);setSaveConflict(state.conflict); } },
     onMerge: (next,saved) => {
       if(!mounted.current || closed.current) return;
@@ -327,9 +335,11 @@ function ConsultationEditor() {
         const saved = await boundedAnswerRequest(signal => syncConsultationAnswers(consultationForLoad.id,startedSnapshot.revision,undefined,signal));
         const serverValues = saved.answers;
         const workspace = readWorkspace(started.id);
-        setRestoreServerPosition(!workspace?.module || !Number.isInteger(workspace.clinicalStage));
+        const resetSinceBackup = saved.clinicalPlanResetVersion != null &&
+          (workspace?.revision !== startedSnapshot.revision || saved.clinicalPlanResetVersion > (workspace?.base?.version ?? -1));
+        setRestoreServerPosition(resetSinceBackup || !workspace?.module || !Number.isInteger(workspace.clinicalStage));
         const editableKeys=new Set(startedSnapshot.structure.sections.flatMap(section=>section.questions.map(q=>q.question_key)));
-        const restoredValues=Object.fromEntries(Object.entries(workspace?.values ?? {}).filter(([key])=>editableKeys.has(key)));
+        const restoredValues=Object.fromEntries(Object.entries(workspace?.values ?? {}).filter(([key])=>editableKeys.has(key) && (!resetSinceBackup || !isClinicalPlanAnswer(key))));
         const nextValues = workspace
           ? { ...serverValues, ...restoredValues }
           : serverValues;
@@ -771,12 +781,51 @@ function ConsultationEditor() {
   };
 
   const saveForClinical = async () => {
+    if (clinicalResetLock.current) return false;
     if (measurementsPending || laboratoriesPending || recallPending) {
       setError('Guarda las mediciones y los estudios pendientes, y confirma los cambios del recordatorio antes de generar una propuesta clínica.');
       return false;
     }
     return saveAll();
   };
+  async function restartClinicalPlan() {
+    const checkpoint = draftController.current;
+    if (clinicalResetLock.current || busy || !consultation || !snapshot || !checkpoint) return;
+    clinicalResetLock.current = true;
+    setBusy(true);
+    setClinicalResetError('');
+    try {
+      if (!await saveAll()) throw new Error('Guarda el avance de la consulta y vuelve a intentar el reinicio.');
+      const id = consultation.id, revision = snapshot.revision;
+      const fresh = await resetConsultationClinicalPlan(id, revision, autosave.saved().version, checkpoint.savedVersion());
+      await Promise.all([checkpoint.stop(), autosave.stop()]);
+      clearClinicalPlanSession(id, revision);
+      try { sessionStorage.removeItem(workspaceKey(id)); } catch { /* The server response already contains the reset. */ }
+      autosave.reset(fresh, fresh.answers);
+      valuesRef.current = fresh.answers;
+      setValues(fresh.answers);
+      lastSaved.current = JSON.stringify(fresh.answers);
+      setSavedEncoded(lastSaved.current);
+      setClinicalProgress(current => ({ review: current.review }));
+      setObjectivePending({});
+      setStrategyPending(false);
+      setPesPending(false);
+      setPesFocus(null);
+      setReviewed(false);
+      setCompletion(null);
+      setClinicalStage(0);
+      setRestoreServerPosition(false);
+      setClinicalResetVersion(version => version + 1);
+      setShowClinicalReset(false);
+      setError('');
+      setNotice('Revisión clínica reiniciada. Puedes comenzar de nuevo desde Datos.');
+    } catch (cause) {
+      setClinicalResetError(cause instanceof Error ? cause.message : 'No pudimos reiniciar la revisión clínica.');
+    } finally {
+      clinicalResetLock.current = false;
+      setBusy(false);
+    }
+  }
   const goModule = async (next: ConsultationModule) => {
     if (next === 'clinical' && (measurementsPending || laboratoriesPending || recallPending)) {
       setError('Guarda las mediciones y los estudios pendientes, y confirma los cambios del recordatorio antes de generar una propuesta clínica.');return;
@@ -1101,7 +1150,7 @@ function ConsultationEditor() {
         snapshot.template_version < latest.template.version);
   const dirty = JSON.stringify(values) !== savedEncoded;
   return (
-    <>{exitDialog}<ConsultationDrafts key={`${consultation.id}:${snapshot.revision}`} consultationId={consultation.id} revision={snapshot.revision} controllerRef={draftController} onSave={saveAll}><div className="consultation-workspace">
+    <>{exitDialog}<ConsultationDrafts key={`${consultation.id}:${snapshot.revision}:${clinicalResetVersion}`} consultationId={consultation.id} revision={snapshot.revision} controllerRef={draftController} onSave={saveAll}><div className="consultation-workspace">
       <ConsultationDraftPosition value={{module,active,clinicalStage}} restoreSaved={restoreServerPosition} onRestore={position=>{if(consultationSteps.some(step=>step.key===position.module)){setModule(position.module as ConsultationModule);setActive(Math.max(0,position.active));setClinicalStage(Math.max(0,Math.min(clinicalStages.length-1,position.clinicalStage)));setRecallOpened(position.module==="recall");setClinicalOpened(position.module==="clinical");setMeasurementsOpened(position.module==="measurements");setLaboratoriesOpened(position.module==="laboratories");}}}/>
       <header className="rounded-[24px] bg-[#173d36] p-5 text-white sm:p-7">
         <Link
@@ -1198,7 +1247,24 @@ function ConsultationEditor() {
         {recallSections.map(section => <details key={section.section_key} className="recall-supported-fields" open={showErrors && section.questions.some(question => matchesCondition(question.visibility_condition, values) && questionErrors(question, values[question.question_key]).length > 0)}><summary>{section.title === "Recordatorio de 24 horas" ? "Registro detallado del día y preguntas de apoyo" : section.title}</summary><p>{section.title === "Recordatorio de 24 horas" ? 'Aquí puedes registrar la fecha, horarios, preparación y posibles olvidos. Este registro complementa los alimentos confirmados arriba.' : section.description}</p>{renderQuestions(section.questions)}</details>)}
       </section>}
       {clinicalOpened && <div data-consultation-module="clinical" className="consultation-guided-workspace clinical-decision-workspace mt-6" hidden={module !== 'clinical'}>
-        <header className="consultation-guided-intro" id="consultation-clinical-heading"><p className="nuth-eyebrow">05 · Revisa y acuerda</p><h2>De los datos a los siguientes pasos</h2><p>Estas secciones son opcionales. Puedes guardar el avance, continuar o cerrar la consulta sin completarlas.</p></header>
+        <header className="consultation-guided-intro clinical-reset-header" id="consultation-clinical-heading">
+          <div><p className="nuth-eyebrow">05 · Revisa y acuerda</p><h2>De los datos a los siguientes pasos</h2><p>Estas secciones son opcionales. Puedes guardar el avance, continuar o cerrar la consulta sin completarlas.</p></div>
+          <button type="button" className="nuth-button-secondary clinical-reset-action" disabled={busy || saving}
+            onClick={() => { setClinicalResetError(''); setShowClinicalReset(true); }}>
+            <RotateCcw size={15} aria-hidden="true" />Reiniciar revisión clínica
+          </button>
+        </header>
+        {showClinicalReset && <ClinicalTaskDialog open title="Reiniciar revisión clínica" busy={busy} showSaveConsultation={false}
+          description="Se retirarán las aprobaciones y se limpiarán el PES, los objetivos, las estrategias, las indicaciones y el plan de seguimiento de esta consulta."
+          onClose={() => setShowClinicalReset(false)} footer={<>
+            <button type="button" className="nuth-button-secondary" disabled={busy} onClick={() => setShowClinicalReset(false)}>Cancelar</button>
+            <button type="button" className="nuth-button clinical-reset-confirm" disabled={busy} onClick={() => void restartClinicalPlan()}>
+              {busy ? 'Reiniciando…' : 'Limpiar y reiniciar'}
+            </button>
+          </>}>
+          <p>Se conservan los datos de la consulta, las notas, las citas y el historial del paciente.</p>
+          {clinicalResetError && <p role="alert" className="clinical-notice is-warning mt-3">{clinicalResetError}</p>}
+        </ClinicalTaskDialog>}
         <ConsultationGuide label="Pasos de la revisión clínica" steps={clinicalStepsWithProgress} active={clinicalStage} onChange={next => void goClinicalStage(next)} busy={busy} />
         <div hidden={clinicalStage !== 0}><ClinicalReview batch={{patientId:patient.id,onReview:stage=>void goClinicalStage(stage)}} onReviewed={(message,all)=>reportCompletion(message,all?1:undefined)} consultationId={consultation.id} snapshot={snapshot} values={values} active={module === 'clinical' && clinicalStage === 0} observationsVersion={observationsVersion} before={saveForClinical} onStatusChange={status => updateClinicalProgress('review', status)} onOpenModule={next => void goModule(next)} /></div>
         <section hidden={clinicalStage !== 1} className="clinical-stage" aria-label="Diagnóstico PES">
