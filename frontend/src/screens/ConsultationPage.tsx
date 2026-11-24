@@ -33,13 +33,13 @@ import { ClinicalReview } from "@/src/components/consultations/ClinicalReview";
 import { ConsultationGuide } from "@/src/components/consultations/ConsultationGuide";
 import { ClinicalFieldCards } from "@/src/components/consultations/ClinicalFieldCards";
 import { ClinicalPatientInstructions } from "@/src/components/consultations/ClinicalPatientInstructions";
-import { consultationSteps, objectiveKeys, followupKeys, questionModule, workflowSections, type ConsultationModule } from "@/src/features/consultations/consultationWorkflow";
+import { consultationSteps, objectiveKeys, followupKeys, workflowSections, type ConsultationModule } from "@/src/features/consultations/consultationWorkflow";
 import { clearClinicalPlanSession, isClinicalPlanAnswer } from '@/src/features/consultations/clinicalPlanReset';
 import { ClinicalInterventions } from "@/src/components/consultations/ClinicalInterventions";
 import { ClinicalObjective, type ObjectiveApproval } from "@/src/components/consultations/ClinicalObjective";
 import type { ClinicalTaskStatus } from "@/src/components/consultations/ClinicalTaskCard";
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
-import { ConsultationCloseDialog } from "@/src/components/consultations/ConsultationCloseDialog";
+import { ConsultationCloseDialog, type ConsultationCloseDestination } from "@/src/components/consultations/ConsultationCloseDialog";
 import { ConsultationExitDialog } from "@/src/components/consultations/ConsultationExitDialog";
 import { ConsultationNotes } from "@/src/components/consultations/ConsultationNotes";
 import { ConsultationMeasurements } from "@/src/components/consultations/ConsultationMeasurements";
@@ -52,10 +52,10 @@ import {
 } from "@/src/features/patients/patientUtils";
 import {
   emptyValue,
+  consultationCloseFields,
   formatAnswer,
   isRecord,
   matchesCondition,
-  questionErrors,
   repeatableFields,
 } from "@/src/features/consultations/questionnaire";
 import { appendComposedText, composeInterviewDraft } from "@/src/features/consultations/composeClinicalText";
@@ -187,7 +187,8 @@ function ConsultationEditor() {
   const enteringConsultation = useRef(false);
   const exitLock = useRef(false);
   const [reviewed, setReviewed] = useState(false);
-  const [closeIntent, setCloseIntent] = useState<"patient" | "workshop" | null>(null);
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [closeError, setCloseError] = useState("");
   const [recallOpened, setRecallOpened] = useState(false);
   const [clinicalOpened, setClinicalOpened] = useState(false);
   const [clinicalStage, setClinicalStage] = useState(0);
@@ -218,9 +219,8 @@ function ConsultationEditor() {
   const [laboratoriesOpened, setLaboratoriesOpened] = useState(false);
   const [measurementsPending, setMeasurementsPending] = useState(false);
   const [laboratoriesPending, setLaboratoriesPending] = useState(false);
-  const closing = useRef(false);
+  const closeAction = useRef(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [showErrors, setShowErrors] = useState(false);
   const [savedEncoded, setSavedEncoded] = useState("{}");
   const [module, setModule] = useState<ConsultationModule>("interview");
   const pesContextNavigation = useRef<PesContextNavigationHandle>(null);
@@ -688,44 +688,49 @@ function ConsultationEditor() {
       setBusy(false);
     }
   };
-  const reviewClose = (intent: "patient" | "workshop" = "patient") => {
+  const closeBlockers = [
+    recallPending && "Recordatorio de 24 horas",
+    measurementsPending && "Mediciones / Bioimpedancia",
+    laboratoriesPending && "Laboratorios",
+    consultation && clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient?.timezone) && "la fecha de consulta",
+  ].filter((item): item is string => Boolean(item));
+
+  const reviewClose = () => {
     setReviewed(false);
     setError("");
-    setCloseIntent(intent);
+    setCloseError("");
+    setCloseOpen(true);
   };
-  const complete = async () => {
-    if (!consultation || !snapshot || !reviewed || !closeIntent || closing.current) return;
-    if (recallPending || measurementsPending || laboratoriesPending || clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient?.timezone)) {
-      return;
-    }
-    setShowErrors(true);
-    const firstInvalid = allSections.findIndex((section) =>
-      section.questions.some(
-        (q) =>
-          matchesCondition(q.visibility_condition, valuesRef.current) &&
-          (questionModule(q.question_key)!=="clinical" && questionErrors(q, valuesRef.current[q.question_key]).length),
-      ),
-    );
-    if (firstInvalid >= 0) {
-      setCloseIntent(null);
-      const invalidSection = allSections[firstInvalid];
-      const invalidQuestion = invalidSection.questions.find(question => matchesCondition(question.visibility_condition, valuesRef.current) && questionModule(question.question_key)!=="clinical" && questionErrors(question, valuesRef.current[question.question_key]).length)!;
-      const invalidModule = questionModule(invalidQuestion.question_key);
-      setModule(invalidModule);
-      if (invalidModule === 'recall') setRecallOpened(true);
-      if (invalidModule === 'clinical') { setClinicalOpened(true); setClinicalStage(clinicalStageFor(invalidQuestion.question_key)); }
-      if (invalidModule === 'interview') setActive(Math.max(0, sections.findIndex(section => section.section_key === invalidSection.section_key)));
-      setError(
-        "Revisa los campos señalados antes de cerrar. Los campos opcionales pueden quedar sin responder.",
-      );
-      return;
-    }
-    closing.current = true;
+  const saveFromClose = async (destination?: ConsultationCloseDestination): Promise<boolean> => {
+    if (!consultation || !snapshot || !closeOpen || busy || saving || closeAction.current) return false;
+    if (destination && (!reviewed || closeBlockers.length)) return false;
+
+    const reviewedFields = consultationCloseFields(allSections, values).flatMap(section => section.fields);
+    if (destination && reviewedFields.some(field => field.issues.some(issue => issue.kind === "invalid"))) return false;
+
+    closeAction.current = true;
     setBusy(true);
+    setCloseError("");
+    setError("");
     try {
-      if (!(await saveAll())) return;
-      if (allSections.some(section=>section.questions.some(q=>matchesCondition(q.visibility_condition,valuesRef.current) && questionModule(q.question_key)!=="clinical" && questionErrors(q,valuesRef.current[q.question_key]).length))) {
-        setCloseIntent(null);setError('La información sincronizada tiene campos pendientes. Revisa los campos señalados antes de cerrar.');return;
+      if (!await saveAll()) {
+        setCloseError("No pudimos guardar el avance. Vuelve a intentarlo.");
+        return false;
+      }
+      if (!destination) return true;
+      if (!await autosave.refresh()) {
+        setCloseError("No pudimos comprobar las respuestas guardadas. Vuelve a intentarlo.");
+        return false;
+      }
+
+      const reviewedKeys = new Set(reviewedFields.map(field => field.question.question_key));
+      const currentFields = consultationCloseFields(allSections, valuesRef.current).flatMap(section => section.fields);
+      if (currentFields.some(field =>
+        !reviewedKeys.has(field.question.question_key) || field.issues.some(issue => issue.kind === "invalid")
+      )) {
+        setReviewed(false);
+        setCloseError("Los pendientes cambiaron al sincronizar. Revísalos antes de cerrar.");
+        return false;
       }
       const answered = allSections
         .flatMap((s) => s.questions)
@@ -750,17 +755,15 @@ function ConsultationEditor() {
       );
       closed.current = true;
       clearWorkspace(consultation.id);
-      navigate(closeIntent === "workshop"
+      navigate(destination === "workshop"
         ? `/app/diet-workshop?patientId=${consultation.patient_id}&consultationId=${consultation.id}`
-        : "/app/patients/" + patientId);
+        : `/app/patients/${consultation.patient_id}?view=history`, { replace: true });
+      return true;
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "No se pudo cerrar la entrevista.",
-      );
+      setCloseError(cause instanceof Error ? cause.message : "No se pudo cerrar la consulta.");
+      return false;
     } finally {
-      closing.current = false;
+      closeAction.current = false;
       setBusy(false);
     }
   };
@@ -934,7 +937,7 @@ function ConsultationEditor() {
   }, [pesFocus, module, active]);
   const renderQuestions = (questions: Question[]) => <fieldset disabled={busy} className="interview-question-grid">{questions.filter(question => matchesCondition(question.visibility_condition, values)).map(question => <InterviewQuestionCard key={question.question_key} question={question} className={['pes_problem', 'pes_etiology'].includes(question.question_key) ? 'clinical-pes-field' : ''}>
     {question.question_type === 'long_text' && composeInterviewDraft(question.question_key, values) && <button type="button" className="nuth-button-secondary mb-2 !text-xs" onClick={() => setAnswer(question.question_key, appendComposedText(valuesRef.current[question.question_key], composeInterviewDraft(question.question_key, values)))}><FileText size={15} />Redactar con datos registrados</button>}
-    <QuestionField question={question} value={values[question.question_key]} errors={showErrors ? questionErrors(question, values[question.question_key]) : []} onChange={value => setAnswer(question.question_key, value)} />
+    <QuestionField question={question} value={values[question.question_key]} onChange={value => setAnswer(question.question_key, value)} />
   </InterviewQuestionCard>)}</fieldset>;
   const renderClinicalFields = (category: 'diagnosis' | 'objectives' | 'recommendations' | 'followup') => clinicalSections.flatMap(section => {
     const questions = section.questions.filter(question => {
@@ -1257,7 +1260,22 @@ function ConsultationEditor() {
           </div>
         </div>
       </header>
-      {closeIntent && <ConsultationCloseDialog continueToWorkshop={closeIntent === "workshop"} busy={busy || saving} reviewed={reviewed} pending={[recallPending && "Recordatorio de 24 horas", measurementsPending && "Mediciones / Bioimpedancia", laboratoriesPending && "Laboratorios", clinicalDate !== dateInZone(new Date(consultation.consultation_date), patient.timezone) && "la fecha de consulta"].filter((item): item is string => Boolean(item))} error={error || saveError} onReview={setReviewed} onCancel={() => setCloseIntent(null)} onConfirm={() => void complete()}><InterviewReview structure={snapshot.structure} values={values} showEmpty /></ConsultationCloseDialog>}
+      {closeOpen && (
+        <ConsultationCloseDialog
+          sections={allSections}
+          values={values}
+          busy={busy}
+          saving={saving}
+          reviewed={reviewed}
+          blockedBy={closeBlockers}
+          error={saveError || error || closeError}
+          onChange={setAnswer}
+          onSave={saveFromClose}
+          onReview={setReviewed}
+          onCancel={() => setCloseOpen(false)}
+          onConfirm={destination => void saveFromClose(destination)}
+        />
+      )}
       <div className="sticky top-0 z-20 mt-4 flex flex-wrap justify-end gap-2 rounded-xl bg-[#f7faf8]/95 p-2 backdrop-blur">
         <ConsultationNotes patientId={patient.id} consultationId={consultation.id} onSaved={refreshObservations} />
         <button type="button" className="nuth-button" disabled={busy || saving} onClick={()=>void saveAll().then(ok=>{if(ok)setNotice("Avance de la consulta guardado.");})}><Save size={16}/>Guardar consulta</button>
@@ -1265,7 +1283,7 @@ function ConsultationEditor() {
       </div>
       <nav className="consultation-step-nav" aria-label="Módulos de la consulta">
         {consultationSteps.map((step, index) => <button key={step.key} type="button" aria-current={module === step.key ? 'page' : undefined} disabled={busy} onClick={() => void goModule(step.key)}><span aria-hidden="true">{index + 1}</span>{step.label}</button>)}
-        <button type="button" disabled={busy || saving} onClick={() => reviewClose("workshop")}><Salad size={15} />Taller de dietas</button>
+        <button type="button" disabled={busy || saving} onClick={reviewClose}><Salad size={15} />Taller de dietas</button>
       </nav>
       <PesContextNavigation ref={pesContextNavigation} atPes={module === 'clinical' && clinicalStage === 1} before={saveAll} beforeReturn={saveForClinical} onOpen={openPesTarget} onReturn={() => { setClinicalOpened(true); setModule('clinical'); setClinicalStage(1); setPesFocus(null); requestAnimationFrame(() => document.getElementById('consultation-clinical-heading')?.scrollIntoView({ block: 'start', behavior: 'smooth' })); }} />
       {backupWarning && <p role="alert" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">El respaldo local no está disponible en este navegador. Conserva esta pestaña abierta hasta confirmar el guardado.</p>}
@@ -1275,7 +1293,7 @@ function ConsultationEditor() {
       {recallOpened && <section data-consultation-module="recall" tabIndex={-1} className="consultation-guided-workspace mt-6" hidden={module !== 'recall'} aria-label="Paso de recordatorio de 24 horas">
         <header className="consultation-guided-intro"><p className="nuth-eyebrow">02 · Registra el consumo</p><h2>Recordatorio de 24 horas</h2><p>Un día concreto, desde la primera comida hasta la última bebida.</p></header>
         <RecallCopilot key={`${consultation.id}:${snapshot.revision}:recall`} patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} active={module === 'recall'} before={save} onPendingChange={setRecallPending} navigationRef={recallNavigationRef} onNavigationChange={setRecallNavigation} />
-        {recallSections.map(section => <details key={section.section_key} className="recall-supported-fields" open={showErrors && section.questions.some(question => matchesCondition(question.visibility_condition, values) && questionErrors(question, values[question.question_key]).length > 0)}><summary>{section.title === "Recordatorio de 24 horas" ? "Registro detallado del día y preguntas de apoyo" : section.title}</summary><p>{section.title === "Recordatorio de 24 horas" ? 'Aquí puedes registrar la fecha, horarios, preparación y posibles olvidos. Este registro complementa los alimentos confirmados arriba.' : section.description}</p>{renderQuestions(section.questions)}</details>)}
+        {recallSections.map(section => <details key={section.section_key} className="recall-supported-fields"><summary>{section.title === "Recordatorio de 24 horas" ? "Registro detallado del día y preguntas de apoyo" : section.title}</summary><p>{section.title === "Recordatorio de 24 horas" ? 'Aquí puedes registrar la fecha, horarios, preparación y posibles olvidos. Este registro complementa los alimentos confirmados arriba.' : section.description}</p>{renderQuestions(section.questions)}</details>)}
       </section>}
       {clinicalOpened && <div data-consultation-module="clinical" className="consultation-guided-workspace clinical-decision-workspace mt-6" hidden={module !== 'clinical'}>
         <header className="consultation-guided-intro" id="consultation-clinical-heading">
@@ -1330,7 +1348,7 @@ function ConsultationEditor() {
         <section hidden={clinicalStage !== 3} className="clinical-stage" aria-label="Estrategia de intervención">
           <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">04 · Define cómo se llevará a cabo</p><h2>Estrategia de intervención</h2><p>Organiza las acciones que llevarán los objetivos a la práctica.</p></div></header>
           {module === "clinical" && clinicalStage === 3 && <ClinicalBatchStageRevision feature="intervention_strategy" patientId={patient.id} consultationId={consultation.id} revision={snapshot.revision} blocked={busy} before={saveForClinical} />}
-          <ClinicalInterventions onReviewPrerequisite={stage=>void goClinicalStage(stage)} onCompleted={all=>reportCompletion(all?"Estrategias aprobadas. Puedes continuar a indicaciones.":"Estrategia aprobada.")} onStatusChange={status=>updateClinicalProgress("strategies",status)} key={`${consultation.id}:${snapshot.revision}:strategies`} consultationId={consultation.id} patientId={patient.id} revision={snapshot.revision} before={saveForClinical} active={module === 'clinical' && clinicalStage === 3} onPendingChange={setStrategyPending} onChanged={() => setClinicalRefresh(value => value + 1)} onOpenWorkshop={() => reviewClose("workshop")} onOpenInstructions={() => void goClinicalStage(4)} />
+          <ClinicalInterventions onReviewPrerequisite={stage=>void goClinicalStage(stage)} onCompleted={all=>reportCompletion(all?"Estrategias aprobadas. Puedes continuar a indicaciones.":"Estrategia aprobada.")} onStatusChange={status=>updateClinicalProgress("strategies",status)} key={`${consultation.id}:${snapshot.revision}:strategies`} consultationId={consultation.id} patientId={patient.id} revision={snapshot.revision} before={saveForClinical} active={module === 'clinical' && clinicalStage === 3} onPendingChange={setStrategyPending} onChanged={() => setClinicalRefresh(value => value + 1)} onOpenWorkshop={reviewClose} onOpenInstructions={() => void goClinicalStage(4)} />
         </section>
         <section hidden={clinicalStage !== 4} className="clinical-stage" aria-label="Indicaciones para el paciente">
           <header className="clinical-stage-heading"><div>
@@ -1351,7 +1369,7 @@ function ConsultationEditor() {
             answers={values} noteInTemplate={hasFollowupNote} onNoteChange={note=>setAnswer('followup_plan',note)}
             additionalAnswers={otherFollowupQuestions.map(question=>values[question.question_key])}
             additionalFields={otherFollowupQuestions.length>0 && <ClinicalFieldCards
-              questions={otherFollowupQuestions} values={values} busy={busy} showErrors={showErrors} before={saveAll} onChange={setAnswer} />}
+              questions={otherFollowupQuestions} values={values} busy={busy} showErrors={false} before={saveAll} onChange={setAnswer} />}
             busy={busy||saving} progressVersion={observationsVersion} onProgressSaved={refreshObservations}
             onEdit={stage=>void goClinicalStage(stage)} onSave={saveAll} onStatusChange={reportFollowupStatus} />
         </section>
@@ -1465,14 +1483,6 @@ function ConsultationEditor() {
                         <QuestionField
                           question={question}
                           value={values[question.question_key]}
-                          errors={
-                            showErrors
-                              ? questionErrors(
-                                  question,
-                                  values[question.question_key],
-                                )
-                              : []
-                          }
                           onChange={(value) =>
                             setAnswer(question.question_key, value)
                           }

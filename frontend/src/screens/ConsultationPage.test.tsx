@@ -8,6 +8,7 @@ import { composeObjective, emptyObjective, type ObjectivePlan } from '../../../s
 import { clinicalBatchKey } from '../../../supabase/functions/_shared/clinical-batch';
 import { formatObjectiveEditorText, readObjectiveEditorText } from "@/src/features/consultations/objectiveEditorText";
 import { formatPesEditorText } from '@/src/features/consultations/pesEditorText';
+import type { Question } from "@/src/features/consultations/questionnaire";
 
 const mocks = vi.hoisted(() => ({
   save: vi.fn(),
@@ -636,7 +637,7 @@ describe("consultation save and review workflow", () => {
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(within(dialog).getByRole('checkbox'));
     expect(within(dialog).getByRole('status')).toHaveTextContent('Recordatorio de 24 horas');
-    expect(within(dialog).getByRole('button', { name: 'Confirmar cierre' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Cerrar y ver historial' })).toBeDisabled();
   });
 
   it("moves to strategies with a saved draft or confirms the approval with specifications pending", async () => {
@@ -943,15 +944,15 @@ describe("consultation save and review workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Revisar cierre de consulta" }));
     let dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("checkbox"));
-    expect(within(dialog).getByRole("button", { name: "Confirmar cierre" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Cerrar y ver historial" })).toBeDisabled();
     expect(mocks.finish).not.toHaveBeenCalled();
-    fireEvent.click(within(dialog).getAllByRole("button", { name: "Volver a la consulta" })[0]);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Volver a la consulta" }));
     fireEvent.click(screen.getByRole("button", { name: "Guardar medición de prueba" }));
     fireEvent.click(screen.getByRole("button", { name: "Revisar cierre de consulta" }));
     dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("checkbox")).not.toBeChecked();
     fireEvent.click(within(dialog).getByRole("checkbox"));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar cierre" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar y ver historial" }));
     expect(await screen.findByRole("heading", { name: "Ficha guardada" })).toBeInTheDocument();
     expect(mocks.finish).toHaveBeenCalledOnce();
   });
@@ -970,7 +971,7 @@ describe("consultation save and review workflow", () => {
       fireEvent.click(screen.getByRole("button", { name: "Revisar cierre de consulta" }));
       const dialog = await screen.findByRole("dialog");
       fireEvent.click(within(dialog).getByRole("checkbox"));
-      fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar cierre" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar y ver historial" }));
       expect(await screen.findByRole("heading", { name: "Ficha guardada" })).toBeInTheDocument();
       expect(mocks.finish).toHaveBeenCalledOnce();
     } finally {
@@ -978,16 +979,53 @@ describe("consultation save and review workflow", () => {
       confirm.mockRestore();
     }
   });
-  it("returns to the required answer when closing from another tab", async () => {
+  it("edits applicable required fields from the saved custom interview without leaving the modal", async () => {
+    const custom = structuredClone(fixtures.snapshot);
+    custom.template_id = "personal-template";
+    custom.template_name = "Mi entrevista personalizada";
+    custom.template_version = 1;
+    const savedSection = custom.structure.sections[1];
+    const field = { question_type: "long_text", configuration: {}, response_area: "patient_reported" } as const;
+    const questions: Question[] = [
+      { ...savedSection.questions[0], label: "¿Se habló del horario?", question_type: "select", response_area: "professional_assessment" },
+      { ...field, question_key: "schedule", label: "Horario que acordaron", is_required: true, visibility_condition: { question_key: "review", equals: "Revisado" } },
+      { ...field, question_key: "barrier", label: "Barrera pendiente", is_required: true, visibility_condition: { question_key: "review", equals: "Pendiente" } },
+      { ...field, question_key: "optional", label: "Nota adicional opcional", is_required: false },
+    ];
+    mocks.getSnapshot.mockResolvedValue({
+      ...custom,
+      structure: { ...custom.structure, sections: [custom.structure.sections[0], { ...savedSection, questions }] },
+    });
     mount();
     await screen.findByRole("heading", { name: "Apertura de prueba" });
     await openModule("Mediciones");
     fireEvent.click(screen.getByRole("button", { name: "Revisar cierre de consulta" }));
-    const dialog = await screen.findByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("checkbox"));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar cierre" }));
-    expect(await screen.findByRole("heading", { name: "Cierre de prueba" })).toBeVisible();
+    const dialog = within(await screen.findByRole("dialog", { name: "Cerrar consulta" }));
+    expect(dialog.queryByLabelText(/Horario que acordaron|Barrera pendiente|Nota adicional opcional|Detalle breve/)).not.toBeInTheDocument();
+    const review = dialog.getByRole("combobox", { name: /Se habló del horario/ });
+    fireEvent.change(review, { target: { value: "Pendiente" } });
+    expect(dialog.getByRole("textbox", { name: /Barrera pendiente/ })).toBeVisible();
+    fireEvent.change(review, { target: { value: "Revisado" } });
+    expect(dialog.queryByRole("textbox", { name: /Barrera pendiente/ })).not.toBeInTheDocument();
+    const schedule = dialog.getByRole("textbox", { name: /Horario que acordaron/ });
+    fireEvent.change(schedule, { target: { value: "Después de las 18:00" } });
+    expect(schedule).toBeVisible();
+    const saveResponses = dialog.getByRole("button", { name: "Guardar respuestas" });
+    mocks.save.mockRejectedValue(new Error("No hay conexión para guardar"));
+    fireEvent.click(saveResponses);
+    expect(await dialog.findByRole("alert")).toHaveTextContent("No hay conexión para guardar");
+    expect(schedule).toHaveValue("Después de las 18:00");
+    mocks.save.mockResolvedValue(undefined);
+    fireEvent.click(saveResponses);
+    expect(await dialog.findByText("Respuestas guardadas.")).toBeVisible();
+    expect(dialog.queryByRole("region", { name: "Pendientes del guion de esta consulta" })).not.toBeInTheDocument();
+    expect(mocks.answerState.answers).toMatchObject({ review: "Revisado", schedule: "Después de las 18:00" });
     expect(mocks.finish).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Mediciones" })).toHaveAttribute("aria-current", "page");
+    fireEvent.click(dialog.getByRole("checkbox"));
+    fireEvent.click(dialog.getByRole("button", { name: "Cerrar y ver historial" }));
+    await screen.findByRole("heading", { name: "Ficha guardada" });
+    expect(mocks.finish).toHaveBeenCalledExactlyOnceWith("draft", expect.stringContaining("Mi entrevista personalizada · 2 respuestas registradas."));
   });
   it("blocks closure with uncommitted laboratory edits even from another tab", async () => {
     mount();
@@ -999,11 +1037,11 @@ describe("consultation save and review workflow", () => {
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("checkbox"));
     expect(within(dialog).getByRole("status")).toHaveTextContent("Laboratorios");
-    expect(within(dialog).getByRole("button", { name: "Confirmar cierre" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Cerrar y ver historial" })).toBeDisabled();
     expect(mocks.finish).not.toHaveBeenCalled();
   });
-  it("requires review and catches missing required responses before closing", async () => {
-    mount();
+  it("warns about unanswered required fields and closes to the history after confirmation", async () => {
+    const { router } = mount();
     await screen.findByRole("heading", { name: "Apertura de prueba" });
     fireEvent.change(screen.getByLabelText("Ir a una sección"), {
       target: { value: "2" },
@@ -1011,12 +1049,53 @@ describe("consultation save and review workflow", () => {
     await screen.findByRole("heading", { name: "Revisa lo conversado" });
     fireEvent.click(screen.getByRole('button', { name: 'Revisar cierre de consulta' }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByRole('button', { name: 'Confirmar cierre' })).toBeDisabled();
+    const history = within(dialog).getByRole('button', { name: 'Cerrar y ver historial' });
+    expect(history).toBeDisabled();
+    expect(within(dialog).getByText(/Hay datos obligatorios sin completar/)).toBeVisible();
+    expect(within(dialog).getByRole("combobox", { name: /Confirmación de prueba/ })).toHaveValue("");
+    expect(within(dialog).queryByLabelText("Detalle breve de prueba")).not.toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole('checkbox'));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirmar cierre' }));
-    await screen.findByRole("heading", { name: "Cierre de prueba" });
-    expect(mocks.finish).not.toHaveBeenCalled();
-    expect(screen.getByText("Falta responder.")).toBeInTheDocument();
+    expect(history).toBeEnabled();
+    fireEvent.click(history);
+    await screen.findByRole("heading", { name: "Ficha guardada" });
+    expect(router.state.location.search).toBe("?view=history");
+    expect(mocks.finish).toHaveBeenCalledExactlyOnceWith("draft", expect.stringContaining("0 respuestas registradas."));
+    expect(mocks.answerState.answers).not.toHaveProperty("review");
+  });
+  it("keeps range validation for entered values and allows leaving a required value blank", async () => {
+    const custom = structuredClone(fixtures.snapshot);
+    const question: Question = {
+      question_key: "frequency",
+      label: "Frecuencia semanal acordada",
+      question_type: "number",
+      configuration: { min: 0, max: 7 },
+      response_area: "patient_reported",
+      is_required: true,
+    };
+    mocks.getSnapshot.mockResolvedValue({
+      ...custom,
+      structure: {
+        ...custom.structure,
+        sections: [...custom.structure.sections, { section_key: "frequency", title: "Frecuencia", questions: [question] }],
+      },
+    });
+    mocks.answerState.answers = { review: "Revisado", frequency: "9" };
+    mount();
+    const dialog = within(await requestWorkshop());
+    const consent = dialog.getByRole("checkbox");
+    const close = dialog.getByRole("button", { name: "Cerrar y ver historial" });
+    fireEvent.click(consent);
+    expect(close).toBeDisabled();
+    const frequency = dialog.getByRole("spinbutton", { name: /Frecuencia semanal acordada/ });
+    expect(frequency).toHaveValue(9);
+    fireEvent.change(frequency, { target: { value: "" } });
+    expect(consent).not.toBeChecked();
+    expect(dialog.getByText(/Hay datos obligatorios sin completar/)).toBeVisible();
+    fireEvent.click(consent);
+    expect(close).toBeEnabled();
+    fireEvent.click(close);
+    await screen.findByRole("heading", { name: "Ficha guardada" });
+    expect(mocks.finish).toHaveBeenCalledOnce();
   });
   it.each(["Mejorar adherencia al plan.", ""])("saves the initial treatment objective and closes safely (%s)", async (objective) => {
     const section = {
@@ -1052,7 +1131,7 @@ describe("consultation save and review workflow", () => {
       fireEvent.click(screen.getByRole('button', { name: 'Revisar cierre de consulta' }));
       const dialog = await screen.findByRole('dialog');
       fireEvent.click(within(dialog).getByRole('checkbox'));
-      fireEvent.click(within(dialog).getByRole('button', { name: 'Confirmar cierre' }));
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Cerrar y ver historial' }));
       await waitFor(() => expect(mocks.finish).toHaveBeenCalledOnce());
       if (objective) expect(mocks.save).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ treatment_objective: objective }));
       expect(mocks.objective.mock.calls.some(args => args[2] === 'approve')).toBe(false);
@@ -1072,7 +1151,7 @@ describe("consultation save and review workflow", () => {
     fireEvent.click(screen.getByRole('button', { name: 'Revisar cierre de consulta' }));
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(within(dialog).getByRole('checkbox'));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirmar cierre' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cerrar y ver historial' }));
     await waitFor(() => expect(mocks.finish).toHaveBeenCalledOnce());
     expect(
       await screen.findByRole("heading", { name: "Ficha guardada" }),
@@ -1081,7 +1160,7 @@ describe("consultation save and review workflow", () => {
 });
 
 const exitTitle = "¿Qué quieres hacer con esta consulta?";
-const workshopCloseTitle = "Cerrar consulta y abrir el Taller de dietas";
+const workshopCloseTitle = "Cerrar consulta";
 async function requestWorkshop() {
   const button = await screen.findByRole("button", { name: "Taller de dietas" });
   await waitFor(() => expect(button).toBeEnabled());
@@ -1098,7 +1177,7 @@ describe("closing a consultation before the diet workshop", () => {
     fireEvent.change(await screen.findByLabelText("Detalle breve de prueba"), { target: { value: "Último cambio antes del Taller" } });
     const dialog = await requestWorkshop();
     expect(screen.queryByRole("dialog", { name: exitTitle })).not.toBeInTheDocument();
-    const confirm = within(dialog).getByRole("button", { name: "Cerrar y abrir el Taller" });
+    const confirm = within(dialog).getByRole("button", { name: "Cerrar e ir al Taller de dietas" });
     expect(confirm).toBeDisabled();
     expect(mocks.finish).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole("checkbox"));
@@ -1107,7 +1186,7 @@ describe("closing a consultation before the diet workshop", () => {
     expect(mocks.save).toHaveBeenLastCalledWith(expect.objectContaining({ id: "draft" }), expect.anything(), { note: "Último cambio antes del Taller" });
     expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(mocks.finish.mock.invocationCallOrder[0]);
     expect(router.state.location.pathname).toBe("/app/patients/patient/consultations/draft");
-    expect(within(dialog).getByRole("button", { name: "Cerrando…" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Cerrar e ir al Taller de dietas" })).toBeDisabled();
     await act(async () => { resolveFinish({ ...fixtures.c, status: "completed" }); });
     await screen.findByRole("heading", { name: "Taller de dietas preparado" });
     expect(router.state.location.pathname + router.state.location.search).toBe("/app/diet-workshop?patientId=patient&consultationId=draft");
@@ -1120,15 +1199,15 @@ describe("closing a consultation before the diet workshop", () => {
     mount();
     const workshopDialog = await requestWorkshop();
     fireEvent.click(within(workshopDialog).getByRole("checkbox"));
-    fireEvent.click(within(workshopDialog).getAllByRole("button", { name: "Volver a la consulta" })[0]);
+    fireEvent.click(within(workshopDialog).getByRole("button", { name: "Volver a la consulta" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(mocks.finish).not.toHaveBeenCalled();
     expect(mocks.discard).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Revisar cierre de consulta" }));
-    const dialog = await screen.findByRole("dialog", { name: "Cerrar entrevista" });
+    const dialog = await screen.findByRole("dialog", { name: "Cerrar consulta" });
     expect(within(dialog).getByRole("checkbox")).not.toBeChecked();
     fireEvent.click(within(dialog).getByRole("checkbox"));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar cierre" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar y ver historial" }));
     await screen.findByRole("heading", { name: "Ficha guardada" });
     expect(screen.queryByRole("heading", { name: "Taller de dietas preparado" })).not.toBeInTheDocument();
   });
@@ -1151,32 +1230,49 @@ describe("closing a consultation before the diet workshop", () => {
     if (failure === "save") mocks.save.mockRejectedValue(new Error("No hay conexión para guardar"));
     else mocks.finish.mockRejectedValueOnce(new Error("No pudimos cerrar la consulta"));
     fireEvent.click(within(dialog).getByRole("checkbox"));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar y abrir el Taller" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar e ir al Taller de dietas" }));
     await within(dialog).findByRole("alert");
     expect(router.state.location.pathname).toBe("/app/patients/patient/consultations/draft");
     expect(screen.getByLabelText("Detalle breve de prueba")).toHaveValue("Conservar al fallar");
     expect(sessionStorage.getItem("nuthrick:consultation-workspace:draft")).not.toBeNull();
     if (failure === "save") expect(mocks.finish).not.toHaveBeenCalled();
     mocks.save.mockResolvedValue(undefined);
-    fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar y abrir el Taller" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar e ir al Taller de dietas" }));
     await screen.findByRole("heading", { name: "Taller de dietas preparado" });
     expect(router.state.location.search).toBe("?patientId=patient&consultationId=draft");
     expect(mocks.discard).not.toHaveBeenCalled();
   });
 
-  it("returns to a missing required answer and opens the workshop only after correcting it and reviewing again", async () => {
+  it("opens the same closing choices at the end of the flow and can continue to the workshop with missing answers", async () => {
     const { router } = mount();
-    let dialog = await requestWorkshop();
+    await openFollowup();
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Evolución" })).toHaveAttribute("aria-current", "page"));
+    const finishButtons = screen.getAllByRole("button", { name: "Revisar cierre de consulta" });
+    fireEvent.click(finishButtons[finishButtons.length - 1]);
+    const dialog = await screen.findByRole("dialog", { name: workshopCloseTitle });
+    expect(within(dialog).getByText(/Hay datos obligatorios sin completar/)).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: "Cerrar y ver historial" })).toBeDisabled();
     fireEvent.click(within(dialog).getByRole("checkbox"));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar y abrir el Taller" }));
-    await screen.findByRole("heading", { name: "Cierre de prueba" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar e ir al Taller de dietas" }));
+    await screen.findByRole("heading", { name: "Taller de dietas preparado" });
+    expect(router.state.location.search).toBe("?patientId=patient&consultationId=draft");
+    expect(mocks.finish).toHaveBeenCalledOnce();
+  });
+
+  it("requires another confirmation if syncing reveals a newly missing answer", async () => {
+    mocks.answerState.answers = { review: "Revisado" };
+    mount();
+    const dialog = within(await requestWorkshop());
+    fireEvent.click(dialog.getByRole("checkbox"));
+    mocks.answerState = { version: 1, answers: {} };
+    fireEvent.click(dialog.getByRole("button", { name: "Cerrar e ir al Taller de dietas" }));
+    expect(await dialog.findByRole("alert")).toHaveTextContent("Los pendientes cambiaron al sincronizar");
     expect(mocks.finish).not.toHaveBeenCalled();
-    expect(router.state.location.pathname).toBe("/app/patients/patient/consultations/draft");
-    fireEvent.change(screen.getByRole("combobox", { name: /Confirmación de prueba/ }), { target: { value: "Revisado" } });
-    dialog = await requestWorkshop();
-    expect(within(dialog).getByRole("checkbox")).not.toBeChecked();
-    fireEvent.click(within(dialog).getByRole("checkbox"));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Cerrar y abrir el Taller" }));
+    expect(dialog.getByRole("checkbox")).not.toBeChecked();
+    expect(dialog.getByRole("combobox", { name: /Confirmación de prueba/ })).toBeVisible();
+    fireEvent.click(dialog.getByRole("checkbox"));
+    fireEvent.click(dialog.getByRole("button", { name: "Cerrar e ir al Taller de dietas" }));
     await screen.findByRole("heading", { name: "Taller de dietas preparado" });
   });
 
@@ -1192,7 +1288,7 @@ describe("closing a consultation before the diet workshop", () => {
     }
     const dialog = await requestWorkshop();
     fireEvent.click(within(dialog).getByRole("checkbox"));
-    expect(within(dialog).getByRole("button", { name: "Cerrar y abrir el Taller" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Cerrar e ir al Taller de dietas" })).toBeDisabled();
     expect(mocks.finish).not.toHaveBeenCalled();
     expect(screen.queryByRole("heading", { name: "Taller de dietas preparado" })).not.toBeInTheDocument();
   });

@@ -4,16 +4,32 @@ import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ConsultationMeasurements } from "@/src/components/consultations/ConsultationMeasurements";
 import { PatientEvolutionCharts } from "@/src/components/patients/EvolutionCharts";
+import type { Answers } from "@/src/features/consultations/questionnaire";
+import type { ConsultationSnapshotStructure } from "@/src/types/domain";
 import { ConsultationCloseDialog } from "@/src/components/consultations/ConsultationCloseDialog";
 import { PatientDetailPage } from "@/src/screens/PatientDetailPage";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { consultation, getPatient, patient } from "./patient-adjustments-fixtures";
 import "../../app/globals.css";
+const closeSections: ConsultationSnapshotStructure["sections"] = [{
+ section_key: "goals",
+ title: "Entrevista personalizada",
+ questions: [{
+  question_key: "priority",
+  label: "¿Qué te gustaría trabajar en esta consulta?",
+  is_required: true,
+  question_type: "long_text",
+  configuration: {},
+  response_area: "patient_reported",
+ }],
+}];
+
 function App() {
+ const [values, setValues] = useState<Answers>({});
  const [exportOpen, setExportOpen] = useState(false);
  const [currentPatient, setCurrentPatient] = useState(patient);
  const [references, setReferences] = useState(emptyProgressReferences);
  const [tab, setTab] = useState("measurements"); const [open, setOpen] = useState(false); const [pending, setPending] = useState(false); const [reviewed, setReviewed] = useState(false);
- return <main className="mx-auto max-w-6xl p-4 sm:p-8"><header className="mb-5 rounded-3xl bg-[#173d36] p-5 text-white"><p className="text-xs text-white/70">Demostración · datos ficticios · Guardado simulado</p><h1 className="mt-2 text-2xl font-semibold">Paciente de demostración</h1><div className="mt-4 flex flex-wrap gap-2"><button className="rounded-lg bg-white/10 px-3 py-2" onClick={() => setTab("patient")}>Ficha del paciente</button><button className="rounded-lg bg-white/10 px-3 py-2" onClick={() => { void getPatient().then(setCurrentPatient); setTab("measurements"); }}>Mediciones</button><button className="rounded-lg bg-white/10 px-3 py-2" onClick={() => setTab("charts")}>Gráficas</button><button className="rounded-lg bg-white/10 px-3 py-2" onClick={() => setOpen(true)}>Revisar cierre</button></div></header>{tab === "patient" && <MemoryRouter initialEntries={["/app/patients/visual-patient"]}><Routes><Route path="/app/patients/:patientId" element={<PatientDetailPage/>}/></Routes></MemoryRouter>}<div hidden={tab !== "measurements"}><ConsultationMeasurements consultation={consultation as never} patient={currentPatient} onPatientChange={setCurrentPatient} onPendingChange={setPending}/></div>{tab === "charts" && <PatientEvolutionCharts references={references} onReferencesChange={setReferences} patientId={patient.id} onOpenEvolution={() => setExportOpen(true)}/>}{exportOpen && <EvolutionExportDialog patient={currentPatient} references={references} onReferencesChange={setReferences} onClose={() => setExportOpen(false)} getProfessionalInfo={async () => ({ fullName: "Profesional de demostración", contactLines: ["Datos ficticios para revisión visual"] })}/>} {open && <ConsultationCloseDialog busy={false} reviewed={reviewed} pending={pending ? ["Mediciones"] : []} error="" onReview={setReviewed} onCancel={() => setOpen(false)} onConfirm={() => setOpen(false)}>Entrevista de demostración.</ConsultationCloseDialog>}</main>;
+ return <main className="mx-auto max-w-6xl p-4 sm:p-8"><header className="mb-5 rounded-3xl bg-[#173d36] p-5 text-white"><p className="text-xs text-white/70">Demostración · datos ficticios · Guardado simulado</p><h1 className="mt-2 text-2xl font-semibold">Paciente de demostración</h1><div className="mt-4 flex flex-wrap gap-2"><button className="rounded-lg bg-white/10 px-3 py-2" onClick={() => setTab("patient")}>Ficha del paciente</button><button className="rounded-lg bg-white/10 px-3 py-2" onClick={() => { void getPatient().then(setCurrentPatient); setTab("measurements"); }}>Mediciones</button><button className="rounded-lg bg-white/10 px-3 py-2" onClick={() => setTab("charts")}>Gráficas</button><button className="rounded-lg bg-white/10 px-3 py-2" onClick={() => { setReviewed(false); setOpen(true); }}>Revisar cierre</button></div></header>{tab === "patient" && <MemoryRouter initialEntries={["/app/patients/visual-patient"]}><Routes><Route path="/app/patients/:patientId" element={<PatientDetailPage/>}/></Routes></MemoryRouter>}<div hidden={tab !== "measurements"}><ConsultationMeasurements consultation={consultation as never} patient={currentPatient} onPatientChange={setCurrentPatient} onPendingChange={setPending}/></div>{tab === "charts" && <PatientEvolutionCharts references={references} onReferencesChange={setReferences} patientId={patient.id} onOpenEvolution={() => setExportOpen(true)}/>}{exportOpen && <EvolutionExportDialog patient={currentPatient} references={references} onReferencesChange={setReferences} onClose={() => setExportOpen(false)} getProfessionalInfo={async () => ({ fullName: "Profesional de demostración", contactLines: ["Datos ficticios para revisión visual"] })}/>} {open && <ConsultationCloseDialog sections={closeSections} values={values} busy={false} saving={false} reviewed={reviewed} blockedBy={pending ? ["Mediciones"] : []} error="" onChange={(key, value) => { setReviewed(false); setValues(current => ({ ...current, [key]: value })); }} onSave={async () => true} onReview={setReviewed} onCancel={() => setOpen(false)} onConfirm={() => setOpen(false)} />}</main>;
 }
 createRoot(document.getElementById("root")!).render(<App/>);

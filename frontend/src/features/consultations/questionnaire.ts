@@ -171,19 +171,19 @@ export function formatAnswer(question: Question, value: unknown): string {
   return inputValue(value);
 }
 
-export function questionErrors(question: Question, value: unknown): string[] {
+type QuestionIssue = { kind: "missing" | "invalid"; message: string };
+
+function questionIssues(question: Question, value: unknown): QuestionIssue[] {
   if (emptyValue(value))
-    return question.is_required ? ["Falta responder."] : [];
-  const errors: string[] = [];
+    return question.is_required ? [{ kind: "missing", message: "Falta responder." }] : [];
+  const issues: QuestionIssue[] = [];
   if (question.question_type === "repeatable_group" && Array.isArray(value)) {
     const fields = repeatableFields(question.configuration);
     value.forEach((row, index) => {
       if (!isRecord(row) || emptyValue(row)) return;
       for (const field of fields) {
         if (field.required && emptyValue(row[field.key]))
-          errors.push(
-            `Registro ${index + 1}: falta ${field.label.toLowerCase()}.`,
-          );
+          issues.push({ kind: "missing", message: `Registro ${index + 1}: falta ${field.label.toLowerCase()}.` });
         if (field.type === "number" && !emptyValue(row[field.key])) {
           const n = Number(row[field.key]);
           if (
@@ -191,9 +191,7 @@ export function questionErrors(question: Question, value: unknown): string[] {
             (field.min !== undefined && n < field.min) ||
             (field.max !== undefined && n > field.max)
           )
-            errors.push(
-              `Registro ${index + 1}: revisa ${field.label.toLowerCase()}.`,
-            );
+            issues.push({ kind: "invalid", message: `Registro ${index + 1}: revisa ${field.label.toLowerCase()}.` });
         }
       }
     });
@@ -207,9 +205,29 @@ export function questionErrors(question: Question, value: unknown): string[] {
       (typeof min === "number" && n < min) ||
       (typeof max === "number" && n > max)
     )
-      errors.push("Revisa el valor y el rango permitido.");
+      issues.push({ kind: "invalid", message: "Revisa el valor y el rango permitido." });
   }
-  return errors;
+  return issues;
+}
+
+export function questionErrors(question: Question, value: unknown): string[] {
+  return questionIssues(question, value).map(issue => issue.message);
+}
+
+export function consultationCloseFields(
+  sections: ConsultationSnapshotStructure["sections"],
+  values: Answers,
+  editing?: ReadonlySet<string>,
+) {
+  return sections.flatMap(section => {
+    const fields = section.questions.flatMap(question => {
+      const key = question.question_key;
+      if (!matchesCondition(question.visibility_condition, values)) return [];
+      const issues = questionIssues(question, values[key]);
+      return issues.length || editing?.has(key) ? [{ question, issues }] : [];
+    });
+    return fields.length ? [{ key: section.section_key, title: section.title, fields }] : [];
+  });
 }
 
 export function sectionProgress(
