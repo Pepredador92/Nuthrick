@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   AlertCircle,
   ArrowRight,
+  Bell,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
-  Clock3,
   Eye,
   MessageCircle,
+  Plus,
   RefreshCw,
   UserRound,
   UsersRound,
+  type LucideIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/src/features/auth/AuthProvider";
@@ -32,15 +34,19 @@ type DashboardData = {
 
 const timezoneFallback = "America/Mexico_City";
 
-function dateLabel(value: string, timezone: string) {
-  return new Intl.DateTimeFormat("es-MX", {
-    timeZone: timezone,
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
+function DashboardCardHeading({ id, title, icon: Icon, children }: {
+  id: string;
+  title: string;
+  icon: LucideIcon;
+  children?: ReactNode;
+}) {
+  return (
+    <header className="dashboard-card-heading">
+      <span className="dashboard-card-icon"><Icon size={19} aria-hidden="true" /></span>
+      <h2 id={id}>{title}</h2>
+      {children}
+    </header>
+  );
 }
 
 function profileCompletion(profile: ReturnType<typeof useAuth>["profile"]) {
@@ -49,15 +55,19 @@ function profileCompletion(profile: ReturnType<typeof useAuth>["profile"]) {
   return Math.round((fields.filter(Boolean).length / fields.length) * 100);
 }
 
-function AppointmentItem({ entry, timezone, inverse = false }: { entry: AgendaEntry; timezone: string; inverse?: boolean }) {
+function AppointmentItem({ entry, timezone, showDate = false }: { entry: AgendaEntry; timezone: string; showDate?: boolean }) {
+  const start = new Date(entry.starts_at);
+  const time = new Intl.DateTimeFormat("es-MX", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(start);
+  const date = showDate ? new Intl.DateTimeFormat("es-MX", { timeZone: timezone, day: "numeric", month: "short", weekday: "short" }).format(start) : null;
+  const modality = entry.modality === "online" ? "En línea" : "En consultorio";
   return (
-    <Link to="/app/agenda" className={`dashboard-appointment${inverse ? " is-primary" : ""}`}>
-      <span className="dashboard-appointment-icon"><Clock3 size={17} /></span>
-      <span className="min-w-0 flex-1">
-        <span className="dashboard-appointment-name">{entry.contact_name || "Cita sin nombre"}</span>
-        <span className="dashboard-appointment-meta">{dateLabel(entry.starts_at, timezone)} · {entry.modality === "online" ? "En línea" : "En consultorio"}</span>
+    <Link to="/app/agenda" className="dashboard-list-row">
+      <time className="dashboard-time" dateTime={entry.starts_at}>{time}</time>
+      <span className="dashboard-row-copy">
+        <strong>{entry.contact_name || "Cita sin nombre"}</strong>
+        <small>{date ? `${date} · ${modality}` : modality}</small>
       </span>
-      <ChevronRight size={16} className="shrink-0" aria-hidden="true" />
+      <ChevronRight size={16} className="dashboard-row-chevron" aria-hidden="true" />
     </Link>
   );
 }
@@ -103,76 +113,136 @@ export function DashboardPage() {
     return () => { active = false; };
   }, [owner, visitRequest]);
 
-  const today = useMemo(() => todayAppointments(data.entries, new Date(), timezone), [data.entries, timezone]);
-  const upcoming = useMemo(() => upcomingAppointments(data.entries).slice(0, 4), [data.entries]);
+  const { today, todayPreview, upcoming } = useMemo(() => {
+    const now = new Date();
+    const today = todayAppointments(data.entries, now, timezone);
+    const todayPreview = today.slice(0, 3);
+    const upcoming = upcomingAppointments(data.entries, now.getTime())
+      .filter(entry => !todayPreview.some(current => current.id === entry.id))
+      .slice(0, 4);
+    return { today, todayPreview, upcoming };
+  }, [data.entries, timezone]);
   const unreadMessages = unreadMessageCount(notifications);
   const firstName = profile?.full_name?.split(" ")[0] || "profesional";
   const completion = profileCompletion(profile);
   const visitTotal = profileVisits?.owner === owner ? profileVisits?.total : undefined;
+  const dateLabel = new Intl.DateTimeFormat("es-MX", { dateStyle: "full", timeZone: timezone }).format(new Date());
 
   return (
     <div className="dashboard-workspace">
       <header className="dashboard-heading">
-        <div>
-          <p className="nuth-eyebrow">Centro de trabajo</p>
+        <div className="dashboard-heading-copy">
+          <p className="dashboard-date"><CalendarDays size={16} aria-hidden="true" /><span>{dateLabel}</span></p>
           <h1>Hola, {firstName}</h1>
-          <p>Tu consulta de hoy, en orden.</p>
         </div>
-        <button type="button" className="dashboard-refresh" disabled={loading} onClick={() => { setLoading(true); setVisitRequest(request => request + 1); void refresh(); }}>
-          <RefreshCw size={16} className={loading ? "animate-spin" : undefined} />
-          Actualizar
-        </button>
+        <div className="dashboard-heading-actions">
+          <Link to="/app/patients" className="dashboard-action dashboard-action-primary"><Plus size={18} aria-hidden="true" />Nueva consulta</Link>
+          <button type="button" className="dashboard-action dashboard-refresh" disabled={loading} onClick={() => { setLoading(true); setVisitRequest(request => request + 1); void refresh(); }}>
+            <RefreshCw size={16} aria-hidden="true" className={loading ? "animate-spin" : undefined} />Actualizar
+          </button>
+        </div>
       </header>
 
       <ConsultationSetupReminder />
 
-      {error && <p role="alert" className="dashboard-error"><AlertCircle size={16} />{error}</p>}
+      {error && <p role="alert" className="dashboard-error"><AlertCircle size={18} aria-hidden="true" />{error}</p>}
 
-      <div className="dashboard-grid dashboard-grid-top">
-        <section className="dashboard-card dashboard-card-agenda" aria-labelledby="dashboard-today-title">
-          <div className="dashboard-card-header"><span className="dashboard-card-icon"><CalendarDays size={21} /></span><span className="dashboard-step">01 · Agenda de hoy</span></div>
-          <h2 id="dashboard-today-title">{loading ? "…" : today.length} {today.length === 1 ? "cita" : "citas"}</h2>
-          <p className="dashboard-card-description">Tu punto de partida para la jornada.</p>
-          {today.length ? <div className="dashboard-list">{today.slice(0, 3).map((entry) => <AppointmentItem key={entry.id} entry={entry} timezone={timezone} inverse />)}</div> : <p className="dashboard-empty dashboard-empty-primary">No tienes citas confirmadas para hoy. Revisa solicitudes o abre una nueva consulta.</p>}
-          <Link to="/app/agenda" className="dashboard-action dashboard-action-primary">Abrir agenda <ArrowRight size={16} /></Link>
+      <div className="dashboard-grid">
+        <section className="dashboard-card dashboard-card-agenda" aria-labelledby="dashboard-today-title" aria-busy={loading}>
+          <DashboardCardHeading id="dashboard-today-title" title="Agenda de hoy" icon={CalendarDays}>
+            <span className="dashboard-today-count">{loading ? "…" : error && !today.length ? "—" : `${today.length} ${today.length === 1 ? "cita" : "citas"}`}</span>
+          </DashboardCardHeading>
+          {today.length ? (
+            <ul className="dashboard-list">{todayPreview.map(entry => <li key={entry.id}><AppointmentItem entry={entry} timezone={timezone} /></li>)}</ul>
+          ) : (
+            <p className="dashboard-empty">{loading ? "Cargando citas de hoy…" : error ? "Las citas de hoy no están disponibles." : "No tienes citas confirmadas para hoy."}</p>
+          )}
+          <Link to="/app/agenda" className="dashboard-card-link">Abrir agenda <ArrowRight size={16} aria-hidden="true" /></Link>
         </section>
 
         <section className="dashboard-card dashboard-card-attention" aria-labelledby="dashboard-attention-title">
-          <div className="dashboard-card-header"><span className="dashboard-card-icon"><MessageCircle size={20} /></span><span className="dashboard-step">02 · Por atender</span></div>
-          <h2 id="dashboard-attention-title">Pendientes</h2>
-          <p className="dashboard-card-description">Mensajes y solicitudes que esperan respuesta.</p>
+          <DashboardCardHeading id="dashboard-attention-title" title="Pendientes" icon={Bell} />
           <div className="dashboard-attention-list">
-            <Link to="/app/messages" className="dashboard-attention-item"><span className="dashboard-mini-icon"><MessageCircle size={18} /></span><span className="dashboard-attention-copy"><strong>Mensajes sin leer</strong><small>Actividad del Super Link</small></span><strong className="dashboard-count">{notificationsLoading ? "—" : unreadMessages}</strong></Link>
-            <Link to="/app/agenda" className="dashboard-attention-item"><span className="dashboard-mini-icon"><CalendarDays size={18} /></span><span className="dashboard-attention-copy"><strong>Solicitudes de cita</strong><small>Esperando tu respuesta</small></span><strong className="dashboard-count">{loading ? "—" : data.requests.length}</strong></Link>
+            <Link to="/app/messages" className="dashboard-attention-item" aria-busy={notificationsLoading}>
+              <span className="dashboard-mini-icon"><MessageCircle size={17} aria-hidden="true" /></span>
+              <span className="dashboard-row-copy"><strong>Mensajes sin leer</strong><small>Super Link</small></span>
+              <strong className="dashboard-count" data-has-items={!notificationsLoading && unreadMessages > 0}>{notificationsLoading ? "—" : unreadMessages}</strong>
+              <ChevronRight size={16} className="dashboard-row-chevron" aria-hidden="true" />
+            </Link>
+            <Link to="/app/agenda" className="dashboard-attention-item" aria-busy={loading}>
+              <span className="dashboard-mini-icon"><CalendarDays size={17} aria-hidden="true" /></span>
+              <span className="dashboard-row-copy"><strong>Solicitudes de cita</strong><small>Esperando tu respuesta</small></span>
+              <strong className="dashboard-count" data-has-items={!loading && data.requests.length > 0}>{loading || (error && !data.requests.length) ? "—" : data.requests.length}</strong>
+              <ChevronRight size={16} className="dashboard-row-chevron" aria-hidden="true" />
+            </Link>
           </div>
-          <Link to="/app/patients" className="dashboard-action">Nueva consulta <ArrowRight size={16} /></Link>
         </section>
       </div>
 
-      <div className="dashboard-grid dashboard-grid-middle">
-        <section className="dashboard-card" aria-labelledby="dashboard-upcoming-title">
-          <div className="dashboard-section-head"><div><span className="dashboard-step">03 · Planifica</span><h2 id="dashboard-upcoming-title">Próximas citas</h2><p>Lo siguiente en tu agenda</p></div><Link to="/app/agenda">Ver agenda <ArrowRight size={15} /></Link></div>
-          {upcoming.length ? <div className="dashboard-list">{upcoming.map((entry) => <AppointmentItem key={entry.id} entry={entry} timezone={timezone} />)}</div> : <p className="dashboard-empty">No hay citas próximas.</p>}
+      <div className="dashboard-grid">
+        <section className="dashboard-card dashboard-card-upcoming" aria-labelledby="dashboard-upcoming-title" aria-busy={loading}>
+          <DashboardCardHeading id="dashboard-upcoming-title" title="Próximas citas" icon={CalendarDays} />
+          {upcoming.length ? (
+            <ul className="dashboard-list">{upcoming.map(entry => <li key={entry.id}><AppointmentItem entry={entry} timezone={timezone} showDate /></li>)}</ul>
+          ) : (
+            <p className="dashboard-empty">{loading ? "Cargando próximas citas…" : error ? "Las próximas citas no están disponibles." : "No hay citas próximas."}</p>
+          )}
+          <Link to="/app/agenda" className="dashboard-card-link">Ver agenda <ArrowRight size={16} aria-hidden="true" /></Link>
         </section>
-        <section className="dashboard-card dashboard-card-activity" aria-labelledby="dashboard-activity-title">
-          <div className="dashboard-section-head"><div><span className="dashboard-step">04 · Mantente al día</span><h2 id="dashboard-activity-title">Actividad reciente</h2><p>Mensajes y agenda</p></div><Link to="/app/messages">Mensajes <ArrowRight size={15} /></Link></div>
-          {notifications.length ? <div className="dashboard-list">{notifications.slice(0, 4).map((item) => <Link key={item.id} to={notificationPath(item)} className="dashboard-notification"><span className={`dashboard-notification-dot${item.read_at ? " is-read" : ""}`} /><span><strong>{item.title}</strong><small>{relativeNotificationDate(item.created_at)}</small></span><ChevronRight size={16} /></Link>)}</div> : <p className="dashboard-empty">No hay actividad nueva.</p>}
+        <section className="dashboard-card dashboard-card-activity" aria-labelledby="dashboard-activity-title" aria-busy={notificationsLoading}>
+          <DashboardCardHeading id="dashboard-activity-title" title="Actividad reciente" icon={MessageCircle} />
+          {notifications.length ? (
+            <ul className="dashboard-list">
+              {notifications.slice(0, 4).map(item => (
+                <li key={item.id}>
+                  <Link to={notificationPath(item)} className="dashboard-list-row dashboard-notification" data-unread={!item.read_at}>
+                    <span className="dashboard-notification-dot" aria-hidden="true" />
+                    <span className="dashboard-row-copy"><strong>{item.title}</strong><small>{!item.read_at && <span className="sr-only">Sin leer · </span>}{relativeNotificationDate(item.created_at)}</small></span>
+                    <ChevronRight size={16} className="dashboard-row-chevron" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="dashboard-empty">{notificationsLoading ? "Cargando actividad…" : "No hay actividad reciente."}</p>
+          )}
+          <Link to="/app/messages" className="dashboard-card-link">Ir a mensajes <ArrowRight size={16} aria-hidden="true" /></Link>
         </section>
       </div>
 
-      <section className="dashboard-card dashboard-card-patients" aria-labelledby="dashboard-patients-title">
-        <div className="dashboard-section-head"><div><span className="dashboard-step">05 · Continúa la atención</span><h2 id="dashboard-patients-title">Pacientes recientes</h2><p>Ordenados por su última actividad registrada</p></div><Link to="/app/patients">Ver pacientes <ArrowRight size={15} /></Link></div>
-        {data.patients.length ? <div className="dashboard-patient-list">{data.patients.map((patient) => <Link key={patient.id} to={`/app/patients/${patient.id}`} className="dashboard-patient"><span className="dashboard-mini-icon"><UserRound size={17} /></span><span><strong>{patient.full_name}</strong><small>Abrir ficha</small></span><ChevronRight size={15} /></Link>)}</div> : <p className="dashboard-empty">Aún no tienes pacientes activos. Agrega el primero para iniciar una consulta.</p>}
+      <section className="dashboard-card dashboard-card-patients" aria-labelledby="dashboard-patients-title" aria-busy={loading}>
+        <DashboardCardHeading id="dashboard-patients-title" title="Pacientes recientes" icon={UsersRound} />
+        {data.patients.length ? (
+          <ul className="dashboard-patient-list">
+            {data.patients.map(patient => (
+              <li key={patient.id}>
+                <Link to={`/app/patients/${patient.id}`} className="dashboard-patient">
+                  <span className="dashboard-mini-icon"><UserRound size={17} aria-hidden="true" /></span>
+                  <span className="dashboard-row-copy"><strong>{patient.full_name}</strong><small>Abrir ficha</small></span>
+                  <ChevronRight size={15} className="dashboard-row-chevron" aria-hidden="true" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="dashboard-empty">{loading ? "Cargando pacientes…" : error ? "Los pacientes recientes no están disponibles." : "Aún no tienes pacientes activos. Agrega el primero para iniciar una consulta."}</p>
+        )}
+        <Link to="/app/patients" className="dashboard-card-link">Ver pacientes <ArrowRight size={16} aria-hidden="true" /></Link>
       </section>
 
-      <section className="dashboard-card dashboard-card-profile" aria-label="Estado de tu perfil profesional">
-        <div className="dashboard-profile-copy"><span className="dashboard-card-icon"><UsersRound size={19} /></span><div><span className="dashboard-step">Tu presencia pública</span><h2>Tu perfil profesional está {completion}% completo</h2><p>Completarlo ayuda a que tu página pública represente mejor tu trabajo.</p></div></div>
-        <div className="dashboard-profile-visits" role="group" aria-label="Visitas al perfil público">
-          <div className="dashboard-profile-visits-heading"><Eye size={16} aria-hidden="true" /><span>Visitas al perfil público</span></div>
-          <strong aria-live="polite">{visitTotal === undefined ? "…" : visitTotal === null ? "—" : visitTotal.toLocaleString("es-MX")}</strong>
-          <p>{visitTotal === null ? "No pudimos cargar el total. Usa Actualizar para reintentar." : "Una por sesión del navegador al día."}</p>
+      <section className="dashboard-card dashboard-card-profile" aria-labelledby="dashboard-profile-title">
+        <DashboardCardHeading id="dashboard-profile-title" title="Perfil profesional" icon={UserRound} />
+        <div className="dashboard-profile-grid">
+          <div className="dashboard-profile-metric">
+            <div className="dashboard-profile-label"><span>Perfil completado</span><strong>{completion}%</strong></div>
+            <progress className="dashboard-profile-progress" aria-label="Perfil completado" value={completion} max={100} />
+          </div>
+          <div className="dashboard-profile-metric" role="group" aria-label="Visitas al perfil público">
+            <div className="dashboard-profile-label"><span><Eye size={16} aria-hidden="true" />Visitas al perfil público</span><strong aria-live="polite">{visitTotal === undefined ? "…" : visitTotal === null ? "—" : visitTotal.toLocaleString("es-MX")}</strong></div>
+            <p>{visitTotal === null ? "No pudimos cargar el total. Usa Actualizar para reintentar." : "Una por sesión del navegador al día."}</p>
+          </div>
         </div>
-        <Link to="/app/profile" className="dashboard-action">Revisar perfil <CheckCircle2 size={16} /></Link>
+        <Link to="/app/profile" className="dashboard-card-link">Revisar perfil <CheckCircle2 size={16} aria-hidden="true" /></Link>
       </section>
     </div>
   );
