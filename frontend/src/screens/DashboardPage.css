@@ -79,6 +79,10 @@
 .dashboard-card-profile h2 { margin-top: 5px; font-size: 16px; }
 .dashboard-card-profile p { margin-top: 3px; color: var(--dashboard-muted); font-size: 11px; }
 .dashboard-card-profile .dashboard-action { flex: none; margin-top: 0; }
+.dashboard-profile-visits { min-width: 0; padding: 11px 14px; border: 1px solid var(--dashboard-line); border-radius: 13px; background: var(--dashboard-soft); }
+.dashboard-profile-visits-heading { display: flex; align-items: center; gap: 7px; color: var(--dashboard-link); font-size: 12px; font-weight: 700; }
+.dashboard-profile-visits-heading svg { flex: none; }
+.dashboard-profile-visits > strong { display: block; margin-block: 2px; font-size: 25px; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 
 html[data-nuthrick-theme='night'] .dashboard-workspace { --dashboard-ink: #ecf5f1; --dashboard-muted: #adc7be; --dashboard-line: #33515a; --dashboard-card: #142a33; --dashboard-soft: #213a41; --dashboard-link: #8de2d4; }
 html[data-nuthrick-theme='night'] .dashboard-card-attention { background: linear-gradient(145deg, #282a43, #172e37); }
@@ -94,4 +98,4 @@ html[data-nuthrick-theme='night'] .dashboard-card-agenda .dashboard-step { color
 html[data-nuthrick-theme='night'] .dashboard-empty-primary { background: #ffffff12; }
 
 @media (max-width: 860px) { .dashboard-grid { grid-template-columns: 1fr; } }
-@media (max-width: 620px) { .dashboard-heading { align-items: start; } .dashboard-heading h1 { font-size: 31px; } .dashboard-card-profile { align-items: stretch; flex-direction: column; } .dashboard-card-profile .dashboard-action { margin-left: 54px; } }
+@media (max-width: 620px) { .dashboard-heading { align-items: start; } .dashboard-heading h1 { font-size: 31px; } .dashboard-card-profile { align-items: stretch; flex-direction: column; } }

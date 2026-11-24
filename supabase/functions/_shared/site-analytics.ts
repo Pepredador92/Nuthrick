@@ -14,3 +14,8 @@ export function publicReferrer(value: unknown): string {
     return /^https?:$/.test(url.protocol) && !url.username && !url.password && /^[a-z0-9.-]+$/i.test(url.hostname) ? url.origin.slice(0, 200) : '';
   } catch { return ''; }
 }
+
+export function publicProfileSlug(value: unknown): string | null {
+  return typeof value === 'string' && value.length >= 3 && value.length <= 80 &&
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(value) ? value.toLowerCase() : null;
+}

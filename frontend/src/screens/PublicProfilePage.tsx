@@ -5,6 +5,7 @@ import { PublicBookingPanel } from './PublicBookingPage';
 import { PublicProfessionalHeader } from '@/src/features/profile/PublicProfessionalHeader';
 import { Logo } from '@/src/components/ui/Logo';
 import { getPublicProfile } from '@/src/services/profile';
+import { trackPublicProfileVisit } from '@/src/services/siteAnalytics';
 import type { PublicProfileContent } from '@/src/types/domain';
 import { ShowcaseBackdrop } from '@/src/components/ui/ShowcaseBackdrop';
 import './PublicProfilePage.css';
@@ -47,6 +48,7 @@ export function PublicProfilePage() {
         if (active) {
           setProfile(value);
           document.title = value ? `${value.name} | Nuthrick` : 'Perfil no encontrado | Nuthrick';
+          if (value) void trackPublicProfileVisit(value.slug);
         }
       }).catch((caught) => {
         if (active) setError(caught instanceof Error ? caught.message : 'No fue posible abrir el perfil.');

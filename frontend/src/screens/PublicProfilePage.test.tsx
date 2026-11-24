@@ -2,12 +2,15 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { PublicProfilePage } from './PublicProfilePage';
+import { getPublicProfile } from '@/src/services/profile';
+import { trackPublicProfileVisit } from '@/src/services/siteAnalytics';
 
 vi.mock('@/src/services/profile',()=>({getPublicProfile:vi.fn(async()=>({
   name:'Nutrióloga de prueba',slug:'prueba',specialties:[],careModalities:['online'],spokenLanguages:[],
   conditions:[],populations:[],education:[],links:[],gallery:[],approximateFee:500,currency:'MXN',
   biography:'Biografía de prueba', contacts:[],
 }))}));
+vi.mock('@/src/services/siteAnalytics', () => ({ trackPublicProfileVisit: vi.fn() }));
 vi.mock('@/src/services/agenda',async original=>({...await original<typeof import('@/src/services/agenda')>(),
   agendaApi:vi.fn(async()=>({name:'Nutrióloga de prueba',slug:'prueba',timezone:'America/Mexico_City',duration:30,
     horizonDays:30,minimumNoticeMinutes:120,hasSchedule:false,requestsEnabled:true,connectionError:false,
@@ -16,6 +19,7 @@ afterEach(cleanup);
 it('embeds a single booking flow even without public contact details or a published weekly schedule',async()=>{
   render(<MemoryRouter initialEntries={['/p/prueba']}><Routes><Route path="/p/:slug" element={<PublicProfilePage/>}/></Routes></MemoryRouter>);
   await screen.findByRole('heading',{name:'Nutrióloga de prueba'});
+  expect(trackPublicProfileVisit).toHaveBeenCalledExactlyOnceWith('prueba');
   expect(screen.queryByRole('link',{name:'Agendar cita'})).not.toBeInTheDocument();
   expect(screen.getAllByRole('complementary',{name:'Reservar una cita'})).toHaveLength(1);
   await screen.findByText('Por el momento no hay horarios disponibles.');
@@ -26,4 +30,11 @@ it('embeds a single booking flow even without public contact details or a publis
   expect(screen.getByRole('link',{name:'Sobre mí'})).toHaveAttribute('href','#sobre-mi');
   expect(screen.getByRole('link',{name:'Reservar una cita'})).toHaveAttribute('href','#agendar');
   expect(screen.queryByText('Suscripción')).not.toBeInTheDocument();
+});
+it('does not record a visit when the public profile is unavailable', async () => {
+  vi.mocked(trackPublicProfileVisit).mockClear();
+  vi.mocked(getPublicProfile).mockResolvedValueOnce(null);
+  render(<MemoryRouter initialEntries={['/p/no-publicado']}><Routes><Route path="/p/:slug" element={<PublicProfilePage/>}/></Routes></MemoryRouter>);
+  expect(await screen.findByRole('heading', { name: 'Perfil no disponible' })).toBeVisible();
+  expect(trackPublicProfileVisit).not.toHaveBeenCalled();
 });

@@ -385,6 +385,15 @@ export async function deleteAvailabilitySlot(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function loadPublicProfileVisitCount(): Promise<number> {
+  const { data, error } = await supabase.rpc("my_public_profile_visits");
+  if (error) throw error;
+  if (typeof data !== "number" || !Number.isSafeInteger(data) || data < 0) {
+    throw new Error("No pudimos cargar las visitas del perfil.");
+  }
+  return data;
+}
+
 export async function getPublicProfile(
   slug: string,
 ): Promise<PublicProfileContent | null> {

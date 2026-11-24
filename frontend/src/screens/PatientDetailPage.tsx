@@ -1534,7 +1534,7 @@ export function PatientDetailPage() {
               <p className="mt-4 text-sm text-[#74817d]">Aún no hay fotos.</p>
             )}
           </section>
-          <section id="patient-evolution" className="patient-detail-card patient-detail-card-evolution rounded-2xl border border-[#dfe5e1] p-5 sm:p-6">
+          <section id="patient-evolution" className="patient-detail-card patient-detail-card-evolution rounded-2xl border border-[#dfe5e1] p-3 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <span className="patient-detail-step">04 · Visualiza</span>

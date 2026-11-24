@@ -1,12 +1,13 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardPage } from "./DashboardPage";
 import { loadAgenda } from "@/src/services/agenda";
 import { listPatients } from "@/src/services/patients";
+import { loadPublicProfileVisitCount } from "@/src/services/profile";
 
 vi.mock("@/src/features/auth/AuthProvider", () => ({
-  useAuth: () => ({ profile: { full_name: "Dra. Ana López", timezone: "America/Mexico_City", biography: "Bio", avatar_path: "avatar", public_slug: "ana", specialties: ["Nutrición"], is_public: true } }),
+  useAuth: () => ({ profile: { id: "pro", full_name: "Dra. Ana López", timezone: "America/Mexico_City", biography: "Bio", avatar_path: "avatar", public_slug: "ana", specialties: ["Nutrición"], is_public: true } }),
 }));
 vi.mock("@/src/features/notifications/useNotifications", () => ({
   useNotifications: () => ({
@@ -17,9 +18,11 @@ vi.mock("@/src/features/notifications/useNotifications", () => ({
 }));
 vi.mock("@/src/services/agenda", () => ({ loadAgenda: vi.fn() }));
 vi.mock("@/src/services/patients", () => ({ listPatients: vi.fn() }));
+vi.mock("@/src/services/profile", () => ({ loadPublicProfileVisitCount: vi.fn() }));
 
 beforeEach(() => {
   vi.setSystemTime(new Date("2026-09-25T18:00:00Z"));
+  vi.mocked(loadPublicProfileVisitCount).mockResolvedValue(0);
   vi.mocked(loadAgenda).mockResolvedValue({
     entries: [{
       id: "today",
@@ -52,5 +55,16 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Paciente Reciente")).toBeVisible();
     expect(screen.getByRole("link", { name: /Nueva consulta/ })).toHaveAttribute("href", "/app/patients");
     expect(screen.getByRole("link", { name: /Nuevo mensaje de Paciente/ })).toHaveAttribute("href", "/app/patients/p1/portal?tab=chat");
+    expect(within(screen.getByRole("group", { name: "Visitas al perfil público" })).getByText("0")).toBeVisible();
+  });
+  it("refreshes the visit total independently from the agenda", async () => {
+    vi.mocked(loadPublicProfileVisitCount).mockRejectedValueOnce(new Error("No disponible")).mockResolvedValueOnce(27);
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+    const visits = within(screen.getByRole("group", { name: "Visitas al perfil público" }));
+    expect(await visits.findByText(/No pudimos cargar el total/)).toBeVisible();
+    expect(await screen.findByText("Paciente Hoy")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Actualizar" }));
+    expect(await visits.findByText("27")).toBeVisible();
+    expect(visits.getByText("Una por sesión del navegador al día.")).toBeVisible();
   });
 });

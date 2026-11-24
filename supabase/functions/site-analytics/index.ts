@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { publicReferrer } from '../_shared/site-analytics.ts';
+import { publicProfileSlug, publicReferrer } from '../_shared/site-analytics.ts';
 import { productOriginAllowed, siteOrigin } from '../_shared/site.ts';
 
 const env = (name: string) => {
@@ -15,7 +15,7 @@ const headers = {
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store',
   'Access-Control-Allow-Origin': site,
-  'Access-Control-Allow-Headers': 'content-type, apikey, x-client-info',
+  'Access-Control-Allow-Headers': 'content-type, apikey, x-client-info, authorization',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers });
@@ -39,9 +39,13 @@ Deno.serve(async (request) => {
     if (Number(request.headers.get('content-length')) > 4096) return finish(response({ error: 'invalid_input' }, 400));
     const text = await request.text();
     if (text.length > 4096) return finish(response({ error: 'invalid_input' }, 400));
-    const body = JSON.parse(text) as { path?: unknown; referrer?: unknown; sessionId?: unknown };
+    const body = JSON.parse(text) as { path?: unknown; referrer?: unknown; sessionId?: unknown; profileSlug?: unknown };
     if (typeof body.path !== 'string' || !['/', '/planes', '/privacy', '/terms', '/refunds', '/perfil-publico', '/reservar-cita'].includes(body.path)
       || typeof body.sessionId !== 'string' || !/^[A-Za-z0-9_-]{16,120}$/.test(body.sessionId)) {
+      return finish(response({ error: 'invalid_input' }, 400));
+    }
+    const slug = publicProfileSlug(body.profileSlug);
+    if (body.profileSlug !== undefined && (!slug || body.path !== '/perfil-publico')) {
       return finish(response({ error: 'invalid_input' }, 400));
     }
     // Abuse control shares the existing short-lived rate buckets, never the visits table.
@@ -51,14 +55,24 @@ Deno.serve(async (request) => {
     });
     if (rateError) return finish(response({ error: 'temporarily_unavailable' }, 503));
     if (!allowedRate) return finish(response({ error: 'rate_limited' }, 429));
-    const referrer = publicReferrer(body.referrer);
-    const { error } = await db.rpc('site_analytics_record', {
+    let visitor: string | null = null;
+    const authorization = request.headers.get('authorization');
+    if (slug && authorization) {
+      const token = /^Bearer (\S+)$/i.exec(authorization)?.[1];
+      if (!token) return finish(response({ error: 'invalid_session' }, 401));
+      const { data, error } = await db.auth.getUser(token);
+      if (error || !data.user) return finish(response({ error: 'invalid_session' }, 401));
+      visitor = data.user.id;
+    }
+    const params = {
       p_session_hash: await digest(body.sessionId),
-      p_path: body.path,
-      p_referrer: referrer,
-    });
+      p_referrer: publicReferrer(body.referrer),
+    };
+    const { data, error } = slug
+      ? await db.rpc('site_analytics_record_profile', { ...params, p_slug: slug, p_visitor: visitor })
+      : await db.rpc('site_analytics_record', { ...params, p_path: body.path });
     if (error) return finish(response({ error: 'temporarily_unavailable' }, 503));
-    return finish(response({ recorded: true }));
+    return finish(response(data));
   } catch {
     return finish(response({ error: 'invalid_input' }, 400));
   }

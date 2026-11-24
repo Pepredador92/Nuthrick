@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PatientEvolutionCharts, SomatochartCard } from "./EvolutionCharts";
+import { EvolutionChartCard, PatientEvolutionCharts, SomatochartCard } from "./EvolutionCharts";
 import type { LongitudinalSeries } from "@/src/features/evolution/longitudinal";
 
 const api = vi.hoisted(() => ({ load: vi.fn() }));
@@ -55,6 +55,33 @@ describe("SomatochartCard", () => {
 });
 
 describe("patient evolution gallery", () => {
+  it("keeps every point when nearby dates cannot fit together on the axis", () => {
+    const dates = ["2026-09-01", "2026-09-02", "2026-09-03", "2026-12-20", "2026-12-21"];
+    render(<EvolutionChartCard series={{
+      ...series, label: "Peso", visualization: "line", unit: "kg",
+      points: dates.map((date, index) => ({
+        ...series.points[0],
+        consultation_id: date,
+        consultation_date: `${date}T12:00:00Z`,
+        raw_value: 70 + index,
+        display_value: String(70 + index),
+        unit: "kg",
+      })),
+    }} />);
+
+    const chart = screen.getByRole("img", { name: "Gráfica de evolución de Peso" });
+    expect(chart.querySelectorAll("circle")).toHaveLength(dates.length);
+    expect(chart.querySelectorAll("title")).toHaveLength(dates.length);
+    const axisDates = [...chart.querySelectorAll("text[text-anchor=middle]:not(.evolution-point-value)")].map((label) => label.textContent);
+    expect(axisDates).toHaveLength(2);
+    expect(axisDates[0]).toMatch(/^01/);
+    expect(axisDates[1]).toMatch(/^21/);
+    expect([...chart.querySelectorAll(".evolution-point-value")].map(label => label.textContent)).toEqual(["70", "74"]);
+    fireEvent.click(screen.getByText("Ver valores por consulta"));
+    expect(screen.getByRole("list", { name: "Valores de Peso" })).toHaveTextContent("71 kg");
+    expect(screen.getByRole("list", { name: "Valores de Peso" })).toHaveTextContent("73 kg");
+  });
+
   it("shows every stored series, with search and category filters", async () => {
     const entries = Array.from({ length: 6 }, (_, index) => ({ ...series, id: String(index), label: `Medición ${index + 1}`, visualization: "line", category: index === 5 ? "bioimpedance" : "measurements", points: series.points.map((point) => ({ ...point, raw_value: 70, display_value: "70", unit: "kg" })) }));
     api.load.mockResolvedValue({ consultations: [], series: entries });

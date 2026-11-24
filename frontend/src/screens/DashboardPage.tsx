@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock3,
+  Eye,
   MessageCircle,
   RefreshCw,
   UserRound,
@@ -18,6 +19,7 @@ import { useNotifications } from "@/src/features/notifications/useNotifications"
 import { todayAppointments, unreadMessageCount, upcomingAppointments } from "@/src/features/dashboard/model";
 import { loadAgenda, type AgendaEntry, type AgendaRequest } from "@/src/services/agenda";
 import { listPatients } from "@/src/services/patients";
+import { loadPublicProfileVisitCount } from "@/src/services/profile";
 import type { Patient } from "@/src/types/domain";
 import { ConsultationSetupReminder } from "@/src/features/onboarding/ConsultationSetup";
 import "./DashboardPage.css";
@@ -66,6 +68,9 @@ export function DashboardPage() {
   const [data, setData] = useState<DashboardData>({ entries: [], requests: [], patients: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [visitRequest, setVisitRequest] = useState(0);
+  const [profileVisits, setProfileVisits] = useState<{ owner: string; total: number | null }>();
+  const owner = profile?.id;
   const timezone = profile?.timezone || timezoneFallback;
 
   const refresh = useCallback(async () => {
@@ -87,11 +92,23 @@ export function DashboardPage() {
     queueMicrotask(() => void refresh());
   }, [refresh]);
 
+  useEffect(() => {
+    if (!owner) return;
+    let active = true;
+    void loadPublicProfileVisitCount().then(total => {
+      if (active) setProfileVisits({ owner, total });
+    }).catch(() => {
+      if (active) setProfileVisits({ owner, total: null });
+    });
+    return () => { active = false; };
+  }, [owner, visitRequest]);
+
   const today = useMemo(() => todayAppointments(data.entries, new Date(), timezone), [data.entries, timezone]);
   const upcoming = useMemo(() => upcomingAppointments(data.entries).slice(0, 4), [data.entries]);
   const unreadMessages = unreadMessageCount(notifications);
   const firstName = profile?.full_name?.split(" ")[0] || "profesional";
   const completion = profileCompletion(profile);
+  const visitTotal = profileVisits?.owner === owner ? profileVisits?.total : undefined;
 
   return (
     <div className="dashboard-workspace">
@@ -101,7 +118,7 @@ export function DashboardPage() {
           <h1>Hola, {firstName}</h1>
           <p>Tu consulta de hoy, en orden.</p>
         </div>
-        <button type="button" className="dashboard-refresh" disabled={loading} onClick={() => { setLoading(true); void refresh(); }}>
+        <button type="button" className="dashboard-refresh" disabled={loading} onClick={() => { setLoading(true); setVisitRequest(request => request + 1); void refresh(); }}>
           <RefreshCw size={16} className={loading ? "animate-spin" : undefined} />
           Actualizar
         </button>
@@ -150,6 +167,11 @@ export function DashboardPage() {
 
       <section className="dashboard-card dashboard-card-profile" aria-label="Estado de tu perfil profesional">
         <div className="dashboard-profile-copy"><span className="dashboard-card-icon"><UsersRound size={19} /></span><div><span className="dashboard-step">Tu presencia pública</span><h2>Tu perfil profesional está {completion}% completo</h2><p>Completarlo ayuda a que tu página pública represente mejor tu trabajo.</p></div></div>
+        <div className="dashboard-profile-visits" role="group" aria-label="Visitas al perfil público">
+          <div className="dashboard-profile-visits-heading"><Eye size={16} aria-hidden="true" /><span>Visitas al perfil público</span></div>
+          <strong aria-live="polite">{visitTotal === undefined ? "…" : visitTotal === null ? "—" : visitTotal.toLocaleString("es-MX")}</strong>
+          <p>{visitTotal === null ? "No pudimos cargar el total. Usa Actualizar para reintentar." : "Una por sesión del navegador al día."}</p>
+        </div>
         <Link to="/app/profile" className="dashboard-action">Revisar perfil <CheckCircle2 size={16} /></Link>
       </section>
     </div>

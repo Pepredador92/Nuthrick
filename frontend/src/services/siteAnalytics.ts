@@ -1,4 +1,4 @@
-import { publicReferrer, publicVisitPath } from '../../../supabase/functions/_shared/site-analytics';
+import { publicProfileSlug, publicReferrer, publicVisitPath } from '../../../supabase/functions/_shared/site-analytics';
 import { isSimulation } from '@/src/features/simulator/state';
 const sessionKey = 'nuthrick:analytics-session';
 const sessionCookie = 'nuthrick_analytics_session';
@@ -52,10 +52,28 @@ function sessionId() {
 export function trackSiteVisit(path: string) {
   if (isSimulation()) return;
   const category = publicVisitPath(path);
-  if (!category) return;
+  // A profile visit is tracked after the published page has loaded.
+  if (!category || category === '/perfil-publico') return;
+  sendVisit(category);
+}
+
+export async function trackPublicProfileVisit(profileSlug: string) {
+  const slug = publicProfileSlug(profileSlug);
+  if (!slug || isSimulation()) return;
+  try {
+    const { supabase } = await import('@/src/lib/supabase');
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (!error) sendVisit('/perfil-publico', slug, session?.access_token);
+  } catch { /* Analytics never interrupts the public profile. */ }
+}
+
+function sendVisit(path: string, profileSlug?: string, accessToken?: string) {
   void fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/site-analytics`, {
     method: 'POST', keepalive: true, referrerPolicy: 'no-referrer',
-    headers: { 'Content-Type': 'application/json', apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-    body: JSON.stringify({ path: category, referrer: publicReferrer(document.referrer), sessionId: sessionId() }),
+    headers: {
+      'Content-Type': 'application/json', apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: JSON.stringify({ path, profileSlug, referrer: publicReferrer(document.referrer), sessionId: sessionId() }),
   }).catch(() => undefined);
 }
