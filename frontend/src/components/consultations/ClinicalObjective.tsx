@@ -12,7 +12,7 @@ import {
   type ObjectivePending,
   type ObjectiveProposalEvidence,
 } from "./ObjectiveGoalEditor";
-import { formatObjectiveEditorText, objectiveEditorFieldHint, objectiveEditorFieldLabel, objectiveEditorFieldOffset, readObjectiveEditorText, withObjectiveTemplateGaps, type ObjectiveEditorField } from "@/src/features/consultations/objectiveEditorText";
+import { formatObjectiveEditorText, objectiveEditorFieldExample, objectiveEditorFieldHint, objectiveEditorFieldLabel, objectiveEditorFieldOffset, readObjectiveEditorText, withObjectiveTemplateGaps, type ObjectiveEditorField } from "@/src/features/consultations/objectiveEditorText";
 import {
   clinicalObjective,
   type ObjectiveWorkspace,
@@ -579,9 +579,11 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
           {specifications.fields.map(field => <label key={field}>
             <span>{objectiveEditorFieldLabel(field)}</span>
             {field === 'timeframe' ? <input className="nuth-input" type="text" maxLength={400}
+              placeholder={objectiveEditorFieldExample(field)}
               value={specifications.values[field] ?? ''}
               onChange={event => setSpecifications({ ...specifications, values: { ...specifications.values, [field]: event.target.value } })} />
               : <textarea className="nuth-input" rows={2} maxLength={field === 'etiology' ? 1500 : 400}
+                placeholder={objectiveEditorFieldExample(field)}
                 value={specifications.values[field] ?? ''}
                 onChange={event => setSpecifications({ ...specifications, values: { ...specifications.values, [field]: event.target.value } })} />}
           </label>)}

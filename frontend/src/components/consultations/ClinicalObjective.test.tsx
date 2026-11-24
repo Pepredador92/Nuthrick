@@ -559,12 +559,20 @@ it('integrates the specifications of the selected objective without changing the
   const original = plan.goals[0];
   plan.goals = [original, {
     ...original, outcome: 'Revisar otra parte del seguimiento.',
-    etiology: '', baseline: '', feasibility: '', timeframe: '',
+    etiology: '', baseline: '', feasibility: '', timeframe: '', target: '', indicator: '', monitoring: '',
   }];
   api.review.mockResolvedValue(objectiveWorkspace(plan));
   render(<Subject />);
   fireEvent.click(await screen.findByRole('button', { name: 'Completar especificaciones del objetivo 2' }));
   const dialog = within(await screen.findByRole('dialog', { name: 'Especificaciones del objetivo 2' }));
+  const fields = [
+    'Relación con el diagnóstico', 'Situación inicial y fecha', 'Viabilidad, barreras y preferencias',
+    'Plazo de reevaluación', 'Meta o criterio de logro', 'Indicador de seguimiento', 'Cómo se evaluará',
+  ];
+  for (const label of fields) {
+    expect(dialog.getByLabelText(label)).toHaveAttribute('placeholder', expect.stringMatching(/^Ej\. \S/));
+    expect(dialog.getByLabelText(label)).toHaveValue('');
+  }
   fireEvent.change(dialog.getByLabelText('Relación con el diagnóstico'), { target: { value: 'Ayuda a organizar los turnos.' } });
   fireEvent.change(dialog.getByLabelText('Situación inicial y fecha'), { target: { value: 'Registro de la consulta del 20 de noviembre.' } });
   fireEvent.change(dialog.getByLabelText('Viabilidad, barreras y preferencias'), { target: { value: 'Prefiere preparar una opción por la noche.' } });
@@ -576,6 +584,7 @@ it('integrates the specifications of the selected objective without changing the
     outcome: plan.goals[1].outcome, etiology: 'Ayuda a organizar los turnos.',
     baseline: 'Registro de la consulta del 20 de noviembre.',
     feasibility: 'Prefiere preparar una opción por la noche.', timeframe: 'En 21 días',
+    target: '', indicator: '', monitoring: '',
   } });
   fireEvent.click(screen.getByRole('button', { name: 'Revisar objetivo 1' }));
   expect(objectiveText().value).toBe(formatObjectiveEditorText(original));

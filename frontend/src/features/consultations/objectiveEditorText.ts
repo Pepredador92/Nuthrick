@@ -1,14 +1,14 @@
 import type { ObjectiveGoal } from '../../../../supabase/functions/_shared/objectives';
 
 const guidance = {
-  outcome: ['Resultado esperado', '[Describe el cambio que quieren lograr.]'],
-  etiology: ['Relación con el diagnóstico', '[Explica cómo el cambio aborda la causa del PES.]'],
-  target: ['Meta o criterio de logro', '[Define qué resultado concreto indicará un avance.]'],
-  indicator: ['Indicador de seguimiento', '[Anota qué van a observar o medir.]'],
-  baseline: ['Situación inicial y fecha', '[Anota cómo empiezas y en qué fecha.]'],
-  timeframe: ['Plazo de reevaluación', '[Indica cuándo revisarán el avance.]'],
-  monitoring: ['Cómo se evaluará', '[Explica cómo registrarán y revisarán el avance.]'],
-  feasibility: ['Viabilidad, barreras y preferencias', '[Completa con lo que hablaron en consulta.]'],
+  outcome: ['Resultado esperado', '[Describe el cambio que quieren lograr.]', 'Desayunar antes de salir al trabajo.'],
+  etiology: ['Relación con el diagnóstico', '[Explica cómo el cambio aborda la causa del PES.]', 'Prepararlo la noche anterior ayuda a no saltar el desayuno.'],
+  target: ['Meta o criterio de logro', '[Define qué resultado concreto indicará un avance.]', 'Desayunar antes de salir en 4 de 5 días de trabajo.'],
+  indicator: ['Indicador de seguimiento', '[Anota qué van a observar o medir.]', 'Número de días de trabajo en que desayuna antes de salir.'],
+  baseline: ['Situación inicial y fecha', '[Anota cómo empiezas y en qué fecha.]', 'El 12/05/2026 refirió desayunar en 2 de sus últimos 5 turnos.'],
+  timeframe: ['Plazo de reevaluación', '[Indica cuándo revisarán el avance.]', 'En 3 semanas.'],
+  monitoring: ['Cómo se evaluará', '[Explica cómo registrarán y revisarán el avance.]', 'Revisaremos el registro de desayunos y las dificultades.'],
+  feasibility: ['Viabilidad, barreras y preferencias', '[Completa con lo que hablaron en consulta.]', 'Por la mañana tiene prisa. Prefiere prepararlo de noche.'],
 } as const;
 
 export type ObjectiveEditorField = keyof typeof guidance;
@@ -16,6 +16,7 @@ export type ObjectiveEditorIssue = { issue: string; field?: ObjectiveEditorField
 export const objectiveEditorFields = Object.keys(guidance) as ObjectiveEditorField[];
 export const objectiveEditorFieldLabel = (field: ObjectiveEditorField) => guidance[field][0];
 export const objectiveEditorFieldHint = (field: ObjectiveEditorField) => guidance[field][1];
+export const objectiveEditorFieldExample = (field: ObjectiveEditorField) => `Ej. ${guidance[field][2]}`;
 const groups = [
   ['¿Qué quieren lograr?', ['outcome', 'etiology']],
   ['¿Cómo reconocerán el avance?', ['target', 'indicator', 'baseline']],
