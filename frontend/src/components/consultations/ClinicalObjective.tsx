@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { ArrowRight, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { AIButton } from "@/src/components/ai/AIControls";
 import {
   ClinicalStatusBadge,
@@ -12,17 +12,15 @@ import {
   type ObjectivePending,
   type ObjectiveProposalEvidence,
 } from "./ObjectiveGoalEditor";
-import { formatObjectiveEditorText, objectiveEditorFieldHint, objectiveEditorFieldOffset, readObjectiveEditorText, withObjectiveTemplateGaps } from "@/src/features/consultations/objectiveEditorText";
+import { formatObjectiveEditorText, objectiveEditorFieldHint, objectiveEditorFieldLabel, objectiveEditorFieldOffset, readObjectiveEditorText, withObjectiveTemplateGaps, type ObjectiveEditorField } from "@/src/features/consultations/objectiveEditorText";
 import {
   clinicalObjective,
   type ObjectiveWorkspace,
 } from "@/src/services/clinicalCopilot";
 import { ConsultationObjectiveAI, type ObjectiveAssistance } from "./ConsultationObjectiveAI";
-import { ClinicalBatchStageRevision } from "./ClinicalBatchAI";
 import { ClinicalTaskDialog } from "./ClinicalTaskDialog";
 import {useConsultationDraft,useConsultationDraftContext} from './ConsultationDrafts';
 import {changedAnswers} from '@/src/features/consultations/answerAutosave';
-import { hasUsablePesEtiology } from '../../../../supabase/functions/_shared/pes';
 import {
   composeObjective,
   emptyObjective,
@@ -47,9 +45,10 @@ type Props = {
   maxLength?: number;
   onStatusChange?: (status: ClinicalTaskStatus) => void;
   onCompleted?: () => void;
-  onReviewPes?: () => void;
   reviewBatch?: boolean;
+  approvalRef?: (approval: ObjectiveApproval | null) => void;
 };
+export type ObjectiveApproval = { needsReview: boolean; approve: () => Promise<boolean>; saveDraft: () => Promise<boolean> };
 const blankPlan = (): ObjectivePlan => ({
   version: 1,
   pesApprovedAt: "",
@@ -85,7 +84,6 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
     questionKey,
     value,
     before,
-    patientId,
     active,
     onPendingChange,
     onStatusChange,
@@ -136,6 +134,9 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [replacementId, setReplacementId] = useState<string | null>(null);
+  const [specifications, setSpecifications] = useState<{ index: number; fields: ObjectiveEditorField[]; values: Partial<ObjectiveGoal> } | null>(null);
+  const [showApproval, setShowApproval] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const [usedProposal, setUsedProposal] = useConsultationDraft<string | null>(`objective-used-proposal:${questionKey}`, null);
   const saving = useRef(false);
   const [activeGoal, setActiveGoal] = useConsultationDraft<number | null>(`objective-editor:${questionKey}`,null);
@@ -166,8 +167,7 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
   }));
   const needsBinding = !!(assistance?.stale || assistance?.assessment ||
     (assistance?.batchOrigin && assistance.baseProblem && assistance.baseProblem !== pes?.problem) ||
-    proposedGoals.some(goal => (goal.sign && !signs.includes(goal.sign)) ||
-      (assistance?.batchOrigin && goal.etiology && goal.etiology !== pes?.etiology)));
+    proposedGoals.some(goal => goal.sign && !signs.includes(goal.sign)));
   const proposalPlan: ObjectivePlan = { version: 1, goals: proposedGoals, pesApprovedAt: !needsBinding ? pes?.approved_at ?? "" : "" };
   const proposalId = assistance?.generationId ?? (proposedGoals.length ? JSON.stringify(proposedGoals) : null);
   const alreadyInEditor = objectivePlansEqual(
@@ -195,8 +195,8 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
   const malformed = editorIssues.some(Boolean);
   const text = plan.goals.map(composeObjective).filter(Boolean).join("\n\n");
   const approved = !malformed && !!workspace?.objective?.smart_plan &&
-    workspace?.pes?.approved_at === plan.pesApprovedAt &&
-    (workspace.objective.pes_approved_at ?? workspace.objective.smart_plan.pesApprovedAt) === workspace.pes.approved_at &&
+    (pes?.approved_at ?? '') === plan.pesApprovedAt &&
+    (workspace.objective.pes_approved_at ?? workspace.objective.smart_plan.pesApprovedAt) === (pes?.approved_at ?? '') &&
     workspace.objective.question_key === questionKey &&
     !Object.keys(changedAnswers({value:workspace.objective.value},{value})).length &&
     objectivePlansEqual(workspace.objective.smart_plan, plan);
@@ -207,16 +207,13 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
       sessionStorage.removeItem(cacheKey);
     }
   }, [approved, dirty, setDirty, cacheKey]);
-  const pesChanged = !!workspace?.pes && plan.goals.length > 0 &&
-    plan.pesApprovedAt !== workspace.pes.approved_at;
-  const staleSigns = plan.goals.some((goal) => !signs.includes(goal.sign));
+  const pesChanged = plan.goals.length > 0 && !!workspace && plan.pesApprovedAt !== (pes?.approved_at ?? '');
   const pendingByGoal = plan.goals.map((goal, index): ObjectivePending[] => {
     const issue = editorIssues[index];
     return issue ? [{ label: issue.issue, field: issue.field }] : objectivePendingFields(goal, signs);
   });
   const completeGoals = pendingByGoal.filter(pending => !pending.length).length;
-  const ready = !!plan.goals.length && completeGoals === plan.goals.length &&
-    !!workspace?.pes && !pesChanged && text.length <= maxLength;
+  const ready = !!plan.goals.length && completeGoals === plan.goals.length && !pesChanged && text.length <= maxLength;
   const status: ClinicalTaskStatus = approved
     ? "approved"
     : ready
@@ -285,7 +282,10 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
   function editText(index: number, text: string) {
     const current = plan.goals[index];
     const parsed = readObjectiveEditorText(text);
-    const next = 'fields' in parsed ? { ...current, ...parsed.fields } : current;
+    const next = 'fields' in parsed ? {
+      ...current, ...parsed.fields,
+      ...(parsed.fields.timeframe !== current.timeframe ? { timeframeOrigin: undefined } : {}),
+    } : current;
     const nextEditors = editors.slice();
     nextEditors[index] = { ...editorForGoal(current, editors[index]), basis: formatObjectiveEditorText(next), text };
     change({ ...plan, goals: plan.goals.map((goal, i) => i === index ? next : goal) }, nextEditors);
@@ -316,16 +316,31 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
     setUsedProposal(replacement.id);
     setReplacementId(null);
     setActiveGoal(0);
-    change(replacement.plan, replacement.editors);
+    const goals = replacement.plan.goals.map((item, index) => {
+      const exact = plan.goals.find(existing => existing.outcome.trim() === item.outcome.trim());
+      const previous = exact ?? (plan.goals.length === replacement.plan.goals.length ? plan.goals[index] : undefined);
+      return { ...item, timeframe: previous?.timeframe ?? '', timeframeOrigin: previous?.timeframeOrigin };
+    });
+    change({ ...replacement.plan, goals }, replacement.editors.map((editor, index) => ({ ...editor, basis: formatObjectiveEditorText(goals[index]) })));
     focusGoal();
   }
-  async function persist(action: "save" | "approve" | "revoke") {
-    if (saving.current || (action === 'approve' && !ready)) return false;
+  async function persist(action: "save" | "approve" | "revoke", continueAfter = false) {
+    if (saving.current || generating) return false;
+    if (action === 'approve') {
+      if (!plan.goals.length || plan.goals.some(item => !item.outcome.trim())) {
+        setMessage('Escribe un resultado esperado para cada objetivo que quieras aprobar.');
+        return false;
+      }
+      if (malformed || text.length > maxLength) {
+        setMessage(malformed ? 'Revisa el formato del texto marcado antes de aprobar. Puedes continuar con el borrador.' : `Resume los objetivos a ${maxLength} caracteres en total. Puedes continuar con el borrador.`);
+        return false;
+      }
+    }
     saving.current = true;
     setBusy(true);
     setMessage("");
     try {
-      if (inline && action === "save") change(plan, editors);
+      if (inline && action !== "revoke") change(plan, editors);
       if (action === 'save' && (malformed || text.length > maxLength)) {
         if (checkpoint && !await checkpoint.flush()) throw new Error('No pudimos guardar el borrador. Tus cambios siguen aquí.');
         setMessage(checkpoint ? 'Borrador guardado. Revisa el texto antes de aprobar.' : 'Borrador guardado en esta sesión. Revisa el texto antes de aprobar.');
@@ -336,27 +351,28 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
       }
       const fresh = await clinicalObjective(consultationId, revision);
       setWorkspace(fresh);
-      if (
-        action === "approve" && fresh.pes?.approved_at !== plan.pesApprovedAt
-      ) {
+      const freshPesAt = fresh.pes?.approved_at ?? '';
+      if (action === 'approve' && workspace && freshPesAt !== (pes?.approved_at ?? '')) {
         throw new Error(
-          "El PES cambió. Vincula los objetivos al PES actual y revisa la evidencia.",
+          "El diagnóstico cambió mientras se guardaba. Revisa la valoración y vuelve a aprobar los objetivos.",
         );
       }
+      const planToSave = action === 'approve' ? { ...plan, pesApprovedAt: freshPesAt } : plan;
       const saved = await clinicalObjective(
         consultationId,
         revision,
         action,
         fresh.stamp,
         questionKey,
-        action === "revoke" ? undefined : plan,
+        action === "revoke" ? undefined : planToSave,
       );
       setWorkspace(saved);
+      if (action === 'approve') setPlan(planToSave);
       dirtyRef.current = false;
       setDirty(false);
       sessionStorage.removeItem(cacheKey);
       const checkpointSaved = !checkpoint || await checkpoint.flush();
-      if (action === "approve") props.onCompleted?.();
+      if (action === "approve" && !continueAfter) props.onCompleted?.();
       setMessage(
         (action === "approve"
           ? "Objetivos aprobados para seguimiento."
@@ -377,22 +393,14 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
       setBusy(false);
     }
   }
-  function showPending() {
-    const index = pendingByGoal[selected]?.length ? selected : pendingByGoal.findIndex(pending => pending.length);
-    if (index < 0) return;
-    setActiveGoal(index);
-    setMessage("");
-    focusGoal(pendingByGoal[index][0].field);
-  }
   function focusGoal(field?: ObjectivePending['field']) {
+    if (field === 'sign') {
+      openSpecifications(selected);
+      return;
+    }
     requestAnimationFrame(() => {
-      if (field === 'sign' || field === 'agreement') {
-        const select = document.getElementById(`${editorId}-${field}`);
-        if (field === 'sign') {
-          const details = select?.closest('details');
-          if (details) details.open = true;
-        }
-        select?.focus();
+      if (field === 'agreement') {
+        document.getElementById(`${editorId}-${field}`)?.focus();
         return;
       }
       const input = document.getElementById(editorId) as HTMLTextAreaElement | null;
@@ -420,21 +428,55 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
 
   const generating = assistance?.state === "generating";
   const locked = busy || generating;
-  const canGenerate = !!pes && hasUsablePesEtiology(pes.etiology);
-  const approvalPending = !approved && completeGoals < plan.goals.length;
-  const approvalPendingId = `${editorId}-approval-pending`;
+  const hasContent = plan.goals.some(item => item.outcome.trim());
+  const approvalPending = !approved && (completeGoals < plan.goals.length || pesChanged);
+  const regenerate = !!(plan.goals.length || legacy.trim());
+  const aiLabel = regenerate ? 'Regenerar objetivos con IA' : 'Proponer objetivos con IA';
+  const valuationFacts = [...new Map([...(goalEditor?.grounding?.evidence ?? []), ...(workspace?.facts ?? [])]
+    .map(fact => [JSON.stringify([fact.source, fact.finding]), fact])).values()];
+  const registerApproval = props.approvalRef;
+  useEffect(() => {
+    registerApproval?.({
+      needsReview: !approved && hasContent,
+      approve: () => persist('approve', true),
+      saveDraft: () => inline ? persist('save') : Promise.resolve(true),
+    });
+    return () => registerApproval?.(null);
+  });
+  function openSpecifications(index: number) {
+    setActiveGoal(index);
+    const current = plan.goals[index];
+    const fields = new Set<ObjectiveEditorField>(['etiology', 'baseline', 'feasibility', 'timeframe']);
+    for (const { field } of pendingByGoal[index]) {
+      if (field && field !== 'outcome' && field !== 'sign' && field !== 'agreement') fields.add(field);
+    }
+    setSpecifications({ index, fields: [...fields], values: current });
+  }
+  function saveSpecifications() {
+    if (!specifications) return;
+    const { index, fields, values } = specifications;
+    if (editorIssues[index]) {
+      setSpecifications(null);
+      setMessage('Restaura los encabezados del texto para guardar las especificaciones. Tus cambios siguen en el editor.');
+      focusGoal();
+      return;
+    }
+    const patch: Partial<ObjectiveGoal> = {};
+    for (const field of fields) patch[field] = values[field]?.trim() ?? '';
+    if (values.sign !== plan.goals[index].sign) patch.sign = values.sign;
+    if (patch.timeframe !== plan.goals[index].timeframe) patch.timeframeOrigin = undefined;
+    update(index, patch);
+    setSpecifications(null);
+  }
   const actions = <footer className="smart-objective-actions">
-    {approvalPending && <button type="button" className="clinical-text-action" disabled={locked} onClick={showPending}>
-      Ir al siguiente pendiente <ArrowRight size={15} aria-hidden="true" />
-    </button>}
     {approved ? <button type="button" className="nuth-button-secondary !text-sm" disabled={locked} onClick={() => void persist('revoke')}>
       Volver a revisar
     </button> : <>
       <button type="button" className="nuth-button-secondary !text-sm" disabled={locked || (!dirty && !inline)} onClick={() => void persist('save')}>
         Guardar borrador
       </button>
-      <button type="button" className="nuth-button !text-sm" disabled={locked || !ready}
-        aria-describedby={approvalPending ? approvalPendingId : undefined} onClick={() => void persist('approve')}>
+      <button type="button" className="nuth-button !text-sm" disabled={locked}
+        onClick={() => hasContent && approvalPending && !malformed ? setShowApproval(true) : void persist('approve')}>
         {busy ? 'Guardando…' : 'Aprobar objetivos'}
       </button>
     </>}
@@ -455,28 +497,26 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
             Ver propuesta de IA
           </button>}
           <AIButton capability="ai.consultation_support" state={assistance.state}
-            disabled={busy || !canGenerate} onClick={() => void assistance.generate()}
-            aria-label="Proponer objetivos con IA" title="Usa créditos de IA según el consumo real">
-            Proponer objetivos con IA
+            className="smart-objective-ai-action"
+            disabled={busy} onClick={() => regenerate ? setFeedback('') : void assistance.generate()}
+            title="Usa créditos de IA según el consumo real">
+            {aiLabel}
           </AIButton>
           {assistance.state === 'uncertain' && <button type="button" className="clinical-text-action" onClick={() => void assistance.checkStatus()}>
             Comprobar solicitud
           </button>}
         </div>}
       </header>
+      {!!valuationFacts.length && <details className="clinical-support-details smart-objective-source">
+        <summary>Datos de valoración registrados</summary>
+        <ul className="consultation-context-facts">
+          {valuationFacts.map((fact, index) => <li key={index}><strong>{fact.source}</strong><p>{fact.finding}</p></li>)}
+        </ul>
+        {!!goalEditor?.grounding?.references?.length && <ul className="smart-objective-references">
+          {goalEditor.grounding.references.map(({ title, url }) => <li key={url}><a href={url} target="_blank" rel="noopener noreferrer">{title}</a></li>)}
+        </ul>}
+      </details>}
       {assistance?.message && <p role="status" className="smart-objective-message">{assistance.message}</p>}
-      {workspace && !canGenerate && <div className="smart-objective-context">
-        <p>Para generar objetivos vinculados y aprobarlos, completa y aprueba el PES.</p>
-        {props.onReviewPes && <button type="button" className="clinical-text-action" onClick={props.onReviewPes}>Ir al PES <ArrowRight size={15} aria-hidden="true" /></button>}
-      </div>}
-      {pesChanged && <div className="smart-objective-context" role="status">
-        <p>Revisa el vínculo con el PES vigente antes de aprobar.</p>
-        <button type="button" className="nuth-button-secondary !text-xs" disabled={locked}
-          onClick={() => {
-            change({ ...plan, pesApprovedAt: pes?.approved_at ?? "" });
-            if (staleSigns) showPending();
-          }}>Vincular al PES actual</button>
-      </div>}
       {!plan.goals.length && legacy && (
         <div className="clinical-legacy-objective">
           <strong>Objetivo registrado anteriormente</strong>
@@ -498,10 +538,11 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
               index={index}
               active={index === selected}
               approved={approved}
-              ready={!!pes && !pesChanged && !pendingByGoal[index].length}
+              ready={!pesChanged && !pendingByGoal[index].length}
               fromAI={!!editorForGoal(item, editors[index]).grounding}
               onOpen={() => setActiveGoal(index)}
               onRemove={() => remove(index)}
+              onSpecify={() => openSpecifications(index)}
               onMoveUp={index > 0 ? () => moveUp(index) : undefined}
             />
           ))}
@@ -517,10 +558,7 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
             issue={editorIssues[selected]?.issue}
             goal={goal}
             index={selected}
-            signs={signs}
             approved={approved}
-            cause={pes?.etiology}
-            grounding={goalEditor.grounding}
             pending={approved ? [] : pendingByGoal[selected]}
             onPending={focusGoal}
             onText={text => editText(selected, text)}
@@ -531,34 +569,56 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
       {text.length > maxLength && <p role="alert" className="clinical-notice is-warning">
         Resume los objetivos a {maxLength} caracteres en total antes de aprobar.
       </p>}
-      {approvalPending && <p id={approvalPendingId} className="smart-objective-approval-note">
-        {plan.goals.length === 1 ? 'Revisa los campos marcados en el objetivo.'
-          : `${completeGoals} de ${plan.goals.length} objetivos completos. Completa los pendientes para aprobar el conjunto.`}
-      </p>}
-      {(goal || dirty) && actions}
+      {actions}
       {message && <p role="status" className="smart-objective-message">{message}</p>}
-      {(pes || !!workspace?.facts.length) && <details className="clinical-support-details smart-objective-source">
-        <summary>{pes ? 'PES aprobado' : 'Datos de la consulta'}</summary>
-        {pes && <dl>
-          <div><dt>Etiología</dt><dd>{pes.etiology}</dd></div>
-          <div><dt>Signos y síntomas</dt><dd className="whitespace-pre-line">{pes.signsSymptoms}</dd></div>
-        </dl>}
-        {!!workspace?.facts.length && <details>
-          <summary>Consultar datos de valoración registrados</summary>
-          <ul className="consultation-context-facts">
-            {workspace.facts.map((fact, index) => <li key={index}><strong>{fact.source}</strong><p>{fact.finding}</p></li>)}
-          </ul>
-        </details>}
-      </details>}
-      {props.reviewBatch && props.active !== false && patientId && <ClinicalBatchStageRevision
-        feature="consultation_support" patientId={patientId} consultationId={consultationId}
-        revision={revision} before={before} blocked={locked || assistance?.state === 'uncertain'}
-        renderAction={action => <details className="clinical-support-details smart-objective-source">
-          <summary>Más opciones de IA</summary>
-          <button type="button" className="nuth-button-secondary !text-sm"
-            disabled={action.disabled} onClick={action.open}>{action.label}</button>
-        </details>}
-      />}
+      {specifications && <ClinicalTaskDialog open title={`Especificaciones del objetivo ${specifications.index + 1}`}
+        description="Completa los datos que tengas. Se integrarán al texto del objetivo."
+        onClose={() => setSpecifications(null)} showSaveConsultation={false}
+        footer={<button type="button" className="nuth-button" onClick={saveSpecifications}>Guardar especificaciones</button>}>
+        <div className="smart-objective-specification-fields">
+          {specifications.fields.map(field => <label key={field}>
+            <span>{objectiveEditorFieldLabel(field)}</span>
+            {field === 'timeframe' ? <input className="nuth-input" type="text" maxLength={400}
+              value={specifications.values[field] ?? ''}
+              onChange={event => setSpecifications({ ...specifications, values: { ...specifications.values, [field]: event.target.value } })} />
+              : <textarea className="nuth-input" rows={2} maxLength={field === 'etiology' ? 1500 : 400}
+                value={specifications.values[field] ?? ''}
+                onChange={event => setSpecifications({ ...specifications, values: { ...specifications.values, [field]: event.target.value } })} />}
+          </label>)}
+          {!!signs.length && <label>
+            <span>Signo o síntoma a reevaluar</span>
+            <select className="nuth-input" value={specifications.values.sign ?? ''}
+              onChange={event => setSpecifications({ ...specifications, values: { ...specifications.values, sign: event.target.value } })}>
+              <option value="">Por definir</option>
+              {specifications.values.sign && !signs.includes(specifications.values.sign) && <option value={specifications.values.sign}>{specifications.values.sign} · revisar vigencia</option>}
+              {signs.map(sign => <option key={sign} value={sign}>{sign}</option>)}
+            </select>
+          </label>}
+        </div>
+      </ClinicalTaskDialog>}
+      {showApproval && <ClinicalTaskDialog open title="¿Aprobar estos objetivos?" showSaveConsultation={false} busy={busy}
+        description="Revisa que el texto refleje tu criterio profesional. Puedes aprobar los objetivos tal como están y completar las especificaciones después."
+        onClose={() => setShowApproval(false)}
+        footer={<>
+          <button type="button" className="nuth-button-secondary" disabled={busy} onClick={() => setShowApproval(false)}>Seguir editando</button>
+          <button type="button" className="nuth-button" disabled={busy} onClick={async () => { if (await persist('approve')) setShowApproval(false); }}>Aprobar tal como están</button>
+        </>}>
+        {pesChanged && <p className="clinical-notice is-warning">La valoración cambió desde que se redactaron estos objetivos. Revisa que sigan siendo pertinentes.</p>}
+        {message && <p role="alert" className="clinical-notice is-warning">{message}</p>}
+      </ClinicalTaskDialog>}
+      {feedback !== null && assistance && <ClinicalTaskDialog open title="Regenerar objetivos con IA" showSaveConsultation={false}
+        description="Pide un ajuste concreto o indica qué especificaciones quieres completar. Podrás revisar la propuesta antes de usarla."
+        onClose={() => setFeedback(null)}
+        footer={<button type="button" className="nuth-button" onClick={() => {
+          if (inline) change(plan, editors);
+          void assistance.generate(feedback.trim() || 'Revisa los objetivos actuales y completa las especificaciones con los datos disponibles.');
+          setFeedback(null);
+        }}>Generar propuesta</button>}>
+        <label className="smart-objective-specification-fields">
+          <span>Qué quieres ajustar · opcional</span>
+          <textarea className="nuth-input" rows={4} maxLength={1200} value={feedback} onChange={event => setFeedback(event.target.value)} />
+        </label>
+      </ClinicalTaskDialog>}
       {replacement && <ClinicalTaskDialog open title="Revisar propuesta de objetivos"
         description={approved
           ? "Si la usas, los objetivos actuales se sustituirán y la nueva versión quedará pendiente de aprobación."
@@ -572,7 +632,9 @@ function ObjectiveWorkspaceEditor(props: Props & { assistance?: ObjectiveAssista
         <div className="clinical-batch-comparison">
           <section><h3>Objetivos actuales</h3><p>{text || legacy}</p></section>
           <section><h3>Propuesta de IA</h3><ol>
-            {replacement.plan.goals.map((item, index) => <li key={index}>{item.outcome}</li>)}
+            {replacement.plan.goals.map((item, index) => <li key={index}>
+              <details><summary>{item.outcome}</summary><p className="whitespace-pre-line">{formatObjectiveEditorText(item)}</p></details>
+            </li>)}
           </ol></section>
         </div>
       </ClinicalTaskDialog>}

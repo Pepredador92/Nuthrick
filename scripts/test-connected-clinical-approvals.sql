@@ -23,11 +23,28 @@ end $$;
 set local role authenticated;
 do $$declare f record; pes jsonb; goal jsonb; plan jsonb; goals jsonb; answer jsonb; w jsonb; strategy jsonb; doc jsonb; sid uuid; item jsonb; approved_at text; pes_at text; visit_version integer; key text; begin
  for f in select * from pg_temp.flow_visits loop
+  if f.layout='initial' then
+   goal:='{"outcome":"Anota tus horarios de comida","etiology":"","sign":"","indicator":"","baseline":"","target":"","timeframe":"","monitoring":"","feasibility":"","agreement":"pending","textStyle":"patient_v1"}';
+   plan:=jsonb_build_object('version',1,'pesApprovedAt','','goals',jsonb_build_array(goal));
+   perform pg_temp.save_test(f.visit,jsonb_build_object(f.question,pg_temp.compose_test(goal)));
+   w:=public.clinical_objective(f.visit,1,'approve',public.clinical_objective(f.visit,1)->>'stamp',f.question,plan);
+   approved_at:=w->'objective'->>'approved_at';
+   perform pg_temp.check_flow(approved_at is not null and w->'objective'->'smart_plan'->'goals'->0->>'agreement'='pending', 'approval before PES keeps agreement pending');
+   w:=public.clinical_objective(f.visit,1,'approve',w->>'stamp',f.question,plan);
+   perform pg_temp.check_flow(w->'objective'->>'approved_at'=approved_at, 'approval before PES can be repeated');
+   begin
+    perform public.clinical_objective(f.visit,1,'approve',w->>'stamp',f.question,jsonb_set(plan,'{goals,0,outcome}','""'));
+    raise exception 'expected_missing_outcome_error';
+   exception when raise_exception then
+    if sqlerrm<>'objective_outcome_required' then raise; end if;
+   end;
+  end if;
   pes:=jsonb_build_object('problem','Patrón de comidas irregular','etiology','Horarios variables','signsSymptoms',jsonb_build_array('Omisión de comidas referida'),'evidence',jsonb_build_array(),'missingContext',jsonb_build_array(),'uncertainties',jsonb_build_array(),'evidenceReviewed',true);
   pes:=pes||jsonb_build_object('pesStatement','Patrón de comidas irregular relacionado con Horarios variables, evidenciado por Omisión de comidas referida.','stamp',public.clinical_workspace(f.visit,1)->>'stamp');
   w:=public.clinical_workspace(f.visit,1,'pes',pes);pes_at:=w->>'approved_at';
   goal:='{"outcome":"Anota cuándo haces tus comidas","etiology":"Horarios variables","sign":"Omisión de comidas referida","indicator":"Comidas anotadas","baseline":"Omisión referida","target":"Llevar un registro que podamos revisar","timeframe":"Próxima consulta acordada","monitoring":"Revisaremos tus anotaciones","feasibility":"Registro disponible","agreement":"patient","textStyle":"patient_v1"}';
-  goals:=jsonb_build_array(goal,goal||jsonb_build_object('outcome','Anota cómo te sientes después de comer'));
+  goals:=jsonb_build_array(goal,goal||jsonb_build_object('outcome','Anota cómo te sientes después de comer',
+   'etiology','','baseline','','feasibility','','timeframe','','sign','','agreement','pending'));
   plan:=jsonb_build_object('version',1,'pesApprovedAt',pes_at,'goals',goals);
   if f.layout='initial' then
    select to_jsonb(string_agg(pg_temp.compose_test(g),E'\n\n' order by n)) into answer from jsonb_array_elements(goals) with ordinality a(g,n);

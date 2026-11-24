@@ -33,11 +33,27 @@ export class SimulatorExampleProvider implements AIProvider {
         break;
       }
       case 'consultation_support': {
+        const schema = input.schema.properties as Record<string, { items: { properties: Record<string, unknown> } }>;
+        if (schema.items) {
+          if (!first) throw new AIError('context_unavailable');
+          output = { items: [{
+            title: 'Organización de las comidas · ejemplo',
+            action: 'Anota cómo organizas tus comidas para reconocer qué puedes mejorar.',
+            indicator: 'Registro de horarios y dificultades para organizar las comidas.',
+            criterion: 'Completar un registro sencillo que podamos revisar juntos.',
+            monitoring: 'Trae tu registro para conversar sobre lo que resultó fácil.',
+            feasibility: 'Elige una forma de anotar que encaje con tu rutina.',
+            baselineFactId: first.id, evidenceFactIds: [first.id], goalIndex: 0,
+          }] };
+          break;
+        }
         const sign=facts.find(f=>pesSignSource(f.source));
         if(!sign)throw new AIError('pes_approval_required');
-        const props=((input.schema.properties as Record<string,{items:{properties:Record<string,unknown>}}>).objectives.items.properties);
-        const goal={outcome:'Anota cómo organizas tus comidas para reconocer qué puedes mejorar.',indicator:'Registro de horarios y dificultades para organizar las comidas.',target:'Completar un registro sencillo que podamos revisar juntos.',timeframe:'Revisarlo en 2 semanas, como propuesta por acordar.',monitoring:'Trae tu registro para conversar sobre lo que resultó fácil y lo que necesitas ajustar.',feasibility:'',baselineFactId:sign.id,evidenceFactIds:[sign.id]};
-        output={objectives:['signFactId' in props?{...goal,signFactId:sign.id}:{...goal,etiology:context.approvedPes?.etiology??'',sign:sign.finding}]};
+        const props = schema.objectives.items.properties;
+        const goal={outcome:'Anota cómo organizas tus comidas para reconocer qué puedes mejorar.',indicator:'Registro de horarios y dificultades para organizar las comidas.',target:'Completar un registro sencillo que podamos revisar juntos.',monitoring:'Trae tu registro para conversar sobre lo que resultó fácil y lo que necesitas ajustar.',feasibility:'Elige una forma de anotar que encaje con tu rutina.',baselineFactId:sign.id,evidenceFactIds:[sign.id]};
+        output={objectives:['signFactId' in props
+          ? {...goal,signFactId:sign.id,timeframe:'',etiologyRelation:'El registro ayudará a identificar qué puedes ajustar en tus horarios.'}
+          : {...goal,timeframe:'Revisarlo en 2 semanas, como propuesta por acordar.',etiology:context.approvedPes?.etiology??'',sign:sign.finding}]};
         break;
       }
       case 'intervention_strategy': {

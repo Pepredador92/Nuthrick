@@ -39,6 +39,7 @@ export type ObjectiveAssistance = Omit<InstructionAssistance, 'suggestions'> & {
   suggestions: Suggestion[];
   batchOrigin: string | null;
   baseProblem?: string;
+  generate: (feedback?: string) => Promise<void>;
 };
 
 function SuggestionEvidence({ suggestion }: { suggestion: Suggestion }) {
@@ -98,7 +99,7 @@ type SuggestionProps = {
   renderObjectives?: (assistance: ObjectiveAssistance) => ReactNode;
 };
 
-function parseSuggestions(output: {objectives?:unknown;instructions?:unknown},kind:"objectives"|"instructions",allowTemplate=false):Suggestion[]{
+function parseSuggestions(output: {objectives?:unknown;instructions?:unknown;batchBasis?:unknown},kind:"objectives"|"instructions",allowTemplate=output.batchBasis==='template'):Suggestion[]{
       const drafts = output[kind];
       const next = Array.isArray(drafts)
         ? drafts.flatMap((item) => {
@@ -224,7 +225,7 @@ export function ClinicalSuggestionsAI({
     return () => { mounted = false; };
   }, [active, integrated, visibleBatch, reviewed, pendingRequest, state, showBatch]);
 
-  async function generate() {
+  async function generate(feedback?: string) {
     if (disabled || state === "generating") return;
     if (pendingRequest||sessionStorage.getItem(storageKey)) {
       setState("uncertain");
@@ -253,6 +254,7 @@ export function ClinicalSuggestionsAI({
         consultationId,
         revision,
         ...(!instructions ? { objectiveTextStyle: "patient_v1" as const } : {}),
+        ...(!instructions && feedback?.trim() ? { clinicalFeedback: feedback.trim() } : {}),
       });
       if (result.status !== "succeeded" || !result.output) {
         setState("uncertain");

@@ -2,8 +2,9 @@ import { buildInterventionContext, hydrateInterventionOutput, type InterventionC
 import { productOriginAllowed, siteOrigin } from '../_shared/site.ts';
 import { createClient } from '@supabase/supabase-js';
 import { AIError, type AIStore, type FeatureConfig, type Generation, OpenAIResponsesProvider, parseRequest, runAIRequest } from './core.ts';
-import { objectiveFields } from '../_shared/objectives.ts';
-import { objectivePlanningReferences } from './objective-proposals.ts';
+import { isObjectivePlan, objectiveFields } from '../_shared/objectives.ts';
+import { objectiveBaseline, objectivePlanningReferences } from './objective-proposals.ts';
+import { hasUsablePesEtiology } from '../_shared/pes.ts';
 import { buildConsultationSupportContext, buildPesClinicalContext, instructionAgreement, redactClinicalText, type ClinicalSource, type ConsultationSupportFact } from './clinical.ts';
 import { withConfirmedRecall } from './recall-context.ts';
 import { prepareDietSnapshot, prepareDietAlternative, verifyDietSnapshot, validateSnapshot, parseDietDecision, DietRoutingProvider, type DietSnapshot } from './diet.ts';
@@ -148,13 +149,11 @@ Deno.serve(async request => {
         [key]:proposals[key].map(objective=>({
           ...(smartObjectives ? { goal: {
             ...Object.fromEntries(objectiveFields.filter(key => key !== 'baseline').map(key => [key, (objective as unknown as Record<string, string>)[key]])),
-            baseline: consultationSupportFacts!.find(fact => fact.id === (objective as unknown as { baselineFactId: string }).baselineFactId && fact.finding.length <= 400)?.finding ?? '',
+            baseline: (objective as unknown as { baseline?: string }).baseline ?? objectiveBaseline(consultationSupportFacts!.find(fact => fact.id === (objective as unknown as { baselineFactId: string }).baselineFactId)),
+            timeframe: '',
             ...((objective as unknown as { textStyle?: string }).textStyle === 'patient_v1' ? {
               ...(input.objectiveTextStyle === 'patient_v1' ? { textStyle: 'patient_v1' } : {}),
               targetOrigin: (objective as unknown as { targetOrigin: string }).targetOrigin,
-              timeframeOrigin: (objective as unknown as { timeframeOrigin: string }).timeframeOrigin,
-              baseline: consultationSupportFacts!.find(fact => fact.id === (objective as unknown as { baselineFactId: string }).baselineFactId && fact.finding.length <= 400)?.finding
-                ?? (input.batchId ? 'Revisa el punto de partida con el primer registro.' : 'Revisa el punto de partida en el PES aprobado y complétalo con el primer registro.'),
             } : {}),
             agreement: 'pending',
           } } : { text:objective.text }),
@@ -185,7 +184,7 @@ Deno.serve(async request => {
         const { data: source, error } = await db.rpc(r.feature==='patient_instructions' ? 'ai_patient_instructions_source' : 'ai_clinical_source',{p_owner:owner,p_patient:r.patientId,p_consultation:r.consultationId,p_revision:r.revision});
         if (error || !source) throw new AIError('context_unavailable');
         let clinical = r.feature==='recall_24h' ? source as ClinicalSource : withConfirmedRecall(source as ClinicalSource);
-        if (r.batchId) clinical = clinicalBatchSource(clinical);
+        if (r.batchId || r.objectiveTextStyle === 'patient_v1') clinical = clinicalBatchSource(clinical);
         let previous: Record<string, unknown> | undefined;
         let savedStages: BatchStages = {};
         let assessment = false;
@@ -207,11 +206,19 @@ Deno.serve(async request => {
           batchInputGenerations = prepared.inputGenerations;
           batchPesProblem = clinical.approvedPes?.problem;
         }
+        if (r.feature === 'consultation_support' && !r.batchId && r.clinicalFeedback) {
+          const plan = (clinical.planningObjective ?? clinical.approvedObjective)?.smart_plan;
+          if (isObjectivePlan(plan) && plan.goals.length) previous = { objectives: plan.goals.map(goal => Object.fromEntries(
+            objectiveFields.filter(key => key !== 'timeframe').map(key => [key, redactClinicalText(goal[key], clinical.identifiers)]),
+          )) };
+        }
+        if (r.feature === 'consultation_support' && smartObjectives && !r.batchId &&
+          (!hasUsablePesEtiology(clinical.approvedPes?.etiology) || !clinical.approvedPes?.signsSymptoms?.trim())) assessment = true;
         const review = r.clinicalFeedback ? {
           clinicalFeedback: redactClinicalText(r.clinicalFeedback, clinical.identifiers),
           ...(previous ? { previousDraft: previous } : {}),
         } : undefined;
-        const batch = r.batchId ? await (async () => {
+        const batch = r.batchId || assessment ? await (async () => {
           const visit = await db.from('consultations').select('consultation_type')
             .eq('professional_id', owner).eq('patient_id', r.patientId!)
             .eq('id', r.consultationId!).eq('status', 'draft').is('deleted_at', null).maybeSingle();

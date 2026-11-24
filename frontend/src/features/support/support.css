@@ -11,3 +11,7 @@
 .support-admin-grid{display:grid;grid-template-columns:minmax(230px,.85fr) minmax(0,1.6fr);gap:20px;align-items:start}
 .support-admin-grid .support-messages{max-height:55vh}
 @media(max-width:800px){.support-admin-grid{grid-template-columns:1fr}.support-launcher{right:16px;bottom:max(16px,env(safe-area-inset-bottom))}}
+body:has(.consultation-workspace) .support-launcher { bottom: calc(6rem + env(safe-area-inset-bottom)); }
+@media (max-width: 639px) {
+  body:has(.consultation-workspace) .support-launcher { bottom: calc(8rem + env(safe-area-inset-bottom)); }
+}

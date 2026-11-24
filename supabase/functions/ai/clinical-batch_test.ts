@@ -5,6 +5,7 @@ import {
   clinicalBatchStages,
 } from "../_shared/clinical-batch.ts";
 import { clinicalBatchSource } from "./clinical-batch.ts";
+import { emptyObjective } from '../_shared/objectives.ts';
 
 Deno.test("a fresh batch keeps clinical notes and only the approved objective answer", () => {
   const note = {
@@ -77,6 +78,8 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
   let scenario: "complete" | "partial" | "history" | "insufficient" | "empty" =
     "complete";
   let visit: "initial" | "follow_up" = "follow_up";
+  let standalone = false;
+  let standaloneProposal: { objectives: { goal: Record<string, string> }[] } | undefined;
   function json(value: unknown) {
     return Response.json(value);
   }
@@ -139,7 +142,7 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
         if (scenario === "empty") {
           assert.equal(data.provider_response_id, undefined);
         }
-        assert.ok(
+        if (!standalone) assert.ok(
           [
             drafts[generation.feature]?.generationId,
             candidates[generation.feature]?.generationId,
@@ -201,8 +204,13 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
               : []),
           ],
         strategyRequired: true,
-        approvedPes: null,
-        approvedObjective: null,
+        approvedPes: standalone && scenario === 'complete' ? {
+          approved_at: 'pes-current', problem: 'Patrón de comidas irregular', etiology: 'Horarios variables',
+          signsSymptoms: 'Omisión de comidas referida', pesStatement: 'Patrón de comidas irregular.',
+        } : null,
+        approvedObjective: standalone && scenario === 'complete' ? {
+          smart_plan: { version: 1, pesApprovedAt: 'pes-current', goals: [{ ...emptyObjective(), outcome: 'Registrar cuándo haces tus comidas.' }] },
+        } : null,
         approvedStrategies: [],
       });
     }
@@ -230,8 +238,14 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
     if (rpc === "ai_bind_clinical_context" || rpc === "ai_provider_metadata") {
       return json(null);
     }
+    if (rpc === 'ai_store_consultation_proposal' && standalone) {
+      assert.equal(body.p_owner, owner);
+      assert.ok(settled.has(body.p_generation));
+      standaloneProposal = body.p_result.output;
+      return json(null);
+    }
     const context = JSON.parse(body.input);
-    assert.match(body.instructions, /propuesta completa pendiente/);
+    if (!standalone) assert.match(body.instructions, /propuesta completa pendiente/);
     if (url === "https://api.openai.com/v1/responses/input_tokens") {
       assert.notEqual(scenario, "empty");
       return json({ input_tokens: 200 });
@@ -306,6 +320,10 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
               monitoring: "Comentaremos qué cambió desde la última visita.",
               goalIndex: 0,
               evidenceFactIds: [historical.id],
+              ...(generating.feature === 'consultation_support' ? {
+                baselineFactId: historical.id,
+                feasibility: 'Conversen sobre qué forma de registro encaja en la rutina.',
+              } : {}),
             }],
           },
       );
@@ -354,7 +372,7 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
         body.instructions,
         /práctica de pasos sencillos/,
       );
-      assert.equal(
+      if (!standalone) assert.equal(
         context.priorDrafts.problem,
         "Dificultad para preparar comidas para el trabajo",
       );
@@ -384,10 +402,17 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
             : "En la próxima consulta, platica cómo te funcionó.",
           goalIndex: 0,
           evidenceFactIds: [current.id],
+          ...(generating.feature === 'consultation_support' ? {
+            baselineFactId: current.id,
+            feasibility: 'Elige algo que puedas preparar antes de un turno largo.',
+          } : {}),
         }],
       });
     }
-    if (context.clinicalFeedback) {
+    if (standalone) {
+      assert.equal(context.clinicalFeedback, 'Completa la viabilidad con una acción observable.');
+      assert.equal(context.previousDraft.objectives[0].outcome, 'Registrar cuándo haces tus comidas.');
+    } else if (context.clinicalFeedback) {
       assert.match(context.clinicalFeedback, /Prioriza el ejercicio retomado/);
       assert.doesNotMatch(
         context.clinicalFeedback,
@@ -441,8 +466,8 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
     const request = async (
       feature: ClinicalBatchFeature,
       idempotencyKey = crypto.randomUUID(),
-      batchId = batch,
-      review?: { clinicalFeedback: string; revisionOf: string },
+      batchId: string | null = batch,
+      review?: { clinicalFeedback: string; revisionOf?: string },
     ) => {
       const response = await originalFetch(`http://127.0.0.1:${port}`, {
         method: "POST",
@@ -453,7 +478,7 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
         body: JSON.stringify({
           feature,
           idempotencyKey,
-          batchId,
+          ...(batchId ? { batchId } : {}),
           patientId: patient,
           consultationId: consultation,
           revision: 1,
@@ -542,6 +567,11 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
     scenario = "partial";
     await runAll();
     assert.equal(drafts.pes_diagnosis?.output.etiology, "");
+    const objective = (drafts.consultation_support?.output.objectives as { goal: Record<string, string> }[])[0].goal;
+    for (const field of ['outcome', 'etiology', 'target', 'indicator', 'baseline', 'monitoring', 'feasibility']) {
+      assert.ok(objective[field], field);
+    }
+    assert.equal(objective.timeframe, '');
     for (const { feature } of clinicalBatchStages.slice(1)) {
       assert.equal(drafts[feature]?.output.batchBasis, "assessment");
       assert.match(
@@ -608,6 +638,24 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
       assert.equal(drafts.pes_diagnosis?.output.etiology, "");
     }
     assert.equal(modelCalls, 17);
+
+    standalone = true;
+    scenario = 'complete';
+    const regenerated = await request('consultation_support', crypto.randomUUID(), null, {
+      clinicalFeedback: 'Completa la viabilidad con una acción observable.',
+    });
+    assert.equal(regenerated.status, 'succeeded', JSON.stringify(regenerated));
+    assert.deepEqual(standaloneProposal, regenerated.output);
+    assert.equal(standaloneProposal?.objectives[0].goal.timeframe, '');
+    assert.ok(standaloneProposal?.objectives[0].goal.feasibility);
+
+    scenario = 'partial';
+    const assessment = await request('consultation_support', crypto.randomUUID(), null);
+    assert.equal(assessment.status, 'succeeded', JSON.stringify(assessment));
+    assert.equal(assessment.output.batchBasis, 'assessment');
+    assert.equal(assessment.output.objectives[0].goal.timeframe, '');
+    assert.match(assessment.output.objectives[0].goal.baseline, /turno largo/);
+    assert.equal(modelCalls, 19);
   } finally {
     await server?.shutdown();
     globalThis.fetch = originalFetch;

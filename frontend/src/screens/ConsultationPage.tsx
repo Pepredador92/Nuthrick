@@ -36,7 +36,7 @@ import { ClinicalPatientInstructions } from "@/src/components/consultations/Clin
 import { consultationSteps, objectiveKeys, followupKeys, questionModule, workflowSections, type ConsultationModule } from "@/src/features/consultations/consultationWorkflow";
 import { clearClinicalPlanSession, isClinicalPlanAnswer } from '@/src/features/consultations/clinicalPlanReset';
 import { ClinicalInterventions } from "@/src/components/consultations/ClinicalInterventions";
-import { ClinicalObjective } from "@/src/components/consultations/ClinicalObjective";
+import { ClinicalObjective, type ObjectiveApproval } from "@/src/components/consultations/ClinicalObjective";
 import type { ClinicalTaskStatus } from "@/src/components/consultations/ClinicalTaskCard";
 import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory";
 import { ConsultationCloseDialog } from "@/src/components/consultations/ConsultationCloseDialog";
@@ -194,6 +194,9 @@ function ConsultationEditor() {
   const [clinicalRefresh, setClinicalRefresh] = useState(0);
   const [clinicalResetVersion, setClinicalResetVersion] = useState(0);
   const [showClinicalReset, setShowClinicalReset] = useState(false);
+  const objectiveApprovals = useRef(new Map<string, ObjectiveApproval>());
+  const [objectiveAdvance, setObjectiveAdvance] = useState(false);
+  const [objectiveAdvanceError, setObjectiveAdvanceError] = useState('');
   const [clinicalResetError, setClinicalResetError] = useState('');
   const clinicalResetLock = useRef(false);
   const [observationsVersion, setObservationsVersion] = useState(0);
@@ -859,11 +862,39 @@ function ConsultationEditor() {
     const index = consultationSteps.findIndex(step => step.key === module);
     return goModule(consultationSteps[index - 1].key);
   };
-  const goClinicalStage = async (next: number) => {
+  const goClinicalStage = async (next: number, confirmed = false) => {
+    if (!confirmed && module === 'clinical' && clinicalStage === 2 && next === 3 &&
+      [...objectiveApprovals.current.values()].some(approval => approval.needsReview)) {
+      setObjectiveAdvanceError('');
+      setObjectiveAdvance(true);
+      return;
+    }
     if(!saveError) void saveAll();
     setClinicalStage(next);
     requestAnimationFrame(() => document.getElementById('consultation-clinical-heading')?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }));
   };
+  async function continueFromObjectives(approve: boolean) {
+    setBusy(true);
+    setObjectiveAdvanceError('');
+    try {
+      for (const approval of [...objectiveApprovals.current.values()]) {
+        if (approval.needsReview && !await (approve ? approval.approve() : approval.saveDraft())) {
+          setObjectiveAdvanceError(approve
+            ? 'No pudimos aprobar los objetivos. El texto se conserva. Puedes seguir editando o continuar con el borrador.'
+            : 'No pudimos guardar el borrador. Revisa la conexión e inténtalo de nuevo.');
+          return;
+        }
+      }
+      if (!approve && !await saveAll()) {
+        setObjectiveAdvanceError('No pudimos guardar el borrador. Tus cambios siguen en la consulta.');
+        return;
+      }
+      setObjectiveAdvance(false);
+      await goClinicalStage(3, true);
+    } finally {
+      setBusy(false);
+    }
+  }
   const openPesTarget = (requested: PesContextTarget) => {
     const target = requested.questionKey && snapshot ? pesFieldTarget(snapshot.structure, valuesRef.current, requested.questionKey) ?? requested : requested;
     if (target.questionKey) {
@@ -1261,6 +1292,15 @@ function ConsultationEditor() {
           <p>Se conservan los datos de la consulta, las notas, las citas y el historial del paciente.</p>
           {clinicalResetError && <p role="alert" className="clinical-notice is-warning mt-3">{clinicalResetError}</p>}
         </ClinicalTaskDialog>}
+        {objectiveAdvance && <ClinicalTaskDialog open title="¿Cómo quieres continuar a Estrategias?" busy={busy} showSaveConsultation={false}
+          description="Revisa que los objetivos reflejen tu criterio profesional. Puedes aprobarlos tal como están o conservar el borrador."
+          onClose={() => setObjectiveAdvance(false)} footer={<>
+            <button type="button" className="nuth-button-secondary" disabled={busy} onClick={() => setObjectiveAdvance(false)}>Seguir editando</button>
+            <button type="button" className="nuth-button-secondary" disabled={busy} onClick={() => void continueFromObjectives(false)}>Continuar con el borrador</button>
+            <button type="button" className="nuth-button" disabled={busy} onClick={() => void continueFromObjectives(true)}>Aprobar y continuar</button>
+          </>}>
+          {objectiveAdvanceError && <p role="alert" className="clinical-notice is-warning">{objectiveAdvanceError}</p>}
+        </ClinicalTaskDialog>}
         <ConsultationGuide label="Pasos de la revisión clínica" steps={clinicalStepsWithProgress} active={clinicalStage} onChange={next => void goClinicalStage(next)} busy={busy} />
         <div hidden={clinicalStage !== 0}>
           <ClinicalReview batch={{patientId:patient.id,onReview:stage=>void goClinicalStage(stage)}}
@@ -1282,7 +1322,10 @@ function ConsultationEditor() {
         </section>
         <section hidden={clinicalStage !== 2} className="clinical-stage" aria-label="Objetivos acordados">
           <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">03 · Acuerda el cambio</p><h2>Objetivos acordados</h2><p>Define qué quieren lograr, cómo lo medirán y cuándo revisarán el avance.</p></div></header>
-          {clinicalObjectiveQuestions.map((question, index) => <ClinicalObjective reviewBatch={index === 0} onReviewPes={()=>void goClinicalStage(1)} onCompleted={()=>{const all=clinicalObjectiveQuestions.every(item=>item.question_key===question.question_key||clinicalProgress[`objective:${item.question_key}`]==='approved');reportCompletion(all?"Objetivos acordados aprobados. Paso completado.":"Objetivos de esta tarjeta aprobados.",all?3:undefined);}} key={`${consultation.id}:${snapshot.revision}:${question.question_key}`} consultationId={consultation.id} revision={snapshot.revision} questionKey={question.question_key} contextVersion={clinicalRefresh} value={values[question.question_key]} before={saveForClinical} active={module === 'clinical' && clinicalStage === 2} patientId={patient.id} maxLength={typeof question.configuration.max_length === 'number' ? question.configuration.max_length : question.question_type === 'repeatable_group' ? 12000 : 2000} onStatusChange={status => updateClinicalProgress(`objective:${question.question_key}`, status)} onPendingChange={pending => setObjectivePending(current => current[question.question_key] === pending ? current : { ...current, [question.question_key]: pending })} onChangeText={(text, texts) => replaceObjectiveText(question, text, texts)} />)}
+          {clinicalObjectiveQuestions.map((question, index) => <ClinicalObjective reviewBatch={index === 0} approvalRef={approval => {
+            if (approval) objectiveApprovals.current.set(question.question_key, approval);
+            else objectiveApprovals.current.delete(question.question_key);
+          }} onCompleted={()=>{const all=clinicalObjectiveQuestions.every(item=>item.question_key===question.question_key||clinicalProgress[`objective:${item.question_key}`]==='approved');reportCompletion(all?"Objetivos acordados aprobados. Paso completado.":"Objetivos de esta tarjeta aprobados.",all?3:undefined);}} key={`${consultation.id}:${snapshot.revision}:${question.question_key}`} consultationId={consultation.id} revision={snapshot.revision} questionKey={question.question_key} contextVersion={clinicalRefresh} value={values[question.question_key]} before={saveForClinical} active={module === 'clinical' && clinicalStage === 2} patientId={patient.id} maxLength={typeof question.configuration.max_length === 'number' ? question.configuration.max_length : question.question_type === 'repeatable_group' ? 12000 : 2000} onStatusChange={status => updateClinicalProgress(`objective:${question.question_key}`, status)} onPendingChange={pending => setObjectivePending(current => current[question.question_key] === pending ? current : { ...current, [question.question_key]: pending })} onChangeText={(text, texts) => replaceObjectiveText(question, text, texts)} />)}
         </section>
         <section hidden={clinicalStage !== 3} className="clinical-stage" aria-label="Estrategia de intervención">
           <header className="clinical-stage-heading"><div><p className="nuth-eyebrow">04 · Define cómo se llevará a cabo</p><h2>Estrategia de intervención</h2><p>Organiza las acciones que llevarán los objetivos a la práctica.</p></div></header>

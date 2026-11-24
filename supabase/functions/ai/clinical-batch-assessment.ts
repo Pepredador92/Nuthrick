@@ -13,6 +13,7 @@ import {
 } from "./clinical.ts";
 import type { BatchStages } from "./clinical-batch.ts";
 import { completeClinicalSentence } from "./clinical-planning.ts";
+import { objectiveBaseline, objectiveFeasibilityPrompt } from './objective-proposals.ts';
 
 type Visit = "initial" | "follow_up";
 type AssessmentFeature = Exclude<ClinicalBatchFeature, "pes_diagnosis">;
@@ -33,6 +34,10 @@ const properties = {
 export function assessmentSchema(feature: AssessmentFeature) {
   const fields = {
     ...properties,
+    ...(feature === 'consultation_support' ? {
+      baselineFactId: { type: 'string', pattern: '^(f[1-9][0-9]*)?$' },
+      feasibility: field(400),
+    } : {}),
     action: field(
       feature === "consultation_support"
         ? 400
@@ -69,11 +74,13 @@ type AssessmentItem = {
   monitoring: string;
   goalIndex: number;
   evidenceFactIds: string[];
+  baselineFactId?: string;
+  feasibility?: string;
 };
 
 const assessmentTasks: Record<AssessmentFeature, string> = {
   consultation_support:
-    "Propón qué puede probar la persona con la información disponible. Escribe en action el cambio útil que puede intentar, en indicator qué se observará, en criterion qué resultado observable revisarán y en monitoring cómo. Si solo es posible valorar, elige una pregunta o registro que ayude a decidir el siguiente paso. Usa goalIndex=0.",
+    "Propón qué puede probar la persona con la información disponible. Escribe en action el cambio útil que puede intentar, en indicator qué se observará, en criterion qué resultado observable revisarán y en monitoring cómo. En baselineFactId cita el hecho que describa el punto de partida, o usa la cadena vacía si se conocerá con el primer registro. En feasibility redacta cómo adaptar el objetivo a una barrera o preferencia documentada. Si no está registrada, propón una adaptación que se pueda conversar sin asumir hechos. El nutriólogo elige el plazo. Si solo es posible valorar, elige una pregunta o registro que ayude a decidir el siguiente paso. Usa goalIndex=0.",
   intervention_strategy:
     "Propón acciones que el nutriólogo pueda realizar con la persona. En title pon un nombre breve. En action describe cómo acompañar el objetivo y en monitoring qué revisará el nutriólogo. Vincula el índice del objetivo en goalIndex.",
   patient_instructions:
@@ -196,14 +203,16 @@ export function batchDraft(
   }
   const byId = new Map(context.facts.map((fact) => [fact.id, fact]));
   const contextual = (output?.items ?? []).flatMap((item) => {
-    const evidence = [...new Set(item.evidenceFactIds)].flatMap((id) => {
+    const evidenceIds = [...new Set(item.evidenceFactIds)];
+    if (item.baselineFactId && byId.has(item.baselineFactId) && !evidenceIds.includes(item.baselineFactId)) evidenceIds.push(item.baselineFactId);
+    const evidence = evidenceIds.flatMap((id) => {
       const fact = byId.get(id);
       return fact && fact.source.length <= 2000 && fact.finding.length <= 4000
         ? [{ source: fact.source, finding: fact.finding }]
         : [];
     });
     if (
-      evidence.length !== item.evidenceFactIds.length ||
+      evidence.length !== evidenceIds.length || new Set(item.evidenceFactIds).size !== item.evidenceFactIds.length ||
       !completeClinicalSentence(item.action)
     ) return [];
     if (
@@ -222,7 +231,7 @@ export function batchDraft(
   // are insufficient. Keep that result on the recoverable validation path.
   if (output?.items.length && !contextual.length) return null;
   const batchBasis = contextual.length ? "assessment" : "template";
-  const drafts = contextual.length ? contextual : [{
+  const drafts: { item: Omit<AssessmentItem, 'evidenceFactIds'>; evidence: { source: string; finding: string }[] }[] = contextual.length ? contextual : [{
     item: {
       title: template.strategy,
       action: feature === "consultation_support"
@@ -246,13 +255,14 @@ export function batchDraft(
         goal: {
           ...emptyObjective(),
           outcome: item.action,
+          etiology: 'La relación con el diagnóstico se revisará con lo observado en este objetivo.',
           indicator: item.indicator,
+          baseline: objectiveBaseline(item.baselineFactId ? byId.get(item.baselineFactId) : undefined),
           target: item.criterion,
           monitoring: item.monitoring,
-          timeframe: "En la próxima consulta",
+          feasibility: item.feasibility && completeClinicalSentence(item.feasibility) ? item.feasibility : objectiveFeasibilityPrompt,
           textStyle: "patient_v1",
           targetOrigin: "proposed",
-          timeframeOrigin: "proposed",
         },
         evidence,
       })),

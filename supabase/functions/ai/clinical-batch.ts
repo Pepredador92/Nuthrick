@@ -91,10 +91,8 @@ export function clinicalBatchInput(
   };
   const signs = pes.signsSymptoms.split("\n").map((sign) => sign.trim());
   if (
-    goals.length && isObjectivePlan(smart_plan) &&
-    goals.every((goal) =>
-      goal.etiology === pes.etiology && signs.includes(goal.sign)
-    )
+    !objectives.output.batchBasis && goals.length && isObjectivePlan(smart_plan) &&
+    goals.every((goal) => goal.etiology.trim() && signs.includes(goal.sign))
   ) {
     clinical.approvedObjective = null;
     clinical.planningObjective = {

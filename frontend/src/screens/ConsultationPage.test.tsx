@@ -601,7 +601,7 @@ describe("consultation save and review workflow", () => {
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
     await screen.findByRole('heading', { name: 'Objetivos SMART' });
     expect(screen.getByRole('button', { name: 'Agregar objetivo' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Proponer objetivos con IA' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Proponer objetivos con IA' })).toBeEnabled();
     expect(screen.queryByRole('textbox', { name: pesTextName })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
     const strategies = await screen.findByRole('region', { name: 'Estrategias de intervención' });
@@ -639,7 +639,7 @@ describe("consultation save and review workflow", () => {
     expect(within(dialog).getByRole('button', { name: 'Confirmar cierre' })).toBeDisabled();
   });
 
-  it("generates SMART goals, saves the reviewed plan and enables strategies only after explicit approval", async () => {
+  it("moves to strategies with a saved draft or confirms the approval with specifications pending", async () => {
     let savedPlan: ObjectivePlan | undefined;
     let approved = false;
     mocks.objective.mockImplementation(async (_c, _r, action = 'read', _stamp, _key, plan) => {
@@ -662,7 +662,7 @@ describe("consultation save and review workflow", () => {
     expect(mocks.generate).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ feature: 'consultation_support', patientId: 'patient', consultationId: 'draft', revision: 1 }));
     expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(mocks.generate.mock.invocationCallOrder[0]);
     expect(screen.getByLabelText('Acuerdo · objetivo 1')).toHaveValue('pending');
-    expect(screen.getByRole('button', { name: 'Aprobar objetivos' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Aprobar objetivos' })).toBeEnabled();
     expect(mocks.objective.mock.calls.every(args => args.length === 2)).toBe(true);
     editObjectiveOutcome('Resultado revisado por el profesional');
     expect(screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Texto del objetivo 1' }).value).toContain('Resultado revisado por el profesional');
@@ -670,16 +670,24 @@ describe("consultation save and review workflow", () => {
     await screen.findByText('Borrador guardado. Puedes continuar y revisarlo después.');
     expect(savedPlan?.goals[0]).toMatchObject({ outcome: 'Resultado revisado por el profesional', agreement: 'pending', sign: approvedPes.signsSymptoms });
     expect(mocks.save).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'draft' }), expect.objectContaining({ revision: 1 }), expect.objectContaining({ treatment_objective: composeObjective(savedPlan!.goals[0]) }));
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    let advance = within(await screen.findByRole('dialog', { name: '¿Cómo quieres continuar a Estrategias?' }));
+    fireEvent.click(advance.getByRole('button', { name: 'Seguir editando' }));
+    expect(screen.getByRole('heading', { name: 'Objetivos SMART' })).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: /Estrategia Define las acciones y responsables/ }));
-    expect(await screen.findByRole('button', { name: 'Proponer estrategias con IA' })).toBeEnabled();
+    advance = within(await screen.findByRole('dialog', { name: '¿Cómo quieres continuar a Estrategias?' }));
+    fireEvent.click(advance.getByRole('button', { name: 'Continuar con el borrador' }));
+    expect(await screen.findByRole('heading', { name: 'Estrategia de intervención' })).toBeVisible();
+    expect(mocks.objective.mock.calls.some(args => args[2] === 'approve')).toBe(false);
+
     fireEvent.click(screen.getByRole('button', { name: /Objetivos Acuerda/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Revisar objetivo 1' }));
-    fireEvent.change(await screen.findByLabelText('Acuerdo · objetivo 1'), { target: { value: 'patient' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Aprobar objetivos' }));
-    await screen.findByText('Objetivos aprobados para seguimiento.');
-    expect(mocks.objective).toHaveBeenLastCalledWith('draft', 1, 'approve', 'current', 'treatment_objective', savedPlan);
-    fireEvent.click(screen.getByRole('button', { name: /Estrategia Define las acciones y responsables/ }));
+    expect(await screen.findByLabelText('Acuerdo · objetivo 1')).toHaveValue('pending');
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    advance = within(await screen.findByRole('dialog', { name: '¿Cómo quieres continuar a Estrategias?' }));
+    fireEvent.click(advance.getByRole('button', { name: 'Aprobar y continuar' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Proponer estrategias con IA' })).toBeEnabled());
+    expect(mocks.objective).toHaveBeenCalledWith('draft', 1, 'approve', 'current', 'treatment_objective', savedPlan);
+    expect(savedPlan?.goals[0].agreement).toBe('pending');
     expect(mocks.generate).toHaveBeenCalledOnce();
   });
   it("respects the saved custom label even for a canonical question key", async () => {
@@ -894,7 +902,7 @@ describe("consultation save and review workflow", () => {
     await openModule('Revisión clínica, PES y objetivos');
     fireEvent.click(screen.getByRole('button',{name:'Objetivos Acuerda la intervención'}));
     await screen.findByRole('heading',{name:'Objetivos SMART'});
-    expect(screen.getByRole('button',{name:'Proponer objetivos con IA'})).toBeDisabled();
+    expect(screen.getByRole('button',{name:'Proponer objetivos con IA'})).toBeEnabled();
     await act(async()=>release());
     await openModule('Entrevista');fireEvent.click(screen.getByRole('button',{name:'Anterior'}));
     await screen.findByRole('heading',{name:'Apertura de prueba'});

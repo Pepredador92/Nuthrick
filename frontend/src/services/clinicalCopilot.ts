@@ -62,6 +62,8 @@ export async function clinicalObjective(
         ? 'Tu acceso actual permite consultar esta revisión. Revisa el acceso de la cuenta para guardar aprobaciones.'
         : error.message === 'objective_plan_required' || error.message === 'objective_smart_required'
         ? 'Completa resultado, relación con el PES, indicador, situación inicial, meta, plazo, seguimiento y viabilidad.'
+        : error.message === 'objective_outcome_required'
+        ? 'Escribe un resultado esperado para cada objetivo que quieras aprobar.'
         : error.message === 'objective_agreement_required'
         ? 'Registra si el objetivo se acordó con el paciente o cuidador.'
         : error.message === 'objective_pes_changed'
