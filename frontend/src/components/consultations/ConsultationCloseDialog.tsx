@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ClipboardList, Salad, X } from "lucide-react";
-import { consultationCloseFields, emptyValue, type Answers } from "@/src/features/consultations/questionnaire";
+import { consultationCloseFields, emptyValue, matchesCondition, type Answers } from "@/src/features/consultations/questionnaire";
 import type { ConsultationSnapshotStructure } from "@/src/types/domain";
 import { QuestionField } from "./QuestionField";
 
@@ -8,6 +8,8 @@ export type ConsultationCloseDestination = "history" | "workshop";
 
 type ConsultationCloseDialogProps = {
   sections: ConsultationSnapshotStructure["sections"];
+  templateName: string;
+  templateVersion: number;
   values: Answers;
   busy: boolean;
   saving: boolean;
@@ -22,15 +24,18 @@ type ConsultationCloseDialogProps = {
 };
 
 export function ConsultationCloseDialog({
-  sections, values, busy, saving, reviewed, blockedBy, error,
+  sections, templateName, templateVersion, values, busy, saving, reviewed, blockedBy, error,
   onChange, onSave, onReview, onCancel, onConfirm,
 }: ConsultationCloseDialogProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const reviewInput = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState<ReadonlySet<string>>(() => new Set());
   const [saved, setSaved] = useState(false);
-  const pending = consultationCloseFields(sections, values, editing);
-  const issues = pending.flatMap(section => section.fields.flatMap(field => field.issues));
+  const [showAnswered, setShowAnswered] = useState(false);
+  const required = sections.flatMap(section => section.questions.filter(question => question.is_required));
+  const hasApplicableRequired = required.some(question => matchesCondition(question.visibility_condition, values));
+  const groups = consultationCloseFields(sections, values, { editing, includeAnsweredRequired: showAnswered });
+  const issues = groups.flatMap(section => section.fields.flatMap(field => field.issues));
   const hasMissing = issues.some(issue => issue.kind === "missing");
   const hasInvalid = issues.some(issue => issue.kind === "invalid");
   const canClose = reviewed && !busy && !saving && !blockedBy.length && !hasInvalid;
@@ -42,12 +47,13 @@ export function ConsultationCloseDialog({
   }, []);
 
   useEffect(() => {
-    if (saved && !pending.length) reviewInput.current?.focus();
-  }, [saved, pending.length]);
+    if (saved && !groups.length) reviewInput.current?.focus();
+  }, [saved, groups.length]);
 
   async function savePending() {
     if (await onSave()) {
       setEditing(new Set());
+      setShowAnswered(false);
       setSaved(true);
     }
   }
@@ -67,17 +73,35 @@ export function ConsultationCloseDialog({
           </button>
         </header>
         <div className="overflow-y-auto overscroll-contain px-5 py-4 sm:px-7">
-          {pending.length > 0 && (
-            <section aria-labelledby="close-consultation-pending" className="mb-4 space-y-3">
-              <h3 id="close-consultation-pending" className="text-sm font-semibold">Pendientes del guion de esta consulta</h3>
-              {hasMissing && (
-                <p className="rounded-xl bg-[#fff9e9] px-3 py-2 text-sm text-[#775527]">
-                  Hay datos obligatorios sin completar. Puedes guardarlos aquí o cerrar con estos pendientes.
-                </p>
-              )}
-              {hasInvalid && <p className="text-sm text-[#963f32]">Corrige o borra los valores fuera del rango permitido antes de cerrar.</p>}
+          <section aria-labelledby="close-consultation-questions" className="mb-4 space-y-3">
+            <div>
+              <h3 id="close-consultation-questions" className="text-sm font-semibold">Preguntas obligatorias</h3>
+              <p className="mt-1 text-xs text-[#60766a]">{templateName} · versión {templateVersion}</p>
+            </div>
+            {hasMissing && (
+              <p className="rounded-xl bg-[#fff9e9] px-3 py-2 text-sm text-[#775527]">
+                Hay datos obligatorios sin completar. Puedes guardarlos aquí o cerrar con estos pendientes.
+              </p>
+            )}
+            {hasInvalid && <p className="text-sm text-[#963f32]">Corrige o borra los valores fuera del rango permitido antes de cerrar.</p>}
+            {!groups.length && (
+              <p className="text-sm text-[#60766a]">
+                {hasApplicableRequired
+                  ? "Todas las preguntas obligatorias que aplican ya tienen respuesta."
+                  : required.length
+                    ? "Según las respuestas registradas, ninguna pregunta obligatoria aplica a esta consulta."
+                    : "El guion de esta consulta no tiene preguntas marcadas como obligatorias."}
+              </p>
+            )}
+            {hasApplicableRequired && (showAnswered || !groups.length) && (
+              <button type="button" className="nuth-button-secondary !text-sm" aria-expanded={showAnswered}
+                disabled={busy} onClick={() => setShowAnswered(open => !open)}>
+                {showAnswered ? "Ocultar respuestas registradas" : "Revisar respuestas obligatorias"}
+              </button>
+            )}
+            {groups.length > 0 && (
               <fieldset disabled={busy} className="space-y-3">
-                {pending.map(section => (
+                {groups.map(section => (
                   <div key={section.key} className="space-y-3 rounded-xl border border-[#dfe5e1] p-3">
                     <h4 className="text-xs font-semibold text-[#60766a]">{section.title}</h4>
                     {section.fields.map(({ question, issues: fieldIssues }) => {
@@ -96,12 +120,14 @@ export function ConsultationCloseDialog({
                   </div>
                 ))}
               </fieldset>
-              <button type="button" className="nuth-button-secondary" disabled={busy || saving || !editing.size} onClick={() => void savePending()}>
+            )}
+            {editing.size > 0 && (
+              <button type="button" className="nuth-button-secondary" disabled={busy || saving} onClick={() => void savePending()}>
                 Guardar respuestas
               </button>
-            </section>
-          )}
-          {saved && <p role="status" className="mb-4 text-sm">Respuestas guardadas.</p>}
+            )}
+            {saved && <p role="status" className="text-sm">Respuestas guardadas.</p>}
+          </section>
           {blockedBy.length > 0 && (
             <p role="status" className="mb-4 rounded-xl bg-[#fff9e9] px-3 py-2 text-sm text-[#775527]">
               Guarda primero los cambios de {blockedBy.join(", ")}. Puedes volver a esta ventana después.

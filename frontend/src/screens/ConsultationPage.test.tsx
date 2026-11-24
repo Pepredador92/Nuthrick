@@ -1018,14 +1018,53 @@ describe("consultation save and review workflow", () => {
     mocks.save.mockResolvedValue(undefined);
     fireEvent.click(saveResponses);
     expect(await dialog.findByText("Respuestas guardadas.")).toBeVisible();
-    expect(dialog.queryByRole("region", { name: "Pendientes del guion de esta consulta" })).not.toBeInTheDocument();
+    const required = within(dialog.getByRole("region", { name: "Preguntas obligatorias" }));
+    expect(required.getByText("Mi entrevista personalizada · versión 1")).toBeVisible();
+    expect(required.getByText("Todas las preguntas obligatorias que aplican ya tienen respuesta.")).toBeVisible();
+    expect(required.queryByRole("textbox")).not.toBeInTheDocument();
     expect(mocks.answerState.answers).toMatchObject({ review: "Revisado", schedule: "Después de las 18:00" });
+    fireEvent.click(required.getByRole("button", { name: "Revisar respuestas obligatorias" }));
+    const registered = required.getByRole("textbox", { name: /Horario que acordaron/ });
+    expect(registered).toHaveValue("Después de las 18:00");
+    expect(required.queryByLabelText(/Barrera pendiente|Nota adicional opcional/)).not.toBeInTheDocument();
+    fireEvent.change(registered, { target: { value: "Después de las 19:00" } });
+    fireEvent.click(required.getByRole("button", { name: "Guardar respuestas" }));
+    await required.findByText("Respuestas guardadas.");
+    expect(mocks.answerState.answers.schedule).toBe("Después de las 19:00");
     expect(mocks.finish).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Mediciones" })).toHaveAttribute("aria-current", "page");
     fireEvent.click(dialog.getByRole("checkbox"));
     fireEvent.click(dialog.getByRole("button", { name: "Cerrar y ver historial" }));
     await screen.findByRole("heading", { name: "Ficha guardada" });
     expect(mocks.finish).toHaveBeenCalledExactlyOnceWith("draft", expect.stringContaining("Mi entrevista personalizada · 2 respuestas registradas."));
+  });
+  it.each([
+    [true, "Según las respuestas registradas, ninguna pregunta obligatoria aplica a esta consulta."],
+    [false, "El guion de esta consulta no tiene preguntas marcadas como obligatorias."],
+  ])("explains why there are no required questions to complete when is_required is %s", async (isRequired, message) => {
+    const custom = structuredClone(fixtures.snapshot);
+    const section = custom.structure.sections[1];
+    const question: Question = {
+      ...section.questions[0],
+      question_type: "select",
+      response_area: "professional_assessment",
+      is_required: isRequired,
+      visibility_condition: { question_key: "note", equals: "Aplica" },
+    };
+    mocks.getSnapshot.mockResolvedValue({
+      ...custom,
+      structure: { ...custom.structure, sections: [custom.structure.sections[0], { ...section, questions: [question] }] },
+    });
+    mount();
+    await screen.findByRole("heading", { name: "Apertura de prueba" });
+    fireEvent.click(screen.getByRole("button", { name: "Revisar cierre de consulta" }));
+    const dialog = within(await screen.findByRole("dialog", { name: "Cerrar consulta" }));
+    const required = within(dialog.getByRole("region", { name: "Preguntas obligatorias" }));
+    expect(required.getByText(message)).toBeVisible();
+    expect(required.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(required.queryByRole("button", { name: "Revisar respuestas obligatorias" })).not.toBeInTheDocument();
+    fireEvent.click(dialog.getByRole("checkbox"));
+    expect(dialog.getByRole("button", { name: "Cerrar y ver historial" })).toBeEnabled();
   });
   it("blocks closure with uncommitted laboratory edits even from another tab", async () => {
     mount();

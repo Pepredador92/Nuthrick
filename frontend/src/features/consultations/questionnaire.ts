@@ -217,14 +217,16 @@ export function questionErrors(question: Question, value: unknown): string[] {
 export function consultationCloseFields(
   sections: ConsultationSnapshotStructure["sections"],
   values: Answers,
-  editing?: ReadonlySet<string>,
+  { editing, includeAnsweredRequired = false }: { editing?: ReadonlySet<string>; includeAnsweredRequired?: boolean } = {},
 ) {
   return sections.flatMap(section => {
     const fields = section.questions.flatMap(question => {
       const key = question.question_key;
       if (!matchesCondition(question.visibility_condition, values)) return [];
       const issues = questionIssues(question, values[key]);
-      return issues.length || editing?.has(key) ? [{ question, issues }] : [];
+      return issues.length || editing?.has(key) || (includeAnsweredRequired && question.is_required)
+        ? [{ question, issues }]
+        : [];
     });
     return fields.length ? [{ key: section.section_key, title: section.title, fields }] : [];
   });

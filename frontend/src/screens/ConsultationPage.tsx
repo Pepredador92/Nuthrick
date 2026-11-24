@@ -1263,6 +1263,8 @@ function ConsultationEditor() {
       {closeOpen && (
         <ConsultationCloseDialog
           sections={allSections}
+          templateName={snapshot.template_name}
+          templateVersion={snapshot.template_version}
           values={values}
           busy={busy}
           saving={saving}
