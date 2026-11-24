@@ -1,10 +1,14 @@
 import type { ClinicalBatchFeature } from "../_shared/clinical-batch.ts";
 import {
   emptyStrategy,
+  isStrategyDocument,
+  mergeRepeatedStrategyProposals,
+  type Strategy,
   type StrategyDocument,
 } from "../_shared/interventions.ts";
 import { emptyObjective, type ObjectiveGoal } from "../_shared/objectives.ts";
 import { PATIENT_INSTRUCTION_MAX_LENGTH } from "../_shared/patient-instructions.ts";
+import { unsupportedPesNumbers } from "../_shared/pes.ts";
 import {
   buildPesClinicalContext,
   clinicalFactTiming,
@@ -12,7 +16,7 @@ import {
   redactClinicalText,
 } from "./clinical.ts";
 import type { BatchStages } from "./clinical-batch.ts";
-import { completeClinicalSentence } from "./clinical-planning.ts";
+import { completeClinicalSentence, completeStrategyProse, linkedStrategyReviewWindow, strategyReviewDetails } from "./clinical-planning.ts";
 import { objectiveBaseline, objectiveFeasibilityPrompt } from './objective-proposals.ts';
 
 type Visit = "initial" | "follow_up";
@@ -31,21 +35,33 @@ const properties = {
     items: { type: "string", pattern: "^f[1-9][0-9]*$" },
   },
 };
+const assessmentStrategyFields = [
+  "method", "adaptations", "educationTopic", "materials", "comprehensionCheck",
+  "coordinationWith", "coordinationReason", "monitoring", "reviewAt", "adjustmentCriteria", "referenceNotes",
+] as const;
+const assessmentStrategyCategories = ["education", "counseling", "coordination"] as const;
+type AssessmentStrategy = Pick<Strategy, typeof assessmentStrategyFields[number] | "title" | "action" | "goalIndexes" | "missingContext"> & {
+  evidenceFactIds: string[];
+  category: typeof assessmentStrategyCategories[number];
+};
+
 export function assessmentSchema(feature: AssessmentFeature) {
-  const fields = {
+  const fields = feature === "intervention_strategy" ? {
+    title: properties.title,
+    action: field(1500),
+    evidenceFactIds: properties.evidenceFactIds,
+    ...Object.fromEntries(assessmentStrategyFields.map(key => [key, field(1500)])),
+    goalIndexes: { type: "array", maxItems: 3, items: properties.goalIndex },
+    category: { type: "string", enum: assessmentStrategyCategories },
+    missingContext: { type: "array", maxItems: 15, items: field(400) },
+  } : {
     ...properties,
     ...(feature === 'consultation_support' ? {
       baselineFactId: { type: 'string', pattern: '^(f[1-9][0-9]*)?$' },
       feasibility: field(400),
     } : {}),
-    action: field(
-      feature === "consultation_support"
-        ? 400
-        : feature === "intervention_strategy"
-        ? 1500
-        : PATIENT_INSTRUCTION_MAX_LENGTH,
-    ),
-    monitoring: field(feature === "intervention_strategy" ? 1500 : 400),
+    action: field(feature === "consultation_support" ? 400 : PATIENT_INSTRUCTION_MAX_LENGTH),
+    monitoring: field(400),
   };
   return {
     type: "object",
@@ -82,7 +98,7 @@ const assessmentTasks: Record<AssessmentFeature, string> = {
   consultation_support:
     "Propón qué puede probar la persona con la información disponible. Escribe en action el cambio útil que puede intentar, en indicator qué se observará, en criterion qué resultado observable revisarán y en monitoring cómo. En baselineFactId cita el hecho que describa el punto de partida, o usa la cadena vacía si se conocerá con el primer registro. En feasibility redacta cómo adaptar el objetivo a una barrera o preferencia documentada. Si no está registrada, propón una adaptación que se pueda conversar sin asumir hechos. El nutriólogo elige el plazo. Si solo es posible valorar, elige una pregunta o registro que ayude a decidir el siguiente paso. Usa goalIndex=0.",
   intervention_strategy:
-    "Propón acciones que el nutriólogo pueda realizar con la persona. En title pon un nombre breve. En action describe cómo acompañar el objetivo y en monitoring qué revisará el nutriólogo. Vincula el índice del objetivo en goalIndex.",
+    "Redacta la estrategia para el nutriólogo. En title pon un nombre breve y en action describe la acción profesional. Completa method con el paso concreto para aplicarla, adaptations con ajustes a barreras o preferencias documentadas y monitoring y adjustmentCriteria con qué revisar y cuándo ajustar. Para educación o asesoría, completa educationTopic, materials y comprehensionCheck. Para coordinación, indica el rol o servicio y el motivo. En referenceNotes explica brevemente por qué la acción encaja con la información disponible. Usa en reviewAt el plazo del objetivo si existe. Deja vacíos los campos inaplicables. Incluye en missingContext solo preguntas concretas cuya respuesta cambiaría la estrategia. Si una misma acción apoya varios objetivos, devuelve una sola estrategia y vincula todos sus índices en goalIndexes. Si todavía no hay objetivos para vincular, usa [].",
   patient_instructions:
     "Redacta en action una instrucción clara que ayude a realizar alguna acción del borrador. Habla directamente con la persona de tú, con palabras de uso diario y oraciones completas. Usa goalIndex=0.",
 };
@@ -127,6 +143,8 @@ export function buildBatchAssessment(
       objectives: objectives.map(({ goal }, index) => ({
         index,
         outcome: clean(goal?.outcome),
+        target: clean(goal?.target),
+        timeframe: clean(goal?.timeframe),
         monitoring: clean(goal?.monitoring),
       })),
       strategies: strategies.map(({ strategy }) => ({
@@ -151,6 +169,7 @@ const templates = {
     strategy: "Conocer la rutina de comidas",
     professionalAction:
       "Acordar con la persona un día habitual que pueda describir para conocer sus comidas y horarios.",
+    professionalMethod: "Repasar desde que se levanta hasta que termina el día y pedirle que cuente un ejemplo de su rutina.",
     professionalMonitoring:
       "Revisar el relato y qué situaciones modificaron la rutina.",
     action:
@@ -168,6 +187,7 @@ const templates = {
     strategy: "Revisar el avance desde la última consulta",
     professionalAction:
       "Revisar con la persona una acción que intentó desde la última consulta e identificar qué le ayudó o se le dificultó.",
+    professionalMethod: "Pedirle que describa una ocasión concreta y que explique qué hizo y qué ajustarían juntos.",
     professionalMonitoring:
       "Retomar un ejemplo concreto y acordar el siguiente paso.",
     action:
@@ -181,7 +201,7 @@ export function batchDraft(
   feature: ClinicalBatchFeature,
   context: BatchAssessment,
   generationId: string,
-  output?: { items: AssessmentItem[] },
+  output?: { items: AssessmentItem[] | AssessmentStrategy[] },
 ) {
   const template = templates[context.consultationType];
   if (feature === "pes_diagnosis") {
@@ -201,8 +221,11 @@ export function batchDraft(
       ],
     };
   }
+  if (feature === "intervention_strategy") {
+    return batchStrategyDraft(context, generationId, output?.items as AssessmentStrategy[] | undefined);
+  }
   const byId = new Map(context.facts.map((fact) => [fact.id, fact]));
-  const contextual = (output?.items ?? []).flatMap((item) => {
+  const contextual = ((output?.items ?? []) as AssessmentItem[]).flatMap((item) => {
     const evidenceIds = [...new Set(item.evidenceFactIds)];
     if (item.baselineFactId && byId.has(item.baselineFactId) && !evidenceIds.includes(item.baselineFactId)) evidenceIds.push(item.baselineFactId);
     const evidence = evidenceIds.flatMap((id) => {
@@ -220,11 +243,6 @@ export function batchDraft(
         !item.indicator.trim() || !completeClinicalSentence(item.criterion) ||
         !completeClinicalSentence(item.monitoring))
     ) return [];
-    if (
-      feature === "intervention_strategy" &&
-      (!item.title.trim() || item.action.length > 1500 ||
-        item.goalIndex >= context.priorDrafts.objectives.length)
-    ) return [];
     return [{ item, evidence }];
   });
   // A malformed nonempty response is not a decision that the clinical data
@@ -234,16 +252,10 @@ export function batchDraft(
   const drafts: { item: Omit<AssessmentItem, 'evidenceFactIds'>; evidence: { source: string; finding: string }[] }[] = contextual.length ? contextual : [{
     item: {
       title: template.strategy,
-      action: feature === "consultation_support"
-        ? template.goal
-        : feature === "intervention_strategy"
-        ? template.professionalAction
-        : template.action,
+      action: feature === "consultation_support" ? template.goal : template.action,
       indicator: template.indicator,
       criterion: template.criterion,
-      monitoring: feature === "intervention_strategy"
-        ? template.professionalMonitoring
-        : template.monitoring,
+      monitoring: template.monitoring,
       goalIndex: 0,
     },
     evidence: [],
@@ -268,35 +280,6 @@ export function batchDraft(
       })),
     };
   }
-  if (feature === "intervention_strategy") {
-    const strategies: StrategyDocument[] = drafts.map((
-      { item, evidence },
-      index,
-    ) => ({
-      version: 1,
-      generationId,
-      pesApprovedAt: `draft:${context.pesGeneration}`,
-      objectiveApprovedAt: `draft:${context.objectiveGeneration}`,
-      strategy: {
-        ...emptyStrategy(),
-        title: item.title,
-        action: item.action,
-        monitoring: completeClinicalSentence(item.monitoring)
-          ? item.monitoring
-          : "",
-        missingContext:
-          item.monitoring.trim() && !completeClinicalSentence(item.monitoring)
-            ? ["Completar el seguimiento. El texto generado quedó incompleto."]
-            : [],
-        goalIndexes: context.priorDrafts.objectives[item.goalIndex]
-          ? [item.goalIndex]
-          : [],
-        priority: index + 1,
-        evidence,
-      },
-    }));
-    return { batchBasis, strategies };
-  }
   return {
     batchBasis,
     instructions: drafts.map(({ item, evidence }) => ({
@@ -304,6 +287,68 @@ export function batchDraft(
       evidence,
     })),
   };
+}
+
+function batchStrategyDraft(context: BatchAssessment, generationId: string, items: AssessmentStrategy[] = []) {
+  const byId = new Map(context.facts.map(fact => [fact.id, fact]));
+  const objectives = context.priorDrafts.objectives;
+  const document = (strategy: Strategy): StrategyDocument => ({
+    version: 1,
+    generationId,
+    pesApprovedAt: `draft:${context.pesGeneration}`,
+    objectiveApprovedAt: `draft:${context.objectiveGeneration}`,
+    strategy,
+  });
+  const strategies = items.flatMap((item, index) => {
+    const ids = [...new Set(item.evidenceFactIds)];
+    const evidence = ids.flatMap(id => {
+      const fact = byId.get(id);
+      return fact ? [{ source: fact.source, finding: fact.finding }] : [];
+    });
+    if (evidence.length !== item.evidenceFactIds.length || !item.title.trim() ||
+      item.goalIndexes.some(goal => !objectives.some(objective => objective.index === goal))) return [];
+    const strategy = {
+      ...emptyStrategy(),
+      ...Object.fromEntries(assessmentStrategyFields.map(field => [field, item[field]])),
+      title: item.title,
+      action: item.action,
+      category: item.category,
+      goalIndexes: [...new Set(item.goalIndexes)].sort(),
+      priority: index + 1,
+      missingContext: item.missingContext,
+      evidence,
+    };
+    const reviewAt = linkedStrategyReviewWindow(objectives, strategy.goalIndexes);
+    const datedEvidence = reviewAt ? [...evidence, { finding: reviewAt }] : evidence;
+    const unsupported = unsupportedPesNumbers({
+      problem: item.title,
+      etiology: item.action,
+      signsSymptoms: [...assessmentStrategyFields.map(field => item[field]), ...item.missingContext],
+    }, datedEvidence);
+    if (unsupported.length) return [];
+    const complete = completeStrategyProse({
+      ...strategy,
+      ...strategyReviewDetails(strategy),
+      reviewAt: item.reviewAt.trim() || reviewAt || (strategy.goalIndexes.length ? "En la revisión del objetivo." : ""),
+    });
+    if (!complete) return [];
+    const draft = document(complete);
+    return isStrategyDocument(draft) ? [draft] : [];
+  });
+  if (items.length) return strategies.length
+    ? { batchBasis: "assessment", strategies: mergeRepeatedStrategyProposals(strategies) }
+    : null;
+  const template = templates[context.consultationType];
+  const fallback = {
+    ...emptyStrategy(),
+    title: template.strategy,
+    action: template.professionalAction,
+    method: template.professionalMethod,
+    monitoring: template.professionalMonitoring,
+    category: "counseling" as const,
+    goalIndexes: objectives.length ? [objectives[0].index] : [],
+  };
+  return { batchBasis: "template", strategies: [document({ ...fallback, ...strategyReviewDetails(fallback) })] };
 }
 
 export const isAssessmentDraft = (output: unknown): boolean => {

@@ -33,6 +33,7 @@ import {
 import {
   emptyStrategy,
   isStrategyDocument,
+  mergeRepeatedStrategyProposals,
   strategyCategories,
   type StrategyDocument,
   strategyFields,
@@ -260,7 +261,9 @@ export function ClinicalInterventions(props: Props) {
     const goals = objective?.smart_plan?.goals ?? [];
     const indexes = document.strategy.goalIndexes.map(index => {
       const generated = batchGoals?.[index]?.goal;
-      return goals.findIndex(goal => generated && objectiveFields.every(field => goal[field] === generated[field]));
+      const matches = goals.flatMap((goal, currentIndex) => generated &&
+        objectiveFields.every(field => field === 'timeframe' || goal[field] === generated[field]) ? [currentIndex] : []);
+      return matches.length === 1 ? matches[0] : -1;
     });
     if (workspace?.pes && objective && strategyContextEligible(workspace) && indexes.length && indexes.every(index => index >= 0)) {
       return { ...document, pesApprovedAt: workspace.pes.approved_at, objectiveApprovedAt: objective.approved_at,
@@ -601,6 +604,7 @@ export function ClinicalInterventions(props: Props) {
   const comparisonBase = comparisonId ? documentFor(comparisonId) : null;
   const proposalIsStale = (document: StrategyDocument) =>
     !!batchProposal && document.generationId === batchProposal.generationId && batch.stale;
+  const visibleProposals = mergeRepeatedStrategyProposals(proposals);
   const contextReady = !!workspace?.pes && !!planningObjective?.smart_plan?.goals.length;
   function displayState(id: string, document: StrategyDocument) {
     const item = items.find(entry => entry.id === id);
@@ -631,15 +635,15 @@ export function ClinicalInterventions(props: Props) {
       {message && <p role="status" className="strategy-workspace-message">{message}</p>}
       {!workspace && message && <button type="button" className="clinical-text-action mt-2" onClick={() => void refresh()}>Reintentar carga</button>}
       {!workspace && !message && <p role="status" className="strategy-workspace-message">Cargando estrategias…</p>}
-      {workspace && !ids.length && (!canEdit || !proposals.length) &&
+      {workspace && !ids.length && (!canEdit || !visibleProposals.length) &&
         <p className="strategy-empty">Aún no hay estrategias en esta consulta.</p>}
       <div className="clinical-strategy-list">
-        {canEdit && proposals.map((document, index) => <StrategyCard key={`proposal:${document.generationId}:${index}`}
+        {canEdit && visibleProposals.map((document, index) => <StrategyCard key={`proposal:${document.generationId}:${index}`}
           document={document} status="Propuesta de IA" tone="proposal" disabled={busy || !!execution || ids.length >= 30}
           onOpen={() => {
             const linked = linkBatchStrategy(document);
             add(proposalIsStale(document) ? { ...linked, objectiveApprovedAt: '', strategy: { ...linked.strategy, goalIndexes: [] } } : linked);
-            setProposals(current => current.filter((_, i) => i !== index));
+            setProposals(visibleProposals.filter((_, i) => i !== index));
           }} />)}
         {ids.map(id => {
           const document = documentFor(id);

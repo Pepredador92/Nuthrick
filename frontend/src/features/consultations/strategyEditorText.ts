@@ -88,10 +88,10 @@ function detailValue(strategy: Strategy, field: DetailField, guides: boolean): s
   return strategy[field];
 }
 
-function formatDetails(strategy: Strategy, guides: boolean) {
+function formatDetails(strategy: Strategy, guides: boolean, showPendingAgreement = guides) {
   return detailGroups.flatMap(([heading, rows]) => {
     const lines = rows.flatMap(([field, label]) => {
-      const value = detailValue(strategy, field, guides);
+      const value = detailValue(strategy, field, showPendingAgreement);
       if (!value && (!guides || field === 'referenceIds')) return [];
       return [`${label}:${value ? ` ${escapeLines(value)}` : ''}`];
     });
@@ -99,11 +99,12 @@ function formatDetails(strategy: Strategy, guides: boolean) {
   }).join('\n\n');
 }
 
-export function formatStrategyEditorText(strategy: Strategy, guides = true) {
+export function formatStrategyEditorText(strategy: Strategy, format: boolean | 'proposal' = true) {
+  const guides = format === true;
   const main = mainFields
-    .filter(([key]) => guides || strategy[key].trim())
+    .filter(([key]) => guides || strategy[key].trim() || (format === 'proposal' && (key === 'title' || key === 'action')))
     .map(([key, title, hint]) => `${title}\n${escapeLines(strategy[key]) || (guides ? hint : '')}`);
-  return [...main, formatDetails(strategy, guides)].filter(Boolean).join('\n\n');
+  return [...main, formatDetails(strategy, guides, guides || format === 'proposal')].filter(Boolean).join('\n\n');
 }
 
 export function upgradeStrategyEditorText(text: string, strategy: Strategy) {

@@ -37,7 +37,8 @@ export function InterventionStrategyEditor({
   const textarea = useRef<HTMLTextAreaElement>(null);
   const [attempted, setAttempted] = useState(false);
   const strategy = document.strategy;
-  const value = text ?? formatStrategyEditorText(strategy, editable);
+  const value = text ?? formatStrategyEditorText(strategy, editable && (document.generationId ? 'proposal' : true));
+  const fullTemplate = editable && document.generationId ? formatStrategyEditorText(strategy) : null;
   const parsed = editable ? readStrategyEditorText(value) : undefined;
   const textError = parsed && 'issue' in parsed ? parsed : undefined;
   const textIssue = textError?.issue;
@@ -103,7 +104,7 @@ export function InterventionStrategyEditor({
       </div>}
       {error && <p role="alert" className="strategy-action-error">{error}</p>}
       <label htmlFor={`${id}-text`}>Texto de la estrategia</label>
-      {editable && <p id={`${id}-help`} className="strategy-editor-help">Edita la estrategia en este cuadro. Completa solo los detalles que apliquen.</p>}
+      {editable && <p id={`${id}-help`} className="strategy-editor-help">Revisa y edita los apartados que correspondan a esta estrategia.</p>}
       <textarea
         ref={textarea}
         id={`${id}-text`}
@@ -115,6 +116,8 @@ export function InterventionStrategyEditor({
         value={value}
         onChange={event => onText(event.target.value)}
       />
+      {fullTemplate && value !== fullTemplate && !textError && <button type="button" className="clinical-text-action"
+        disabled={busy} onClick={() => onText(fullTemplate)}>Mostrar campos opcionales</button>}
       <InterventionStrategyForm document={document} workspace={workspace} disabled={busy || !editable} showErrors={attempted} onChange={onChange} />
       <StrategyProposalSources strategy={strategy} />
       {children}

@@ -279,6 +279,23 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
       fact.source.startsWith("Nota previa")
     );
     modelCalls++;
+    const strategyAssessment = (factId: string, monitoring: string) => ({
+      title: "Preparación de una comida para el trabajo",
+      action: "Acordar con la persona una comida que pueda preparar y llevar en un turno largo.",
+      method: "Practicar cómo dejar lista una opción en la consulta.",
+      adaptations: "Acordar cuándo podría prepararla según su horario.",
+      educationTopic: "Preparación de una comida para llevar",
+      materials: "Un ejemplo de comida de la consulta.",
+      comprehensionCheck: "Pedir que explique cómo dejaría lista la opción.",
+      coordinationWith: "", coordinationReason: "",
+      monitoring, reviewAt: "",
+      adjustmentCriteria: "Si prepararla resulta difícil, revisar el paso que puede simplificarse.",
+      referenceNotes: "La práctica permite explorar una opción para la jornada.",
+      goalIndexes: [0],
+      evidenceFactIds: [factId],
+      category: "counseling",
+      missingContext: [],
+    });
     if (scenario === "insufficient") {
       return reply(
         generating.feature === "pes_diagnosis"
@@ -297,6 +314,9 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
     if (scenario === "history") {
       assert.equal(current, undefined);
       assert.equal(historical.timing, "historical");
+      if (generating.feature === "intervention_strategy") {
+        return reply({ items: [strategyAssessment(historical.id, "Comentar el resultado en la consulta.")] });
+      }
       return reply(
         generating.feature === "pes_diagnosis"
           ? {
@@ -388,18 +408,15 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
             .maxLength,
           1500,
         );
+        return reply({ items: [strategyAssessment(current.id, "Revisar qué le facilitó preparar la comida y qué quedó pendiente de ver<<")] });
       }
       return reply({
         items: [{
           title: "Preparación de una comida para el trabajo",
-          action: professional
-            ? "Acordar con la persona una comida que pueda preparar y llevar en un turno largo."
-            : "Elige una comida que puedas dejar lista antes de tu próximo turno largo.",
+          action: "Elige una comida que puedas dejar lista antes de tu próximo turno largo.",
           indicator: "Preparación de una opción para el trabajo.",
           criterion: "Probar la opción acordada en un día con turno largo.",
-          monitoring: professional
-            ? "Revisar qué le facilitó preparar la comida y qué quedó pendiente de ver<<"
-            : "En la próxima consulta, platica cómo te funcionó.",
+          monitoring: "En la próxima consulta, platica cómo te funcionó.",
           goalIndex: 0,
           evidenceFactIds: [current.id],
           ...(generating.feature === 'consultation_support' ? {
@@ -587,6 +604,11 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
       .strategies as {
         strategy: {
           action: string;
+          method: string;
+          educationTopic: string;
+          adaptations: string;
+          comprehensionCheck: string;
+          etiologyLink: string;
           monitoring: string;
           missingContext: string[];
         };
@@ -596,6 +618,11 @@ Deno.test("complete clinical draft HTTP flow uses its own saved results and acco
       /^Acordar con la persona/,
     );
     assert.equal(assessmentStrategies[0].strategy.monitoring, "");
+    assert.match(assessmentStrategies[0].strategy.method, /Practicar cómo/);
+    assert.ok(assessmentStrategies[0].strategy.educationTopic);
+    assert.ok(assessmentStrategies[0].strategy.adaptations);
+    assert.ok(assessmentStrategies[0].strategy.comprehensionCheck);
+    assert.equal(assessmentStrategies[0].strategy.etiologyLink, "");
     assert.match(
       assessmentStrategies[0].strategy.missingContext[0],
       /seguimiento.*incompleto/,

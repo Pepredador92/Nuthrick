@@ -1,4 +1,5 @@
 import type { ClinicalBatchFeature } from "../_shared/clinical-batch.ts";
+import type { Strategy } from "../_shared/interventions.ts";
 
 export const currentClinicalNote = (source: string) =>
   /^Nota de la consulta · |^Entrevista · (?:professional notes|clinical notes|interview notes)(?: ·|$)/i
@@ -23,6 +24,36 @@ export const clinicalPlanningPriority =
 
 export const completeClinicalSentence = (value: string) =>
   /[^.\s…<>][.!?]["»”)]*\s*$/u.test(value) && !/\.{2,}|…|<<|>>/u.test(value);
+
+type ReviewWindow = { index: number; timeframe: string };
+export function linkedStrategyReviewWindow(goals: ReviewWindow[], indexes: number[]) {
+  const dates = new Set(goals.filter(goal => indexes.includes(goal.index)).map(goal => goal.timeframe.trim()).filter(Boolean));
+  return dates.size === 1 ? [...dates][0] : "";
+}
+
+const methods: Record<Strategy["category"], string> = {
+  education: "Revisar un ejemplo de su rutina y practicar juntos el paso propuesto.",
+  counseling: "Revisar un ejemplo de su rutina y practicar juntos el paso propuesto.",
+  coordination: "Acordar qué información hace falta compartir y con qué profesional se verificará.",
+  food: "Revisar las opciones disponibles y acordar con la persona cómo aplicar la propuesta.",
+  supplementation: "Comprobar si existe una indicación vigente y acordar cómo revisarla en seguimiento.",
+};
+
+// These are proposed ways to work, not assertions about the person's
+// circumstances. Preserve filled fields and leave clinical parameters alone.
+export function strategyReviewDetails(strategy: Pick<
+  Strategy,
+  "category" | "method" | "monitoring" | "adjustmentCriteria" | "materials" | "comprehensionCheck"
+>) {
+  const coaching = strategy.category === "education" || strategy.category === "counseling";
+  return {
+    method: strategy.method.trim() || methods[strategy.category],
+    monitoring: strategy.monitoring.trim() || "Revisar qué se pudo llevar a cabo y qué dificultades quedaron por resolver.",
+    adjustmentCriteria: strategy.adjustmentCriteria.trim() || "Si el paso resulta difícil de sostener, revisar qué lo dificulta y acordar un ajuste.",
+    materials: strategy.materials.trim() || (coaching ? "Un ejemplo concreto de la consulta y un formato sencillo para anotarlo." : ""),
+    comprehensionCheck: strategy.comprehensionCheck.trim() || (coaching ? "Pedir que explique con sus palabras cómo aplicaría el paso conversado." : ""),
+  };
+}
 
 // Only validate newly generated narrative. Saved or manually edited fields
 // and literal operational parameters retain their existing contract.

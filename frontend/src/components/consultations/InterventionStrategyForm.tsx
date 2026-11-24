@@ -2,6 +2,7 @@ import { useId } from "react";
 import {
   type Strategy,
   strategyCategories,
+  strategyReferences,
   type StrategyDocument,
 } from "../../../../supabase/functions/_shared/interventions";
 import type { InterventionWorkspace } from "@/src/services/clinicalInterventions";
@@ -172,25 +173,29 @@ export function InterventionStrategyForm(
 }
 
 export function StrategyProposalSources({ strategy }: { strategy: Strategy }) {
-  if (!strategy.evidence.length && !strategy.missingContext.length) return null;
-  return (
-    <details className="clinical-support-details">
-      <summary>Datos que usó la IA</summary>
-      {!!strategy.evidence.length && (
-        <ul className="mt-3 space-y-2 text-xs">
+  const references = strategyReferences.filter(reference => strategy.referenceIds.includes(reference.id));
+  if (!strategy.evidence.length && !strategy.missingContext.length && !references.length) return null;
+  return <>
+      {!!strategy.missingContext.length && (
+        <details className="clinical-support-details" open>
+          <summary>Información por confirmar</summary>
+          <ul className="mt-2 list-disc space-y-1 pl-4 text-xs">
+            {strategy.missingContext.map((note, index) => <li key={index}>{note}</li>)}
+          </ul>
+        </details>
+      )}
+      {!!(strategy.evidence.length || references.length) && <details className="clinical-support-details">
+        <summary>Datos que usó la IA</summary>
+        {!!strategy.evidence.length && <ul className="mt-3 space-y-2 text-xs">
           {strategy.evidence.map(({ source, finding }, index) => (
             <li key={index}><strong>{source}</strong><p className="mt-1 whitespace-pre-wrap">{finding}</p></li>
           ))}
-        </ul>
-      )}
-      {!!strategy.missingContext.length && (
-        <div className="mt-3 text-xs">
-          <p className="font-semibold">Información por confirmar</p>
-          <ul className="mt-1 list-disc space-y-1 pl-4">
-            {strategy.missingContext.map((note, index) => <li key={index}>{note}</li>)}
-          </ul>
-        </div>
-      )}
-    </details>
-  );
+        </ul>}
+        {!!references.length && <ul className="mt-3 space-y-2 text-xs">
+          {references.map(reference => <li key={reference.id}>
+            <a href={reference.url} target="_blank" rel="noopener noreferrer" className="underline">{reference.title}</a>
+          </li>)}
+        </ul>}
+      </details>}
+    </>;
 }

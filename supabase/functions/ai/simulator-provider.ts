@@ -1,11 +1,11 @@
 import { AIError, type AIProvider, type ProviderInput, type ProviderResult } from './core.ts';
-import { strategyFields } from '../_shared/interventions.ts';
+import { generatedStrategyFields } from '../_shared/interventions.ts';
 import { SimulatedDietProvider } from './diet-provider-test.ts';
 import { instructionAgreement, provisionalStrategySource } from './clinical.ts';
 import { pesSignSource } from '../_shared/clinical-batch.ts';
 
 type Fact={id:string;source:string;finding:string};
-type Context={facts?:Fact[];approvedPes?:{etiology:string;signsSymptoms:string};approvedGoals?:{index:number}[];narrative?:string;format?:string;diet_count?:number;meal_schedule?:{name:string}[];selected_meal_indexes?:number[]};
+type Context={facts?:Fact[];approvedPes?:{etiology:string;signsSymptoms:string};approvedGoals?:{index:number}[];priorDrafts?:{objectives:{index:number}[]};narrative?:string;format?:string;diet_count?:number;meal_schedule?:{name:string}[];selected_meal_indexes?:number[]};
 const exampleMeal=(diet:number,meal:number)=>({
   title:`Ejemplo de platillo ${diet+1} · ${meal+1}`,
   ingredients:[`1 pieza de ${['manzana','pera','naranja','plátano','durazno','mandarina','guayaba'][diet%7]}`,'1 taza de avena cocida'],
@@ -57,10 +57,25 @@ export class SimulatorExampleProvider implements AIProvider {
         break;
       }
       case 'intervention_strategy': {
+        const schema = input.schema.properties as Record<string, { items: { properties: Record<string, unknown> } }>;
+        if (schema.items) {
+          if (!first) throw new AIError('context_unavailable');
+          output = { items: [{
+            ...Object.fromEntries(Object.keys(schema.items.items.properties).map(key => [key, ''])),
+            title: 'Organización de las comidas · ejemplo',
+            action: 'Acordar una forma sencilla de describir los horarios de comida.',
+            method: 'Practicar el registro con un ejemplo de la consulta.',
+            category: 'counseling',
+            goalIndexes: context.priorDrafts?.objectives.slice(0, 1).map(goal => goal.index) ?? [],
+            evidenceFactIds: [first.id],
+            missingContext: [],
+          }] };
+          break;
+        }
         const goal=facts.find(f=>/^Objetivo (?:aprobado|en borrador) · /.test(f.source));
         if(!goal||!context.approvedGoals?.length)throw new AIError('strategy_planning_required');
         output={strategies:[{
-          ...Object.fromEntries(strategyFields.filter(k=>!k.startsWith('reference')).map(k=>[k,''])),
+          ...Object.fromEntries(generatedStrategyFields.map(k=>[k,''])),
           title:'Organización de las comidas · ejemplo',action:'Acordar con la persona un registro sencillo de sus comidas para revisarlo en consulta.',
           etiologyLink:'Este ejemplo permite practicar cómo organizar las comidas y revisar las dificultades.',
           method:'Practicar el registro junto con la persona e identificar qué le resulta fácil o difícil.',

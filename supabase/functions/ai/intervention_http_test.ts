@@ -5,7 +5,7 @@ import { emptyObjective, type ObjectiveGoal } from "../_shared/objectives.ts";
 import {
   emptyStrategy,
   isStrategyDocument,
-  strategyFields,
+  generatedStrategyFields,
 } from "../_shared/interventions.ts";
 import type { InterventionContext } from "./intervention.ts";
 
@@ -46,7 +46,8 @@ Deno.test("HTTP strategy proposals retain long SMART evidence and reject unusabl
   let server: Deno.HttpServer | undefined, port = 0, count = 1;
   let oversized = false,
     unverifiedParameters = false,
-    clippedMonitoring = false;
+    clippedMonitoring = false,
+    sharedAction = false;
   let guidanceSeen = "", revisionSeen: unknown, instructionsSeen = "";
   let maxStrategiesSeen: number | undefined;
   const settlements: string[] = [];
@@ -135,22 +136,30 @@ Deno.test("HTTP strategy proposals retain long SMART evidence and reject unusabl
         g,
       ) => ({
         ...Object.fromEntries(
-          strategyFields.filter((key) => !key.startsWith("reference")).map(
+          generatedStrategyFields.map(
             (key) => [key, oversized ? "漢".repeat(1499) + "." : base[key]],
           ),
         ),
         title: oversized ? "漢".repeat(1500) : "Educación nutricional",
         action: oversized
           ? "漢".repeat(1499) + "."
-          : "Practicar el registro con la persona.",
+          : sharedAction ? "Practicar el registro con la persona."
+          : ["Practicar el registro con la persona.", "Preparar ejemplos en consulta.", "Revisar el ajuste de horarios."][g.index],
         ...(clippedMonitoring
           ? { monitoring: "Revisar qué funcionó y qué falta por confir" }
           : {}),
         etiologyLink: "Aborda conocimientos",
+        ...(sharedAction ? {
+          method: "Usar un ejemplo y ensayar cómo registrarlo.",
+          adaptations: "Elegir una forma de anotar que se ajuste a su rutina.",
+          educationTopic: "Registro de comidas",
+          materials: "Una hoja de ejemplo.",
+          referenceNotes: "El registro permite identificar barreras en la jornada.",
+        } : {}),
         ...(unverifiedParameters
           ? { dose: "999 mg", frequency: "Diariamente" }
           : {}),
-        category: "education",
+        category: unverifiedParameters ? "supplementation" : "education",
         route: "not_applicable",
         priority: 1,
         goalIndexes: [g.index],
@@ -238,6 +247,31 @@ Deno.test("HTTP strategy proposals retain long SMART evidence and reject unusabl
         },
       );
     }
+    await t.step(
+      "one prepared strategy links all objectives that use the same action",
+      async () => {
+        sharedAction = true;
+        count = 2;
+        try {
+          const response = await request();
+          assert.equal(response.status, 200, JSON.stringify(response.body));
+          assert.equal(response.body.output.strategies.length, 1);
+          const { strategy } = response.body.output.strategies[0];
+          assert.deepEqual(strategy.goalIndexes, [0, 1]);
+          assert.equal(strategy.method, "Usar un ejemplo y ensayar cómo registrarlo.");
+          assert.equal(strategy.educationTopic, "Registro de comidas");
+          assert.equal(strategy.materials, "Una hoja de ejemplo.");
+          assert.equal(strategy.referenceNotes, "El registro permite identificar barreras en la jornada.");
+          assert.equal(strategy.reviewAt, goal.timeframe);
+          assert.equal(strategy.agreement, "pending");
+          assert.ok(strategy.comprehensionCheck);
+          assert.ok(strategy.adjustmentCriteria);
+        } finally {
+          sharedAction = false;
+          count = 3;
+        }
+      },
+    );
     await t.step(
       "professional guidance reaches the prompt for a group and one selected strategy",
       async () => {

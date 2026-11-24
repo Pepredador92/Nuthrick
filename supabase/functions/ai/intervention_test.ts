@@ -7,6 +7,7 @@ import {
 } from "../_shared/objectives.ts";
 import {
   emptyStrategy,
+  generatedStrategyFields,
   isStrategyDocument,
   strategyFields,
 } from "../_shared/interventions.ts";
@@ -73,7 +74,7 @@ function proposal(ids = ["f1"]) {
   const base = emptyStrategy();
   return {
     ...Object.fromEntries(
-      strategyFields.filter((k) => !k.startsWith("reference")).map(
+      generatedStrategyFields.map(
         (k) => [k, base[k]],
       ),
     ),
@@ -183,6 +184,7 @@ Deno.test("unverified operational parameters become professional gaps, never inv
   const raw = {
     strategies: [{
       ...proposal(),
+      category: "supplementation",
       dose: "999 mg",
       frequency: "Cada día",
       startDate: "2026-11-02",
@@ -224,6 +226,7 @@ Deno.test("documented operational snippets stay intact and missing-context notes
   const context = buildInterventionContext(source([g]));
   const item = {
     ...proposal(["f6", "f7"]),
+    category: "supplementation",
     frequency: "4 días por semana",
     duration: "2 semanas",
     dose: "Inventada",

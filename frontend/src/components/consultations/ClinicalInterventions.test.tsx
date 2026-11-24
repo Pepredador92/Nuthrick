@@ -381,6 +381,11 @@ it("allows approving an AI strategy with agreement pending and never starts exec
   expect(strategyText().value).toContain('Tema o habilidad: Organización de comidas');
   expect(strategyText().value).toContain('Materiales y apoyos: Ejemplos');
   expect(strategyText().value).toContain('Frecuencia: Una sesión');
+  expect(strategyText().value).not.toContain('Cantidad o dosis y unidad:');
+  expect(strategyText().value).not.toContain('Vía de administración:');
+  fireEvent.click(screen.getByRole('button', { name: 'Mostrar campos opcionales' }));
+  expect(strategyText().value).toContain('Cantidad o dosis y unidad:');
+  expect(strategyText().value).toContain('Materiales y apoyos: Ejemplos');
   expect(screen.getByText('Datos que usó la IA')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Aprobar estrategia' }));
   await screen.findByText('Estrategia aprobada.');
@@ -398,6 +403,25 @@ it("allows approving an AI strategy with agreement pending and never starts exec
     false,
   );
   expect(api.generate).toHaveBeenCalledOnce();
+});
+
+it("combines repeated proposals into a single card with both linked goals", async () => {
+  const first = fullDocument();
+  const second = {
+    ...first,
+    strategy: { ...first.strategy, goalIndexes: [1], action: first.strategy.action + "." },
+  };
+  const plan = smartPlan();
+  plan.goals.push({ ...plan.goals[0], outcome: 'Planear opciones para un turno largo' });
+  api.workspace.mockResolvedValue({ ...workspace, objective: { ...workspace.objective, smart_plan: plan } });
+  await generate({ strategies: [first, second] });
+  const card = await screen.findByRole('button', { name: /Propuesta de IA/ });
+  fireEvent.click(card);
+  const dialog = within(screen.getByRole('dialog'));
+  expect(dialog.getAllByRole('checkbox')).toHaveLength(2);
+  for (const goal of dialog.getAllByRole('checkbox')) expect(goal).toBeChecked();
+  closeEditor();
+  expect(screen.getAllByRole('button', { name: /Propuesta de IA/ })).toHaveLength(1);
 });
 it("blocks approval when the strategy is linked to earlier objective approvals", async () => {
   const doc = fullDocument();
@@ -570,7 +594,10 @@ it('restores an earlier draft with its hand-edited text, resources, agreement an
   expect(strategyText().value).toContain('Estado del acuerdo: Acordado con la persona');
   expect(strategyText().value).toContain('Guía o protocolo utilizado: Protocolo acordado en el equipo');
   expect(strategyText().value).toContain('Academy · Nutrition Intervention');
-  expect(screen.queryByRole('link', { name: /Nutrition Intervention/ })).not.toBeInTheDocument();
+  const sources = screen.getByText('Datos que usó la IA');
+  expect(sources.closest('details')).not.toHaveAttribute('open');
+  fireEvent.click(sources);
+  expect(screen.getByRole('link', { name: 'Academy · Nutrition Intervention' })).toHaveAttribute('href', expect.stringContaining('eatrightpro.org/'));
   fireEvent.change(strategyText(), { target: { value: strategyText().value
     .replace('Materiales y apoyos: Ejemplos', 'Materiales y apoyos: Lista de alternativas\nUn ejemplo de práctica')
     .replace('Estado del acuerdo: Acordado con la persona', 'Estado del acuerdo: Acordado con cuidador o representante'),

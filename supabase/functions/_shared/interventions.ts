@@ -34,6 +34,9 @@ export const strategyFields = [
   "referenceVersion",
   "referenceNotes",
 ] as const;
+export const generatedStrategyFields = strategyFields.filter((field) =>
+  field === "referenceNotes" || !field.startsWith("reference")
+);
 export type Strategy = Record<typeof strategyFields[number], string> & {
   category: StrategyCategory;
   goalIndexes: number[];
@@ -162,6 +165,33 @@ export function strategySummary(s: Strategy): string {
     s.duration && `Duración: ${s.duration}`,
     s.monitoring && `Seguimiento: ${s.monitoring}`,
   ].filter(Boolean).join("\n");
+}
+
+// Merge only the same action in the same plan. Indexes from different
+// approved or provisional plans have different meanings.
+export function mergeRepeatedStrategyProposals(documents: StrategyDocument[]): StrategyDocument[] {
+  const byAction = new Map<string, StrategyDocument>();
+  for (const document of documents) {
+    const strategy = document.strategy;
+    const action = strategy.action.trim().normalize("NFC").toLocaleLowerCase("es")
+      .replace(/[.!?]+$/u, "").replace(/\s+/gu, " ").trim();
+    if (!action) continue;
+    const key = JSON.stringify([document.pesApprovedAt, document.objectiveApprovedAt, strategy.category, action]);
+    const previous = byAction.get(key);
+    if (!previous) {
+      byAction.set(key, document);
+      continue;
+    }
+    const goalIndexes = [...new Set([...previous.strategy.goalIndexes, ...strategy.goalIndexes])].sort();
+    const evidence = [...new Map([...previous.strategy.evidence, ...strategy.evidence].map((fact) =>
+      [JSON.stringify([fact.source, fact.finding]), fact]
+    )).values()].slice(0, 10);
+    const linked = { ...previous, strategy: { ...previous.strategy, goalIndexes } };
+    const merged = { ...linked, strategy: { ...linked.strategy, evidence } };
+    if (isStrategyDocument(merged)) byAction.set(key, merged);
+    else if (isStrategyDocument(linked)) byAction.set(key, linked);
+  }
+  return [...byAction.values()];
 }
 
 export function approvedStrategyFacts(
