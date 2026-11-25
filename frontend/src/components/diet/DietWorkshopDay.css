@@ -98,30 +98,13 @@
   & .macros-split-table thead th { color: #5c735c; }
   & .macros-split-table td:last-child { color: #286d52; }
   & .macros-supplements.supplement-editor { background: linear-gradient(135deg,#edf8ef,#e4f2e7); border-color: #89b59966; color: var(--day-ink); box-shadow: 0 9px 28px #3b5b4510; }
-  & .macros-supplements .supplement-eyebrow { color: #547957; }
-  & .macros-supplements :is(h2, h3) { color: #2e5840; }
-  & .macros-supplements h2 svg { color: #468560; }
-  & .macros-supplements p { color: #58735f; }
+  & .macros-supplements :is(.supplement-heading h2, .supplement-item h3) { color: #2e5840; }
+  & .macros-supplements .supplement-heading h2 svg { color: #468560; }
+  & .macros-supplements :is(.supplement-heading, .supplement-item) p { color: #58735f; }
   & .macros-supplements .supplement-item { background: #ffffffab; border-color: #8ab69a4d; }
-  & .macros-supplements .nuth-button-secondary { color: #2f6547; background: #ffffff80; border-color: #669c7780; }
-  & .macros-supplements .nuth-button-secondary:hover { background: #d7ebdb; }
-  & .macros-supplements .nuth-input { background: #fcfefb; border-color: #87ad8b66; color: #304d38; }
-  & .macros-supplements .nuth-input::placeholder { color: #6d836f; }
-  & .macros-supplements .supplement-remove { color: #a65c4d; }
+  & .macros-supplements > :is(.supplement-heading, .space-y-2) > .nuth-button-secondary { color: #2f6547; background: #ffffff80; border-color: #669c7780; }
+  & .macros-supplements > :is(.supplement-heading, .space-y-2) > .nuth-button-secondary:hover { background: #d7ebdb; }
   & .macros-supplements .supplement-warning { color: #805d28; background: #fff5db; }
-  & .macros-supplements [role="alert"] { color: #aa453b; }
-  & .macros-supplement-library { color-scheme: light; color: var(--day-ink); background: #f7faf4; border-color: #74947550; }
-  & .macros-supplement-library::backdrop { background: #263c3970; }
-  & .macros-supplement-library p { color: var(--day-muted); }
-  & .macros-supplement-library .nuth-eyebrow { color: #546f3b; }
-  & .macros-supplement-library .nuth-input { color: var(--day-ink); background: #fff; border-color: #73957750; }
-  & .macros-supplement-library input::placeholder { color: #69806b; }
-  & .macros-supplement-library article { background: #fff; border-color: #74947540; }
-  & .macros-supplement-library :is(article span, article button:not(.nuth-button)) { color: #587150; }
-  & .macros-supplement-library label { border-color: #74947540; }
-  & .macros-supplement-library .nuth-button-secondary { color: #3f653f; border-color: #73957770; background: #eaf3e4; }
-  & .macros-supplement-library :is(button, input):focus-visible { outline-color: #3c7969; }
-  & .macros-supplement-library [role="alert"] { color: #aa453b; }
 
   /* Equivalents: subtle category colors, clear input surfaces and a sage summary. */
   & .equivalents-portions { background: linear-gradient(135deg,#ffffffed,#f5faf6f2); }

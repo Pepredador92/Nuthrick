@@ -5,7 +5,8 @@ export type SupplementProduct = SupplementNutrition & {
   serving_grams: number | null; scoops_per_serving: number | null;
   source_url: string | null; label_url: string | null; verified_at: string | null;
 };
-export type SupplementItem = { id: string; product: SupplementProduct; quantity: number; unit: 'serving' | 'scoop' | 'g'; instructions: string };
+export type SupplementDirections = { schedule: string; duration: string; notes: string };
+export type SupplementItem = { id: string; product: SupplementProduct; quantity: number; unit: 'serving' | 'scoop' | 'g'; instructions: string; directions?: SupplementDirections };
 export type SupplementCatalogItem = SupplementProduct & { owner_id: string | null; active: boolean };
 export const nutritionKeys = ['energy_kcal','carbohydrate_g','protein_g','fat_g'] as const;
 export const zeroNutrition = (): SupplementNutrition => ({energy_kcal:0,carbohydrate_g:0,protein_g:0,fat_g:0});
@@ -28,6 +29,8 @@ export function isSupplementList(value: unknown): value is SupplementItem[] {
   return value.every((v: SupplementItem) => {
     if (!v || !nonempty(v.id,100) || ids.has(v.id) || !isSupplementProduct(v.product) || !finite(v.quantity,true)
       || !['serving','scoop','g'].includes(v.unit) || typeof v.instructions !== 'string' || v.instructions.length > 1500
+      || v.directions !== undefined && (!v.directions || !nonempty(v.directions.schedule,230)
+        || !nonempty(v.directions.duration,230) || typeof v.directions.notes !== 'string' || v.directions.notes.length > 600)
       || v.unit === 'g' && !v.product.serving_grams || v.unit === 'scoop' && !v.product.scoops_per_serving) return false;
     ids.add(v.id); return true;
   });
@@ -58,9 +61,19 @@ export function supplementQuantityLabel(item: SupplementItem) {
   return `${amount} ${item.quantity === 1 ? 'porción' : 'porciones'} al día · Porción de referencia: ${item.product.serving_label}`;
 }
 
+export function formatSupplementDirections(item: SupplementItem, directions: SupplementDirections) {
+  return [
+    supplementQuantityLabel(item) + '.',
+    'Cuándo tomarlo: ' + directions.schedule,
+    'Duración o revisión: ' + directions.duration,
+    directions.notes,
+  ].filter(Boolean).join('\n');
+}
+
 export type PatientSupplement = {name:string;brand:string;presentation:string;quantity:string;instructions:string};
 export function patientSupplements(value: unknown): PatientSupplement[] {
   if (value === undefined) return [];
   if (!isSupplementList(value)) throw new Error('invalid_plan');
-  return value.map(item=>({name:item.product.name,brand:item.product.brand,presentation:item.product.presentation,quantity:supplementQuantityLabel(item),instructions:item.instructions}));
+  return value.map(item=>({name:item.product.name,brand:item.product.brand,presentation:item.product.presentation,quantity:supplementQuantityLabel(item),
+    instructions:item.directions ? formatSupplementDirections(item, item.directions) : item.instructions}));
 }

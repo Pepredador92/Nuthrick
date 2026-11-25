@@ -77,35 +77,14 @@
 .macros-supplements.supplement-editor { margin-top: 0; min-width: 0; border: 1px solid #9fd5b840; border-radius: 18px; background: linear-gradient(135deg,#193f33ed,#102d29ed); color: #e4f1e9; padding: 20px; box-shadow: 0 12px 30px #020e0833; }
 .macros-supplements .supplement-heading { align-items: start; gap: 16px; }
 .macros-supplements .supplement-heading > div { flex: 1 1 220px; }
-.macros-supplements .supplement-eyebrow { margin: 0 0 10px; font-size: 10px; font-weight: 700; letter-spacing: .16em; color: #aed9c2; }
-.macros-supplements h2 { font-size: 17px; color: #edf5ef; }
-.macros-supplements h2 svg { color: #8ed9b8; }
-.macros-supplements p { color: #b6d0c2; }
+.macros-supplements .supplement-heading h2 { font-size: 17px; color: #edf5ef; }
+.macros-supplements .supplement-heading h2 svg { color: #8ed9b8; }
+.macros-supplements :is(.supplement-heading, .supplement-item) p { color: #b6d0c2; }
 .macros-supplements .supplement-item { background: #0c2726b3; border-color: #a7d3bc2e; }
-.macros-supplements h3 { color: #e5f2e8; }
-.macros-supplements .supplement-remove { color: #eabaae; }
-.macros-supplements .supplement-remove:hover { background: #ffffff10; }
-.macros-supplements .nuth-button-secondary { border: 1px solid #b9dac355; color: #d3f2de; background: #9cd3b51a; box-shadow: none; padding: 10px 12px; min-height: 40px; font-size: 12px; }
-.macros-supplements .nuth-button-secondary:hover { background: #9cd3b529; }
-.macros-supplements .nuth-input { background: #091f1dcc; border-color: #a7d3bc38; color: #e4f1e9; font-size: 13px; }
-.macros-supplements .nuth-input::placeholder { color: #9eb9ac; }
+.macros-supplements .supplement-item h3 { color: #e5f2e8; }
+.macros-supplements > :is(.supplement-heading, .space-y-2) > .nuth-button-secondary { border: 1px solid #b9dac355; color: #d3f2de; background: #9cd3b51a; box-shadow: none; padding: 10px 12px; min-height: 40px; font-size: 12px; }
+.macros-supplements > :is(.supplement-heading, .space-y-2) > .nuth-button-secondary:hover { background: #9cd3b529; }
 .macros-supplements .supplement-warning { color: #f1d9b0; background: #55452466; }
-.macros-supplements [role="alert"] { color: #f4b5ab; }
-
-/* The existing search/manual-entry dialog follows the same palette. */
-.macros-supplement-library { color-scheme: dark; background: #112b2b; color: #e4f1e9; border: 1px solid #a7d3bc40; }
-.macros-supplement-library::backdrop { background: #030d14ba; backdrop-filter: blur(6px); }
-.macros-supplement-library p { color: #bbcdc2; }
-.macros-supplement-library .nuth-eyebrow { color: #d5e6a3; }
-.macros-supplement-library .nuth-button { color: #18251b; background: #e8f578; border-color: #e8f578; }
-.macros-supplement-library .nuth-button-secondary { color: #d3f2de; border-color: #b9dac355; background: #9cd3b51a; }
-.macros-supplement-library .nuth-input { color: #e4f1e9; background: #091f1dcc; border-color: #a7d3bc38; }
-.macros-supplement-library input::placeholder { color: #a9beb3; }
-.macros-supplement-library article { background: #183733; border-color: #a7d3bc38; }
-.macros-supplement-library :is(article span, article button:not(.nuth-button)) { color: #c2d9c8; }
-.macros-supplement-library label { border-color: #a7d3bc38; }
-.macros-supplement-library :is(button, input):focus-visible { outline: 2px solid #e3f5b2; outline-offset: 3px; }
-.macros-supplement-library [role="alert"] { color: #f4b5ab; }
 
 @container (max-width: 1000px) {
   .macros-reference-body { flex-wrap: wrap; gap: 8px; }
