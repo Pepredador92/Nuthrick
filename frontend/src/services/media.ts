@@ -1,9 +1,19 @@
 import { supabase } from "@/src/lib/supabase";
 import { validateImage } from "@/src/lib/validation";
+import { prepareGalleryImage } from "@/src/lib/galleryImage";
 import type { MediaCategory } from "@/src/types/domain";
 
 const BUCKET = "professional-media";
 const PATIENT_BUCKET = "patient-progress";
+
+async function uploadProfessionalMedia(path: string, image: Blob) {
+  const { error } = await supabase.storage.from(BUCKET).upload(path, image, {
+    contentType: image.type,
+    cacheControl: "3600",
+    upsert: false,
+  });
+  if (error) throw error;
+}
 
 export async function uploadProfessionalImage(
   file: File,
@@ -16,13 +26,36 @@ export async function uploadProfessionalImage(
   const extension =
     file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1];
   const path = `${storageKey}/${category}/${category}-${crypto.randomUUID()}.${extension}`;
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    contentType: file.type,
-    cacheControl: "3600",
-    upsert: false,
-  });
-  if (error) throw error;
+  await uploadProfessionalMedia(path, file);
   return path;
+}
+
+export function serviceThumbnailPath(path: string): string | null {
+  const normalized = /^([a-f0-9-]{36}\/services\/services-[a-f0-9-]{36})-full\.(webp|png)$/.exec(path);
+  return normalized ? `${normalized[1]}-thumb.${normalized[2]}` : null;
+}
+
+export async function uploadServiceGalleryImage(file: File, storageKey: string): Promise<string> {
+  const { full, thumbnail } = await prepareGalleryImage(file);
+  const extension = full.type === "image/webp" ? "webp" : "png";
+  const base = `${storageKey}/services/services-${crypto.randomUUID()}`;
+  const path = `${base}-full.${extension}`;
+  const results = await Promise.allSettled([
+    uploadProfessionalMedia(path, full),
+    uploadProfessionalMedia(`${base}-thumb.${extension}`, thumbnail),
+  ]);
+  const failure = results.find(result => result.status === "rejected");
+  if (failure) {
+    await removeServiceGalleryImage(path).catch(() => undefined);
+    throw failure.reason;
+  }
+  return path;
+}
+
+export async function removeServiceGalleryImage(path: string): Promise<void> {
+  const thumbnail = serviceThumbnailPath(path);
+  const { error } = await supabase.storage.from(BUCKET).remove(thumbnail ? [path, thumbnail] : [path]);
+  if (error) throw error;
 }
 
 export async function removeProfessionalImage(path: string): Promise<void> {

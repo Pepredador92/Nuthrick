@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { PublicBookingPanel } from './PublicBookingPage';
 import { PublicProfessionalHeader } from '@/src/features/profile/PublicProfessionalHeader';
+import { PublicProfileGallery } from '@/src/features/profile/PublicProfileGallery';
 import { Logo } from '@/src/components/ui/Logo';
 import { getPublicProfile } from '@/src/services/profile';
 import { trackPublicProfileVisit } from '@/src/services/siteAnalytics';
@@ -137,7 +138,7 @@ export function PublicProfilePage() {
           </section>}
           {gallery.length > 0 && <section id="galeria" className="public-profile-card" data-tone="violet">
             <CardHeading icon={Images} title="Galería" />
-            <div className="public-card-body"><div className="public-profile-gallery">{gallery.map(item => <img key={item.path} src={item.url} alt={item.alt ?? 'Servicio profesional'} loading="lazy" decoding="async" />)}</div></div>
+            <div className="public-card-body"><PublicProfileGallery key={profile.slug} images={gallery} /></div>
           </section>}
           {hasLocationSection && <section id="ubicaciones" className="public-profile-card" data-tone="amber">
             {hasBusinessDetails ? <CardHeading icon={Building2} title="Establecimiento" /> : <CardHeading icon={MapPin} title="Ubicaciones" />}

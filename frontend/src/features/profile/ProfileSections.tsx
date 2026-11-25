@@ -3,7 +3,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Field, Input, Textarea } from '@/src/components/ui/FormField';
 import { AgendaSlotAssignments } from '@/src/features/profile/AgendaSlotAssignments';
 import { usePersistentState } from '@/src/hooks/usePersistentState';
-import { getSignedMediaUrl, removeProfessionalImage, uploadProfessionalImage } from '@/src/services/media';
+import { getSignedMediaUrl, getSignedMediaUrls, removeProfessionalImage, removeServiceGalleryImage, serviceThumbnailPath, uploadProfessionalImage } from '@/src/services/media';
 import {
   addAvailabilitySlot,
   addContact,
@@ -146,7 +146,22 @@ export function ExtrasSection({ workspace, onSaved }: SectionProps) {
   const [populationIds, setPopulationIds, clearPopulationDraft] = usePersistentState(`nuthrick:${workspace.profile.id}:population-ids`, workspace.selectedPopulationIds);
   const [conditionSearch, setConditionSearch, clearConditionSearchDraft] = usePersistentState(`nuthrick:${workspace.profile.id}:condition-search`, '');
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [imageUrls, setImageUrls] = useState<Record<string,string>>({});
-  useEffect(() => { let active = true; void Promise.all(workspace.images.map(async (image) => [image.id, await getSignedMediaUrl(image.storage_path)] as const)).then((pairs) => { if (active) setImageUrls(Object.fromEntries(pairs.filter((pair): pair is readonly [string,string] => Boolean(pair[1])))); }); return () => { active = false; }; }, [workspace.images]);
+  const [uploading, setUploading] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const photos = workspace.images.map(image => ({ image, thumbnail: serviceThumbnailPath(image.storage_path) }));
+    const paths = photos.flatMap(({ image, thumbnail }) => thumbnail ? [thumbnail, image.storage_path] : [image.storage_path]);
+    void getSignedMediaUrls(paths).then(signed => {
+      if (!active) return;
+      const urls: Record<string, string> = {};
+      for (const { image, thumbnail } of photos) {
+        const url = (thumbnail ? signed.get(thumbnail) : undefined) ?? signed.get(image.storage_path);
+        if (url) urls[image.id] = url;
+      }
+      setImageUrls(urls);
+    });
+    return () => { active = false; };
+  }, [workspace.images]);
   const toggle = (ids: string[], id: string, setter: (next: string[]) => void) => setter(ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id]);
   const normalizedSearch = conditionSearch.trim().toLocaleLowerCase();
   const suggestions = normalizedSearch ? workspace.conditions.filter((item) => !conditionIds.includes(item.id) && item.name.toLocaleLowerCase().includes(normalizedSearch)).slice(0, 8) : [];
@@ -160,20 +175,60 @@ export function ExtrasSection({ workspace, onSaved }: SectionProps) {
   };
   const saveCatalogs = async () => { setBusy(true); setError(''); try { await Promise.all([replaceCatalogSelections('conditions', conditionIds), replaceCatalogSelections('populations', populationIds), updateProfile(workspace.profile.id, { custom_conditions: customLabels })]); clearConditionDraft(); clearCustomConditionDraft(); clearPopulationDraft(); clearConditionSearchDraft(); await onSaved('Tus condiciones y poblaciones quedaron actualizadas.'); } catch (caught) { setError(caught instanceof Error ? caught.message : 'No fue posible guardar.'); } finally { setBusy(false); } };
   const upload = async (file?: File) => {
-    if (!file) return;
-    setBusy(true); setError('');
-    let path = '';
+    if (!file || busy) return;
+    setBusy(true); setUploading(true); setError('');
     try {
-      path = await uploadProfessionalImage(file, workspace.profile.storage_key, 'services');
-      await addServiceImage({ storage_path: path, alt_text: 'Imagen de servicio', display_order: workspace.images.length });
+      await addServiceImage(file, workspace.profile.storage_key, workspace.images.length);
       await onSaved('La imagen se agregó a tu galería.');
     } catch (caught) {
-      if (path) await removeProfessionalImage(path).catch(() => undefined);
       setError(caught instanceof Error ? caught.message : 'No fue posible subir la imagen.');
+    } finally { setBusy(false); setUploading(false); }
+  };
+  const remove = async (id: string, path: string) => {
+    if (busy) return;
+    setBusy(true); setError('');
+    try {
+      await deleteServiceImage(id);
+      await removeServiceGalleryImage(path);
+      await onSaved('La imagen se eliminó.');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'No fue posible eliminarla.');
     } finally { setBusy(false); }
   };
-  const remove = async (id: string, path: string) => { setBusy(true); try { await deleteServiceImage(id); await removeProfessionalImage(path); await onSaved('La imagen se eliminó.'); } catch (caught) { setError(caught instanceof Error ? caught.message : 'No fue posible eliminarla.'); } finally { setBusy(false); } };
-  return <div className="profile-section-stack"><section className="profile-panel" data-tone="violet"><div className="flex flex-wrap items-center justify-between gap-4"><div><h3 className="text-lg font-semibold">Galería de servicios</h3><p className="mt-1 text-sm text-[#74817d]">JPEG, PNG o WEBP de hasta 5 MB.</p></div><label className="nuth-button-secondary cursor-pointer"><ImagePlus size={17} />Subir imagen<input type="file" className="sr-only" accept="image/jpeg,image/png,image/webp" onChange={(e) => void upload(e.target.files?.[0])} /></label></div>{workspace.images.length ? <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">{workspace.images.map((image) => <figure key={image.id} className="group relative aspect-[4/3] overflow-hidden rounded-2xl bg-[#edf1ed]">{imageUrls[image.id] && <img src={imageUrls[image.id]} alt={image.alt_text ?? 'Servicio'} className="h-full w-full object-cover" />}<button type="button" onClick={() => void remove(image.id, image.storage_path)} className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-[#963e34] shadow" aria-label="Eliminar imagen"><Trash2 size={15} /></button></figure>)}</div> : <div className="profile-empty mt-5">Aún no has agregado imágenes.</div>}</section><section className="profile-panel" data-tone="blue"><h3 className="text-lg font-semibold">Condiciones que tratas</h3><p className="mt-1 text-sm text-[#74817d]">Escribe para buscar o agrega una etiqueta propia.</p><div className="relative mt-4"><Input id="condition-search" value={conditionSearch} onChange={(event) => setConditionSearch(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ',') { event.preventDefault(); addCondition(conditionSearch); } }} placeholder="Ej. SOP, migraña, alimentación intuitiva" aria-label="Buscar o agregar condición" />{(conditionSearch || suggestions.length > 0) && <div className="absolute z-10 mt-2 w-full rounded-2xl border border-[#dfe5e1] bg-white p-2 shadow-xl">{suggestions.map((item) => <button key={item.id} type="button" onClick={() => { setConditionIds((current) => [...current, item.id]); setConditionSearch(''); }} className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-[#edf4ef]">{item.name}</button>)}{conditionSearch.trim().length > 1 && <button type="button" onClick={() => addCondition(conditionSearch)} className="block w-full rounded-xl border-t border-[#edf0ed] px-3 py-2 text-left text-sm font-semibold text-[#3e6b5b]">Agregar “{conditionSearch.trim()}”</button>}</div>}</div><div className="mt-4 flex flex-wrap gap-2">{workspace.conditions.filter((item) => conditionIds.includes(item.id)).map((item) => <span key={item.id} className="inline-flex items-center gap-1 rounded-full bg-[#eaf2ed] px-3 py-1.5 text-sm text-[#315e50]">{item.name}<button type="button" onClick={() => setConditionIds((current) => current.filter((id) => id !== item.id))} aria-label={`Quitar ${item.name}`}>×</button></span>)}{customLabels.map((label) => <span key={label} className="inline-flex items-center gap-1 rounded-full bg-[#f5ebdd] px-3 py-1.5 text-sm text-[#805a2c]">{label}<button type="button" onClick={() => setCustomLabels((current) => current.filter((item) => item !== label))} aria-label={`Quitar ${label}`}>×</button></span>)}</div></section><section className="profile-panel" data-tone="sage"><h3 className="text-lg font-semibold">Poblaciones atendidas</h3><div className="mt-4 flex flex-wrap gap-2">{workspace.populations.map((item) => <label key={item.id} className="profile-choice"><input type="checkbox" className="sr-only" checked={populationIds.includes(item.id)} onChange={() => toggle(populationIds, item.id, setPopulationIds)} />{item.name}</label>)}</div></section>{error && <p role="alert" className="text-sm text-[#984a39]">{error}</p>}<button type="button" onClick={() => void saveCatalogs()} disabled={busy} className="nuth-button"><Save size={17} />Guardar cambios</button></div>;
+  return <div className="profile-section-stack">
+    <section className="profile-panel" data-tone="violet">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h3 className="text-lg font-semibold">Galería de servicios</h3>
+          <p className="mt-1 text-sm text-[#74817d]">JPG, PNG o WebP de hasta 5 MB.</p>
+        </div>
+        <label className="nuth-button-secondary cursor-pointer has-disabled:cursor-wait has-disabled:opacity-60">
+          {uploading ? <LoaderCircle size={17} aria-hidden="true" className="motion-safe:animate-spin" /> : <ImagePlus size={17} aria-hidden="true" />}
+          {uploading ? 'Guardando imagen…' : 'Subir imagen'}
+          <input type="file" className="sr-only" accept="image/jpeg,image/png,image/webp" disabled={busy}
+            onChange={event => {
+              const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = '';
+              void upload(file);
+            }} />
+        </label>
+      </div>
+      {workspace.images.length ? (
+        <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
+          {workspace.images.map(image => (
+            <figure key={image.id} className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-[#edf1ed]">
+              {imageUrls[image.id] && <img src={imageUrls[image.id]} alt={image.alt_text ?? 'Servicio'} loading="lazy" className="h-full w-full object-cover" />}
+              <button type="button" onClick={() => void remove(image.id, image.storage_path)} disabled={busy}
+                className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-[#963e34] shadow"
+                aria-label="Eliminar imagen">
+                <Trash2 size={15} aria-hidden="true" />
+              </button>
+            </figure>
+          ))}
+        </div>
+      ) : <div className="profile-empty mt-5">Aún no has agregado imágenes.</div>}
+    </section>
+    <section className="profile-panel" data-tone="blue"><h3 className="text-lg font-semibold">Condiciones que tratas</h3><p className="mt-1 text-sm text-[#74817d]">Escribe para buscar o agrega una etiqueta propia.</p><div className="relative mt-4"><Input id="condition-search" value={conditionSearch} onChange={(event) => setConditionSearch(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ',') { event.preventDefault(); addCondition(conditionSearch); } }} placeholder="Ej. SOP, migraña, alimentación intuitiva" aria-label="Buscar o agregar condición" />{(conditionSearch || suggestions.length > 0) && <div className="absolute z-10 mt-2 w-full rounded-2xl border border-[#dfe5e1] bg-white p-2 shadow-xl">{suggestions.map((item) => <button key={item.id} type="button" onClick={() => { setConditionIds((current) => [...current, item.id]); setConditionSearch(''); }} className="block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-[#edf4ef]">{item.name}</button>)}{conditionSearch.trim().length > 1 && <button type="button" onClick={() => addCondition(conditionSearch)} className="block w-full rounded-xl border-t border-[#edf0ed] px-3 py-2 text-left text-sm font-semibold text-[#3e6b5b]">Agregar “{conditionSearch.trim()}”</button>}</div>}</div><div className="mt-4 flex flex-wrap gap-2">{workspace.conditions.filter((item) => conditionIds.includes(item.id)).map((item) => <span key={item.id} className="inline-flex items-center gap-1 rounded-full bg-[#eaf2ed] px-3 py-1.5 text-sm text-[#315e50]">{item.name}<button type="button" onClick={() => setConditionIds((current) => current.filter((id) => id !== item.id))} aria-label={`Quitar ${item.name}`}>×</button></span>)}{customLabels.map((label) => <span key={label} className="inline-flex items-center gap-1 rounded-full bg-[#f5ebdd] px-3 py-1.5 text-sm text-[#805a2c]">{label}<button type="button" onClick={() => setCustomLabels((current) => current.filter((item) => item !== label))} aria-label={`Quitar ${label}`}>×</button></span>)}</div></section><section className="profile-panel" data-tone="sage"><h3 className="text-lg font-semibold">Poblaciones atendidas</h3><div className="mt-4 flex flex-wrap gap-2">{workspace.populations.map((item) => <label key={item.id} className="profile-choice"><input type="checkbox" className="sr-only" checked={populationIds.includes(item.id)} onChange={() => toggle(populationIds, item.id, setPopulationIds)} />{item.name}</label>)}</div></section>{error && <p role="alert" className="text-sm text-[#984a39]">{error}</p>}<button type="button" onClick={() => void saveCatalogs()} disabled={busy} className="nuth-button"><Save size={17} />Guardar cambios</button></div>;
 }
 
 export function BusinessSection({ workspace, onSaved }: SectionProps) {

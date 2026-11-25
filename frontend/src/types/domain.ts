@@ -805,7 +805,7 @@ export interface PublicProfileContent {
   };
   locations?: Array<{ name: string; address: string; mapUrl?: string }>;
   links: Array<{ type: LinkType; title: string; url: string }>;
-  gallery: Array<{ path: string; url?: string; alt?: string }>;
+  gallery: Array<{ path: string; url?: string; thumbnailUrl?: string; alt?: string }>;
   availability?: {
     settings?: {
       durationMinutes: number;

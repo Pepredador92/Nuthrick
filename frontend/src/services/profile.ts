@@ -13,7 +13,7 @@ import type {
   PublicProfileContent,
   ServiceImage,
 } from "@/src/types/domain";
-import { getSignedMediaUrls } from "./media";
+import { getSignedMediaUrls, removeServiceGalleryImage, serviceThumbnailPath, uploadServiceGalleryImage } from "./media";
 
 function unwrap<T>(result: {
   data: T | null;
@@ -323,13 +323,22 @@ export async function deleteLink(id: string): Promise<void> {
 }
 
 export async function addServiceImage(
-  values: Omit<ServiceImage, "id" | "professional_id">,
+  file: File,
+  storageKey: string,
+  displayOrder: number,
 ): Promise<ServiceImage> {
+  const path = await uploadServiceGalleryImage(file, storageKey);
   const { data, error } = await supabase
     .from("professional_service_images")
-    .insert(values)
+    .insert({ storage_path: path, alt_text: "Imagen de servicio", display_order: displayOrder })
     .select()
     .single();
+  if (error) {
+    // A lost response can hide a successful insert. Confirm before removing the files.
+    const saved = await supabase.from("professional_service_images").select("*").eq("storage_path", path).maybeSingle();
+    if (saved.data) return saved.data as ServiceImage;
+    if (!saved.error) await removeServiceGalleryImage(path).catch(() => undefined);
+  }
   return unwrap({ data: data as ServiceImage | null, error });
 }
 
@@ -406,10 +415,11 @@ export async function getPublicProfile(
   if (!data) return null;
 
   const content = data.content as unknown as PublicProfileContent;
+  const gallery = content.gallery.map(image => ({ image, thumbnail: serviceThumbnailPath(image.path) }));
   const paths = [
     content.avatarPath,
     content.business?.logoPath,
-    ...content.gallery.map((image) => image.path),
+    ...gallery.flatMap(({ image, thumbnail }) => [image.path, thumbnail]),
   ].filter((path): path is string => Boolean(path));
   const signed = await getSignedMediaUrls(paths);
 
@@ -424,9 +434,10 @@ export async function getPublicProfile(
             : undefined,
         }
       : undefined,
-    gallery: content.gallery.map((image) => ({
+    gallery: gallery.map(({ image, thumbnail }) => ({
       ...image,
       url: signed.get(image.path),
+      thumbnailUrl: thumbnail ? signed.get(thumbnail) : undefined,
     })),
   };
 }

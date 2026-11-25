@@ -236,7 +236,76 @@ html[data-nuthrick-theme='night'] .public-profile-page {
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 9rem), 1fr));
   gap: 10px;
 }
-.public-profile-gallery img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 14px; background: var(--public-inset); }
+.public-gallery-thumbnail {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  aspect-ratio: 4 / 3;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--public-line);
+  border-radius: 14px;
+  background: var(--public-inset);
+  cursor: zoom-in;
+}
+.public-gallery-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+.public-gallery-expand {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 9px;
+  background: #102820d9;
+  color: #fff;
+}
+.public-gallery-thumbnail:hover .public-gallery-expand { background: #102820; }
+.public-gallery-dialog {
+  width: min(calc(100% - 1.5rem), 64rem);
+  max-width: none;
+  max-height: calc(100dvh - 1.5rem);
+  margin: auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--public-line);
+  border-radius: 18px;
+  background: var(--public-inset);
+  color: var(--public-ink);
+  box-shadow: 0 28px 90px #0006;
+}
+.public-gallery-dialog::backdrop { background: #06151bde; }
+html:has(.public-gallery-dialog[open]) { overflow: hidden; }
+.public-gallery-viewer { display: grid; gap: 10px; padding: clamp(10px, 2vw, 18px); }
+.public-gallery-viewer header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.public-gallery-viewer h2 { font-size: 1rem; font-weight: 700; }
+.public-gallery-stage {
+  display: grid;
+  min-width: 0;
+  min-height: min(40dvh, 18rem);
+  place-items: center;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #0d2025;
+  color: #edf5f4;
+  touch-action: pan-y pinch-zoom;
+}
+.public-gallery-stage img { width: auto; max-width: 100%; height: auto; max-height: min(68dvh, calc(100dvh - 9.5rem)); object-fit: contain; }
+.public-gallery-unavailable { padding: 10px; text-align: center; font-size: .85rem; }
+.public-gallery-viewer footer { display: flex; align-items: center; justify-content: center; gap: 16px; }
+.public-gallery-viewer footer span[role='status'] { min-width: 4rem; text-align: center; font-size: .85rem; font-variant-numeric: tabular-nums; }
+.public-gallery-control {
+  display: grid;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid var(--public-line);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.public-gallery-control:hover { background: var(--public-violet); }
 .public-business-identity { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .public-business-identity img { max-width: min(100%, 140px); max-height: 64px; object-fit: contain; }
 .public-business-address { display: flex; align-items: start; gap: 8px; }
