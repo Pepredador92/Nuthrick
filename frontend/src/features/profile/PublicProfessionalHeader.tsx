@@ -41,24 +41,27 @@ export function PublicProfessionalHeader({ profile }: { profile: HeaderProfile }
   const links = contactLinks(profile);
   return <section aria-label="Presentación profesional" className="public-professional-card">
     <div className="public-professional-identity">
-      <div aria-hidden="true" className="public-professional-orbit"/>
-      <p className="public-professional-eyebrow">Perfil profesional</p>
       <div className="public-professional-portrait">
-        {profile.avatarUrl ? <img src={profile.avatarUrl} alt={`Foto de ${profile.name}`} className="size-full object-cover"/> : <span className="public-professional-initials">{profile.name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('')}</span>}
+        {profile.avatarUrl ? <img src={profile.avatarUrl} alt={`Foto de ${profile.name}`} /> : <span aria-hidden="true">{profile.name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('')}</span>}
       </div>
-      <h1>{profile.name}</h1>
-      {profile.professionalTitle && <p className="public-professional-title">{profile.professionalTitle}</p>}
-      {profile.licenseNumber && <p className="public-professional-license"><BadgeCheck size={14} aria-hidden="true"/><span>Cédula profesional: {profile.licenseNumber}</span></p>}
-      <div className="public-professional-badges">
-        {profile.careModalities.map(item => <span key={item}>{modalities[item]}</span>)}
-        {profile.country && <span><MapPin size={12} aria-hidden="true"/>{profile.country}</span>}
+      <div className="public-professional-summary">
+        <h1>{profile.name}</h1>
+        {profile.professionalTitle && <p className="public-professional-title">{profile.professionalTitle}</p>}
+        {profile.licenseNumber && <p className="public-professional-license"><BadgeCheck size={16} aria-hidden="true"/><span>Cédula profesional: {profile.licenseNumber}</span></p>}
+        {Boolean(profile.careModalities.length || profile.country) && <div className="public-professional-badges">
+          {profile.careModalities.map(item => <span key={item}>{modalities[item]}</span>)}
+          {profile.country && <span><MapPin size={14} aria-hidden="true"/>{profile.country}</span>}
+        </div>}
       </div>
     </div>
     {links.length > 0 && <nav aria-label="Contacto y redes sociales" className="public-professional-contacts">
-      {links.map(({ href, label, icon: Icon, whatsapp }) => <a key={href} href={href} target={href.startsWith('mailto:') ? undefined : '_blank'} rel={href.startsWith('mailto:') ? undefined : 'noopener noreferrer'}
-        className={`public-professional-contact${whatsapp ? ' is-whatsapp' : ''}`}>
-        <Icon size={18} className="shrink-0" aria-hidden="true"/><span className="min-w-0 break-words [overflow-wrap:anywhere]">{label}</span>
-      </a>)}
+      <p>Contacto y redes</p>
+      <div className="public-professional-contact-links">
+        {links.map(({ href, label, icon: Icon, whatsapp }) => <a key={href} href={href} target={href.startsWith('mailto:') ? undefined : '_blank'} rel={href.startsWith('mailto:') ? undefined : 'noopener noreferrer'}
+          className={`public-professional-contact${whatsapp ? ' is-whatsapp' : ''}`}>
+          <Icon size={18} className="shrink-0" aria-hidden="true"/><span className="min-w-0 break-words [overflow-wrap:anywhere]">{label}</span>
+        </a>)}
+      </div>
     </nav>}
   </section>;
 }
