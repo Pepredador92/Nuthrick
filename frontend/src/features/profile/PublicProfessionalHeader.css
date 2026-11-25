@@ -5,14 +5,17 @@
   border-radius: 24px;
   box-shadow: var(--public-shadow);
   overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .public-professional-identity {
   position: relative;
   isolation: isolate;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: clamp(14px, 3vw, 30px);
+  justify-content: center;
+  gap: clamp(14px, 2vw, 24px);
   min-height: 224px;
   padding: clamp(20px, 4vw, 42px);
   color: var(--public-ink, #203d37);
@@ -53,7 +56,7 @@
 }
 
 .public-professional-portrait img { width: 100%; height: 100%; object-fit: cover; }
-.public-professional-summary { min-width: 0; }
+.public-professional-summary { max-width: 100%; }
 .public-professional-summary h1 {
   font-size: clamp(1.75rem, 4vw, 3.35rem);
   font-weight: 700;
@@ -65,13 +68,14 @@
 .public-professional-license {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   margin-top: 8px;
   color: var(--public-mint-ink, #23594d);
   font-size: .85rem;
 }
 .public-professional-license svg, .public-professional-badges svg { flex: none; }
-.public-professional-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 13px; }
+.public-professional-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 13px; }
 .public-professional-badges > span {
   display: inline-flex;
   align-items: center;
@@ -92,7 +96,7 @@
   background: var(--public-inset, #f9fcf9);
 }
 .public-professional-contacts > p { font-size: .85rem; font-weight: 680; }
-.public-professional-contact-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.public-professional-contact-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
 .public-professional-contact {
   display: inline-flex;
   align-items: center;
