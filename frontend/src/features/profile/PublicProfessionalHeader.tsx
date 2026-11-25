@@ -41,7 +41,7 @@ export function PublicProfessionalHeader({ profile }: { profile: HeaderProfile }
   const links = contactLinks(profile);
   return <section aria-label="Presentación profesional" className="public-professional-card">
     <div className="public-professional-identity">
-      <div className="public-professional-portrait">
+      <div className={`public-professional-portrait${profile.avatarUrl ? ' has-photo' : ''}`}>
         {profile.avatarUrl ? <img src={profile.avatarUrl} alt={`Foto de ${profile.name}`} /> : <span aria-hidden="true">{profile.name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('')}</span>}
       </div>
       <div className="public-professional-summary">
