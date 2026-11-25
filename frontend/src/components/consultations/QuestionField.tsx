@@ -2,6 +2,15 @@ import { useId } from "react";
 import { Plus, X } from "lucide-react";
 import { Input, Textarea } from "@/src/components/ui/FormField";
 import {
+  medicationAnswer,
+  readMedicationSelection,
+} from "@/src/features/consultations/medicationCatalog";
+import {
+  MedicationCatalogDetails,
+  MedicationCatalogPicker,
+  useMedicationCatalog,
+} from "./MedicationCatalogPicker";
+import {
   emptyValue,
   inputValue,
   isRecord,
@@ -30,6 +39,12 @@ export function QuestionField({
 }) {
   const id = useId();
   const options = stringList(question.configuration.options);
+  const fields = question.question_type === "repeatable_group"
+    ? repeatableFields(question.configuration)
+    : [];
+  const hasMedicationCatalog = question.question_key === "medication_list_v2" &&
+    fields.some((field) => field.key === "name" && field.type === "text");
+  const medicationCatalog = useMedicationCatalog(hasMedicationCatalog);
   const helpId = `${id}-help`;
   const baseInput = {
     id,
@@ -40,7 +55,7 @@ export function QuestionField({
     <div className="flex flex-wrap items-start justify-between gap-2">
       <label
         id={`${id}-label`}
-        htmlFor={id}
+        htmlFor={hasMedicationCatalog ? undefined : id}
         className="text-sm font-semibold leading-6 text-[#29483f]"
       >
         {displayLabel ?? question.label}
@@ -159,18 +174,18 @@ export function QuestionField({
       </select>
     );
   } else if (question.question_type === "repeatable_group") {
-    const fields = repeatableFields(question.configuration);
     const rows = Array.isArray(value) ? value.filter(isRecord) : [];
     const maxRows =
       typeof question.configuration.max_rows === "number"
         ? question.configuration.max_rows
         : 100;
-    const setField = (index: number, key: string, nextValue: string) =>
-      onChange(
-        rows.map((row, i) =>
-          i === index ? { ...row, [key]: nextValue } : row,
-        ),
-      );
+    const setField = (index: number, key: string, nextValue: string) => {
+      const row = { ...rows[index], [key]: nextValue };
+      if (hasMedicationCatalog && key === "name" && nextValue.trim() !== inputValue(rows[index].name).trim()) {
+        delete row.catalog;
+      }
+      onChange(rows.map((previous, i) => i === index ? row : previous));
+    };
     const renderField = (
       field: RepeatableField,
       row: Record<string, unknown>,
@@ -223,69 +238,94 @@ export function QuestionField({
         </div>
       );
     };
+    const isDetail = (field: RepeatableField) => field.detail ||
+      (hasMedicationCatalog && !field.required && ["reason", "since"].includes(field.key));
+    const addRecord = (
+      <button
+        type="button"
+        className="inline-flex items-center gap-2 rounded-xl border border-dashed border-[#b5cabc] bg-[#f7faf7] px-4 py-3 text-sm font-semibold text-[#3d705d]"
+        disabled={rows.length >= maxRows}
+        onClick={() => onChange([...rows, {}])}
+      >
+        <Plus size={16} />
+        {hasMedicationCatalog ? "Agregar medicamento manualmente" : String(question.configuration.add_label ?? "Agregar registro")}
+      </button>
+    );
     control = (
       <div className="space-y-3">
-        {rows.map((row, index) => (
-          <div
-            key={index}
-            className="min-w-0 rounded-2xl border border-[#dfe5e1] bg-[#fbfcfa] p-3 sm:p-4"
-          >
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#718578]">
-                Registro {index + 1}
-              </span>
-              <button
-                type="button"
-                aria-label={`Quitar registro ${index + 1} de ${question.label}`}
-                className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-[#9b493a]"
-                onClick={() => {
-                  if (
-                    emptyValue(row) ||
-                    window.confirm(
-                      "¿Quitar este registro? Se eliminará del borrador al guardar.",
+        {hasMedicationCatalog && rows.length < maxRows && (
+          <MedicationCatalogPicker
+            id={id}
+            describedBy={baseInput["aria-describedby"]}
+            {...medicationCatalog}
+            onSelect={(product) => onChange([...rows, medicationAnswer(product)])}
+            onManual={(name) => onChange([...rows, { name }])}
+          />
+        )}
+        {hasMedicationCatalog && <div>{addRecord}</div>}
+        {rows.map((row, index) => {
+          const selection = hasMedicationCatalog ? readMedicationSelection(row.catalog) : undefined;
+          const product = selection && medicationCatalog.catalog?.products.find(({ sku }) => sku === selection.sku);
+          return (
+            <div
+              key={index}
+              className="min-w-0 rounded-2xl border border-[#dfe5e1] bg-[#fbfcfa] p-3 sm:p-4"
+            >
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#718578]">
+                  Registro {index + 1}
+                </span>
+                <button
+                  type="button"
+                  aria-label={`Quitar registro ${index + 1} de ${question.label}`}
+                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-[#9b493a]"
+                  onClick={() => {
+                    if (
+                      emptyValue(row) ||
+                      window.confirm(
+                        "¿Quitar este registro? Se eliminará del borrador al guardar.",
+                      )
                     )
-                  )
-                    onChange(rows.filter((_, i) => i !== index));
-                }}
-              >
-                <X size={14} />
-                Quitar
-              </button>
+                      onChange(rows.filter((_, i) => i !== index));
+                  }}
+                >
+                  <X size={14} />
+                  Quitar
+                </button>
+              </div>
+              {selection && (
+                <p className="mb-2 text-sm text-[var(--nuth-muted)] [overflow-wrap:anywhere]">
+                  {[selection.ingredient, selection.concentration, selection.presentation].filter(Boolean).join(" · ")}
+                </p>
+              )}
+              {product && <MedicationCatalogDetails key={product.sku} product={product} />}
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                {fields
+                  .filter((field) => !isDetail(field))
+                  .map((field) => renderField(field, row, index))}
+              </div>
+              {fields.some(isDetail) && (
+                <details className="mt-3 border-t border-[#e2e9e3] pt-3">
+                  <summary className="cursor-pointer text-xs font-semibold text-[#3d705d]">
+                    Completar detalles
+                    {fields.some(
+                      (field) => isDetail(field) && !emptyValue(row[field.key]),
+                    )
+                      ? " · con información"
+                      : " (opcional)"}
+                  </summary>
+                  <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
+                    {fields
+                      .filter(isDetail)
+                      .map((field) => renderField(field, row, index))}
+                  </div>
+                </details>
+              )}
             </div>
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-              {fields
-                .filter((field) => !field.detail)
-                .map((field) => renderField(field, row, index))}
-            </div>
-            {fields.some((field) => field.detail) && (
-              <details className="mt-3 border-t border-[#e2e9e3] pt-3">
-                <summary className="cursor-pointer text-xs font-semibold text-[#3d705d]">
-                  Completar detalles
-                  {fields.some(
-                    (field) => field.detail && !emptyValue(row[field.key]),
-                  )
-                    ? " · con información"
-                    : " (opcional)"}
-                </summary>
-                <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
-                  {fields
-                    .filter((field) => field.detail)
-                    .map((field) => renderField(field, row, index))}
-                </div>
-              </details>
-            )}
-          </div>
-        ))}
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-xl border border-dashed border-[#b5cabc] bg-[#f7faf7] px-4 py-3 text-sm font-semibold text-[#3d705d]"
-          disabled={rows.length >= maxRows}
-          onClick={() => onChange([...rows, {}])}
-        >
-          <Plus size={16} />
-          {String(question.configuration.add_label ?? "Agregar registro")}
-        </button>
-        {!rows.length && (
+          );
+        })}
+        {!hasMedicationCatalog && addRecord}
+        {!hasMedicationCatalog && !rows.length && (
           <p className="text-xs text-[#859289]">
             Sin registros. Agrega únicamente lo que corresponda.
           </p>

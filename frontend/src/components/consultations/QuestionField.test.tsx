@@ -9,8 +9,8 @@ const get = (key: string) =>
   initialInterview.sections
     .flatMap((s) => s.questions)
     .find((q) => q.question_key === key)!;
-function Harness({ question }: { question: Question }) {
-  const [value, setValue] = useState<unknown>();
+function Harness({ question, initialValue }: { question: Question; initialValue?: unknown }) {
+  const [value, setValue] = useState<unknown>(initialValue);
   return (
     <QuestionField question={question} value={value} onChange={setValue} />
   );
@@ -30,7 +30,7 @@ describe("quick interview inputs", () => {
   it("renders labeled medicine fields, retains earlier rows and optional details", () => {
     render(<Harness question={get("medication_list_v2")} />);
     fireEvent.click(
-      screen.getByRole("button", { name: "Agregar medicamento" }),
+      screen.getByRole("button", { name: "Agregar medicamento manualmente" }),
     );
     fireEvent.change(screen.getByLabelText("Nombre del producto *"), {
       target: { value: "Producto de prueba" },
@@ -42,12 +42,46 @@ describe("quick interview inputs", () => {
       screen.getByText("Completar detalles (opcional)"),
     ).toBeInTheDocument();
     fireEvent.click(
-      screen.getByRole("button", { name: "Agregar medicamento" }),
+      screen.getByRole("button", { name: "Agregar medicamento manualmente" }),
     );
     expect(screen.getAllByLabelText("Nombre del producto *")).toHaveLength(2);
     expect(screen.getAllByLabelText("Nombre del producto *")[0]).toHaveValue(
       "Producto de prueba",
     );
+  });
+  it("adds a catalog presentation without assuming a dose and clears its reference when the name changes", async () => {
+    render(<Harness question={get("medication_list_v2")} initialValue={[{ name: "Registro previo", dose: "1 tableta" }]} />);
+    const search = screen.getByRole("searchbox", { name: "Buscar medicamento" });
+    fireEvent.change(search, { target: { value: "levotiróxina 75mcg" } });
+    fireEvent.click(await screen.findByRole("button", { name: /Eutirox · 75 mcg/i }));
+
+    const names = screen.getAllByLabelText("Nombre del producto *");
+    expect(names[0]).toHaveValue("Registro previo");
+    expect(names[1]).toHaveValue("Eutirox");
+    expect(screen.getAllByLabelText("Dosis y unidad")[0]).toHaveValue("1 tableta");
+    expect(screen.getAllByLabelText("Dosis y unidad")[1]).toHaveValue("");
+    expect(screen.getByText("Interacción nutricional · Calcio y hierro")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Consultar fuente de la alerta" })).toHaveAttribute("href", expect.stringContaining("dailymed.nlm.nih.gov"));
+    expect(screen.getByText("Consideraciones nutricionales del catálogo").closest("details")).not.toHaveAttribute("open");
+
+    fireEvent.change(screen.getAllByLabelText("Frecuencia")[1], { target: { value: "Diario" } });
+    expect(screen.getByText("Interacción nutricional · Calcio y hierro")).toBeVisible();
+    fireEvent.change(names[1], { target: { value: "Otro producto" } });
+    expect(screen.queryByText("Interacción nutricional · Calcio y hierro")).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText("Frecuencia")[1]).toHaveValue("Diario");
+  });
+  it("uses an unverified insulin reference as a manual name", async () => {
+    render(<Harness question={get("medication_list_v2")} />);
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Levemir" } });
+    fireEvent.click(await screen.findByText("Referencias con presentación por verificar"));
+    fireEvent.click(screen.getByRole("button", { name: /Registrar Levemir.* manualmente/ }));
+    expect(screen.getByLabelText("Nombre del producto *")).toHaveValue("Levemir");
+    expect(screen.getByLabelText("Dosis y unidad")).toHaveValue("");
+    expect(screen.queryByText("Ficha del catálogo")).not.toBeInTheDocument();
+  });
+  it("does not offer the medication catalog for supplements", () => {
+    render(<Harness question={get("supplement_list_v2")} />);
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
   });
   it("records frequency independently for each group with no selected default", () => {
     render(<Harness question={get("food_frequency_v2")} />);

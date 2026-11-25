@@ -1,6 +1,7 @@
 import type { ConsultationSnapshotStructure } from "@/src/types/domain";
 import { emptyValue, isRecord, matchesCondition } from "../../../../supabase/functions/_shared/consultation-answers";
 import { isPatientInstructionKey, PATIENT_INSTRUCTIONS_DOCUMENT_MAX_LENGTH } from "../../../../supabase/functions/_shared/patient-instructions";
+import { readMedicationSelection } from "./medicationCatalog";
 export { emptyValue, isRecord, matchesCondition };
 
 export type Answers = Record<string, unknown>;
@@ -161,10 +162,22 @@ export function formatAnswer(question: Question, value: unknown): string {
       .filter((item) => !emptyValue(item))
       .map((item, index) => {
         if (!isRecord(item)) return inputValue(item);
+        const medication = question.question_key === "medication_list_v2"
+          ? readMedicationSelection(item.catalog)
+          : undefined;
         const entries = Object.entries(item).filter(
-          ([, entry]) => !emptyValue(entry),
+          ([key, entry]) => !(medication && key === "catalog") && !emptyValue(entry),
         );
-        return `${index + 1}. ${entries.map(([key, entry]) => `${fields.find((field) => field.key === key)?.label ?? key.replaceAll("_", " ")}: ${inputValue(entry)}`).join(" · ")}`;
+        const summary = entries.map(([key, entry]) => `${fields.find((field) => field.key === key)?.label ?? key.replaceAll("_", " ")}: ${inputValue(entry)}`);
+        if (medication) {
+          summary.push(
+            `Principio activo: ${medication.ingredient}`,
+            `Concentración comercial: ${medication.concentration}`,
+            `Presentación: ${medication.presentation}`,
+            `Vía habitual: ${medication.route}`,
+          );
+        }
+        return `${index + 1}. ${summary.join(" · ")}`;
       })
       .join("\n");
   }
