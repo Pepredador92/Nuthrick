@@ -52,6 +52,58 @@ export function matchesSupplement(query: string, fields: string[]) {
   return normalize(query).split(/\s+/).every(word => text.includes(word));
 }
 
+const situationAliases: Record<string, string[]> = {
+  "Gestación": ["embarazo", "prenatal"],
+  "SOP": ["síndrome de ovario poliquístico"],
+  "DMAE": ["degeneración macular asociada a la edad"],
+  "ERC / polifarmacia": ["enfermedad renal crónica", "polimedicación"],
+  "Osteoporosis / déficit D": ["deficiencia de vitamina D", "déficit de vitamina D"],
+  "Infección urinaria recurrente": ["ITU", "cistitis recurrente"],
+};
+
+export function situationSearchFields(situation: SupplementSituation) {
+  return [situation.name, ...(situationAliases[situation.name] ?? [])];
+}
+
+export function rankSupplementSearch<T>(rows: T[], query: string, fieldsFor: (row: T) => string[]) {
+  const search = normalize(query);
+  if (!search) return rows;
+  return rows.flatMap(row => {
+    const fields = fieldsFor(row).map(normalize);
+    const rank = fields[0] === search ? 4
+      : fields[0].startsWith(search) ? 3
+      : fields.some(field => field.split(/[^\p{L}\p{N}]+/u).some(word => word.startsWith(search))) ? 2
+      : search.length > 1 && matchesSupplement(search, fields) ? 1 : 0;
+    return rank ? [{ row, rank }] : [];
+  }).sort((a, b) => b.rank - a.rank).map(({ row }) => row);
+}
+
+export function supplementTag(value: string) {
+  return value.trim().replace(/\s+/g, " ").slice(0, 60);
+}
+
+export function supplementUnitFromLabel(label: string): "tableta" | "cápsula" | "sobre" | undefined {
+  const unit = normalize(label);
+  if (/^1 tableta(?: \([^)]*\))?$/.test(unit)) return "tableta";
+  if (/^1 capsula(?: \([^)]*\))?$/.test(unit)) return "cápsula";
+  if (/^1 sobre(?: \([^)]*\))?$/.test(unit)) return "sobre";
+}
+
+const verifiedServing: Record<string, string> = {
+  "SUP-117": "2 tabletas (2.7 g)",
+  "SUP-128": "1 cápsula (0.392 g)",
+  "SUP-169": "1 cápsula (1.8 g)",
+};
+
+export function catalogServing(product?: SupplementReference) {
+  if (product && verifiedServing[product.id]) return verifiedServing[product.id];
+  const presentation = normalize(product?.presentation ?? "");
+  if (/\btabletas?\b/.test(presentation)) return "1 tableta";
+  if (/\bcapsulas?\b/.test(presentation)) return "1 cápsula";
+  if (/\bsobres?\b/.test(presentation)) return "1 sobre";
+  return "";
+}
+
 export function supplementName(product: SupplementReference) {
   return [product.name, advertisedStrength(product)].filter(Boolean).join(" · ");
 }

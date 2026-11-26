@@ -34,6 +34,7 @@ import {
 } from "@/src/components/ui/Status";
 import {PublishedPlanHistory} from "@/src/components/patients/PublishedPlanHistory";
 import { PatientEvolutionTable } from "@/src/components/patients/PatientEvolutionTable";
+import { PatientSupplementationActions } from "@/src/components/patients/PatientSupplementationActions";
 import { ClinicalProgress } from "@/src/components/patients/ClinicalProgress";
 import { PatientEvolutionCharts } from "@/src/components/patients/EvolutionCharts";
 import { emptyProgressReferences, type ProgressReferenceOptions } from "@/src/features/evolution/progressReferences";
@@ -1405,6 +1406,7 @@ export function PatientDetailPage() {
                 <CalendarPlus size={16} />
                 Nueva consulta
               </button>
+              <PatientSupplementationActions key={patient.id} patient={patient} consultations={consultations} />
               <div className="rounded-2xl border border-[#d9c49a] bg-[#fff9eb] p-4">
                 <div className="flex items-start gap-3">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#173d36] text-[#efbd6b]"><Salad size={19} /></span>

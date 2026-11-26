@@ -45,7 +45,7 @@ describe('SupplementEditor',()=>{
   enter(`Unidad de ${supplementProduct.name}`, 'g');
   click('Confirmar indicación');
   click('Guardar suplementos en el plan');
-  expect(change).toHaveBeenLastCalledWith([{...supplementItem,unit:'g',quantity:45}]);
+  expect(change).toHaveBeenLastCalledWith([{...supplementItem,unit:'g',quantity:45}], []);
  });
  it('creates a private manual product then offers it in the library',async()=>{
   api.list.mockResolvedValue([]);api.save.mockResolvedValue({...supplementProduct,owner_id:'me'});
@@ -96,9 +96,12 @@ describe('SupplementEditor',()=>{
   expect(screen.getByRole('button', { name: /Usar 1 tableta/ })).toBeDisabled();
   enter('Ácido fólico confirmado por tableta (µg)', '400');
   click(/Usar 1 tableta/);
-  click(/Confirmé que la porción/);
+  expect(screen.getByLabelText('Descripción de una porción')).toHaveValue('1 tableta');
+  expect(screen.queryByLabelText('Energía (kcal)')).not.toBeInTheDocument();
+  enter('Aporte para Macros', 'none');
   enter('Horario y reparto de las tomas', 'Con el desayuno');
-  enter('Duración o fecha de revisión', 'Hasta revisión prenatal');
+  enter('Duración o fecha de revisión', 'other');
+  enter('Duración personalizada', 'Hasta revisión prenatal');
   click('Confirmar indicación');
   click('Guardar suplementos en el plan');
   const items = change.mock.lastCall?.[0];
@@ -107,11 +110,11 @@ describe('SupplementEditor',()=>{
   view.rerender(<SupplementEditor {...props} items={items}/>);
   click('Editar suplementos');
   click('Editar indicación');
-  expect(screen.getByLabelText('Duración o fecha de revisión')).toHaveValue('Hasta revisión prenatal');
+  expect(screen.getByLabelText('Duración personalizada')).toHaveValue('Hasta revisión prenatal');
   enter('Cantidad diaria de Ácido fólico Valdecasas', '2');
   click('Confirmar indicación');
   click('Guardar suplementos en el plan');
-  expect(patientSupplements(change.mock.lastCall?.[0])[0].instructions).toContain('2 porciones al día');
+  expect(patientSupplements(change.mock.lastCall?.[0])[0].instructions).toContain('2 tabletas al día');
  });
  it('offers the same clinical type for a replacement and clears the dose after a strength change', async () => {
   api.list.mockResolvedValue([]);
@@ -124,7 +127,7 @@ describe('SupplementEditor',()=>{
   expect(screen.queryByRole('button', {name: /Fisiofer/})).not.toBeInTheDocument();
   click(/Ácido fólico Valdecasas · 400 mcg/);
   expect(screen.getByLabelText('Cantidad diaria de Ácido fólico Valdecasas')).toHaveValue('');
-  expect(screen.getByLabelText('Energía (kcal)')).toHaveValue('');
+  expect(screen.queryByLabelText('Energía (kcal)')).not.toBeInTheDocument();
   click('Volver a la selección');
   expect(screen.getByText('1 indicación por confirmar')).toBeVisible();
   click('Cancelar');
@@ -147,5 +150,49 @@ describe('SupplementEditor',()=>{
   expect(screen.getByLabelText('Presentación de B12')).toHaveValue('');
   click('Agregar selección');
   expect(screen.getByRole('alert')).toHaveTextContent('Elige una presentación');
+ });
+ it('shows first-letter results and persists a custom label without generating a clinical proposal', async () => {
+  api.list.mockResolvedValue([]);
+  const change = vi.fn();
+  render(<SupplementEditor items={[]} daily={daily} onChange={change}/>);
+  click('Agregar suplemento');
+  fireEvent.click(await screen.findByRole('button', {name: 'Ver todas (16)'}));
+  expect(screen.getByRole('button', {name: 'SOP'})).toBeVisible();
+  enter('Buscar suplemento', 'g');
+  expect(screen.getByRole('button', {name: 'Gestación'})).toBeVisible();
+  expect(screen.getByRole('button', {name: /Agregar Glicinato de Magnesio GNC/})).toBeVisible();
+  expect(screen.queryByRole('button', {name: 'Anticoagulación'})).not.toBeInTheDocument();
+  enter('Buscar suplemento', 'ovario poliquistico');
+  expect(screen.getByRole('button', {name: 'SOP'})).toBeVisible();
+  enter('Buscar suplemento', 'Gastritis');
+  click(/Agregar etiqueta «Gastritis»/);
+  expect(screen.queryByRole('region', {name: 'Propuesta por situación clínica'})).not.toBeInTheDocument();
+  click('Guardar suplementos en el plan');
+  expect(change).toHaveBeenLastCalledWith([], ['Gastritis']);
+ });
+ it('records only declared nutrition on a powder and supports a personalized schedule and duration', async () => {
+  api.list.mockResolvedValue([]);
+  const change = vi.fn();
+  render(<SupplementEditor items={[]} daily={daily} onChange={change}/>);
+  click('Agregar suplemento');
+  enter('Buscar suplemento', 'isopure vainilla');
+  fireEvent.click(await screen.findByRole('button', {name: /Agregar Zero Carb Proteína Isopure vainilla/}));
+  expect(screen.getByLabelText('Descripción de una porción')).toHaveValue('');
+  enter('Descripción de una porción', '1 medida (30 g)');
+  enter('Gramos por porción', '30');
+  enter('Medidas por porción', '1');
+  enter('Aporte para Macros', 'label');
+  enter('Proteína (g)', '25');
+  enter(/Unidad de Zero Carb/, 'g');
+  enter(/Cantidad diaria de Zero Carb/, '30');
+  enter('Horario y reparto de las tomas', 'other');
+  enter('Horario personalizado', 'Después de entrenar');
+  enter('Duración o fecha de revisión', 'months');
+  enter('Número de meses', '2');
+  click('Confirmar indicación');
+  click('Guardar suplementos en el plan');
+  const [item] = change.mock.lastCall?.[0];
+  expect(item.product).toMatchObject({ protein_g: 25, nutrition_status: 'unverified', known_nutrients: ['protein_g'] });
+  expect(item.directions).toMatchObject({ schedule: 'Después de entrenar', duration: 'Durante 2 meses' });
  });
 });

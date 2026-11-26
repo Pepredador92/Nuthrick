@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, ChevronRight, ClipboardList, Clock3, Leaf, Plus, Search, Trash2, X } from "lucide-react";
 import { archiveCustomSupplement, listSupplements } from "@/src/services/supplements";
 import {
-  advertisedStrength, loadSupplementCatalog, matchesSupplement, overlapsWith, sameConcentration, situationSuggestions, supplementName,
-  type SituationCriteria, type SupplementSituation, type SupplementSuggestion,
+  advertisedStrength, loadSupplementCatalog, overlapsWith, rankSupplementSearch, sameConcentration, situationSearchFields,
+  situationSuggestions, supplementName, supplementTag, type SituationCriteria, type SupplementSuggestion,
 } from "@/src/features/supplements/catalog";
 import { isSupplementList, supplementQuantityLabel, type SupplementCatalogItem, type SupplementItem } from "../../../../supabase/functions/_shared/supplements";
 import { ManualSupplementForm } from "./ManualSupplementForm";
@@ -23,11 +23,13 @@ const viewTitles: Record<View["type"], string> = {
 };
 const selectionProductId = (row: Omit<SupplementSelection, "id">) => row.reference?.id ?? row.label?.id ?? row.item?.product.id;
 
-export function SupplementPlanDialog({ items, appearance, onClose, onSave }: {
+export function SupplementPlanDialog({ items, appearance, onClose, onSave, initialTags = [], standalone }: {
   items: SupplementItem[];
+  initialTags?: string[];
   appearance: "default" | "night";
   onClose: () => void;
-  onSave: (items: SupplementItem[]) => void;
+  onSave: (items: SupplementItem[], tags: string[], consultationId: string | null) => void | Promise<void>;
+  standalone?: { consultationId: string | null; consultations: { id: string; label: string }[] };
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -41,8 +43,11 @@ export function SupplementPlanDialog({ items, appearance, onClose, onSave }: {
   const [visible, setVisible] = useState(pageSize);
   const [view, setView] = useState<View>({ type: "browse" });
   const [criteria, setCriteria] = useState(initialCriteria);
-  const [situations, setSituations] = useState<SupplementSituation[]>([]);
-  const [showProposal, setShowProposal] = useState(true);
+  const [tags, setTags] = useState(initialTags);
+  const [showAllSituations, setShowAllSituations] = useState(false);
+  const [showProposal, setShowProposal] = useState(false);
+  const [consultationId, setConsultationId] = useState(standalone?.consultationId ?? "");
+  const [saving, setSaving] = useState(false);
   const [chosen, setChosen] = useState<Record<string, boolean>>({});
   const [presentations, setPresentations] = useState<Record<string, string>>({});
   const [draft, setDraft] = useState<SupplementSelection[]>(() => items.map(item => ({ id: item.id, item })));
@@ -53,7 +58,7 @@ export function SupplementPlanDialog({ items, appearance, onClose, onSave }: {
   const referenceFor = (selection: SupplementSelection) => selection.reference ?? byId.get(selection.item?.product.id ?? "");
   const pending = draft.filter(selection => !selection.item);
   const selectedProductIds = new Set(draft.map(selectionProductId));
-  const close = () => onClose();
+  const close = () => { if (!saving) onClose(); };
   const navigate = (next: View) => {
     setView(next);
     setError("");
@@ -88,6 +93,7 @@ export function SupplementPlanDialog({ items, appearance, onClose, onSave }: {
     navigate({ type: "edit", id });
   };
 
+  const situations = (catalog?.situations ?? []).filter(situation => tags.includes(situation.name));
   const suggestions = situationSuggestions(situations, criteria).sort((first, second) =>
     Number(second.recommended) - Number(first.recommended));
   const selectedReferences = draft.flatMap(row => {
@@ -122,22 +128,40 @@ export function SupplementPlanDialog({ items, appearance, onClose, onSave }: {
     navigate({ type: "edit", id: added[0].id });
   };
 
-  const catalogResults = !query.trim() || tab === "mine" ? [] : (catalog?.products ?? []).filter(product =>
-    matchesSupplement(query, [product.name, product.ingredient, product.presentation, product.strength]));
-  const libraryResults = (library ?? []).filter(product => (tab === "all" || product.owner_id !== null) &&
-    matchesSupplement(query, [product.name, product.brand, product.presentation]));
-  const results = [...libraryResults, ...catalogResults];
-  const filters = (query.trim() ? catalog?.situations.filter(situation => matchesSupplement(query, [situation.name]))
-    : catalog?.situations.filter(situation => ["Gestación", "Anemia", "Estreñimiento"].includes(situation.name)))
-    ?.filter(situation => !situations.some(selected => selected.name === situation.name));
+  const allSituations = catalog?.situations ?? [];
+  const results = rankSupplementSearch([
+    ...(library ?? []).filter(product => tab === "all" || product.owner_id !== null),
+    ...(!query.trim() || tab === "mine" ? [] : catalog?.products ?? []),
+  ], query, product => "group" in product
+    ? [product.name, product.ingredient, product.presentation, product.strength] : [product.name, product.brand, product.presentation]);
+  const filters = (query.trim() ? rankSupplementSearch(allSituations, query, situationSearchFields)
+    : allSituations.filter(situation => showAllSituations || ["Gestación", "Anemia", "Estreñimiento"].includes(situation.name)))
+    .filter(situation => !tags.includes(situation.name));
+  const typedTag = supplementTag(query);
+  const matchingTag = [...tags, ...allSituations.map(situation => situation.name)]
+    .some(tag => tag.localeCompare(typedTag, "es", { sensitivity: "base" }) === 0);
+  const addTag = (tag: string, clinical: boolean) => {
+    if (saving) return;
+    if (tags.length >= 12) { setError("Puedes guardar hasta 12 etiquetas de suplementación."); return; }
+    setTags([...tags, tag]);
+    if (clinical) setShowProposal(true);
+    setQuery("");
+    setError("");
+  };
+  const removeTag = (tag: string) => {
+    setTags(tags.filter(value => value !== tag));
+    setChosen({});
+    setPresentations({});
+    setError("");
+  };
 
-  return <dialog ref={dialog} onCancel={close} onClose={close} aria-labelledby="supplement-plan-title"
+  return <dialog ref={dialog} onCancel={event => { event.preventDefault(); close(); }} aria-labelledby="supplement-plan-title"
     className="supplement-plan-dialog" data-appearance={appearance}>
     <div className="supplement-plan-shell">
       <header className="supplement-plan-header">
         <div className="supplement-plan-heading">
           <span className="supplement-plan-heading-icon"><Leaf size={21} aria-hidden="true"/></span>
-          <h2 ref={heading} id="supplement-plan-title" tabIndex={-1}>{viewTitles[view.type]}</h2>
+          <h2 ref={heading} id="supplement-plan-title" tabIndex={-1}>{standalone && view.type === "browse" ? "Suplementación del paciente" : viewTitles[view.type]}</h2>
         </div>
         <button type="button" className="supplement-plan-icon" onClick={close} aria-label="Cerrar suplementación"><X size={22}/></button>
       </header>
@@ -193,14 +217,20 @@ export function SupplementPlanDialog({ items, appearance, onClose, onSave }: {
                 <button type="button" className="supplement-plan-chip" aria-pressed={tab === "mine"} onClick={() => { setTab("mine"); setVisible(pageSize); }}>Mi biblioteca</button>
               </div>
             </section>
-            {tab === "all" && !!filters?.length && <div className="supplement-plan-panel" data-tone="amber">
-              <h3>Situaciones clínicas</h3>
-              <div className="flex flex-wrap gap-2">{filters.map(situation => <button type="button" className="supplement-plan-chip" key={situation.name} onClick={() => {
-                setSituations([...situations, situation]);
-                setShowProposal(true);
-                setQuery("");
-                setError("");
-              }}><Plus size={14}/>{situation.name}</button>)}</div>
+            {tab === "all" && catalog && <div className="supplement-plan-panel" data-tone="amber">
+              <div className="supplement-plan-panel-heading"><h3>Situaciones clínicas</h3>
+                {!query.trim() && <button type="button" className="supplement-plan-link" aria-expanded={showAllSituations}
+                  onClick={() => setShowAllSituations(!showAllSituations)}>{showAllSituations ? "Ver accesos rápidos" : `Ver todas (${allSituations.length})`}</button>}
+              </div>
+              <div className="flex flex-wrap gap-2">{filters.map(situation => <button type="button" className="supplement-plan-chip" key={situation.name}
+                onClick={() => addTag(situation.name, true)}><Plus size={14}/>{situation.name}</button>)}
+                {typedTag.length >= 2 && !matchingTag && <button type="button" className="supplement-plan-chip" onClick={() => addTag(typedTag, false)}>
+                  <Plus size={14}/> Agregar etiqueta «{typedTag}»
+                </button>}
+              </div>
+              {!!tags.length && <div className="supplement-plan-tools" aria-label="Etiquetas de suplementación">{tags.map(tag => <button type="button"
+                className="supplement-plan-chip" data-selected="true" aria-label={`Quitar etiqueta ${tag}`} key={tag}
+                onClick={() => removeTag(tag)}>{tag}<X size={14}/></button>)}</div>}
             </div>}
             {!!situations.length && <section className="supplement-plan-panel" data-tone="amber" aria-labelledby="supplement-proposal-heading">
               <div className="supplement-plan-panel-heading">
@@ -209,13 +239,6 @@ export function SupplementPlanDialog({ items, appearance, onClose, onSave }: {
                   {showProposal ? "Ocultar propuesta" : "Ver propuesta clínica"}
                 </button>
               </div>
-              <div className="supplement-plan-tools">{situations.map(situation => <button type="button" key={situation.name} className="supplement-plan-chip" data-selected="true"
-                aria-label={`Quitar situación ${situation.name}`} onClick={() => {
-                  setSituations(situations.filter(row => row.name !== situation.name));
-                  setChosen({});
-                  setPresentations({});
-                  setError("");
-                }}>{situation.name}<X size={14}/></button>)}</div>
               {showProposal && <>
                 <div className="supplement-plan-criteria">
                   {situations.some(situation => situation.name === "Gestación") && <>
@@ -307,6 +330,12 @@ export function SupplementPlanDialog({ items, appearance, onClose, onSave }: {
             <div className="supplement-plan-panel-heading">
               <h3><ClipboardList size={18} aria-hidden="true"/> En este plan</h3><span className="supplement-plan-count">{draft.length}</span>
             </div>
+            {standalone && <label>Vincular a una consulta (opcional)
+              <select className="nuth-input mt-1" value={consultationId} onChange={event => setConsultationId(event.target.value)}>
+                <option value="">Sin consulta vinculada</option>
+                {standalone.consultations.map(consultation => <option key={consultation.id} value={consultation.id}>{consultation.label}</option>)}
+              </select>
+            </label>}
             {!draft.length && <p className="supplement-plan-empty">Aquí aparecerán las indicaciones de los suplementos que elijas.</p>}
             {draft.map(row => {
               const reference = referenceFor(row);
@@ -342,14 +371,21 @@ export function SupplementPlanDialog({ items, appearance, onClose, onSave }: {
           : pending.length ? `${pending.length} ${pending.length === 1 ? "indicación por confirmar" : "indicaciones por confirmar"}`
             : draft.length ? `${draft.length} ${draft.length === 1 ? "indicación lista" : "indicaciones listas"}` : ""}</span>
         <div className="supplement-plan-actions">
-          <button type="button" className="nuth-button-secondary" onClick={close}>Cancelar</button>
-          <button type="button" className="nuth-button" onClick={() => {
+          <button type="button" className="nuth-button-secondary" disabled={saving} onClick={close}>Cancelar</button>
+          <button type="button" className="nuth-button" disabled={saving} onClick={async () => {
             if (picked.length) { addSituationSelection(); return; }
             if (pending.length) { navigate({ type: "edit", id: pending[0].id }); return; }
             const next = draft.flatMap(row => row.item ? [row.item] : []);
-            if (isSupplementList(next)) onSave(next);
-            else setError("Revisa las cantidades activas en la selección.");
-          }}>{picked.length ? "Agregar selección" : pending.length ? "Revisar pendientes" : "Guardar suplementos en el plan"}</button>
+            if (!isSupplementList(next) || (standalone && !next.length)) {
+              setError(standalone ? "Agrega al menos un suplemento con sus indicaciones antes de guardar." : "Revisa las cantidades activas en la selección.");
+              return;
+            }
+            setError("");
+            setSaving(true);
+            try { await onSave(next, tags, consultationId || null); }
+            catch (error) { setError(error instanceof Error ? error.message : "No pudimos guardar la suplementación."); }
+            finally { setSaving(false); }
+          }}>{saving ? "Guardando…" : picked.length ? "Agregar selección" : pending.length ? "Revisar pendientes" : standalone ? "Guardar suplementación" : "Guardar suplementos en el plan"}</button>
         </div>
       </footer>}
     </div>

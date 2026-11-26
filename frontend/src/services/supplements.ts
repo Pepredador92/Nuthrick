@@ -1,6 +1,6 @@
 import { supabase } from '@/src/lib/supabase';
 import { isSupplementProduct, type SupplementCatalogItem, type SupplementProduct } from '../../../supabase/functions/_shared/supplements';
-export type SupplementInput = Omit<SupplementProduct,'id'|'source_url'|'label_url'|'verified_at'>;
+export type SupplementInput = Omit<SupplementProduct,'id'|'source_url'|'label_url'|'verified_at'|'serving_unit'|'nutrition_status'|'known_nutrients'>;
 export async function listSupplements(): Promise<SupplementCatalogItem[]> {
   const all: SupplementCatalogItem[] = [];
   for (let offset = 0; ; offset += 250) {

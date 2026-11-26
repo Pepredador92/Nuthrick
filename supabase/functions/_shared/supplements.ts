@@ -3,6 +3,9 @@ export type SupplementNutrition = { energy_kcal: number; carbohydrate_g: number;
 export type SupplementProduct = SupplementNutrition & {
   id: string; name: string; brand: string; presentation: string; serving_label: string;
   serving_grams: number | null; scoops_per_serving: number | null;
+  serving_unit?: 'tableta' | 'cápsula' | 'sobre';
+  nutrition_status?: 'none' | 'unverified';
+  known_nutrients?: (keyof SupplementNutrition)[];
   source_url: string | null; label_url: string | null; verified_at: string | null;
 };
 export type SupplementDirections = { schedule: string; duration: string; notes: string };
@@ -20,6 +23,12 @@ export function isSupplementProduct(value: unknown): value is SupplementProduct 
   return nonempty(p.id,100) && nonempty(p.name,180) && typeof p.brand === 'string' && p.brand.length <= 120
     && typeof p.presentation === 'string' && p.presentation.length <= 120 && nonempty(p.serving_label,180)
     && nullableNumber(p.serving_grams) && nullableNumber(p.scoops_per_serving)
+    && (p.serving_unit === undefined || ['tableta', 'cápsula', 'sobre'].includes(p.serving_unit))
+    && (p.nutrition_status === undefined || p.nutrition_status === 'unverified' ||
+      p.nutrition_status === 'none' && nutritionKeys.every(k => p[k] === 0))
+    && (p.known_nutrients === undefined || p.nutrition_status === 'unverified' && Array.isArray(p.known_nutrients)
+      && p.known_nutrients.length <= nutritionKeys.length && p.known_nutrients.every(k => nutritionKeys.includes(k))
+      && nutritionKeys.every(k => p.known_nutrients!.includes(k) || p[k] === 0))
     && optionalText(p.source_url,2000) && optionalText(p.label_url,2000) && optionalText(p.verified_at,50)
     && nutritionKeys.every(k => finite(p[k]));
 }
@@ -58,6 +67,7 @@ export function supplementQuantityLabel(item: SupplementItem) {
   const amount = item.quantity.toLocaleString('es-MX',{maximumFractionDigits:3});
   if (item.unit === 'g') return `${amount} g al día`;
   if (item.unit === 'scoop') return `${amount} medida${item.quantity === 1 ? '' : 's'} del producto al día${item.product.serving_grams ? ` (${roundNutrition(supplementServings(item)*item.product.serving_grams)} g)` : ''}`;
+  if (item.product.serving_unit) return `${amount} ${item.product.serving_unit}${item.quantity === 1 ? '' : 's'} al día`;
   return `${amount} ${item.quantity === 1 ? 'porción' : 'porciones'} al día · Porción de referencia: ${item.product.serving_label}`;
 }
 

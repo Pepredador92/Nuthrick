@@ -73,7 +73,7 @@ function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, 
   const differenceLabel = draft.totals.difference_kcal > 0 ? "Por distribuir" : draft.totals.difference_kcal < 0 ? "Por encima del objetivo" : "Diferencia";
   const reset = () => {
     if (hasData && !window.confirm("¿Restablecer la distribución? Se eliminarán únicamente los valores de macronutrientes de este plan.")) return;
-    update({ ...createMacroDistribution(targetEnergyKcal, energyReferenceWeightKg), supplements: draft.supplements });
+    update({ ...createMacroDistribution(targetEnergyKcal, energyReferenceWeightKg), supplements: draft.supplements, supplement_tags: draft.supplement_tags });
   };
 
   return (
@@ -154,7 +154,8 @@ function MacroEditor({ plan, targetEnergyKcal, energyReferenceWeightKg, onSave, 
       </section>
 
       <div className="macros-bottom-grid">
-        <SupplementEditor appearance="night" showSummary={false} items={draft.supplements ?? []} daily={split.daily} onChange={supplements => update({ ...draft, supplements, updated_at: new Date().toISOString() })} />
+        <SupplementEditor appearance="night" showSummary={false} items={draft.supplements ?? []} tags={draft.supplement_tags} daily={split.daily}
+          onChange={(supplements, tags) => update({ ...draft, supplements, supplement_tags: tags, updated_at: new Date().toISOString() })} />
         <section className="energy-card macros-summary" aria-labelledby="macros-summary-heading">
           <header className="energy-card-heading">
             <span className="energy-icon energy-icon-target"><PieChart size={20} /></span>

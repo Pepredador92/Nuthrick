@@ -7,10 +7,11 @@ import { SupplementPlanDialog } from "./SupplementPlanDialog";
 
 const format = (value: number) => value.toLocaleString("es-MX", { maximumFractionDigits: 2 });
 
-export function SupplementEditor({ items, daily, onChange, appearance = "default", showSummary = true }: {
+export function SupplementEditor({ items, tags = [], daily, onChange, appearance = "default", showSummary = true }: {
   items: SupplementItem[];
+  tags?: string[];
   daily: SupplementNutrition;
-  onChange: (items: SupplementItem[]) => void;
+  onChange: (items: SupplementItem[], tags: string[]) => void;
   appearance?: "default" | "night";
   showSummary?: boolean;
 }) {
@@ -23,6 +24,9 @@ export function SupplementEditor({ items, daily, onChange, appearance = "default
       </div>
       <button type="button" className="nuth-button-secondary" onClick={() => setOpen(true)}><Plus size={16}/> Agregar suplemento</button>
     </div>
+    {!!tags.length && <ul className="mt-3 flex flex-wrap gap-2" aria-label="Etiquetas de suplementación">
+      {tags.map(tag => <li key={tag} className="rounded-lg border border-[var(--nuth-line)] px-2 py-1 text-xs">{tag}</li>)}
+    </ul>}
     {items.length > 0 && <div className="mt-4 space-y-2">
       {items.map(item => <article key={item.id} className="supplement-item rounded-xl border border-[#d1e4d7] bg-white px-3 py-2.5">
         <h3 className="text-sm font-semibold text-[#245641] [overflow-wrap:anywhere]">{item.product.name}</h3>
@@ -43,8 +47,11 @@ export function SupplementEditor({ items, daily, onChange, appearance = "default
     {Object.values(split.excess).some(value => value > 0) && <p role="status" className="supplement-warning mt-3 rounded-lg bg-[#fff3d8] p-3 text-xs text-[#755525]">
       Los suplementos superan alguna meta diaria. Revisa la cantidad o ajusta tu meta.
     </p>}
-    {open && <SupplementPlanDialog items={items} appearance={appearance} onClose={() => setOpen(false)} onSave={next => {
-      onChange(next);
+    {items.some(item => item.product.nutrition_status === "unverified") && <p className="supplement-warning mt-3 rounded-lg bg-[#fff3d8] p-3 text-xs text-[#755525]">
+      Aporte por verificar en algunos suplementos. Solo se descontaron los valores capturados.
+    </p>}
+    {open && <SupplementPlanDialog items={items} initialTags={tags} appearance={appearance} onClose={() => setOpen(false)} onSave={(next, nextTags) => {
+      onChange(next, nextTags);
       setOpen(false);
     }}/>}
   </section>;
