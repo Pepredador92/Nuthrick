@@ -1,4 +1,3 @@
-export const prenatalTemplateKey = "personal-initial-prenatal-10-56a02bbb";
 export const prenatalOptionalFields = {
   arm: "Circunferencia media del brazo",
   blood_pressure: "Presión arterial",
@@ -7,6 +6,7 @@ export const prenatalOptionalFields = {
 } as const;
 
 export type PrenatalOptionalField = keyof typeof prenatalOptionalFields;
+export const defaultPrenatalOptionalFields = Object.keys(prenatalOptionalFields) as PrenatalOptionalField[];
 export type PhysicalActivity = "inactive" | "low_active" | "active" | "very_active";
 export type PregnancyType = "single" | "multiple";
 export type WeightSource = "documented" | "reported" | "estimated" | "unspecified";

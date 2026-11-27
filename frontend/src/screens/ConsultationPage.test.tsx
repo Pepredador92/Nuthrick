@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   updatePatientNote: vi.fn(),
   deletePatientNote: vi.fn(),
   getSnapshot: vi.fn(),
+  loadTemplate: vi.fn(),
   reopen: vi.fn(),
   updateDate: vi.fn(),
   ensure: vi.fn(),
@@ -32,6 +33,7 @@ const mocks = vi.hoisted(() => ({
   interventions: vi.fn(),
   agenda: vi.fn(),
   progressSources: vi.fn(),
+  hasPrenatalMeasurements: vi.fn(),
   answerState: {version:0,answers:{} as Record<string,unknown>},
   draftState: {version:0,answers:{} as Record<string,unknown>},
 }));
@@ -57,6 +59,10 @@ vi.mock("@/src/services/agenda", async (original) => ({
   agendaApi: mocks.agenda,
 }));
 vi.mock("@/src/services/clinicalProgress", () => ({ listProgressSources: mocks.progressSources }));
+vi.mock("@/src/services/prenatalMeasurements", () => ({
+  hasSavedPrenatalMeasurements: mocks.hasPrenatalMeasurements,
+  loadPrenatalMeasurements: async () => ({ records: [], measurements: {} }),
+}));
 const fixtures = vi.hoisted(() => {
   const c = {
     id: "draft",
@@ -187,7 +193,7 @@ vi.mock("@/src/services/consultations", () => ({
             },
           },
         ],
-  loadTemplateById: async () => fixtures.template,
+  loadTemplateById: mocks.loadTemplate,
   reopenConsultationForEdit: mocks.reopen,
   beginConsultation: mocks.begin,
   updateConsultationDate: mocks.updateDate,
@@ -285,6 +291,8 @@ beforeEach(() => {
   mocks.listPatientNotes.mockResolvedValue([]);
   mocks.begin.mockResolvedValue(fixtures.c);
   mocks.getSnapshot.mockResolvedValue(fixtures.snapshot);
+  mocks.loadTemplate.mockResolvedValue(fixtures.template);
+  mocks.hasPrenatalMeasurements.mockResolvedValue(false);
   mocks.reopen.mockResolvedValue({ ...fixtures.c, status: "draft" });
   mocks.updateDate.mockImplementation(async (_id: string, date: string) => ({
     ...fixtures.c,
@@ -300,6 +308,38 @@ beforeEach(() => {
 });
 
 describe("consultation save and review workflow", () => {
+  it("opens prenatal measurements from a consultation using the system interview", async () => {
+    mount();
+    await openModule("Mediciones");
+    fireEvent.click(await screen.findByRole("button", { name: "Abrir mediciones prenatales" }));
+    expect(await screen.findByRole("heading", { name: "Mediciones prenatales" })).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Peso actual (kg)"), { target: { value: "62" } });
+    expect(screen.getByRole("button", { name: "Volver a mediciones generales" })).toBeDisabled();
+  });
+
+  it("reopens saved prenatal measurements without a prenatal interview", async () => {
+    mocks.hasPrenatalMeasurements.mockResolvedValue(true);
+    mount();
+    await openModule("Mediciones");
+    expect(await screen.findByRole("heading", { name: "Mediciones prenatales" })).toBeVisible();
+    expect(mocks.hasPrenatalMeasurements).toHaveBeenCalledWith("draft");
+    fireEvent.click(screen.getByRole("button", { name: "Volver a mediciones generales" }));
+    expect(await screen.findByLabelText("Peso de prueba")).toBeVisible();
+  });
+
+  it("opens prenatal measurements by default with the configured personal interview", async () => {
+    mocks.loadTemplate.mockResolvedValue({
+      ...fixtures.template,
+      template: { ...fixtures.template.template, is_system: false, prenatal_optional_measurements: ["arm"] },
+    });
+    mount();
+    await openModule("Mediciones");
+    expect(await screen.findByRole("heading", { name: "Mediciones prenatales" })).toBeVisible();
+    expect(screen.getByLabelText("Circunferencia media del brazo (cm)")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Presión sistólica (mmHg)")).not.toBeInTheDocument();
+    expect(mocks.hasPrenatalMeasurements).not.toHaveBeenCalled();
+  });
+
   it('shows the clinical restart action in Datos only', async () => {
     mount();
     await openModule('Revisión clínica, PES y objetivos');

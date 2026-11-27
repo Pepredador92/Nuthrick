@@ -1,6 +1,5 @@
 import { supabase } from "@/src/lib/supabase";
 import {
-  prenatalTemplateKey,
   type PhysicalActivity,
   type PregnancyType,
   type WeightSource,
@@ -30,10 +29,11 @@ export type PrenatalMeasurements = {
   measurements: Record<string, number | null>;
 };
 
-export async function hasPersonalPrenatalWorkspace() {
-  const { data, error } = await supabase.from("consultation_templates")
-    .select("id").eq("template_key", prenatalTemplateKey).eq("is_system", false).maybeSingle();
-  return !error && Boolean(data);
+export async function hasSavedPrenatalMeasurements(consultationId: string) {
+  const { data, error } = await supabase.from("consultation_prenatal_measurements")
+    .select("consultation_id").eq("consultation_id", consultationId).maybeSingle();
+  if (error) throw new Error("No pudimos comprobar las mediciones prenatales.");
+  return Boolean(data);
 }
 
 export async function loadPrenatalMeasurements(consultationId: string): Promise<PrenatalMeasurements> {

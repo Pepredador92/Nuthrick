@@ -42,8 +42,7 @@ import { SnapshotHistory } from "@/src/components/consultations/SnapshotHistory"
 import { ConsultationCloseDialog, type ConsultationCloseDestination } from "@/src/components/consultations/ConsultationCloseDialog";
 import { ConsultationExitDialog } from "@/src/components/consultations/ConsultationExitDialog";
 import { ConsultationNotes } from "@/src/components/consultations/ConsultationNotes";
-import { ConsultationMeasurements } from "@/src/components/consultations/ConsultationMeasurements";
-import { PrenatalMeasurements } from "@/src/components/consultations/PrenatalMeasurements";
+import { ConsultationMeasurementWorkspace } from "@/src/components/consultations/ConsultationMeasurementWorkspace";
 import type { PrenatalOptionalField } from "@/src/features/consultations/prenatalMeasurements";
 import { LaboratoryReports } from "@/src/components/consultations/LaboratoryReports";
 import { PatientEvolutionTable } from "@/src/components/patients/PatientEvolutionTable";
@@ -1385,14 +1384,15 @@ function ConsultationEditor() {
       </div>}
       {measurementsOpened && (
         <div data-consultation-module="measurements" tabIndex={-1} className="mt-6" hidden={module !== "measurements"}>
-          {prenatalMeasurements ? <PrenatalMeasurements key={consultation.id} consultation={consultation} patient={patient}
-            clinicalDate={clinicalDate} answers={values} optionalFields={prenatalMeasurements} onPendingChange={setMeasurementsPending}
+          <ConsultationMeasurementWorkspace key={consultation.id} consultation={consultation} patient={patient}
+            clinicalDate={clinicalDate} answers={values} prenatalFields={prenatalMeasurements} pending={measurementsPending}
+            onPendingChange={setMeasurementsPending} onPatientChange={setPatient}
             beforeSave={saveAll} openInterview={() => {
               void goModule("interview");
-              const prenatalSection = sections.findIndex((section) => section.questions.some((question) => question.question_key === "prenatal_weeks"));
-              void goTo(prenatalSection < 0 ? 0 : prenatalSection);
-            }} /> :
-            <ConsultationMeasurements key={consultation.id} consultation={consultation} patient={patient} onPatientChange={setPatient} onPendingChange={setMeasurementsPending} />}
+              const prenatalSection = sections.findIndex((section) => section.questions.some((question) => question.question_key.startsWith("prenatal_")));
+              const lifeStageSection = sections.findIndex((section) => section.questions.some((question) => question.question_key === "life_stage"));
+              void goTo(prenatalSection < 0 ? Math.max(0, lifeStageSection) : prenatalSection);
+            }} />
         </div>
       )}
       {laboratoriesOpened && (

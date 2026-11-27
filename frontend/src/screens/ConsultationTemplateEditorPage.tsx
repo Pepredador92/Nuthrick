@@ -35,8 +35,7 @@ import {
   setDefaultTemplate,
 } from "@/src/services/consultations";
 import type { LoadedTemplate } from "@/src/services/consultations";
-import { hasPersonalPrenatalWorkspace } from "@/src/services/prenatalMeasurements";
-import { prenatalOptionalFields, prenatalTemplateKey, type PrenatalOptionalField } from "@/src/features/consultations/prenatalMeasurements";
+import { defaultPrenatalOptionalFields, prenatalOptionalFields, type PrenatalOptionalField } from "@/src/features/consultations/prenatalMeasurements";
 import type {
   Consultation,
   ConsultationQuestionType,
@@ -78,7 +77,6 @@ export function ConsultationTemplateEditorPage() {
     {},
   );
   const [dirty, setDirty] = useState(false);
-  const [prenatalAccess, setPrenatalAccess] = useState(false);
   const dirtyRef = useRef(false);
   const markDirty = () => {
     setDirty(true);
@@ -90,13 +88,10 @@ export function ConsultationTemplateEditorPage() {
       setLoading(true);
       setError("");
       try {
-        const [available, latest, canConfigureFollowUp] = await Promise.all([
+        const [available, latest] = await Promise.all([
           listAvailableTemplates(type, false, true),
           loadSystemTemplate(type, true),
-          type === "follow_up" ? hasPersonalPrenatalWorkspace() : Promise.resolve(false),
         ]);
-        setPrenatalAccess(canConfigureFollowUp || available.some((item) =>
-          !item.template.is_system && item.template.template_key === prenatalTemplateKey));
         const template =
           available.find((item) => item.template.id === preferredId) ??
           available.find(
@@ -389,10 +384,9 @@ export function ConsultationTemplateEditorPage() {
     );
   const readonly = loaded.template.is_system;
   const configuredPrenatalFields = loaded.template.prenatal_optional_measurements;
-  const defaultPrenatalFields = Object.keys(prenatalOptionalFields) as PrenatalOptionalField[];
   const prenatalFieldOrder = configuredPrenatalFields
-    ? [...configuredPrenatalFields, ...defaultPrenatalFields.filter((field) => !configuredPrenatalFields.includes(field))]
-    : defaultPrenatalFields;
+    ? [...configuredPrenatalFields, ...defaultPrenatalOptionalFields.filter((field) => !configuredPrenatalFields.includes(field))]
+    : defaultPrenatalOptionalFields;
   const changePrenatalFields = (fields: PrenatalOptionalField[] | null) => mutate({
     ...loaded, template: { ...loaded.template, prenatal_optional_measurements: fields },
   });
@@ -914,12 +908,12 @@ export function ConsultationTemplateEditorPage() {
                   </span>
                 </label>
               </div>
-              {prenatalAccess && (type === "follow_up" || loaded.template.template_key === prenatalTemplateKey) && (
+              {configuredPrenatalFields !== undefined && (
                 <fieldset className="mt-5 space-y-2 border-t border-[#96aa9e]/40 pt-4">
                   <legend className="font-semibold">Mediciones prenatales</legend>
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={configuredPrenatalFields != null}
-                      onChange={(event) => changePrenatalFields(event.target.checked ? defaultPrenatalFields : null)} />
+                      onChange={(event) => changePrenatalFields(event.target.checked ? defaultPrenatalOptionalFields : null)} />
                     Abrir el espacio de mediciones prenatales con este diseño
                   </label>
                   {configuredPrenatalFields && <>
