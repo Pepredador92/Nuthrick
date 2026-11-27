@@ -43,6 +43,8 @@ import { ConsultationCloseDialog, type ConsultationCloseDestination } from "@/sr
 import { ConsultationExitDialog } from "@/src/components/consultations/ConsultationExitDialog";
 import { ConsultationNotes } from "@/src/components/consultations/ConsultationNotes";
 import { ConsultationMeasurements } from "@/src/components/consultations/ConsultationMeasurements";
+import { PrenatalMeasurements } from "@/src/components/consultations/PrenatalMeasurements";
+import type { PrenatalOptionalField } from "@/src/features/consultations/prenatalMeasurements";
 import { LaboratoryReports } from "@/src/components/consultations/LaboratoryReports";
 import { PatientEvolutionTable } from "@/src/components/patients/PatientEvolutionTable";
 import {
@@ -162,6 +164,7 @@ function ConsultationEditor() {
     setClinicalDate(date);
   };
   const [snapshot, setSnapshot] = useState<ConsultationSnapshot | null>(null);
+  const [prenatalMeasurements, setPrenatalMeasurements] = useState<PrenatalOptionalField[] | null>(null);
   const [latest, setLatest] = useState<LoadedTemplate | null>(null);
   const [availableTemplates, setAvailableTemplates] = useState<
     LoadedTemplate[]
@@ -368,6 +371,8 @@ function ConsultationEditor() {
         setConsultation(consultationHistory.current.find((item) => item.id === consultationForLoad.id)!);
         changeClinicalDate(dateInZone(new Date(consultationForLoad.consultation_date), loadedPatient.timezone));
         setSnapshot(startedSnapshot);
+        setPrenatalMeasurements(startedSnapshot.template_id === loadedTemplate.template.id && !loadedTemplate.template.is_system
+          ? loadedTemplate.template.prenatal_optional_measurements ?? null : null);
         setValues(nextValues);
         valuesRef.current = nextValues;
         lastSaved.current = JSON.stringify(serverValues);
@@ -668,6 +673,7 @@ function ConsultationEditor() {
       saveTarget.current={id:consultation.id,revision:next.revision};
       autosave.reset(saved,nextValues);
       setSnapshot(next);
+      setPrenatalMeasurements(latest.template.is_system ? null : latest.template.prenatal_optional_measurements ?? null);
       setValues(nextValues);
       valuesRef.current = nextValues;
       lastSaved.current = JSON.stringify(nextValues);
@@ -1379,7 +1385,14 @@ function ConsultationEditor() {
       </div>}
       {measurementsOpened && (
         <div data-consultation-module="measurements" tabIndex={-1} className="mt-6" hidden={module !== "measurements"}>
-          <ConsultationMeasurements key={consultation.id} consultation={consultation} patient={patient} onPatientChange={setPatient} onPendingChange={setMeasurementsPending} />
+          {prenatalMeasurements ? <PrenatalMeasurements key={consultation.id} consultation={consultation} patient={patient}
+            clinicalDate={clinicalDate} answers={values} optionalFields={prenatalMeasurements} onPendingChange={setMeasurementsPending}
+            beforeSave={saveAll} openInterview={() => {
+              void goModule("interview");
+              const prenatalSection = sections.findIndex((section) => section.questions.some((question) => question.question_key === "prenatal_weeks"));
+              void goTo(prenatalSection < 0 ? 0 : prenatalSection);
+            }} /> :
+            <ConsultationMeasurements key={consultation.id} consultation={consultation} patient={patient} onPatientChange={setPatient} onPendingChange={setMeasurementsPending} />}
         </div>
       )}
       {laboratoriesOpened && (

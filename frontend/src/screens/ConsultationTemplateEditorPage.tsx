@@ -35,6 +35,8 @@ import {
   setDefaultTemplate,
 } from "@/src/services/consultations";
 import type { LoadedTemplate } from "@/src/services/consultations";
+import { hasPersonalPrenatalWorkspace } from "@/src/services/prenatalMeasurements";
+import { prenatalOptionalFields, prenatalTemplateKey, type PrenatalOptionalField } from "@/src/features/consultations/prenatalMeasurements";
 import type {
   Consultation,
   ConsultationQuestionType,
@@ -76,6 +78,7 @@ export function ConsultationTemplateEditorPage() {
     {},
   );
   const [dirty, setDirty] = useState(false);
+  const [prenatalAccess, setPrenatalAccess] = useState(false);
   const dirtyRef = useRef(false);
   const markDirty = () => {
     setDirty(true);
@@ -87,10 +90,13 @@ export function ConsultationTemplateEditorPage() {
       setLoading(true);
       setError("");
       try {
-        const [available, latest] = await Promise.all([
+        const [available, latest, canConfigureFollowUp] = await Promise.all([
           listAvailableTemplates(type, false, true),
           loadSystemTemplate(type, true),
+          type === "follow_up" ? hasPersonalPrenatalWorkspace() : Promise.resolve(false),
         ]);
+        setPrenatalAccess(canConfigureFollowUp || available.some((item) =>
+          !item.template.is_system && item.template.template_key === prenatalTemplateKey));
         const template =
           available.find((item) => item.template.id === preferredId) ??
           available.find(
@@ -257,7 +263,11 @@ export function ConsultationTemplateEditorPage() {
     setSaving(true);
     setError("");
     try {
-      const saved = await saveTemplate(loaded);
+      const originalPrenatalFields = templates.find((item) => item.template.id === loaded.template.id)?.template.prenatal_optional_measurements ?? null;
+      const prenatalFields = loaded.template.prenatal_optional_measurements ?? null;
+      const saved = JSON.stringify(prenatalFields) === JSON.stringify(originalPrenatalFields)
+        ? await saveTemplate(loaded)
+        : await saveTemplate(loaded, prenatalFields);
       setLoaded(saved);
       setTemplates(await listAvailableTemplates(type, false, true));
       setDirty(false);
@@ -378,6 +388,14 @@ export function ConsultationTemplateEditorPage() {
       />
     );
   const readonly = loaded.template.is_system;
+  const configuredPrenatalFields = loaded.template.prenatal_optional_measurements;
+  const defaultPrenatalFields = Object.keys(prenatalOptionalFields) as PrenatalOptionalField[];
+  const prenatalFieldOrder = configuredPrenatalFields
+    ? [...configuredPrenatalFields, ...defaultPrenatalFields.filter((field) => !configuredPrenatalFields.includes(field))]
+    : defaultPrenatalFields;
+  const changePrenatalFields = (fields: PrenatalOptionalField[] | null) => mutate({
+    ...loaded, template: { ...loaded.template, prenatal_optional_measurements: fields },
+  });
   const section = loaded.sections[active];
   const questions = loaded.questions
     .filter((q) => q.section_id === section?.id)
@@ -896,6 +914,48 @@ export function ConsultationTemplateEditorPage() {
                   </span>
                 </label>
               </div>
+              {prenatalAccess && (type === "follow_up" || loaded.template.template_key === prenatalTemplateKey) && (
+                <fieldset className="mt-5 space-y-2 border-t border-[#96aa9e]/40 pt-4">
+                  <legend className="font-semibold">Mediciones prenatales</legend>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={configuredPrenatalFields != null}
+                      onChange={(event) => changePrenatalFields(event.target.checked ? defaultPrenatalFields : null)} />
+                    Abrir el espacio de mediciones prenatales con este diseño
+                  </label>
+                  {configuredPrenatalFields && <>
+                    <p className="text-sm">Elige y ordena las mediciones complementarias de la consulta.</p>
+                    {prenatalFieldOrder.map((field, index) => {
+                      const checked = configuredPrenatalFields.includes(field);
+                      return (
+                        <div key={field} className="flex items-center justify-between gap-2">
+                          <label className="flex items-center gap-2 py-1 text-sm">
+                            <input type="checkbox" checked={checked} onChange={(event) =>
+                              changePrenatalFields(event.target.checked
+                                ? [...configuredPrenatalFields, field]
+                                : configuredPrenatalFields.filter((item) => item !== field))}
+                            />
+                            {prenatalOptionalFields[field]}
+                          </label>
+                          {checked && <div className="flex gap-1">
+                            {([-1, 1] as const).map((direction) => {
+                              const target = index + direction;
+                              return <button key={direction} type="button" className="rounded p-1.5 hover:bg-current/10 disabled:opacity-30"
+                                aria-label={`${direction === -1 ? "Subir" : "Bajar"} ${prenatalOptionalFields[field]}`}
+                                disabled={target < 0 || target >= configuredPrenatalFields.length} onClick={() => {
+                                  const ordered = [...configuredPrenatalFields];
+                                  [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
+                                  changePrenatalFields(ordered);
+                                }}>
+                                {direction === -1 ? <ArrowUp size={15} /> : <ArrowDown size={15} />}
+                              </button>;
+                            })}
+                          </div>}
+                        </div>
+                      );
+                    })}
+                  </>}
+                </fieldset>
+              )}
             </section>
           )}
           <div className="design-editor-grid mt-6 grid min-w-0 gap-5 xl:grid-cols-[225px_minmax(0,1fr)]">

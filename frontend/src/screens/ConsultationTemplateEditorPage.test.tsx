@@ -140,11 +140,31 @@ beforeEach(() => {
 });
 
 describe("catálogo profesional de plantillas", () => {
+  it("configures the optional prenatal measurements on the personal prenatal design", async () => {
+    const prenatal: LoadedTemplate = {
+      ...structuredClone(fixtures.personal),
+      template: {
+        ...fixtures.personal.template,
+        template_key: "personal-initial-prenatal-10-56a02bbb",
+        prenatal_optional_measurements: ["arm", "blood_pressure", "edema", "previous_weight"],
+      },
+    };
+    api.list.mockResolvedValue([prenatal, structuredClone(fixtures.system)]);
+    mount();
+    fireEvent.click(await screen.findByRole("button", { name: "Personalizar diseño" }));
+    expect(screen.getByLabelText("Abrir el espacio de mediciones prenatales con este diseño")).toBeChecked();
+    fireEvent.click(screen.getByLabelText("Presión arterial"));
+    fireEvent.click(screen.getByRole("button", { name: "Subir Edema" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    await waitFor(() => expect(api.save).toHaveBeenCalledWith(expect.anything(), ["edema", "arm", "previous_weight"]));
+  });
+
   it("guides the editor through sections and back to the complete design", async () => {
     mount();
     fireEvent.click(
       await screen.findByRole("button", { name: "Personalizar diseño" }),
     );
+    expect(screen.queryByLabelText("Abrir el espacio de mediciones prenatales con este diseño")).not.toBeInTheDocument();
     expect(screen.getByText("Sección 1 de 2")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Siguiente sección" }));
     expect(screen.getByText("Sección 2 de 2")).toBeInTheDocument();

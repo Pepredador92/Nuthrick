@@ -498,6 +498,7 @@ export async function createPersonalTemplateCopy(
 
 export async function saveTemplate(
   loaded: LoadedTemplate,
+  prenatalOptionalMeasurements?: ConsultationTemplate["prenatal_optional_measurements"],
 ): Promise<LoadedTemplate> {
   const { error } = await supabase.rpc("save_consultation_template_details", {
     target_template: loaded.template.id,
@@ -508,6 +509,9 @@ export async function saveTemplate(
       estimated_duration_minutes:
         loaded.template.estimated_duration_minutes,
       display_order: loaded.template.display_order,
+      ...(prenatalOptionalMeasurements !== undefined && {
+        prenatal_optional_measurements: prenatalOptionalMeasurements,
+      }),
     },
     section_data: loaded.sections,
     question_data: loaded.questions,

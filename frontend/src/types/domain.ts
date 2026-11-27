@@ -229,6 +229,7 @@ export interface ConsultationTemplate {
   is_system: boolean;
   is_default: boolean;
   is_active: boolean;
+  prenatal_optional_measurements?: import("@/src/features/consultations/prenatalMeasurements").PrenatalOptionalField[] | null;
   created_at: string;
   updated_at: string;
 }

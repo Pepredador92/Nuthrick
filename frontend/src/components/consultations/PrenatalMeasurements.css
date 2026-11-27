@@ -1,0 +1,70 @@
+.prenatal-workspace {
+  --prenatal-surface: #fbfdfa;
+  --prenatal-ink: #173d36;
+  --prenatal-muted: #48655b;
+  --prenatal-border: #cbded3;
+  --prenatal-range: #198151;
+  --prenatal-range-fill: #36aa6d33;
+  --prenatal-track: #dce7e2;
+  --prenatal-patient: #215fc4;
+  --prenatal-attention: #89531b;
+  display: grid;
+  gap: 1rem;
+  color: var(--prenatal-ink);
+}
+html[data-nuthrick-theme='night'] .prenatal-workspace {
+  --prenatal-surface: #142f34;
+  --prenatal-ink: #eef8f4;
+  --prenatal-muted: #b1cbc6;
+  --prenatal-border: #37615c;
+  --prenatal-range: #72dda5;
+  --prenatal-range-fill: #5ade8d2e;
+  --prenatal-track: #345158;
+  --prenatal-patient: #8ab9ff;
+  --prenatal-attention: #f1c787;
+}
+.prenatal-banner { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: .75rem; }
+.prenatal-banner h2 { font-size: 1.5rem; font-weight: 700; margin: 0; }
+.prenatal-banner p { font-size: .875rem; margin: .35rem 0 0; }
+.prenatal-card { min-width: 0; padding: clamp(.85rem, 3vw, 1.35rem); border: 1px solid var(--prenatal-border); border-radius: 1rem; background: var(--prenatal-surface); }
+.prenatal-card h3 { margin: 0 0 .35rem; font-size: 1rem; font-weight: 700; }
+.prenatal-card p { margin: .4rem 0 0; font-size: .875rem; }
+.prenatal-muted { color: var(--prenatal-muted); }
+.prenatal-capture-top { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: .6rem; margin-bottom: .85rem; }
+.prenatal-fields, .prenatal-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: .85rem; }
+.prenatal-capture > .prenatal-field { max-width: 28rem; margin-bottom: .85rem; }
+.prenatal-field { display: block; min-width: 0; font-size: .875rem; font-weight: 600; }
+.prenatal-field-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+.prenatal-field-pair input { min-width: 0; }
+.prenatal-age { display: grid; align-content: center; gap: .25rem; color: var(--prenatal-muted); }
+.prenatal-optional, .prenatal-chart-values { border-top: 1px solid var(--prenatal-border); margin-top: 1rem; padding-top: .8rem; }
+.prenatal-optional summary, .prenatal-chart-values summary { font-size: .875rem; font-weight: 650; cursor: pointer; }
+.prenatal-optional .prenatal-fields { margin-top: .75rem; }
+.prenatal-result-value, .prenatal-card .prenatal-gain-value { display: block; font-size: clamp(1.3rem, 3.5vw, 1.7rem); font-weight: 750; letter-spacing: -.025em; }
+.prenatal-link, .prenatal-card a { display: inline-block; margin-top: .4rem; color: var(--prenatal-patient); font-size: .8rem; text-decoration: underline; text-underline-offset: .15em; }
+.prenatal-gain-value[data-position='inside'], .prenatal-gain-status[data-position='inside'], .prenatal-reference { color: var(--prenatal-range); }
+.prenatal-gain-value:is([data-position='below'],[data-position='above']), .prenatal-gain-status:is([data-position='below'],[data-position='above']) { color: var(--prenatal-attention); }
+.prenatal-gain-status { font-weight: 650; }
+.prenatal-gauge { margin: 1rem .75rem .35rem; }
+.prenatal-gauge-track { position: relative; height: .9rem; border-radius: 99px; background: var(--prenatal-track); }
+.prenatal-gauge-range { position: absolute; inset-block: 0; border-radius: inherit; background: var(--prenatal-range); }
+.prenatal-gauge-marker { position: absolute; inset-block: -.35rem; border-left: 2px solid var(--prenatal-ink); }
+.prenatal-gauge-marker::after { content: ''; position: absolute; left: -1px; top: 50%; width: 1rem; height: 1rem; border: 2px solid var(--prenatal-surface); border-radius: 50%; background: var(--prenatal-ink); transform: translate(-50%, -50%); }
+.prenatal-gauge-axis { display: flex; justify-content: space-between; margin-top: .35rem; color: var(--prenatal-muted); font-size: .75rem; }
+.prenatal-plot { margin-top: .7rem; min-width: 0; }
+.prenatal-plot svg { display: block; }
+.prenatal-plot text { fill: var(--prenatal-muted); font-size: 12px; }
+.prenatal-gridline { stroke: var(--prenatal-border); stroke-dasharray: 4 5; }
+.prenatal-band { fill: var(--prenatal-range-fill); stroke: var(--prenatal-range); stroke-width: 1.5; }
+.prenatal-line { fill: none; stroke: var(--prenatal-patient); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.prenatal-point { fill: var(--prenatal-patient); stroke: var(--prenatal-surface); stroke-width: 2; }
+.prenatal-card .prenatal-axis-label { margin: 0; text-align: center; font-weight: 650; }
+.prenatal-legend { display: flex; flex-wrap: wrap; justify-content: center; column-gap: 1rem; row-gap: .4rem; margin: .6rem 0; font-size: .75rem; color: var(--prenatal-muted); }
+.prenatal-legend span { display: inline-flex; align-items: center; gap: .35rem; }
+.prenatal-legend i { background: var(--prenatal-patient); width: .55rem; height: .55rem; border-radius: 50%; }
+.prenatal-legend span[data-band] i { background: var(--prenatal-range); }
+.prenatal-chart-values table { width: 100%; margin-top: .55rem; font-size: .8rem; }
+.prenatal-chart-values th, .prenatal-chart-values td { border-bottom: 1px solid var(--prenatal-border); padding: .35rem .2rem; text-align: left; }
+.prenatal-alert, .prenatal-notice { padding: .7rem .85rem; border: 1px solid var(--prenatal-border); border-radius: .65rem; background: var(--prenatal-surface); }
+.prenatal-alert { color: var(--prenatal-attention); }
+.prenatal-notice { color: var(--prenatal-range); }
