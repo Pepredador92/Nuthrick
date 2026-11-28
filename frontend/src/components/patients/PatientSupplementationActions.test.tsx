@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeAll, expect, it, vi } from "vitest";
 import { supplementProduct } from "../../../tests/fixtures/supplements";
@@ -30,7 +31,12 @@ it("creates an independent prescription, links it to a visit and offers its PDF"
   });
   const click = (name: string) => fireEvent.click(screen.getByRole("button", { name }));
   const change = (name: string, value: string) => fireEvent.change(screen.getByLabelText(name), { target: { value } });
-  render(<PatientSupplementationActions patient={patient} consultations={consultations}/>);
+  function Supplementation() {
+    const [inHistory, setInHistory] = useState(false);
+    return inHistory ? <PatientSupplementationActions patient={patient} consultations={consultations} inHistory />
+      : <PatientSupplementationActions patient={patient} consultations={consultations} onOpenHistory={() => setInHistory(true)} />;
+  }
+  render(<Supplementation />);
   click("Nueva suplementación");
   fireEvent.click(await screen.findByRole("button", { name: `Agregar ${supplementProduct.name}` }));
   change(`Cantidad diaria de ${supplementProduct.name}`, "1");

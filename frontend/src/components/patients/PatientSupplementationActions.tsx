@@ -6,11 +6,12 @@ import { consultationLabel, formatPatientDate } from "@/src/features/patients/pa
 import { listPatientSupplementation, savePatientSupplementation, type PatientSupplementation } from "@/src/services/patientSupplementation";
 import type { Consultation, Patient } from "@/src/types/domain";
 
-export function PatientSupplementationActions({ patient, consultations }: {
+type Props = {
   patient: Pick<Patient, "id" | "full_name" | "professional_id">;
   consultations: Consultation[];
-}) {
-  const [historyOpen, setHistoryOpen] = useState(false);
+} & ({ inHistory: true; onOpenHistory?: never } | { inHistory?: false; onOpenHistory: () => void });
+
+export function PatientSupplementationActions({ patient, consultations, inHistory, onOpenHistory }: Props) {
   const [records, setRecords] = useState<PatientSupplementation[]>();
   const [loadError, setLoadError] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -22,23 +23,25 @@ export function PatientSupplementationActions({ patient, consultations }: {
   }));
 
   useEffect(() => {
-    if (!historyOpen) return;
+    if (!inHistory) return;
     let active = true;
     listPatientSupplementation(patient.id).then(
       rows => { if (active) { setRecords(rows); setLoadError(""); } },
       error => { if (active) setLoadError(error.message); },
     );
     return () => { active = false; };
-  }, [patient.id, historyOpen, attempt]);
+  }, [patient.id, inHistory, attempt]);
 
   return <div className="grid gap-2">
-    <button type="button" className="nuth-button-secondary w-full justify-center" onClick={() => setEditor({ id: crypto.randomUUID() })}>
-      <Leaf size={16} aria-hidden="true"/> Nueva suplementación
-    </button>
-    <button type="button" className="nuth-button-secondary w-full justify-center" aria-expanded={historyOpen} onClick={() => setHistoryOpen(!historyOpen)}>
-      <History size={15} aria-hidden="true"/> Historial de suplementación
-    </button>
-    {historyOpen && <div className="space-y-2" aria-label="Registros de suplementación">
+    {!inHistory && <>
+      <button type="button" className="nuth-button-secondary w-full justify-center" onClick={() => setEditor({ id: crypto.randomUUID() })}>
+        <Leaf size={16} aria-hidden="true"/> Nueva suplementación
+      </button>
+      <button type="button" className="nuth-button-secondary w-full justify-center" onClick={onOpenHistory}>
+        <History size={15} aria-hidden="true"/> Historial de suplementación
+      </button>
+    </>}
+    {inHistory && <section className="space-y-2" aria-label="Registros de suplementación">
       {loadError && <p role="alert" className="text-sm">{loadError} <button type="button" className="underline" onClick={() => {
         setLoadError(""); setAttempt(attempt + 1);
       }}>Reintentar</button></p>}
@@ -58,23 +61,30 @@ export function PatientSupplementationActions({ patient, consultations }: {
           </button>
         </div>
       </article>)}
-    </div>}
+    </section>}
     {editor && <SupplementPlanDialog key={editor.id} items={editor.record?.items ?? []} initialTags={editor.record?.tags}
       appearance="default" standalone={{ consultationId: editor.record?.consultation_id ?? null, consultations: options }}
       onClose={() => setEditor(undefined)} onSave={async (items, tags, consultationId) => {
         const saved = await savePatientSupplementation(patient.id, editor.id, items, tags, consultationId, editor.record?.updated_at);
-        setRecords(previous => [saved, ...(previous ?? []).filter(record => record.id !== saved.id)].sort((a, b) =>
-          b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id)));
-        setAttempt(current => current + 1);
-        setHistoryOpen(true);
         setEditor(undefined);
+        if (inHistory) {
+          setRecords(previous => [saved, ...(previous ?? []).filter(record => record.id !== saved.id)].sort((a, b) =>
+            b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id)));
+          setAttempt(current => current + 1);
+        } else {
+          onOpenHistory();
+        }
       }}/>}
     {exportRecord && <PdfExportDialog title="Exportar suplementación"
-      description="Descarga las indicaciones guardadas para el paciente."
+      description={`Indicaciones guardadas de ${patient.full_name} · ${formatPatientDate(exportRecord.updated_at)}`}
       onClose={() => setExportRecord(undefined)}
       onDownload={async design => {
         const { downloadSupplementationPdf } = await import("@/src/features/supplements/exportSupplementation");
         await downloadSupplementationPdf(patient, exportRecord, design, options.find(option => option.id === exportRecord.consultation_id)?.label);
+      }}
+      onDownloadText={async () => {
+        const { downloadSupplementationText } = await import("@/src/features/supplements/exportSupplementation");
+        downloadSupplementationText(patient, exportRecord, options.find(option => option.id === exportRecord.consultation_id)?.label);
       }}/>}
   </div>;
 }

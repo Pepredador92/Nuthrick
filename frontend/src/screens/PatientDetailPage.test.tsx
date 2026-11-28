@@ -7,7 +7,10 @@ import {getPatient,listConsultations,updatePatient} from '@/src/services/patient
 import {EvolutionExportDialog} from '@/src/components/patients/EvolutionExportDialog';
 import {loadProfessionalDocumentProfile} from '@/src/services/profile';
 import {getSignedMediaUrl} from '@/src/services/media';
+import {listPatientSupplementation} from '@/src/services/patientSupplementation';
+import {downloadSupplementationPdf,downloadSupplementationText} from '@/src/features/supplements/exportSupplementation';
 import type {Patient} from '@/src/types/domain';
+import {supplementItem} from '../../tests/fixtures/supplements';
 vi.mock('@/src/lib/supabase',()=>({supabase:{}}));
 vi.mock('@/src/features/auth/AuthProvider',()=>({useAuth:()=>({user:{id:'owner'}})}));
 vi.mock('@/src/components/patients/EvolutionCharts',()=>({PatientEvolutionCharts:()=>null}));
@@ -16,6 +19,8 @@ vi.mock('@/src/components/patients/EvolutionExportDialog',()=>({EvolutionExportD
 vi.mock('@/src/services/profile',()=>({loadProfessionalDocumentProfile:vi.fn()}));
 vi.mock('@/src/services/clinicalProgress',()=>({listProgressSources:vi.fn(async()=>[])}));
 vi.mock('@/src/services/media',()=>({getSignedMediaUrl:vi.fn(),getSignedPatientPhotoUrl:vi.fn(),uploadPatientProgressPhoto:vi.fn()}));
+vi.mock('@/src/services/patientSupplementation',()=>({listPatientSupplementation:vi.fn(),savePatientSupplementation:vi.fn()}));
+vi.mock('@/src/features/supplements/exportSupplementation',()=>({downloadSupplementationPdf:vi.fn(),downloadSupplementationText:vi.fn()}));
 vi.mock('@/src/components/consultations/SnapshotHistory',()=>({SnapshotHistory:()=> <p>Cuestionario conservado de solo lectura</p>}));
 vi.mock('@/src/services/consultations',()=>({deleteConsultationRecord:vi.fn(),renameConsultation:vi.fn(),getSnapshot:vi.fn(),listAnswers:vi.fn()}));
 vi.mock('@/src/services/patients',()=>({
@@ -152,6 +157,37 @@ describe('progress report professional identity',()=>{
 });
 
 describe('consultation status and history navigation',()=>{
+ it('opens supplementation in the patient history and exports only the selected record in either format',async()=>{
+  const patient = {...heightTestPatient, professional_id:'owner'};
+  const linked = {id:'linked',patient_id:'patient',consultation_id:'completed',items:[supplementItem],tags:[],created_at:'2026-11-25',updated_at:'2026-11-25'};
+  const independent = {...linked,id:'independent',consultation_id:null,items:[{...supplementItem, product:{...supplementItem.product,name:'Suplemento independiente'}}]};
+  vi.mocked(getPatient).mockResolvedValue(patient);
+  vi.mocked(listPatientSupplementation).mockResolvedValue([linked, independent]);
+  render(<MemoryRouter initialEntries={['/app/patients/patient']}><Routes><Route path="/app/patients/:patientId" element={<PatientDetailPage/>}/></Routes></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button',{name:'Historial'}));
+  const history = within(screen.getByRole('dialog',{name:'Historial del paciente'}));
+  fireEvent.click(history.getByRole('button',{name:'Suplementación'}));
+  const linkedCard = within((await history.findByText(supplementItem.product.name)).closest('article')!);
+  fireEvent.click(linkedCard.getByRole('button',{name:'Exportar indicaciones'}));
+  const dialog = () => within(screen.getByRole('dialog',{name:'Exportar suplementación'}));
+  fireEvent.click(dialog().getByRole('button',{name:'Descargar TXT'}));
+  await waitFor(()=>expect(downloadSupplementationText).toHaveBeenCalledWith(
+    patient, linked, expect.stringContaining('Consulta de inicio'),
+  ));
+  expect(downloadSupplementationPdf).not.toHaveBeenCalled();
+  await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Exportar suplementación'})).not.toBeInTheDocument());
+
+  const independentCard = within(history.getByText('Suplemento independiente').closest('article')!);
+  fireEvent.click(independentCard.getByRole('button',{name:'Exportar indicaciones'}));
+  fireEvent.click(dialog().getByRole('radio',{name:/Tradicional formal/}));
+  fireEvent.click(dialog().getByRole('button',{name:'Descargar PDF'}));
+  await waitFor(()=>expect(downloadSupplementationPdf).toHaveBeenCalledWith(patient, independent, 'formal', undefined));
+  await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Exportar suplementación'})).not.toBeInTheDocument());
+
+  fireEvent.click(history.getByRole('button',{name:'Cerrar historial'}));
+  fireEvent.click(screen.getByRole('button',{name:'Historial de suplementación'}));
+  expect(await within(screen.getByRole('dialog',{name:'Historial del paciente'})).findByText('Suplemento independiente')).toBeVisible();
+ });
  it('opens progress for the consultation selected in the history',async()=>{
   render(<MemoryRouter initialEntries={['/app/patients/patient?view=history']}><Routes><Route path="/app/patients/:patientId" element={<PatientDetailPage/>}/></Routes></MemoryRouter>);
   const history=within(await screen.findByRole('dialog',{name:'Historial del paciente'}));

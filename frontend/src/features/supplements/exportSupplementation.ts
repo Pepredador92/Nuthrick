@@ -9,6 +9,41 @@ import { patientSupplements } from "../../../../supabase/functions/_shared/suppl
 
 const title = "Indicaciones de suplementación";
 
+function supplementationContent(patient: Pick<Patient, "full_name">, record: PatientSupplementation, consultation?: string) {
+  const details = [
+    { label: "Paciente", value: patient.full_name },
+    { label: "Fecha de indicación", value: formatPatientDate(record.updated_at) },
+    ...(consultation ? [{ label: "Consulta vinculada", value: consultation }] : []),
+  ];
+  const products = patientSupplements(record.items).map(item => ({
+    name: item.name,
+    presentation: [item.brand, item.presentation].filter(Boolean).join(" · "),
+    directions: item.instructions.startsWith(item.quantity + ".")
+      ? item.instructions : [item.quantity, item.instructions].filter(Boolean).join("\n"),
+  }));
+  return { details, products };
+}
+
+export function supplementationTextExport(
+  patient: Pick<Patient, "full_name">, record: PatientSupplementation, consultation?: string,
+): string {
+  const { details, products } = supplementationContent(patient, record, consultation);
+  return [
+    `Nuthrick · ${title}`,
+    "",
+    ...details.map(({ label, value }) => `${label}: ${value}`),
+    ...products.flatMap(item => ["", [item.name, item.presentation, item.directions].filter(Boolean).join("\n")]),
+    "",
+  ].join("\n");
+}
+
+export function downloadSupplementationText(
+  patient: Pick<Patient, "full_name">, record: PatientSupplementation, consultation?: string,
+): void {
+  const text = supplementationTextExport(patient, record, consultation);
+  downloadBlob(`nuthrick-suplementacion-${record.id.slice(0, 8)}.txt`, new Blob([text], { type: "text/plain;charset=utf-8" }));
+}
+
 export async function buildSupplementationPdf(
   patient: Pick<Patient, "full_name">, record: PatientSupplementation,
   professional: ProfessionalDocumentInfo, design: PdfDesign, consultation?: string,
@@ -17,16 +52,13 @@ export async function buildSupplementationPdf(
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
   const logo = professional.logoUrl ? await imageData(professional.logoUrl) : null;
   const layout = pdfLayout(pdf, professional, logo, design, { title, continuation: patient.full_name, contacts: true });
+  const { details, products } = supplementationContent(patient, record, consultation);
   layout.section(title);
-  layout.card("Datos de la indicación", [
-    { label: "Paciente", value: patient.full_name },
-    { label: "Fecha de indicación", value: formatPatientDate(record.updated_at) },
-    ...(consultation ? [{ label: "Consulta vinculada", value: consultation }] : []),
-  ], { tone: "blue", columns: 2 });
-  for (const item of patientSupplements(record.items)) {
+  layout.card("Datos de la indicación", details, { tone: "blue", columns: 2 });
+  for (const item of products) {
     layout.card(item.name, [
-      { value: [item.brand, item.presentation].filter(Boolean).join(" · ") },
-      { value: item.instructions.startsWith(item.quantity + ".") ? item.instructions : [item.quantity, item.instructions].filter(Boolean).join("\n") },
+      { value: item.presentation },
+      { value: item.directions },
     ].filter(field => field.value), { tone: "mint", flow: true, spaceAfter: 3 });
   }
   layout.contacts();

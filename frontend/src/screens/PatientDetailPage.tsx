@@ -91,7 +91,7 @@ import type {
   QuestionnaireSubmission,
 } from "@/src/types/domain";
 
-type HistoryTab = "timeline" | "consultations" | "plans" | "notes";
+type HistoryTab = "timeline" | "consultations" | "plans" | "supplementation" | "notes";
 type ConfirmAction =
   "archive" | "delete" | "note-delete" | "consultation-delete";
 
@@ -433,7 +433,7 @@ function HistoryModal({
   selectedConsultationId,
   initialViewingConsultationId,
   onSelectConsultation,
-  patientId,
+  patient,
   notes,
   onCreateNote,
   onEditNote,
@@ -454,7 +454,7 @@ function HistoryModal({
   selectedConsultationId: string | null;
   initialViewingConsultationId: string | null;
   onSelectConsultation: (id: string) => void;
-  patientId: string;
+  patient: Pick<Patient, "id" | "full_name" | "professional_id">;
   notes: PatientNote[];
   onCreateNote: (event: FormEvent<HTMLFormElement>) => void;
   onEditNote: (note: PatientNote) => void;
@@ -516,6 +516,7 @@ function HistoryModal({
               ["timeline", "Todo"],
               ["consultations", "Consultas"],
               ["plans", "Planes"],
+              ["supplementation", "Suplementación"],
               ["notes", "Notas"],
             ] as const
           ).map(([key, label]) => (
@@ -617,7 +618,8 @@ function HistoryModal({
               </div>
             </div>
           )}
-          {(tab === "plans" || tab === "timeline") && <PublishedPlanHistory key={tab} patientId={patientId} consultations={tab === "timeline" ? consultations : []} onConsultation={id=>{onSelectConsultation(id);onTab("consultations");}}/>}
+          {(tab === "plans" || tab === "timeline") && <PublishedPlanHistory key={tab} patientId={patient.id} consultations={tab === "timeline" ? consultations : []} onConsultation={id=>{onSelectConsultation(id);onTab("consultations");}}/>}
+          {tab === "supplementation" && <PatientSupplementationActions key={patient.id} patient={patient} consultations={consultations} inHistory />}
           {tab === "notes" && (
             <div className="grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
               <form
@@ -1406,7 +1408,7 @@ export function PatientDetailPage() {
                 <CalendarPlus size={16} />
                 Nueva consulta
               </button>
-              <PatientSupplementationActions key={patient.id} patient={patient} consultations={consultations} />
+              <PatientSupplementationActions key={patient.id} patient={patient} consultations={consultations} onOpenHistory={() => openHistory("supplementation")} />
               <div className="rounded-2xl border border-[#d9c49a] bg-[#fff9eb] p-4">
                 <div className="flex items-start gap-3">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#173d36] text-[#efbd6b]"><Salad size={19} /></span>
@@ -1562,7 +1564,7 @@ export function PatientDetailPage() {
           selectedConsultationId={selectedConsultationId}
           initialViewingConsultationId={initialViewingConsultationId}
           onSelectConsultation={setSelectedConsultationId}
-          patientId={patient.id}
+          patient={patient}
           notes={notes}
           onCreateNote={addNote}
           onEditNote={(note) => void editNote(note)}
